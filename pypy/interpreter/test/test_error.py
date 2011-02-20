@@ -1,7 +1,7 @@
 import py, os, errno
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.error import decompose_valuefmt, get_operrcls2
-from pypy.interpreter.error import wrap_oserror
+from pypy.interpreter.error import wrap_oserror, new_exception_class
 
 
 def test_decompose_valuefmt():
@@ -74,3 +74,26 @@ def test_wrap_oserror():
     assert e.get_w_value(space) == ([SystemError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)],
                                     ["test.py"])
+
+def test_new_exception(space):
+    w_error = new_exception_class(space, '_socket.error')
+    assert w_error.getname(space) == 'error'
+    assert space.str_w(space.repr(w_error)) == "<class '_socket.error'>"
+    operr = OperationError(w_error, space.wrap("message"))
+    assert operr.match(space, w_error)
+    assert operr.match(space, space.w_Exception)
+
+    # subclass of ValueError
+    w_error = new_exception_class(space, 'error', space.w_ValueError)
+    operr = OperationError(w_error, space.wrap("message"))
+    assert operr.match(space, w_error)
+    assert operr.match(space, space.w_ValueError)
+
+    # subclass of (ValueError, TypeError)
+    w_bases = space.newtuple([space.w_ValueError, space.w_TypeError])
+    w_error = new_exception_class(space, 'error', w_bases)
+    operr = OperationError(w_error, space.wrap("message"))
+    assert operr.match(space, w_error)
+    assert operr.match(space, space.w_ValueError)
+    assert operr.match(space, space.w_TypeError)
+

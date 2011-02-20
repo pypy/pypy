@@ -1,6 +1,7 @@
 from pypy.tool.udir import udir
-import os
+import os, sys
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rmmap as mmap
 from pypy.rlib.rmmap import RTypeError, RValueError, alloc, free
 
@@ -312,7 +313,6 @@ class TestMMap:
         f.close()
     
     def test_resize(self):
-        import sys
         if ("darwin" in sys.platform) or ("freebsd" in sys.platform):
             skip("resize does not work under OSX or FreeBSD")
         
@@ -325,10 +325,10 @@ class TestMMap:
         def func(no):
             m = mmap.mmap(no, 6, access=mmap.ACCESS_WRITE)
             f_size = os.fstat(no).st_size
-            assert m.file_size() == f_size == 6
+            assert intmask(m.file_size()) == f_size == 6
             m.resize(10)
             f_size = os.fstat(no).st_size
-            assert m.file_size() == f_size == 10
+            assert intmask(m.file_size()) == f_size == 10
             m.close()
 
         interpret(func, [f.fileno()])
@@ -416,6 +416,34 @@ class TestMMap:
             return r
 
         compile(func, [int])
+
+    def test_windows_crasher_1(self):
+        if sys.platform != "win32":
+            skip("Windows-only test")
+
+        m = mmap.mmap(-1, 1000, tagname="foo")
+        # same tagname, but larger size
+        try:
+            m2 = mmap.mmap(-1, 5000, tagname="foo")
+            m2.getitem(4500)
+        except WindowsError:
+            pass
+        m.close()
+
+    def test_windows_crasher_2(self):
+        if sys.platform != "win32":
+            skip("Windows-only test")
+
+        f = open(self.tmpname + "t", "w+")
+        f.write("foobar")
+        f.flush()
+
+        f = open(self.tmpname + "t", "r+b")
+        m = mmap.mmap(f.fileno(), 0)
+        f.close()
+        raises(WindowsError, m.resize, 0)
+        raises(RValueError, m.getitem, 0)
+        m.close()
 
 def test_alloc_free():
     map_size = 65536

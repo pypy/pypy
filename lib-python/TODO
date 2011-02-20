@@ -29,6 +29,11 @@ Probably easy tasks
                           unicode_literals)
   assert type("") is unicode
 
+- Code like::
+
+  assert(x is not None, "error message")
+
+  should emit a SyntaxWarning when compiled (the tuple is always true)
 
 
 Medium tasks

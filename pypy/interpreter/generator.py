@@ -127,16 +127,16 @@ return next yielded value or raise StopIteration."""
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
 
-    def descr_gi_frame(space, self):
+    def descr_gi_frame(self, space):
         if self.frame is not None and not self.frame.frame_finished_execution:
             return self.frame
         else:
             return space.w_None
 
-    def descr_gi_code(space, self):
+    def descr_gi_code(self, space):
         return self.pycode
 
-    def descr__name__(space, self):
+    def descr__name__(self, space):
         code_name = self.pycode.co_name
         return space.wrap(code_name)
 

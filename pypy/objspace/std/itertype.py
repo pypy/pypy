@@ -48,14 +48,12 @@ Get an iterator from an object.  In the first form, the argument must
 supply its own iterator, or be a sequence.
 In the second form, the callable is called until it returns the sentinel.''',
 
-    __reduce__ = gateway.interp2app(descr_seqiter__reduce__,
-                           unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
+    __reduce__ = gateway.interp2app(descr_seqiter__reduce__),
     )
 iter_typedef.acceptable_as_base_class = False
 
 reverse_iter_typedef = StdTypeDef("reversesequenceiterator",
 
-    __reduce__ = gateway.interp2app(descr_reverseseqiter__reduce__,
-                           unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
+    __reduce__ = gateway.interp2app(descr_reverseseqiter__reduce__),
     )
 reverse_iter_typedef.acceptable_as_base_class = False

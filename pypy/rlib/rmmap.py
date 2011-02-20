@@ -561,7 +561,11 @@ class MMap(object):
                     charp = rffi.cast(LPCSTR, data)
                     self.setdata(charp, newsize)
                     return
-            raise rwin32.lastWindowsError()
+            winerror = rwin32.lastWindowsError()
+            if self.map_handle:
+                rwin32.CloseHandle(self.map_handle)
+            self.map_handle = INVALID_HANDLE
+            raise winerror
 
     def len(self):
         self.check_valid()
@@ -784,13 +788,17 @@ elif _MS_WINDOWS:
 
         if m.map_handle:
             data = MapViewOfFile(m.map_handle, dwDesiredAccess,
-                                 offset_hi, offset_lo, 0)
+                                 offset_hi, offset_lo, length)
             if data:
                 # XXX we should have a real LPVOID which must always be casted
                 charp = rffi.cast(LPCSTR, data)
                 m.setdata(charp, map_size)
                 return m
-        raise rwin32.lastWindowsError()
+        winerror = rwin32.lastWindowsError()
+        if m.map_handle:
+            rwin32.CloseHandle(m.map_handle)
+        m.map_handle = INVALID_HANDLE
+        raise winerror
 
     def alloc(map_size):
         """Allocate memory.  This is intended to be used by the JIT,

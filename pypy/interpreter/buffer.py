@@ -17,7 +17,7 @@ Buffer protocol support.
 import operator
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import compute_hash
 
@@ -47,7 +47,6 @@ class Buffer(Wrappable):
 
     def descr_len(self, space):
         return space.wrap(self.getlength())
-    descr_len.unwrap_spec = ['self', ObjSpace]
 
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
@@ -55,8 +54,8 @@ class Buffer(Wrappable):
             return space.wrap(self.getitem(start))
         res = self.getslice(start, stop, step, size)
         return space.wrap(res)
-    descr_getitem.unwrap_spec = ['self', ObjSpace, W_Root]
 
+    @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
         if not isinstance(self, RWBuffer):
             raise OperationError(space.w_TypeError,
@@ -78,19 +77,16 @@ class Buffer(Wrappable):
             raise OperationError(space.w_ValueError,
                                  space.wrap("buffer object does not support"
                                             " slicing with a step"))
-    descr_setitem.unwrap_spec = ['self', ObjSpace, W_Root, 'bufferstr']
 
     def descr__buffer__(self, space):
         return space.wrap(self)
-    descr__buffer__.unwrap_spec = ['self', ObjSpace]
 
     def descr_str(self, space):
         return space.wrap(self.as_str())
-    descr_str.unwrap_spec = ['self', ObjSpace]
 
+    @unwrap_spec(other='bufferstr')
     def descr_add(self, space, other):
         return space.wrap(self.as_str() + other)
-    descr_add.unwrap_spec = ['self', ObjSpace, 'bufferstr']
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -101,7 +97,6 @@ class Buffer(Wrappable):
             str1 = self.as_str()
             str2 = other.as_str()
             return space.wrap(getattr(operator, name)(str1, str2))
-        descr__cmp.unwrap_spec = ['self', ObjSpace, W_Root]
         descr__cmp.func_name = name
         return descr__cmp
 
@@ -114,7 +109,6 @@ class Buffer(Wrappable):
 
     def descr_hash(self, space):
         return space.wrap(compute_hash(self.as_str()))
-    descr_hash.unwrap_spec = ['self', ObjSpace]
 
     def descr_mul(self, space, w_times):
         # xxx not the most efficient implementation
@@ -122,7 +116,6 @@ class Buffer(Wrappable):
         # use the __mul__ method instead of space.mul() so that we
         # return NotImplemented instead of raising a TypeError
         return space.call_method(w_string, '__mul__', w_times)
-    descr_mul.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def descr_repr(self, space):
         if isinstance(self, RWBuffer):
@@ -133,7 +126,6 @@ class Buffer(Wrappable):
 
         return space.wrap("<%s for 0x%s, size %d>" %
                           (info, addrstring, self.getlength()))
-    descr_repr.unwrap_spec = ['self', ObjSpace]
 
 
 class RWBuffer(Buffer):
@@ -150,7 +142,7 @@ class RWBuffer(Buffer):
         for i in range(len(string)):
             self.setitem(start + i, string[i])
 
-
+@unwrap_spec(offset=int, size=int)
 def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     # w_subtype can only be exactly 'buffer' for now
     if not space.is_w(w_subtype, space.gettypefor(Buffer)):
@@ -184,7 +176,6 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     else:
         buffer = SubBuffer(buffer, offset, size)
     return space.wrap(buffer)
-descr_buffer__new__.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int]
 
 
 Buffer.typedef = TypeDef(

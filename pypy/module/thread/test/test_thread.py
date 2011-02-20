@@ -132,6 +132,7 @@ class AppTestThread(GenericTestThread):
             result = sys.stderr.getvalue()
             assert "ValueError" in result
             assert "hello world" in result
+            assert len(result.splitlines()) == 1
         finally:
             sys.stderr = prev
 

@@ -105,9 +105,9 @@ class PyPyCJITTests(object):
                 pass
 
             def check(args, expected):
-                print >> sys.stderr, 'trying:', args
+                #print >> sys.stderr, 'trying:', args
                 result = main(*args)
-                print >> sys.stderr, 'got:', repr(result)
+                #print >> sys.stderr, 'got:', repr(result)
                 assert result == expected
                 assert type(result) is type(expected)
         """ % threshold)

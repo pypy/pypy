@@ -3,7 +3,7 @@
 #
 
 from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 
 
 class ByteBuffer(RWBuffer):
@@ -21,6 +21,6 @@ class ByteBuffer(RWBuffer):
         self.data[index] = char
 
 
+@unwrap_spec(length=int)
 def bytebuffer(space, length):
     return space.wrap(ByteBuffer(length))
-bytebuffer.unwrap_spec = [ObjSpace, int]

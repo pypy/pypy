@@ -1,7 +1,7 @@
 from pypy.rlib import rsha
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 
 class W_SHA(Wrappable, rsha.RSHA):
@@ -13,6 +13,7 @@ class W_SHA(Wrappable, rsha.RSHA):
         self.space = space
         self._init()
 
+    @unwrap_spec(string='bufferstr')
     def update_w(self, string):
         self.update(string)
 
@@ -28,6 +29,7 @@ class W_SHA(Wrappable, rsha.RSHA):
         return self.space.wrap(clone)
 
 
+@unwrap_spec(initialdata='bufferstr')
 def W_SHA___new__(space, w_subtype, initialdata=''):
     """
     Create a new sha object and call its initializer.
@@ -41,12 +43,11 @@ def W_SHA___new__(space, w_subtype, initialdata=''):
 
 W_SHA.typedef = TypeDef(
     'SHAType',
-    __new__   = interp2app(W_SHA___new__, unwrap_spec=[ObjSpace, W_Root,
-                                                       'bufferstr']),
-    update    = interp2app(W_SHA.update_w, unwrap_spec=['self', 'bufferstr']),
-    digest    = interp2app(W_SHA.digest_w, unwrap_spec=['self']),
-    hexdigest = interp2app(W_SHA.hexdigest_w, unwrap_spec=['self']),
-    copy      = interp2app(W_SHA.copy_w, unwrap_spec=['self']),
+    __new__   = interp2app(W_SHA___new__),
+    update    = interp2app(W_SHA.update_w),
+    digest    = interp2app(W_SHA.digest_w),
+    hexdigest = interp2app(W_SHA.hexdigest_w),
+    copy      = interp2app(W_SHA.copy_w),
     digest_size = 20,
     digestsize = 20,
     block_size = 64,
