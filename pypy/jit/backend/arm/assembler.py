@@ -92,6 +92,7 @@ class AssemblerARM(ResOpAssembler):
                                                       ll_new_unicode)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._exit_code_addr = self._gen_exit_path()
+        self._gen_leave_jitted_hook()
 
     def setup_failure_recovery(self):
 
@@ -199,12 +200,26 @@ class AssemblerARM(ResOpAssembler):
         mem[i+2] = chr((n >> 16) & 0xFF)
         mem[i+3] = chr((n >> 24) & 0xFF)
 
+    def _gen_leave_jitted_hook(self):
+        def gen_code(save_exc=False):
+            mc = ARMv7Builder()
+            mc.PUSH([reg.value for reg in r.caller_resp] + [r.ip.value])
+            addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
+            mc.BL(addr)
+            mc.POP([reg.value for reg in r.caller_resp]+[r.ip.value])
+            assert self._exit_code_addr != 0
+            mc.B(self._exit_code_addr)
+            return mc.materialize(self.cpu.asmmemmgr, [],
+                                   self.cpu.gc_ll_descr.gcrootmap)
+        self._leave_jitted_jook_save_exc = gen_code(True)
+        self._leave_jitted_jook = gen_code(False)
+
     def _gen_exit_path(self):
         mc = ARMv7Builder()
         decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
 
         mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
-        mc.MOV_rr(r.r0.value, r.lr.value) # move mem block address, to r0 to pass as
+        mc.MOV_rr(r.r0.value, r.ip.value) # move mem block address, to r0 to pass as
         mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
         mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
 
@@ -216,12 +231,11 @@ class AssemblerARM(ResOpAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [],
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def _gen_path_to_exit_path(self, op, args, arglocs, fcond=c.AL):
+    def _gen_path_to_exit_path(self, op, args, arglocs, fcond=c.AL, save_exc=False):
         descr = op.getdescr()
         if op.getopnum() != rop.FINISH:
             assert isinstance(descr, AbstractFailDescr)
             descr._arm_frame_depth = arglocs[0].getint()
-        reg = r.lr
         # The size of the allocated memory is based on the following sizes
         # first argloc is the frame depth and not considered for the memory
         # allocation
@@ -272,8 +286,12 @@ class AssemblerARM(ResOpAssembler):
 
         n = self.cpu.get_fail_descr_number(descr)
         self.encode32(mem, j+1, n)
-        self.mc.LDR_ri(r.lr.value, r.pc.value, imm=WORD)
-        self.mc.B(self._exit_code_addr)
+        self.mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
+        if save_exc:
+            path = self._leave_jitted_jook_save_exc
+        else:
+            path = self._leave_jitted_jook
+        self.mc.B(path)
         self.mc.write32(memaddr)
 
         return memaddr

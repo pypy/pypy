@@ -129,7 +129,7 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    guard_size = 10*WORD
+    guard_size = 5*WORD
     def _emit_guard(self, op, arglocs, fcond, save_exc=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
@@ -139,12 +139,9 @@ class GuardOpAssembler(object):
 
         self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size-PC_OFFSET, cond=fcond)
         descr._arm_guard_pos = self.mc.currpos()
-        self.mc.PUSH([reg.value for reg in r.caller_resp])
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-        self.mc.BL(addr)
-        self.mc.POP([reg.value for reg in r.caller_resp])
 
-        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), arglocs)
+        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(),
+                                            arglocs, save_exc=save_exc)
         descr._failure_recovery_code = memaddr
         return c.AL
 
