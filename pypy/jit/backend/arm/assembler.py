@@ -92,7 +92,8 @@ class AssemblerARM(ResOpAssembler):
                                                       ll_new_unicode)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._exit_code_addr = self._gen_exit_path()
-        self._gen_leave_jitted_hook()
+        self._leave_jitted_jook_save_exc = self._gen_leave_jitted_hook_code(True)
+        self._leave_jitted_jook = self._gen_leave_jitted_hook_code(False)
 
     def setup_failure_recovery(self):
 
@@ -200,20 +201,16 @@ class AssemblerARM(ResOpAssembler):
         mem[i+2] = chr((n >> 16) & 0xFF)
         mem[i+3] = chr((n >> 24) & 0xFF)
 
-    def _gen_leave_jitted_hook(self):
-        def gen_code(save_exc=False):
-            mc = ARMv7Builder()
-            mc.PUSH([reg.value for reg in r.caller_resp] + [r.ip.value])
-            addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-            mc.BL(addr)
-            mc.POP([reg.value for reg in r.caller_resp]+[r.ip.value])
-            assert self._exit_code_addr != 0
-            mc.B(self._exit_code_addr)
-            return mc.materialize(self.cpu.asmmemmgr, [],
-                                   self.cpu.gc_ll_descr.gcrootmap)
-        self._leave_jitted_jook_save_exc = gen_code(True)
-        self._leave_jitted_jook = gen_code(False)
-
+    def _gen_leave_jitted_hook_code(self, save_exc=False):
+        mc = ARMv7Builder()
+        mc.PUSH([reg.value for reg in r.caller_resp] + [r.ip.value])
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
+        mc.BL(addr)
+        mc.POP([reg.value for reg in r.caller_resp]+[r.ip.value])
+        assert self._exit_code_addr != 0
+        mc.B(self._exit_code_addr)
+        return mc.materialize(self.cpu.asmmemmgr, [],
+                               self.cpu.gc_ll_descr.gcrootmap)
     def _gen_exit_path(self):
         mc = ARMv7Builder()
         decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
