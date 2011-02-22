@@ -559,15 +559,23 @@ class AssemblerARM(ResOpAssembler):
 
     def regalloc_mov(self, prev_loc, loc, cond=c.AL):
         if prev_loc.is_imm():
-            if _check_imm_arg(ConstInt(prev_loc.getint())):
-                self.mc.MOV_ri(loc.value, prev_loc.getint(), cond=cond)
+            if loc.is_reg():
+                new_loc = loc
             else:
-                self.mc.gen_load_int(loc.value, prev_loc.getint(), cond=cond)
-        elif loc.is_stack():
+                assert loc is not r.ip
+                new_loc = r.ip
+            if _check_imm_arg(ConstInt(prev_loc.getint())):
+                self.mc.MOV_ri(new_loc.value, prev_loc.getint(), cond=cond)
+            else:
+                self.mc.gen_load_int(new_loc.value, prev_loc.getint(), cond=cond)
+            prev_loc = new_loc
+            if not loc.is_stack():
+                return 
+        if loc.is_stack() and prev_loc.is_reg():
             self.mc.STR_ri(prev_loc.value, r.fp.value, loc.position*-WORD, cond=cond)
-        elif prev_loc.is_stack():
+        elif loc.is_reg() and prev_loc.is_stack():
             self.mc.LDR_ri(loc.value, r.fp.value, prev_loc.position*-WORD, cond=cond)
-        else:
+        elif loc.is_reg() and prev_loc.is_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
     mov_loc_loc = regalloc_mov
 

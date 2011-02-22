@@ -631,3 +631,11 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         self.run(loop)
         assert self.getint(0) == 29
 
+    def test_jump_with_consts(self):
+        loop = """ 
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14]
+        jump(i1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+        """ 
+        large = self.interpret(loop, range(15), run=False)
+        # ensure compiling this loop works
+        assert 1
