@@ -146,7 +146,7 @@ class LoopWithIds(Function):
         args = map(str.strip, args)
         return opname, resvar, args
 
-    def match(self, expected_src):
+    def match_ops(self, ops, expected_src):
         alpha_map = {}
         def match_var(v1, v2):
             if v1 not in alpha_map:
@@ -154,7 +154,6 @@ class LoopWithIds(Function):
             assert alpha_map[v1] == v2, "variable mismatch"
         #
         expected_ops = self.parse_ops(expected_src)
-        ops = list(self.allops())
         assert len(ops) == len(expected_ops), "wrong number of operations"
         for op, (exp_opname, exp_res, exp_args) in zip(ops, expected_ops):
             assert op.name == exp_opname
@@ -163,3 +162,11 @@ class LoopWithIds(Function):
             for arg, exp_arg in zip(op.args, exp_args):
                 match_var(arg, exp_arg)
         return True
+
+    def match(self, expected_src):
+        ops = list(self.allops())
+        return self.match_ops(ops, expected_src)
+
+    def match_by_id(self, id, expected_src):
+        ops = list(self.ops_by_id(id))
+        return self.match_ops(ops, expected_src)

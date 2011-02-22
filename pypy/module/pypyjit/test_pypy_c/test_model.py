@@ -172,3 +172,17 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_false(i14)
             jump(p0, p1, p2, p3, i8)
         """)
+
+    def test_match_by_id(self):
+        def f():
+            i = 0
+            while i < 1003:
+                i += 1 # ID: increment
+                a = 0  # to make sure that JUMP_ABSOLUTE is not part of the ID
+            return i
+        #
+        log = self.run(f)
+        loop, = log.loops_by_id('increment')
+        assert loop.match_by_id('increment', """
+            i1 = int_add(i0, 1)
+        """)
