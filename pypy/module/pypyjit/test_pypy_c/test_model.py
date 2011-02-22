@@ -84,16 +84,16 @@ class TestRunPyPyC(BaseTestPyPyC):
             return i
         #
         log = self.run(f)
-        loops = log.by_filename(self.filepath)
+        loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
         assert loops[0].filename == self.filepath
         assert not loops[0].is_entry_bridge
         #
-        loops = log.by_filename(self.filepath, is_entry_bridge=True)
+        loops = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         assert len(loops) == 1
         assert loops[0].is_entry_bridge
         #
-        loops = log.by_filename(self.filepath, is_entry_bridge='*')
+        loops = log.loops_by_filename(self.filepath, is_entry_bridge='*')
         assert len(loops) == 2
 
     def test_by_id(self):
@@ -104,7 +104,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             return i
         #
         log = self.run(f)
-        loop, = log.by_id('increment')
+        loop, = log.loops_by_id('increment')
         assert loop.filename == self.filepath
         assert loop.code.co.co_name == 'f'
         #
@@ -132,7 +132,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             return i
         #
         log = self.run(f)
-        loop, = log.by_id('increment')
+        loop, = log.loops_by_id('increment')
         assert loop.match("""
             i6 = int_lt(i4, 1003)
             guard_true(i6)
@@ -145,7 +145,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_false(i14)
             jump(p0, p1, p2, p3, i8)
         """)
-
+        #
         py.test.raises(AssertionError, loop.match, """
             i6 = int_lt(i4, 1003)
             guard_true(i6)

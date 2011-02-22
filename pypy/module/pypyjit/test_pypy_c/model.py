@@ -47,11 +47,17 @@ class Log(object):
     def _filter(self, loop, is_entry_bridge=False):
         return is_entry_bridge == '*' or loop.is_entry_bridge == is_entry_bridge
 
-    def by_filename(self, filename, **kwds):
+    def loops_by_filename(self, filename, **kwds):
+        """
+        Return all loops which start in the file ``filename``
+        """
         return [loop for loop in self.loops
                 if loop.filename == filename and self._filter(loop, **kwds)]
 
-    def by_id(self, id, **kwds):
+    def loops_by_id(self, id, **kwds):
+        """
+        Return all loops which contain the ID ``id``
+        """
         return [loop for loop in self.loops
                 if loop.has_id(id) and self._filter(loop, **kwds)]
 
@@ -132,17 +138,15 @@ class LoopWithIds(Function):
         def match_var(v1, v2):
             if v1 not in alpha_map:
                 alpha_map[v1] = v2
-            assert alpha_map[v1] == v2
+            assert alpha_map[v1] == v2, "variable mismatch"
         #
         expected_ops = self.parse_ops(expected_src)
         ops = list(self.allops())
-        assert len(ops) == len(expected_ops)
+        assert len(ops) == len(expected_ops), "wrong number of operations"
         for op, (exp_opname, exp_res, exp_args) in zip(ops, expected_ops):
             assert op.name == exp_opname
             match_var(op.res, exp_res)
-            assert len(op.args) == len(exp_args)
+            assert len(op.args) == len(exp_args), "wrong number of arguments"
             for arg, exp_arg in zip(op.args, exp_args):
                 match_var(arg, exp_arg)
         return True
-
-                   
