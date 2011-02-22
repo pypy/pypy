@@ -18,11 +18,12 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def run(self, func, threshold=1000):
+    def run(self, func, args=[], threshold=1000):
         # write the snippet
+        arglist = ', '.join(map(repr, args))
         with self.filepath.open("w") as f:
             f.write(str(py.code.Source(func)) + "\n")
-            f.write("print %s()\n" % func.func_name)
+            f.write("print %s(%s)\n" % (func.func_name, arglist))
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
@@ -76,6 +77,12 @@ class TestLog(object):
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
 class TestRunPyPyC(BaseTestPyPyC):
+
+    def test_run_function(self):
+        def f(a, b):
+            return a+b
+        log = self.run(f, [30, 12])
+        assert log.result == 42
 
     def test_parse_jitlog(self):
         def f():
