@@ -36,6 +36,11 @@ class TestTranslationX86(CCompiledMixin):
 
             def __init__(self, i):
                 self.i = i
+                self.a = None
+
+        class A(object):
+            def __init__(self, next):
+                self.next = next
 
         @dont_look_inside
         def myabs(x):
@@ -64,6 +69,7 @@ class TestTranslationX86(CCompiledMixin):
                 k = myabs(j)
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
+                frame.a = A(frame.a)
             return total * 10
         #
         from pypy.rpython.lltypesystem import lltype, rffi

@@ -18,6 +18,7 @@ from pypy.jit.backend.llsupport.descr import get_call_descr
 from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
 from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+from pypy.jit.backend.llsupport.trace import trace_set
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
 
@@ -325,6 +326,9 @@ class AbstractLLCPU(AbstractCPU):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        if lltype.typeOf(gcref) is not lltype.Signed:
+            trace_set(rffi.ptradd(items, itemindex * size),
+                      rffi.cast(rffi.LONG, newvalue), -100-size)
         for TYPE, _, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 items = rffi.cast(rffi.CArrayPtr(TYPE), items)
@@ -339,6 +343,8 @@ class AbstractLLCPU(AbstractCPU):
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        trace_set(rffi.ptradd(items, itemindex * WORD),
+                  rffi.cast(rffi.LONG, newvalue), -99)
         items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
         items[itemindex] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
@@ -348,6 +354,9 @@ class AbstractLLCPU(AbstractCPU):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        if lltype.typeOf(gcref) is not lltype.Signed:
+            trace_set(rffi.ptradd(items, itemindex * symbolic.SIZEOF_FLOAT),
+                      rffi.cast(rffi.LONG, newvalue), -98)
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
         items[itemindex] = newvalue
         # --- end of GC unsafe code ---
@@ -426,6 +435,8 @@ class AbstractLLCPU(AbstractCPU):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        if lltype.typeOf(struct) is not lltype.Signed:
+            trace_set(fieldptr, rffi.cast(rffi.LONG, newvalue), -10)
         for TYPE, _, itemsize in unroll_basic_sizes:
             if size == itemsize:
                 fieldptr = rffi.cast(rffi.CArrayPtr(TYPE), fieldptr)
@@ -443,6 +454,7 @@ class AbstractLLCPU(AbstractCPU):
         self.gc_ll_descr.do_write_barrier(struct, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        trace_set(fieldptr, rffi.cast(rffi.LONG, newvalue), -9)
         fieldptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)
         fieldptr[0] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
@@ -452,6 +464,8 @@ class AbstractLLCPU(AbstractCPU):
         ofs = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
+        if lltype.typeOf(struct) is not lltype.Signed:
+            trace_set(fieldptr, rffi.cast(rffi.LONG, newvalue), -8)
         fieldptr = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)
         fieldptr[0] = newvalue
         # --- end of GC unsafe code ---

@@ -39,6 +39,7 @@ from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.metainterp.history import ConstInt, BoxInt
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
+from pypy.jit.backend.llsupport import trace
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -1253,7 +1254,30 @@ class Assembler386(object):
         else:
             not_implemented("load_from_mem size = %d" % size)
 
-    def save_into_mem(self, dest_addr, value_loc, size_loc):
+    def generate_ll_trace(self, dest_addr, value_loc):
+        # XXX for now, we only trace 32-bit pointer-sized writes
+        self.mc.PUSH_r(eax.value)
+        self.mc.PUSH_r(ecx.value)
+        self.mc.PUSH_r(edx.value)
+        self.mc.PUSH_r(edx.value)
+        self.mc.PUSH_r(edx.value) # 5 pushes + 3 args, keeps 16-bytes alignment
+        # use the current address as the mark
+        self.mc.CALL_l(0)    # this is equivalent to "PUSH(IP)"
+        # push the newvalue
+        self.mc.PUSH(value_loc)
+        # push the address in which we are about to write
+        self.mc.LEA(eax, dest_addr)
+        self.mc.PUSH_r(eax.value)
+        # call (as an indirect call, to avoid needing a relative displacement)
+        self.mc.MOV_ri(eax.value, trace.addr_of_trace_set)
+        self.mc.CALL_r(eax.value)
+        # cancel the 8 pushes
+        self.mc.ADD_ri(esp.value, 5 * WORD)
+        self.mc.POP_r(edx.value)
+        self.mc.POP_r(ecx.value)
+        self.mc.POP_r(eax.value)
+
+    def save_into_mem(self, dest_addr, value_loc, size_loc, is_gc):
         size = size_loc.value
         if isinstance(value_loc, RegLoc) and value_loc.is_xmm:
             self.mc.MOVSD(dest_addr, value_loc)
@@ -1262,6 +1286,8 @@ class Assembler386(object):
         elif size == 2:
             self.mc.MOV16(dest_addr, value_loc)
         elif size == 4:
+            if IS_X86_32 and trace.is_tracing() and is_gc:
+                self.generate_ll_trace(dest_addr, value_loc)
             self.mc.MOV32(dest_addr, value_loc)
         elif size == 8:
             if IS_X86_64:
@@ -1298,7 +1324,8 @@ class Assembler386(object):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         dest_addr = AddressLoc(base_loc, ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, size_loc)
+        self.save_into_mem(dest_addr, value_loc, size_loc,
+                           op.getopnum() == rop.SETFIELD_GC)
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
@@ -1306,7 +1333,8 @@ class Assembler386(object):
         assert isinstance(size_loc, ImmedLoc)
         scale = _get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
-        self.save_into_mem(dest_addr, value_loc, size_loc)
+        self.save_into_mem(dest_addr, value_loc, size_loc,
+                           op.getopnum() == rop.SETARRAYITEM_GC)
 
     def genop_discard_strsetitem(self, op, arglocs):
         base_loc, ofs_loc, val_loc = arglocs
