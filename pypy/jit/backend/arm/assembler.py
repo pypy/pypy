@@ -371,8 +371,8 @@ class AssemblerARM(ResOpAssembler):
 
         self.align()
         self.gen_func_prolog()
-        arglocs = self.gen_bootstrap_code(inputargs, regalloc, looptoken)
         sp_patch_location = self._prepare_sp_patch_position()
+        arglocs = self.gen_bootstrap_code(inputargs, regalloc, looptoken)
 
         loop_head = self.mc.currpos()
 
@@ -411,8 +411,8 @@ class AssemblerARM(ResOpAssembler):
 
         frame_depth = faildescr._arm_frame_depth
         locs = self.decode_inputargs(enc, inputargs, regalloc)
-        regalloc.update_bindings(locs, frame_depth, inputargs)
         sp_patch_location = self._prepare_sp_patch_position()
+        regalloc.update_bindings(locs, frame_depth, inputargs)
 
         self._walk_operations(operations, regalloc)
 
