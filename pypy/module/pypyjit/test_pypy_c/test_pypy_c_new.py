@@ -33,7 +33,6 @@ class TestInfrastructure(BaseTestPyPyC):
             )
 
 class TestPyPyCNew(BaseTestPyPyC):
-
     def test_f1(self):
         def f1(n):
             "Arbitrary test function."
@@ -64,3 +63,25 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_false(i20)
             jump(p0, p1, p2, p3, p4, p5, i13, i11, i8)
         """)
+
+    def test_cmp_exc(self):
+        py.test.skip("WIP")
+
+        def f1(n):
+            def f():
+                raise KeyError
+
+            i = 0
+            while i < n:
+                try:
+                    f()
+                except KeyError:
+                    i += 1
+            return i
+
+        log = self.run(f1, [10000])
+        assert log.result == 10000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.get_bytecode("COMPARE_OP").match_stats(
+            call=0
+        )
