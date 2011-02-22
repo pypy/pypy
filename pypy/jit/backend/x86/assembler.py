@@ -1256,6 +1256,7 @@ class Assembler386(object):
 
     def generate_ll_trace(self, dest_addr, value_loc):
         # XXX for now, we only trace 32-bit pointer-sized writes
+        assert IS_X86_32    # <--- for PUSH_i32 below
         self.mc.PUSH_r(eax.value)
         self.mc.PUSH_r(ecx.value)
         self.mc.PUSH_r(edx.value)
@@ -1264,7 +1265,11 @@ class Assembler386(object):
         # use the current address as the mark
         self.mc.CALL_l(0)    # this is equivalent to "PUSH(IP)"
         # push the newvalue
-        self.mc.PUSH(value_loc)
+        if isinstance(value_loc, RegLoc):
+            self.mc.PUSH_r(value_loc.value)
+        else:
+            assert isinstance(value_loc, ImmedLoc)
+            self.mc.PUSH_i32(value_loc.value)
         # push the address in which we are about to write
         self.mc.LEA(eax, dest_addr)
         self.mc.PUSH_r(eax.value)
