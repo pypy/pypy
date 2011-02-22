@@ -93,3 +93,9 @@ class LoopWithIds(Function):
 
     def has_id(self, id):
         return id in self.ids
+
+    def allops(self, include_debug_merge_points=False):
+        for chunk in self.chunks:
+            for op in chunk.operations:
+                if op.name != 'debug_merge_point' or include_debug_merge_points:
+                    yield op

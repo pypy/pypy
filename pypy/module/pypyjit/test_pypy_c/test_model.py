@@ -107,3 +107,13 @@ class TestRunPyPyC(BaseTestPyPyC):
         loop, = log.by_id('increment')
         assert loop.filename == self.filepath
         assert loop.code.co.co_name == 'f'
+        #
+        ops = list(loop.allops())
+        opnames = [op.name for op in ops]
+        assert opnames == [
+            # this is the actual loop
+            'int_lt', 'guard_true', 'int_add',
+            # this is the signal checking stuff
+            'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
+            'jump'
+            ]

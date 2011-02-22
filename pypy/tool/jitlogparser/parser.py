@@ -41,8 +41,9 @@ class Op(object):
             return '%s(%s)' % (self.name, arglist)
 
     def __repr__(self):
-        return '<%s (%s)>' % (self.name, ', '.join([repr(a)
-                                                    for a in self.args]))
+        return self.repr()
+        ## return '<%s (%s)>' % (self.name, ', '.join([repr(a)
+        ##                                             for a in self.args]))
 
 class SimpleParser(OpParser):
     def parse_args(self, opname, argspec):
