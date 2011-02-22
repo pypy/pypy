@@ -4,7 +4,7 @@ import py
 from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
-from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids
+from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, LoopWithIds
 
 class BaseTestPyPyC(object):
     def setup_class(cls):
@@ -117,3 +117,43 @@ class TestRunPyPyC(BaseTestPyPyC):
             'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
             'jump'
             ]
+
+    def test_parse_op(self):
+        res = LoopWithIds.parse_op("  a =   int_add(  b,  3 ) # foo")
+        assert res == ("int_add", "a", ["b", "3"])
+        res = LoopWithIds.parse_op("guard_true(a)")
+        assert res == ("guard_true", None, ["a"])
+
+    def test_match(self):
+        def f():
+            i = 0
+            while i < 1003:
+                i += 1 # ID: increment
+            return i
+        #
+        log = self.run(f)
+        loop, = log.by_id('increment')
+        assert loop.match("""
+            i6 = int_lt(i4, 1003)
+            guard_true(i6)
+            i8 = int_add(i4, 1)
+            # signal checking stuff
+            i10 = getfield_raw(37212896)
+            i12 = int_sub(i10, 1)
+            setfield_raw(37212896, i12)
+            i14 = int_lt(i12, 0)
+            guard_false(i14)
+            jump(p0, p1, p2, p3, i8)
+        """)
+
+        py.test.raises(AssertionError, loop.match, """
+            i6 = int_lt(i4, 1003)
+            guard_true(i6)
+            i8 = int_add(i5, 1) # variable mismatch
+            i10 = getfield_raw(37212896)
+            i12 = int_sub(i10, 1)
+            setfield_raw(37212896, i12)
+            i14 = int_lt(i12, 0)
+            guard_false(i14)
+            jump(p0, p1, p2, p3, i8)
+        """)

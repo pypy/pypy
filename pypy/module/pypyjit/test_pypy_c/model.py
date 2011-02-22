@@ -99,3 +99,50 @@ class LoopWithIds(Function):
             for op in chunk.operations:
                 if op.name != 'debug_merge_point' or include_debug_merge_points:
                     yield op
+
+    @classmethod
+    def parse_ops(cls, src):
+        ops = [cls.parse_op(line) for line in src.splitlines()]
+        return [op for op in ops if op is not None]
+
+    @classmethod
+    def parse_op(cls, line):
+        # strip comment
+        if '#' in line:
+            line = line[:line.index('#')]
+        # find the resvar, if any
+        if '=' in line:
+            resvar, _, line = line.partition('=')
+            resvar = resvar.strip()
+        else:
+            resvar = None
+        line = line.strip()
+        if not line:
+            return None
+        opname, _, args = line.partition('(')
+        opname = opname.strip()
+        assert args.endswith(')')
+        args = args[:-1]
+        args = args.split(',')
+        args = map(str.strip, args)
+        return opname, resvar, args
+
+    def match(self, expected_src):
+        alpha_map = {}
+        def match_var(v1, v2):
+            if v1 not in alpha_map:
+                alpha_map[v1] = v2
+            assert alpha_map[v1] == v2
+        #
+        expected_ops = self.parse_ops(expected_src)
+        ops = list(self.allops())
+        assert len(ops) == len(expected_ops)
+        for op, (exp_opname, exp_res, exp_args) in zip(ops, expected_ops):
+            assert op.name == exp_opname
+            match_var(op.res, exp_res)
+            assert len(op.args) == len(exp_args)
+            for arg, exp_arg in zip(op.args, exp_args):
+                match_var(arg, exp_arg)
+        return True
+
+                   
