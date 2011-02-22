@@ -96,7 +96,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath, is_entry_bridge='*')
         assert len(loops) == 2
 
-    def test_by_id(self):
+    def test_loops_by_id(self):
         def f():
             i = 0
             while i < 1003:
@@ -117,6 +117,21 @@ class TestRunPyPyC(BaseTestPyPyC):
             'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
             'jump'
             ]
+
+    def test_ops_by_id(self):
+        def f():
+            i = 0
+            while i < 1003:
+                i += 1 # ID: increment
+                a = 0  # to make sure that JUMP_ABSOLUTE is not part of the ID
+            return i
+        #
+        log = self.run(f)
+        loop, = log.loops_by_id('increment')
+        #
+        ops = list(loop.ops_by_id('increment'))
+        opnames = [op.name for op in ops]
+        assert opnames == ['int_add']
 
     def test_parse_op(self):
         res = LoopWithIds.parse_op("  a =   int_add(  b,  3 ) # foo")

@@ -77,7 +77,7 @@ class LoopWithIds(Function):
         return res
 
     def compute_ids(self):
-        self.ids = set()
+        self.ids = {}
         self.code = None
         if not self.filename:
             return
@@ -88,7 +88,7 @@ class LoopWithIds(Function):
         for id, opcodes in ids.iteritems():
             targetop = opcodes[0]
             if targetop in all_my_opcodes:
-                self.ids.add(id)
+                self.ids[id] = opcodes
 
     def get_set_of_opcodes(self):
         res = set()
@@ -100,11 +100,24 @@ class LoopWithIds(Function):
     def has_id(self, id):
         return id in self.ids
 
+    def _ops_for_chunk(self, chunk, include_debug_merge_points):
+        for op in chunk.operations:
+            if op.name != 'debug_merge_point' or include_debug_merge_points:
+                yield op
+
     def allops(self, include_debug_merge_points=False):
         for chunk in self.chunks:
-            for op in chunk.operations:
-                if op.name != 'debug_merge_point' or include_debug_merge_points:
+            for op in self._ops_for_chunk(chunk, include_debug_merge_points):
+                yield op
+
+    def ops_by_id(self, id, include_debug_merge_points=False):
+        target_opcodes = self.ids[id]
+        for chunk in self.chunks:
+            opcode = self.code.map[chunk.bytecode_no]
+            if opcode in target_opcodes:
+                for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
+
 
     @classmethod
     def parse_ops(cls, src):
