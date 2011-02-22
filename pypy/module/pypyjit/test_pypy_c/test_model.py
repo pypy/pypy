@@ -22,7 +22,7 @@ class BaseTestPyPyC(object):
         # write the snippet
         with self.filepath.open("w") as f:
             f.write(str(py.code.Source(func)) + "\n")
-            f.write("%s()\n" % func.func_name)
+            f.write("print %s()\n" % func.func_name)
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
@@ -43,6 +43,7 @@ class BaseTestPyPyC(object):
         rawlog = logparser.parse_log_file(str(logfile))
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
         log = Log(func, rawtraces)
+        log.result = eval(stdout)
         return log
 
 
@@ -84,6 +85,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             return i
         #
         log = self.run(f)
+        assert log.result == 1003
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
         assert loops[0].filename == self.filepath
