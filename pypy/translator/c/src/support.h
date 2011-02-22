@@ -103,27 +103,6 @@ void RPyAbort(void) {
 #  define RPyBareItem(array, index)          ((array)[index])
 #endif
 
-
-#ifdef RPY_LL_TRACE
-#  define RPyTraceSet(ptr)   _RPyTraceSet(&(ptr), (long)(ptr))
-#else
-#  define RPyTraceSet(ptr)   /* nothing */
-#endif
-void _RPyTraceSet(void *addr, long newvalue);
-#ifndef PYPY_NOT_MAIN_FILE
-static void *_RPyTrace_start;
-static void *_RPyTrace_stop;
-static void *_RPyTrace_current = NULL;
-void _RPyTraceCreateBuffer(void)
-{
-}
-void _RPyTraceSet(void *addr, long newvalue)
-{
-  fprintf(stderr, "set 0x%x into %p\n", newvalue, addr);
-}
-#endif
-
-
 #ifndef PYPY_STANDALONE
 
 /* prototypes */

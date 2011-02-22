@@ -491,8 +491,11 @@ class FunctionCodeGenerator(object):
         if T is Void:
             result = '/* %s */' % result
         elif gckind == 'gc':
-            result = '%s RPyTraceSet(%s);' % (result, targetexpr)
+            mark = FunctionCodeGenerator._TRACE_MARK + 1
+            FunctionCodeGenerator._TRACE_MARK = mark
+            result = '%s RPyTraceSet(%s, %d);' % (result, targetexpr, mark)
         return result
+    _TRACE_MARK = 0
 
     def OP_GETFIELD(self, op, ampersand=''):
         assert isinstance(op.args[1], Constant)
