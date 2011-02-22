@@ -228,6 +228,8 @@ class OpAssembler(object):
         else:
             target = descr._arm_bootstrap_code + descr._arm_loop_code
             self.mc.B(target, fcond)
+            new_fd = max(regalloc.frame_manager.frame_depth, descr._arm_frame_depth)
+            regalloc.frame_manager.frame_depth = new_fd
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):

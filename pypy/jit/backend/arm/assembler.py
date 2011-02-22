@@ -326,7 +326,7 @@ class AssemblerARM(ResOpAssembler):
         looptoken._arm_arglocs = arglocs
         return arglocs
 
-    def gen_direct_bootstrap_code(self, arglocs, loop_head, regalloc):
+    def gen_direct_bootstrap_code(self, arglocs, loop_head, looptoken):
         self.gen_func_prolog()
         if len(arglocs) > 4:
             reg_args = 4
@@ -351,7 +351,7 @@ class AssemblerARM(ResOpAssembler):
                 assert 0, 'invalid location'
         sp_patch_location = self._prepare_sp_patch_position()
         self.mc.B_offs(loop_head)
-        self._patch_sp_offset(sp_patch_location, regalloc)
+        self._patch_sp_offset(sp_patch_location, looptoken)
 
     def _dump(self, ops, type='loop'):
         debug_start('jit-backend-ops')
@@ -381,12 +381,13 @@ class AssemblerARM(ResOpAssembler):
 
         self._walk_operations(operations, regalloc)
 
-        self._patch_sp_offset(sp_patch_location, regalloc)
+        looptoken._arm_frame_depth = regalloc.frame_manager.frame_depth 
+        self._patch_sp_offset(sp_patch_location, looptoken)
 
         self.align()
 
         direct_bootstrap_code = self.mc.currpos()
-        self.gen_direct_bootstrap_code(arglocs, loop_head, regalloc)
+        self.gen_direct_bootstrap_code(arglocs, loop_head, looptoken)
 
         loop_start = self.materialize_loop(looptoken)
         looptoken._arm_bootstrap_code = loop_start
@@ -416,7 +417,8 @@ class AssemblerARM(ResOpAssembler):
 
         self._walk_operations(operations, regalloc)
 
-        self._patch_sp_offset(sp_patch_location, regalloc)
+        original_loop_token._arm_frame_depth = regalloc.frame_manager.frame_depth 
+        self._patch_sp_offset(sp_patch_location, original_loop_token)
 
         bridge_start = self.materialize_loop(original_loop_token)
         self.update_descrs_for_bridges(bridge_start)
@@ -460,13 +462,13 @@ class AssemblerARM(ResOpAssembler):
             self.mc.MOV_rr(r.r0.value, r.r0.value)
         return l
 
-    def _patch_sp_offset(self, pos, regalloc):
+    def _patch_sp_offset(self, pos, looptoken):
         cb = OverwritingBuilder(self.mc, pos, OverwritingBuilder.size_of_gen_load_int)
         # Note: the frame_depth is one less than the value stored in the frame
         # manager
-        if regalloc.frame_manager.frame_depth == 1:
+        if looptoken._arm_frame_depth == 1:
             return
-        n = (regalloc.frame_manager.frame_depth-1)*WORD
+        n = (looptoken._arm_frame_depth-1)*WORD
         self._adjust_sp(n, cb, base_reg=r.fp)
 
     def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):
