@@ -176,8 +176,10 @@ class TestRunPyPyC(BaseTestPyPyC):
     def test_match_by_id(self):
         def f():
             i = 0
+            j = 2000
             while i < 1003:
                 i += 1 # ID: increment
+                j -= 1 # ID: product
                 a = 0  # to make sure that JUMP_ABSOLUTE is not part of the ID
             return i
         #
@@ -185,4 +187,8 @@ class TestRunPyPyC(BaseTestPyPyC):
         loop, = log.loops_by_id('increment')
         assert loop.match_by_id('increment', """
             i1 = int_add(i0, 1)
+        """)
+        assert loop.match_by_id('product', """
+            i4 = int_sub_ovf(i3, 1)
+            guard_no_overflow()
         """)
