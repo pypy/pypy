@@ -2,11 +2,12 @@ import os, sys
 from pypy.translator.test import rpystone
 from pypy.translator.goal import richards
 import pypy.interpreter.gateway # needed before sys, order of imports !!!
-from pypy.module.sys.version import svn_revision
+#from pypy.module.sys.version import svn_revision
 
 # __________  Entry point  __________
 
-VERSION = svn_revision()
+#VERSION = svn_revision()
+VERSION = ''
 
 # note that we have %f but no length specifiers in RPython
 
