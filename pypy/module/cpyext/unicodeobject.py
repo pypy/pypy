@@ -408,6 +408,39 @@ def PyUnicode_AsASCIIString(space, w_unicode):
         else:
             raise
 
+@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
+def PyUnicode_DecodeASCII(space, s, size, errors):
+    """Create a Unicode object by decoding size bytes of the ASCII encoded string
+    s.  Return NULL if an exception was raised by the codec.
+    
+    This function used an int type for size. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    w_s = space.wrap(rffi.charpsize2str(s, size))
+    try:
+        return space.call_method(w_s, 'decode', space.wrap('ascii'))
+    except OperationError, e:
+        if e.match(space, space.w_UnicodeDecodeError):
+            return None
+        else:
+            raise
+
+@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
+def PyUnicode_EncodeASCII(space, s, size, errors):
+    """Encode the Py_UNICODE buffer of the given size using ASCII and return a
+    Python string object.  Return NULL if an exception was raised by the codec.
+    
+    This function used an int type for size. This might require
+    changes in your code for properly supporting 64-bit systems."""
+
+    w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
+    try:
+        return space.call_method(w_s, 'encode', space.wrap('ascii'))
+    except OperationError, e:
+        if e.match(space, space.w_UnicodeEncodeError):
+            return None
+        else:
+            raise
+
 if sys.platform == 'win32':
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
     def PyUnicode_EncodeMBCS(space, wchar_p, length, errors):

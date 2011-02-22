@@ -245,3 +245,28 @@ class TestUnicode(BaseApiTest):
 
         lltype.free(target_chunk, flavor='raw')
 
+    def test_ascii_codec(self, space, api):
+        s = 'abcdefg'
+        data = rffi.str2charp(s)
+        w_u = api.PyUnicode_DecodeASCII(data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(w_u, space.wrap(u"abcdefg"))
+        rffi.free_charp(data)
+
+        s = 'abcd\xFF'
+        data = rffi.str2charp(s)
+        w_u = api.PyUnicode_DecodeASCII(data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        assert w_u is None
+        rffi.free_charp(data)
+
+        uni = u'abcdefg'
+        data = rffi.unicode2wcharp(uni)
+        w_s = api.PyUnicode_EncodeASCII(data, len(uni), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(space.wrap("abcdefg"), w_s)
+        rffi.free_wcharp(data)
+
+        u = u'äbcdéfg'
+        data = rffi.unicode2wcharp(u)
+        w_s = api.PyUnicode_EncodeASCII(data, len(u), lltype.nullptr(rffi.CCHARP.TO))
+        assert w_s is None
+        rffi.free_wcharp(data)
+
