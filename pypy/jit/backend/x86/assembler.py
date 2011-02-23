@@ -1282,7 +1282,7 @@ class Assembler386(object):
         self.mc.POP_r(ecx.value)
         self.mc.POP_r(eax.value)
 
-    def save_into_mem(self, dest_addr, value_loc, size_loc, is_gc):
+    def save_into_mem(self, dest_addr, value_loc, size_loc):
         size = size_loc.value
         if isinstance(value_loc, RegLoc) and value_loc.is_xmm:
             self.mc.MOVSD(dest_addr, value_loc)
@@ -1291,7 +1291,7 @@ class Assembler386(object):
         elif size == 2:
             self.mc.MOV16(dest_addr, value_loc)
         elif size == 4:
-            if IS_X86_32 and trace.is_tracing() and is_gc:
+            if IS_X86_32 and trace.is_tracing():
                 self.generate_ll_trace(dest_addr, value_loc)
             self.mc.MOV32(dest_addr, value_loc)
         elif size == 8:
@@ -1329,8 +1329,7 @@ class Assembler386(object):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         dest_addr = AddressLoc(base_loc, ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, size_loc,
-                           op.getopnum() == rop.SETFIELD_GC)
+        self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
@@ -1338,8 +1337,7 @@ class Assembler386(object):
         assert isinstance(size_loc, ImmedLoc)
         scale = _get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
-        self.save_into_mem(dest_addr, value_loc, size_loc,
-                           op.getopnum() == rop.SETARRAYITEM_GC)
+        self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):
         base_loc, ofs_loc, val_loc = arglocs
