@@ -61,6 +61,9 @@ class Log(object):
         return [loop for loop in self.loops
                 if loop.has_id(id) and self._filter(loop, **kwds)]
 
+    @classmethod
+    def opnames(self, oplist):
+        return [op.name for op in oplist]
 
 class LoopWithIds(Function):
 

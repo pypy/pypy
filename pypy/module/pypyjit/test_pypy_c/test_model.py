@@ -117,9 +117,8 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert loop.filename == self.filepath
         assert loop.code.co.co_name == 'f'
         #
-        ops = list(loop.allops())
-        opnames = [op.name for op in ops]
-        assert opnames == [
+        ops = loop.allops()
+        assert log.opnames(ops) == [
             # this is the actual loop
             'int_lt', 'guard_true', 'int_add',
             # this is the signal checking stuff
@@ -138,9 +137,8 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_id('increment')
         #
-        ops = list(loop.ops_by_id('increment'))
-        opnames = [op.name for op in ops]
-        assert opnames == ['int_add']
+        ops = loop.ops_by_id('increment')
+        assert log.opnames(ops) == ['int_add']
 
     def test_ops_by_id_and_opcode(self):
         def f():
@@ -154,13 +152,11 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_id('foo')
         #
-        ops = list(loop.ops_by_id('foo', opcode='INPLACE_ADD'))
-        opnames = [op.name for op in ops]
-        assert opnames == ['int_add']
+        ops = loop.ops_by_id('foo', opcode='INPLACE_ADD')
+        assert log.opnames(ops) == ['int_add']
         #
-        ops = list(loop.ops_by_id('foo', opcode='INPLACE_SUBTRACT'))
-        opnames = [op.name for op in ops]
-        assert opnames == ['int_sub_ovf', 'guard_no_overflow']
+        ops = loop.ops_by_id('foo', opcode='INPLACE_SUBTRACT')
+        assert log.opnames(ops) == ['int_sub_ovf', 'guard_no_overflow']
         
 
     def test_inlined_function(self):
@@ -175,13 +171,13 @@ class TestRunPyPyC(BaseTestPyPyC):
         #
         log = self.run(f)
         loop, = log.loops_by_filename(self.filepath)
-        call_ops = [op.name for op in loop.ops_by_id('call')]
+        call_ops = log.opnames(loop.ops_by_id('call'))
         assert call_ops == ['force_token'] # it does not follow inlining
         #
-        add_ops = [op.name for op in loop.ops_by_id('add')]
+        add_ops = log.opnames(loop.ops_by_id('add'))
         assert add_ops == ['int_add']
         #
-        ops = [op.name for op in loop.allops()]
+        ops = log.opnames(loop.allops())
         assert ops == [
             # this is the actual loop
             'int_lt', 'guard_true', 'force_token', 'int_add',
