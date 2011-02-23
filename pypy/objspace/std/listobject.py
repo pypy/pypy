@@ -201,10 +201,9 @@ class EmptyListStrategy(ListStrategy):
         assert index == 0
         self.append(w_list, w_item)
 
-    def extend(self, w_list, items_w):
-        #XXX: would be faster if items_w was a W_List and we could get its strategy
-        w_list.strategy = get_strategy_from_list_objects(items_w)
-        w_list.strategy.init_from_list_w(w_list, items_w)
+    def extend(self, w_list, w_other):
+        w_list.strategy = w_other.strategy
+        w_list.strategy.init_from_list_w(w_list, w_other.getitems())
 
 class AbstractUnwrappedStrategy(ListStrategy):
     def unwrap(self, w_obj):
