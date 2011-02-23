@@ -76,6 +76,22 @@ class TestLog(object):
         opcodes_names = [opcode.__class__.__name__ for opcode in myline]
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
+    def test_match_var(self):
+        match_var = LoopWithIds._get_match_var()
+        assert match_var('v0', 'V0')
+        assert not match_var('v0', 'V1')
+        assert match_var('v0', 'V0')
+        #
+        # for ConstPtr, we allow the same alpha-renaming as for variables
+        assert match_var('ConstPtr(ptr0)', 'PTR0')
+        assert not match_var('ConstPtr(ptr0)', 'PTR1')
+        assert match_var('ConstPtr(ptr0)', 'PTR0')
+        #
+        # for ConstClass, we want the exact matching
+        assert match_var('ConstClass(foo)', 'ConstClass(foo)')
+        assert not match_var('ConstClass(bar)', 'v1')
+        assert not match_var('v2', 'ConstClass(baz)')
+
 class TestRunPyPyC(BaseTestPyPyC):
 
     def test_run_function(self):
@@ -249,3 +265,23 @@ class TestRunPyPyC(BaseTestPyPyC):
             i4 = int_sub_ovf(i3, 1)
             guard_no_overflow()
         """)
+
+    def test_match_constants(self):
+        def f():
+            i = 0L # force it to long, so that we get calls to rbigint
+            while i < 1003:
+                i += 1L # ID: increment
+                a = 0
+            return i
+        log = self.run(f)
+        loop, = log.loops_by_id('increment')
+        assert loop.match_by_id('increment', """
+            p12 = call(ConstClass(rbigint.add), p4, ConstPtr(ptr11))
+            guard_no_exception()
+        """)
+        #
+        py.test.raises(AssertionError, loop.match_by_id, 'increment', """
+            p12 = call(ConstClass(rbigint.SUB), p4, ConstPtr(ptr11))
+            guard_no_exception()
+        """)
+        

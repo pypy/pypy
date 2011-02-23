@@ -133,6 +133,13 @@ class LoopWithIds(Function):
             for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                 yield op
 
+    def print_ops(self, id=None):
+        if id is None:
+            ops = self.allops()
+        else:
+            ops = self.ops_by_id(id)
+        print '\n'.join(map(str, ops))
+
     def ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         target_opcodes = self.ids[id]
@@ -186,13 +193,22 @@ class LoopWithIds(Function):
         src = src.replace('--TICK--', ticker_check)
         return src
 
-    def match_ops(self, ops, expected_src):
-        expected_src = self.preprocess_expected_src(expected_src)
+    @classmethod
+    def _get_match_var(cls):
+        def is_const(v1):
+            return isinstance(v1, str) and v1.startswith('ConstClass(')
         alpha_map = {}
         def match_var(v1, v2):
+            if is_const(v1) or is_const(v2):
+                return v1 == v2
             if v1 not in alpha_map:
                 alpha_map[v1] = v2
-            assert alpha_map[v1] == v2, "variable mismatch"
+            return alpha_map[v1] == v2
+        return match_var
+
+    def match_ops(self, ops, expected_src):
+        expected_src = self.preprocess_expected_src(expected_src)
+        match_var = self._get_match_var()
         #
         expected_ops = self.parse_ops(expected_src)
         assert len(ops) == len(expected_ops), "wrong number of operations"
@@ -201,7 +217,7 @@ class LoopWithIds(Function):
             match_var(op.res, exp_res)
             assert len(op.args) == len(exp_args), "wrong number of arguments"
             for arg, exp_arg in zip(op.args, exp_args):
-                match_var(arg, exp_arg)
+                assert match_var(arg, exp_arg), "variable mismatch"
         return True
 
     def match(self, expected_src):
