@@ -65,8 +65,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_cmp_exc(self):
-        py.test.skip("WIP")
-
         def f1(n):
             def f():
                 raise KeyError
@@ -75,13 +73,12 @@ class TestPyPyCNew(BaseTestPyPyC):
             while i < n:
                 try:
                     f()
-                except KeyError:
+                except KeyError: # ID: except
                     i += 1
             return i
 
         log = self.run(f1, [10000])
         assert log.result == 10000
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.get_bytecode("COMPARE_OP").match_stats(
-            call=0
-        )
+        loop, = log.loops_by_id("except")
+        ops = [o.name for o in loop.ops_by_id("except")]
+        assert "call_may_force" not in ops
