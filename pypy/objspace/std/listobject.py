@@ -173,6 +173,7 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def insert(self, w_list, index, w_item):
+        assert index == 0
         self.append(w_list, w_item)
 
 class ObjectListStrategy(ListStrategy):
@@ -263,19 +264,25 @@ class IntegerListStrategy(ListStrategy):
 
     def setitem(self, w_list, index, w_item):
         list_w = cast_from_void_star(w_list.storage, "integer")
-        list_w[index] = w_item
 
-        if not is_W_IntObject(w_item):
-            w_list.strategy = ObjectListStrategy()
-            w_list.strategy.init_from_list_w(w_list, list_w)
+        if is_W_IntObject(w_item):
+            list_w[index] = w_item
+            return
+
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.setitem(index, w_item)
 
     def insert(self, w_list, index, w_item):
         list_w = cast_from_void_star(w_list.storage, "integer")
-        list_w.insert(index, w_item)
 
-        if not is_W_IntObject(w_item):
-            w_list.strategy = ObjectListStrategy()
-            w_list.strategy.init_from_list_w(w_list, list_w)
+        if is_W_IntObject(w_item):
+            list_w.insert(index, w_item)
+            return
+
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.insert(index, w_item)
 
 
 class StringListStrategy(ListStrategy):
@@ -323,19 +330,24 @@ class StringListStrategy(ListStrategy):
 
     def setitem(self, w_list, index, w_item):
         list_w = cast_from_void_star(w_list.storage, "string")
-        list_w[index] = w_item
+        if is_W_StringObject(w_item):
+            list_w[index] = w_item
+            return
 
-        if not is_W_StringObject(w_item):
-            w_list.strategy = ObjectListStrategy()
-            w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.setitem(index, w_item)
 
     def insert(self, w_list, index, w_item):
         list_w = cast_from_void_star(w_list.storage, "string")
-        list_w.insert(index, w_item)
 
-        if not is_W_StringObject(w_item):
-            w_list.strategy = ObjectListStrategy()
-            w_list.strategy.init_from_list_w(w_list, list_w)
+        if is_W_StringObject(w_item):
+            list_w.insert(index, w_item)
+            return
+
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.insert(index, w_item)
 
 # _______________________________________________________
 
