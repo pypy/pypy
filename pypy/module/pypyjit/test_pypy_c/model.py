@@ -166,7 +166,23 @@ class LoopWithIds(Function):
         args = map(str.strip, args)
         return opname, resvar, args
 
+    def preprocess_expected_src(self, src):
+        # all loops decrement the tick-counter at the end. The rpython code is
+        # in jump_absolute() in pypyjit/interp.py. The string --TICK-- is
+        # replaced with the corresponding operations, so that tests don't have
+        # to repeat it every time
+        ticker_check = """
+            ticker0 = getfield_raw(ticker_address)
+            ticker1 = int_sub(ticker0, 1)
+            setfield_raw(ticker_address, ticker1)
+            ticker_cond = int_lt(ticker1, 0)
+            guard_false(ticker_cond)
+        """
+        src = src.replace('--TICK--', ticker_check)
+        return src
+
     def match_ops(self, ops, expected_src):
+        expected_src = self.preprocess_expected_src(expected_src)
         alpha_map = {}
         def match_var(v1, v2):
             if v1 not in alpha_map:

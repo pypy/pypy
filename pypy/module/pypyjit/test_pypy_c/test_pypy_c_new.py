@@ -31,11 +31,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             i12 = int_and(i8, i11)
             i13 = int_add_ovf(i6, i12)
             guard_no_overflow()
-            i16 = getfield_raw(37212896)
-            i18 = int_sub(i16, 1)
-            setfield_raw(37212896, i18)
-            i20 = int_lt(i18, 0)
-            guard_false(i20)
+            --TICK--
             jump(p0, p1, p2, p3, p4, p5, i13, i11, i8)
         """)
 

@@ -198,15 +198,19 @@ class TestRunPyPyC(BaseTestPyPyC):
             jump(p0, p1, p2, p3, i8)
         """)
         #
+        assert loop.match("""
+            i6 = int_lt(i4, 1003)
+            guard_true(i6)
+            i8 = int_add(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i8)
+        """)
+        #
         py.test.raises(AssertionError, loop.match, """
             i6 = int_lt(i4, 1003)
             guard_true(i6)
             i8 = int_add(i5, 1) # variable mismatch
-            i10 = getfield_raw(37212896)
-            i12 = int_sub(i10, 1)
-            setfield_raw(37212896, i12)
-            i14 = int_lt(i12, 0)
-            guard_false(i14)
+            --TICK--
             jump(p0, p1, p2, p3, i8)
         """)
 
