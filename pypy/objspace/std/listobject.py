@@ -105,6 +105,9 @@ class W_ListObject(W_Object):
     def insert(self, index, w_item):
         self.strategy.insert(self, index, w_item)
 
+    def extend(self, items_w):
+        self.strategy.extend(self, items_w)
+
 registerimplementation(W_ListObject)
 
 
@@ -143,6 +146,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def insert(self, w_list, index, w_item):
+        raise NotImplementedError
+
+    def extend(self, w_list, items_w):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
@@ -195,6 +201,11 @@ class EmptyListStrategy(ListStrategy):
         assert index == 0
         self.append(w_list, w_item)
 
+    def extend(self, w_list, items_w):
+        #XXX: would be faster if items_w was a W_List and we could get its strategy
+        w_list.strategy = get_strategy_from_list_objects(items_w)
+        w_list.strategy.init_from_list_w(w_list, items_w)
+
 class AbstractUnwrappedStrategy(ListStrategy):
     def unwrap(self, w_obj):
         # XXX override later
@@ -208,6 +219,9 @@ class AbstractUnwrappedStrategy(ListStrategy):
         raise NotImplementedError("abstract base class")
 
     def is_correct_type(self, w_obj):
+        raise NotImplementedError("abstract base class")
+
+    def list_is_correct_type(self, w_list):
         raise NotImplementedError("abstract base class")
 
 
@@ -251,6 +265,16 @@ class AbstractUnwrappedStrategy(ListStrategy):
         w_list.strategy = ObjectListStrategy()
         w_list.strategy.init_from_list_w(w_list, list_w)
         w_list.insert(index, w_item)
+
+    def extend(self, w_list, w_other):
+        list_w = self.cast_from_void_star(w_list.storage)
+        if self.list_is_correct_type(w_other):
+            list_w += w_other.getitems() # or self.cast_from_void_star(w_other.storage) ?
+            return
+
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.extend(w_other)
 
     def setitem(self, w_list, index, w_item):
         list_w = self.cast_from_void_star(w_list.storage)
@@ -356,6 +380,9 @@ class ObjectListStrategy(AbstractUnwrappedStrategy):
     def is_correct_type(self, w_obj):
         return True
 
+    def list_is_correct_type(self, w_list):
+        return True
+
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "object")
 
@@ -367,6 +394,9 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
     def is_correct_type(self, w_obj):
         return is_W_IntObject(w_obj)
 
+    def list_is_correct_type(self, w_list):
+        return type(self) == type(w_list.strategy)
+
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "integer")
 
@@ -377,6 +407,9 @@ class StringListStrategy(AbstractUnwrappedStrategy):
 
     def is_correct_type(self, w_obj):
         return is_W_StringObject(w_obj)
+
+    def list_is_correct_type(self, w_list):
+        return type(self) == type(w_list.strategy)
 
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "string")
@@ -619,11 +652,12 @@ def list_append__List_ANY(space, w_list, w_any):
     return space.w_None
 
 def list_extend__List_List(space, w_list, w_other):
-    w_list.wrappeditems += w_other.wrappeditems
+    w_list.extend(w_other)
     return space.w_None
 
 def list_extend__List_ANY(space, w_list, w_any):
-    w_list.wrappeditems += space.listview(w_any)
+    w_other = W_ListObject(space.listview(w_any))
+    w_list.extend(w_other) 
     return space.w_None
 
 # note that the default value will come back wrapped!!!
