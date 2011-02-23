@@ -1,6 +1,6 @@
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import ConstInt, Const
-from pypy.tool.jitlogparser.parser import parse, OpCode, Function,\
+from pypy.tool.jitlogparser.parser import parse, TraceForOpcode, Function,\
      adjust_bridges
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py
@@ -59,9 +59,9 @@ def test_inlined_call():
     """)
     res = Function.from_operations(ops.operations, LoopStorage())
     assert len(res.chunks) == 3 # two chunks + inlined call
-    assert isinstance(res.chunks[0], OpCode)
+    assert isinstance(res.chunks[0], TraceForOpcode)
     assert isinstance(res.chunks[1], Function)
-    assert isinstance(res.chunks[2], OpCode)
+    assert isinstance(res.chunks[2], TraceForOpcode)
     assert res.chunks[1].path == "1"
     assert len(res.chunks[1].chunks) == 3
     
