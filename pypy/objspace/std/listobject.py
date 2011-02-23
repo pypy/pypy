@@ -335,13 +335,16 @@ class AbstractUnwrappedStrategy(ListStrategy):
                 # Make a shallow copy to more easily handle the reversal case
                 sequence_w = list(sequence_w)
         for i in range(len2):
-            items[start] = sequence_w[i]
+            items[start] = self.unwrap(sequence_w[i])
             start += step
 
 
     def deleteitem(self, w_list, index):
         list_w = self.cast_from_void_star(w_list.storage)
         del list_w[index]
+        if len(list_w) == 0:
+            w_list.strategy = EmptyListStrategy()
+            w_list.strategy.init_from_list_w(w_list, list_w)
 
     def deleteslice(self, w_list, start, step, slicelength):
         items = self.cast_from_void_star(w_list.storage)
@@ -374,6 +377,10 @@ class AbstractUnwrappedStrategy(ListStrategy):
             start = n - slicelength
             assert start >= 0 # annotator hint
             del items[start:]
+
+        if len(items) == 0:
+            w_list.strategy = EmptyListStrategy()
+            w_list.strategy.init_from_list_w(w_list, items)
 
     def inplace_mul(self, w_list, times):
         list_w = self.cast_from_void_star(w_list.storage)

@@ -92,6 +92,17 @@ class TestW_ListStrategies(TestW_ListObject):
         l.insert(0, self.space.wrap(2))
         assert isinstance(l.strategy, IntegerListStrategy)
 
+    def test_delete(self):
+        l = W_ListObject([self.space.wrap(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.deleteitem(0)
+        assert isinstance(l.strategy, EmptyListStrategy)
+
+        l = W_ListObject([self.space.wrap(1), self.space.wrap(2)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.deleteslice(0, 1, 2)
+        assert isinstance(l.strategy, EmptyListStrategy)
+
     def test_setslice(self):
         l = W_ListObject([])
         assert isinstance(l.strategy, EmptyListStrategy)
@@ -102,6 +113,11 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, IntegerListStrategy)
         l.setslice(0, 1, 2, [self.space.wrap(4), self.space.wrap(5), self.space.wrap(6)])
         assert isinstance(l.strategy, IntegerListStrategy)
+
+        l = W_ListObject([self.space.wrap(1), self.space.wrap('b'), self.space.wrap(3)])
+        assert isinstance(l.strategy, ObjectListStrategy)
+        l.setslice(0, 1, 2, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        assert isinstance(l.strategy, ObjectListStrategy)
 
         l = W_ListObject([self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
