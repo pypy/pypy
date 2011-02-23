@@ -28,7 +28,7 @@ class BaseTestPyPyC(object):
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
         env={'PYPYLOG': 'jit-log-opt,jit-summary:' + str(logfile)}
-        cmdline = [sys.executable,
+        cmdline = [sys.executable, '-S',
                    '--jit', 'threshold=%d' % threshold,
                    str(self.filepath)]
         pipe = subprocess.Popen(cmdline,
