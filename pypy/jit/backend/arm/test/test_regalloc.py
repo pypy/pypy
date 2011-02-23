@@ -665,6 +665,20 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         bridge = self.attach_bridge(ops, loop, -2)
 
 
+        self.cpu.set_future_value_int(0, 4)
+        self.cpu.set_future_value_int(1, 7)
+        self.run(loop)
+        assert self.getint(0) == 29
+
+    def test_jump_with_consts(self):
+        loop = """
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14]
+        jump(i1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+        """
+        large = self.interpret(loop, range(15), run=False)
+        # ensure compiling this loop works
+        assert 1
+
     def test_from_loop_to_loop(self):
         def assembler_helper(failindex, virtualizable):
             return 1
@@ -726,17 +740,3 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         """
         self.interpret(ops, range(11))
         assert self.getint(0) == 2 # and not segfault()
-
-        self.cpu.set_future_value_int(0, 4)
-        self.cpu.set_future_value_int(1, 7)        
-        self.run(loop)
-        assert self.getint(0) == 29
-
-    def test_jump_with_consts(self):
-        loop = """ 
-        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14]
-        jump(i1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
-        """ 
-        large = self.interpret(loop, range(15), run=False)
-        # ensure compiling this loop works
-        assert 1

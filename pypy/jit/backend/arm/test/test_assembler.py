@@ -163,7 +163,7 @@ class TestRunningAssembler():
 
         # call to div
         self.a.mc.PUSH(range(2, 12))
-        div_addr = rffi.cast(lltype.Signed, llhelper(arm_int_div_sign, arm_int_div))
+        div_addr = rffi.cast(lltype.Signed, arm_int_div)
         self.a.mc.BL(div_addr)
         self.a.mc.POP(range(2, 12))
         self.a.gen_func_epilog()
@@ -217,8 +217,16 @@ class TestRunningAssembler():
         self.a.mov_loc_loc(imm(2478), r.r0)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 2478
-      
 
+    def test_load_store(self):
+        x =  0x60002224
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.r1.value, x)
+        self.a.mc.MOV_ri(r.r3.value, 8)
+        self.a.mc.STR_rr(r.r1.value, r.fp.value, r.r3.value)
+        self.a.mc.LDR_ri(r.r0.value, r.fp.value, 8)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == x
 
 def callme(inp):
     i = inp + 10
