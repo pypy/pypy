@@ -72,6 +72,14 @@ class BaseTestRegalloc(object):
                               zero_division_value)
     FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
     raising_fptr = llhelper(FPTR, raising_func)
+
+    def f(a):
+        return 23
+
+    FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+    f_fptr = llhelper(FPTR, f)
+    f_calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
+
     zero_division_tp, zero_division_value = cpu.get_zero_division_error()
     zd_addr = cpu.cast_int_to_adr(zero_division_tp)
     zero_division_error = llmemory.cast_adr_to_ptr(zd_addr,
@@ -421,6 +429,7 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
     fielddescr = cpu.fielddescrof(S, 'field')
 
     A = lltype.GcArray(lltype.Char)
+    I = lltype.GcArray(lltype.Signed)
     arraydescr = cpu.arraydescrof(A)
 
     namespace = locals().copy()
@@ -484,6 +493,36 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         s = lltype.malloc(self.A, 3)
         self.interpret(ops, [s, ord('a')])
         assert s[1] == 'a'
+
+    def test_setarrayitem2_gc(self):
+        ops = '''
+        [p0, i, i1]
+        setarrayitem_gc(p0, i1, i, descr=arraydescr)
+        finish()
+        '''
+        s = lltype.malloc(self.A, 3)
+        self.interpret(ops, [s, ord('a'), 1])
+        assert s[1] == 'a'
+
+    def test_setarrayitem3_gc(self):
+        ops = '''
+        [p0, i0, i1]
+        setarrayitem_gc(p0, i1, i0, descr=arraydescr)
+        finish()
+        '''
+        s = lltype.malloc(self.I, 3)
+        self.interpret(ops, [s, 1234567890, 1])
+        assert s[1] == 1234567890
+
+    def test_setarrayitem4_gc(self):
+        ops = '''
+        [p0, i0]
+        setarrayitem_gc(p0, 1, i0, descr=arraydescr)
+        finish()
+        '''
+        s = lltype.malloc(self.I, 3)
+        self.interpret(ops, [s, 1234567890])
+        assert s[1] == 1234567890
 
     def test_division_optimized(self):
         ops = '''
@@ -625,6 +664,68 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         '''
         bridge = self.attach_bridge(ops, loop, -2)
 
+
+    def test_from_loop_to_loop(self):
+        def assembler_helper(failindex, virtualizable):
+            return 1
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)), [lltype.Signed], lltype.Signed)
+        loop1 = """
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]
+        i11 = int_add(i0, i1)
+        finish(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11)
+        """
+        large = self.interpret(loop1, range(11), run=False)
+        large.token.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.namespace['looptoken'] = large.token
+        assert self.namespace['looptoken']._arm_bootstrap_code != 0
+        loop2 = """
+       [i0]
+        i1 = force_token()
+        call_assembler(1,2,3,4,5,6,7,8,9,10,11, descr=looptoken)
+        guard_not_forced() [i0]
+        finish(i0)
+        """
+
+        self.interpret(loop2, [110])
+        assert self.getint(0) == 0
+
+    def test_far_far_jump(self):
+        ops = """
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]
+        i11 = int_add(i0, 1)
+        i12 = int_lt(i11, 2)
+        i13 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i14 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i15 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i16 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i17 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i18 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i19 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i20 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i21 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i22 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i23 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i24 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i26 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i27 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i28 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i29 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        i30 = call(ConstClass(f_fptr), i12, descr=f_calldescr)
+        guard_true(i12) [i11, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]
+        jump(i11, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10)
+        """
+        self.interpret(ops, range(11))
+        assert self.getint(0) == 2 # and not segfault()
 
         self.cpu.set_future_value_int(0, 4)
         self.cpu.set_future_value_int(1, 7)        

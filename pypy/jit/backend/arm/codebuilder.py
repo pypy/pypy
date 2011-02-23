@@ -87,7 +87,7 @@ class AbstractARMv7Builder(object):
                 assert c == cond.AL
                 self.LDR_ri(reg.ip.value, reg.pc.value, cond=c)
                 self.SUB_rr(reg.pc.value, reg.pc.value, reg.ip.value, cond=c)
-                target += 2 * WORD
+                target += WORD
                 self.write32(target)
 
     def BL(self, target, c=cond.AL):
