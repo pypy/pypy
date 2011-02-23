@@ -6,7 +6,6 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rstring import StringBuilder
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import _delitem_slice_helper
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -430,9 +429,36 @@ def delitem__Bytearray_Slice(space, w_bytearray, w_slice):
                                                       len(w_bytearray.data))
     delitem_slice_helper(space, w_bytearray.data, start, step, slicelength)
 
-# create new helper function with different list type specialisation
-delitem_slice_helper = func_with_new_name(_delitem_slice_helper,
-                                          'delitem_slice_helper')
+def delitem_slice_helper(space, items, start, step, slicelength):
+    if slicelength==0:
+        return
+
+    if step < 0:
+        start = start + step * (slicelength-1)
+        step = -step
+
+    if step == 1:
+        assert start >= 0
+        assert slicelength >= 0
+        del items[start:start+slicelength]
+    else:
+        n = len(items)
+        i = start
+
+        for discard in range(1, slicelength):
+            j = i+1
+            i += step
+            while j < i:
+                items[j-discard] = items[j]
+                j += 1
+
+        j = i+1
+        while j < n:
+            items[j-slicelength] = items[j]
+            j += 1
+        start = n - slicelength
+        assert start >= 0 # annotator hint
+        del items[start:]
 
 def _setitem_helper(w_bytearray, start, stop, slicelength, data):
     assert start >= 0

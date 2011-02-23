@@ -93,6 +93,9 @@ class W_ListObject(W_Object):
     def deleteitem(self, index):
         self.strategy.deleteitem(self, index)
 
+    def deleteslice(self, start, step, length):
+        self.strategy.deleteslice(self, start, step, length)
+
     def setitem(self, index, w_item):
         self.strategy.setitem(self, index, w_item)
 
@@ -248,6 +251,38 @@ class AbstractUnwrappedStrategy(ListStrategy):
         list_w = self.cast_from_void_star(w_list.storage)
         del list_w[index]
 
+    def deleteslice(self, w_list, start, step, slicelength):
+        items = self.cast_from_void_star(w_list.storage)
+        if slicelength==0:
+            return
+
+        if step < 0:
+            start = start + step * (slicelength-1)
+            step = -step
+
+        if step == 1:
+            assert start >= 0
+            assert slicelength >= 0
+            del items[start:start+slicelength]
+        else:
+            n = len(items)
+            i = start
+
+            for discard in range(1, slicelength):
+                j = i+1
+                i += step
+                while j < i:
+                    items[j-discard] = items[j]
+                    j += 1
+
+            j = i+1
+            while j < n:
+                items[j-slicelength] = items[j]
+                j += 1
+            start = n - slicelength
+            assert start >= 0 # annotator hint
+            del items[start:]
+
     def inplace_mul(self, w_list, times):
         list_w = self.cast_from_void_star(w_list.storage)
         list_w *= times
@@ -346,7 +381,7 @@ def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    _delitem_slice_helper(space, w_list.getitems(), start, 1, stop-start)
+    w_list.deleteslice(start, 1, stop-start)
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
@@ -459,40 +494,8 @@ def delitem__List_ANY(space, w_list, w_idx):
 
 
 def delitem__List_Slice(space, w_list, w_slice):
-    start, stop, step, slicelength = w_slice.indices4(space,
-                                                      len(w_list.wrappeditems))
-    _delitem_slice_helper(space, w_list.wrappeditems, start, step, slicelength)
-
-def _delitem_slice_helper(space, items, start, step, slicelength):
-    if slicelength==0:
-        return
-
-    if step < 0:
-        start = start + step * (slicelength-1)
-        step = -step
-
-    if step == 1:
-        assert start >= 0
-        assert slicelength >= 0
-        del items[start:start+slicelength]
-    else:
-        n = len(items)
-        i = start
-
-        for discard in range(1, slicelength):
-            j = i+1
-            i += step
-            while j < i:
-                items[j-discard] = items[j]
-                j += 1
-
-        j = i+1
-        while j < n:
-            items[j-slicelength] = items[j]
-            j += 1
-        start = n - slicelength
-        assert start >= 0 # annotator hint
-        del items[start:]
+    start, stop, step, slicelength = w_slice.indices4(space, w_list.length())
+    w_list.deleteslice(start, step, slicelength)
 
 def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
     idx = get_list_index(space, w_index)
