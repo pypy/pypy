@@ -306,69 +306,16 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "integer")
 
-class StringListStrategy(ListStrategy):
+class StringListStrategy(AbstractUnwrappedStrategy):
+
+    def cast_from_void_star(self, storage):
+        return cast_from_void_star(storage, "string")
+
+    def is_correct_type(self, w_obj):
+        return is_W_StringObject(w_obj)
 
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "string")
-
-    def length(self, w_list):
-        return len(cast_from_void_star(w_list.storage, "string"))
-
-    def getitem(self, w_list, index):
-        return cast_from_void_star(w_list.storage, "string")[index]
-
-    def getslice(self, w_list, start, stop, step, length):
-        if step == 1:
-            return W_ListObject(cast_from_void_star(w_list.storage, "string")[start:stop])
-        else:
-            subitems_w = [None] * length
-            for i in range(length):
-                subitems_w[i] = w_list.getitem(start)
-                start += step
-            return W_ListObject(subitems_w)
-
-    def getitems(self, w_list):
-        return cast_from_void_star(w_list.storage, "string")
-
-    def append(self, w_list, w_item):
-
-        if is_W_StringObject(w_item):
-            cast_from_void_star(w_list.storage, "string").append(w_item)
-            return
-
-        list_w = w_list.getitems()
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, list_w)
-        w_list.append(w_item)
-
-    def inplace_mul(self, w_list, times):
-        list_w = cast_from_void_star(w_list.storage, "string")
-        list_w *= times
-
-    def deleteitem(self, w_list, index):
-        list_w = cast_from_void_star(w_list.storage, "string")
-        del list_w[index]
-
-    def setitem(self, w_list, index, w_item):
-        list_w = cast_from_void_star(w_list.storage, "string")
-        if is_W_StringObject(w_item):
-            list_w[index] = w_item
-            return
-
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, list_w)
-        w_list.setitem(index, w_item)
-
-    def insert(self, w_list, index, w_item):
-        list_w = cast_from_void_star(w_list.storage, "string")
-
-        if is_W_StringObject(w_item):
-            list_w.insert(index, w_item)
-            return
-
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, list_w)
-        w_list.insert(index, w_item)
 
 # _______________________________________________________
 
