@@ -99,6 +99,9 @@ class W_ListObject(W_Object):
     def setitem(self, index, w_item):
         self.strategy.setitem(self, index, w_item)
 
+    def setslice(self, start, step, slicelength, sequence_w):
+        self.strategy.setslice(self, start, step, slicelength, sequence_w)
+
     def insert(self, index, w_item):
         self.strategy.insert(self, index, w_item)
 
@@ -130,7 +133,13 @@ class ListStrategy(object):
     def deleteitem(self, w_list, index):
         raise NotImplementedError
 
+    def deleteslice(self, w_list, start, step, slicelength):
+        raise NotImplementedError
+
     def setitem(self, w_list, index, w_item):
+        raise NotImplementedError
+
+    def setslice(self, w_list, start, step, slicelength, sequence_w):
         raise NotImplementedError
 
     def insert(self, w_list, index, w_item):
@@ -172,8 +181,15 @@ class EmptyListStrategy(ListStrategy):
     def deleteitem(self, w_list, index):
         raise IndexError
 
+    def deleteslice(self, w_list, start, step, slicelength):
+        raise IndexError
+
     def setitem(self, w_list, index, w_item):
         raise IndexError
+
+    def setslice(self, w_list, start, step, slicelength, sequence_w):
+        w_list.strategy = get_strategy_from_list_objects(sequence_w)
+        w_list.strategy.init_from_list_w(w_list, sequence_w)
 
     def insert(self, w_list, index, w_item):
         assert index == 0
@@ -246,6 +262,52 @@ class AbstractUnwrappedStrategy(ListStrategy):
         w_list.strategy = ObjectListStrategy()
         w_list.strategy.init_from_list_w(w_list, list_w)
         w_list.setitem(index, w_item)
+
+    def setslice(self, w_list, start, step, slicelength, sequence_w):
+        assert slicelength >= 0
+        items = self.cast_from_void_star(w_list.storage)
+        oldsize = len(items)
+        len2 = len(sequence_w)
+        if step == 1:  # Support list resizing for non-extended slices
+            delta = slicelength - len2
+            if delta < 0:
+                delta = -delta
+                newsize = oldsize + delta
+                # XXX support this in rlist!
+                items += [None] * delta
+                lim = start+len2
+                i = newsize - 1
+                while i >= lim:
+                    items[i] = items[i-delta]
+                    i -= 1
+            elif start >= 0:
+                del items[start:start+delta]
+            else:
+                assert delta==0   # start<0 is only possible with slicelength==0
+        elif len2 != slicelength:  # No resize for extended slices
+            raise operationerrfmt(space.w_ValueError, "attempt to "
+                  "assign sequence of size %d to extended slice of size %d",
+                  len2, slicelength)
+
+        if sequence_w is items:
+            if step > 0:
+                # Always copy starting from the right to avoid
+                # having to make a shallow copy in the case where
+                # the source and destination lists are the same list.
+                i = len2 - 1
+                start += i*step
+                while i >= 0:
+                    items[start] = sequence_w[i]
+                    start -= step
+                    i -= 1
+                return
+            else:
+                # Make a shallow copy to more easily handle the reversal case
+                sequence_w = list(sequence_w)
+        for i in range(len2):
+            items[start] = sequence_w[i]
+            start += step
+
 
     def deleteitem(self, w_list, index):
         list_w = self.cast_from_void_star(w_list.storage)
@@ -373,10 +435,11 @@ def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
     return w_list.getslice(start, stop, 1, stop - start)
 
-def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
+def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_iterable):
     length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    _setitem_slice_helper(space, w_list, start, 1, stop-start, w_sequence)
+    sequence_w = space.listview(w_iterable)
+    w_list.setslice(start, 1, stop-start, sequence_w)
 
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = w_list.length()
@@ -507,55 +570,10 @@ def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
     return space.w_None
 
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
-    oldsize = len(w_list.wrappeditems)
+    oldsize = w_list.length()
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable)
-
-def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
-    sequence2 = space.listview(w_iterable)
-    assert slicelength >= 0
-    items = w_list.wrappeditems
-    oldsize = len(items)
-    len2 = len(sequence2)
-    if step == 1:  # Support list resizing for non-extended slices
-        delta = slicelength - len2
-        if delta < 0:
-            delta = -delta
-            newsize = oldsize + delta
-            # XXX support this in rlist!
-            items += [None] * delta
-            lim = start+len2
-            i = newsize - 1
-            while i >= lim:
-                items[i] = items[i-delta]
-                i -= 1
-        elif start >= 0:
-            del items[start:start+delta]
-        else:
-            assert delta==0   # start<0 is only possible with slicelength==0
-    elif len2 != slicelength:  # No resize for extended slices
-        raise operationerrfmt(space.w_ValueError, "attempt to "
-              "assign sequence of size %d to extended slice of size %d",
-              len2, slicelength)
-
-    if sequence2 is items:
-        if step > 0:
-            # Always copy starting from the right to avoid
-            # having to make a shallow copy in the case where
-            # the source and destination lists are the same list.
-            i = len2 - 1
-            start += i*step
-            while i >= 0:
-                items[start] = sequence2[i]
-                start -= step
-                i -= 1
-            return
-        else:
-            # Make a shallow copy to more easily handle the reversal case
-            sequence2 = list(sequence2)
-    for i in range(len2):
-        items[start] = sequence2[i]
-        start += step
+    sequence_w = space.listview(w_iterable)
+    w_list.setslice(start, step, slicelength, sequence_w)
 
 app = gateway.applevel("""
     def listrepr(currently_in_repr, l):

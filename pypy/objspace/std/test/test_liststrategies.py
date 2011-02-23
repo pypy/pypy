@@ -92,5 +92,10 @@ class TestW_ListStrategies(TestW_ListObject):
         l.insert(0, self.space.wrap(2))
         assert isinstance(l.strategy, IntegerListStrategy)
 
+    def test_setslice(self):
+        l = W_ListObject([])
+        assert isinstance(l.strategy, EmptyListStrategy)
+        l.setslice(0, 1, 2, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
 
 
