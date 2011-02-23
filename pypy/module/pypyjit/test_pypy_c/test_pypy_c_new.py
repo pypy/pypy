@@ -54,7 +54,21 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, i10, i8)
         """)
-
+        #
+        log = self.run(fact, [25], threshold=20)
+        assert log.result == 15511210043330985984000000L
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_gt(i4, 1)
+            guard_true(i7)
+            p9 = call(ConstClass(fromint), i4)
+            guard_no_exception()
+            p11 = call(ConstClass(rbigint.mul), p5, p9)
+            guard_no_exception()
+            i13 = int_sub(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i13, p11)
+        """)
 
     def test_cmp_exc(self):
         def f1(n):
