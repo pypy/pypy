@@ -400,13 +400,7 @@ def PyUnicode_AsASCIIString(space, w_unicode):
     """Encode a Unicode object using ASCII and return the result as Python string
     object.  Error handling is "strict".  Return NULL if an exception was raised
     by the codec."""
-    try:
-        return space.call_method(w_unicode, 'encode', space.wrap('ascii')) #space.w_None for errors?
-    except OperationError, e:
-        if e.match(space, space.w_UnicodeEncodeError):
-            return None
-        else:
-            raise
+    return space.call_method(w_unicode, 'encode', space.wrap('ascii')) #space.w_None for errors?
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeASCII(space, s, size, errors):
@@ -416,13 +410,7 @@ def PyUnicode_DecodeASCII(space, s, size, errors):
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
     w_s = space.wrap(rffi.charpsize2str(s, size))
-    try:
-        return space.call_method(w_s, 'decode', space.wrap('ascii'))
-    except OperationError, e:
-        if e.match(space, space.w_UnicodeDecodeError):
-            return None
-        else:
-            raise
+    return space.call_method(w_s, 'decode', space.wrap('ascii'))
 
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_EncodeASCII(space, s, size, errors):
@@ -433,13 +421,7 @@ def PyUnicode_EncodeASCII(space, s, size, errors):
     changes in your code for properly supporting 64-bit systems."""
 
     w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
-    try:
-        return space.call_method(w_s, 'encode', space.wrap('ascii'))
-    except OperationError, e:
-        if e.match(space, space.w_UnicodeEncodeError):
-            return None
-        else:
-            raise
+    return space.call_method(w_s, 'encode', space.wrap('ascii'))
 
 if sys.platform == 'win32':
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)

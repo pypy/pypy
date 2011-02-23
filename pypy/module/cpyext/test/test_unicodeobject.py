@@ -184,8 +184,7 @@ class TestUnicode(BaseApiTest):
         assert space.eq_w(space.wrap(ustr), result)
 
         w_ustr = space.wrap(u"abcd\xe9f")
-        result = api.PyUnicode_AsASCIIString(w_ustr)
-        assert result is None
+        self.raises(space, api, UnicodeEncodeError, api.PyUnicode_AsASCIIString, w_ustr)
 
     def test_decode_utf16(self, space, api):
         def test(encoded, endian, realendian=None):
@@ -254,8 +253,8 @@ class TestUnicode(BaseApiTest):
 
         s = 'abcd\xFF'
         data = rffi.str2charp(s)
-        w_u = api.PyUnicode_DecodeASCII(data, len(s), lltype.nullptr(rffi.CCHARP.TO))
-        assert w_u is None
+        self.raises(space, api, UnicodeDecodeError, api.PyUnicode_DecodeASCII,
+                    data, len(s), lltype.nullptr(rffi.CCHARP.TO))
         rffi.free_charp(data)
 
         uni = u'abcdefg'
@@ -267,6 +266,7 @@ class TestUnicode(BaseApiTest):
         u = u'äbcdéfg'
         data = rffi.unicode2wcharp(u)
         w_s = api.PyUnicode_EncodeASCII(data, len(u), lltype.nullptr(rffi.CCHARP.TO))
-        assert w_s is None
+        self.raises(space, api, UnicodeEncodeError, api.PyUnicode_EncodeASCII,
+                    data, len(u), lltype.nullptr(rffi.CCHARP.TO))
         rffi.free_wcharp(data)
 
