@@ -219,16 +219,50 @@ class ObjectListStrategy(ListStrategy):
         list_w.insert(index, w_item)
 
 
-class IntegerListStrategy(ListStrategy):
+class AbstractUnwrappedStrategy(ListStrategy):
+    def unwrap(self, w_obj):
+        # XXX override later
+        return w_obj
+
+    def wrap(self, item):
+        # XXX override later
+        return item
+
+    def cast_from_void_star(self, storage):
+        raise NotImplementedError("abstract base class")
+
+    def is_correct_type(self, w_obj):
+        raise NotImplementedError("abstract base class")
+
+
+
+    def getitem(self, w_list, index):
+        return self.wrap(self.cast_from_void_star(w_list.storage)[index])
+
+    def append(self,  w_list, w_item):
+
+        if self.is_correct_type(w_item):
+            self.cast_from_void_star(w_list.storage).append(self.unwrap(w_item))
+            return
+
+        items_w = w_list.getitems()
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, items_w)
+        w_list.append(w_item)
+
+class IntegerListStrategy(AbstractUnwrappedStrategy):
+
+    def cast_from_void_star(self, storage):
+        return cast_from_void_star(storage, "integer")
+
+    def is_correct_type(self, w_obj):
+        return is_W_IntObject(w_obj)
 
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "integer")
 
     def length(self, w_list):
         return len(cast_from_void_star(w_list.storage, "integer"))
-
-    def getitem(self, w_list, index):
-        return cast_from_void_star(w_list.storage, "integer")[index]
 
     def getslice(self, w_list, start, stop, step, length):
         if step == 1:
@@ -242,17 +276,6 @@ class IntegerListStrategy(ListStrategy):
 
     def getitems(self, w_list):
         return cast_from_void_star(w_list.storage, "integer")
-
-    def append(self,  w_list, w_item):
-
-        if is_W_IntObject(w_item):
-            cast_from_void_star(w_list.storage, "integer").append(w_item)
-            return
-
-        items_w = w_list.getitems()
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, items_w)
-        w_list.append(w_item)
 
     def inplace_mul(self, w_list, times):
         list_w = cast_from_void_star(w_list.storage, "integer")
