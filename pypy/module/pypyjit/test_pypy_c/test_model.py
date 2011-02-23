@@ -105,6 +105,20 @@ class TestRunPyPyC(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath, is_entry_bridge='*')
         assert len(loops) == 2
 
+    def test_inlined_function(self):
+        py.test.skip('in-progress')
+        def f():
+            def g(x):
+                return x+1 # ID: add
+            i = 0
+            while i < 1003:
+                i = g(i) # ID: call
+            return i
+        #
+        log = self.run(f)
+        loop, = log.loops_by_filename(self.filepath)
+        call_ops = list(loop.ops_by_id('call'))
+
     def test_loops_by_id(self):
         def f():
             i = 0

@@ -1,7 +1,7 @@
 import py
 import re
 import os.path
-from pypy.tool.jitlogparser.parser import parse, Function
+from pypy.tool.jitlogparser.parser import parse, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
 
@@ -68,7 +68,10 @@ class LoopWithIds(Function):
 
     def __init__(self, *args, **kwds):
         Function.__init__(self, *args, **kwds)
-        self.compute_ids()
+        self.ids = {}
+        self.code = self.chunks[0].getcode()
+        if self.code:
+            self.compute_ids(self.ids)
 
     @classmethod
     def from_trace(cls, trace, storage):
@@ -76,26 +79,43 @@ class LoopWithIds(Function):
         res.is_entry_bridge = 'entry bridge' in trace.comment
         return res
 
-    def compute_ids(self):
-        self.ids = {}
-        self.code = None
-        if not self.filename:
-            return
-        self.code = self.chunks[0].getcode()
-        ids = find_ids(self.code)
+    def flatten_chunks(self):
+        """
+        return a flat sequence of TraceForOpcode objects, including the ones
+        inside inlined functions
+        """
+        for chunk in self.chunks:
+            if isinstance(chunk, TraceForOpcode):
+                yield chunk
+            else:
+                for subchunk in chunk.flatten_chunks():
+                    yield subchunk
+
+    def compute_ids(self, ids):
+        #
+        # 1. compute the ids of self, i.e. the outer function
+        id2opcodes = find_ids(self.code)
         all_my_opcodes = self.get_set_of_opcodes()
         # XXX: for now, we just look for the first opcode in the id range
-        for id, opcodes in ids.iteritems():
-            targetop = opcodes[0]
-            if targetop in all_my_opcodes:
-                self.ids[id] = opcodes
+        for id, opcodes in id2opcodes.iteritems():
+            if not opcodes:
+                continue
+            target_opcode = opcodes[0]
+            if target_opcode in all_my_opcodes:
+                ids[id] = opcodes
+        #
+        # 2. compute the ids of all the inlined functions
+        for chunk in self.chunks:
+            if isinstance(chunk, LoopWithIds):
+                chunk.compute_ids(ids)
 
     def get_set_of_opcodes(self):
-        res = set()
+        result = set()
         for chunk in self.chunks:
-            opcode = self.code.map[chunk.bytecode_no]
-            res.add(opcode)
-        return res
+            if isinstance(chunk, TraceForOpcode):
+                opcode = self.code.map[chunk.bytecode_no]
+                result.add(opcode)
+        return result
 
     def has_id(self, id):
         return id in self.ids
@@ -106,13 +126,13 @@ class LoopWithIds(Function):
                 yield op
 
     def allops(self, include_debug_merge_points=False):
-        for chunk in self.chunks:
+        for chunk in self.flatten_chunks():
             for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                 yield op
 
     def ops_by_id(self, id, include_debug_merge_points=False):
         target_opcodes = self.ids[id]
-        for chunk in self.chunks:
+        for chunk in self.flatten_chunks():
             opcode = self.code.map[chunk.bytecode_no]
             if opcode in target_opcodes:
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
