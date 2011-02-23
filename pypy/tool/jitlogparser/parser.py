@@ -102,14 +102,15 @@ class TraceForOpcode(object):
     def getcode(self):
         return self.code
 
+    def getopcode(self):
+        return self.code.map[self.bytecode_no]
+
     def getlineno(self):
-        code = self.getcode()
-        return code.map[self.bytecode_no].lineno
+        return self.getopcode().lineno
     lineno = property(getlineno)
 
     def getline_starts_here(self):
-        code = self.getcode()
-        return code.map[self.bytecode_no].line_starts_here
+        return self.getopcode().line_starts_here
     line_starts_here = property(getline_starts_here)
 
     def __repr__(self):

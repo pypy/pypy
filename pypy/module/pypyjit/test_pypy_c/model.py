@@ -113,7 +113,7 @@ class LoopWithIds(Function):
         result = set()
         for chunk in self.chunks:
             if isinstance(chunk, TraceForOpcode):
-                opcode = self.code.map[chunk.bytecode_no]
+                opcode = chunk.getopcode()
                 result.add(opcode)
         return result
 
@@ -133,7 +133,7 @@ class LoopWithIds(Function):
     def ops_by_id(self, id, include_debug_merge_points=False):
         target_opcodes = self.ids[id]
         for chunk in self.flatten_chunks():
-            opcode = self.code.map[chunk.bytecode_no]
+            opcode = chunk.getopcode()
             if opcode in target_opcodes:
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op

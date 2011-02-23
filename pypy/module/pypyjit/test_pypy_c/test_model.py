@@ -106,18 +106,31 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert len(loops) == 2
 
     def test_inlined_function(self):
-        py.test.skip('in-progress')
         def f():
             def g(x):
                 return x+1 # ID: add
             i = 0
             while i < 1003:
                 i = g(i) # ID: call
+                a = 0    # to make sure that JUMP_ABSOLUTE is not part of the ID
             return i
         #
         log = self.run(f)
         loop, = log.loops_by_filename(self.filepath)
-        call_ops = list(loop.ops_by_id('call'))
+        call_ops = [op.name for op in loop.ops_by_id('call')]
+        assert call_ops == ['force_token'] # it does not follow inlining
+        #
+        add_ops = [op.name for op in loop.ops_by_id('add')]
+        assert add_ops == ['int_add']
+        #
+        ops = [op.name for op in loop.allops()]
+        assert ops == [
+            # this is the actual loop
+            'int_lt', 'guard_true', 'force_token', 'int_add',
+            # this is the signal checking stuff
+            'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
+            'jump'
+            ]
 
     def test_loops_by_id(self):
         def f():
