@@ -105,33 +105,6 @@ class TestRunPyPyC(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath, is_entry_bridge='*')
         assert len(loops) == 2
 
-    def test_inlined_function(self):
-        def f():
-            def g(x):
-                return x+1 # ID: add
-            i = 0
-            while i < 1003:
-                i = g(i) # ID: call
-                a = 0    # to make sure that JUMP_ABSOLUTE is not part of the ID
-            return i
-        #
-        log = self.run(f)
-        loop, = log.loops_by_filename(self.filepath)
-        call_ops = [op.name for op in loop.ops_by_id('call')]
-        assert call_ops == ['force_token'] # it does not follow inlining
-        #
-        add_ops = [op.name for op in loop.ops_by_id('add')]
-        assert add_ops == ['int_add']
-        #
-        ops = [op.name for op in loop.allops()]
-        assert ops == [
-            # this is the actual loop
-            'int_lt', 'guard_true', 'force_token', 'int_add',
-            # this is the signal checking stuff
-            'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
-            'jump'
-            ]
-
     def test_loops_by_id(self):
         def f():
             i = 0
@@ -168,6 +141,34 @@ class TestRunPyPyC(BaseTestPyPyC):
         ops = list(loop.ops_by_id('increment'))
         opnames = [op.name for op in ops]
         assert opnames == ['int_add']
+
+
+    def test_inlined_function(self):
+        def f():
+            def g(x):
+                return x+1 # ID: add
+            i = 0
+            while i < 1003:
+                i = g(i) # ID: call
+                a = 0    # to make sure that JUMP_ABSOLUTE is not part of the ID
+            return i
+        #
+        log = self.run(f)
+        loop, = log.loops_by_filename(self.filepath)
+        call_ops = [op.name for op in loop.ops_by_id('call')]
+        assert call_ops == ['force_token'] # it does not follow inlining
+        #
+        add_ops = [op.name for op in loop.ops_by_id('add')]
+        assert add_ops == ['int_add']
+        #
+        ops = [op.name for op in loop.allops()]
+        assert ops == [
+            # this is the actual loop
+            'int_lt', 'guard_true', 'force_token', 'int_add',
+            # this is the signal checking stuff
+            'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
+            'jump'
+            ]
 
     def test_parse_op(self):
         res = LoopWithIds.parse_op("  a =   int_add(  b,  3 ) # foo")
