@@ -35,6 +35,27 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(p0, p1, p2, p3, p4, p5, i13, i11, i8)
         """)
 
+    def test_factorial(self):
+        def fact(n):
+            r = 1
+            while n > 1:
+                r *= n
+                n -= 1
+            return r
+        log = self.run(fact, [7], threshold=5)
+        assert log.result == 5040
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_gt(i4, 1)
+            guard_true(i7)
+            i8 = int_mul_ovf(i5, i4)
+            guard_no_overflow()
+            i10 = int_sub(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i10, i8)
+        """)
+
+
     def test_cmp_exc(self):
         def f1(n):
             def f():
