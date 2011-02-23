@@ -666,7 +666,7 @@ class ForceOpAssembler(object):
             else:
                 raise AssertionError(kind)
         # check value
-        resloc = regalloc.force_allocate_reg(resbox)
+        resloc = regalloc.try_allocate_reg(resbox)
         assert resloc is r.r0
         self.mc.gen_load_int(r.ip.value, value)
         self.mc.CMP_rr(resloc.value, r.ip.value)
@@ -709,14 +709,13 @@ class ForceOpAssembler(object):
             assert isinstance(fielddescr, BaseFieldDescr)
             ofs = fielddescr.offset
             resloc = regalloc.force_allocate_reg(resbox)
-            self.mov_loc_loc(arglocs[1], r.ip, cond=c.MI)
-            self.mc.MOV_ri(resloc.value, 0, cond=c.MI)
-            self.mc.STR_ri(resloc.value, r.ip.value, ofs*WORD, cond=c.MI)
+            self.mov_loc_loc(arglocs[1], r.ip)
+            self.mc.MOV_ri(resloc.value, 0)
+            self.mc.STR_ri(resloc.value, r.ip.value, ofs)
             regalloc.possibly_free_var(resbox)
 
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
-            resloc = regalloc.force_allocate_reg(op.result)
             kind = op.result.type
             if kind == INT:
                 adr = self.fail_boxes_int.get_addr_for_num(0)
@@ -724,20 +723,21 @@ class ForceOpAssembler(object):
                 adr = self.fail_boxes_ptr.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
+            resloc = regalloc.force_allocate_reg(op.result)
+            regalloc.possibly_free_var(resbox)
             self.mc.gen_load_int(r.ip.value, adr)
             self.mc.LDR_ri(resloc.value, r.ip.value)
 
+        # merge point
         offset = self.mc.currpos() - jmp_pos
-        pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
-        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET)
+        if offset - PC_OFFSET >= 0:
+            pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
+            pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET)
 
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)
 
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.GE)
-        regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
         return fcond
 
 

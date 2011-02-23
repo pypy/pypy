@@ -376,7 +376,8 @@ class AssemblerARM(ResOpAssembler):
         self.gen_func_prolog()
         sp_patch_location = self._prepare_sp_patch_position()
         arglocs = self.gen_bootstrap_code(inputargs, regalloc, looptoken)
-
+        #for x in range(5):
+        #    self.mc.NOP()
         loop_head = self.mc.currpos()
 
         looptoken._arm_loop_code = loop_head
@@ -384,7 +385,7 @@ class AssemblerARM(ResOpAssembler):
 
         self._walk_operations(operations, regalloc)
 
-        looptoken._arm_frame_depth = regalloc.frame_manager.frame_depth 
+        looptoken._arm_frame_depth = regalloc.frame_manager.frame_depth
         self._patch_sp_offset(sp_patch_location, looptoken)
 
         self.align()
@@ -420,7 +421,7 @@ class AssemblerARM(ResOpAssembler):
 
         self._walk_operations(operations, regalloc)
 
-        original_loop_token._arm_frame_depth = regalloc.frame_manager.frame_depth 
+        original_loop_token._arm_frame_depth = regalloc.frame_manager.frame_depth
         self._patch_sp_offset(sp_patch_location, original_loop_token)
 
         bridge_start = self.materialize_loop(original_loop_token)
@@ -575,7 +576,7 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.gen_load_int(new_loc.value, prev_loc.getint(), cond=cond)
             prev_loc = new_loc
             if not loc.is_stack():
-                return 
+                return
         if loc.is_stack() and prev_loc.is_reg():
             self.mc.STR_ri(prev_loc.value, r.fp.value, loc.position*-WORD, cond=cond)
         elif loc.is_reg() and prev_loc.is_stack():
