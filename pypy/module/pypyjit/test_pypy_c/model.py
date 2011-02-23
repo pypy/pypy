@@ -130,11 +130,13 @@ class LoopWithIds(Function):
             for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                 yield op
 
-    def ops_by_id(self, id, include_debug_merge_points=False):
+    def ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
+        opcode_name = opcode
         target_opcodes = self.ids[id]
         for chunk in self.flatten_chunks():
             opcode = chunk.getopcode()
-            if opcode in target_opcodes:
+            if opcode in target_opcodes and (opcode_name is None or
+                                             opcode.__class__.__name__ == opcode_name):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
 

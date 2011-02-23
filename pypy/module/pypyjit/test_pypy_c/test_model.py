@@ -142,6 +142,26 @@ class TestRunPyPyC(BaseTestPyPyC):
         opnames = [op.name for op in ops]
         assert opnames == ['int_add']
 
+    def test_ops_by_id_and_opcode(self):
+        def f():
+            i = 0
+            j = 0
+            while i < 1003:
+                i += 1; j -= 1 # ID: foo
+                a = 0  # to make sure that JUMP_ABSOLUTE is not part of the ID
+            return i
+        #
+        log = self.run(f)
+        loop, = log.loops_by_id('foo')
+        #
+        ops = list(loop.ops_by_id('foo', opcode='INPLACE_ADD'))
+        opnames = [op.name for op in ops]
+        assert opnames == ['int_add']
+        #
+        ops = list(loop.ops_by_id('foo', opcode='INPLACE_SUBTRACT'))
+        opnames = [op.name for op in ops]
+        assert opnames == ['int_sub_ovf', 'guard_no_overflow']
+        
 
     def test_inlined_function(self):
         def f():
