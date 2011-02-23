@@ -58,19 +58,18 @@ class TestPyPyCNew(BaseTestPyPyC):
 
     def test_cmp_exc(self):
         def f1(n):
-            def f():
-                raise KeyError
-
+            # So we don't get a LOAD_GLOBAL op
+            KE = KeyError
             i = 0
             while i < n:
                 try:
-                    f()
-                except KeyError: # ID: except
+                    raise KE
+                except KE: # ID: except
                     i += 1
             return i
 
         log = self.run(f1, [10000])
         assert log.result == 10000
         loop, = log.loops_by_id("except")
-        ops = [o.name for o in loop.ops_by_id("except")]
-        assert "call_may_force" not in ops
+        ops = list(loop.ops_by_id("except", opcode="COMPARE_OP"))
+        assert ops == []
