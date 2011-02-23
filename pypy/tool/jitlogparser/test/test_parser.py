@@ -34,10 +34,10 @@ def test_parse_non_code():
 def test_split():
     ops = parse('''
     [i0]
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 200> #10 ADD", 0)
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 200> #11 SUB", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 200> #10 ADD", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 200> #11 SUB", 0)
     i1 = int_add(i0, 1)
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 200> #11 SUB", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 200> #11 SUB", 0)
     i2 = int_add(i1, 1)
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
@@ -68,27 +68,27 @@ def test_inlined_call():
 def test_name():
     ops = parse('''
     [i0]
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 200> #10 ADD", 0)
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 201> #11 SUB", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 200> #10 ADD", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 201> #11 SUB", 0)
     i1 = int_add(i0, 1)
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 202> #11 SUB", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 202> #11 SUB", 0)
     i2 = int_add(i1, 1)
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
     assert res.repr() == res.chunks[0].repr()
-    assert res.repr() == "stuff, file '/tmp/x.py', line 200"
+    assert res.repr() == "stuff, file '/I/dont/exist.py', line 200"
     assert res.startlineno == 200
-    assert res.filename == '/tmp/x.py'
+    assert res.filename == '/I/dont/exist.py'
     assert res.name == 'stuff'
 
 def test_name_no_first():
     ops = parse('''
     [i0]
     i3 = int_add(i0, 1)
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 200> #10 ADD", 0)
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 201> #11 SUB", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 200> #10 ADD", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 201> #11 SUB", 0)
     i1 = int_add(i0, 1)
-    debug_merge_point("<code object stuff, file '/tmp/x.py', line 202> #11 SUB", 0)
+    debug_merge_point("<code object stuff, file '/I/dont/exist.py', line 202> #11 SUB", 0)
     i2 = int_add(i1, 1)
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())

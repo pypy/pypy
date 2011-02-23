@@ -3,7 +3,9 @@
 for all loops and bridges, so http requests can refer to them by name
 """
 
+import py
 import os
+from lib_pypy.disassembler import dis
 from pypy.tool.jitlogparser.parser import Function
 from pypy.tool.jitlogparser.module_finder import gather_all_code_objs
 
@@ -12,6 +14,7 @@ class LoopStorage(object):
         self.loops = None
         self.functions = {}
         self.codes = {}
+        self.disassembled_codes = {}
         self.extrapath = extrapath
 
     def load_code(self, fname):
@@ -25,6 +28,17 @@ class LoopStorage(object):
                     raise IOError("Cannot find %s" % fname)
                 res = gather_all_code_objs(os.path.join(self.extrapath, fname))
             self.codes[fname] = res
+            return res
+
+    def disassemble_code(self, fname, startlineno):
+        if py.path.local(fname).check(file=False):
+            return None # cannot find source file
+        key = (fname, startlineno)
+        try:
+            return self.disassembled_codes[key]
+        except KeyError:
+            res = dis(self.load_code(fname)[startlineno])
+            self.disassembled_codes[key] = res
             return res
 
     def reconnect_loops(self, loops):

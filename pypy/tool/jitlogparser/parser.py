@@ -1,5 +1,4 @@
 import re, sys
-from lib_pypy.disassembler import dis
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.tool.oparser import OpParser
 
@@ -92,6 +91,7 @@ class TraceForOpcode(object):
                 self.bytecode_no = int(bytecode_no)
         self.operations = operations
         self.storage = storage
+        self.code = storage.disassemble_code(self.filename, self.startlineno)
 
     def repr(self):
         if self.filename is None:
@@ -100,8 +100,6 @@ class TraceForOpcode(object):
                                            self.startlineno)
 
     def getcode(self):
-        if self.code is None and self.filename is not None:
-            self.code = dis(self.storage.load_code(self.filename)[self.startlineno])
         return self.code
 
     def getlineno(self):
