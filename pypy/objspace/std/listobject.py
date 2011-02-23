@@ -235,9 +235,24 @@ class AbstractUnwrappedStrategy(ListStrategy):
         raise NotImplementedError("abstract base class")
 
 
+    def length(self, w_list):
+        return len(self.cast_from_void_star(w_list.storage))
 
     def getitem(self, w_list, index):
         return self.wrap(self.cast_from_void_star(w_list.storage)[index])
+
+    def getitems(self, w_list):
+        return self.cast_from_void_star(w_list.storage)
+
+    def getslice(self, w_list, start, stop, step, length):
+        if step == 1:
+            return W_ListObject(self.cast_from_void_star(w_list.storage)[start:stop])
+        else:
+            subitems_w = [None] * length
+            for i in range(length):
+                subitems_w[i] = w_list.getitem(start)
+                start += step
+            return W_ListObject(subitems_w)
 
     def append(self,  w_list, w_item):
 
@@ -250,6 +265,36 @@ class AbstractUnwrappedStrategy(ListStrategy):
         w_list.strategy.init_from_list_w(w_list, items_w)
         w_list.append(w_item)
 
+    def insert(self, w_list, index, w_item):
+        list_w = self.cast_from_void_star(w_list.storage)
+
+        if self.is_correct_type(w_item):
+            list_w.insert(index, w_item)
+            return
+
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.insert(index, w_item)
+
+    def setitem(self, w_list, index, w_item):
+        list_w = self.cast_from_void_star(w_list.storage)
+
+        if self.is_correct_type(w_item):
+            list_w[index] = w_item
+            return
+
+        w_list.strategy = ObjectListStrategy()
+        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.setitem(index, w_item)
+
+    def deleteitem(self, w_list, index):
+        list_w = self.cast_from_void_star(w_list.storage)
+        del list_w[index]
+
+    def inplace_mul(self, w_list, times):
+        list_w = self.cast_from_void_star(w_list.storage)
+        list_w *= times
+
 class IntegerListStrategy(AbstractUnwrappedStrategy):
 
     def cast_from_void_star(self, storage):
@@ -260,53 +305,6 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
 
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "integer")
-
-    def length(self, w_list):
-        return len(cast_from_void_star(w_list.storage, "integer"))
-
-    def getslice(self, w_list, start, stop, step, length):
-        if step == 1:
-            return W_ListObject(cast_from_void_star(w_list.storage, "integer")[start:stop])
-        else:
-            subitems_w = [None] * length
-            for i in range(length):
-                subitems_w[i] = w_list.getitem(start)
-                start += step
-            return W_ListObject(subitems_w)
-
-    def getitems(self, w_list):
-        return cast_from_void_star(w_list.storage, "integer")
-
-    def inplace_mul(self, w_list, times):
-        list_w = cast_from_void_star(w_list.storage, "integer")
-        list_w *= times
-
-    def deleteitem(self, w_list, index):
-        list_w = cast_from_void_star(w_list.storage, "integer")
-        del list_w[index]
-
-    def setitem(self, w_list, index, w_item):
-        list_w = cast_from_void_star(w_list.storage, "integer")
-
-        if is_W_IntObject(w_item):
-            list_w[index] = w_item
-            return
-
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, list_w)
-        w_list.setitem(index, w_item)
-
-    def insert(self, w_list, index, w_item):
-        list_w = cast_from_void_star(w_list.storage, "integer")
-
-        if is_W_IntObject(w_item):
-            list_w.insert(index, w_item)
-            return
-
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, list_w)
-        w_list.insert(index, w_item)
-
 
 class StringListStrategy(ListStrategy):
 
