@@ -1,7 +1,7 @@
 """ MiniMark GC.
 
 Environment variables can be used to fine-tune the following parameters:
-    
+
  PYPY_GC_NURSERY        The nursery size.  Defaults to half the size of
                         the L2 cache.  Try values like '1.2MB'.  Small values
                         (like 1 or 1KB) are useful for debugging.
@@ -827,7 +827,7 @@ class MiniMarkGC(MovingGCBase):
         if result:
             ll_assert(tid == -42, "bogus header for young obj")
         else:
-            ll_assert(tid != 0, "bogus header (1)")
+            ll_assert(bool(tid), "bogus header (1)")
             ll_assert(tid & ~TID_MASK == 0, "bogus header (2)")
         return result
 
