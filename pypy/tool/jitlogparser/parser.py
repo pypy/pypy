@@ -68,7 +68,7 @@ class SimpleParser(OpParser):
 class NonCodeError(Exception):
     pass
 
-class Bytecode(object):
+class OpCode(object):
     filename = None
     startlineno = 0
     name = None
@@ -143,7 +143,7 @@ class Function(object):
 
     @classmethod
     def from_operations(cls, operations, storage, limit=None):
-        """ Slice given operation list into a chain of Bytecode chunks.
+        """ Slice given operation list into a chain of OpCode chunks.
         Also detect inlined functions and make them Function
         """
         stack = []
@@ -168,13 +168,13 @@ class Function(object):
         for op in operations:
             if op.name == 'debug_merge_point':
                 if so_far:
-                    append_to_res(Bytecode(so_far, storage))
+                    append_to_res(OpCode(so_far, storage))
                     if limit:
                         break
                     so_far = []
             so_far.append(op)
         if so_far:
-            append_to_res(Bytecode(so_far, storage))
+            append_to_res(OpCode(so_far, storage))
         # wrap stack back up
         if not stack:
             # no ops whatsoever
