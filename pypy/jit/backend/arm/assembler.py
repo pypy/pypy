@@ -56,6 +56,8 @@ class AssemblerARM(ResOpAssembler):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
+        self.fail_boxes_count = 0
+        self.fail_force_index = 0
         self.setup_failure_recovery()
         self.mc = None
         self.malloc_func_addr = 0
@@ -157,6 +159,7 @@ class AssemblerARM(ResOpAssembler):
         assert enc[i] == self.END_OF_LOCS
         descr = self.decode32(enc, i+1)
         self.fail_boxes_count = fail_index
+        self.fail_force_index = frame_loc
         return descr
 
     def decode_inputargs(self, enc, inputargs, regalloc):

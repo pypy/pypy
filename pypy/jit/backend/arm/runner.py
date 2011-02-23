@@ -54,6 +54,12 @@ class ArmCPU(AbstractLLCPU):
     def get_latest_value_count(self):
         return self.assembler.fail_boxes_count
 
+    def get_latest_value_count(self):
+        return self.assembler.fail_boxes_count
+
+    def get_latest_force_token(self):
+        return self.assembler.fail_force_index
+
     def clear_latest_values(self, count):
         setitem = self.assembler.fail_boxes_ptr.setitem
         null = lltype.nullptr(llmemory.GCREF.TO)
