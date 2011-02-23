@@ -290,7 +290,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
         assert slicelength >= 0
         items = self.cast_from_void_star(w_list.storage)
 
-        if not self.is_correct_type(W_ListObject(sequence_w)):
+        if not self.list_is_correct_type(W_ListObject(sequence_w)):
             w_list.strategy = ObjectListStrategy()
             w_list.strategy.init_from_list_w(w_list, items)
             w_list.setslice(start, step, slicelength, sequence_w)
