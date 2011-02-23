@@ -21,7 +21,7 @@ from pypy.objspace.std.stringobject import (
 
 class W_RopeObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['_node']
 
     def __init__(w_self, node):
         if not we_are_translated():

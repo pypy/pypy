@@ -25,7 +25,7 @@ class W_FloatObject(W_Object):
        it is assumed that the constructor takes a real Python float as
        an argument"""
     from pypy.objspace.std.floattype import float_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['floatval']
 
     def __init__(w_self, floatval):
         w_self.floatval = floatval
