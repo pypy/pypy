@@ -120,7 +120,7 @@ def name_char(value, db):
     if ' ' <= value < '\x7f':
         return "'%s'" % (value.replace("\\", r"\\").replace("'", r"\'"),)
     else:
-        return '%d' % ord(value)
+        return '((char)%d)' % ord(value)
 
 def name_bool(value, db):
     return '%d' % value
