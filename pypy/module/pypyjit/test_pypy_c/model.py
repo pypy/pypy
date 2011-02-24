@@ -178,7 +178,8 @@ class LoopWithIds(Function):
         args = map(str.strip, args)
         return opname, resvar, args
 
-    def preprocess_expected_src(self, src):
+    @classmethod
+    def preprocess_expected_src(cls, src):
         # all loops decrement the tick-counter at the end. The rpython code is
         # in jump_absolute() in pypyjit/interp.py. The string --TICK-- is
         # replaced with the corresponding operations, so that tests don't have
@@ -206,11 +207,12 @@ class LoopWithIds(Function):
             return alpha_map[v1] == v2
         return match_var
 
-    def match_ops(self, ops, expected_src):
-        expected_src = self.preprocess_expected_src(expected_src)
-        match_var = self._get_match_var()
+    @classmethod
+    def match_ops(cls, ops, expected_src):
+        expected_src = cls.preprocess_expected_src(expected_src)
+        match_var = cls._get_match_var()
         #
-        expected_ops = self.parse_ops(expected_src)
+        expected_ops = cls.parse_ops(expected_src)
         assert len(ops) == len(expected_ops), "wrong number of operations"
         for op, (exp_opname, exp_res, exp_args) in zip(ops, expected_ops):
             assert op.name == exp_opname
