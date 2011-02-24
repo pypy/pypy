@@ -130,7 +130,7 @@ def name_void(value, db):
 
 def name_unichar(value, db):
     assert type(value) is unicode and len(value) == 1
-    return '%d' % ord(value)
+    return '((wchar_t)%d)' % ord(value)
 
 def name_address(value, db):
     if value:
