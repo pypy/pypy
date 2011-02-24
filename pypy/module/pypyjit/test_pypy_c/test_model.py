@@ -93,7 +93,7 @@ class TestOpMatcher(object):
             return False
 
     def test_match_var(self):
-        match_var = OpMatcher._get_match_var()
+        match_var = OpMatcher([]).match_var
         assert match_var('v0', 'V0')
         assert not match_var('v0', 'V1')
         assert match_var('v0', 'V0')

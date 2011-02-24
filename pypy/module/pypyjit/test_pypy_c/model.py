@@ -165,7 +165,7 @@ class OpMatcher(object):
 
     def __init__(self, ops):
         self.ops = ops
-        self.alpha_map = None
+        self.alpha_map = {}
 
     @classmethod
     def parse_ops(cls, src):
@@ -211,29 +211,26 @@ class OpMatcher(object):
         return src
 
     @classmethod
-    def _get_match_var(cls):
-        def is_const(v1):
-            return isinstance(v1, str) and v1.startswith('ConstClass(')
-        alpha_map = {}
-        def match_var(v1, v2):
-            if is_const(v1) or is_const(v2):
-                return v1 == v2
-            if v1 not in alpha_map:
-                alpha_map[v1] = v2
-            return alpha_map[v1] == v2
-        return match_var
+    def is_const(cls, v1):
+        return isinstance(v1, str) and v1.startswith('ConstClass(')
+    
+    def match_var(self, v1, v2):
+        if self.is_const(v1) or self.is_const(v2):
+            return v1 == v2
+        if v1 not in self.alpha_map:
+            self.alpha_map[v1] = v2
+        return self.alpha_map[v1] == v2
 
     def match(self, expected_src):
         expected_src = self.preprocess_expected_src(expected_src)
-        match_var = self._get_match_var()
         #
         expected_ops = self.parse_ops(expected_src)
         assert len(self.ops) == len(expected_ops), "wrong number of operations"
         for op, (exp_opname, exp_res, exp_args) in zip(self.ops, expected_ops):
             assert op.name == exp_opname
-            match_var(op.res, exp_res)
+            self.match_var(op.res, exp_res)
             assert len(op.args) == len(exp_args), "wrong number of arguments"
             for arg, exp_arg in zip(op.args, exp_args):
-                assert match_var(arg, exp_arg), "variable mismatch"
+                assert self.match_var(arg, exp_arg), "variable mismatch"
         return True
 
