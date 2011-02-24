@@ -188,6 +188,8 @@ class OpMatcher(object):
         line = line.strip()
         if not line:
             return None
+        if line == '...':
+            return line
         opname, _, args = line.partition('(')
         opname = opname.strip()
         assert args.endswith(')')
@@ -234,10 +236,25 @@ class OpMatcher(object):
         for arg, exp_arg in zip(op.args, exp_args):
             self._assert(self.match_var(arg, exp_arg), "variable mismatch")
 
+    def _next_op(self, iter_ops, message, assert_raises=False):
+        try:
+            op = iter_ops.next()
+        except StopIteration:
+            self._assert(assert_raises, message)
+            return
+        else:
+            self._assert(not assert_raises, message)
+            return op
+
     def match_loop(self, expected_ops):
-        self._assert(len(self.ops) == len(expected_ops), "wrong number of operations")
-        for op, exp_op in zip(self.ops, expected_ops):
+        iter_exp_ops = iter(expected_ops)
+        iter_ops = iter(self.ops)
+        for exp_op in iter_exp_ops:
+            op = self._next_op(iter_ops, "not enough operations")
             self.match_op(op, exp_op)
+        #
+        # make sure we exhausted iter_ops
+        self._next_op(iter_ops, "operation list too long", assert_raises=True)
 
     def match(self, expected_src):
         expected_src = self.preprocess_expected_src(expected_src)

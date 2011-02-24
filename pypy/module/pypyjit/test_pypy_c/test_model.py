@@ -129,9 +129,15 @@ class TestOpMatcher(object):
         assert not self.match(loop, expected)
         #
         expected = """
-            i5 = int_sub(i2, 1)
+            i5 = int_add(i2, 1)
             jump(i5)
             extra_stuff(i5)
+        """
+        assert not self.match(loop, expected)
+        #
+        expected = """
+            i5 = int_add(i2, 1)
+            # missing op at the end
         """
         assert not self.match(loop, expected)
 
