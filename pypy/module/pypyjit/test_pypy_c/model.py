@@ -150,6 +150,22 @@ class LoopWithIds(Function):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
 
+    def match(self, expected_src):
+        ops = list(self.allops())
+        matcher = OpMatcher(ops)
+        return matcher.match(expected_src)
+
+    def match_by_id(self, id, expected_src):
+        ops = list(self.ops_by_id(id))
+        matcher = OpMatcher(ops)
+        return matcher.match(expected_src)
+
+
+class OpMatcher(object):
+
+    def __init__(self, ops):
+        self.ops = ops
+        self.alpha_map = None
 
     @classmethod
     def parse_ops(cls, src):
@@ -207,14 +223,13 @@ class LoopWithIds(Function):
             return alpha_map[v1] == v2
         return match_var
 
-    @classmethod
-    def match_ops(cls, ops, expected_src):
-        expected_src = cls.preprocess_expected_src(expected_src)
-        match_var = cls._get_match_var()
+    def match(self, expected_src):
+        expected_src = self.preprocess_expected_src(expected_src)
+        match_var = self._get_match_var()
         #
-        expected_ops = cls.parse_ops(expected_src)
-        assert len(ops) == len(expected_ops), "wrong number of operations"
-        for op, (exp_opname, exp_res, exp_args) in zip(ops, expected_ops):
+        expected_ops = self.parse_ops(expected_src)
+        assert len(self.ops) == len(expected_ops), "wrong number of operations"
+        for op, (exp_opname, exp_res, exp_args) in zip(self.ops, expected_ops):
             assert op.name == exp_opname
             match_var(op.res, exp_res)
             assert len(op.args) == len(exp_args), "wrong number of arguments"
@@ -222,10 +237,3 @@ class LoopWithIds(Function):
                 assert match_var(arg, exp_arg), "variable mismatch"
         return True
 
-    def match(self, expected_src):
-        ops = list(self.allops())
-        return self.match_ops(ops, expected_src)
-
-    def match_by_id(self, id, expected_src):
-        ops = list(self.ops_by_id(id))
-        return self.match_ops(ops, expected_src)

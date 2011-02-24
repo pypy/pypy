@@ -4,7 +4,8 @@ import py
 from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
-from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, LoopWithIds
+from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, \
+    LoopWithIds, OpMatcher
 
 class BaseTestPyPyC(object):
     def setup_class(cls):
@@ -79,19 +80,20 @@ class TestLog(object):
         opcodes_names = [opcode.__class__.__name__ for opcode in myline]
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
-class TestMath(object):
+class TestOpMatcher(object):
 
     def match(self, src1, src2):
         """Wrapper around LoopWithIds.match_ops"""
         from pypy.tool.jitlogparser.parser import parse
         loop = parse(src1)
+        matcher = OpMatcher(loop.operations)
         try:
-            return LoopWithIds.match_ops(loop.operations, src2)
+            return matcher.match(src2)
         except AssertionError:
             return False
 
     def test_match_var(self):
-        match_var = LoopWithIds._get_match_var()
+        match_var = OpMatcher._get_match_var()
         assert match_var('v0', 'V0')
         assert not match_var('v0', 'V1')
         assert match_var('v0', 'V0')
@@ -106,7 +108,13 @@ class TestMath(object):
         assert not match_var('ConstClass(bar)', 'v1')
         assert not match_var('v2', 'ConstClass(baz)')
 
-    def test_match(self):
+    def test_parse_op(self):
+        res = OpMatcher.parse_op("  a =   int_add(  b,  3 ) # foo")
+        assert res == ("int_add", "a", ["b", "3"])
+        res = OpMatcher.parse_op("guard_true(a)")
+        assert res == ("guard_true", None, ["a"])
+
+    def test_exact_match(self):
         loop = """
             [i0]
             i2 = int_add(i0, 1)
@@ -123,6 +131,32 @@ class TestMath(object):
             jump(i5)
         """
         assert not self.match(loop, expected)
+        #
+        expected = """
+            i5 = int_sub(i2, 1)
+            jump(i5)
+            extra_stuff(i5)
+        """
+        assert not self.match(loop, expected)
+
+
+    def test_partial_match(self):
+        py.test.skip('in-progress')
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i2 = int_sub(i1, 10)
+            i3 = int_floordiv(i2, 100)
+            i4 = int_mul(i1, 1000)
+            jump(i3)
+        """
+        expected = """
+            i1 = int_add(0, 1)
+            ...
+            i4 = int_mul(i1, 1000)
+        """
+        assert self.match(loop, expected)
+
 
 
 class TestRunPyPyC(BaseTestPyPyC):
@@ -234,12 +268,6 @@ class TestRunPyPyC(BaseTestPyPyC):
             'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
             'jump'
             ]
-
-    def test_parse_op(self):
-        res = LoopWithIds.parse_op("  a =   int_add(  b,  3 ) # foo")
-        assert res == ("int_add", "a", ["b", "3"])
-        res = LoopWithIds.parse_op("guard_true(a)")
-        assert res == ("guard_true", None, ["a"])
 
     def test_match(self):
         def f():
