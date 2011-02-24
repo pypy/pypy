@@ -194,8 +194,11 @@ class OpMatcher(object):
         opname = opname.strip()
         assert args.endswith(')')
         args = args[:-1]
-        args = args.split(',')
-        args = map(str.strip, args)
+        if args:
+            args = args.split(',')
+            args = map(str.strip, args)
+        else:
+            args = []
         return opname, resvar, args
 
     @classmethod

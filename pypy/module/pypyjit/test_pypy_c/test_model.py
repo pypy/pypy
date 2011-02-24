@@ -115,6 +115,8 @@ class TestOpMatcher(object):
         assert res == ("int_add", "a", ["b", "3"])
         res = OpMatcher.parse_op("guard_true(a)")
         assert res == ("guard_true", None, ["a"])
+        res = OpMatcher.parse_op("force_token()")
+        assert res == ("force_token", None, [])
 
     def test_exact_match(self):
         loop = """
