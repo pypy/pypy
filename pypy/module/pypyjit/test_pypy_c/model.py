@@ -221,16 +221,20 @@ class OpMatcher(object):
             self.alpha_map[v1] = v2
         return self.alpha_map[v1] == v2
 
+    def match_op(self, op, (exp_opname, exp_res, exp_args)):
+        assert op.name == exp_opname
+        self.match_var(op.res, exp_res)
+        assert len(op.args) == len(exp_args), "wrong number of arguments"
+        for arg, exp_arg in zip(op.args, exp_args):
+            assert self.match_var(arg, exp_arg), "variable mismatch"
+        
+
     def match(self, expected_src):
         expected_src = self.preprocess_expected_src(expected_src)
         #
         expected_ops = self.parse_ops(expected_src)
         assert len(self.ops) == len(expected_ops), "wrong number of operations"
-        for op, (exp_opname, exp_res, exp_args) in zip(self.ops, expected_ops):
-            assert op.name == exp_opname
-            self.match_var(op.res, exp_res)
-            assert len(op.args) == len(exp_args), "wrong number of arguments"
-            for arg, exp_arg in zip(op.args, exp_args):
-                assert self.match_var(arg, exp_arg), "variable mismatch"
+        for op, exp_op in zip(self.ops, expected_ops):
+            self.match_op(op, exp_op)
         return True
 
