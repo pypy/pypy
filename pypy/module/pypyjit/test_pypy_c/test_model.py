@@ -18,7 +18,7 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def run(self, func, args=[], threshold=1000):
+    def run(self, func, args=[], **jitopts):
         # write the snippet
         arglist = ', '.join(map(repr, args))
         with self.filepath.open("w") as f:
@@ -27,10 +27,13 @@ class BaseTestPyPyC(object):
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
+        #
+        cmdline = [sys.executable, '-S']
+        for key, value in jitopts.iteritems():
+            cmdline += ['--jit', '%s=%s' % (key, value)]
+        cmdline.append(str(self.filepath))
+        #
         env={'PYPYLOG': 'jit-log-opt,jit-summary:' + str(logfile)}
-        cmdline = [sys.executable, '-S',
-                   '--jit', 'threshold=%d' % threshold,
-                   str(self.filepath)]
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,

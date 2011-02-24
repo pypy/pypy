@@ -70,6 +70,38 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(p0, p1, p2, p3, i13, p11)
         """)
 
+
+    def test_recursive_call(self):
+        py.test.skip('in-progress')
+        def fn():
+            def rec(n):
+                if n == 0:
+                    return 0
+                return 1 + rec(n-1)
+            #
+            # this loop is traced and then aborted, because the trace is too
+            # long. But then "rec" is marked as "don't inline"
+            i = 0
+            j = 0
+            while i < 20:
+                i += 1
+                j += rec(100)
+            #
+            # next time we try to trace "rec", instead of inlining we compile
+            # it separately and generate a call_assembler
+            i = 0
+            j = 0
+            while i < 20:
+                i += 1
+                j += rec(100) # ID: call_rec
+                a = 0
+            return j
+        #
+        log = self.run(fn, [], threshold=18)
+        loop, = log.loops_by_filename(self.filepath)
+        import pdb;pdb.set_trace()
+
+
     def test_cmp_exc(self):
         def f1(n):
             # So we don't get a LOAD_GLOBAL op
