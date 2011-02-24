@@ -431,6 +431,7 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
     A = lltype.GcArray(lltype.Char)
     I = lltype.GcArray(lltype.Signed)
     arraydescr = cpu.arraydescrof(A)
+    arraydescr_i = cpu.arraydescrof(I)
 
     namespace = locals().copy()
 
@@ -507,7 +508,7 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
     def test_setarrayitem3_gc(self):
         ops = '''
         [p0, i0, i1]
-        setarrayitem_gc(p0, i1, i0, descr=arraydescr)
+        setarrayitem_gc(p0, i1, i0, descr=arraydescr_i)
         finish()
         '''
         s = lltype.malloc(self.I, 3)
@@ -517,7 +518,7 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
     def test_setarrayitem4_gc(self):
         ops = '''
         [p0, i0]
-        setarrayitem_gc(p0, 1, i0, descr=arraydescr)
+        setarrayitem_gc(p0, 1, i0, descr=arraydescr_i)
         finish()
         '''
         s = lltype.malloc(self.I, 3)
@@ -670,6 +671,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         self.run(loop)
         assert self.getint(0) == 29
 
+class TestJumps(BaseTestRegalloc):
     def test_jump_with_consts(self):
         loop = """
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14]
@@ -681,7 +683,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
 
     def test_from_loop_to_loop(self):
         def assembler_helper(failindex, virtualizable):
-            return 1
+            return 3
 
         FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
                                              lltype.Signed))
@@ -696,22 +698,23 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         loop1 = """
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]
         i11 = int_add(i0, i1)
-        finish(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11)
+        finish(i11, i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10)
         """
         large = self.interpret(loop1, range(11), run=False)
         large.token.outermost_jitdriver_sd = FakeJitDriverSD()
         self.namespace['looptoken'] = large.token
         assert self.namespace['looptoken']._arm_bootstrap_code != 0
         loop2 = """
-       [i0]
+        [i0]
         i1 = force_token()
-        call_assembler(1,2,3,4,5,6,7,8,9,10,11, descr=looptoken)
+        i2 = call_assembler(1,2,3,4,5,6,7,8,9,10,11, descr=looptoken)
         guard_not_forced() [i0]
-        finish(i0)
+        finish(i0, i2)
         """
 
         self.interpret(loop2, [110])
-        assert self.getint(0) == 0
+        assert self.getint(0) == 110
+        assert self.getint(1) == 3
 
     def test_far_far_jump(self):
         ops = """
@@ -740,3 +743,43 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         """
         self.interpret(ops, range(11))
         assert self.getint(0) == 2 # and not segfault()
+
+class TestStrOps(BaseTestRegalloc):
+    def test_newstr(self):
+        ops = """
+        [i0]
+        p1 = newstr(300)
+        i2 = strlen(p1)
+        finish(i2)
+        """
+        self.interpret(ops, [0])
+        assert self.getint(0) == 300
+        ops = """
+        [i0]
+        p1 = newstr(i0)
+        i2 = strlen(p1)
+        finish(i2)
+        """
+        self.interpret(ops, [300])
+        assert self.getint(0) == 300
+
+    def test_strlen(self):
+        s = rstr.mallocstr(300)
+        ops = """
+        [p0]
+        i1 = strlen(p0)
+        finish(i1)
+        """
+        self.interpret(ops, [s])
+        assert self.getint(0) == 300
+
+    def test_len_of_newstr(self):
+        ops = """
+        []
+        p0 = newstr(300)
+        finish(p0)
+        """
+        self.interpret(ops, [])
+        string = self.getptr(0, lltype.Ptr(rstr.STR))
+        assert len(string.chars) == 300
+
