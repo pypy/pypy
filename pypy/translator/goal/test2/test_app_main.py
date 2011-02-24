@@ -435,6 +435,8 @@ class TestInteraction:
         child.expect('True')
         child.sendline('"pypy.translator.goal.test2.mymodule" in sys.modules')
         child.expect('False')
+        child.sendline('sys.path[0]')
+        child.expect("''")
 
     def test_option_i_noexit(self):
         child = self.spawn(['-i', '-c', 'import sys; sys.exit(1)'])

@@ -507,6 +507,8 @@ def run_command_line(interactive,
             success = run_toplevel(run_it)
         elif run_module:
             # handle the "-m" command
+            # '' on sys.path is required also here
+            sys.path.insert(0, '')
             import runpy
             success = run_toplevel(runpy._run_module_as_main, sys.argv[0])
         elif run_stdin:
