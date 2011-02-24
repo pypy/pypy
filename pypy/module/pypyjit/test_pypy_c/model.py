@@ -276,7 +276,12 @@ class OpMatcher(object):
         for exp_op in iter_exp_ops:
             if exp_op == '...':
                 # loop until we find an operation which matches
-                exp_op = iter_exp_ops.next()
+                try:
+                    exp_op = iter_exp_ops.next()
+                except StopIteration:
+                    # the ... is the last line in the expected_ops, so we just
+                    # return because it matches everything until the end
+                    return
                 op = self.match_until(exp_op, iter_ops)
             else:
                 op = self._next_op(iter_ops)

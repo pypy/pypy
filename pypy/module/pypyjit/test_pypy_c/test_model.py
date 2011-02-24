@@ -184,6 +184,21 @@ class TestOpMatcher(object):
         # then the second one does not match
         assert not self.match(loop, expected)
 
+    def test_partial_match_at_the_end(self):
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i2 = int_sub(i1, 10)
+            i3 = int_floordiv(i2, 100)
+            i4 = int_mul(i1, 1000)
+            jump(i4)
+        """
+        expected = """
+            i1 = int_add(0, 1)
+            ...
+        """
+        assert self.match(loop, expected)
+
 
 class TestRunPyPyC(BaseTestPyPyC):
 
