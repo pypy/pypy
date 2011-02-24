@@ -56,6 +56,8 @@ class SimpleParser(OpParser):
             if args[-1].startswith('descr='):
                 descr = args[-1][len('descr='):]
                 args = args[:-1]
+            if args == ['']:
+                args = []
             return (args, descr)
 
     def box_for_var(self, res):

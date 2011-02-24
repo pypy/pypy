@@ -72,7 +72,6 @@ class TestPyPyCNew(BaseTestPyPyC):
 
 
     def test_recursive_call(self):
-        py.test.skip('in-progress')
         def fn():
             def rec(n):
                 if n == 0:
@@ -99,8 +98,13 @@ class TestPyPyCNew(BaseTestPyPyC):
         #
         log = self.run(fn, [], threshold=18)
         loop, = log.loops_by_filename(self.filepath)
-        import pdb;pdb.set_trace()
-
+        assert loop.match_by_id('call_rec', """
+            ...
+            p53 = call_assembler(p35, p7, ConstPtr(ptr21), ConstPtr(ptr49), 0, ConstPtr(ptr51), -1, ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr48))
+            guard_not_forced()
+            guard_no_exception()
+            ...
+        """)
 
     def test_cmp_exc(self):
         def f1(n):
