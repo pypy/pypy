@@ -14,7 +14,7 @@ class W_ComplexObject(W_Object):
     """This is a reimplementation of the CPython "PyComplexObject"
     """
     from pypy.objspace.std.complextype import complex_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['realval', 'imagval']
 
     def __init__(w_self, realval=0.0, imgval=0.0):
         w_self.realval = float(realval)

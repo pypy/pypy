@@ -1,7 +1,7 @@
 import py
 import re
 import os.path
-from pypy.tool.jitlogparser.parser import parse, Function
+from pypy.tool.jitlogparser.parser import parse, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
 
@@ -47,14 +47,23 @@ class Log(object):
     def _filter(self, loop, is_entry_bridge=False):
         return is_entry_bridge == '*' or loop.is_entry_bridge == is_entry_bridge
 
-    def by_filename(self, filename, **kwds):
+    def loops_by_filename(self, filename, **kwds):
+        """
+        Return all loops which start in the file ``filename``
+        """
         return [loop for loop in self.loops
                 if loop.filename == filename and self._filter(loop, **kwds)]
 
-    def by_id(self, id, **kwds):
+    def loops_by_id(self, id, **kwds):
+        """
+        Return all loops which contain the ID ``id``
+        """
         return [loop for loop in self.loops
                 if loop.has_id(id) and self._filter(loop, **kwds)]
 
+    @classmethod
+    def opnames(self, oplist):
+        return [op.name for op in oplist]
 
 class LoopWithIds(Function):
 
@@ -62,7 +71,10 @@ class LoopWithIds(Function):
 
     def __init__(self, *args, **kwds):
         Function.__init__(self, *args, **kwds)
-        self.compute_ids()
+        self.ids = {}
+        self.code = self.chunks[0].getcode()
+        if self.code:
+            self.compute_ids(self.ids)
 
     @classmethod
     def from_trace(cls, trace, storage):
@@ -70,26 +82,148 @@ class LoopWithIds(Function):
         res.is_entry_bridge = 'entry bridge' in trace.comment
         return res
 
-    def compute_ids(self):
-        self.ids = set()
-        self.code = None
-        if not self.filename:
-            return
-        self.code = self.chunks[0].getcode()
-        ids = find_ids(self.code)
+    def flatten_chunks(self):
+        """
+        return a flat sequence of TraceForOpcode objects, including the ones
+        inside inlined functions
+        """
+        for chunk in self.chunks:
+            if isinstance(chunk, TraceForOpcode):
+                yield chunk
+            else:
+                for subchunk in chunk.flatten_chunks():
+                    yield subchunk
+
+    def compute_ids(self, ids):
+        #
+        # 1. compute the ids of self, i.e. the outer function
+        id2opcodes = find_ids(self.code)
         all_my_opcodes = self.get_set_of_opcodes()
         # XXX: for now, we just look for the first opcode in the id range
-        for id, opcodes in ids.iteritems():
-            targetop = opcodes[0]
-            if targetop in all_my_opcodes:
-                self.ids.add(id)
+        for id, opcodes in id2opcodes.iteritems():
+            if not opcodes:
+                continue
+            target_opcode = opcodes[0]
+            if target_opcode in all_my_opcodes:
+                ids[id] = opcodes
+        #
+        # 2. compute the ids of all the inlined functions
+        for chunk in self.chunks:
+            if isinstance(chunk, LoopWithIds):
+                chunk.compute_ids(ids)
 
     def get_set_of_opcodes(self):
-        res = set()
+        result = set()
         for chunk in self.chunks:
-            opcode = self.code.map[chunk.bytecode_no]
-            res.add(opcode)
-        return res
+            if isinstance(chunk, TraceForOpcode):
+                opcode = chunk.getopcode()
+                result.add(opcode)
+        return result
 
     def has_id(self, id):
         return id in self.ids
+
+    def _ops_for_chunk(self, chunk, include_debug_merge_points):
+        for op in chunk.operations:
+            if op.name != 'debug_merge_point' or include_debug_merge_points:
+                yield op
+
+    def allops(self, include_debug_merge_points=False):
+        for chunk in self.flatten_chunks():
+            for op in self._ops_for_chunk(chunk, include_debug_merge_points):
+                yield op
+
+    def print_ops(self, id=None):
+        if id is None:
+            ops = self.allops()
+        else:
+            ops = self.ops_by_id(id)
+        print '\n'.join(map(str, ops))
+
+    def ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
+        opcode_name = opcode
+        target_opcodes = self.ids[id]
+        for chunk in self.flatten_chunks():
+            opcode = chunk.getopcode()
+            if opcode in target_opcodes and (opcode_name is None or
+                                             opcode.__class__.__name__ == opcode_name):
+                for op in self._ops_for_chunk(chunk, include_debug_merge_points):
+                    yield op
+
+
+    @classmethod
+    def parse_ops(cls, src):
+        ops = [cls.parse_op(line) for line in src.splitlines()]
+        return [op for op in ops if op is not None]
+
+    @classmethod
+    def parse_op(cls, line):
+        # strip comment
+        if '#' in line:
+            line = line[:line.index('#')]
+        # find the resvar, if any
+        if '=' in line:
+            resvar, _, line = line.partition('=')
+            resvar = resvar.strip()
+        else:
+            resvar = None
+        line = line.strip()
+        if not line:
+            return None
+        opname, _, args = line.partition('(')
+        opname = opname.strip()
+        assert args.endswith(')')
+        args = args[:-1]
+        args = args.split(',')
+        args = map(str.strip, args)
+        return opname, resvar, args
+
+    def preprocess_expected_src(self, src):
+        # all loops decrement the tick-counter at the end. The rpython code is
+        # in jump_absolute() in pypyjit/interp.py. The string --TICK-- is
+        # replaced with the corresponding operations, so that tests don't have
+        # to repeat it every time
+        ticker_check = """
+            ticker0 = getfield_raw(ticker_address)
+            ticker1 = int_sub(ticker0, 1)
+            setfield_raw(ticker_address, ticker1)
+            ticker_cond = int_lt(ticker1, 0)
+            guard_false(ticker_cond)
+        """
+        src = src.replace('--TICK--', ticker_check)
+        return src
+
+    @classmethod
+    def _get_match_var(cls):
+        def is_const(v1):
+            return isinstance(v1, str) and v1.startswith('ConstClass(')
+        alpha_map = {}
+        def match_var(v1, v2):
+            if is_const(v1) or is_const(v2):
+                return v1 == v2
+            if v1 not in alpha_map:
+                alpha_map[v1] = v2
+            return alpha_map[v1] == v2
+        return match_var
+
+    def match_ops(self, ops, expected_src):
+        expected_src = self.preprocess_expected_src(expected_src)
+        match_var = self._get_match_var()
+        #
+        expected_ops = self.parse_ops(expected_src)
+        assert len(ops) == len(expected_ops), "wrong number of operations"
+        for op, (exp_opname, exp_res, exp_args) in zip(ops, expected_ops):
+            assert op.name == exp_opname
+            match_var(op.res, exp_res)
+            assert len(op.args) == len(exp_args), "wrong number of arguments"
+            for arg, exp_arg in zip(op.args, exp_args):
+                assert match_var(arg, exp_arg), "variable mismatch"
+        return True
+
+    def match(self, expected_src):
+        ops = list(self.allops())
+        return self.match_ops(ops, expected_src)
+
+    def match_by_id(self, id, expected_src):
+        ops = list(self.ops_by_id(id))
+        return self.match_ops(ops, expected_src)

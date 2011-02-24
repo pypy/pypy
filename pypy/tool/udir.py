@@ -14,7 +14,7 @@
 #
 # The default value for $PYPY_USESSION_DIR is the system tmp.
 # The default value for $PYPY_USESSION_BASENAME is the name
-# of the current subversion branch.
+# of the current Mercurial branch.
 #
 
 import autopath
@@ -34,6 +34,9 @@ def make_udir(dir=None, basename=None):
         if info:
             project, hgtag, hgid = info
             basename = hgtag
+            if basename == '?':
+                basename = 'unknown' # directories with ? are not fun
+                # especially on windows
             if isinstance(basename, unicode):
                 basename = basename.encode(sys.getdefaultencoding())
         else:

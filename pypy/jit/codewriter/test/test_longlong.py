@@ -176,12 +176,18 @@ class TestLongLong:
     def test_casts(self):
         self.do_check('cast_int_to_longlong', EffectInfo.OS_LLONG_FROM_INT,
                       [lltype.Signed], lltype.SignedLongLong)
+        self.do_check('cast_uint_to_longlong', EffectInfo.OS_LLONG_FROM_UINT,
+                      [lltype.Unsigned], lltype.SignedLongLong)
         self.do_check('truncate_longlong_to_int', EffectInfo.OS_LLONG_TO_INT,
                       [lltype.SignedLongLong], lltype.Signed)
         self.do_check('cast_float_to_longlong', EffectInfo.OS_LLONG_FROM_FLOAT,
                       [lltype.Float], lltype.SignedLongLong)
         self.do_check('cast_longlong_to_float', EffectInfo.OS_LLONG_TO_FLOAT,
                       [lltype.SignedLongLong], lltype.Float)
+        for T1 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+            for T2 in [lltype.Signed, lltype.Unsigned]:
+                self.do_check('cast_primitive', EffectInfo.OS_LLONG_TO_INT,
+                              [T1], T2)
 
     def test_constants(self):
         for TYPE in [lltype.SignedLongLong, lltype.UnsignedLongLong]:

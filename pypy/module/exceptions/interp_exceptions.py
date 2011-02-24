@@ -381,14 +381,17 @@ class W_EnvironmentError(W_StandardError):
     def descr_str(self, space):
         if (not space.is_w(self.w_errno, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
+            errno = space.str_w(space.str(self.w_errno))
+            strerror = space.str_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
                 return space.wrap("[Errno %s] %s: %s" % (
-                    space.str_w(space.str(self.w_errno)),
-                    space.str_w(self.w_strerror),
+                    errno,
+                    strerror,
                     space.str_w(space.repr(self.w_filename))))
-            return space.wrap("[Errno %s] %s" %
-                              (space.str_w(space.str(self.w_errno)),
-                               space.str_w(self.w_strerror)))
+            return space.wrap("[Errno %s] %s" % (
+                errno,
+                strerror,
+            ))
         return W_BaseException.descr_str(self, space)
 
 W_EnvironmentError.typedef = TypeDef(
