@@ -1335,6 +1335,25 @@ class Assembler386(object):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
         assert isinstance(baseofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
+        #
+        # XXX
+        if op.getopname() == 'setarrayitem_gc':
+            # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ but we may get
+            # it as a setarrayitem_raw!!!!!!  fix this
+            from pypy.jit.backend.llsupport.descr import BaseArrayDescr
+            arraydescr = op.getdescr()
+            assert isinstance(arraydescr, BaseArrayDescr)
+            ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
+            self.mc.CMP(addr_add_const(base_loc, ofs), ofs_loc)
+            self.mc.J_il8(rx86.Conditions['A'], 0)
+            ja_location = self.mc.get_relative_pos()
+            self.mc.writechar(chr(0xCC))    # INT3
+            # patch the JA above
+            offset = self.mc.get_relative_pos() - ja_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(ja_location-1, chr(offset))
+        # XXX
+        #
         scale = _get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)

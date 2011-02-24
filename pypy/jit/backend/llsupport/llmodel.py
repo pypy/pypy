@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib.debug import ll_assert
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, set_future_values,\
      BoxFloat
 from pypy.jit.metainterp import history
@@ -277,6 +278,13 @@ class AbstractLLCPU(AbstractCPU):
 
     # ____________________________________________________________
 
+    @specialize.argtype(2)
+    def _checkarraybound(self, arraydescr, array, itemindex):
+        if lltype.typeOf(array) == llmemory.GCREF:
+            length = self.bh_arraylen_gc(arraydescr, array)
+            ll_assert(0 <= itemindex < length,
+                      "bh_setarrayitem_gc: index out of bound")
+
     def bh_arraylen_gc(self, arraydescr, array):
         assert isinstance(arraydescr, BaseArrayDescr)
         ofs = arraydescr.get_ofs_length(self.translate_support_code)
@@ -284,6 +292,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(2)
     def bh_getarrayitem_gc_i(self, arraydescr, gcref, itemindex):
+        self._checkarraybound(arraydescr, gcref, itemindex)
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -303,6 +312,7 @@ class AbstractLLCPU(AbstractCPU):
             raise NotImplementedError("size = %d" % size)
 
     def bh_getarrayitem_gc_r(self, arraydescr, gcref, itemindex):
+        self._checkarraybound(arraydescr, gcref, itemindex)
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -313,6 +323,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(2)
     def bh_getarrayitem_gc_f(self, arraydescr, gcref, itemindex):
+        self._checkarraybound(arraydescr, gcref, itemindex)
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -323,6 +334,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(2)
     def bh_setarrayitem_gc_i(self, arraydescr, gcref, itemindex, newvalue):
+        self._checkarraybound(arraydescr, gcref, itemindex)
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -339,6 +351,7 @@ class AbstractLLCPU(AbstractCPU):
             raise NotImplementedError("size = %d" % size)
 
     def bh_setarrayitem_gc_r(self, arraydescr, gcref, itemindex, newvalue):
+        self._checkarraybound(arraydescr, gcref, itemindex)
         ofs = self.unpack_arraydescr(arraydescr)
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
@@ -351,6 +364,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(2)
     def bh_setarrayitem_gc_f(self, arraydescr, gcref, itemindex, newvalue):
+        self._checkarraybound(arraydescr, gcref, itemindex)
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
