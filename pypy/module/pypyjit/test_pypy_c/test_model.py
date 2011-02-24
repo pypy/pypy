@@ -165,6 +165,25 @@ class TestOpMatcher(object):
         """
         assert self.match(loop, expected)
 
+    def test_partial_match_is_non_greedy(self):
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i2 = int_sub(i1, 10)
+            i3 = int_mul(i2, 1000)
+            i4 = int_mul(i1, 1000)
+            jump(i4)
+        """
+        expected = """
+            i1 = int_add(0, 1)
+            ...
+            _ = int_mul(_, 1000)
+            jump(i4)
+        """
+        # this does not match, because the ... stops at the first int_mul, and
+        # then the second one does not match
+        assert not self.match(loop, expected)
+
 
 class TestRunPyPyC(BaseTestPyPyC):
 
