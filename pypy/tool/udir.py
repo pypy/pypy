@@ -34,6 +34,9 @@ def make_udir(dir=None, basename=None):
         if info:
             project, hgtag, hgid = info
             basename = hgtag
+            if basename == '?':
+                basename = 'unknown' # directories with ? are not fun
+                # especially on windows
             if isinstance(basename, unicode):
                 basename = basename.encode(sys.getdefaultencoding())
         else:
