@@ -11,13 +11,12 @@ import os
 from pypy.rlib import rtermios
 import termios
 
-# proper semantics are to have termios.error, but since it's not documented
-# anyway, let's have it as OSError on interplevel. We need to have
-# some details what is missing in RPython modules though
+class Cache:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class("termios.error")
 
 def convert_error(space, error):
-    w_module = space.getbuiltinmodule('termios')
-    w_exception_class = space.getattr(w_module, space.wrap('error'))
+    w_exception_class = space.fromcache(Cache).w_error
     return wrap_oserror(space, error, w_exception_class=w_exception_class)
 
 @unwrap_spec(fd=int, when=int)

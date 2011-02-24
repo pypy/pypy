@@ -12,8 +12,6 @@ class Module(MixedModule):
     """binascii - Conversion between binary data and ASCII"""
 
     appleveldefs = {
-        'Error': 'app_binascii.Error',
-        'Incomplete': 'app_binascii.Incomplete',
         }
 
     interpleveldefs = {
@@ -33,4 +31,6 @@ class Module(MixedModule):
         'hexlify': 'interp_hexlify.hexlify',
         'a2b_hex': 'interp_hexlify.unhexlify',
         'unhexlify': 'interp_hexlify.unhexlify',
+        'Error'     : 'space.fromcache(interp_binascii.Cache).w_error',
+        'Incomplete': 'space.fromcache(interp_binascii.Cache).w_incomplete',
         }

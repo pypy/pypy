@@ -325,6 +325,10 @@ def get_expat_version_info(space):
         space.wrap(XML_MINOR_VERSION),
         space.wrap(XML_MICRO_VERSION)])
 
+class Cache:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class("pyexpat.ExpatError")
+
 class W_XMLParserType(Wrappable):
 
     def __init__(self, space, parser, w_intern):
@@ -590,8 +594,7 @@ information passed to the ExternalEntityRefHandler."""
         lineno = XML_GetCurrentLineNumber(self.itself)
         colno = XML_GetCurrentColumnNumber(self.itself)
         msg = "%s: line %d, column %d" % (err, lineno, colno)
-        w_module = space.getbuiltinmodule('pyexpat')
-        w_errorcls = space.getattr(w_module, space.wrap('error'))
+        w_errorcls = space.fromcache(Cache).w_error
         w_error = space.call_function(w_errorcls, space.wrap(msg))
         space.setattr(w_error, space.wrap("code"), space.wrap(code))
         space.setattr(w_error, space.wrap("offset"), space.wrap(colno))

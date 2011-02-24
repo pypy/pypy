@@ -732,7 +732,7 @@ def str_decode_utf_7(s, size, errors, final=False,
 
             else:
                 # now leaving a base-64 section
-                inShift = 0
+                inShift = False
                 pos += 1
 
                 if surrogate:
@@ -762,7 +762,9 @@ def str_decode_utf_7(s, size, errors, final=False,
                 if ch == '-':
                     # '-' is absorbed; other terminating characters are
                     # preserved
-                    pass
+                    base64bits = 0
+                    base64buffer = 0
+                    surrogate = 0
                 else:
                     result.append(unichr(ord(ch)))
 

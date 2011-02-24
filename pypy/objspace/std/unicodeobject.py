@@ -21,7 +21,7 @@ from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
 class W_UnicodeObject(W_Object):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['_value']
 
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)

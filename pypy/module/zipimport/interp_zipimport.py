@@ -22,6 +22,14 @@ ENUMERATE_EXTS = unrolling_iterable(
      (True, False, '.pyo'),
      (False, False, '.py')])
 
+class Cache:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class("zipimport.ZipImportError",
+                                                 space.w_ImportError)
+
+def get_error(space):
+    return space.fromcache(Cache).w_error
+
 class W_ZipCache(Wrappable):
     def __init__(self):
         self.cache = {}
@@ -113,9 +121,6 @@ class W_ZipImporter(Wrappable):
         self.filename = filename
         self.dir = dir
         self.prefix = prefix
-        self.w_ZipImportError = space.getattr(
-            space.getbuiltinmodule('zipimport'),
-            space.wrap('ZipImportError'))
 
     def getprefix(self, space):
         return space.wrap(self.prefix)
@@ -265,7 +270,7 @@ class W_ZipImporter(Wrappable):
                     w_mods = space.sys.get('modules')
                 space.call_method(w_mods, 'pop', w(fullname), space.w_None)
         if last_exc:
-            raise OperationError(self.w_ZipImportError, last_exc.get_w_value(space))
+            raise OperationError(get_error(space), last_exc.get_w_value(space))
         # should never happen I think
         return space.w_None
 
@@ -303,7 +308,7 @@ class W_ZipImporter(Wrappable):
                     code_w = importing.parse_source_module(
                         space, co_filename, source)
                 return space.wrap(code_w)
-        raise operationerrfmt(self.w_ZipImportError,
+        raise operationerrfmt(get_error(space),
             "Cannot find source or code for %s in %s", filename, self.name)
 
     @unwrap_spec(fullname=str)
@@ -319,7 +324,7 @@ class W_ZipImporter(Wrappable):
                     found = True
         if found:
             return space.w_None
-        raise operationerrfmt(self.w_ZipImportError,
+        raise operationerrfmt(get_error(space),
             "Cannot find source for %s in %s", filename, self.name)
 
     @unwrap_spec(fullname=str)
@@ -329,7 +334,7 @@ class W_ZipImporter(Wrappable):
             if self.have_modulefile(space, filename + ext):
                 return space.wrap(self.filename + os.path.sep +
                                   self.corr_zname(filename + ext))
-        raise operationerrfmt(self.w_ZipImportError,
+        raise operationerrfmt(get_error(space),
             "Cannot find module %s in %s", filename, self.name)
 
     @unwrap_spec(fullname=str)
@@ -338,7 +343,7 @@ class W_ZipImporter(Wrappable):
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return space.wrap(is_package)
-        raise operationerrfmt(self.w_ZipImportError,
+        raise operationerrfmt(get_error(space),
             "Cannot find module %s in %s", filename, self.name)
 
     def getarchive(self, space):

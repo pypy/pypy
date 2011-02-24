@@ -78,7 +78,7 @@ def encode_unicode(space, w_unistr, encoding, errors):
 
 class W_RopeUnicodeObject(W_Object):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['_node']
 
     def __init__(w_self, node):
         w_self._node = node

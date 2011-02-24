@@ -19,9 +19,11 @@ class CompilationError(Exception):
 
     def __repr__(self):
         if self.err:
-            return "<CompilationError err=%s>" % py.io.saferepr(self.err)
+            attr = 'err'
         else:
-            return "<CompilationError out=%s>" % py.io.saferepr(self.out)
+            attr = 'out'
+        text = getattr(self, attr).replace('\n', '\n\t')
+        return 'CompilationError(%s="""\n\t%s""")' % (attr, text)
 
     __str__ = __repr__
 

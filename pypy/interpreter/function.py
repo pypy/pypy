@@ -563,7 +563,7 @@ class Method(Wrappable):
 
 class StaticMethod(Wrappable):
     """The staticmethod objects."""
-    _immutable_ = True
+    _immutable_fields_ = ['w_function']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -577,7 +577,7 @@ class StaticMethod(Wrappable):
 
 class ClassMethod(Wrappable):
     """The classmethod objects."""
-    _immutable_ = True
+    _immutable_fields_ = ['w_function']
 
     def __init__(self, w_function):
         self.w_function = w_function

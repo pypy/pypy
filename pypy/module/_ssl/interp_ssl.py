@@ -67,8 +67,7 @@ constants["OPENSSL_VERSION_INFO"] = (major, minor, fix, patch, status)
 constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
 def ssl_error(space, msg, errno=0):
-    w_module = space.getbuiltinmodule('_ssl')
-    w_exception_class = space.getattr(w_module, space.wrap('SSLError'))
+    w_exception_class = get_error(space)
     if errno:
         w_exception = space.call_function(w_exception_class,
                                           space.wrap(errno), space.wrap(msg))
@@ -552,3 +551,11 @@ def sslwrap(space, w_socket, side, w_key_file=None, w_cert_file=None,
     return space.wrap(new_sslobject(
         space, w_socket, side, w_key_file, w_cert_file))
 
+class Cache:
+    def __init__(self, space):
+        w_socketerror = interp_socket.get_error(space, "error")
+        self.w_error = space.new_exception_class(
+            "_ssl.SSLError", w_socketerror)
+
+def get_error(space):
+    return space.fromcache(Cache).w_error

@@ -9,6 +9,10 @@ import errno
 
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
 
+class Cache:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class("select.error")
+
 def poll(space):
     """Returns a polling object, which supports registering and
 unregistering file descriptors, and then polling them for I/O events."""
@@ -55,8 +59,7 @@ class Poll(Wrappable):
         try:
             retval = rpoll.poll(self.fddict, timeout)
         except rpoll.PollError, e:
-            w_module = space.getbuiltinmodule('select')
-            w_errortype = space.getattr(w_module, space.wrap('error'))
+            w_errortype = space.fromcache(Cache).w_error
             message = e.get_msg()
             raise OperationError(w_errortype,
                                  space.newtuple([space.wrap(e.errno),
@@ -116,8 +119,7 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
         else:
             iwtd, owtd, ewtd = rpoll.select(iwtd, owtd, ewtd, space.float_w(w_timeout))
     except rpoll.SelectError, s:
-        w_module = space.getbuiltinmodule('select')
-        w_errortype = space.getattr(w_module, space.wrap('error'))
+        w_errortype = space.fromcache(Cache).w_error
         raise OperationError(w_errortype, space.newtuple([
             space.wrap(s.errno), space.wrap(s.get_msg())]))
     

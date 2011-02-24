@@ -432,10 +432,32 @@ descr_socket_new = interp2app(newsocket)
 # ____________________________________________________________
 # Error handling
 
+class SocketAPI:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class(
+            "_socket.error", space.w_IOError)
+        self.w_herror = space.new_exception_class(
+            "_socket.herror", self.w_error)
+        self.w_gaierror = space.new_exception_class(
+            "_socket.gaierror", self.w_error)
+        self.w_timeout = space.new_exception_class(
+            "_socket.timeout", self.w_error)
+
+        self.errors_w = {'error': self.w_error,
+                         'herror': self.w_herror,
+                         'gaierror': self.w_gaierror,
+                         'timeout': self.w_timeout,
+                         }
+
+    def get_exception(self, applevelerrcls):
+        return self.errors_w[applevelerrcls]
+
+def get_error(space, name):
+    return space.fromcache(SocketAPI).get_exception(name)
+
 def converted_error(space, e):
     message = e.get_msg()
-    w_module = space.getbuiltinmodule('_socket')
-    w_exception_class = space.getattr(w_module, space.wrap(e.applevelerrcls))
+    w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
         w_exception = space.call_function(w_exception_class, space.wrap(e.errno),
                                       space.wrap(message))

@@ -66,9 +66,12 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     return space.wrap(checksum)
 
 
+class Cache:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class("zlib.error")
+
 def zlib_error(space, msg):
-    w_module = space.getbuiltinmodule('zlib')
-    w_error = space.getattr(w_module, space.wrap('error'))
+    w_error = space.fromcache(Cache).w_error
     return OperationError(w_error, space.wrap(msg))
 
 

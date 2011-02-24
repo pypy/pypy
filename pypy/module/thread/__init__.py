@@ -4,21 +4,21 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {
-        'exit':                   'app_thread.exit',
-        'exit_thread':            'app_thread.exit',   # obsolete synonym
-        'error':                  'app_thread.error',
     }
 
     interpleveldefs = {
         'start_new_thread':       'os_thread.start_new_thread',
         'start_new':              'os_thread.start_new_thread', # obsolete syn.
         'get_ident':              'os_thread.get_ident',
+        'exit':                   'os_thread.exit',
+        'exit_thread':            'os_thread.exit', # obsolete synonym
         'stack_size':             'os_thread.stack_size',
         '_count':                 'os_thread._count',
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.getlocktype(space)',
         '_local':                 'os_local.getlocaltype(space)',
+        'error':                  'space.fromcache(error.Cache).w_error',
     }
 
     def __init__(self, space, *args):

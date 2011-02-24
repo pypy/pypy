@@ -30,6 +30,7 @@ class Module(MixedModule):
         'get_libc'           : 'interp_rawffi.get_libc',
         'get_errno'          : 'interp_rawffi.get_errno',
         'set_errno'          : 'interp_rawffi.set_errno',
+        'SegfaultException'  : 'space.new_exception_class("_rawffi.SegfaultException")',
     }
 
     if sys.platform == 'win32':
@@ -37,7 +38,6 @@ class Module(MixedModule):
         interpleveldefs['set_last_error'] = 'interp_rawffi.set_last_error'
 
     appleveldefs = {
-        'SegfaultException'  : 'error.SegfaultException',
     }
 
     def buildloaders(cls):

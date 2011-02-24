@@ -456,7 +456,7 @@ class FunctionGcRootTracker(object):
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
-        'punpck', 'pshufd', 
+        'punpck', 'pshufd', 'pcmp',
         # zero-extending moves should not produce GC pointers
         'movz', 
         ])

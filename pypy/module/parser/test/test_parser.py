@@ -58,3 +58,6 @@ class AppTestParser(ParserModuleTest):
                      self.m.compilest(self.m.suite("x = 4"))):
             assert isinstance(code, types.CodeType)
             assert code.co_filename == "<syntax-tree>"
+
+    def test_error(self):
+        assert repr(self.m.ParserError) == "<class 'parser.ParserError'>"

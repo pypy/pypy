@@ -31,10 +31,10 @@ objects support decompress() and flush()."""
         'compress': 'interp_zlib.compress',
         'decompress': 'interp_zlib.decompress',
         '__version__': 'space.wrap("1.0")',
+        'error': 'space.fromcache(interp_zlib.Cache).w_error',
         }
 
     appleveldefs = {
-        'error': 'app_zlib.error',
         }
 
 
