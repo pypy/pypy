@@ -83,14 +83,10 @@ class TestLog(object):
 class TestOpMatcher(object):
 
     def match(self, src1, src2):
-        """Wrapper around LoopWithIds.match_ops"""
         from pypy.tool.jitlogparser.parser import parse
         loop = parse(src1)
         matcher = OpMatcher(loop.operations)
-        try:
-            return matcher.match(src2)
-        except AssertionError:
-            return False
+        return matcher.match(src2)
 
     def test_match_var(self):
         match_var = OpMatcher([]).match_var
@@ -299,7 +295,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             jump(p0, p1, p2, p3, i8)
         """)
         #
-        py.test.raises(AssertionError, loop.match, """
+        assert not loop.match("""
             i6 = int_lt(i4, 1003)
             guard_true(i6)
             i8 = int_add(i5, 1) # variable mismatch
@@ -341,7 +337,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_no_exception()
         """)
         #
-        py.test.raises(AssertionError, loop.match_by_id, 'increment', """
+        assert not loop.match_by_id('increment', """
             p12 = call(ConstClass(rbigint.SUB), p4, ConstPtr(ptr11))
             guard_no_exception()
         """)

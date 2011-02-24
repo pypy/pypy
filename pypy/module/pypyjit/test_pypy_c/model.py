@@ -160,6 +160,8 @@ class LoopWithIds(Function):
         matcher = OpMatcher(ops)
         return matcher.match(expected_src)
 
+class InvalidMatch(Exception):
+    pass
 
 class OpMatcher(object):
 
@@ -221,20 +223,30 @@ class OpMatcher(object):
             self.alpha_map[v1] = v2
         return self.alpha_map[v1] == v2
 
+    def _assert(self, cond, message):
+        if not cond:
+            raise InvalidMatch(message)
+
     def match_op(self, op, (exp_opname, exp_res, exp_args)):
-        assert op.name == exp_opname
+        self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
-        assert len(op.args) == len(exp_args), "wrong number of arguments"
+        self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
         for arg, exp_arg in zip(op.args, exp_args):
-            assert self.match_var(arg, exp_arg), "variable mismatch"
-        
+            self._assert(self.match_var(arg, exp_arg), "variable mismatch")
+
+    def match_loop(self, expected_ops):
+        self._assert(len(self.ops) == len(expected_ops), "wrong number of operations")
+        for op, exp_op in zip(self.ops, expected_ops):
+            self.match_op(op, exp_op)
 
     def match(self, expected_src):
         expected_src = self.preprocess_expected_src(expected_src)
-        #
         expected_ops = self.parse_ops(expected_src)
-        assert len(self.ops) == len(expected_ops), "wrong number of operations"
-        for op, exp_op in zip(self.ops, expected_ops):
-            self.match_op(op, exp_op)
-        return True
+        try:
+            self.match_loop(expected_ops)
+        except InvalidMatch:
+            #raise # uncomment this and use py.test --pdb for better debugging
+            return False
+        else:
+            return True
 
