@@ -218,12 +218,15 @@ class OpMatcher(object):
     def is_const(cls, v1):
         return isinstance(v1, str) and v1.startswith('ConstClass(')
     
-    def match_var(self, v1, v2):
-        if self.is_const(v1) or self.is_const(v2):
-            return v1 == v2
+    def match_var(self, v1, exp_v2):
+        assert v1 != '_'
+        if exp_v2 == '_':
+            return True
+        if self.is_const(v1) or self.is_const(exp_v2):
+            return v1 == exp_v2
         if v1 not in self.alpha_map:
-            self.alpha_map[v1] = v2
-        return self.alpha_map[v1] == v2
+            self.alpha_map[v1] = exp_v2
+        return self.alpha_map[v1] == exp_v2
 
     def _assert(self, cond, message):
         if not cond:

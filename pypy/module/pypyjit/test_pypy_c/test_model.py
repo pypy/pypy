@@ -103,6 +103,12 @@ class TestOpMatcher(object):
         assert match_var('ConstClass(foo)', 'ConstClass(foo)')
         assert not match_var('ConstClass(bar)', 'v1')
         assert not match_var('v2', 'ConstClass(baz)')
+        #
+        # the var '_' matches everything (but only on the right, of course)
+        assert match_var('v0', '_')
+        assert match_var('v0', 'V0')
+        assert match_var('ConstPtr(ptr0)', '_')
+        py.test.raises(AssertionError, "match_var('_', 'v0')")
 
     def test_parse_op(self):
         res = OpMatcher.parse_op("  a =   int_add(  b,  3 ) # foo")
@@ -158,7 +164,6 @@ class TestOpMatcher(object):
             i4 = int_mul(i1, 1000)
         """
         assert self.match(loop, expected)
-
 
 
 class TestRunPyPyC(BaseTestPyPyC):
