@@ -239,25 +239,51 @@ class OpMatcher(object):
         for arg, exp_arg in zip(op.args, exp_args):
             self._assert(self.match_var(arg, exp_arg), "variable mismatch")
 
-    def _next_op(self, iter_ops, message, assert_raises=False):
+    def _next_op(self, iter_ops, assert_raises=False):
         try:
             op = iter_ops.next()
         except StopIteration:
-            self._assert(assert_raises, message)
+            self._assert(assert_raises, "not enough operations")
             return
         else:
-            self._assert(not assert_raises, message)
+            self._assert(not assert_raises, "operation list too long")
             return op
 
+    def match_until(self, until_op, iter_ops):
+        while True:
+            op = self._next_op(iter_ops)
+            try:
+                # try to match the op, but be sure not to modify the
+                # alpha-renaming map in case the match does not work
+                alpha_map = self.alpha_map.copy()
+                self.match_op(op, until_op)
+            except InvalidMatch:
+                # it did not match: rollback the alpha_map, and just skip this
+                # operation
+                self.alpha_map = alpha_map
+            else:
+                # it matched! The '...' operator ends here
+                return op
+
     def match_loop(self, expected_ops):
+        """
+        A note about partial matching: the '...' operator is non-greedy,
+        i.e. it matches all the operations until it finds one that matches
+        what is after the '...'
+        """
         iter_exp_ops = iter(expected_ops)
         iter_ops = iter(self.ops)
         for exp_op in iter_exp_ops:
-            op = self._next_op(iter_ops, "not enough operations")
+            if exp_op == '...':
+                # loop until we find an operation which matches
+                exp_op = iter_exp_ops.next()
+                op = self.match_until(exp_op, iter_ops)
+            else:
+                op = self._next_op(iter_ops)
             self.match_op(op, exp_op)
         #
         # make sure we exhausted iter_ops
-        self._next_op(iter_ops, "operation list too long", assert_raises=True)
+        self._next_op(iter_ops, assert_raises=True)
 
     def match(self, expected_src):
         expected_src = self.preprocess_expected_src(expected_src)
