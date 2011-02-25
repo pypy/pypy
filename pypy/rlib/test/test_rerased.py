@@ -159,3 +159,77 @@ def test_rtype_list():
     interpret(l, [0])
     interpret(l, [1])
     interpret(l, [2])
+
+# ____________________________________________________________
+
+def test_erasing_pair():
+    erase, unerase = new_erasing_pair("test1")
+    class X:
+        pass
+    x = X()
+    erased = erase(x)
+    assert unerase(erased) is x
+    #
+    assert not is_integer(erased)
+    #
+    erase2, unerase2 = new_erasing_pair("test2")
+    py.test.raises(AssertionError, unerase2, erased)
+
+def test_annotate_erasing_pair():
+    erase, unerase = new_erasing_pair("test1")
+    erase2, unerase2 = new_erasing_pair("test2")
+    class Foo:
+        pass
+    #
+    def make(n):
+        if n > 5:
+            return erase([5, 6, n-6])
+        else:
+            foo = Foo()
+            foo.bar = n+1
+            return erase2(foo)
+
+    def check(x, n):
+        if n > 5:
+            return unerase(x)[2]
+        else:
+            return unerase2(x).bar
+
+    def f(n):
+        x = make(n)
+        return check(x, n)
+    #
+    a = RPythonAnnotator()
+    s = a.build_types(f, [int])
+    assert isinstance(s, annmodel.SomeInteger)
+
+def test_annotate_reflowing():
+    erase, unerase = new_erasing_pair("test1")
+    class A: pass
+    class B(A): pass
+    class C(B): pass
+    class D(C): pass
+
+    def f():
+        x = erase(None)
+        while True:
+            inst = unerase(x)
+            if inst is None:
+                inst = D()
+                x = erase(inst)
+            elif isinstance(inst, D):
+                inst = C()
+                x = erase(inst)
+            elif isinstance(inst, C):
+                inst = B()
+                x = erase(inst)
+            elif isinstance(inst, B):
+                inst = A()
+                x = erase(inst)
+            else:
+                return inst
+    #
+    a = RPythonAnnotator()
+    s = a.build_types(f, [])
+    assert isinstance(s, annmodel.SomeInstance)
+    assert s.classdef == a.bookkeeper.getuniqueclassdef(A)

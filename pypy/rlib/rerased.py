@@ -52,14 +52,75 @@ def is_integer(e):
     return isinstance(e._x, int)
 
 
+class ErasingPairIdentity(object):
+    def __init__(self, name):
+        self.name = name
+    def __repr__(self):
+        return 'ErasingPairIdentity(%r)' % self.name
+
+def new_erasing_pair(name):
+    identity = ErasingPairIdentity(name)
+
+    def erase(x):
+        return Erased(x, identity)
+
+    def unerase(y):
+        assert y._identity is identity
+        return y._x
+
+    def _getdict(bk):
+        try:
+            dict = bk._erasing_pairs_tunnel
+        except AttributeError:
+            dict = bk._erasing_pairs_tunnel = {}
+        return dict
+
+    class Entry(ExtRegistryEntry):
+        _about_ = erase
+
+        def compute_result_annotation(self, s_obj):
+            bk = self.bookkeeper
+            dict = _getdict(bk)
+            s_previousobj, reflowpositions = dict.setdefault(
+                identity, (annmodel.s_ImpossibleValue, {}))
+            s_obj = annmodel.unionof(s_previousobj, s_obj)
+            if s_obj != s_previousobj:
+                dict[identity] = (s_obj, reflowpositions)
+                for position in reflowpositions:
+                    bk.annotator.reflowfromposition(position)
+            return SomeErased()
+
+        def specialize_call(self, hop):
+            return hop.r_result.specialize_call(hop)
+
+    class Entry(ExtRegistryEntry):
+        _about_ = unerase
+
+        def compute_result_annotation(self, s_obj):
+            assert SomeErased().contains(s_obj)
+            bk = self.bookkeeper
+            dict = _getdict(bk)
+            s_obj, reflowpositions = dict.setdefault(
+                identity, (annmodel.s_ImpossibleValue, []))
+            reflowpositions[bk.position_key] = True
+            return s_obj
+
+        def specialize_call(self, hop):
+            v, t = hop.inputargs(hop.args_r[0], lltype.Void)
+            return hop.genop('cast_opaque_ptr', [v], resulttype = hop.r_result)
+
+    return erase, unerase
+
+
 # ---------- implementation-specific ----------
 
 class Erased(object):
     _list_item_type = None
-    def __init__(self, x):
+    def __init__(self, x, identity=None):
         self._x = x
+        self._identity = identity
     def __repr__(self):
-        return "Erased(%r)" % (self._x, )
+        return "Erased(%r, %r)" % (self._x, self._identity)
 
 class Entry(ExtRegistryEntry):
     _about_ = erase
