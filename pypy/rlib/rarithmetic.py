@@ -881,3 +881,13 @@ class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
         # we use cast_primitive to go between Float and SingleFloat.
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.SingleFloat)
+
+
+def int_between(n, m, p):
+    """ check that n <= m < p. This assumes that n <= p. This is useful because
+    the JIT special-cases it. """
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.lltypesystem.lloperation import llop
+    if not objectmodel.we_are_translated():
+        assert n <= p
+    return llop.int_between(lltype.Bool, n, m, p)
