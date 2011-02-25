@@ -57,7 +57,6 @@ class W_ListObject(W_Object):
         assert isinstance(wrappeditems, list)
         w_self.strategy = get_strategy_from_list_objects(wrappeditems)
         w_self.strategy.init_from_list_w(w_self, wrappeditems)
-        #w_self.wrappeditems = wrappeditems
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -181,16 +180,7 @@ class EmptyListStrategy(ListStrategy):
         return []
 
     def append(self, w_list, w_item):
-        if is_W_IntObject(w_item):
-            w_list.strategy = IntegerListStrategy()
-
-        elif is_W_StringObject(w_item):
-            w_list.strategy = StringListStrategy()
-
-        else:
-            w_list.strategy = ObjectListStrategy()
-
-        w_list.strategy.init_from_list_w(w_list, [w_item])
+        w_list.__init__([w_item])
 
     def inplace_mul(self, w_list, times):
         return
@@ -208,14 +198,14 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def setslice(self, w_list, start, step, slicelength, sequence_w):
-        w_list.strategy = get_strategy_from_list_objects(sequence_w)
-        w_list.strategy.init_from_list_w(w_list, sequence_w)
+        w_list.__init__(sequence_w)
 
     def insert(self, w_list, index, w_item):
         assert index == 0
         self.append(w_list, w_item)
 
     def extend(self, w_list, w_other):
+        #XXX items are wrapped and unwrapped again
         w_list.strategy = w_other.strategy
         w_list.strategy.init_from_list_w(w_list, w_other.getitems())
 
