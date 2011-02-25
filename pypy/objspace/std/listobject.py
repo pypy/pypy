@@ -61,11 +61,11 @@ class W_ListObject(W_Object):
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        return "%s(%s)" % (w_self.__class__.__name__, w_self.wrappeditems)
+        return "%s(%s)" % (w_self.__class__.__name__, w_self.getitems())
 
     def unwrap(w_list, space):
         # for tests only!
-        items = [space.unwrap(w_item) for w_item in w_list.wrappeditems]
+        items = [space.unwrap(w_item) for w_item in w_list.getitems()]
         return list(items)
 
     def append(w_list, w_item):
@@ -190,8 +190,7 @@ class EmptyListStrategy(ListStrategy):
         else:
             w_list.strategy = ObjectListStrategy()
 
-        w_list.wrappeditems.append(w_item)
-        w_list.strategy.init_from_list_w(w_list, w_list.wrappeditems)
+        w_list.strategy.init_from_list_w(w_list, [w_item])
 
     def inplace_mul(self, w_list, times):
         return
@@ -720,9 +719,7 @@ def list_remove__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
     i = 0
     while i < w_list.length():
-        #XXX: items will be wrapped. not necessary when liststrategies differ
         if space.eq_w(w_list.getitem(i), w_any):
-            #XXX: change of w_list.storage shouldn't be possible from the outside
             if i < w_list.length(): # if this is wrong the list was changed
                 w_list.deleteitem(i)
             return space.w_None
