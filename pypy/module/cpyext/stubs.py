@@ -2654,24 +2654,6 @@ def PyUnicode_AsLatin1String(space, unicode):
     by the codec."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
-def PyUnicode_DecodeASCII(space, s, size, errors):
-    """Create a Unicode object by decoding size bytes of the ASCII encoded string
-    s.  Return NULL if an exception was raised by the codec.
-    
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
-def PyUnicode_EncodeASCII(space, s, size, errors):
-    """Encode the Py_UNICODE buffer of the given size using ASCII and return a
-    Python string object.  Return NULL if an exception was raised by the codec.
-    
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeCharmap(space, s, size, mapping, errors):
     """Create a Unicode object by decoding size bytes of the encoded string s using

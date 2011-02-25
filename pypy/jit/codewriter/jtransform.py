@@ -834,8 +834,10 @@ class Transformer(object):
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
                                                 EffectInfo.EF_PURE)
+                if %r == "TO_INT":
+                    assert op2.result.concretetype == lltype.Signed
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
 
     def _normalize(self, oplist):
         if isinstance(oplist, SpaceOperation):
@@ -873,14 +875,24 @@ class Transformer(object):
             args = op.args
             if fromll:
                 opname = 'truncate_longlong_to_int'
+                RESULT = lltype.Signed
             else:
                 from pypy.rpython.lltypesystem import rffi
                 if rffi.cast(op.args[0].concretetype, -1) < 0:
                     opname = 'cast_int_to_longlong'
                 else:
                     opname = 'cast_uint_to_longlong'
-            op1 = SpaceOperation(opname, args, op.result)
-            return self.rewrite_operation(op1)
+                RESULT = lltype.SignedLongLong
+            v = varoftype(RESULT)
+            op1 = SpaceOperation(opname, args, v)
+            op2 = self.rewrite_operation(op1)
+            #
+            # force a renaming to put the correct result in place, even though
+            # it might be slightly mistyped (e.g. Signed versus Unsigned)
+            assert op2.result is v
+            op2.result = op.result
+            #
+            return op2
 
     # ----------
     # Renames, from the _old opname to the _new one.

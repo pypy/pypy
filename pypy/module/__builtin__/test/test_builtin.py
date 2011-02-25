@@ -166,6 +166,12 @@ class AppTestBuiltinApp:
         assert sum([1,2,3]) ==6
         assert sum([],5) ==5
         assert sum([1,2,3],4) ==10
+        #
+        class Foo(object):
+            def __radd__(self, other):
+                assert other is None
+                return 42
+        assert sum([Foo()], None) == 42
 
     def test_type_selftest(self):
         assert type(type) is type

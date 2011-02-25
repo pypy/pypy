@@ -8,7 +8,7 @@ from pypy.objspace.std.slicetype import _Eval_SliceIndex
 
 class W_SliceObject(W_Object):
     from pypy.objspace.std.slicetype import slice_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['w_start', 'w_stop', 'w_step']
 
     def __init__(w_self, w_start, w_stop, w_step):
         assert w_start is not None

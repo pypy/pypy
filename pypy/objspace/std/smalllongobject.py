@@ -19,7 +19,7 @@ LONGLONG_MIN = r_longlong((-1) << (LONGLONG_BIT-1))
 
 class W_SmallLongObject(W_Object):
     from pypy.objspace.std.longtype import long_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['longlong']
 
     def __init__(w_self, value):
         assert isinstance(value, r_longlong)
