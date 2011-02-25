@@ -67,10 +67,19 @@ class W_ListObject(W_Object):
         items = [space.unwrap(w_item) for w_item in w_list.getitems()]
         return list(items)
 
-    def append(w_list, w_item):
-        w_list.strategy.append(w_list, w_item)
+    def switch_to_object_strategy(self, items_w):
+        self.strategy = ObjectListStrategy()
+        self.strategy.init_from_list_w(self, items_w)
+
+    def check_empty_strategy(self, items_w):
+        if len(items_w) == 0:
+            self.strategy = EmptyListStrategy()
+            self.strategy.init_from_list_w(self, items_w)
 
     # ___________________________________________________
+
+    def append(w_list, w_item):
+        w_list.strategy.append(w_list, w_item)
 
     def length(self):
         return self.strategy.length(self)
@@ -259,9 +268,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
             self.cast_from_void_star(w_list.storage).append(self.unwrap(w_item))
             return
 
-        items_w = w_list.getitems()
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, items_w)
+        w_list.switch_to_object_strategy(w_list.getitems())
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
@@ -271,8 +278,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
             list_w.insert(index, w_item)
             return
 
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.switch_to_object_strategy(list_w)
         w_list.insert(index, w_item)
 
     def extend(self, w_list, w_other):
@@ -281,8 +287,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
             list_w += w_other.getitems() # or self.cast_from_void_star(w_other.storage) ?
             return
 
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.switch_to_object_strategy(list_w)
         w_list.extend(w_other)
 
     def setitem(self, w_list, index, w_item):
@@ -292,8 +297,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
             list_w[index] = w_item
             return
 
-        w_list.strategy = ObjectListStrategy()
-        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.switch_to_object_strategy(list_w)
         w_list.setitem(index, w_item)
 
     def setslice(self, w_list, start, step, slicelength, sequence_w):
@@ -301,8 +305,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
         items = self.cast_from_void_star(w_list.storage)
 
         if not self.list_is_correct_type(W_ListObject(sequence_w)):
-            w_list.strategy = ObjectListStrategy()
-            w_list.strategy.init_from_list_w(w_list, items)
+            w_list.switch_to_object_strategy(items)
             w_list.setslice(start, step, slicelength, sequence_w)
             return
 
@@ -352,9 +355,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
     def deleteitem(self, w_list, index):
         list_w = self.cast_from_void_star(w_list.storage)
         del list_w[index]
-        if len(list_w) == 0:
-            w_list.strategy = EmptyListStrategy()
-            w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.check_empty_strategy(list_w)
 
     def deleteslice(self, w_list, start, step, slicelength):
         items = self.cast_from_void_star(w_list.storage)
@@ -388,18 +389,13 @@ class AbstractUnwrappedStrategy(ListStrategy):
             assert start >= 0 # annotator hint
             del items[start:]
 
-        if len(items) == 0:
-            w_list.strategy = EmptyListStrategy()
-            w_list.strategy.init_from_list_w(w_list, items)
+        w_list.check_empty_strategy(items)
 
     def pop(self, w_list, index):
         list_w = self.cast_from_void_star(w_list.storage)
         item_w = self.wrap(list_w.pop(index))
 
-        if len(list_w) == 0:
-            w_list.strategy = EmptyListStrategy()
-            w_list.strategy.init_from_list_w(w_list, list_w)
-
+        w_list.check_empty_strategy(list_w)
         return item_w
 
     def inplace_mul(self, w_list, times):
