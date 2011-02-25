@@ -68,6 +68,11 @@ class W_ListObject(W_Object):
         items = [space.unwrap(w_item) for w_item in w_list.getitems()]
         return list(items)
 
+    def _overwrite(w_self, items_w):
+        w_self.strategy = get_strategy_from_list_objects(items_w)
+        w_self.strategy.init_from_list_w(w_self, items_w)
+        w_self.wrappeditems = items_w
+
     def append(w_list, w_item):
         w_list.strategy.append(w_list, w_item)
 
@@ -816,8 +821,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
             sorterclass = CustomKeySort
         else:
             sorterclass = SimpleSort
-    items = w_list.wrappeditems
-    sorter = sorterclass(items, len(items))
+    sorter = sorterclass(w_list.getitems(), w_list.length())
     sorter.space = space
     sorter.w_cmp = w_cmp
 
@@ -826,7 +830,8 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         # by comparison functions can't affect the slice of memory we're
         # sorting (allowing mutations during sorting is an IndexError or
         # core-dump factory, since wrappeditems may change).
-        w_list.wrappeditems = []
+        w_list._overwrite([])
+        #w_list.wrappeditems = []
 
         # wrap each item in a KeyContainer if needed
         if has_key:
@@ -856,10 +861,10 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
                     sorter.list[i] = w_obj.w_item
 
         # check if the user mucked with the list during the sort
-        mucked = len(w_list.wrappeditems) > 0
+        mucked = w_list.length() > 0
 
         # put the items back into the list
-        w_list.wrappeditems = sorter.list
+        w_list._overwrite(sorter.list)
 
     if mucked:
         raise OperationError(space.w_ValueError,
