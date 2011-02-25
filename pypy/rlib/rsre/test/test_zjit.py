@@ -30,7 +30,7 @@ def entrypoint2(r, string, repeat):
 def list2array(lst):
     a = lltype.malloc(lltype.GcArray(lltype.Signed), len(lst))
     for i, x in enumerate(lst):
-        a[i] = x
+        a[i] = int(x)
     return a
 
 def array2list(a):
