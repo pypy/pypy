@@ -51,6 +51,11 @@ class SimpleParser(OpParser):
 
     # factory method
     Op = Op
+
+    @classmethod
+    def parse_from_input(cls, input):
+        return cls(input, None, {}, 'lltype', None,
+                   nonstrict=True).parse()
     
     def parse_args(self, opname, argspec):
         if not argspec.strip():
@@ -72,6 +77,8 @@ class SimpleParser(OpParser):
 
     def create_op(self, opnum, args, res, descr):
         return self.Op(intern(opname[opnum].lower()), args, res, descr)
+
+
 
 class NonCodeError(Exception):
     pass
@@ -245,10 +252,6 @@ class Function(object):
                                                 chunk.startlineno]
                 print >>out, "  ", source
             chunk.pretty_print(out)
-
-def parse(input):
-    return SimpleParser(input, None, {}, 'lltype', None,
-                        nonstrict=True).parse()
 
 
 def adjust_bridges(loop, bridges):

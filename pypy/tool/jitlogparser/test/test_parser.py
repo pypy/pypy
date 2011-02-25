@@ -1,9 +1,12 @@
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import ConstInt, Const
-from pypy.tool.jitlogparser.parser import parse, TraceForOpcode, Function,\
+from pypy.tool.jitlogparser.parser import SimpleParser, TraceForOpcode, Function,\
      adjust_bridges
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py
+
+def parse(input):
+    return SimpleParser.parse_from_input(input)
 
 
 def test_parse():
