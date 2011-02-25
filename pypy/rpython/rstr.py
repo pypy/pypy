@@ -621,8 +621,8 @@ class AbstractLLHelpers:
     __metaclass__ = StaticMethods
 
     def ll_char_isspace(ch):
-        c = ord(ch) 
-        return c == 32 or (c <= 13 and c >= 9)   # c in (9, 10, 11, 12, 13, 32)
+        c = ord(ch)
+        return c == 32 or (9 <= c <= 13)   # c in (9, 10, 11, 12, 13, 32)
 
     def ll_char_isdigit(ch):
         c = ord(ch)
