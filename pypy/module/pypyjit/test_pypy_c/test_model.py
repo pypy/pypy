@@ -83,8 +83,8 @@ class TestLog(object):
 class TestOpMatcher(object):
 
     def match(self, src1, src2):
-        from pypy.tool.jitlogparser.parser import parse
-        loop = parse(src1)
+        from pypy.tool.jitlogparser.parser import SimpleParser
+        loop = SimpleParser.parse_from_input(src1)
         matcher = OpMatcher(loop.operations)
         return matcher.match(src2)
 

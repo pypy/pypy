@@ -1,7 +1,7 @@
 import py
 import re
 import os.path
-from pypy.tool.jitlogparser.parser import parse, Function, TraceForOpcode
+from pypy.tool.jitlogparser.parser import SimpleParser, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
 
@@ -40,7 +40,7 @@ def find_ids(code):
 class Log(object):
     def __init__(self, func, rawtraces):
         storage = LoopStorage()
-        traces = [parse(rawtrace) for rawtrace in rawtraces]
+        traces = [SimpleParser.parse_from_input(rawtrace) for rawtrace in rawtraces]
         traces = storage.reconnect_loops(traces)
         self.loops = [LoopWithIds.from_trace(trace, storage) for trace in traces]
 
