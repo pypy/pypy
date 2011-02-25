@@ -329,15 +329,13 @@ def map_multiple_collections(space, w_func, collections_w, none_func):
         result_w.append(w_res)
     return result_w
 
-def sum(space, w_sequence, w_start=None):
+def sum(space, w_sequence, w_start=0):
     """sum(sequence[, start]) -> value
 
 Returns the sum of a sequence of numbers (NOT strings) plus the value
 of parameter 'start' (which defaults to 0).  When the sequence is
 empty, returns start."""
-    if space.is_w(w_start, space.w_None):
-        w_start = space.wrap(0)
-    elif space.is_true(space.isinstance(w_start, space.w_basestring)):
+    if space.is_true(space.isinstance(w_start, space.w_basestring)):
         msg = "sum() can't sum strings"
         raise OperationError(space.w_TypeError, space.wrap(msg))
     w_iter = space.iter(w_sequence)
