@@ -111,6 +111,9 @@ class W_ListObject(W_Object):
     def extend(self, items_w):
         self.strategy.extend(self, items_w)
 
+    def reverse(self):
+        self.strategy.reverse(self)
+
 registerimplementation(W_ListObject)
 
 
@@ -155,6 +158,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def extend(self, w_list, items_w):
+        raise NotImplementedError
+
+    def reverse(self, w_list):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
@@ -213,6 +219,9 @@ class EmptyListStrategy(ListStrategy):
     def extend(self, w_list, w_other):
         w_list.strategy = w_other.strategy
         w_list.strategy.init_from_list_w(w_list, w_other.getitems())
+
+    def reverse(self, w_list):
+        pass
 
 class AbstractUnwrappedStrategy(ListStrategy):
     def unwrap(self, w_obj):
@@ -404,6 +413,9 @@ class AbstractUnwrappedStrategy(ListStrategy):
     def inplace_mul(self, w_list, times):
         list_w = self.cast_from_void_star(w_list.storage)
         list_w *= times
+
+    def reverse(self, w_list):
+        self.cast_from_void_star(w_list.storage).reverse()
 
 class ObjectListStrategy(AbstractUnwrappedStrategy):
     def cast_from_void_star(self, storage):
@@ -741,7 +753,7 @@ def list_count__List_ANY(space, w_list, w_any):
     return space.wrap(count)
 
 def list_reverse__List(space, w_list):
-    w_list.wrappeditems.reverse()
+    w_list.reverse()
     return space.w_None
 
 # ____________________________________________________________
