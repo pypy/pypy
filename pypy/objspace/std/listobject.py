@@ -706,12 +706,13 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
 
 def list_remove__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
-    items = w_list.wrappeditems
     i = 0
-    while i < len(items):
-        if space.eq_w(items[i], w_any):
-            if i < len(items): # if this is wrong the list was changed
-                del items[i]
+    while i < w_list.length():
+        #XXX: items will be wrapped. not necessary when liststrategies differ
+        if space.eq_w(w_list.getitem(i), w_any):
+            #XXX: change of w_list.storage shouldn't be possible from the outside
+            if i < w_list.length(): # if this is wrong the list was changed
+                w_list.deleteitem(i)
             return space.w_None
         i += 1
     raise OperationError(space.w_ValueError,
@@ -719,12 +720,11 @@ def list_remove__List_ANY(space, w_list, w_any):
 
 def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     # needs to be safe against eq_w() mutating the w_list behind our back
-    items = w_list.wrappeditems
-    size = len(items)
+    size = w_list.length()
     i = slicetype.adapt_bound(space, size, w_start)
     stop = slicetype.adapt_bound(space, size, w_stop)
-    while i < stop and i < len(items):
-        if space.eq_w(items[i], w_any):
+    while i < stop and i < w_list.length():
+        if space.eq_w(w_list.getitem(i), w_any):
             return space.wrap(i)
         i += 1
     raise OperationError(space.w_ValueError,
@@ -734,9 +734,8 @@ def list_count__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
     count = 0
     i = 0
-    items = w_list.wrappeditems
-    while i < len(items):
-        if space.eq_w(items[i], w_any):
+    while i < w_list.length():
+        if space.eq_w(w_list.getitem(i), w_any):
             count += 1
         i += 1
     return space.wrap(count)
