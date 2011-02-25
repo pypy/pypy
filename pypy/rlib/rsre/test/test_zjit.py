@@ -120,3 +120,31 @@ class TestJitRSre(test_basic.LLJitMixin):
         res = self.meta_interp_match("(a|b)*a", "a" * 100)
         assert res == 100
         self.check_loops(guard_value=0)
+
+
+    # group guards tests
+
+    def test_group_range(self):
+        res = self.meta_interp_match(r"<[^b-c]+>", "<aeaeaea>")
+        assert res == 9
+        self.check_enter_count(1)
+
+    def test_group_single_chars(self):
+        res = self.meta_interp_match(r"<[ae]+>", "<aeaeaea>")
+        assert res == 9
+        self.check_enter_count(2) # XXX should be 1
+
+    def test_group_digit(self):
+        res = self.meta_interp_match(r"<[^\d]+>", "<..a..aa>")
+        assert res == 9
+        self.check_enter_count(1)
+
+    def test_group_space(self):
+        res = self.meta_interp_match(r"<\S+>", "<..a..aa>")
+        assert res == 9
+        self.check_enter_count(1)
+
+    def test_group_word(self):
+        res = self.meta_interp_match(r"<\w+>", "<ab09_a1>")
+        assert res == 9
+        self.check_enter_count(1)

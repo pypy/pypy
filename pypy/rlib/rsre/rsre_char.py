@@ -71,14 +71,14 @@ linebreak = ord("\n")
 underline = ord("_")
 
 def is_digit(code):
-    return code <= 57 and code >= 48
+    return (code <= 57) & (code >= 48)
 
 def is_uni_digit(code):
     assert unicodedb is not None
     return unicodedb.isdecimal(code)
 
 def is_space(code):
-    return code == 32 or (code <= 13 and code >= 9)
+    return (code == 32) | ((code <= 13) & (code >= 9))
 
 def is_uni_space(code):
     assert unicodedb is not None
@@ -191,7 +191,7 @@ def set_charset(pat, index, char_code):
 
 def set_range(pat, index, char_code):
     # <RANGE> <lower> <upper>
-    if pat[index+1] <= char_code <= pat[index+2]:
+    if (pat[index+1] <= char_code) & (char_code <= pat[index+2]):
         return SET_OK
     return index + 3
 
