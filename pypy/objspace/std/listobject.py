@@ -57,7 +57,7 @@ class W_ListObject(W_Object):
         assert isinstance(wrappeditems, list)
         w_self.strategy = get_strategy_from_list_objects(wrappeditems)
         w_self.strategy.init_from_list_w(w_self, wrappeditems)
-        w_self.wrappeditems = wrappeditems
+        #w_self.wrappeditems = wrappeditems
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -67,11 +67,6 @@ class W_ListObject(W_Object):
         # for tests only!
         items = [space.unwrap(w_item) for w_item in w_list.getitems()]
         return list(items)
-
-    def _overwrite(w_self, items_w):
-        w_self.strategy = get_strategy_from_list_objects(items_w)
-        w_self.strategy.init_from_list_w(w_self, items_w)
-        w_self.wrappeditems = items_w
 
     def append(w_list, w_item):
         w_list.strategy.append(w_list, w_item)
@@ -250,7 +245,10 @@ class AbstractUnwrappedStrategy(ListStrategy):
         return len(self.cast_from_void_star(w_list.storage))
 
     def getitem(self, w_list, index):
-        return self.wrap(self.cast_from_void_star(w_list.storage)[index])
+        try:
+            return self.wrap(self.cast_from_void_star(w_list.storage)[index])
+        except IndexError: # make RPython raise the exception
+            raise
 
     def getitems(self, w_list):
         return self.cast_from_void_star(w_list.storage)
@@ -806,6 +804,7 @@ class CustomKeyCompareSort(CustomCompareSort):
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
 
 def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
+    #XXX so far sorting always wraps list
     has_cmp = not space.is_w(w_cmp, space.w_None)
     has_key = not space.is_w(w_keyfunc, space.w_None)
     has_reverse = space.is_true(w_reverse)
@@ -830,8 +829,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         # by comparison functions can't affect the slice of memory we're
         # sorting (allowing mutations during sorting is an IndexError or
         # core-dump factory, since wrappeditems may change).
-        w_list._overwrite([])
-        #w_list.wrappeditems = []
+        w_list.__init__([])
 
         # wrap each item in a KeyContainer if needed
         if has_key:
@@ -864,7 +862,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         mucked = w_list.length() > 0
 
         # put the items back into the list
-        w_list._overwrite(sorter.list)
+        w_list.__init__(sorter.list)
 
     if mucked:
         raise OperationError(space.w_ValueError,

@@ -58,7 +58,7 @@ def list_BINARY_SUBSCR(f, oparg, next_instr):
     w_1 = f.popvalue()
     if type(w_1) is W_ListObject and type(w_2) is intobject.W_IntObject:
         try:
-            w_result = w_1.wrappeditems[w_2.intval]
+            w_result = w_1.getitem(w_2.intval)
         except IndexError:
             raise OperationError(f.space.w_IndexError,
                 f.space.wrap("list index out of range"))
