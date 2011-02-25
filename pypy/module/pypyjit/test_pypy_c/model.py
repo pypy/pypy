@@ -180,8 +180,8 @@ class OpMatcher(object):
         if '#' in line:
             line = line[:line.index('#')]
         # find the resvar, if any
-        if '=' in line:
-            resvar, _, line = line.partition('=')
+        if ' = ' in line:
+            resvar, _, line = line.partition(' = ')
             resvar = resvar.strip()
         else:
             resvar = None
@@ -194,12 +194,14 @@ class OpMatcher(object):
         opname = opname.strip()
         assert args.endswith(')')
         args = args[:-1]
-        if args:
-            args = args.split(',')
-            args = map(str.strip, args)
+        args = args.split(',')
+        args = map(str.strip, args)
+        if args[-1].startswith('descr='):
+            descr = args.pop()
+            descr = descr[len('descr='):]
         else:
-            args = []
-        return opname, resvar, args
+            descr = None
+        return opname, resvar, args, descr
 
     @classmethod
     def preprocess_expected_src(cls, src):
@@ -208,11 +210,11 @@ class OpMatcher(object):
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
         ticker_check = """
-            ticker0 = getfield_raw(ticker_address)
+            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
             ticker1 = int_sub(ticker0, 1)
-            setfield_raw(ticker_address, ticker1)
+            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
             ticker_cond = int_lt(ticker1, 0)
-            guard_false(ticker_cond)
+            guard_false(ticker_cond, descr=...)
         """
         src = src.replace('--TICK--', ticker_check)
         return src
@@ -235,12 +237,13 @@ class OpMatcher(object):
         if not cond:
             raise InvalidMatch(message)
 
-    def match_op(self, op, (exp_opname, exp_res, exp_args)):
+    def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr)):
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
         self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
         for arg, exp_arg in zip(op.args, exp_args):
             self._assert(self.match_var(arg, exp_arg), "variable mismatch")
+        self._assert(op.descr == exp_descr or exp_descr == '...', "descr mismatch")
 
     def _next_op(self, iter_ops, assert_raises=False):
         try:

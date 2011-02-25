@@ -25,14 +25,14 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i9 = int_le(i7, i8)
-            guard_true(i9)
+            guard_true(i9, descr=...)
             i11 = int_add_ovf(i7, 1)
-            guard_no_overflow()
+            guard_no_overflow(descr=...)
             i12 = int_and(i8, i11)
             i13 = int_add_ovf(i6, i12)
-            guard_no_overflow()
+            guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i13, i11, i8)
+            jump(p0, p1, p2, p3, p4, p5, i13, i11, i8, descr=...)
         """)
 
     def test_factorial(self):
@@ -47,12 +47,12 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i7 = int_gt(i4, 1)
-            guard_true(i7)
+            guard_true(i7, descr=...)
             i8 = int_mul_ovf(i5, i4)
-            guard_no_overflow()
+            guard_no_overflow(descr=...)
             i10 = int_sub(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i10, i8)
+            jump(p0, p1, p2, p3, i10, i8, descr=...)
         """)
         #
         log = self.run(fact, [25], threshold=20)
@@ -60,14 +60,14 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i7 = int_gt(i4, 1)
-            guard_true(i7)
-            p9 = call(ConstClass(fromint), i4)
-            guard_no_exception()
-            p11 = call(ConstClass(rbigint.mul), p5, p9)
-            guard_no_exception()
+            guard_true(i7, descr=...)
+            p9 = call(ConstClass(fromint), i4, descr=...)
+            guard_no_exception(descr=...)
+            p11 = call(ConstClass(rbigint.mul), p5, p9, descr=...)
+            guard_no_exception(descr=...)
             i13 = int_sub(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i13, p11)
+            jump(p0, p1, p2, p3, i13, p11, descr=...)
         """)
 
 
@@ -100,9 +100,9 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('call_rec', """
             ...
-            p53 = call_assembler(p35, p7, ConstPtr(ptr21), ConstPtr(ptr49), 0, ConstPtr(ptr51), -1, ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr48))
-            guard_not_forced()
-            guard_no_exception()
+            p53 = call_assembler(p35, p7, ConstPtr(ptr21), ConstPtr(ptr49), 0, ConstPtr(ptr51), -1, ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr48), descr=...)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
             ...
         """)
 

@@ -112,11 +112,13 @@ class TestOpMatcher(object):
 
     def test_parse_op(self):
         res = OpMatcher.parse_op("  a =   int_add(  b,  3 ) # foo")
-        assert res == ("int_add", "a", ["b", "3"])
+        assert res == ("int_add", "a", ["b", "3"], None)
         res = OpMatcher.parse_op("guard_true(a)")
-        assert res == ("guard_true", None, ["a"])
-        res = OpMatcher.parse_op("force_token()")
-        assert res == ("force_token", None, [])
+        assert res == ("guard_true", None, ["a"], None)
+        res = OpMatcher.parse_op("setfield_gc(p0, i0, descr=<foobar>)")
+        assert res == ("setfield_gc", None, ["p0", "i0"], "<foobar>")
+        res = OpMatcher.parse_op("i1 = getfield_gc(p0, descr=<foobar>)")
+        assert res == ("getfield_gc", "i1", ["p0"], "<foobar>")
 
     def test_exact_match(self):
         loop = """
@@ -126,19 +128,19 @@ class TestOpMatcher(object):
         """
         expected = """
             i5 = int_add(i2, 1)
-            jump(i5)
+            jump(i5, descr=...)
         """
         assert self.match(loop, expected)
         #
         expected = """
             i5 = int_sub(i2, 1)
-            jump(i5)
+            jump(i5, descr=...)
         """
         assert not self.match(loop, expected)
         #
         expected = """
             i5 = int_add(i2, 1)
-            jump(i5)
+            jump(i5, descr=...)
             extra_stuff(i5)
         """
         assert not self.match(loop, expected)
@@ -148,6 +150,16 @@ class TestOpMatcher(object):
             # missing op at the end
         """
         assert not self.match(loop, expected)
+
+    def test_match_descr(self):
+        loop = """
+            [p0]
+            setfield_gc(p0, 1, descr=<foobar>)
+        """
+        assert self.match(loop, "setfield_gc(p0, 1, descr=<foobar>)")
+        assert self.match(loop, "setfield_gc(p0, 1, descr=...)")
+        assert not self.match(loop, "setfield_gc(p0, 1)")
+        assert not self.match(loop, "setfield_gc(p0, 1, descr=<zzz>)")
 
 
     def test_partial_match(self):
@@ -163,7 +175,7 @@ class TestOpMatcher(object):
             i1 = int_add(0, 1)
             ...
             i4 = int_mul(i1, 1000)
-            jump(i4)
+            jump(i4, descr=...)
         """
         assert self.match(loop, expected)
 
@@ -174,13 +186,13 @@ class TestOpMatcher(object):
             i2 = int_sub(i1, 10)
             i3 = int_mul(i2, 1000)
             i4 = int_mul(i1, 1000)
-            jump(i4)
+            jump(i4, descr=...)
         """
         expected = """
             i1 = int_add(0, 1)
             ...
             _ = int_mul(_, 1000)
-            jump(i4)
+            jump(i4, descr=...)
         """
         # this does not match, because the ... stops at the first int_mul, and
         # then the second one does not match
@@ -312,7 +324,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             'jump'
             ]
 
-    def test_match(self):
+    def test_loop_match(self):
         def f():
             i = 0
             while i < 1003:
@@ -323,23 +335,23 @@ class TestRunPyPyC(BaseTestPyPyC):
         loop, = log.loops_by_id('increment')
         assert loop.match("""
             i6 = int_lt(i4, 1003)
-            guard_true(i6)
+            guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             # signal checking stuff
-            i10 = getfield_raw(37212896)
+            i10 = getfield_raw(37212896, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
             i12 = int_sub(i10, 1)
-            setfield_raw(37212896, i12)
+            setfield_raw(37212896, i12, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
             i14 = int_lt(i12, 0)
-            guard_false(i14)
-            jump(p0, p1, p2, p3, i8)
+            guard_false(i14, descr=...)
+            jump(p0, p1, p2, p3, i8, descr=...)
         """)
         #
         assert loop.match("""
             i6 = int_lt(i4, 1003)
-            guard_true(i6)
+            guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i8)
+            jump(p0, p1, p2, p3, i8, descr=...)
         """)
         #
         assert not loop.match("""
@@ -347,7 +359,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6)
             i8 = int_add(i5, 1) # variable mismatch
             --TICK--
-            jump(p0, p1, p2, p3, i8)
+            jump(p0, p1, p2, p3, i8, descr=...)
         """)
 
     def test_match_by_id(self):
@@ -367,7 +379,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         """)
         assert loop.match_by_id('product', """
             i4 = int_sub_ovf(i3, 1)
-            guard_no_overflow()
+            guard_no_overflow(descr=...)
         """)
 
     def test_match_constants(self):
@@ -380,12 +392,12 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_id('increment')
         assert loop.match_by_id('increment', """
-            p12 = call(ConstClass(rbigint.add), p4, ConstPtr(ptr11))
-            guard_no_exception()
+            p12 = call(ConstClass(rbigint.add), p4, ConstPtr(ptr11), descr=...)
+            guard_no_exception(descr=...)
         """)
         #
         assert not loop.match_by_id('increment', """
-            p12 = call(ConstClass(rbigint.SUB), p4, ConstPtr(ptr11))
-            guard_no_exception()
+            p12 = call(ConstClass(rbigint.SUB), p4, ConstPtr(ptr11), descr=...)
+            guard_no_exception(descr=...)
         """)
         

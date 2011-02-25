@@ -21,6 +21,7 @@ def test_parse():
     assert ops[0].repr() == 'i9 = int_lt(i7, 1003)'
     assert ops[2].descr is not None
     assert len(ops[2].args) == 1
+    assert ops[-1].repr() == 'i13 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)'
 
 def test_parse_non_code():
     ops = parse('''
