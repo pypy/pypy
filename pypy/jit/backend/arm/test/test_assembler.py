@@ -56,6 +56,18 @@ class TestRunningAssembler():
         self.a.gen_func_epilog()
         assert run_asm(self.a) == -3
 
+    def test_load_int1(self):
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.r0.value, 440)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 440
+
+    def test_load_int2(self):
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.r0.value, 464)
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 464
+
 
     def test_or(self):
         self.a.gen_func_prolog()

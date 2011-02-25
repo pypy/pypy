@@ -699,7 +699,6 @@ class ForceOpAssembler(object):
         # patch the jump to the fast path
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
-        #pmc = ARMv7InMemoryBuilder(fast_jmp_location, WORD)
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
 
         # Reset the vable token --- XXX really too much special logic here:-(

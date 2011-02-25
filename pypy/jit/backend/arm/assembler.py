@@ -354,7 +354,7 @@ class AssemblerARM(ResOpAssembler):
                 assert 0, 'invalid location'
         sp_patch_location = self._prepare_sp_patch_position()
         self.mc.B_offs(loop_head)
-        self._patch_sp_offset(sp_patch_location, looptoken)
+        self._patch_sp_offset(sp_patch_location, looptoken._arm_frame_depth)
 
     def _dump(self, ops, type='loop'):
         debug_start('jit-backend-ops')
@@ -386,7 +386,7 @@ class AssemblerARM(ResOpAssembler):
         self._walk_operations(operations, regalloc)
 
         looptoken._arm_frame_depth = regalloc.frame_manager.frame_depth
-        self._patch_sp_offset(sp_patch_location, looptoken)
+        self._patch_sp_offset(sp_patch_location, looptoken._arm_frame_depth)
 
         self.align()
 
@@ -414,15 +414,15 @@ class AssemblerARM(ResOpAssembler):
         regalloc = ARMRegisterManager(longevity, assembler=self,
                                             frame_manager=ARMFrameManager())
 
+        sp_patch_location = self._prepare_sp_patch_position()
         frame_depth = faildescr._arm_frame_depth
         locs = self.decode_inputargs(enc, inputargs, regalloc)
-        sp_patch_location = self._prepare_sp_patch_position()
         regalloc.update_bindings(locs, frame_depth, inputargs)
 
         self._walk_operations(operations, regalloc)
 
-        original_loop_token._arm_frame_depth = regalloc.frame_manager.frame_depth
-        self._patch_sp_offset(sp_patch_location, original_loop_token)
+        #original_loop_token._arm_frame_depth = regalloc.frame_manager.frame_depth
+        self._patch_sp_offset(sp_patch_location, regalloc.frame_manager.frame_depth)
 
         bridge_start = self.materialize_loop(original_loop_token)
         self.update_descrs_for_bridges(bridge_start)
@@ -466,13 +466,13 @@ class AssemblerARM(ResOpAssembler):
             self.mc.MOV_rr(r.r0.value, r.r0.value)
         return l
 
-    def _patch_sp_offset(self, pos, looptoken):
+    def _patch_sp_offset(self, pos, frame_depth):
         cb = OverwritingBuilder(self.mc, pos, OverwritingBuilder.size_of_gen_load_int)
         # Note: the frame_depth is one less than the value stored in the frame
         # manager
-        if looptoken._arm_frame_depth == 1:
+        if frame_depth == 1:
             return
-        n = (looptoken._arm_frame_depth-1)*WORD
+        n = (frame_depth-1)*WORD
         self._adjust_sp(n, cb, base_reg=r.fp)
 
     def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):
@@ -577,12 +577,29 @@ class AssemblerARM(ResOpAssembler):
             prev_loc = new_loc
             if not loc.is_stack():
                 return
-        if loc.is_stack() and prev_loc.is_reg():
-            self.mc.STR_ri(prev_loc.value, r.fp.value, loc.position*-WORD, cond=cond)
-        elif loc.is_reg() and prev_loc.is_stack():
-            self.mc.LDR_ri(loc.value, r.fp.value, prev_loc.position*-WORD, cond=cond)
+
+        if loc.is_stack() or prev_loc.is_stack():
+            temp = r.lr
+            if loc.is_stack() and prev_loc.is_reg():
+                offset = ConstInt(loc.position*-WORD)
+                if not _check_imm_arg(offset):
+                    self.mc.gen_load_int(temp.value, offset.value)
+                    self.mc.STR_rr(prev_loc.value, r.fp.value, temp.value, cond=cond)
+                else:
+                    self.mc.STR_ri(prev_loc.value, r.fp.value, offset.value, cond=cond)
+            elif loc.is_reg() and prev_loc.is_stack():
+                offset = ConstInt(prev_loc.position*-WORD)
+                if not _check_imm_arg(offset):
+                    self.mc.gen_load_int(temp.value, offset.value)
+                    self.mc.LDR_rr(loc.value, r.fp.value, temp.value, cond=cond)
+                else:
+                    self.mc.LDR_ri(loc.value, r.fp.value, offset.value, cond=cond)
+            else:
+                assert 0, 'unsupported case'
         elif loc.is_reg() and prev_loc.is_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
+        else:
+            assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov
 
     def regalloc_push(self, loc):

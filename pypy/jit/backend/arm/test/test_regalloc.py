@@ -22,7 +22,7 @@ class MockGcDescr(GcCache):
     get_funcptr_for_newarray = get_funcptr_for_new
     get_funcptr_for_newstr = get_funcptr_for_new
     get_funcptr_for_newunicode = get_funcptr_for_new
- 
+
     def rewrite_assembler(self, cpu, operations):
         pass
 
@@ -348,7 +348,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0, 3, 0])
         assert self.getints(3) == [1, -3, 10]
-        
+
     def test_compare_memory_result_survives(self):
         ops = '''
         [i0, i1, i2, i3]
@@ -409,7 +409,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         assert self.getints(9) == range(9)
 
 class TestRegallocCompOps(BaseTestRegalloc):
-    
+
     def test_cmp_op_0(self):
         ops = '''
         [i0, i3]
@@ -612,7 +612,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         ops = '''
         [i0, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
         i10 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
-        i11 = call(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)        
+        i11 = call(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)
         finish(i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9)
         '''
         loop = self.interpret(ops, [4, 7, 9, 9 ,9, 9, 9, 9, 9, 9, 9])
@@ -638,14 +638,14 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         assert self.getint(0) == 5
         ops = '''
         [i2, i1]
-        i3 = call(ConstClass(f2ptr), i2, i1, descr=f2_calldescr)        
-        finish(i3, descr=fdescr2)        
+        i3 = call(ConstClass(f2ptr), i2, i1, descr=f2_calldescr)
+        finish(i3, descr=fdescr2)
         '''
         bridge = self.attach_bridge(ops, loop, -2)
 
 
         self.cpu.set_future_value_int(0, 4)
-        self.cpu.set_future_value_int(1, 7)        
+        self.cpu.set_future_value_int(1, 7)
         self.run(loop)
         assert self.getint(0) == 5*7
 
@@ -660,8 +660,8 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         assert self.getint(0) == 4*7
         ops = '''
         [i2]
-        i3 = call(ConstClass(f1ptr), i2, descr=f1_calldescr)        
-        finish(i3, descr=fdescr2)        
+        i3 = call(ConstClass(f1ptr), i2, descr=f1_calldescr)
+        finish(i3, descr=fdescr2)
         '''
         bridge = self.attach_bridge(ops, loop, -2)
 
