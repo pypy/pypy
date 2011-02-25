@@ -69,7 +69,9 @@ class OptValue(object):
         pass
 
     def make_virtual_info(self, modifier, fieldnums):
-        raise NotImplementedError # should not be called on this level
+        #raise NotImplementedError # should not be called on this level
+        assert fieldnums is None
+        return modifier.make_not_virtual(self)
 
     def is_constant(self):
         return self.level == LEVEL_CONSTANT

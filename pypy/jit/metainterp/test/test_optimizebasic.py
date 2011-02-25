@@ -3352,6 +3352,8 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []        
         i2 = int_sub(i0, 10)
         i3 = int_lt(i2, -5)
         guard_true(i3) []
@@ -3361,6 +3363,8 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []        
         i2 = int_sub(i0, 10)
         jump(i0)
         """

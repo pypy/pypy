@@ -574,16 +574,11 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         expected = """
         [i0]
         i1 = int_add(i0, 1)
-        jump(i1)
-        """
-        preamble = """
-        [i0]
-        i1 = int_add(i0, 1)
         i2 = int_gt(i1, 0)
         guard_true(i2) []
         jump(i1)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, expected)
 
     def test_int_is_true_is_zero(self):
         py.test.skip("in-progress")
@@ -3429,7 +3424,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_bound_lt_sub(self):
+    def test_bound_lt_sub1(self):
         ops = """
         [i0]
         i1 = int_lt(i0, 4)
@@ -3443,6 +3438,35 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
+        i2 = int_sub(i0, 10)
+        i3 = int_lt(i2, -5)
+        guard_true(i3) []        
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_bound_lt_sub2(self):
+        ops = """
+        [i0]
+        i1 = int_lt(i0, 4)
+        guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []
+        i2 = int_sub(i0, 10)
+        i3 = int_lt(i2, -5)
+        guard_true(i3) []
+        jump(i0)
+        """
+        preamble = """
+        [i0]
+        i1 = int_lt(i0, 4)
+        guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []        
         i2 = int_sub(i0, 10)
         jump(i0)
         """
