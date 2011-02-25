@@ -96,6 +96,9 @@ class W_ListObject(W_Object):
     def deleteslice(self, start, step, length):
         self.strategy.deleteslice(self, start, step, length)
 
+    def pop(self, index):
+        return self.strategy.pop(self, index)
+
     def setitem(self, index, w_item):
         self.strategy.setitem(self, index, w_item)
 
@@ -137,6 +140,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def deleteslice(self, w_list, start, step, slicelength):
+        raise NotImplementedError
+
+    def pop(self, w_list, index):
         raise NotImplementedError
 
     def setitem(self, w_list, index, w_item):
@@ -188,6 +194,9 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def deleteslice(self, w_list, start, step, slicelength):
+        raise IndexError
+
+    def pop(self, w_list, index):
         raise IndexError
 
     def setitem(self, w_list, index, w_item):
@@ -381,6 +390,16 @@ class AbstractUnwrappedStrategy(ListStrategy):
         if len(items) == 0:
             w_list.strategy = EmptyListStrategy()
             w_list.strategy.init_from_list_w(w_list, items)
+
+    def pop(self, w_list, index):
+        list_w = self.cast_from_void_star(w_list.storage)
+        item_w = self.wrap(list_w.pop(index))
+
+        if len(list_w) == 0:
+            w_list.strategy = EmptyListStrategy()
+            w_list.strategy.init_from_list_w(w_list, list_w)
+
+        return item_w
 
     def inplace_mul(self, w_list, times):
         list_w = self.cast_from_void_star(w_list.storage)
@@ -675,13 +694,12 @@ def list_extend__List_ANY(space, w_list, w_any):
 
 # note that the default value will come back wrapped!!!
 def list_pop__List_ANY(space, w_list, w_idx=-1):
-    items = w_list.wrappeditems
-    if len(items)== 0:
+    if w_list.length() == 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
     idx = space.int_w(w_idx)
     try:
-        return items.pop(idx)
+        return w_list.pop(idx)
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop index out of range"))

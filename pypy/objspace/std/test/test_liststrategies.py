@@ -92,7 +92,7 @@ class TestW_ListStrategies(TestW_ListObject):
         l.insert(0, self.space.wrap(2))
         assert isinstance(l.strategy, IntegerListStrategy)
 
-    def test_delete(self):
+    def test_list_empty_after_delete(self):
         l = W_ListObject([self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
         l.deleteitem(0)
@@ -101,6 +101,11 @@ class TestW_ListStrategies(TestW_ListObject):
         l = W_ListObject([self.space.wrap(1), self.space.wrap(2)])
         assert isinstance(l.strategy, IntegerListStrategy)
         l.deleteslice(0, 1, 2)
+        assert isinstance(l.strategy, EmptyListStrategy)
+
+        l = W_ListObject([self.space.wrap(1)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.pop(-1)
         assert isinstance(l.strategy, EmptyListStrategy)
 
     def test_setslice(self):
