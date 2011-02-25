@@ -785,6 +785,7 @@ class LoopToken(AbstractDescr):
 
 class TreeLoop(object):
     inputargs = None
+    inputvalues = None
     operations = None
     token = None
 

@@ -2485,7 +2485,8 @@ class RetraceCompiler(object):
         loop_token = compile.compile_new_loop(self.metainterp, [],
                                               self.greenkey,
                                               self.inputargs, self.h_ops,
-                                              self.start_resumedescr, False)
+                                              self.start_resumedescr, False,
+                                              values)
         if loop_token is None:
             return
 

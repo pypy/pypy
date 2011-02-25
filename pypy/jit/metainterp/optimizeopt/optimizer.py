@@ -259,8 +259,8 @@ class Optimizer(Optimization):
         self.posponedop = None
         self.exception_might_have_happened = False
         self.newoperations = []
-
         self.set_optimizations(optimizations)
+
 
     def set_optimizations(self, optimizations):
         if optimizations:

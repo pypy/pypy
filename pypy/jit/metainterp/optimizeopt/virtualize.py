@@ -179,7 +179,6 @@ class VirtualValue(AbstractVirtualStructValue):
                            self.source_op)
         new.box = self.box
         return new
-            
 
 class VStructValue(AbstractVirtualStructValue):
 
