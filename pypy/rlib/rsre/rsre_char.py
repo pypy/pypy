@@ -114,7 +114,7 @@ def category_dispatch(category_code, char_code):
         if category_code == i:
             result = function(char_code)
             if negate:
-                return not result
+                return not result # XXX this might lead to a guard
             else:
                 return result
         i = i + 1
@@ -135,69 +135,62 @@ category_dispatch_unroll = unrolling_iterable(category_dispatch_table)
 
 ##### Charset evaluation
 
-SET_OK = -1
-SET_NOT_OK = -2
-
 @jit.unroll_safe
 def check_charset(pattern, ppos, char_code):
     """Checks whether a character matches set of arbitrary length.
     The set starts at pattern[ppos]."""
-    negated = SET_OK
-    while ppos >= 0:
+    negated = False
+    result = False
+    while True:
         opcode = pattern[ppos]
         i = 0
         for function in set_dispatch_unroll:
             if function is not None and opcode == i:
-                ppos = function(pattern, ppos, char_code)
+                newresult, ppos = function(pattern, ppos, char_code)
+                result |= newresult
                 break
             i = i + 1
         else:
-            if opcode == 26:   # NEGATE
-                negated ^= (SET_OK ^ SET_NOT_OK)
+            if opcode == 0: # FAILURE
+                break
+            elif opcode == 26:   # NEGATE
+                negated ^= True
                 ppos += 1
             else:
                 return False
-    return ppos == negated
-
-def set_failure(pat, index, char_code):
-    return SET_NOT_OK
+    if negated:
+        return not result
+    return result
 
 def set_literal(pat, index, char_code):
     # <LITERAL> <code>
-    if pat[index+1] == char_code:
-        return SET_OK
-    else:
-        return index + 2
+    match = pat[index+1] == char_code
+    return match, index + 2
 
 def set_category(pat, index, char_code):
     # <CATEGORY> <code>
-    if category_dispatch(pat[index+1], char_code):
-        return SET_OK
-    else:
-        return index + 2
+    match = category_dispatch(pat[index+1], char_code)
+    return match, index + 2
 
 def set_charset(pat, index, char_code):
     # <CHARSET> <bitmap> (16 bits per code word)
     if CODESIZE == 2:
-        if char_code < 256 and pat[index+1+(char_code >> 4)] \
-                                        & (1 << (char_code & 15)):
-            return SET_OK
-        return index + 17  # skip bitmap
+        match = char_code < 256 and \
+                (pat[index+1+(char_code >> 4)] & (1 << (char_code & 15)))
+        return match, index + 17  # skip bitmap
     else:
-        if char_code < 256 and pat[index+1+(char_code >> 5)] \
-                                        & (1 << (char_code & 31)):
-            return SET_OK
-        return index + 9   # skip bitmap
+        match = char_code < 256 and \
+                (pat[index+1+(char_code >> 5)] & (1 << (char_code & 31)))
+        return match, index + 9   # skip bitmap
 
 def set_range(pat, index, char_code):
     # <RANGE> <lower> <upper>
-    if int_between(pat[index+1], char_code, pat[index+2] + 1):
-        return SET_OK
-    return index + 3
+    match = int_between(pat[index+1], char_code, pat[index+2] + 1)
+    return match, index + 3
 
 def set_bigcharset(pat, index, char_code):
     # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
-    # XXX this function probably needs a makeover
+    # XXX this function needs a makeover, it's very bad
     count = pat[index+1]
     index += 2
     if char_code < 65536:
@@ -212,12 +205,12 @@ def set_bigcharset(pat, index, char_code):
             shift = 5
         block_value = pat[index+(block * (32 / CODESIZE)
                                  + ((char_code & 255) >> shift))]
-        if block_value & (1 << (char_code & ((8 * CODESIZE) - 1))):
-            return SET_OK
+        match = (block_value & (1 << (char_code & ((8 * CODESIZE) - 1)))) != 0
     else:
         index += 256 / CODESIZE  # skip block indices
+        match = False
     index += count * (32 / CODESIZE)  # skip blocks
-    return index
+    return match, index
 
 def to_byte_array(int_value):
     """Creates a list of bytes out of an integer representing data that is
@@ -231,7 +224,8 @@ def to_byte_array(int_value):
     return byte_array
 
 set_dispatch_table = [
-    set_failure, None, None, None, None, None, None, None, None,
+    None, # FAILURE
+    None, None, None, None, None, None, None, None,
     set_category, set_charset, set_bigcharset, None, None, None,
     None, None, None, None, set_literal, None, None, None, None,
     None, None,
