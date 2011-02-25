@@ -5,6 +5,7 @@ import sys
 from pypy.rlib.rlocale import tolower, isalnum
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import jit
+from pypy.rlib.rarithmetic import int_between
 
 # Note: the unicode parts of this module require you to call
 # rsre_char.set_unicode_db() first, to select one of the modules
@@ -59,10 +60,9 @@ def getlower(char_ord, flags):
     elif flags & SRE_FLAG_LOCALE:
         return tolower(char_ord)
     else:
-        if ord('A') <= char_ord <= ord('Z'):   # ASCII lower
+        if int_between(ord('A'), char_ord, ord('Z') + 1):   # ASCII lower
             char_ord += ord('a') - ord('A')
     return char_ord
-
 
 #### Category helpers
 
@@ -71,14 +71,14 @@ linebreak = ord("\n")
 underline = ord("_")
 
 def is_digit(code):
-    return (code <= 57) & (code >= 48)
+    return int_between(48, code, 58)
 
 def is_uni_digit(code):
     assert unicodedb is not None
     return unicodedb.isdecimal(code)
 
 def is_space(code):
-    return (code == 32) | ((code <= 13) & (code >= 9))
+    return (code == 32) | int_between(9, code, 14)
 
 def is_uni_space(code):
     assert unicodedb is not None
@@ -191,7 +191,7 @@ def set_charset(pat, index, char_code):
 
 def set_range(pat, index, char_code):
     # <RANGE> <lower> <upper>
-    if (pat[index+1] <= char_code) & (char_code <= pat[index+2]):
+    if int_between(pat[index+1], char_code, pat[index+2] + 1):
         return SET_OK
     return index + 3
 
