@@ -1243,7 +1243,7 @@ class Transformer(object):
         return op1
 
     def _register_extra_helper(self, oopspecindex, oopspec_name,
-                               argtypes, resulttype):
+                               argtypes, resulttype, effectinfo):
         # a bit hackish
         if self.callcontrol.callinfocollection.has_oopspec(oopspecindex):
             return
@@ -1253,7 +1253,8 @@ class Transformer(object):
         op = SpaceOperation('pseudo_call_cannot_raise',
                             [c_func] + [varoftype(T) for T in argtypes],
                             varoftype(resulttype))
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
+                                                  effectinfo)
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
@@ -1312,11 +1313,15 @@ class Transformer(object):
                 if args[0].concretetype.TO == rstr.UNICODE:
                     otherindex += EffectInfo._OS_offset_uni
                 self._register_extra_helper(otherindex, othername,
-                                            argtypes, resulttype)
+                                            argtypes, resulttype,
+                                            EffectInfo.EF_PURE)
         #
-        return self._handle_oopspec_call(op, args, dict[oopspec_name])
+        return self._handle_oopspec_call(op, args, dict[oopspec_name],
+                                         EffectInfo.EF_PURE)
 
     def _handle_str2unicode_call(self, op, oopspec_name, args):
+        # ll_str2unicode is not EF_PURE, because it can raise
+        # UnicodeDecodeError...
         return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE)
 
     # ----------
