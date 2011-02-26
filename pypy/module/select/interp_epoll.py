@@ -55,9 +55,9 @@ epoll_wait = rffi.llexternal(
     compilation_info=eci,
 )
 
+
 class W_Epoll(Wrappable):
     def __init__(self, space, epfd):
-        self.space = space
         self.epfd = epfd
 
     @unwrap_spec(sizehint=int)
@@ -81,19 +81,22 @@ class W_Epoll(Wrappable):
     def __del__(self):
         self.close()
 
-    def check_closed(self):
-        if self.epfd < 0:
-            raise OperationError(self.space.w_ValueError,
-                self.space.wrap("I/O operation on closed epoll fd")
+    def check_closed(self, space):
+        if self.get_closed():
+            raise OperationError(space.w_ValueError,
+                space.wrap("I/O operation on closed epoll fd")
             )
 
+    def get_closed(self):
+        return self.epfd < 0
+
     def close(self):
-        if not self.epfd < 0:
+        if not self.get_closed():
             socketclose(self.epfd)
             self.epfd = -1
 
-    def epoll_ctl(self, ctl, w_fd, eventmask, ignore_ebadf=False):
-        fd = self.space.c_filedescriptor_w(w_fd)
+    def epoll_ctl(self, space, ctl, w_fd, eventmask, ignore_ebadf=False):
+        fd = space.c_filedescriptor_w(w_fd)
         with lltype.scoped_alloc(epoll_event) as ev:
             ev.c_events = rffi.cast(rffi.UINT, eventmask)
             rffi.setintfield(ev.c_data, 'c_fd', fd)
@@ -102,36 +105,36 @@ class W_Epoll(Wrappable):
             if ignore_ebadf and get_errno() == errno.EBADF:
                 result = 0
             if result < 0:
-                raise exception_from_errno(self.space, self.space.w_IOError)
+                raise exception_from_errno(space, space.w_IOError)
 
     def descr_get_closed(self, space):
-        return space.wrap(self.epfd < 0)
+        return space.wrap(self.get_closed())
 
     def descr_fileno(self, space):
-        self.check_closed()
+        self.check_closed(space)
         return space.wrap(self.epfd)
 
     def descr_close(self, space):
-        self.check_closed()
+        self.check_closed(space)
         self.close()
 
     @unwrap_spec(eventmask=int)
     def descr_register(self, space, w_fd, eventmask=-1):
-        self.check_closed()
-        self.epoll_ctl(EPOLL_CTL_ADD, w_fd, eventmask)
+        self.check_closed(space)
+        self.epoll_ctl(space, EPOLL_CTL_ADD, w_fd, eventmask)
 
     def descr_unregister(self, space, w_fd):
-        self.check_closed()
-        self.epoll_ctl(EPOLL_CTL_DEL, w_fd, 0, ignore_ebadf=True)
+        self.check_closed(space)
+        self.epoll_ctl(space, EPOLL_CTL_DEL, w_fd, 0, ignore_ebadf=True)
 
     @unwrap_spec(eventmask=int)
     def descr_modify(self, space, w_fd, eventmask=-1):
-        self.check_closed()
-        self.epoll_ctl(EPOLL_CTL_MOD, w_fd, eventmask)
+        self.check_closed(space)
+        self.epoll_ctl(space, EPOLL_CTL_MOD, w_fd, eventmask)
 
     @unwrap_spec(timeout=float, maxevents=int)
     def descr_poll(self, space, timeout=-1.0, maxevents=-1):
-        self.check_closed()
+        self.check_closed(space)
         if timeout < 0:
             timeout = -1.0
         else:
