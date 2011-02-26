@@ -2157,26 +2157,6 @@ def PySet_Clear(space, set):
     """Empty an existing set of all elements."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t, Py_ssize_t], rffi.INT_real, error=-1)
-def PySlice_GetIndices(space, slice, length, start, stop, step):
-    """Retrieve the start, stop and step indices from the slice object slice,
-    assuming a sequence of length length. Treats indices greater than
-    length as errors.
-    
-    Returns 0 on success and -1 on error with no exception set (unless one of
-    the indices was not None and failed to be converted to an integer,
-    in which case -1 is returned with an exception set).
-    
-    You probably do not want to use this function.  If you want to use slice
-    objects in versions of Python prior to 2.3, you would probably do well to
-    incorporate the source of PySlice_GetIndicesEx(), suitably renamed,
-    in the source of your extension.
-    
-    This function used an int type for length and an
-    int * type for start, stop, and step. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObjectP], lltype.Void)
 def PyString_InternInPlace(space, string):
     """Intern the argument *string in place.  The argument must be the address of a
