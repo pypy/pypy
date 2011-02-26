@@ -120,7 +120,12 @@ class MsvcPlatform(Platform):
         return ['/I%s' % (idir,) for idir in include_dirs]
 
     def _libs(self, libraries):
-        return ['%s.lib' % (lib,) for lib in libraries]
+        libs = []
+        for lib in libraries:
+            if lib.endswith('.dll'):
+                lib = lib[:-4]
+            libs.append('%s.lib' % (lib,))
+        return libs
 
     def _libdirs(self, library_dirs):
         return ['/LIBPATH:%s' % (ldir,) for ldir in library_dirs]
