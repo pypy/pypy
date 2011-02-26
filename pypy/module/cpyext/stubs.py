@@ -1492,13 +1492,6 @@ def PyInterpreterState_Delete(space, interp):
     PyInterpreterState_Clear()."""
     raise NotImplementedError
 
-@cpython_api([], PyThreadState)
-def PyThreadState_Get(space, ):
-    """Return the current thread state.  The global interpreter lock must be held.
-    When the current thread state is NULL, this issues a fatal error (so that
-    the caller needn't check for NULL)."""
-    raise NotImplementedError
-
 @cpython_api([], PyObject)
 def PyThreadState_GetDict(space, ):
     """Return a dictionary in which extensions can store thread-specific state
@@ -1633,19 +1626,6 @@ def PyEval_GetCallStats(space, self):
     
     This function is only present if Python is compiled with CALL_PROFILE
     defined."""
-    raise NotImplementedError
-
-@cpython_api([], PyInterpreterState)
-def PyInterpreterState_Head(space, ):
-    """Return the interpreter state object at the head of the list of all such objects.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyInterpreterState], PyInterpreterState)
-def PyInterpreterState_Next(space, interp):
-    """Return the next interpreter state object after interp from the list of all
-    such objects.
-    """
     raise NotImplementedError
 
 @cpython_api([PyInterpreterState], PyThreadState)
@@ -1976,25 +1956,6 @@ def PySequence_InPlaceRepeat(space, o, count):
     equivalent of the Python expression o *= count.
     
     This function used an int type for count. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
-def PySequence_SetItem(space, o, i, v):
-    """Assign object v to the ith element of o.  Returns -1 on failure.  This
-    is the equivalent of the Python statement o[i] = v.  This function does
-    not steal a reference to v.
-    
-    This function used an int type for i. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
-def PySequence_DelItem(space, o, i):
-    """Delete the ith element of object o.  Returns -1 on failure.  This is the
-    equivalent of the Python statement del o[i].
-    
-    This function used an int type for i. This might require
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 

@@ -141,10 +141,7 @@ def PySeqIter_New(space, w_seq):
 def PySequence_SetItem(space, w_o, i, w_v):
     """Assign object v to the ith element of o.  Returns -1 on failure.  This
     is the equivalent of the Python statement o[i] = v.  This function does
-    not steal a reference to v.
-
-    This function used an int type for i. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    not steal a reference to v."""
     if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
         raise operationerrfmt(space.w_TypeError, "'%s' object does not support item assignment",
                              space.type(w_o).getname(space))
@@ -154,9 +151,6 @@ def PySequence_SetItem(space, w_o, i, w_v):
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
 def PySequence_DelItem(space, w_o, i):
     """Delete the ith element of object o.  Returns -1 on failure.  This is the
-    equivalent of the Python statement del o[i].
-
-    This function used an int type for i. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    equivalent of the Python statement del o[i]."""
     space.delitem(w_o, space.wrap(i))
     return 0

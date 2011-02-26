@@ -96,11 +96,7 @@ def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     You probably do not want to use this function.  If you want to use slice
     objects in versions of Python prior to 2.3, you would probably do well to
     incorporate the source of PySlice_GetIndicesEx(), suitably renamed,
-    in the source of your extension.
-    
-    This function used an int type for length and an
-    int * type for start, stop, and step. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    in the source of your extension."""
     if not PySlice_Check(space, w_slice):
         PyErr_BadInternalCall(space)
     assert isinstance(w_slice, W_SliceObject)
