@@ -94,7 +94,7 @@ class AppTestKqueue(object):
             flags = 0
 
         kq1 = select.kqueue()
-        kq2 = select.kqueue.fromfd(kq.fileno())
+        kq2 = select.kqueue.fromfd(kq1.fileno())
 
         ev = select.kevent(server.fileno(), select.KQ_FILTER_WRITE, select.KQ_EV_ADD | select.KQ_EV_ENABLE)
         kq1.control([ev], 0)
