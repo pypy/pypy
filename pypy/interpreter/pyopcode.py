@@ -754,6 +754,7 @@ class __extend__(pyframe.PyFrame):
     def cmp_is_not(self, w_1, w_2):
         return self.space.not_(self.space.is_(w_1, w_2))
 
+    @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
         if self.space.is_true(self.space.isinstance(w_2, self.space.w_tuple)):
             for w_t in self.space.fixedview(w_2):

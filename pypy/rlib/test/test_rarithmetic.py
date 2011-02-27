@@ -523,3 +523,12 @@ def test_round_double():
     almost_equal(round_double(-0.5e22, -22), -1e22)
     almost_equal(round_double(0.5e22, -22), 1e22)
     almost_equal(round_double(1.5e22, -22), 2e22)
+
+def test_int_between():
+    assert int_between(1, 1, 3)
+    assert int_between(1, 2, 3)
+    assert not int_between(1, 0, 2)
+    assert not int_between(1, 5, 2)
+    assert not int_between(1, 2, 2)
+    assert not int_between(1, 1, 1)
+

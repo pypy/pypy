@@ -120,7 +120,7 @@ def name_char(value, db):
     if ' ' <= value < '\x7f':
         return "'%s'" % (value.replace("\\", r"\\").replace("'", r"\'"),)
     else:
-        return '%d' % ord(value)
+        return '((char)%d)' % ord(value)
 
 def name_bool(value, db):
     return '%d' % value
@@ -130,7 +130,7 @@ def name_void(value, db):
 
 def name_unichar(value, db):
     assert type(value) is unicode and len(value) == 1
-    return '%d' % ord(value)
+    return '((wchar_t)%d)' % ord(value)
 
 def name_address(value, db):
     if value:

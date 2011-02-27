@@ -14,15 +14,22 @@ class LocaleError(Exception):
 
 HAVE_LANGINFO = sys.platform != 'win32'
 HAVE_LIBINTL  = sys.platform != 'win32'
+libraries = []
 
 if HAVE_LIBINTL:
     try:
-        platform.verify_eci(ExternalCompilationInfo(includes=['libintl.h']))
+        platform.verify_eci(ExternalCompilationInfo(includes=['libintl.h'],
+                                                    libraries=['intl']))
+        libraries.append('intl')
     except platform.CompilationError:
-        HAVE_LIBINTL = False
+        try:
+            platform.verify_eci(ExternalCompilationInfo(includes=['libintl.h']))
+        except platform.CompilationError:
+            HAVE_LIBINTL = False
 
 class CConfig:
     includes = ['locale.h', 'limits.h', 'ctype.h']
+    libraries = libraries
 
     if HAVE_LANGINFO:
         includes += ['langinfo.h']
@@ -31,7 +38,7 @@ class CConfig:
     if sys.platform == 'win32':
         includes += ['windows.h']
     _compilation_info_ = ExternalCompilationInfo(
-        includes=includes
+        includes=includes, libraries=libraries
     )
     HAVE_BIND_TEXTDOMAIN_CODESET = platform.Has('bind_textdomain_codeset')
     lconv = platform.Struct("struct lconv", [

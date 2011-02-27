@@ -1473,7 +1473,7 @@ class PyPyCJITTests(object):
 %s
                 i += 1
             return sa
-        ''' % code, 150, ([a1, b1], 2000 * res1),
+        ''' % code, 450, ([a1, b1], 2000 * res1),
                          ([a2, b2], 2000 * res2),
                          ([a3, b3], 2000 * res3),
                          count_debug_merge_point=False)
@@ -1488,7 +1488,7 @@ class PyPyCJITTests(object):
                 sa += a % b
                 i += 1
             return sa
-        ''', 11,  ([10, 20], 200 * (10 % 20)),
+        ''', 22,  ([10, 20], 200 * (10 % 20)),
                  ([-10, -20], 200 * (-10 % -20)),
                         count_debug_merge_point=False)
         assert self.jit_summary.tracing_no == 2

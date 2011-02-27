@@ -1,5 +1,4 @@
 import re, sys
-from lib_pypy.disassembler import dis
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.tool.oparser import OpParser
 
@@ -34,17 +33,30 @@ class Op(object):
         return self._is_guard
 
     def repr(self):
-        arglist = ', '.join(self.getargs())
+        args = self.getargs()
+        if self.descr is not None:
+            args.append('descr=%s' % self.descr)
+        arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
         else:
             return '%s(%s)' % (self.name, arglist)
 
     def __repr__(self):
-        return '<%s (%s)>' % (self.name, ', '.join([repr(a)
-                                                    for a in self.args]))
+        return self.repr()
+        ## return '<%s (%s)>' % (self.name, ', '.join([repr(a)
+        ##                                             for a in self.args]))
 
 class SimpleParser(OpParser):
+
+    # factory method
+    Op = Op
+
+    @classmethod
+    def parse_from_input(cls, input):
+        return cls(input, None, {}, 'lltype', None,
+                   nonstrict=True).parse()
+    
     def parse_args(self, opname, argspec):
         if not argspec.strip():
             return [], None
@@ -56,18 +68,22 @@ class SimpleParser(OpParser):
             if args[-1].startswith('descr='):
                 descr = args[-1][len('descr='):]
                 args = args[:-1]
+            if args == ['']:
+                args = []
             return (args, descr)
 
     def box_for_var(self, res):
         return res
 
     def create_op(self, opnum, args, res, descr):
-        return Op(intern(opname[opnum].lower()), args, res, descr)
+        return self.Op(intern(opname[opnum].lower()), args, res, descr)
+
+
 
 class NonCodeError(Exception):
     pass
 
-class Bytecode(object):
+class TraceForOpcode(object):
     filename = None
     startlineno = 0
     name = None
@@ -91,6 +107,7 @@ class Bytecode(object):
                 self.bytecode_no = int(bytecode_no)
         self.operations = operations
         self.storage = storage
+        self.code = storage.disassemble_code(self.filename, self.startlineno)
 
     def repr(self):
         if self.filename is None:
@@ -99,18 +116,17 @@ class Bytecode(object):
                                            self.startlineno)
 
     def getcode(self):
-        if self.code is None:
-            self.code = dis(self.storage.load_code(self.filename)[self.startlineno])
         return self.code
 
+    def getopcode(self):
+        return self.code.map[self.bytecode_no]
+
     def getlineno(self):
-        code = self.getcode()
-        return code.map[self.bytecode_no].lineno
+        return self.getopcode().lineno
     lineno = property(getlineno)
 
     def getline_starts_here(self):
-        code = self.getcode()
-        return code.map[self.bytecode_no].line_starts_here
+        return self.getopcode().line_starts_here
     line_starts_here = property(getline_starts_here)
 
     def __repr__(self):
@@ -127,6 +143,9 @@ class Function(object):
     _lineset = None
     is_bytecode = False
     inline_level = None
+
+    # factory method
+    TraceForOpcode = TraceForOpcode
     
     def __init__(self, chunks, path, storage):
         self.path = path
@@ -142,7 +161,7 @@ class Function(object):
 
     @classmethod
     def from_operations(cls, operations, storage, limit=None):
-        """ Slice given operation list into a chain of Bytecode chunks.
+        """ Slice given operation list into a chain of TraceForOpcode chunks.
         Also detect inlined functions and make them Function
         """
         stack = []
@@ -167,13 +186,13 @@ class Function(object):
         for op in operations:
             if op.name == 'debug_merge_point':
                 if so_far:
-                    append_to_res(Bytecode(so_far, storage))
+                    append_to_res(cls.TraceForOpcode(so_far, storage))
                     if limit:
                         break
                     so_far = []
             so_far.append(op)
         if so_far:
-            append_to_res(Bytecode(so_far, storage))
+            append_to_res(cls.TraceForOpcode(so_far, storage))
         # wrap stack back up
         if not stack:
             # no ops whatsoever
@@ -233,10 +252,6 @@ class Function(object):
                                                 chunk.startlineno]
                 print >>out, "  ", source
             chunk.pretty_print(out)
-
-def parse(input):
-    return SimpleParser(input, None, {}, 'lltype', None,
-                        nonstrict=True).parse()
 
 
 def adjust_bridges(loop, bridges):
