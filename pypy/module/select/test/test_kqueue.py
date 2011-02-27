@@ -73,17 +73,6 @@ class AppTestKqueue(object):
         assert ev == ev
         assert ev != other
 
-        big = sys.maxsize * 2 + 1
-        ev = select.kevent(big, 1, 2, 3, sys.maxsize, big)
-        assert ev.ident == big
-        assert ev.filter == 1
-        assert ev.flags == 2
-        assert ev.fflags == 3
-        assert ev.data == sys.maxsize
-        assert ev.udata == big
-        assert ev == ev
-        assert ev != other
-
     def test_queue_event(self):
         import errno
         import socket
