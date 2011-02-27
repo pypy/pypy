@@ -139,7 +139,7 @@ class AppTestKqueue(object):
         ev = select.kevent(server.fileno(), select.KQ_FILTER_READ, select.KQ_EV_DELETE)
         kq1.control([ev], 0, 0)
 
-        events = kq.control([], 4, 0.99)
+        events = kq1.control([], 4, 0.99)
         events = [(e.ident, e.filter, e.flags) for e in events]
         events.sort()
         assert events == [
