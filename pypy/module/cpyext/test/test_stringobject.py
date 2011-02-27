@@ -253,3 +253,29 @@ class TestString(BaseApiTest):
         w_s2 = api.PyString_InternFromString(buf)
         rffi.free_charp(buf)
         assert w_s1 is w_s2
+
+    def test_AsEncodedObject(self, space, api):
+        ptr = space.wrap('abc')
+
+        errors = rffi.str2charp("strict")
+
+        encoding = rffi.str2charp("hex")
+        res = api.PyString_AsEncodedObject(
+            ptr, encoding, errors)
+        assert space.unwrap(res) == "616263"
+
+        res = api.PyString_AsEncodedObject(
+            ptr, encoding, lltype.nullptr(rffi.CCHARP.TO))
+        assert space.unwrap(res) == "616263"
+        rffi.free_charp(encoding)
+
+        encoding = rffi.str2charp("unknown_encoding")
+        self.raises(space, api, LookupError, api.PyString_AsEncodedObject,
+                    ptr, encoding, errors)
+        rffi.free_charp(encoding)
+
+        rffi.free_charp(errors)
+
+        res = api.PyString_AsEncodedObject(
+            ptr, lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.unwrap(res) == "abc"

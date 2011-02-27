@@ -2287,17 +2287,6 @@ def PyString_Encode(space, s, size, encoding, errors):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_AsEncodedObject(space, str, encoding, errors):
-    """Encode a string object using the codec registered for encoding and return the
-    result as Python object. encoding and errors have the same meaning as the
-    parameters of the same name in the string encode() method. The codec to be
-    used is looked up using the Python codec registry. Return NULL if an exception
-    was raised by the codec.
-    
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=CANNOT_FAIL)
 def Py_FdIsInteractive(space, fp, filename):
     """Return true (nonzero) if the standard I/O file fp with name filename is
