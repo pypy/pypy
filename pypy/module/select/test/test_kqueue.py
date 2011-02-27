@@ -143,7 +143,7 @@ class AppTestKqueue(object):
         events = [(e.ident, e.filter, e.flags) for e in events]
         events.sort()
         assert events == [
-            (serve.fileno(), select.KQ_FILTER_WRITE, flags),
+            (server.fileno(), select.KQ_FILTER_WRITE, flags),
         ]
 
         client.close()
