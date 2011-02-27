@@ -94,7 +94,7 @@ class AppTestKqueue(object):
         server_socket.listen(1)
         client = socket.socket()
         client.setblocking(False)
-        exc = raises(client.connect, ("127.0.0.1", server_socket.getsockname()[1]))
+        exc = raises(socket.error, client.connect, ("127.0.0.1", server_socket.getsockname()[1]))
         assert exc.value.args[0] == errno.EINPROGRESS
         server, addr = server_socket.accept()
 
