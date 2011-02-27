@@ -763,18 +763,6 @@ def PySignal_SetWakeupFd(space, fd):
     only be called from the main thread."""
     raise NotImplementedError
 
-@cpython_api([PyObject], lltype.Void)
-def PyErr_WriteUnraisable(space, obj):
-    """This utility function prints a warning message to sys.stderr when an
-    exception has been set but it is impossible for the interpreter to actually
-    raise the exception.  It is used, for example, when an exception occurs in an
-    __del__() method.
-    
-    The function is called with a single argument obj that identifies the context
-    in which the unraisable exception occurred. The repr of obj will be printed in
-    the warning message."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, rffi.CCHARP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicodeDecodeError_Create(space, encoding, object, length, start, end, reason):
     """Create a UnicodeDecodeError object with the attributes encoding,

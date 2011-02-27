@@ -284,3 +284,19 @@ def PyTraceBack_Print(space, w_tb, w_file):
                                     space.wrap("traceback"))
     space.call_method(w_traceback, "print_tb", w_tb, space.w_None, w_file)
     return 0
+
+@cpython_api([PyObject], lltype.Void)
+def PyErr_WriteUnraisable(space, w_where):
+    """This utility function prints a warning message to sys.stderr when an
+    exception has been set but it is impossible for the interpreter to actually
+    raise the exception.  It is used, for example, when an exception occurs in
+    an __del__() method.
+    
+    The function is called with a single argument obj that identifies the
+    context in which the unraisable exception occurred. The repr of obj will be
+    printed in the warning message."""
+    
+    state = space.fromcache(State)
+    operror = state.clear_exception()
+    if operror:
+        operror.write_unraisable(space, w_where)

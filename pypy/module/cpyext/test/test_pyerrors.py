@@ -89,6 +89,14 @@ class TestExceptions(BaseApiTest):
         assert "cpyext is cool" in err
         assert not api.PyErr_Occurred()
 
+    def test_WriteUnraisable(self, space, api, capfd):
+        api.PyErr_SetObject(space.w_ValueError, space.wrap("message"))
+        w_where = space.wrap("location")
+        api.PyErr_WriteUnraisable(w_where)
+        out, err = capfd.readouterr()
+        assert ("Exception ValueError: 'message' "
+                "in W_StringObject('location') ignored") == err.strip()
+
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
