@@ -75,6 +75,7 @@ class AppTestKqueue(object):
 
     def test_queue_event(self):
         import errno
+        import select
         import socket
         import sys
 
