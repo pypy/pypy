@@ -5,10 +5,10 @@ from pypy.conftest import gettestobjspace
 
 class AppTestEpoll(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
-
         import errno
         import select
+
+        cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
 
         if not hasattr(select, "epoll"):
             py.test.skip("test requires linux 2.6")

@@ -27,6 +27,9 @@ class Module(MixedModule):
             if hasattr(select, symbol):
                 interpleveldefs[symbol] = "space.wrap(%s)" % getattr(select, symbol)
 
+    if hasattr(select, "kqueue"):
+        interpleveldefs["kqueue"] = "interp_kqueue.W_Kqueue"
+
 
     def buildloaders(cls):
         from pypy.rlib import rpoll
