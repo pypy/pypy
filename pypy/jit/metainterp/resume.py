@@ -484,7 +484,6 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def _generalization_of(self, other):
         raise NotImplementedError
 
-
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -506,6 +505,9 @@ class VirtualInfo(AbstractVirtualStructInfo):
         if not self.known_class.same_constant(other.known_class):
             return False
         return True
+
+    def __repr__(self):
+        return 'VirtualInfo(' + str(self.known_class) + ')'
         
 
 class VStructInfo(AbstractVirtualStructInfo):

@@ -34,7 +34,8 @@ class OptValue(object):
 
     def __init__(self, box, level=None, known_class=None, intbound=None):
         self.box = box
-        self.level = level
+        if level is not None:
+            self.level = level
         self.known_class = known_class
         if intbound:
             self.intbound = intbound
@@ -51,7 +52,7 @@ class OptValue(object):
     def get_key_box(self):
         return self.box
 
-    def enum_forced_boxes(self, boxes, already_seen):
+    def enum_forced_boxes(self, boxes, already_seen, shortops):
         key = self.get_key_box()
         if key not in already_seen:
             boxes.append(self.force_box())
@@ -259,9 +260,17 @@ class Optimizer(Optimization):
         self.posponedop = None
         self.exception_might_have_happened = False
         self.newoperations = []
+        if self.loop.inputvalues:
+            self.setup_inputstate()
         self.set_optimizations(optimizations)
 
-
+    def setup_inputstate(self):
+        valuemap = {}
+        assert len(self.loop.inputvalues) == len(self.loop.inputargs)
+        for i in range(len(self.loop.inputvalues)):
+            value = self.loop.inputvalues[i].get_cloned(self, valuemap)
+            self.make_equal_to(self.loop.inputargs[i], value)
+        
     def set_optimizations(self, optimizations):
         if optimizations:
             self.first_optimization = optimizations[0]

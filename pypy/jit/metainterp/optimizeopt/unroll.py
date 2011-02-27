@@ -7,7 +7,7 @@ from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.metainterp.history import make_hashable_int
+from pypy.jit.metainterp.history import make_hashable_int, BoxPtr
 from pypy.jit.codewriter.effectinfo import EffectInfo
 
 # Assumptions
@@ -136,6 +136,7 @@ class VirtualState(object):
         assert len(self.state) == len(other.state)
         for i in range(len(self.state)):
             if not self.state[i].generalization_of(other.state[i]):
+                print 'Fails on element: %d'%i
                 return False
         return True
 
@@ -144,6 +145,9 @@ class VirtualState(object):
         for i in range(len(self.state)):
             self.state[i].generate_guards(other.state[i], args[i],
                                           cpu, extra_guards)
+
+    def __repr__(self):
+        return "VirtualState:\n" + "\n".join(["  "+str(s) for s in self.state])
 
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def __init__(self, optimizer):
@@ -215,9 +219,10 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualInfo):
             raise InvalidLoop
+
         if self.level == LEVEL_KNOWNCLASS and \
-           box.nonnull() and \
-           self.known_class.same_constant(cpu.ts.cls_of_box(box)):
+               box.nonnull() and \
+               self.known_class.same_constant(cpu.ts.cls_of_box(box)):
             # Note: This is only a hint on what the class of box was
             # during the trace. There are actually no guarentees that this
             # box realy comes from a trace. The hint is used here to choose
@@ -228,11 +233,52 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
             extra_guards.append(op)
             return
+
+        if self.level == LEVEL_NONNULL and \
+               other.level == LEVEL_UNKNOWN and \
+               isinstance(box, BoxPtr) and \
+               box.nonnull():
+            op = ResOperation(rop.GUARD_NONNULL, [box], None)
+            extra_guards.append(op)
+            return
+        
+        if self.level == LEVEL_UNKNOWN and \
+               other.level == LEVEL_UNKNOWN and \
+               isinstance(box, BoxInt) and \
+               self.intbound.contains(box.getint()):
+            if self.intbound.has_lower:
+                bound = self.intbound.lower
+                if not (other.intbound.has_lower and \
+                        other.intbound.lower >= bound):
+                    res = BoxInt()
+                    op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
+                    extra_guards.append(op)
+                    op = ResOperation(rop.GUARD_TRUE, [res], None)
+                    extra_guards.append(op)
+            if self.intbound.has_upper:
+                bound = self.intbound.upper
+                if not (other.intbound.has_upper and \
+                        other.intbound.upper <= bound):
+                    res = BoxInt()
+                    op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
+                    extra_guards.append(op)
+                    op = ResOperation(rop.GUARD_TRUE, [res], None)
+                    extra_guards.append(op)
+            return
+            
         # Remaining cases are probably not interesting
         raise InvalidLoop
         if self.level == LEVEL_CONSTANT:
             import pdb; pdb.set_trace()
             raise NotImplementedError
+
+    def __repr__(self):
+        l = {LEVEL_UNKNOWN: 'Unknonw',
+             LEVEL_NONNULL: 'NonNull',
+             LEVEL_KNOWNCLASS: 'KnownClass',
+             LEVEL_CONSTANT: 'Constant',
+             None: 'None'}[self.level]
+        return 'NotVirtualInfo(' + l + ', ' + str(self.intbound) + ')'
         
 
 class UnrollOptimizer(Optimization):
@@ -266,6 +312,11 @@ class UnrollOptimizer(Optimization):
             modifier = VirtualStateAdder(self.optimizer)
             virtual_state = modifier.get_virtual_state(jump_args)
 
+            self.short_operations = []
+            self.boxes_seen_in_short = {}
+            for a in loop.preamble.inputargs:
+                self.boxes_seen_in_short[a] = True
+
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
             inputargs = self.inline(self.cloned_operations,
@@ -274,6 +325,8 @@ class UnrollOptimizer(Optimization):
             jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
             jmp.setdescr(loop.token)
             loop.preamble.operations.append(jmp)
+            if self.short_operations is not None:
+                self.short_operations.append(jmp)
 
             loop.operations = self.optimizer.newoperations
 
@@ -285,13 +338,15 @@ class UnrollOptimizer(Optimization):
                 new_snapshot_args = []
                 for a in snapshot_args:
                     if not isinstance(a, Const):
-                        a = loop.preamble.inputargs[jump_args.index(a)]
+                        #a = loop.preamble.inputargs[jump_args.index(a)]
+                        a = self.getvalue(a).get_key_box()
                     new_snapshot_args.append(a)
                 snapshot.boxes = new_snapshot_args
                 snapshot = snapshot.prev
-
-            short = self.create_short_preamble(loop.preamble, loop)
-            if short:
+                
+            #short = self.create_short_preamble(loop.preamble, loop)
+            short = self.short_operations
+            if short is not None:
                 if False:
                     # FIXME: This should save some memory but requires
                     # a lot of tests to be fixed...
@@ -307,7 +362,8 @@ class UnrollOptimizer(Optimization):
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')
-                short_loop.inputargs = loop.preamble.inputargs[:]
+                #short_loop.inputargs = loop.preamble.inputargs[:]
+                short_loop.inputargs = [self.getvalue(b).get_key_box() for b in jump_args]
                 short_loop.operations = short
 
                 # Clone ops and boxes to get private versions and 
@@ -317,6 +373,7 @@ class UnrollOptimizer(Optimization):
                 ops = [inliner.inline_op(op) for op in short_loop.operations]
                 short_loop.operations = ops
                 descr = start_resumedescr.clone_if_mutable()
+                #self.inliner.inline_descr_inplace(descr)
                 inliner.inline_descr_inplace(descr)
                 short_loop.start_resumedescr = descr
 
@@ -333,21 +390,34 @@ class UnrollOptimizer(Optimization):
                 for op in short_loop.operations:
                     if op.result:
                         op.result.forget_value()
-                
-    def inline(self, loop_operations, loop_args, jump_args):
-        self.inliner = inliner = Inliner(loop_args, jump_args)
-           
-        for v in self.optimizer.values.values():
-            v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
 
+    def enum_forced_boxes(self, jump_args, short):
         inputargs = []
         seen_inputargs = {}
         for arg in jump_args:
             boxes = []
-            self.getvalue(arg).enum_forced_boxes(boxes, seen_inputargs)
+            self.getvalue(arg).enum_forced_boxes(boxes, seen_inputargs, short)
             for a in boxes:
                 if not isinstance(a, Const):
                     inputargs.append(a)
+        return inputargs
+        
+    def inline(self, loop_operations, loop_args, jump_args):
+
+        # FIXME: Move this to recreate_for_next_iteration
+        for v in self.optimizer.values.values():
+            v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
+
+        boxes = {}
+        for i in range(len(loop_args)):
+            if loop_args[i] is jump_args[i]:
+                value = self.getvalue(loop_args[i])
+                value.enum_forced_boxes([], boxes, [])
+        passing = boxes.keys()
+        self.inliner = inliner = Inliner(loop_args + passing,
+                                         jump_args + passing)
+
+        inputargs = self.enum_forced_boxes(jump_args, self.short_operations)
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -378,6 +448,7 @@ class UnrollOptimizer(Optimization):
                 if not isinstance(a, Const) and not a in boxes_created_this_iteration:
                     if a not in inputargs:
                         inputargs.append(a)
+                        self.produce_box_in_short_preamble(a)
                         box = inliner.inline_arg(a)
                         if box in self.optimizer.values:
                             box = self.optimizer.values[box].force_box()
@@ -413,6 +484,32 @@ class UnrollOptimizer(Optimization):
 
         return True
 
+    def produce_box_in_short_preamble(self, box):
+        if box in self.boxes_seen_in_short or isinstance(box, Const):
+            return
+        if self.short_operations is None:
+            return
+        self.boxes_seen_in_short[box] = True
+        op = self.optimizer.producer[box]
+
+        ok = False
+        if op.is_always_pure() or op.is_ovf():
+            ok = True
+            # FIXME: Allow getitems if they are still in the heap cache
+        elif op.getopnum() == rop.CALL:
+            effectinfo = op.getdescr().get_extra_info()
+            if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT:
+                ok = True
+            if effectinfo.extraeffect == EffectInfo.EF_PURE:
+                ok = True
+        if ok:
+            for arg in op.getarglist():
+                self.produce_box_in_short_preamble(arg)
+            if self.short_operations is not None:
+                self.short_operations.append(op)
+        else:
+            self.short_operations = None
+        
     def create_short_preamble(self, preamble, loop):
         #return None # Dissable
 
@@ -647,9 +744,16 @@ class OptInlineShortPreamble(Optimization):
                 args = op.getarglist()
                 modifier = VirtualStateAdder(self.optimizer)
                 virtual_state = modifier.get_virtual_state(args)
+                print
+                print
+                print 'Lookup: ', virtual_state
+                print
+                
                 for sh in short:
                     ok = False
                     extra_guards = []
+                    print sh.virtual_state
+                    print
                     if sh.virtual_state.generalization_of(virtual_state):
                         ok = True
                     else:
@@ -677,9 +781,10 @@ class OptInlineShortPreamble(Optimization):
                             jumpop = self.optimizer.newoperations.pop()
                             assert jumpop.getopnum() == rop.JUMP
                             for guard in extra_guards:
-                                descr = sh.start_resumedescr.clone_if_mutable()
-                                self.inliner.inline_descr_inplace(descr)
-                                guard.setdescr(descr)
+                                if guard.is_guard():
+                                    descr = sh.start_resumedescr.clone_if_mutable()
+                                    self.inliner.inline_descr_inplace(descr)
+                                    guard.setdescr(descr)
                                 self.emit_operation(guard)
                             self.optimizer.newoperations.append(jumpop)
                         return
@@ -687,7 +792,7 @@ class OptInlineShortPreamble(Optimization):
                 if descr.failed_states:
                     retraced_count += len(descr.failed_states)
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
-                if not self.retrace and retraced_count<limit:
+                if not self.retrace and (retraced_count<limit or limit<0):
                     if not descr.failed_states:
                         raise RetraceLoop
                     for failed in descr.failed_states:
