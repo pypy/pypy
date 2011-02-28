@@ -150,7 +150,7 @@ class TinyObjSpace(object):
     def str_w(self, w_str):
         return w_str
 
-    def newdict(self):
+    def newdict(self, module=None):
         return {}
 
     def newtuple(self, iterable):
