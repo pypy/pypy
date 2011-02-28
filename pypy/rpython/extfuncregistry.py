@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem.module import ll_math
 from pypy.rpython.ootypesystem.module import ll_math as oo_math
 from pypy.rpython.module import ll_os
 from pypy.rpython.module import ll_time
-from pypy.rlib import rarithmetic
+from pypy.rlib import rfloat
 try:
     import termios
 except ImportError:
@@ -25,18 +25,18 @@ for name in ll_math.unary_math_functions:
     try:
         f = getattr(math, name)
     except AttributeError:
-        f = getattr(rarithmetic, name)
+        f = getattr(rfloat, name)
     register_external(f, [float], float,
                       export_name="ll_math.ll_math_%s" % name,
                        sandboxsafe=True, llimpl=llimpl)
 
-register_external(rarithmetic.isinf, [float], bool,
+register_external(rfloat.isinf, [float], bool,
                   export_name="ll_math.ll_math_isinf", sandboxsafe=True,
                   llimpl=ll_math.ll_math_isinf)
-register_external(rarithmetic.isnan, [float], bool,
+register_external(rfloat.isnan, [float], bool,
                   export_name="ll_math.ll_math_isnan", sandboxsafe=True,
                   llimpl=ll_math.ll_math_isnan)
-register_external(rarithmetic.copysign, [float, float], float,
+register_external(rfloat.copysign, [float, float], float,
                   export_name="ll_math.ll_math_copysign", sandboxsafe=True,
                   llimpl=ll_math.ll_math_copysign)
 

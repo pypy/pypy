@@ -3,9 +3,9 @@
 import string
 
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rstring, runicode, rlocale, rarithmetic
+from pypy.rlib import rstring, runicode, rlocale, rarithmetic, rfloat
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import copysign, formatd
+from pypy.rlib.rfloat import copysign, formatd
 
 
 @specialize.argtype(1)
@@ -906,7 +906,7 @@ class Formatter(BaseFormatter):
         if tp == "\0":
             tp = "g"
             default_precision = 12
-            flags |= rarithmetic.DTSF_ADD_DOT_0
+            flags |= rfloat.DTSF_ADD_DOT_0
         elif tp == "n":
             tp = "g"
         value = space.float_w(w_float)
@@ -918,8 +918,8 @@ class Formatter(BaseFormatter):
             add_pct = False
         if self._precision == -1:
             self._precision = default_precision
-        result, special = rarithmetic.double_to_string(value, tp,
-                                                       self._precision, flags)
+        result, special = rfloat.double_to_string(value, tp,
+                                                  self._precision, flags)
         if add_pct:
             result += "%"
         n_digits = len(result)

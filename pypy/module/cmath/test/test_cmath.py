@@ -1,6 +1,6 @@
 from __future__ import with_statement
 from pypy.conftest import gettestobjspace
-from pypy.rlib.rarithmetic import copysign, isnan, isinf
+from pypy.rlib.rfloat import copysign, isnan, isinf
 from pypy.module.cmath import interp_cmath
 import os, sys, math
 

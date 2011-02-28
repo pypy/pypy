@@ -11,7 +11,7 @@ from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from pypy.translator.c.support import c_char_array_constant, barebonearray
 from pypy.translator.c.primitive import PrimitiveType, name_signed
 from pypy.rlib import exports
-from pypy.rlib.rarithmetic import isinf, isnan
+from pypy.rlib.rfloat import isinf, isnan
 from pypy.rlib.rstackovf import _StackOverflow
 from pypy.translator.c import extfunc
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
