@@ -1178,6 +1178,7 @@ class _abstract_ptr(object):
             return '* %s' % (self._obj0,)
 
     def __call__(self, *args):
+        from pypy.rpython.lltypesystem import rffi
         if isinstance(self._T, FuncType):
             if len(args) != len(self._T.ARGS):
                 raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
@@ -1191,11 +1192,17 @@ class _abstract_ptr(object):
                             pass
                         else:
                             assert a == value
+                    # Any pointer is convertible to void*
+                    elif (ARG is rffi.VOIDP and
+                          isinstance(typeOf(a), Ptr)):
+                        pass
                     # special case: ARG can be a container type, in which
                     # case a should be a pointer to it.  This must also be
                     # special-cased in the backends.
-                    elif not (isinstance(ARG, ContainerType)
-                            and typeOf(a) == Ptr(ARG)):
+                    elif (isinstance(ARG, ContainerType) and
+                          typeOf(a) == Ptr(ARG)):
+                        pass
+                    else:
                         args_repr = [typeOf(arg) for arg in args]
                         raise TypeError, ("calling %r with wrong argument "
                                           "types: %r" % (self._T, args_repr))
