@@ -122,6 +122,7 @@ class MsvcPlatform(Platform):
     def _libs(self, libraries):
         libs = []
         for lib in libraries:
+            lib = str(lib)
             if lib.endswith('.dll'):
                 lib = lib[:-4]
             libs.append('%s.lib' % (lib,))
