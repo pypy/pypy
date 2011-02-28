@@ -363,7 +363,10 @@ class BareBoneArrayDefNode:
         return self.itemindex_access_expr(baseexpr, index)
 
     def itemindex_access_expr(self, baseexpr, indexexpr):
-        return 'RPyBareItem(%s, %s)' % (baseexpr, indexexpr)
+        if self.ARRAY._hints.get("render_as_void"):
+            return 'RPyBareItem((char*)%s, %s)' % (baseexpr, indexexpr)
+        else:
+            return 'RPyBareItem(%s, %s)' % (baseexpr, indexexpr)
 
     def definition(self):
         return []    # no declaration is needed
