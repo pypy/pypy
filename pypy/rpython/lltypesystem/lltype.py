@@ -1139,6 +1139,11 @@ class _abstract_ptr(object):
                 raise TypeError("cannot directly assign to container array items")
             T2 = typeOf(val)
             if T2 != T1:
+                from pypy.rpython.lltypesystem import rffi
+                if T1 is rffi.VOIDP and isinstance(T2, Ptr):
+                    # Any pointer is convertible to void*
+                    val = rffi.cast(rffi.VOIDP, val)
+                else:
                     raise TypeError("%r items:\n"
                                     "expect %r\n"
                                     "   got %r" % (self._T, T1, T2))
@@ -1194,7 +1199,7 @@ class _abstract_ptr(object):
                             assert a == value
                     # Any pointer is convertible to void*
                     elif (ARG is rffi.VOIDP and
-                          isinstance(typeOf(a), Ptr)):
+                          (a is None or isinstance(typeOf(a), Ptr))):
                         pass
                     # special case: ARG can be a container type, in which
                     # case a should be a pointer to it.  This must also be

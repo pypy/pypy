@@ -399,7 +399,7 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
                         obj, lltype.nullptr(rffi.INTP.TO)) != 1:
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a single-segment buffer object"))
-    size = generic_cpy_call(space, pb.c_bf_getreadbuffer,
+    size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
                             obj, 0, bufferp)
     if size < 0:
         return -1

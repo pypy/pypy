@@ -172,7 +172,7 @@ if WIN32:
 
     def llimpl_FormatError(code):
         "Return a message corresponding to the given Windows error code."
-        buf = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
+        buf = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
 
         try:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
@@ -180,7 +180,7 @@ if WIN32:
                                    None,
                                    code,
                                    DEFAULT_LANGUAGE,
-                                   rffi.cast(rffi.VOIDP, buf),
+                                   rffi.cast(rffi.CCHARP, buf),
                                    0, None)
 
             if msglen <= 2 or msglen > sys.maxint:

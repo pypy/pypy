@@ -236,7 +236,7 @@ class TestString(BaseApiTest):
             api.PyString_Format(space.wrap('%s %d'), space.wrap((1, 2))))
 
     def test_asbuffer(self, space, api):
-        bufp = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
+        bufp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
         w_text = space.wrap("text")
