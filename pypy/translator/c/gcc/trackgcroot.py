@@ -799,7 +799,8 @@ class FunctionGcRootTracker(object):
                 insns.append(InsnStackAdjust(int(target.rsplit('@', 1)[1])))
             # Some (intrinsic?) functions use the "fastcall" calling convention
             # XXX without any declaration, how can we guess the stack effect?
-            if target in ['__alldiv', '__allrem', '__allmul', '__alldvrm']:
+            if target in ['__alldiv', '__allrem', '__allmul', '__alldvrm',
+                          '__aulldiv', '__aullrem', '__aullmul', '__aulldvrm']:
                 insns.append(InsnStackAdjust(16))
         return insns
 
