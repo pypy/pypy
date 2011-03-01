@@ -36,7 +36,7 @@ C_TYPE_TO_PYPY_TYPE = {
 
 C_TYPE_TO_PYPY_TYPE_ARGS = C_TYPE_TO_PYPY_TYPE.copy()
 C_TYPE_TO_PYPY_TYPE_ARGS.update({
-    "void": "rffi.VOIDP_real",
+    "void": "rffi.VOIDP",
     })
 
 

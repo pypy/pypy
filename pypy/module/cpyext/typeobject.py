@@ -159,7 +159,7 @@ def add_operators(space, dict_w, pto):
             if not struct:
                 continue
             func = getattr(struct, slot_names[1])
-        func_voidp = rffi.cast(rffi.VOIDP_real, func)
+        func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
             continue
         if wrapper_func is None and wrapper_func_kwds is None:

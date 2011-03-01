@@ -1248,7 +1248,7 @@ def PyImport_ImportFrozenModule(space, name):
     reload the module if it was already imported.)"""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.VOIDP_real], rffi.INT_real, error=-1)
+@cpython_api([rffi.CCHARP, rffi.VOIDP], rffi.INT_real, error=-1)
 def PyImport_AppendInittab(space, name, initfunc):
     """Add a single module to the existing table of built-in modules.  This is a
     convenience wrapper around PyImport_ExtendInittab(), returning -1 if
