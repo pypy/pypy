@@ -185,6 +185,15 @@ def llexternal(name, args, result, _callable=None,
                     # XXX leaks if a unicode2wcharp() fails with MemoryError
                     # and was not the first in this function
                     freeme = arg
+            elif TARGET is VOIDP:
+                if arg is None:
+                    arg = lltype.nullptr(VOIDP.TO)
+                elif isinstance(arg, str):
+                    arg = str2charp(arg)
+                    freeme = arg
+                elif isinstance(arg, unicode):
+                    arg = unicode2wcharp(arg)
+                    freeme = arg
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
                 if invoke_around_handlers:
@@ -550,9 +559,8 @@ FLOAT = lltype.SingleFloat
 r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
-VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
-VOIDP_real = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
-NULL = lltype.nullptr(VOIDP.TO)
+VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+NULL = None
 
 # void **
 VOIDPP = CArrayPtr(VOIDP)
