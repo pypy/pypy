@@ -85,7 +85,7 @@ class FutureAutomaton(object):
         c = self.getc()
         if c in ("'", '"', "r", "u") and not self.docstring_consumed:
             self.consume_docstring()
-        elif c in whitespace_or_newline:
+        elif c == '\\' or c in whitespace_or_newline:
             self.consume_empty_line()
         elif c == '#':
             self.consume_comment()
@@ -149,6 +149,12 @@ class FutureAutomaton(object):
                     # Syntax error
                     return
 
+    def consume_continuation(self):
+        c = self.getc()
+        if c in '\n\r':
+            self.pos += 1
+            self.atbol()
+
     def consume_empty_line(self):
         """
         Called when the remainder of the line can only contain whitespace
@@ -161,6 +167,10 @@ class FutureAutomaton(object):
         elif self.getc() == ';':
             self.pos += 1
             self.consume_whitespace()
+            self.start()
+        elif self.getc() in '\\':
+            self.pos += 1
+            self.consume_continuation()
             self.start()
         elif self.getc() in '\r\n':
             c = self.getc()
