@@ -26,7 +26,7 @@ the "in" comparisons with explicit numeric comparisons.
 
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR_ALLOWED, \
     CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSOLUTE_IMPORT
-            
+
 def get_futures(future_flags, source):
     futures = FutureAutomaton(future_flags, source)
     try:
@@ -34,7 +34,7 @@ def get_futures(future_flags, source):
     except DoneException, e:
         pass
     return futures.flags, (futures.lineno, futures.col_offset)
-    
+
 class DoneException(Exception):
     pass
 
@@ -226,7 +226,7 @@ class FutureAutomaton(object):
         if self.getc() not in whitespace + '\\':
             raise DoneException
         self.consume_whitespace()
-        
+
     def consume_whitespace(self):
         while 1:
             c = self.getc()
@@ -272,7 +272,6 @@ class FutureAutomaton(object):
         if paren_list and self.getc() == ')':
             self.pos += 1
             return
-        
         if (self.getc() == 'a' and
             self.getc(+1) == 's' and
             self.getc(+2) in whitespace):
