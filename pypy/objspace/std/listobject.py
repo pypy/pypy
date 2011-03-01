@@ -22,25 +22,25 @@ def cast_from_void_star(wrapper, from_where=""):
     return wrapper._content
 
 # don't know where to put this function, so it is global for now
-def get_strategy_from_list_objects(list_w):
+def get_strategy_from_list_objects(space, list_w):
     if list_w == []:
-        return EmptyListStrategy()
+        return EmptyListStrategy(space)
 
     # check for ints
     for e in list_w:
         if not is_W_IntObject(e):
             break
         if e is list_w[-1]:
-            return IntegerListStrategy()
+            return IntegerListStrategy(space)
 
     # check for ints
     for e in list_w:
         if not is_W_StringObject(e):
             break
         if e is list_w[-1]:
-            return StringListStrategy()
+            return StringListStrategy(space)
 
-    return ObjectListStrategy()
+    return ObjectListStrategy(space)
 
 def is_W_IntObject(w_object):
     from pypy.objspace.std.intobject import W_IntObject
@@ -53,9 +53,9 @@ def is_W_StringObject(w_object):
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
-    def __init__(w_self, wrappeditems):
+    def __init__(w_self, space, wrappeditems):
         assert isinstance(wrappeditems, list)
-        w_self.strategy = get_strategy_from_list_objects(wrappeditems)
+        w_self.strategy = get_strategy_from_list_objects(space, wrappeditems)
         w_self.strategy.init_from_list_w(w_self, wrappeditems)
 
     def __repr__(w_self):
@@ -126,6 +126,10 @@ registerimplementation(W_ListObject)
 
 
 class ListStrategy(object):
+
+    def __init__(self, space):
+        self.space = space
+
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
@@ -222,13 +226,12 @@ class EmptyListStrategy(ListStrategy):
         pass
 
 class AbstractUnwrappedStrategy(ListStrategy):
-    def unwrap(self, w_obj):
-        # XXX override later
-        return w_obj
 
-    def wrap(self, item):
-        # XXX override later
-        return item
+    def wrap(self, unwrapped):
+        raise NotImplementedError
+
+    def unwrap(self, wrapped):
+        raise NotImplementedError
 
     def cast_from_void_star(self, storage):
         raise NotImplementedError("abstract base class")
@@ -406,6 +409,12 @@ class AbstractUnwrappedStrategy(ListStrategy):
         self.cast_from_void_star(w_list.storage).reverse()
 
 class ObjectListStrategy(AbstractUnwrappedStrategy):
+    def unwrap(self, w_obj):
+        return w_obj
+
+    def wrap(self, item):
+        return item
+
     def cast_from_void_star(self, storage):
         return cast_from_void_star(storage, "object")
 
@@ -420,6 +429,12 @@ class ObjectListStrategy(AbstractUnwrappedStrategy):
 
 class IntegerListStrategy(AbstractUnwrappedStrategy):
 
+    def wrap(self, intval):
+        return self.space.wrap(intval)
+
+    def unwrap(self, w_int):
+        return self.space.int_w(w_int)
+
     def cast_from_void_star(self, storage):
         return cast_from_void_star(storage, "integer")
 
@@ -433,6 +448,12 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
         w_list.storage = cast_to_void_star(list_w, "integer")
 
 class StringListStrategy(AbstractUnwrappedStrategy):
+
+    def wrap(self, stringval):
+        return self.space.wrap(stringval)
+
+    def unwrap(self, w_string):
+        return self.space.str_w(w_string)
 
     def cast_from_void_star(self, storage):
         return cast_from_void_star(storage, "string")
