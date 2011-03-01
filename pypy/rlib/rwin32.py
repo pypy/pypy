@@ -191,7 +191,7 @@ if WIN32:
             assert buflen > 0
 
             result = rffi.charpsize2str(buf[0], buflen)
-            LocalFree(buf[0])
+            LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
         finally:
             lltype.free(buf, flavor='raw')
 

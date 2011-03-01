@@ -810,6 +810,8 @@ def _cast_whatever(TGT, value):
                 return cast_pointer(TGT, value)
         elif ORIG == llmemory.Address:
             return llmemory.cast_adr_to_ptr(value, TGT)
+        elif ORIG == Signed:
+            return cast_int_to_ptr(TGT, value)
     elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
         return llmemory.cast_ptr_to_adr(value)
     elif TGT == Signed and isinstance(ORIG, Ptr) and ORIG.TO._gckind == 'raw':

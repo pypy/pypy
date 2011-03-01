@@ -337,10 +337,15 @@ class BareBoneArrayDefNode:
         self.varlength = varlength
         self.dependencies = {}
         contained_type = ARRAY.OF
+        # There is no such thing as an array of voids:
+        # we use a an array of chars instead; only the pointer can be void*.
         self.itemtypename = db.gettype(contained_type, who_asks=self)
         self.fulltypename = self.itemtypename.replace('@', '(@)[%d]' %
                                                       (self.varlength,))
-        self.fullptrtypename = self.itemtypename.replace('@', '*@')
+        if ARRAY._hints.get("render_as_void"):
+            self.fullptrtypename = 'void *@'
+        else:
+            self.fullptrtypename = self.itemtypename.replace('@', '*@')
 
     def setup(self):
         """Array loops are forbidden by ForwardReference.become() because
@@ -681,8 +686,6 @@ class ArrayNode(ContainerNode):
 
     def getptrname(self):
         if barebonearray(self.getTYPE()):
-            if self.getTYPE()._hints.get("render_as_void"):
-                return '(void *)%s' % self.name
             return self.name
         return ContainerNode.getptrname(self)
 
