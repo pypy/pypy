@@ -337,8 +337,6 @@ class BareBoneArrayDefNode:
         self.varlength = varlength
         self.dependencies = {}
         contained_type = ARRAY.OF
-        if ARRAY._hints.get("render_as_void"):
-            contained_type = Void
         self.itemtypename = db.gettype(contained_type, who_asks=self)
         self.fulltypename = self.itemtypename.replace('@', '(@)[%d]' %
                                                       (self.varlength,))
@@ -683,6 +681,8 @@ class ArrayNode(ContainerNode):
 
     def getptrname(self):
         if barebonearray(self.getTYPE()):
+            if self.getTYPE()._hints.get("render_as_void"):
+                return '(void *)%s' % self.name
             return self.name
         return ContainerNode.getptrname(self)
 
