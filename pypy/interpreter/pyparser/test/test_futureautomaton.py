@@ -140,6 +140,9 @@ def test_mac_style_lineendings():
     assert f.flags == (fut.CO_FUTURE_DIVISION |
                        fut.CO_GENERATOR_ALLOWED |
                        fut.CO_FUTURE_WITH_STATEMENT)
+    assert f.lineno == 4
+    assert f.col_offset == 0
+
 def test_semicolon():
     s = '"abc" #def\n  #ghi\nfrom  __future__ import (division as b, generators,);  from __future__ import with_statement\n'
     f = run(s)
