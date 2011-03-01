@@ -194,8 +194,7 @@ def list_dialects():
     names = csv.list_dialects()"""
     return list(_dialects)
 
-class Reader:
-
+class Reader(object):
     """CSV reader
 
     Reader objects are responsible for reading and parsing tabular data
@@ -390,7 +389,7 @@ class Reader:
         self.field.append(c)
         
 
-class Writer:
+class Writer(object):
     """CSV writer
 
     Writer objects are responsible for generating tabular data
