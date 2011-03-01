@@ -1,27 +1,23 @@
 from pypy.tool.udir import udir
 
-def make_check(space):
-    return space.appexec([], """():
-        import marshal, StringIO
-        def marshal_check(case):
-            s = marshal.dumps(case)
-            print repr(s)
-            x = marshal.loads(s)
-            assert x == case and type(x) is type(case)
-            f = StringIO.StringIO()
-            marshal.dump(case, f)
-            f.seek(0)
-            x = marshal.load(f)
-            assert x == case and type(x) is type(case)
-        return marshal_check
-    """)
 
 class AppTestMarshal:
-
     def setup_class(cls):
         tmpfile = udir.join('AppTestMarshal.tmp')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        cls.w_marshal_check = make_check(cls.space)
+
+    def w_marshal_check(self, case):
+        import marshal, StringIO
+        s = marshal.dumps(case)
+        print repr(s)
+        x = marshal.loads(s)
+        assert x == case and type(x) is type(case)
+        f = StringIO.StringIO()
+        marshal.dump(case, f)
+        f.seek(0)
+        x = marshal.load(f)
+        assert x == case and type(x) is type(case)
+        return x
 
     def test_None(self):
         case = None
@@ -184,3 +180,18 @@ class AppTestRope(AppTestMarshal):
         from pypy.conftest import gettestobjspace
         cls.space = gettestobjspace(**{"objspace.std.withrope": True})
         AppTestMarshal.setup_class.im_func(cls)
+
+class AppTestSmallLong(AppTestMarshal):
+    def setup_class(cls):
+        from pypy.conftest import gettestobjspace
+        cls.space = gettestobjspace(**{"objspace.std.withsmalllong": True})
+        AppTestMarshal.setup_class.im_func(cls)
+
+    def test_smalllong(self):
+        import __pypy__
+        x = -123456789012345L
+        assert 'SmallLong' in __pypy__.internal_repr(x)
+        y = self.marshal_check(x)
+        assert y == x
+        # must be unpickled as a small long
+        assert 'SmallLong' in __pypy__.internal_repr(y)

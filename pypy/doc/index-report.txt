@@ -30,7 +30,7 @@ related development process and community aspects. *(2007-05-01)*
 `D08.2 JIT Compiler Architecture`_ is a report about the Architecture and
 working of our JIT compiler generator. *(2007-05-01)*
 
-`D08.1 JIT Compiler Release`_ reports on our sucessfully including a
+`D08.1 JIT Compiler Release`_ reports on our successfully including a
 JIT compiler for Python and the novel framework we used to
 automatically generate it in PyPy 1.0. *(2007-04-30)*
 
@@ -76,7 +76,7 @@ newcomers. *(2007-03-22)*
 
 
 `D02.1 Development Tools and Website`_ is a report
-about the codespeak_ development environment and aditional tool support for the
+about the codespeak_ development environment and additional tool support for the
 PyPy development process. *(2007-03-21)*
 
 `D03.1 Extension Compiler`_ is a report about

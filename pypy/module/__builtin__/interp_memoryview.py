@@ -3,7 +3,7 @@ Implementation of the 'buffer' and 'memoryview' types.
 """
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import gateway, buffer
-from pypy.interpreter.gateway import interp2app, unwrap_spec, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 import operator
@@ -23,13 +23,22 @@ class W_MemoryView(Wrappable):
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
             other = space.interpclass_w(w_other)
-            if not isinstance(other, W_MemoryView):
+            if isinstance(other, W_MemoryView):
+                # xxx not the most efficient implementation
+                str1 = self.as_str()
+                str2 = other.as_str()
+                return space.wrap(getattr(operator, name)(str1, str2))
+
+            try:
+                w_buf = space.buffer(w_other)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
                 return space.w_NotImplemented
-            # xxx not the most efficient implementation
-            str1 = self.as_str()
-            str2 = other.as_str()
-            return space.wrap(getattr(operator, name)(str1, str2))
-        descr__cmp.unwrap_spec = ['self', ObjSpace, W_Root]
+            else:
+                str1 = self.as_str()
+                str2 = space.buffer_w(w_buf).as_str()
+                return space.wrap(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
         return descr__cmp
 
@@ -59,15 +68,12 @@ class W_MemoryView(Wrappable):
             buf = buffer.SubBuffer(buf, start, size)
         return W_MemoryView(buf)
 
-    @unwrap_spec('self', ObjSpace)
     def descr_buffer(self, space):
         return space.wrap(self.buf)
 
-    @unwrap_spec('self', ObjSpace)
     def descr_tobytes(self, space):
         return space.wrap(self.as_str())
 
-    @unwrap_spec('self', ObjSpace)
     def descr_tolist(self, space):
         buf = self.buf
         result = []
@@ -75,7 +81,6 @@ class W_MemoryView(Wrappable):
             result.append(space.wrap(ord(buf.getitem(i))))
         return space.newlist(result)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def descr_getitem(self, space, w_index):
         start, stop, step = space.decode_index(w_index, self.getlength())
         if step == 0:  # index only
@@ -88,7 +93,7 @@ class W_MemoryView(Wrappable):
                 space.wrap("memoryview object does not support"
                            " slicing with a step"))
 
-    @unwrap_spec('self', ObjSpace, W_Root, 'bufferstr')
+    @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
         buf = self.buf
         if isinstance(buf, buffer.RWBuffer):
@@ -97,34 +102,26 @@ class W_MemoryView(Wrappable):
             raise OperationError(space.w_TypeError,
                                  space.wrap("cannot modify read-only memory"))
 
-    @unwrap_spec('self', ObjSpace)
     def descr_len(self, space):
         return self.buf.descr_len(space)
 
-    def w_get_format(space, self):
+    def w_get_format(self, space):
         return space.wrap("B")
-    def w_get_itemsize(space, self):
+    def w_get_itemsize(self, space):
         return space.wrap(1)
-    def w_get_ndim(space, self):
+    def w_get_ndim(self, space):
         return space.wrap(1)
-    def w_is_readonly(space, self):
+    def w_is_readonly(self, space):
         return space.wrap(not isinstance(self.buf, buffer.RWBuffer))
-    def w_get_shape(space, self):
+    def w_get_shape(self, space):
         return space.newtuple([space.wrap(self.getlength())])
-    def w_get_strides(space, self):
+    def w_get_strides(self, space):
         return space.newtuple([space.wrap(1)])
-    def w_get_suboffsets(space, self):
-        buf = self.buf
-        if isinstance(buf, buffer.SubBuffer):
-            offset = buf.offset
-        elif isinstance(buf, buffer.RWSubBuffer):
-            offset = buf.offset
-        else:
-            offset = 0
-        return space.newtuple([space.wrap(offset)])
+    def w_get_suboffsets(self, space):
+        # I've never seen anyone filling this field
+        return space.w_None
 
 
-@unwrap_spec(ObjSpace, W_Root, W_Root)
 def descr_new(space, w_subtype, w_object):
     memoryview = W_MemoryView(space.buffer(w_object))
     return space.wrap(memoryview)

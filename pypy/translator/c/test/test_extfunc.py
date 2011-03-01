@@ -845,6 +845,17 @@ if hasattr(os, 'getloadavg'):
         res = f()
         assert type(res) is float and res >= 0.0
 
+if hasattr(os, 'major'):
+    def test_os_major_minor():
+        def does_stuff(n):
+            a = os.major(n)
+            b = os.minor(n)
+            x = os.makedev(a, b)
+            return '%d,%d,%d' % (a, b, x)
+        f = compile(does_stuff, [int])
+        res = f(12345)
+        assert res == '%d,%d,12345' % (os.major(12345), os.minor(12345))
+
 if hasattr(os, 'fchdir'):
     def test_os_fchdir():
         def does_stuff():

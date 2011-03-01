@@ -108,7 +108,7 @@ The corresponding low-level type could be something like this::
 
     Foo = ootype.ExternalInstance({'bar': ([Signed, Signed], Float)})
 
-Then, the annotation for Foo's intances is SomeExternalInstance(Foo).
+Then, the annotation for Foo's instances is SomeExternalInstance(Foo).
 This way, the transformation from high-level types to platform-level
 types is straightforward and correct.
 
@@ -156,7 +156,7 @@ Open issues
 Exceptions
 ~~~~~~~~~~
 
-.NET and JVM users want to catch external exceptions in a natuarl way;
+.NET and JVM users want to catch external exceptions in a natural way;
 e.g.::
 
     try:
@@ -164,7 +164,7 @@ e.g.::
     except System.OverflowException:
         ...
 
-This is not straighforward because to make the flow objspace happy the
+This is not straightforward because to make the flow objspace happy the
 object which represent System.OverflowException must be a real Python
 class that inherits from Exception.
 
@@ -200,7 +200,7 @@ The CLI backend use a similar approach right now, but it could be
 necessary to rewrite a part of it.
 
 To represent low-level types, it uses NativeInstance, a subclass of
-ootype.Instance that contains all the informations needed by the
+ootype.Instance that contains all the information needed by the
 backend to reference the class (e.g., the namespace). It also supports
 overloading.
 
@@ -209,5 +209,5 @@ around a low-level type but it has been designed for low-level
 helpers. It might be saner to use another annotation not to mix apples
 and oranges, maybe factoring out common code.
 
-I don't know whether and how much code can be reused from the exising
+I don't know whether and how much code can be reused from the existing
 bltregistry.

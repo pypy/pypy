@@ -1,9 +1,10 @@
 import py
-from pypy.interpreter.astcompiler import codegen, astbuilder
+from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
+from pypy.tool import stdlib_opcode as ops
 
 def compile_with_astcompiler(expr, mode, space):
     p = pyparse.PythonParser(space)
@@ -12,6 +13,19 @@ def compile_with_astcompiler(expr, mode, space):
     ast = astbuilder.ast_from_node(space, cst, info)
     return codegen.compile_ast(space, ast, info)
 
+def generate_function_code(expr, space):
+    p = pyparse.PythonParser(space)
+    info = pyparse.CompileInfo("<test>", 'exec')
+    cst = p.parse_source(expr, info)
+    ast = astbuilder.ast_from_node(space, cst, info)
+    function_ast = optimize.optimize_ast(space, ast.body[0], info)
+    function_ast = ast.body[0]
+    symbols = symtable.SymtableBuilder(space, ast, info)
+    generator = codegen.FunctionCodeGenerator(
+        space, 'function', function_ast, 1, symbols, info)
+    blocks = generator.first_block.post_order()
+    generator._resolve_block_targets(blocks)
+    return generator, blocks
 
 class TestCompiler:
     """These tests compile snippets of code and check them by
@@ -425,11 +439,12 @@ class TestCompiler:
         decl = str(decl) + "\n"
         yield self.st, decl, 'x', (1, 2, 3, 4)
 
-        source = """def f(a):
-    del a
-    def x():
-        a
-"""
+        source = """if 1:
+        def f(a):
+            del a
+            def x():
+                a
+        """
         exc = py.test.raises(SyntaxError, self.run, source).value
         assert exc.msg == "Can't delete variable used in nested scopes: 'a'"
 
@@ -732,15 +747,16 @@ class TestCompiler:
         yield self.st, "x = None; y = `x`", "y", "None"
 
     def test_deleting_attributes(self):
-        test = """class X():
-   x = 3
-del X.x
-try:
-    X.x
-except AttributeError:
-    pass
-else:
-    raise AssertionError("attribute not removed")"""
+        test = """if 1:
+        class X():
+           x = 3
+        del X.x
+        try:
+            X.x
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError("attribute not removed")"""
         yield self.st, test, "X.__name__", "X"
 
 
@@ -760,10 +776,85 @@ class AppTestCompiler:
         assert "0 ('hi')" not in output.getvalue()
 
     def test_print_to(self):
-         exec """from StringIO import StringIO
-s = StringIO()
-print >> s, "hi", "lovely!"
-assert s.getvalue() == "hi lovely!\\n"
-s = StringIO()
-print >> s, "hi", "lovely!",
-assert s.getvalue() == "hi lovely!\"""" in {}
+         exec """if 1:
+         from StringIO import StringIO
+         s = StringIO()
+         print >> s, "hi", "lovely!"
+         assert s.getvalue() == "hi lovely!\\n"
+         s = StringIO()
+         print >> s, "hi", "lovely!",
+         assert s.getvalue() == "hi lovely!"
+         """ in {}
+
+class TestOptimizations:
+    def count_instructions(self, source):
+        code, blocks = generate_function_code(source, self.space)
+        instrs = []
+        for block in blocks:
+            instrs.extend(block.instructions)
+        print instrs
+        counts = {}
+        for instr in instrs:
+            counts[instr.opcode] = counts.get(instr.opcode, 0) + 1
+        return counts
+
+    def test_elim_jump_to_return(self):
+        source = """def f():
+        return true_value if cond else false_value
+        """
+        counts = self.count_instructions(source)
+        assert ops.JUMP_FORWARD not in counts
+        assert ops.JUMP_ABSOLUTE not in counts
+        assert counts[ops.RETURN_VALUE] == 2
+
+    def test_const_fold_subscr(self):
+        source = """def f():
+        return (0, 1)[0]
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
+
+        source = """def f():
+        return (0, 1)[:2]
+        """
+        # Just checking this doesn't crash out
+        self.count_instructions(source)
+
+    def test_remove_dead_code(self):
+        source = """def f(x):
+            return 5
+            x += 1
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
+
+    def test_remove_dead_jump_after_return(self):
+        source = """def f(x, y, z):
+            if x:
+                return y
+            else:
+                return z
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_FAST: 3,
+                          ops.POP_JUMP_IF_FALSE: 1,
+                          ops.RETURN_VALUE: 2}
+
+    def test_remove_dead_yield(self):
+        source = """def f(x):
+            return
+            yield 6
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
+        #
+        space = self.space
+        w_generator = space.appexec([], """():
+            d = {}
+            exec '''def f(x):
+                return
+                yield 6
+            ''' in d
+            return d['f'](5)
+        """)
+        assert 'generator' in space.str_w(space.repr(w_generator))

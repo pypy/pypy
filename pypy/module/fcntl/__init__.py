@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.rlib.rarithmetic import intmask
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -16,6 +17,7 @@ class Module(MixedModule):
     def buildloaders(cls):
         from pypy.module.fcntl import interp_fcntl
         for constant, value in interp_fcntl.constants.iteritems():
+            value = intmask(value)
             Module.interpleveldefs[constant] = "space.wrap(%r)" % value
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)

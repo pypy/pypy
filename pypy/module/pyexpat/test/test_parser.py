@@ -14,7 +14,19 @@ class AppTestPyexpat:
         res = p.Parse("<xml></xml>")
         assert res == 1
 
-        raises(pyexpat.ExpatError, p.Parse, "3")
+        exc = raises(pyexpat.ExpatError, p.Parse, "3")
+        assert exc.value.lineno == 1
+        assert exc.value.offset == 11
+        assert exc.value.code == 9 # XML_ERROR_JUNK_AFTER_DOC_ELEMENT
+
+        pyexpat.ExpatError("error")
+
+    def test_version(self):
+        import pyexpat
+        assert isinstance(pyexpat.__version__, str)
+        assert pyexpat.EXPAT_VERSION.startswith('expat_')
+        assert isinstance(pyexpat.version_info, tuple)
+        assert isinstance(pyexpat.version_info[0], int)
 
     def test_encoding(self):
         import pyexpat

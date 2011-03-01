@@ -66,6 +66,8 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
         return ootype.make_unicode(value)
 
     def ll_str(self, value):
+        if not value:
+            return self.ll.ll_constant('None')
         sb = ootype.new(ootype.StringBuilder)
         lgt = value.ll_strlen()
         sb.ll_allocate(lgt)

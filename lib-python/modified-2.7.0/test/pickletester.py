@@ -1092,6 +1092,7 @@ class AbstractPickleModuleTests(unittest.TestCase):
         s = StringIO.StringIO("X''.")
         self.assertRaises(EOFError, self.module.load, s)
 
+    @impl_detail("no full restricted mode in pypy", pypy=False)
     def test_restricted(self):
         # issue7128: cPickle failed in restricted mode
         builtins = {self.module.__name__: self.module,

@@ -1,6 +1,8 @@
 
 #ifdef WITH_PYMALLOC
 
+#include <string.h>
+
 /* An object allocator for Python.
 
    Here is an introduction to the layers of the Python memory architecture,
@@ -439,7 +441,7 @@ new_arena(void)
 	arenabase = bp;
 	nfreepools = ARENA_SIZE / POOL_SIZE;
 	assert(POOL_SIZE * nfreepools == ARENA_SIZE);
-	excess = (uint) ((uint)bp & POOL_SIZE_MASK);
+	excess = (uint) ((long)bp & POOL_SIZE_MASK);
 	if (excess != 0) {
 		--nfreepools;
 		arenabase += POOL_SIZE - excess;

@@ -19,15 +19,18 @@ C_TYPE_TO_PYPY_TYPE = {
         "PyTypeObject*": "PyTypeObjectPtr",
         "PyVarObject*": "PyObject",
         "const char*": "rffi.CCHARP",
+        "double": "rffi.DOUBLE",
         "PyObject*": "PyObject",
         "PyObject**": "PyObjectP",
         "char*": "rffi.CCHARP",
         "PyMethodDef*": "PyMethodDef",
         "Py_ssize_t": "Py_ssize_t",
         "Py_ssize_t*": "Py_ssize_t",
+        "size_t": "rffi.SIZE_T",
         "...": "...",
         "char": "lltype.Char",
         "long": "lltype.Signed",
+        "Py_buffer*": "Py_buffer",
         "": "",
         }
 
@@ -56,7 +59,8 @@ def process_doctree(app, doctree):
         if not par[0].has_key('names') or not par[0]['names']:
             continue
         functionname = par[0]['names'][0]
-        if api.FUNCTIONS.get(functionname) is not None:
+        if (functionname in api.FUNCTIONS or
+            functionname in api.SYMBOLS_C):
             print "Wow, you implemented already", functionname
             continue
         borrows = docstring = ""

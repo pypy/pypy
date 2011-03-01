@@ -21,7 +21,7 @@ from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
 class W_UnicodeObject(W_Object):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['_value']
 
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)
@@ -114,7 +114,7 @@ def eq__Unicode_Unicode(space, w_left, w_right):
 
 def eq__Unicode_String(space, w_uni, w_str):
     from pypy.objspace.std.unicodetype import unicode_from_string
-    return _unicode_string_comparison(space, w_uni, w_str, 
+    return _unicode_string_comparison(space, w_uni, w_str,
                     False, unicode_from_string)
 
 eq__Unicode_Rope = eq__Unicode_String
@@ -285,7 +285,7 @@ def _isspace(uchar):
     return unicodedb.isspace(ord(uchar))
 
 def make_generic(funcname):
-    def func(space, w_self): 
+    def func(space, w_self):
         v = w_self._value
         if len(v) == 0:
             return space.w_False
@@ -343,18 +343,18 @@ def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
     u_self = w_self._value
     u_chars = w_chars._value
-    
+
     lpos = 0
     rpos = len(u_self)
-    
+
     if left:
         while lpos < rpos and u_self[lpos] in u_chars:
            lpos += 1
-       
+
     if right:
         while rpos > lpos and u_self[rpos - 1] in u_chars:
            rpos -= 1
-           
+
     assert rpos >= 0
     result = u_self[lpos: rpos]
     return W_UnicodeObject(result)
@@ -362,18 +362,18 @@ def _strip(space, w_self, w_chars, left, right):
 def _strip_none(space, w_self, left, right):
     "internal function called by str_xstrip methods"
     u_self = w_self._value
-    
+
     lpos = 0
     rpos = len(u_self)
-    
+
     if left:
         while lpos < rpos and _isspace(u_self[lpos]):
            lpos += 1
-       
+
     if right:
         while rpos > lpos and _isspace(u_self[rpos - 1]):
            rpos -= 1
-       
+
     assert rpos >= 0
     result = u_self[lpos: rpos]
     return W_UnicodeObject(result)
@@ -476,6 +476,12 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False)
     assert isinstance(w_sub, W_UnicodeObject)
     self = w_self._value
     sub = w_sub._value
+
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
+    if space.is_w(w_end, space.w_None):
+        w_end = space.len(w_self)
+
     if upper_bound:
         start = slicetype.adapt_bound(space, len(self), w_start)
         end = slicetype.adapt_bound(space, len(self), w_end)
@@ -568,7 +574,7 @@ def unicode_rjust__Unicode_ANY_ANY(space, w_self, w_width, w_fillchar):
     for i in range(len(self)):
         result[padding + i] = self[i]
     return W_UnicodeObject(u''.join(result))
-    
+
 def unicode_zfill__Unicode_ANY(space, w_self, w_width):
     self = w_self._value
     width = space.int_w(w_width)
@@ -593,7 +599,7 @@ def unicode_splitlines__Unicode_ANY(space, w_self, w_keepends):
         keepends = 1
     if len(self) == 0:
         return space.newlist([])
-    
+
     start = 0
     end = len(self)
     pos = 0
@@ -729,7 +735,7 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
 
 def sliced(space, s, start, stop, orig_obj):
     assert start >= 0
-    assert stop >= 0 
+    assert stop >= 0
     if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj), space.w_unicode):
         return orig_obj
     return space.wrap( s[start:stop])
@@ -775,8 +781,14 @@ def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
 
 def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
                                          w_maxsplit):
-    old = unicode(space.bufferstr_w(w_old))
-    new = unicode(space.bufferstr_w(w_new))
+    if not space.isinstance_w(w_old, space.w_unicode):
+        old = unicode(space.bufferstr_w(w_old))
+    else:
+        old = space.unicode_w(w_old)
+    if not space.isinstance_w(w_new, space.w_unicode):
+        new = unicode(space.bufferstr_w(w_new))
+    else:
+        new = space.unicode_w(w_new)
     return _unicode_replace(space, w_self, old, new, w_maxsplit)
 
 def _unicode_replace(space, w_self, old, new, w_maxsplit):
@@ -792,11 +804,11 @@ def _unicode_replace(space, w_self, old, new, w_maxsplit):
         ovfcheck(one + len(w_self._value))
     except OverflowError:
         raise OperationError(
-            space.w_OverflowError, 
+            space.w_OverflowError,
             space.wrap("replace string is too long"))
 
     return W_UnicodeObject(new.join(parts))
-    
+
 
 def unicode_encode__Unicode_ANY_ANY(space, w_unistr,
                                     w_encoding=None,
@@ -850,7 +862,7 @@ def unicode_expandtabs__Unicode_ANY(space, w_self, w_tabsize):
         if ch == u"\n" or ch ==  u"\r":
             prevsize = 0
     totalsize = prevsize
-            
+
     for i in range(1, len(parts)):
         pad = tabsize - prevsize % tabsize
         nextpart = parts[i]
@@ -915,17 +927,12 @@ def unicode_format__Unicode(space, w_unicode, __args__):
 def format__Unicode_ANY(space, w_unicode, w_format_spec):
     if not space.isinstance_w(w_format_spec, space.w_unicode):
         w_format_spec = space.call_function(space.w_unicode, w_format_spec)
+    from pypy.objspace.std.unicodetype import unicode_from_object
+    w_unicode = unicode_from_object(space, w_unicode)
     spec = space.unicode_w(w_format_spec)
     formatter = newformat.unicode_formatter(space, spec)
-    return formatter.format_string(w_unicode._value)
+    return formatter.format_string(space.unicode_w(w_unicode))
 
-def buffer__Unicode(space, w_unicode):
-    from pypy.rlib.rstruct.unichar import pack_unichar
-    charlist = []
-    for unich in w_unicode._value:
-        pack_unichar(unich, charlist)
-    from pypy.interpreter.buffer import StringBuffer
-    return space.wrap(StringBuffer(''.join(charlist)))
 
 import unicodetype
 register_all(vars(), unicodetype)

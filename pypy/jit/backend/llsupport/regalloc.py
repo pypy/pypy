@@ -158,9 +158,10 @@ class RegisterManager(object):
 
     def _pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
                                 need_lower_byte=False):
-        """ Silly algorithm.
+        """ Slightly less silly algorithm.
         """
-        candidates = []
+        cur_max_age = -1
+        candidate = None
         for next in self.reg_bindings:
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
@@ -172,8 +173,13 @@ class RegisterManager(object):
                     continue
             if need_lower_byte and reg in self.no_lower_byte_regs:
                 continue
-            return next
-        raise NoVariableToSpill
+            max_age = self.longevity[next][1]
+            if cur_max_age < max_age:
+                cur_max_age = max_age
+                candidate = next
+        if candidate is None:
+            raise NoVariableToSpill
+        return candidate
 
     def force_allocate_reg(self, v, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):

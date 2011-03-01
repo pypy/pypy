@@ -89,6 +89,8 @@ class AppTestStringObject:
         big = 1E200
         assert '   inf' == '%6g' % (big * big)
 
+        assert '0.' == '%#.0f' % 0.0
+
     def test_format_int(self):
         import sys
         n = 23
@@ -244,11 +246,11 @@ class AppTestWidthPrec:
         assert "%*.*s"%( f, 3, 'abcde') ==  '  abc'
         assert "%*.*s"%(-f, 3, 'abcde') ==  'abc  '
 
-    def test_too_long(self):
+    def test_long_format(self):
         def f(fmt, x):
             return fmt % x
-        raises(OverflowError, f, "%.70f", 2.0)
-        raises(OverflowError, f, "%.110g", 2.0)
+        assert '%.70f' % 2.0 == '2.' + '0' * 70
+        assert '%.110g' % 2.0 == '2'
 
     def test_subnormal(self):
         inf = 1e300 * 1e300

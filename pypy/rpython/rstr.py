@@ -284,7 +284,10 @@ class __extend__(AbstractStringRepr):
         return hop.gendirectcall(self.ll.ll_float, v_str)
 
     def ll_str(self, s):
-        return s
+        if s:
+            return s
+        else:
+            return self.ll.ll_constant('None')
 
 class __extend__(AbstractUnicodeRepr):
     def rtype_method_encode(self, hop):
@@ -618,8 +621,8 @@ class AbstractLLHelpers:
     __metaclass__ = StaticMethods
 
     def ll_char_isspace(ch):
-        c = ord(ch) 
-        return c == 32 or (c <= 13 and c >= 9)   # c in (9, 10, 11, 12, 13, 32)
+        c = ord(ch)
+        return c == 32 or (9 <= c <= 13)   # c in (9, 10, 11, 12, 13, 32)
 
     def ll_char_isdigit(ch):
         c = ord(ch)
@@ -709,7 +712,7 @@ class AbstractLLHelpers:
 
     def ll_float(ll_str):
         from pypy.rpython.annlowlevel import hlstr
-        from pypy.rlib.rarithmetic import break_up_float, parts_to_float
+        from pypy.rlib.rarithmetic import rstring_to_float
         s = hlstr(ll_str)
         assert s is not None
 
@@ -729,12 +732,7 @@ class AbstractLLHelpers:
             else:
                 break
         assert end >= 0
-        sign, before_point, after_point, exponent = break_up_float(s[beg:end+1])
-    
-        if not before_point and not after_point:
-            raise ValueError
-
-        return parts_to_float(sign, before_point, after_point, exponent)
+        return rstring_to_float(s[beg:end+1])
 
     def ll_splitlines(cls, LIST, ll_str, keep_newlines):
         from pypy.rpython.annlowlevel import hlstr

@@ -9,16 +9,11 @@ class AppTestUserObject:
     def setup_class(cls):
         from pypy import conftest
         cls.space = conftest.gettestobjspace(**cls.OPTIONS)
-        #
-        import random
-        def fn_rand():
-            return cls.space.wrap(random.randrange(0, 5))
-        fn_rand.unwrap_spec = []
-        if conftest.option.runappdirect:
-            cls.w_rand = fn_rand
-        else:
-            cls.w_rand = cls.space.wrap(gateway.interp2app(fn_rand))
         cls.w_runappdirect = cls.space.wrap(bool(conftest.option.runappdirect))
+
+    def w_rand(self):
+        import random
+        return random.randrange(0, 5)
 
     def test_emptyclass(self):
         class empty(object): pass

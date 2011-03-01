@@ -1,9 +1,11 @@
 from pypy.conftest import gettestobjspace
-import sys
+import sys, random
 import py
 from pypy.tool.udir import udir
 from pypy.rlib import rsocket
 from pypy.rpython.lltypesystem import lltype, rffi
+
+PORT_NUMBER = random.randrange(40000, 60000)
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket', 'array'])
@@ -297,6 +299,7 @@ class AppTestSocket:
     def setup_class(cls):
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
+        cls.w_PORT = space.wrap(PORT_NUMBER)
 
     def test_ntoa_exception(self):
         import _socket
@@ -498,7 +501,7 @@ class AppTestSocket:
             skip('No dup() on this platform')
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('localhost', 50007))
+        s.bind(('localhost', self.PORT))
         s2 = s.dup()
         assert s.fileno() != s2.fileno()
         assert s.getsockname() == s2.getsockname()
@@ -554,7 +557,7 @@ class AppTestSocketTCP:
     def setup_class(cls):
         cls.space = space
 
-    PORT = 50007
+    PORT = PORT_NUMBER
     HOST = 'localhost'
         
     def setup_method(self, method):

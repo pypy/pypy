@@ -3,6 +3,7 @@
 
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
+from pypy.interpreter.gateway import ObjSpace, W_Root
 from pypy.interpreter import argument
 import py
 import sys
@@ -156,6 +157,12 @@ class TestGateway:
         assert self.space.eq_w(
             space.call_function(w_app_g3, w('foo'), w('bar')),
             w('foobar'))
+
+    def test_interp2app_unwrap_spec_auto(self):
+        def f(space, w_a, w_b):
+            pass
+        unwrap_spec = gateway.BuiltinCode(f)._unwrap_spec
+        assert unwrap_spec == [ObjSpace, W_Root, W_Root]
 
     def test_interp2app_unwrap_spec_bool(self):
         space = self.space
@@ -584,6 +591,14 @@ class TestGateway:
         args = argument.Arguments(space, [space.wrap(-1), space.wrap(0)])
         w_res = space.call_args(w_g, args)
         assert space.eq_w(w_res, space.wrap((-1, 0)))
+
+    def test_unwrap_spec_decorator_kwargs(self):
+        space = self.space
+        @gateway.unwrap_spec(i=int)
+        def f(space, w_thing, i):
+            return space.newtuple([w_thing, space.wrap(i)])
+        unwrap_spec = gateway.BuiltinCode(f)._unwrap_spec
+        assert unwrap_spec == [ObjSpace, W_Root, int]
 
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist

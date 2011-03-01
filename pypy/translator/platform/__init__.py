@@ -19,9 +19,11 @@ class CompilationError(Exception):
 
     def __repr__(self):
         if self.err:
-            return "<CompilationError err=%s>" % py.io.saferepr(self.err)
+            attr = 'err'
         else:
-            return "<CompilationError out=%s>" % py.io.saferepr(self.out)
+            attr = 'out'
+        text = getattr(self, attr).replace('\n', '\n\t')
+        return 'CompilationError(%s="""\n\t%s""")' % (attr, text)
 
     __str__ = __repr__
 
@@ -176,8 +178,11 @@ class Platform(object):
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
         if outputfilename is None:
             outputfilename = ofiles[0].purebasename
-        exe_name = py.path.local(os.path.join(str(ofiles[0].dirpath()),
-                                              outputfilename))
+        if ofiles:
+            dirname = ofiles[0].dirpath()
+        else:
+            dirname = udir.join('module_cache')
+        exe_name = dirname.join(outputfilename, abs=True)
         if standalone:
             if self.exe_ext:
                 exe_name += '.' + self.exe_ext

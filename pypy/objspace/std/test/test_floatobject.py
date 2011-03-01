@@ -1,6 +1,6 @@
 from pypy.objspace.std import floatobject as fobj
 from pypy.objspace.std.multimethod import FailedToImplement
-import py
+import py, sys
 
 class TestW_FloatObject:
 
@@ -39,7 +39,7 @@ class TestW_FloatObject:
         from pypy.objspace.std.longobject import W_LongObject
         space = self.space
         saved = W_LongObject.__dict__['fromfloat']
-        W_LongObject.fromfloat = lambda x: disabled
+        W_LongObject.fromfloat = lambda space, x: disabled
         try:
             w_i = space.wrap(12)
             w_f = space.wrap(12.3)
@@ -60,6 +60,9 @@ class TestW_FloatObject:
 
 
 class AppTestAppFloatTest:
+    def setup_class(cls):
+        cls.w_py26 = cls.space.wrap(sys.version_info >= (2, 6))
+
     def test_negatives(self):
         assert -1.1 < 0
         assert -0.1 < 0
@@ -167,22 +170,23 @@ class AppTestAppFloatTest:
 
     def test_special_float_method(self):
         class a(object):
-            def __float__(self): 
-                self.ar = True 
+            def __float__(self):
+                self.ar = True
                 return None
         inst = a()
-        raises(TypeError, float, inst) 
-        assert inst.ar 
+        raises(TypeError, float, inst)
+        assert inst.ar
 
-        class b(object): 
-            pass 
-        raises((AttributeError, TypeError), float, b()) 
+        class b(object):
+            pass
+        raises((AttributeError, TypeError), float, b())
 
     def test_getnewargs(self):
         assert  0.0 .__getnewargs__() == (0.0,)
 
-
     def test_pow(self):
+        import math
+
         def pw(x, y):
             return x ** y
         def espeq(x, y):
@@ -196,7 +200,25 @@ class AppTestAppFloatTest:
         assert pw(-1.0, 2.0) == 1.0
         assert pw(-1.0, 3.0) == -1.0
         assert pw(-1.0, 1e200) == 1.0
-        assert pw(0.0, float("-inf")) == float("inf")
+        if self.py26:
+            assert pw(0.0, float("-inf")) == float("inf")
+            assert math.isnan(pw(-3, float("nan")))
+            assert math.isnan(pw(-3., float("nan")))
+            assert pw(-1.0, -float('inf')) == 1.0
+            assert pw(-1.0, float('inf')) == 1.0
+            assert pw(float('inf'), 0) == 1.0
+            assert pw(float('nan'), 0) == 1.0
+
+            assert math.isinf(pw(-0.5, float('-inf')))
+            assert math.isinf(pw(+0.5, float('-inf')))
+            assert pw(-1.5, float('-inf')) == 0.0
+            assert pw(+1.5, float('-inf')) == 0.0
+
+            assert str(pw(float('-inf'), -0.5)) == '0.0'
+            assert str(pw(float('-inf'), -2.0)) == '0.0'
+            assert str(pw(float('-inf'), -1.0)) == '-0.0'
+            assert str(pw(float('-inf'), 1.0)) == '-inf'
+            assert str(pw(float('-inf'), 2.0)) == 'inf'
 
     def test_pow_neg_base(self):
         import math
@@ -206,6 +228,7 @@ class AppTestAppFloatTest:
         res = pw(-2.0, -2001.0)
         assert res == -0.0
         assert math.copysign(1., res) == -1.
+        assert pw(-1.0, -1e15) == 1.0
 
     def test_float_cmp(self):
         assert 12.5 == 12.5
@@ -387,24 +410,24 @@ class AppTestAppFloatTest:
         #    assert 5L .__eq__(3.14) is NotImplemented
         #    assert 3.14 .__eq__(5L) is False
 
+    def test_from_string(self):
+        raises(ValueError, float, "\0")
+
+    def test_format(self):
+        f = 1.1234e200
+        assert f.__format__("G") == "1.1234E+200"
+
 
 class AppTestFloatHex:
-
-    def setup_class(cls):
-        space = cls.space
-        cls.w_identical = space.appexec((), """():
+    def w_identical(self, x, y):
         import math
-        def identical(x, y):
-            # check that floats x and y are identical, or that both
-            # are NaNs
-            if math.isnan(x) or math.isnan(y):
-                if math.isnan(x) == math.isnan(y):
-                    return
-            assert (x == y and (x != 0.0 or
-                                math.copysign(1.0, x) == math.copysign(1.0, y)))
-        return identical
-        """)
-
+        # check that floats x and y are identical, or that both
+        # are NaNs
+        if math.isnan(x) or math.isnan(y):
+            if math.isnan(x) == math.isnan(y):
+                return
+        assert (x == y and (x != 0.0 or
+                            math.copysign(1.0, x) == math.copysign(1.0, y)))
 
     def test_from_hex(self):
         fromHex = float.fromhex
@@ -558,6 +581,9 @@ class AppTestFloatHex:
         self.identical(fromHex('0X0p-1076'), 0.0)
         self.identical(fromHex('-0X0p-2000'), -0.0)
         self.identical(fromHex('-0x0p-123456789123456789'), -0.0)
+        self.identical(fromHex('0x1.0p00000000000000000000000000000003'), 8.0)
+        self.identical(fromHex('0x1.0p+0000000000000000000000000000003'), 8.0)
+        self.identical(fromHex('0x1.0p-000000000000000000000000000003'), 0.125)
 
         # values that should underflow to 0
         self.identical(fromHex('0X1p-1075'), 0.0)

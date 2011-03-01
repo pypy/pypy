@@ -3,6 +3,7 @@ import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import new_exception_class
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
@@ -373,9 +374,9 @@ class ObjSpace(object):
         else:
             name = importname
 
-        w_name = self.wrap(name)
-        w_mod = self.wrap(Module(self, w_name))
-        self.builtin_modules[name] = w_mod
+        mod = Module(self, self.wrap(name))
+        mod.install()
+
         return name
 
     def getbuiltinmodule(self, name, force_init=False):
@@ -454,22 +455,23 @@ class ObjSpace(object):
         from pypy.module.exceptions import Module
         w_name = self.wrap('exceptions')
         self.exceptions_module = Module(self, w_name)
-        self.builtin_modules['exceptions'] = self.wrap(self.exceptions_module)
+        self.exceptions_module.install()
 
         from pypy.module.sys import Module
         w_name = self.wrap('sys')
         self.sys = Module(self, w_name)
-        self.builtin_modules['sys'] = self.wrap(self.sys)
+        self.sys.install()
 
         from pypy.module.imp import Module
         w_name = self.wrap('imp')
-        self.builtin_modules['imp'] = self.wrap(Module(self, w_name))
+        mod = Module(self, w_name)
+        mod.install()
 
         from pypy.module.__builtin__ import Module
         w_name = self.wrap('__builtin__')
         self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
-        self.builtin_modules['__builtin__'] = self.wrap(w_builtin)
+        w_builtin.install()
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
 
         bootstrap_modules = set(('sys', 'imp', '__builtin__', 'exceptions'))
@@ -654,6 +656,10 @@ class ObjSpace(object):
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""
         return self.int_w(self.hash(w_obj))
+
+    def len_w(self, w_obj):
+        """shotcut for space.int_w(space.len(w_obj))"""
+        return self.int_w(self.len(w_obj))
 
     def setitem_str(self, w_obj, key, w_value):
         return self.setitem(w_obj, self.wrap(key), w_value)
@@ -954,6 +960,10 @@ class ObjSpace(object):
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.is_true(self.issubtype(w_cls1, w_cls2))
 
+    def new_exception_class(self, *args, **kwargs):
+        "NOT_RPYTHON; convenience method to create excceptions in modules"
+        return new_exception_class(self, *args, **kwargs)
+
     # end of special support code
 
     def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
@@ -1004,6 +1014,38 @@ class ObjSpace(object):
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
     appexec._annspecialcase_ = 'specialize:arg(2)'
+
+    def _next_or_none(self, w_it):
+        try:
+            return self.next(w_it)
+        except OperationError, e:
+            if not e.match(self, self.w_StopIteration):
+                raise
+            return None
+
+    def compare_by_iteration(self, w_iterable1, w_iterable2, op):
+        w_it1 = self.iter(w_iterable1)
+        w_it2 = self.iter(w_iterable2)
+        while True:
+            w_x1 = self._next_or_none(w_it1)
+            w_x2 = self._next_or_none(w_it2)
+            if w_x1 is None or w_x2 is None:
+                if op == 'eq': return self.newbool(w_x1 is w_x2)  # both None
+                if op == 'ne': return self.newbool(w_x1 is not w_x2)
+                if op == 'lt': return self.newbool(w_x2 is not None)
+                if op == 'le': return self.newbool(w_x1 is None)
+                if op == 'gt': return self.newbool(w_x1 is not None)
+                if op == 'ge': return self.newbool(w_x2 is None)
+                assert False, "bad value for op"
+            if not self.eq_w(w_x1, w_x2):
+                if op == 'eq': return self.w_False
+                if op == 'ne': return self.w_True
+                if op == 'lt': return self.lt(w_x1, w_x2)
+                if op == 'le': return self.le(w_x1, w_x2)
+                if op == 'gt': return self.gt(w_x1, w_x2)
+                if op == 'ge': return self.ge(w_x1, w_x2)
+                assert False, "bad value for op"
+    compare_by_iteration._annspecialcase_ = 'specialize:arg(3)'
 
     def decode_index(self, w_index_or_slice, seqlength):
         """Helper for custom sequence implementations
@@ -1114,6 +1156,13 @@ class ObjSpace(object):
                                  self.wrap('read-write buffer expected'))
         return buffer
 
+    def bufferstr_new_w(self, w_obj):
+        # Implement the "new buffer interface" (new in Python 2.7)
+        # returning an unwrapped string. It doesn't accept unicode
+        # strings
+        buffer = self.buffer_w(w_obj)
+        return buffer.as_str()
+
     def bufferstr_w(self, w_obj):
         # Directly returns an interp-level str.  Note that if w_obj is a
         # unicode string, this is different from str_w(buffer(w_obj)):
@@ -1156,38 +1205,66 @@ class ObjSpace(object):
         # This is here mostly just for gateway.int_unwrapping_space_method().
         return bool(self.int_w(w_obj))
 
-    def nonnegint_w(self, w_obj):
-        # Like space.int_w(), but raises an app-level ValueError if
-        # the integer is negative.  Mostly here for gateway.py.
-        value = self.int_w(w_obj)
+    # This is all interface for gateway.py.
+    def gateway_int_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_float)):
+            raise OperationError(self.w_TypeError,
+                            self.wrap("integer argument expected, got float"))
+        return self.int_w(self.int(w_obj))
+
+    def gateway_float_w(self, w_obj):
+        return self.float_w(self.float(w_obj))
+
+    def gateway_r_longlong_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_float)):
+            raise OperationError(self.w_TypeError,
+                            self.wrap("integer argument expected, got float"))
+        return self.r_longlong_w(self.int(w_obj))
+
+    def gateway_r_uint_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_float)):
+            raise OperationError(self.w_TypeError,
+                            self.wrap("integer argument expected, got float"))
+        return self.uint_w(self.int(w_obj))
+
+    def gateway_r_ulonglong_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_float)):
+            raise OperationError(self.w_TypeError,
+                            self.wrap("integer argument expected, got float"))
+        return self.r_ulonglong_w(self.int(w_obj))
+
+    def gateway_nonnegint_w(self, w_obj):
+        # Like space.gateway_int_w(), but raises an app-level ValueError if
+        # the integer is negative.  Here for gateway.py.
+        value = self.gateway_int_w(w_obj)
         if value < 0:
             raise OperationError(self.w_ValueError,
                                  self.wrap("expected a non-negative integer"))
         return value
 
     def c_int_w(self, w_obj):
-        # Like space.int_w(), but raises an app-level OverflowError if
-        # the integer does not fit in 32 bits.  Mostly here for gateway.py.
-        value = self.int_w(w_obj)
+        # Like space.gateway_int_w(), but raises an app-level OverflowError if
+        # the integer does not fit in 32 bits.  Here for gateway.py.
+        value = self.gateway_int_w(w_obj)
         if value < -2147483647-1 or value > 2147483647:
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
         return value
 
     def c_uint_w(self, w_obj):
-        # Like space.uint_w(), but raises an app-level OverflowError if
-        # the integer does not fit in 32 bits.  Mostly here for gateway.py.
-        value = self.uint_w(w_obj)
+        # Like space.gateway_uint_w(), but raises an app-level OverflowError if
+        # the integer does not fit in 32 bits.  Here for gateway.py.
+        value = self.gateway_r_uint_w(w_obj)
         if value > UINT_MAX_32_BITS:
             raise OperationError(self.w_OverflowError,
                               self.wrap("expected an unsigned 32-bit integer"))
         return value
 
     def c_nonnegint_w(self, w_obj):
-        # Like space.int_w(), but raises an app-level ValueError if
-        # the integer is negative or does not fit in 32 bits.  Mostly here
+        # Like space.gateway_int_w(), but raises an app-level ValueError if
+        # the integer is negative or does not fit in 32 bits.  Here
         # for gateway.py.
-        value = self.int_w(w_obj)
+        value = self.gateway_int_w(w_obj)
         if value < 0:
             raise OperationError(self.w_ValueError,
                                  self.wrap("expected a non-negative integer"))
@@ -1197,6 +1274,10 @@ class ObjSpace(object):
         return value
 
     def c_filedescriptor_w(self, w_fd):
+        # This is only used sometimes in CPython, e.g. for os.fsync() but
+        # not os.close().  It's likely designed for 'select'.  It's irregular
+        # in the sense that it expects either a real int/long or an object
+        # with a fileno(), but not an object with an __int__().
         if (not self.isinstance_w(w_fd, self.w_int) and
             not self.isinstance_w(w_fd, self.w_long)):
             try:

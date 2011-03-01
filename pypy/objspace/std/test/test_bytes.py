@@ -14,6 +14,14 @@ class AppTestBytesArray:
         raises(ValueError, bytearray, ['a', 'bc'])
         raises(ValueError, bytearray, [65, -3])
         raises(TypeError, bytearray, [65.0])
+        raises(ValueError, bytearray, -1)
+
+    def test_init_override(self):
+        class subclass(bytearray):
+            def __init__(self, newarg=1, *args, **kwargs):
+                bytearray.__init__(self, *args, **kwargs)
+        x = subclass(4, source="abcd")
+        assert x == "abcd"
 
     def test_encoding(self):
         data = u"Hello world\n\u1234\u5678\u9abc\def0\def0"
@@ -57,10 +65,37 @@ class AppTestBytesArray:
         b2 = bytearray('world')
         assert b1 + b2 == bytearray('hello world')
         assert b1 * 2 == bytearray('hello hello ')
+        assert b1 * 1 is not b1
+
+        b3 = b1
+        b3 *= 3
+        assert b3 == 'hello hello hello '
+        assert type(b3) == bytearray
+        assert b3 is b1
 
     def test_contains(self):
         assert ord('l') in bytearray('hello')
         assert 'l' in bytearray('hello')
+        assert bytearray('ll') in bytearray('hello')
+        assert memoryview('ll') in bytearray('hello')
+
+        raises(TypeError, lambda: u'foo' in bytearray('foobar'))
+
+    def test_splitlines(self):
+        b = bytearray('1234')
+        assert b.splitlines()[0] == b
+        assert b.splitlines()[0] is not b
+
+        assert len(bytearray('foo\nbar').splitlines()) == 2
+        for item in bytearray('foo\nbar').splitlines():
+            assert isinstance(item, bytearray)
+
+    def test_ord(self):
+        b = bytearray('\0A\x7f\x80\xff')
+        assert ([ord(b[i:i+1]) for i in range(len(b))] ==
+                         [0, 65, 127, 128, 255])
+        raises(TypeError, ord, bytearray('ll'))
+        raises(TypeError, ord, bytearray())
 
     def test_translate(self):
         b = 'hello'
@@ -76,6 +111,22 @@ class AppTestBytesArray:
             c = ba.translate(rosetta, 'l')
             assert c == bytearray('hee')
             assert isinstance(c, bytearray)
+
+    def test_strip(self):
+        b = bytearray('mississippi ')
+
+        assert b.strip() == 'mississippi'
+        assert b.strip(None) == 'mississippi'
+
+        b = bytearray('mississippi')
+
+        for strip_type in str, memoryview:
+            assert b.strip(strip_type('i')) == 'mississipp'
+            assert b.strip(strip_type('m')) == 'ississippi'
+            assert b.strip(strip_type('pi')) == 'mississ'
+            assert b.strip(strip_type('im')) == 'ssissipp'
+            assert b.strip(strip_type('pim')) == 'ssiss'
+            assert b.strip(strip_type(b)) == ''
 
     def test_iter(self):
         assert list(bytearray('hello')) == [104, 101, 108, 108, 111]
@@ -112,19 +163,27 @@ class AppTestBytesArray:
 
         assert bytearray('hello').count('l') == 2
         assert bytearray('hello').count(bytearray('l')) == 2
+        assert bytearray('hello').count(memoryview('l')) == 2
         assert bytearray('hello').count(ord('l')) == 2
 
         assert bytearray('hello').index('e') == 1
         assert bytearray('hello').rindex('l') == 3
         assert bytearray('hello').index(bytearray('e')) == 1
-        assert bytearray('hello').index(ord('e')) == 1
         assert bytearray('hello').find('l') == 2
         assert bytearray('hello').rfind('l') == 3
 
+        # these checks used to not raise in pypy but they should
+        raises(TypeError, bytearray('hello').index, ord('e'))
+        raises(TypeError, bytearray('hello').rindex, ord('e'))
+        raises(TypeError, bytearray('hello').find, ord('e'))
+        raises(TypeError, bytearray('hello').rfind, ord('e'))
+
         assert bytearray('hello').startswith('he')
         assert bytearray('hello').startswith(bytearray('he'))
+        assert bytearray('hello').startswith(('lo', bytearray('he')))
         assert bytearray('hello').endswith('lo')
         assert bytearray('hello').endswith(bytearray('lo'))
+        assert bytearray('hello').endswith((bytearray('lo'), 'he'))
 
     def test_stringlike_conversions(self):
         # methods that should return bytearray (and not str)
@@ -133,6 +192,7 @@ class AppTestBytesArray:
             assert type(result) is bytearray
 
         check(bytearray('abc').replace('b', bytearray('d')), 'adc')
+        check(bytearray('abc').replace('b', 'd'), 'adc')
 
         check(bytearray('abc').upper(), 'ABC')
         check(bytearray('ABC').lower(), 'abc')
@@ -147,8 +207,10 @@ class AppTestBytesArray:
         check(bytearray('1\t2').expandtabs(5), '1    2')
 
         check(bytearray(',').join(['a', bytearray('b')]), 'a,b')
-        check(bytearray('abc').lstrip('a'), 'bc')
-        check(bytearray('abc').rstrip('c'), 'ab')
+        check(bytearray('abca').lstrip('a'), 'bca')
+        check(bytearray('cabc').rstrip('c'), 'cab')
+        check(bytearray('abc').lstrip(memoryview('a')), 'bc')
+        check(bytearray('abc').rstrip(memoryview('c')), 'ab')
         check(bytearray('aba').strip('a'), 'b')
 
     def test_split(self):
@@ -158,18 +220,81 @@ class AppTestBytesArray:
             assert set(type(x) for x in result) == set([bytearray])
 
         b = bytearray('mississippi')
-        check(b.split('i'), eval("[b'm', b'ss', b'ss', b'pp', b'']"))
-        check(b.rsplit('i'), eval("[b'm', b'ss', b'ss', b'pp', b'']"))
-        check(b.rsplit('i', 2), eval("[b'mississ', b'pp', b'']"))
+        check(b.split('i'), ['m', 'ss', 'ss', 'pp', ''])
+        check(b.split(memoryview('i')), ['m', 'ss', 'ss', 'pp', ''])
+        check(b.rsplit('i'), ['m', 'ss', 'ss', 'pp', ''])
+        check(b.rsplit(memoryview('i')), ['m', 'ss', 'ss', 'pp', ''])
+        check(b.rsplit('i', 2), ['mississ', 'pp', ''])
 
-        check(b.partition(eval("b'ss'")), eval("(b'mi', b'ss', b'issippi')"))
-        check(b.rpartition(eval("b'ss'")), eval("(b'missi', b'ss', b'ippi')"))
+        check(bytearray('foo bar').split(), ['foo', 'bar'])
+        check(bytearray('foo bar').split(None), ['foo', 'bar'])
+
+        check(b.partition('ss'), ('mi', 'ss', 'issippi'))
+        check(b.partition(memoryview('ss')), ('mi', 'ss', 'issippi'))
+        check(b.rpartition('ss'), ('missi', 'ss', 'ippi'))
+        check(b.rpartition(memoryview('ss')), ('missi', 'ss', 'ippi'))
 
     def test_append(self):
         b = bytearray('abc')
         b.append('d')
         b.append(ord('e'))
         assert b == 'abcde'
+
+    def test_insert(self):
+        b = bytearray('abc')
+        b.insert(0, 'd')
+        assert b == bytearray('dabc')
+
+        b.insert(-1, ord('e'))
+        assert b == bytearray('dabec')
+
+        b.insert(6, 'f')
+        assert b == bytearray('dabecf')
+
+        b.insert(1, 'g')
+        assert b == bytearray('dgabecf')
+
+        b.insert(-12, 'h')
+        assert b == bytearray('hdgabecf')
+
+        raises(ValueError, b.insert, 1, 'go')
+        raises(TypeError, b.insert, 'g', 'o')
+
+    def test_pop(self):
+        b = bytearray('world')
+        assert b.pop() == ord('d')
+        assert b.pop(0) == ord('w')
+        assert b.pop(-2) == ord('r')
+        raises(IndexError, b.pop, 10)
+        raises(OverflowError, bytearray().pop)
+        assert bytearray('\xff').pop() == 0xff
+
+    def test_remove(self):
+        class Indexable:
+            def __index__(self):
+                return ord('e')
+
+        b = bytearray('hello')
+        b.remove(ord('l'))
+        assert b == 'helo'
+        b.remove(ord('l'))
+        assert b == 'heo'
+        raises(ValueError, b.remove, ord('l'))
+        raises(ValueError, b.remove, 400)
+        raises(TypeError, b.remove, u'e')
+        raises(TypeError, b.remove, 2.3)
+        # remove first and last
+        b.remove(ord('o'))
+        b.remove(ord('h'))
+        assert b == 'e'
+        raises(TypeError, b.remove, u'e')
+        b.remove(Indexable())
+        assert b == ''
+
+    def test_reverse(self):
+        b = bytearray('hello')
+        b.reverse()
+        assert b == bytearray('olleh')
 
     def test_delitem(self):
         b = bytearray('abc')
@@ -189,6 +314,43 @@ class AppTestBytesArray:
         b += 'def'
         assert b == 'abcdef'
         assert isinstance(b, bytearray)
+        raises(TypeError, b.__iadd__, u"")
+
+    def test_add(self):
+        b1 = bytearray("abc")
+        b2 = bytearray("def")
+
+        def check(a, b, expected):
+            result = a + b
+            assert result == expected
+            assert isinstance(result, bytearray)
+
+        check(b1, b2, "abcdef")
+        check(b1, "def", "abcdef")
+        check("def", b1, "defabc")
+        check(b1, memoryview("def"), "abcdef")
+        raises(TypeError, lambda: b1 + u"def")
+        raises(TypeError, lambda: u"abc" + b2)
+
+    def test_fromhex(self):
+        raises(TypeError, bytearray.fromhex, 9)
+
+        assert bytearray.fromhex('') == bytearray()
+        assert bytearray.fromhex(u'') == bytearray()
+
+        b = bytearray([0x1a, 0x2b, 0x30])
+        assert bytearray.fromhex('1a2B30') == b
+        assert bytearray.fromhex(u'1a2B30') == b
+        assert bytearray.fromhex(u'  1A 2B  30   ') == b
+        assert bytearray.fromhex(u'0000') == '\0\0'
+
+        raises(ValueError, bytearray.fromhex, u'a')
+        raises(ValueError, bytearray.fromhex, u'A')
+        raises(ValueError, bytearray.fromhex, u'rt')
+        raises(ValueError, bytearray.fromhex, u'1a b cd')
+        raises(ValueError, bytearray.fromhex, u'\x00')
+        raises(ValueError, bytearray.fromhex, u'12   \x00   34')
+        raises(UnicodeEncodeError, bytearray.fromhex, u'\u1234')
 
     def test_extend(self):
         b = bytearray('abc')
@@ -216,12 +378,29 @@ class AppTestBytesArray:
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, u"unicode")
 
-    def test_delslice(self):
+    def test_setslice(self):
+        b = bytearray('hello')
+        b[:] = [ord(c) for c in 'world']
+        assert b == bytearray('world')
+
+        b = bytearray('hello world')
+        b[::2] = 'bogoff'
+        assert b == bytearray('beolg ooflf')
+
+        def set_wrong_size():
+            b[::2] = 'foo'
+        raises(ValueError, set_wrong_size)
+
+    def test_delitem_slice(self):
         b = bytearray('abcdefghi')
         del b[5:8]
         assert b == 'abcdei'
         del b[:3]
         assert b == 'dei'
+
+        b = bytearray('hello world')
+        del b[::2]
+        assert b == bytearray('el ol')
 
     def test_setitem(self):
         b = bytearray('abcdefghi')

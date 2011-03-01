@@ -14,6 +14,7 @@ class AppTestMarshalMore:
         z = 0L
         z1 = marshal.loads(marshal.dumps(z))
         assert z == z1
+        assert type(z1) is long
 
     def test_unmarshal_int64(self):
         # test that we can unmarshal 64-bit ints on 32-bit platforms
@@ -24,6 +25,10 @@ class AppTestMarshalMore:
         assert z == 10000000000
         z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
         assert z == -10000000000
+        z = marshal.loads('I\x88\x87\x86\x85\x84\x83\x82\x01')
+        assert z == 108793946209421192
+        z = marshal.loads('I\xd8\xd8\xd9\xda\xdb\xdc\xcd\xfe')
+        assert z == -0x0132232425262728
 
     def test_buffer(self):
         import marshal
@@ -49,3 +54,10 @@ class AppTestMarshalMore:
         assert z == 10000000000
         z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
         assert z == -10000000000
+
+
+class AppTestMarshalSmallLong(AppTestMarshalMore):
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('array',),
+                                **{"objspace.std.withsmalllong": True})
+        cls.space = space

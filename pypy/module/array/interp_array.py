@@ -1,25 +1,22 @@
+from __future__ import with_statement
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root, \
-     ApplevelClass
-from pypy.rlib.jit import dont_look_inside
-from pypy.rlib import rgc
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.rstruct.runpack import runpack
-from pypy.interpreter.argument import Arguments, Signature
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.model import W_Object
-from pypy.interpreter.argument import Arguments, Signature
 from pypy.module._file.interp_file import W_File
 from pypy.interpreter.buffer import RWBuffer
 from pypy.objspace.std.multimethod import FailedToImplement
 
-def w_array(space, w_cls, typecode, w_args=None):
-    if len(w_args.arguments_w) > 1:
+@unwrap_spec(typecode=str)
+def w_array(space, w_cls, typecode, __args__):
+    if len(__args__.arguments_w) > 1:
         msg = 'array() takes at most 2 arguments'
         raise OperationError(space.w_TypeError, space.wrap(msg))
     if len(typecode) != 1:
@@ -28,17 +25,17 @@ def w_array(space, w_cls, typecode, w_args=None):
     typecode = typecode[0]
 
     if space.is_w(w_cls, space.gettypeobject(W_ArrayBase.typedef)):
-        if w_args.keywords: # XXX this might be forbidden fishing
+        if __args__.keywords:
             msg = 'array.array() does not take keyword arguments'
             raise OperationError(space.w_TypeError, space.wrap(msg))
-        
+
     for tc in unroll_typecodes:
         if typecode == tc:
             a = space.allocate_instance(types[tc].w_class, w_cls)
             a.__init__(space)
 
-            if len(w_args.arguments_w) > 0:
-                w_initializer = w_args.arguments_w[0]
+            if len(__args__.arguments_w) > 0:
+                w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
                     a.fromstring(w_initializer)
                 elif space.type(w_initializer) is space.w_unicode:
@@ -53,7 +50,6 @@ def w_array(space, w_cls, typecode, w_args=None):
         raise OperationError(space.w_ValueError, space.wrap(msg))
 
     return a
-w_array.unwrap_spec = (ObjSpace, W_Root, str, Arguments)
 
 
 array_append = SMM('append', 2)
@@ -251,7 +247,7 @@ def make_array(mytype):
             space = self.space
             oldlen = self.len
             try:
-                new = space.int_w(space.len(w_seq))
+                new = space.len_w(w_seq)
                 self.setlen(self.len + new)
             except OperationError:
                 pass
@@ -362,10 +358,19 @@ def make_array(mytype):
             self.setlen(0)
             self.fromsequence(w_lst)
         else:
-            j = 0
-            for i in range(start, stop, step):
-                self.buffer[i] = w_item.buffer[j]
-                j += 1
+            if self is w_item:
+                with lltype.scoped_alloc(mytype.arraytype, self.allocated) as new_buffer:
+                    for i in range(self.len):
+                        new_buffer[i] = w_item.buffer[i]
+                    j = 0
+                    for i in range(start, stop, step):
+                        self.buffer[i] = new_buffer[j]
+                        j += 1
+            else:
+                j = 0
+                for i in range(start, stop, step):
+                    self.buffer[i] = w_item.buffer[j]
+                    j += 1
 
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
@@ -523,7 +528,7 @@ def make_array(mytype):
         cbuf = self.charbuf()
         s = ''.join([cbuf[i] for i in xrange(self.len * mytype.bytes)])
         return self.space.wrap(s)
-##         
+##
 ##         s = ''
 ##         i = 0
 ##         while i < self.len * mytype.bytes:

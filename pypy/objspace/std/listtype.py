@@ -51,9 +51,7 @@ def descr__new__(space, w_listtype, __args__):
 list_typedef = StdTypeDef("list",
     __doc__ = '''list() -> new list
 list(sequence) -> new list initialized from sequence's items''',
-    __new__ = gateway.interp2app(descr__new__, unwrap_spec=[gateway.ObjSpace,
-                                               gateway.W_Root,
-                                               gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     )
 list_typedef.registermethods(globals())

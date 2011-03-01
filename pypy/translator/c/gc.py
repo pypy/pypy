@@ -89,7 +89,16 @@ class BasicGcPolicy(object):
     def OP_GC_THREAD_RUN(self, funcgen, op):
         return ''
 
+    def OP_GC_THREAD_START(self, funcgen, op):
+        return ''
+
     def OP_GC_THREAD_DIE(self, funcgen, op):
+        return ''
+
+    def OP_GC_THREAD_BEFORE_FORK(self, funcgen, op):
+        return '%s = NULL;' % funcgen.expr(op.result)
+
+    def OP_GC_THREAD_AFTER_FORK(self, funcgen, op):
         return ''
 
     def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):

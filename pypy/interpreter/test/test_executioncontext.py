@@ -164,6 +164,25 @@ class TestExecutionContext:
         events = space.unwrap(w_events)
         assert events == ['return', 'c_call', 'c_return', 'return', 'c_call']
 
+    def test_c_call_setprofile_kwargs(self):
+        space = self.space
+        w_events = space.appexec([], """():
+        import sys
+        l = []
+        def profile(frame, event, arg):
+            l.append(event)
+
+        def bar():
+            sys.setprofile(profile)
+            [].sort(reverse=True)
+            sys.setprofile(None)
+
+        bar()
+        return l
+        """)
+        events = space.unwrap(w_events)
+        assert events == ['c_call', 'c_return', 'c_call']
+
     def test_c_call_setprofile_strange_method(self):
         space = self.space
         w_events = space.appexec([], """():

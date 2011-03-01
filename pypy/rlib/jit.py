@@ -266,12 +266,13 @@ PARAMETERS = {'threshold': 1000,
               'inlining': False,
               'optimizer': OPTIMIZER_FULL,
               'loop_longevity': 1000,
+              'retrace_limit': 5,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 
 # ____________________________________________________________
 
-class JitDriver:    
+class JitDriver(object):    
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
     will allow us (later) to support a single RPython program with

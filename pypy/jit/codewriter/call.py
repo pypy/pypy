@@ -188,7 +188,8 @@ class CallControl(object):
                                          FUNC.RESULT)
         return (fnaddr, calldescr)
 
-    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE):
+    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
+                     extraeffect=None):
         """Return the calldescr that describes all calls done by 'op'.
         This returns a calldescr that we can put in the corresponding
         call operation in the calling jitcode.  It gets an effectinfo
@@ -216,17 +217,18 @@ class CallControl(object):
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
         # build the extraeffect
-        if self.virtualizable_analyzer.analyze(op):
-            extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
-        elif loopinvariant:
-            extraeffect = EffectInfo.EF_LOOPINVARIANT
-        elif pure:
-            # XXX check what to do about exceptions (also MemoryError?)
-            extraeffect = EffectInfo.EF_PURE
-        elif self._canraise(op):
-            extraeffect = EffectInfo.EF_CAN_RAISE
-        else:
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        if extraeffect is None:
+            if self.virtualizable_analyzer.analyze(op):
+                extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            elif loopinvariant:
+                extraeffect = EffectInfo.EF_LOOPINVARIANT
+            elif pure:
+                # XXX check what to do about exceptions (also MemoryError?)
+                extraeffect = EffectInfo.EF_PURE
+            elif self._canraise(op):
+                extraeffect = EffectInfo.EF_CAN_RAISE
+            else:
+                extraeffect = EffectInfo.EF_CANNOT_RAISE
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,

@@ -37,6 +37,8 @@ import sys, math
 from pypy.rpython import extregistry
 from pypy.rlib import objectmodel
 
+USE_SHORT_FLOAT_REPR = True # XXX make it a translation option?
+
 # set up of machine internals
 _bits = 0
 _itest = 1
@@ -49,6 +51,9 @@ while _itest == _Ltest and type(_itest) is int:
 LONG_BIT = _bits+1
 LONG_MASK = _Ltest*2-1
 LONG_TEST = _Ltest
+LONGLONG_BIT  = 64
+LONGLONG_MASK = (2**LONGLONG_BIT)-1
+LONGLONG_TEST = 2**(LONGLONG_BIT-1)
 
 LONG_BIT_SHIFT = 0
 while (1 << LONG_BIT_SHIFT) != LONG_BIT:
@@ -72,10 +77,12 @@ except ImportError:
 
     def copysign(x, y):
         """NOT_RPYTHON. Return x with the sign of y"""
+        if x < 0.:
+            x = -x
         if y > 0. or (y == 0. and math.atan2(y, -1.) > 0.):
-            return math.fabs(x)
+            return x
         else:
-            return -math.fabs(x)
+            return -x
 
     _2_to_m28 = 3.7252902984619141E-09; # 2**-28
     _2_to_p28 = 268435456.0; # 2**28
@@ -176,6 +183,15 @@ def intmask(n):
         n -= 2*LONG_TEST
     return int(n)
 
+def longlongmask(n):
+    if isinstance(n, int):
+        n = long(n)
+    assert isinstance(n, long)
+    n &= LONGLONG_MASK
+    if n >= LONGLONG_TEST:
+        n -= 2*LONGLONG_TEST
+    return r_longlong(n)
+
 def widen(n):
     from pypy.rpython.lltypesystem import lltype
     if _should_widen_type(lltype.typeOf(n)):
@@ -203,6 +219,8 @@ def ovfcheck(r):
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
+    assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
+    assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
     if type(r) is long:
         raise OverflowError, "signed integer expression did overflow"
     return r
@@ -270,6 +288,23 @@ def normalizedinttype(t):
         assert t.BITS <= r_longlong.BITS
         return build_int(None, t.SIGNED, r_longlong.BITS)
 
+def most_neg_value_of_same_type(x):
+    from pypy.rpython.lltypesystem import lltype
+    return most_neg_value_of(lltype.typeOf(x))
+most_neg_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
+
+def most_neg_value_of(tp):
+    from pypy.rpython.lltypesystem import lltype, rffi
+    if tp is lltype.Signed:
+        return -sys.maxint-1
+    r_class = rffi.platform.numbertype_to_rclass[tp]
+    assert issubclass(r_class, base_int)
+    if r_class.SIGNED:
+        return r_class(-(r_class.MASK >> 1) - 1)
+    else:
+        return r_class(0)
+most_neg_value_of._annspecialcase_ = 'specialize:memo'
+
 def highest_bit(n):
     """
     Calculates the highest set bit in n.  This function assumes that n is a
@@ -281,6 +316,7 @@ def highest_bit(n):
         i += 1
         n >>= 1
     return i
+
 
 class base_int(long):
     """ fake unsigned integer implementation """
@@ -441,7 +477,7 @@ class signed_int(base_int):
 class unsigned_int(base_int):
     SIGNED = False
     def __new__(klass, val=0):
-        if type(val) is float:
+        if isinstance(val, (float, long)):
             val = long(val)
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
@@ -507,14 +543,27 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+longlongmax = r_longlong(LONGLONG_TEST - 1)
+
 if r_longlong is not r_int:
     r_int64 = r_longlong
 else:
     r_int64 = int
 
 
-# float as string  -> sign, beforept, afterpt, exponent
+def rstring_to_float(s):
+    if USE_SHORT_FLOAT_REPR:
+        from pypy.rlib.rdtoa import strtod
+        return strtod(s)
 
+    sign, before_point, after_point, exponent = break_up_float(s)
+
+    if not before_point and not after_point:
+        raise ValueError
+
+    return parts_to_float(sign, before_point, after_point, exponent)
+
+# float as string  -> sign, beforept, afterpt, exponent
 def break_up_float(s):
     i = 0
 
@@ -569,6 +618,7 @@ def break_up_float(s):
 # string -> float helper
 
 def parts_to_float(sign, beforept, afterpt, exponent):
+    "NOT_RPYTHON"
     if not exponent:
         exponent = '0'
     return float("%s%s.%se%s" % (sign, beforept, afterpt, exponent))
@@ -613,23 +663,13 @@ def _formatd(x, code, precision, flags):
         s = s[:-2]
 
     return s
+
 def formatd(x, code, precision, flags=0):
-    return _formatd(x, code, precision, flags)
-
-formatd_max_length = 120
-
-def formatd_overflow(x, kind, precision, flags=0):
-    # msvcrt does not support the %F format.
-    # OTOH %F and %f only differ for 'inf' or 'nan' numbers
-    # which are already handled elsewhere
-    if kind == 'F':
-        kind = 'f'
-
-    if ((kind in 'gG' and formatd_max_length < 10+precision) or
-        (kind in 'fF' and formatd_max_length < 53+precision)):
-        raise OverflowError("formatted float is too long (precision too large?)")
-
-    return formatd(x, kind, precision, flags)
+    if USE_SHORT_FLOAT_REPR:
+        from pypy.rlib.rdtoa import dtoa_formatd
+        return dtoa_formatd(x, code, precision, flags)
+    else:
+        return _formatd(x, code, precision, flags)
 
 def double_to_string(value, tp, precision, flags):
     if isnan(value):
@@ -638,8 +678,131 @@ def double_to_string(value, tp, precision, flags):
         special = DIST_INFINITY
     else:
         special = DIST_FINITE
-    result = formatd_overflow(value, tp, precision)
+    result = formatd(value, tp, precision, flags)
     return result, special
+
+if USE_SHORT_FLOAT_REPR:
+    def round_double(value, ndigits):
+        # The basic idea is very simple: convert and round the double to
+        # a decimal string using _Py_dg_dtoa, then convert that decimal
+        # string back to a double with _Py_dg_strtod.  There's one minor
+        # difficulty: Python 2.x expects round to do
+        # round-half-away-from-zero, while _Py_dg_dtoa does
+        # round-half-to-even.  So we need some way to detect and correct
+        # the halfway cases.
+
+        # a halfway value has the form k * 0.5 * 10**-ndigits for some
+        # odd integer k.  Or in other words, a rational number x is
+        # exactly halfway between two multiples of 10**-ndigits if its
+        # 2-valuation is exactly -ndigits-1 and its 5-valuation is at
+        # least -ndigits.  For ndigits >= 0 the latter condition is
+        # automatically satisfied for a binary float x, since any such
+        # float has nonnegative 5-valuation.  For 0 > ndigits >= -22, x
+        # needs to be an integral multiple of 5**-ndigits; we can check
+        # this using fmod.  For -22 > ndigits, there are no halfway
+        # cases: 5**23 takes 54 bits to represent exactly, so any odd
+        # multiple of 0.5 * 10**n for n >= 23 takes at least 54 bits of
+        # precision to represent exactly.
+
+        sign = copysign(1.0, value)
+        value = abs(value)
+
+        # find 2-valuation value
+        m, expo = math.frexp(value)
+        while m != math.floor(m):
+            m *= 2.0
+            expo -= 1
+
+        # determine whether this is a halfway case.
+        halfway_case = 0
+        if expo == -ndigits - 1:
+            if ndigits >= 0:
+                halfway_case = 1
+            elif ndigits >= -22:
+                # 22 is the largest k such that 5**k is exactly
+                # representable as a double
+                five_pow = 1.0
+                for i in range(-ndigits):
+                    five_pow *= 5.0
+                if math.fmod(value, five_pow) == 0.0:
+                    halfway_case = 1
+
+        # round to a decimal string; use an extra place for halfway case
+        strvalue = formatd(value, 'f', ndigits + halfway_case)
+
+        if halfway_case:
+            buf = [c for c in strvalue]
+            if ndigits >= 0:
+                endpos = len(buf) - 1
+            else:
+                endpos = len(buf) + ndigits
+            # Sanity checks: there should be exactly ndigits+1 places
+            # following the decimal point, and the last digit in the
+            # buffer should be a '5'
+            if not objectmodel.we_are_translated():
+                assert buf[endpos] == '5'
+                if '.' in buf:
+                    assert endpos == len(buf) - 1
+                    assert buf.index('.') == len(buf) - ndigits - 2
+
+            # increment and shift right at the same time
+            i = endpos - 1
+            carry = 1
+            while i >= 0:
+                digit = ord(buf[i])
+                if digit == ord('.'):
+                    buf[i+1] = chr(digit)
+                    i -= 1
+                    digit = ord(buf[i])
+
+                carry += digit - ord('0')
+                buf[i+1] = chr(carry % 10 + ord('0'))
+                carry /= 10
+                i -= 1
+            buf[0] = chr(carry + ord('0'))
+            if ndigits < 0:
+                buf.append('0')
+
+            strvalue = ''.join(buf)
+
+        return sign * rstring_to_float(strvalue)
+
+else:
+    # fallback version, to be used when correctly rounded
+    # binary<->decimal conversions aren't available
+    def round_double(value, ndigits):
+        if ndigits >= 0:
+            if ndigits > 22:
+                # pow1 and pow2 are each safe from overflow, but
+                # pow1*pow2 ~= pow(10.0, ndigits) might overflow
+                pow1 = math.pow(10.0, ndigits - 22)
+                pow2 = 1e22
+            else:
+                pow1 = math.pow(10.0, ndigits)
+                pow2 = 1.0
+
+            y = (value * pow1) * pow2
+            # if y overflows, then rounded value is exactly x
+            if isinf(y):
+                return value
+
+        else:
+            pow1 = math.pow(10.0, -ndigits);
+            pow2 = 1.0 # unused; for translation
+            y = value / pow1
+
+        if y >= 0.0:
+            z = math.floor(y + 0.5)
+        else:
+            z = math.ceil(y - 0.5)
+        if math.fabs(y-z) == 1.0:   # obscure case, see the test
+            z = y
+
+        if ndigits >= 0:
+            z = (z / pow2) / pow1
+        else:
+            z *= pow1
+        return z
 
 # the 'float' C type
 
@@ -718,3 +881,13 @@ class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
         # we use cast_primitive to go between Float and SingleFloat.
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.SingleFloat)
+
+
+def int_between(n, m, p):
+    """ check that n <= m < p. This assumes that n <= p. This is useful because
+    the JIT special-cases it. """
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.lltypesystem.lloperation import llop
+    if not objectmodel.we_are_translated():
+        assert n <= p
+    return llop.int_between(lltype.Bool, n, m, p)

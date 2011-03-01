@@ -1,6 +1,7 @@
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
+from __future__ import with_statement
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_uint
@@ -50,16 +51,21 @@ else:
                                                        ('tv_nsec', rffi.LONG)])
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
         SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
+        SEM_TIMED_WAIT = platform.Has('sem_timedwait')
 
     config = platform.configure(CConfig)
-    TIMEVAL       = config['TIMEVAL']
-    TIMESPEC      = config['TIMESPEC']
-    TIMEVALP      = rffi.CArrayPtr(TIMEVAL)
-    TIMESPECP     = rffi.CArrayPtr(TIMESPEC)
-    SEM_T         = rffi.COpaquePtr('sem_t', compilation_info=eci)
-    SEM_FAILED    = rffi.cast(SEM_T, config['SEM_FAILED'])
-    SEM_VALUE_MAX = config['SEM_VALUE_MAX']
-    HAVE_BROKEN_SEM_GETVALUE = False
+    TIMEVAL        = config['TIMEVAL']
+    TIMESPEC       = config['TIMESPEC']
+    TIMEVALP       = rffi.CArrayPtr(TIMEVAL)
+    TIMESPECP      = rffi.CArrayPtr(TIMESPEC)
+    SEM_T          = rffi.COpaquePtr('sem_t', compilation_info=eci)
+    SEM_FAILED     = config['SEM_FAILED'] # rffi.cast(SEM_T, config['SEM_FAILED'])
+    SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
+    SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
+    if sys.platform == 'darwin':
+        HAVE_BROKEN_SEM_GETVALUE = True
+    else:
+        HAVE_BROKEN_SEM_GETVALUE = False
 
     def external(name, args, result):
         return rffi.llexternal(name, args, result,
@@ -71,15 +77,17 @@ else:
     _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
     _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
-    _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP], rffi.INT)
     _sem_post = external('sem_post', [SEM_T], rffi.INT)
     _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT)
 
     _gettimeofday = external('gettimeofday', [TIMEVALP, rffi.VOIDP], rffi.INT)
 
+    _select = external('select', [rffi.INT, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP,
+                                                          TIMEVALP], rffi.INT)
+
     def sem_open(name, oflag, mode, value):
         res = _sem_open(name, oflag, mode, value)
-        if res == SEM_FAILED:
+        if res == rffi.cast(SEM_T, SEM_FAILED):
             raise OSError(rposix.get_errno(), "sem_open failed")
         return res
 
@@ -103,6 +111,48 @@ else:
         if res < 0:
             raise OSError(rposix.get_errno(), "sem_timedwait failed")
 
+    def _sem_timedwait_save(sem, deadline):
+        delay = 0
+        void = lltype.nullptr(rffi.VOIDP.TO)
+        with lltype.scoped_alloc(TIMEVALP.TO, 1) as tvdeadline:
+            while True:
+                # poll
+                if _sem_trywait(sem) == 0:
+                    return 0
+                elif rposix.get_errno() != errno.EAGAIN:
+                    return -1
+
+                now = gettimeofday()
+                c_tv_sec = rffi.getintfield(deadline[0], 'c_tv_sec')
+                c_tv_nsec = rffi.getintfield(deadline[0], 'c_tv_nsec')
+                if (c_tv_sec < now[0] or
+                    (c_tv_sec == now[0] and c_tv_nsec <= now[1])):
+                    rposix.set_errno(errno.ETIMEDOUT)
+                    return -1
+
+
+                # calculate how much time is left
+                difference = ((c_tv_sec - now[0]) * 1000000 +
+                                    (c_tv_nsec - now[1]))
+
+                # check delay not too long -- maximum is 20 msecs
+                if delay > 20000:
+                    delay = 20000
+                if delay > difference:
+                    delay = difference
+                delay += 1000
+
+                # sleep
+                rffi.setintfield(tvdeadline[0], 'c_tv_sec', delay / 1000000)
+                rffi.setintfield(tvdeadline[0], 'c_tv_usec', delay % 1000000)
+                if _select(0, void, void, void, tvdeadline) < 0:
+                    return -1
+
+    if SEM_TIMED_WAIT:
+        _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP], rffi.INT)
+    else:
+        _sem_timedwait = _sem_timedwait_save
+
     def sem_post(sem):
         res = _sem_post(sem)
         if res < 0:
@@ -124,7 +174,7 @@ else:
             res = _gettimeofday(now, None)
             if res < 0:
                 raise OSError(rposix.get_errno(), "gettimeofday failed")
-            return now[0].c_tv_sec, now[0].c_tv_usec
+            return rffi.getintfield(now[0], 'c_tv_sec'), rffi.getintfield(now[0], 'c_tv_usec')
         finally:
             lltype.free(now, flavor='raw')
 
@@ -196,7 +246,7 @@ if sys.platform == 'win32':
             time.sleep(0.001)
 
             # if this is main thread let KeyboardInterrupt be raised
-            # XXX PyErr_CheckSignals()
+            _check_signals(space)
 
             # recalculate timeout
             if msecs != rwin32.INFINITE:
@@ -257,10 +307,13 @@ else:
             now_sec, now_usec = gettimeofday()
 
             deadline = lltype.malloc(TIMESPECP.TO, 1, flavor='raw')
-            deadline[0].c_tv_sec = now_sec + sec
-            deadline[0].c_tv_nsec = now_usec * 1000 + nsec
-            deadline[0].c_tv_sec += (deadline[0].c_tv_nsec / 1000000000)
-            deadline[0].c_tv_nsec %= 1000000000
+            rffi.setintfield(deadline[0], 'c_tv_sec', now_sec + sec)
+            rffi.setintfield(deadline[0], 'c_tv_nsec', now_usec * 1000 + nsec)
+            val = rffi.getintfield(deadline[0], 'c_tv_sec') + \
+                                rffi.getintfield(deadline[0], 'c_tv_nsec') / 1000000000
+            rffi.setintfield(deadline[0], 'c_tv_sec', val)
+            val = rffi.getintfield(deadline[0], 'c_tv_nsec') % 1000000000
+            rffi.setintfield(deadline[0], 'c_tv_nsec', val)
         try:
             while True:
                 try:
@@ -277,7 +330,7 @@ else:
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False
                     raise
-                # XXX PyErr_CheckSignals()
+                _check_signals(space)
 
                 return True
         finally:
@@ -317,7 +370,8 @@ else:
 
     def semlock_getvalue(self, space):
         if HAVE_BROKEN_SEM_GETVALUE:
-            raise OperationError(space.w_NotImplementedError)
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                        'sem_getvalue is not implemented on this system'))
         else:
             val = sem_getvalue(self.handle)
             # some posix implementations use negative numbers to indicate
@@ -348,25 +402,22 @@ class W_SemLock(Wrappable):
         self.count = 0
         self.maxvalue = maxvalue
 
-    def kind_get(space, self):
+    def kind_get(self, space):
         return space.newint(self.kind)
-    def maxvalue_get(space, self):
+    def maxvalue_get(self, space):
         return space.newint(self.maxvalue)
-    def handle_get(space, self):
+    def handle_get(self, space):
         return w_handle(space, self.handle)
 
-    @unwrap_spec('self', ObjSpace)
     def get_count(self, space):
         return space.wrap(self.count)
 
     def _ismine(self):
         return self.count > 0 and ll_thread.get_ident() == self.last_tid
 
-    @unwrap_spec('self', ObjSpace)
     def is_mine(self, space):
         return space.wrap(self._ismine())
 
-    @unwrap_spec('self', ObjSpace)
     def is_zero(self, space):
         try:
             res = semlock_iszero(self, space)
@@ -374,7 +425,6 @@ class W_SemLock(Wrappable):
             raise wrap_oserror(space, e)
         return space.wrap(res)
 
-    @unwrap_spec('self', ObjSpace)
     def get_value(self, space):
         try:
             val = semlock_getvalue(self, space)
@@ -382,7 +432,7 @@ class W_SemLock(Wrappable):
             raise wrap_oserror(space, e)
         return space.wrap(val)
 
-    @unwrap_spec('self', ObjSpace, bool, W_Root)
+    @unwrap_spec(block=bool)
     def acquire(self, space, block=True, w_timeout=None):
         # check whether we already own the lock
         if self.kind == RECURSIVE_MUTEX and self._ismine():
@@ -401,7 +451,6 @@ class W_SemLock(Wrappable):
         else:
             return space.w_False
 
-    @unwrap_spec('self', ObjSpace)
     def release(self, space):
         if self.kind == RECURSIVE_MUTEX:
             if not self._ismine():
@@ -420,21 +469,19 @@ class W_SemLock(Wrappable):
 
         self.count -= 1
 
-    @unwrap_spec(ObjSpace, W_Root, W_Root, int, int)
+    @unwrap_spec(kind=int, maxvalue=int)
     def rebuild(space, w_cls, w_handle, kind, maxvalue):
         self = space.allocate_instance(W_SemLock, w_cls)
         self.__init__(handle_w(space, w_handle), kind, maxvalue)
         return space.wrap(self)
 
-    @unwrap_spec('self', ObjSpace)
     def enter(self, space):
         return self.acquire(space, w_timeout=space.w_None)
 
-    @unwrap_spec('self', ObjSpace, Arguments)
     def exit(self, space, __args__):
         self.release(space)
 
-@unwrap_spec(ObjSpace, W_Root, int, int, int)
+@unwrap_spec(kind=int, value=int, maxvalue=int)
 def descr_new(space, w_subtype, kind, value, maxvalue):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
         raise OperationError(space.w_ValueError,
@@ -470,3 +517,6 @@ W_SemLock.typedef = TypeDef(
     __exit__=interp2app(W_SemLock.exit),
     SEM_VALUE_MAX=SEM_VALUE_MAX,
     )
+
+def _check_signals(space):
+    space.getexecutioncontext().checksignals()

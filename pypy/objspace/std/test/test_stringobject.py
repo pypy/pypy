@@ -594,6 +594,7 @@ class AppTestStringObject:
 
         table = maketrans('abc', 'xyz')
         assert 'xyzxyz' == 'xyzabcdef'.translate(table, 'def')
+        assert 'xyzxyz' == 'xyzabcdef'.translate(memoryview(table), 'def')
 
         table = maketrans('a', 'A')
         assert 'Abc' == 'abc'.translate(table)

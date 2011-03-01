@@ -89,7 +89,7 @@ class MsvcPlatform(Platform):
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
                                                      env=self.c_environ)
-        r = re.search('[Vv]ersion\W([0-9]+)\.([0-9]+)', stderr)
+        r = re.match(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
             self.version = int(''.join(r.groups())) / 10 - 60
         else:
@@ -120,7 +120,13 @@ class MsvcPlatform(Platform):
         return ['/I%s' % (idir,) for idir in include_dirs]
 
     def _libs(self, libraries):
-        return ['%s.lib' % (lib,) for lib in libraries]
+        libs = []
+        for lib in libraries:
+            lib = str(lib)
+            if lib.endswith('.dll'):
+                lib = lib[:-4]
+            libs.append('%s.lib' % (lib,))
+        return libs
 
     def _libdirs(self, library_dirs):
         return ['/LIBPATH:%s' % (ldir,) for ldir in library_dirs]
@@ -169,8 +175,8 @@ class MsvcPlatform(Platform):
 
         if self.version >= 80:
             # Tell the linker to generate a manifest file
-            temp_manifest = ofile.dirpath().join(
-                ofile.purebasename + '.manifest')
+            temp_manifest = exe_name.dirpath().join(
+                exe_name.purebasename + '.manifest')
             args += ["/MANIFEST", "/MANIFESTFILE:%s" % (temp_manifest,)]
 
         self._execute_c_compiler(self.link, args, exe_name)

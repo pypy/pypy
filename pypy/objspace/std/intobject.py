@@ -17,9 +17,8 @@ something CPython does not do anymore.
 
 class W_IntObject(W_Object):
     __slots__ = 'intval'
+    _immutable_fields_ = ['intval']
 
-    _immutable_ = True
-    
     from pypy.objspace.std.inttype import int_typedef as typedef
     
     def __init__(w_self, intval):

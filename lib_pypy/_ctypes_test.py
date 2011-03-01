@@ -5,9 +5,6 @@ import gc
 # Monkeypatch & hacks to let ctypes.tests import.
 # This should be removed at some point.
 sys.getrefcount = lambda x: len(gc.get_referrers(x)) - 1
-import _ctypes
-_ctypes.PyObj_FromPtr = None
-del _ctypes
 
 def compile_shared():
     """Compile '_ctypes_test.c' into an extension module, and import it
@@ -55,4 +52,12 @@ def compile_shared():
     fp, filename, description = imp.find_module('_ctypes_test', path=[output_dir])
     imp.load_module('_ctypes_test', fp, filename, description)
 
-compile_shared()
+
+try:
+    import _ctypes
+    _ctypes.PyObj_FromPtr = None
+    del _ctypes
+except ImportError:
+    pass    # obscure condition of _ctypes_test.py being imported by py.test
+else:
+    compile_shared()

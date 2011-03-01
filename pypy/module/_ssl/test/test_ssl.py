@@ -11,8 +11,10 @@ class AppTestSSL:
         import _ssl
     
     def test_sslerror(self):
-        import _ssl
+        import _ssl, _socket
         assert issubclass(_ssl.SSLError, Exception)
+        assert issubclass(_ssl.SSLError, IOError)
+        assert issubclass(_ssl.SSLError, _socket.error)
 
     def test_constants(self):
         import _ssl
@@ -61,12 +63,24 @@ class AppTestSSL:
         _ssl.RAND_egd("entropy")
 
     def test_sslwrap(self):
-        import _ssl
-        import _socket
+        import _ssl, _socket, sys
         s = _socket.socket()
         ss = _ssl.sslwrap(s, 0)
         exc = raises(_socket.error, ss.do_handshake)
-        assert exc.value.errno == 32 # Broken pipe
+        if sys.platform == 'win32':
+            assert exc.value.errno == 2 # Cannot find file (=not a socket)
+        else:
+            assert exc.value.errno == 32 # Broken pipe
+
+    def test_async_closed(self):
+        import _ssl, _socket
+        s = _socket.socket()
+        s.settimeout(3)
+        ss = _ssl.sslwrap(s, 0)
+        s.close()
+        exc = raises(_ssl.SSLError, ss.write, "data")
+        assert exc.value.message == "Underlying socket has been closed."
+
 
 class AppTestConnectedSSL:
     def setup_class(cls):
@@ -131,6 +145,13 @@ class AppTestConnectedSSL:
         assert isinstance(data, str)
         assert len(data) == 10
         self.s.close()
+
+    def test_shutdown(self):
+        import socket, ssl
+        ss = socket.ssl(self.s)
+        ss.write("hello\n")
+        assert ss.shutdown() is self.s._sock
+        raises(ssl.SSLError, ss.write, "hello\n")
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout

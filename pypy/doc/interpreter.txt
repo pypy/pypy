@@ -35,7 +35,7 @@ condensed information about their respective functions, class and
 module body source codes.  Interpreting such code objects means
 instantiating and initializing a `Frame class`_ and then
 calling its ``frame.eval()`` method.  This main entry point 
-initialise appropriate namespaces and then interprets each 
+initialize appropriate namespaces and then interprets each 
 bytecode instruction.  Python's standard library contains
 the `lib-python/2.5.2/dis.py`_ module which allows to view
 the Virtual's machine bytecode instructions:: 
@@ -278,11 +278,11 @@ Gateway classes
 ---------------------- 
 
 A unique PyPy property is the ability to easily cross the barrier
-between interpreted and machine-level code (often refered to as
+between interpreted and machine-level code (often referred to as
 the difference between `interpreter-level and application-level`_). 
 Be aware that the according code (in `pypy/interpreter/gateway.py`_) 
 for crossing the barrier in both directions is somewhat
-involved, mostly due to the fact that the type-infering
+involved, mostly due to the fact that the type-inferring
 annotator needs to keep track of the types of objects flowing
 across those barriers. 
 
@@ -323,7 +323,7 @@ like this::
 Summarizing, the ``interp2app`` mechanism takes care to route 
 an application level access or call to an internal interpreter-level 
 object appropriately to the descriptor, providing enough precision
-and hints to keep the type-infering annotator happy. 
+and hints to keep the type-inferring annotator happy. 
 
 
 Calling into application level code from interpreter-level 

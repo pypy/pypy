@@ -9,6 +9,7 @@ from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
 from pypy.jit.metainterp.resoperation import rop, ResOperation, ResOpWithDescr, N_aryOp
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.codewriter.heaptracker import adr2int
+from pypy.jit.codewriter import longlong
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 
@@ -160,7 +161,7 @@ class OpParser(object):
             return ConstInt(int(arg))
         except ValueError:
             if self.is_float(arg):
-                return ConstFloat(float(arg))
+                return ConstFloat(longlong.getfloatstorage(float(arg)))
             if (arg.startswith('"') or arg.startswith("'") or
                 arg.startswith('s"')):
                 # XXX ootype

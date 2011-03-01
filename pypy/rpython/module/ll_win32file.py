@@ -2,6 +2,7 @@
 The Windows implementation of some posix modules,
 based on the Win32 API.
 """
+from __future__ import with_statement
 
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -42,6 +43,8 @@ def make_win32_traits(traits):
             'FILE_ATTRIBUTE_DIRECTORY')
         FILE_ATTRIBUTE_READONLY = platform.ConstantInteger(
             'FILE_ATTRIBUTE_READONLY')
+        INVALID_FILE_ATTRIBUTES = platform.ConstantInteger(
+            'INVALID_FILE_ATTRIBUTES')
         ERROR_SHARING_VIOLATION = platform.ConstantInteger(
             'ERROR_SHARING_VIOLATION')
         _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
@@ -86,6 +89,7 @@ def make_win32_traits(traits):
         for name in '''WIN32_FIND_DATA WIN32_FILE_ATTRIBUTE_DATA BY_HANDLE_FILE_INFORMATION
                        GetFileExInfoStandard
                        FILE_ATTRIBUTE_DIRECTORY FILE_ATTRIBUTE_READONLY
+                       INVALID_FILE_ATTRIBUTES
                        _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
                        FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
@@ -104,6 +108,16 @@ def make_win32_traits(traits):
         FindClose = external('FindClose',
                              [rwin32.HANDLE],
                              rwin32.BOOL)
+
+        GetFileAttributes = external(
+            'GetFileAttributes' + suffix,
+            [traits.CCHARP],
+            rwin32.DWORD)
+
+        SetFileAttributes = external(
+            'SetFileAttributes' + suffix,
+            [traits.CCHARP, rwin32.DWORD],
+            rwin32.BOOL)
 
         GetFileAttributesEx = external(
             'GetFileAttributesEx' + suffix,
@@ -128,6 +142,36 @@ def make_win32_traits(traits):
             [traits.CCHARP, rwin32.DWORD,
              traits.CCHARP, LPSTRP],
             rwin32.DWORD)
+
+        GetCurrentDirectory = external(
+            'GetCurrentDirectory' + suffix,
+            [rwin32.DWORD, traits.CCHARP],
+            rwin32.DWORD)
+
+        SetCurrentDirectory = external(
+            'SetCurrentDirectory' + suffix,
+            [traits.CCHARP],
+            rwin32.BOOL)
+
+        CreateDirectory = external(
+            'CreateDirectory' + suffix,
+            [traits.CCHARP, rffi.VOIDP],
+            rwin32.BOOL)
+
+        SetEnvironmentVariable = external(
+            'SetEnvironmentVariable' + suffix,
+            [traits.CCHARP, traits.CCHARP],
+            rwin32.BOOL)
+
+        DeleteFile = external(
+            'DeleteFile' + suffix,
+            [traits.CCHARP],
+            rwin32.BOOL)
+
+        MoveFile = external(
+            'MoveFile' + suffix,
+            [traits.CCHARP, traits.CCHARP],
+            rwin32.BOOL)
 
     return Win32Traits
 
@@ -187,6 +231,81 @@ def make_listdir_impl(traits):
             lltype.free(filedata, flavor='raw')
 
     return listdir_llimpl
+
+#_______________________________________________________________
+# chdir
+
+def make_chdir_impl(traits):
+    from pypy.rlib import rwin32
+    win32traits = make_win32_traits(traits)
+
+    if traits.str is unicode:
+        def isUNC(path):
+            return path[0] == u'\\' or path[0] == u'/'
+        def magic_envvar(path):
+            return u'=' + path[0] + u':'
+    else:
+        def isUNC(path):
+            return path[0] == '\\' or path[0] == '/'
+        def magic_envvar(path):
+            return '=' + path[0] + ':'
+
+    @func_renamer('chdir_llimpl_%s' % traits.str.__name__)
+    def chdir_llimpl(path):
+        """This is a reimplementation of the C library's chdir function,
+        but one that produces Win32 errors instead of DOS error codes.
+        chdir is essentially a wrapper around SetCurrentDirectory; however,
+        it also needs to set "magic" environment variables indicating
+        the per-drive current directory, which are of the form =<drive>:
+        """
+        if not win32traits.SetCurrentDirectory(path):
+            raise rwin32.lastWindowsError()
+        MAX_PATH = rwin32.MAX_PATH
+        assert MAX_PATH > 0
+
+        with traits.scoped_alloc_buffer(MAX_PATH) as path:
+            res = win32traits.GetCurrentDirectory(MAX_PATH + 1, path.raw)
+            if not res:
+                raise rwin32.lastWindowsError()
+            res = rffi.cast(lltype.Signed, res)
+            assert res > 0
+            if res <= MAX_PATH + 1:
+                new_path = path.str(res)
+            else:
+                with traits.scoped_alloc_buffer(res) as path:
+                    res = win32traits.GetCurrentDirectory(res, path.raw)
+                    if not res:
+                        raise rwin32.lastWindowsError()
+                    res = rffi.cast(lltype.Signed, res)
+                    assert res > 0
+                    new_path = path.str(res)
+        if isUNC(new_path):
+            return
+        if not win32traits.SetEnvironmentVariable(magic_envvar(new_path), new_path):
+            raise rwin32.lastWindowsError()
+
+    return chdir_llimpl
+
+#_______________________________________________________________
+# chmod
+
+def make_chmod_impl(traits):
+    from pypy.rlib import rwin32
+    win32traits = make_win32_traits(traits)
+
+    @func_renamer('chmod_llimpl_%s' % traits.str.__name__)
+    def chmod_llimpl(path, mode):
+        attr = win32traits.GetFileAttributes(path)
+        if attr == win32traits.INVALID_FILE_ATTRIBUTES:
+            raise rwin32.lastWindowsError()
+        if mode & 0200: # _S_IWRITE
+            attr &= ~win32traits.FILE_ATTRIBUTE_READONLY
+        else:
+            attr |= win32traits.FILE_ATTRIBUTE_READONLY
+        if not win32traits.SetFileAttributes(path, attr):
+            raise rwin32.lastWindowsError()
+
+    return chmod_llimpl
 
 #_______________________________________________________________
 # getfullpathname

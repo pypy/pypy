@@ -23,7 +23,7 @@ from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
-from pypy.jit.codewriter import support, codewriter
+from pypy.jit.codewriter import support, codewriter, longlong
 from pypy.jit.codewriter.policy import JitPolicy
 
 # ____________________________________________________________
@@ -62,7 +62,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
-                    inline=False, loop_longevity=0, **kwds):
+                    inline=False, loop_longevity=0, retrace_limit=5, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -80,6 +80,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_loop_longevity(loop_longevity)
+        jd.warmstate.set_param_retrace_limit(retrace_limit)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
@@ -155,6 +156,7 @@ class WarmRunnerDesc(object):
         if policy is None:
             policy = JitPolicy()
         policy.set_supports_floats(self.cpu.supports_floats)
+        policy.set_supports_longlong(self.cpu.supports_longlong)
         graphs = self.codewriter.find_all_graphs(policy)
         policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)
@@ -343,7 +345,7 @@ class WarmRunnerDesc(object):
 
         class DoneWithThisFrameFloat(JitException):
             def __init__(self, result):
-                assert lltype.typeOf(result) is lltype.Float
+                assert lltype.typeOf(result) is longlong.FLOATSTORAGE
                 self.result = result
             def __str__(self):
                 return 'DoneWithThisFrameFloat(%s)' % (self.result,)

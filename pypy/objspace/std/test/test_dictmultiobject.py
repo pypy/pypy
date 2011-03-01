@@ -501,6 +501,27 @@ class AppTest_DictObject:
         iterable = {}
         raises(TypeError, len, iter(iterable))
 
+    def test_missing(self):
+        class X(dict):
+            def __missing__(self, x):
+                assert x == 'hi'
+                return 42
+        assert X()['hi'] == 42
+
+    def test_missing_more(self):
+        def missing(self, x):
+            assert x == 'hi'
+            return 42
+        class SpecialDescr(object):
+            def __init__(self, impl):
+                self.impl = impl
+            def __get__(self, obj, owner):
+                return self.impl.__get__(obj, owner)
+        class X(dict):
+            __missing__ = SpecialDescr(missing)
+        assert X()['hi'] == 42
+
+
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
@@ -667,13 +688,10 @@ class AppTestDictViews:
 class AppTestModuleDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
-        cls.w_impl_used = cls.space.appexec([], """():
-            import __pypy__
-            def impl_used(obj):
-                assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
-            return impl_used
-        """)
 
+    def w_impl_used(self, obj):
+        import __pypy__
+        assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
         m = type(__builtins__)("abc")

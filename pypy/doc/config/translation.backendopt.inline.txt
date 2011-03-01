@@ -7,4 +7,4 @@ Some amount of inlining in order to have RPython builtin type helpers
 inlined is needed for malloc removal
 (:config:`translation.backendopt.mallocs`) to be effective.
 
-This optimisation is used by default.
+This optimization is used by default.

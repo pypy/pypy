@@ -1,6 +1,7 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
 import os
+import signal as cpy_signal
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -10,6 +11,8 @@ class Module(MixedModule):
         'NSIG':                'space.wrap(interp_signal.NSIG)',
         'SIG_DFL':             'space.wrap(interp_signal.SIG_DFL)',
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
+        'default_int_handler': 'interp_signal.default_int_handler',
+        'ItimerError':         'interp_signal.get_itimer_error(space)',
     }
 
     if os.name == 'posix':
@@ -17,8 +20,13 @@ class Module(MixedModule):
         interpleveldefs['pause'] = 'interp_signal.pause'
         interpleveldefs['siginterrupt'] = 'interp_signal.siginterrupt'
 
+    if hasattr(cpy_signal, 'setitimer'):
+        interpleveldefs['setitimer'] = 'interp_signal.setitimer'
+        interpleveldefs['getitimer'] = 'interp_signal.getitimer'
+        for name in ['ITIMER_REAL', 'ITIMER_VIRTUAL', 'ITIMER_PROF']:
+            interpleveldefs[name] = 'space.wrap(interp_signal.%s)' % (name,)
+
     appleveldefs = {
-        'default_int_handler': 'app_signal.default_int_handler',
     }
 
     def buildloaders(cls):

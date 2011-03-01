@@ -388,7 +388,7 @@ ge__Frozenset_Frozenset = set_issuperset__Set_Set
 # automatic registration of "lt(x, y)" as "not ge(y, x)" would not give the
 # correct answer here!
 def lt__Set_Set(space, w_left, w_other):
-    if _is_eq(w_left.setdata, w_other.setdata):
+    if len(w_left.setdata) >= len(w_other.setdata):
         return space.w_False
     else:
         return le__Set_Set(space, w_left, w_other)
@@ -398,7 +398,7 @@ lt__Frozenset_Set = lt__Set_Set
 lt__Frozenset_Frozenset = lt__Set_Set
 
 def gt__Set_Set(space, w_left, w_other):
-    if _is_eq(w_left.setdata, w_other.setdata):
+    if len(w_left.setdata) <= len(w_other.setdata):
         return space.w_False
     else:
         return ge__Set_Set(space, w_left, w_other)

@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
@@ -22,6 +22,7 @@ def interp_pdb(space):
     import pdb
     pdb.set_trace()
 
+@unwrap_spec(name=str)
 def method_cache_counter(space, name):
     """Return a tuple (method_cache_hits, method_cache_misses) for calls to
     methods with the name."""
@@ -29,7 +30,6 @@ def method_cache_counter(space, name):
     cache = space.fromcache(MethodCache)
     return space.newtuple([space.newint(cache.hits.get(name, 0)),
                            space.newint(cache.misses.get(name, 0))])
-method_cache_counter.unwrap_spec = [ObjSpace, str]
 
 def reset_method_cache_counter(space):
     """Reset the method cache counter to zero for all method names."""
@@ -42,6 +42,7 @@ def reset_method_cache_counter(space):
         cache.misses = {}
         cache.hits = {}
 
+@unwrap_spec(name=str)
 def mapdict_cache_counter(space, name):
     """Return a tuple (index_cache_hits, index_cache_misses) for lookups
     in the mapdict cache with the given attribute name."""
@@ -50,7 +51,6 @@ def mapdict_cache_counter(space, name):
     cache = space.fromcache(IndexCache)
     return space.newtuple([space.newint(cache.hits.get(name, 0)),
                            space.newint(cache.misses.get(name, 0))])
-mapdict_cache_counter.unwrap_spec = [ObjSpace, str]
 
 def builtinify(space, w_func):
     from pypy.interpreter.function import Function, BuiltinFunction
