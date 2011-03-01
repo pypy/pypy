@@ -224,7 +224,8 @@ def test_continuation_lines():
 # This looks like a bug in cpython parser
 # and would require extensive modifications
 # to future.py in order to emulate the same behaviour
-def __test_continuation_lines_raise():
+def test_continuation_lines_raise():
+    py.test.skip("probably a CPython bug")
     s = "   \\\n  \t\\\nfrom __future__ import with_statement\n"
     try:
         f = run(s)
