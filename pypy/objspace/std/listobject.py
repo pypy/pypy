@@ -205,7 +205,7 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def deleteslice(self, w_list, start, step, slicelength):
-        raise IndexError
+        pass
 
     def pop(self, w_list, index):
         raise IndexError
