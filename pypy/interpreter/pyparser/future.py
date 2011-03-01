@@ -168,7 +168,7 @@ class FutureAutomaton(object):
             if c == '\r':
                 if self.getc() == '\n':
                     self.pos += 1
-                    self.atbol()
+                self.atbol()
             else:
                 self.atbol()
             self.start()
