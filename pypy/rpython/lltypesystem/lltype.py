@@ -395,6 +395,8 @@ class Array(ContainerType):
                 return "{ %s }" % of._str_fields()
             else:
                 return "%s { %s }" % (of._name, of._str_fields())
+        elif self._hints.get('render_as_void'):
+            return 'void'
         else:
             return str(self.OF)
     _str_fields = saferecursive(_str_fields, '...')
