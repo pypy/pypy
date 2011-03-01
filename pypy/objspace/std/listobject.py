@@ -55,6 +55,7 @@ class W_ListObject(W_Object):
 
     def __init__(w_self, space, wrappeditems):
         assert isinstance(wrappeditems, list)
+        w_self.space = space
         w_self.strategy = get_strategy_from_list_objects(space, wrappeditems)
         w_self.strategy.init_from_list_w(w_self, wrappeditems)
 
@@ -67,14 +68,15 @@ class W_ListObject(W_Object):
         items = [space.unwrap(w_item) for w_item in w_list.getitems()]
         return list(items)
 
-    def switch_to_object_strategy(self, items_w):
-        self.strategy = ObjectListStrategy()
-        self.strategy.init_from_list_w(self, items_w)
+    def switch_to_object_strategy(self):
+        list_w = self.getitems()
+        self.strategy = ObjectListStrategy(self.space)
+        self.strategy.init_from_list_w(self, list_w)
 
-    def check_empty_strategy(self, items_w):
-        if len(items_w) == 0:
-            self.strategy = EmptyListStrategy()
-            self.strategy.init_from_list_w(self, items_w)
+    def check_empty_strategy(self):
+        if self.length() == 0:
+            self.strategy = EmptyListStrategy(self.space)
+            self.strategy.init_from_list_w(self, [])
 
     # ___________________________________________________
 
@@ -176,6 +178,7 @@ class ListStrategy(object):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
+
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
         w_list.storage = cast_to_void_star(None)
@@ -187,13 +190,13 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def getslice(self, w_list, start, stop, step, length):
-        return W_ListObject([])
+        return W_ListObject(self.space, [])
 
     def getitems(self, w_list):
         return []
 
     def append(self, w_list, w_item):
-        w_list.__init__([w_item])
+        w_list.__init__(self.space, [w_item])
 
     def inplace_mul(self, w_list, times):
         return
@@ -211,7 +214,7 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def setslice(self, w_list, start, step, slicelength, sequence_w):
-        w_list.__init__(sequence_w)
+        w_list.__init__(self.space, sequence_w)
 
     def insert(self, w_list, index, w_item):
         assert index == 0
@@ -242,6 +245,9 @@ class AbstractUnwrappedStrategy(ListStrategy):
     def list_is_correct_type(self, w_list):
         raise NotImplementedError("abstract base class")
 
+    def init_from_list_w(self, w_list, list_w):
+        l = [self.unwrap(w_item) for w_item in list_w]
+        w_list.storage = self.cast_to_void_star(l)
 
     def length(self, w_list):
         return len(self.cast_from_void_star(w_list.storage))
@@ -253,17 +259,20 @@ class AbstractUnwrappedStrategy(ListStrategy):
             raise
 
     def getitems(self, w_list):
-        return self.cast_from_void_star(w_list.storage)
+        return [self.wrap(item) for item in self.cast_from_void_star(w_list.storage)]
 
     def getslice(self, w_list, start, stop, step, length):
         if step == 1:
-            return W_ListObject(self.cast_from_void_star(w_list.storage)[start:stop])
+            # XXX ineffecient cause items are wrapped and unwrapped again
+            #     later: W_ListObject constructor for unwrapped items
+            l = w_list.getitems()
+            return W_ListObject(self.space, l[start:stop])
         else:
             subitems_w = [None] * length
             for i in range(length):
                 subitems_w[i] = w_list.getitem(start)
                 start += step
-            return W_ListObject(subitems_w)
+            return W_ListObject(self.space, subitems_w)
 
     def append(self,  w_list, w_item):
 
@@ -271,44 +280,52 @@ class AbstractUnwrappedStrategy(ListStrategy):
             self.cast_from_void_star(w_list.storage).append(self.unwrap(w_item))
             return
 
-        w_list.switch_to_object_strategy(w_list.getitems())
+        w_list.switch_to_object_strategy()
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
-        list_w = self.cast_from_void_star(w_list.storage)
+        l = self.cast_from_void_star(w_list.storage)
 
         if self.is_correct_type(w_item):
-            list_w.insert(index, w_item)
+            l.insert(index, self.unwrap(w_item))
             return
 
-        w_list.switch_to_object_strategy(list_w)
+        w_list.switch_to_object_strategy()
         w_list.insert(index, w_item)
 
     def extend(self, w_list, w_other):
-        list_w = self.cast_from_void_star(w_list.storage)
+        l = self.cast_from_void_star(w_list.storage)
         if self.list_is_correct_type(w_other):
-            list_w += w_other.getitems() # or self.cast_from_void_star(w_other.storage) ?
+            l += self.cast_from_void_star(w_other.storage)
             return
 
-        w_list.switch_to_object_strategy(list_w)
+        #XXX unnecessary copy if w_other is ObjectList
+        list_w = w_other.getitems()
+        w_other = W_ListObject(self.space, list_w)
+        w_other.switch_to_object_strategy()
+
+        w_list.switch_to_object_strategy()
         w_list.extend(w_other)
 
     def setitem(self, w_list, index, w_item):
-        list_w = self.cast_from_void_star(w_list.storage)
+        l = self.cast_from_void_star(w_list.storage)
 
         if self.is_correct_type(w_item):
-            list_w[index] = w_item
+            l[index] = self.unwrap(w_item)
             return
 
-        w_list.switch_to_object_strategy(list_w)
+        w_list.switch_to_object_strategy()
         w_list.setitem(index, w_item)
 
     def setslice(self, w_list, start, step, slicelength, sequence_w):
+        #XXX inefficient
         assert slicelength >= 0
         items = self.cast_from_void_star(w_list.storage)
 
-        if not self.list_is_correct_type(W_ListObject(sequence_w)):
-            w_list.switch_to_object_strategy(items)
+        if (type(self) is not ObjectListStrategy and
+                not self.list_is_correct_type(W_ListObject(self.space, sequence_w)) and
+                len(sequence_w) != 0):
+            w_list.switch_to_object_strategy()
             w_list.setslice(start, step, slicelength, sequence_w)
             return
 
@@ -343,22 +360,22 @@ class AbstractUnwrappedStrategy(ListStrategy):
                 i = len2 - 1
                 start += i*step
                 while i >= 0:
-                    items[start] = sequence_w[i]
+                    items[start] = self.unwrap(sequence_w[i])
                     start -= step
                     i -= 1
                 return
             else:
                 # Make a shallow copy to more easily handle the reversal case
+                # XXX why is this needed ???
                 sequence_w = list(sequence_w)
         for i in range(len2):
             items[start] = self.unwrap(sequence_w[i])
             start += step
 
-
     def deleteitem(self, w_list, index):
-        list_w = self.cast_from_void_star(w_list.storage)
-        del list_w[index]
-        w_list.check_empty_strategy(list_w)
+        l = self.cast_from_void_star(w_list.storage)
+        del l[index]
+        w_list.check_empty_strategy()
 
     def deleteslice(self, w_list, start, step, slicelength):
         items = self.cast_from_void_star(w_list.storage)
@@ -392,18 +409,18 @@ class AbstractUnwrappedStrategy(ListStrategy):
             assert start >= 0 # annotator hint
             del items[start:]
 
-        w_list.check_empty_strategy(items)
+        w_list.check_empty_strategy()
 
     def pop(self, w_list, index):
-        list_w = self.cast_from_void_star(w_list.storage)
-        item_w = self.wrap(list_w.pop(index))
+        l = self.cast_from_void_star(w_list.storage)
+        w_item = self.wrap(l.pop(index))
 
-        w_list.check_empty_strategy(list_w)
-        return item_w
+        w_list.check_empty_strategy()
+        return w_item
 
     def inplace_mul(self, w_list, times):
-        list_w = self.cast_from_void_star(w_list.storage)
-        list_w *= times
+        l = self.cast_from_void_star(w_list.storage)
+        l *= times
 
     def reverse(self, w_list):
         self.cast_from_void_star(w_list.storage).reverse()
@@ -422,7 +439,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy):
         return True
 
     def list_is_correct_type(self, w_list):
-        return True
+        return ObjectListStrategy is type(w_list.strategy)
 
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = cast_to_void_star(list_w, "object")
@@ -438,14 +455,14 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
     def cast_from_void_star(self, storage):
         return cast_from_void_star(storage, "integer")
 
+    def cast_to_void_star(self, l):
+        return cast_to_void_star(l, "integer")
+
     def is_correct_type(self, w_obj):
         return is_W_IntObject(w_obj)
 
     def list_is_correct_type(self, w_list):
-        return type(self) == type(w_list.strategy)
-
-    def init_from_list_w(self, w_list, list_w):
-        w_list.storage = cast_to_void_star(list_w, "integer")
+        return IntegerListStrategy is type(w_list.strategy)
 
 class StringListStrategy(AbstractUnwrappedStrategy):
 
@@ -458,14 +475,14 @@ class StringListStrategy(AbstractUnwrappedStrategy):
     def cast_from_void_star(self, storage):
         return cast_from_void_star(storage, "string")
 
+    def cast_to_void_star(self, l):
+        return cast_to_void_star(l, "string")
+
     def is_correct_type(self, w_obj):
         return is_W_StringObject(w_obj)
 
     def list_is_correct_type(self, w_list):
-        return type(self) == type(w_list.strategy)
-
-    def init_from_list_w(self, w_list, list_w):
-        w_list.storage = cast_to_void_star(list_w, "string")
+        return StringListStrategy is type(w_list.strategy)
 
 # _______________________________________________________
 
@@ -484,8 +501,7 @@ def init__List(space, w_list, __args__):
     # This is commented out to avoid assigning a new RPython list to
     # 'wrappeditems', which defeats the W_FastSeqIterObject optimization.
     #
-    items_w = w_list.getitems()
-    del items_w[:]
+    w_list.__init__(space, [])
     if w_iterable is not None:
         w_iterator = space.iter(w_iterable)
         while True:
@@ -546,7 +562,7 @@ def iter__List(space, w_list):
     return iterobject.W_FastListIterObject(w_list, w_list.getitems())
 
 def add__List_List(space, w_list1, w_list2):
-    return W_ListObject(w_list1.getitems() + w_list2.getitems())
+    return W_ListObject(space, w_list1.getitems() + w_list2.getitems())
 
 
 def inplace_add__List_ANY(space, w_list1, w_iterable2):
@@ -564,7 +580,7 @@ def mul_list_times(space, w_list, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    return W_ListObject(w_list.getitems() * times)
+    return W_ListObject(space, w_list.getitems() * times)
 
 def mul__List_ANY(space, w_list, w_times):
     return mul_list_times(space, w_list, w_times)
@@ -709,8 +725,8 @@ def list_extend__List_List(space, w_list, w_other):
     return space.w_None
 
 def list_extend__List_ANY(space, w_list, w_any):
-    w_other = W_ListObject(space.listview(w_any))
-    w_list.extend(w_other) 
+    w_other = W_ListObject(space, space.listview(w_any))
+    w_list.extend(w_other)
     return space.w_None
 
 # note that the default value will come back wrapped!!!
@@ -836,7 +852,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         # by comparison functions can't affect the slice of memory we're
         # sorting (allowing mutations during sorting is an IndexError or
         # core-dump factory, since wrappeditems may change).
-        w_list.__init__([])
+        w_list.__init__(space, [])
 
         # wrap each item in a KeyContainer if needed
         if has_key:
@@ -869,7 +885,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         mucked = w_list.length() > 0
 
         # put the items back into the list
-        w_list.__init__(sorter.list)
+        w_list.__init__(space, sorter.list)
 
     if mucked:
         raise OperationError(space.w_ValueError,

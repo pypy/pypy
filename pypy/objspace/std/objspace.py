@@ -274,7 +274,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return wraptuple(self, list_w)
 
     def newlist(self, list_w):
-        return W_ListObject(list_w)
+        return W_ListObject(self, list_w)
 
     def newdict(self, module=False, instance=False, classofinstance=None,
                 from_strdict_shared=None, strdict=False):
