@@ -213,7 +213,7 @@ class Reader(object):
         self._parse_reset()
 
     def _parse_reset(self):
-        self.field = []
+        self.field = ''
         self.fields = []
         self.state = self.START_RECORD
         self.numeric_field = False
@@ -250,7 +250,7 @@ class Reader(object):
     def _parse_process_char(self, c):
         if self.state == self.IN_FIELD:
             # in unquoted field
-            if c in ('\n', '\r', '\0'):
+            if c in '\n\r\0':
                 # end of line - return [fields]
                 self._parse_save_field()
                 if c == '\0':
@@ -272,7 +272,7 @@ class Reader(object):
             if c == '\0':
                 # empty line - return []
                 pass
-            elif c in ('\n', '\r'):
+            elif c in '\n\r':
                 self.state = self.EAT_CRNL
             else:
                 self.state = self.START_FIELD
@@ -280,7 +280,7 @@ class Reader(object):
                 self._parse_process_char(c)
 
         elif self.state == self.START_FIELD:
-            if c in ('\n', '\r', '\0'):
+            if c in '\n\r\0':
                 # save empty field - return [fields]
                 self._parse_save_field()
                 if c == '\0':
@@ -348,7 +348,7 @@ class Reader(object):
                 # save field - wait for new field
                 self._parse_save_field()
                 self.state = self.START_FIELD
-            elif c in ('\r', '\n', '\0'):
+            elif c in '\r\n\0':
                 # end of line - return [fields]
                 self._parse_save_field()
                 if c == '\0':
@@ -363,7 +363,7 @@ class Reader(object):
                             (self.dialect.delimiter, self.dialect.quotechar))
 
         elif self.state == self.EAT_CRNL:
-            if c in ('\r', '\n'):
+            if c in '\r\n':
                 pass
             elif c == '\0':
                 self.state = self.START_RECORD
@@ -376,8 +376,7 @@ class Reader(object):
             raise RuntimeError("unknown state: %r" % (self.state,))
 
     def _parse_save_field(self):
-        field, self.field = self.field, []
-        field = ''.join(field)
+        field, self.field = self.field, ''
         if self.numeric_field:
             self.numeric_field = False
             field = float(field)
@@ -386,7 +385,7 @@ class Reader(object):
     def _parse_add_char(self, c):
         if len(self.field) >= _field_limit:
             raise Error("field larget than field limit (%d)" % (_field_limit))
-        self.field.append(c)
+        self.field += c
         
 
 class Writer(object):
