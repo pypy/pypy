@@ -204,5 +204,37 @@ def test_raw_unicode_doc():
     f = run(s)
     assert f.pos == len(s)
     assert f.flags == fut.CO_FUTURE_WITH_STATEMENT
+
+def test_continuation_line():
+    s = "\\\nfrom __future__ import with_statement\n"
+    f = run(s)
+    assert f.pos == len(s)
+    assert f.flags == fut.CO_FUTURE_WITH_STATEMENT
+    assert f.lineno == 2
+    assert f.col_offset == 0
+
+def test_continuation_lines():
+    s = "\\\n  \t\\\nfrom __future__ import with_statement\n"
+    f = run(s)
+    assert f.pos == len(s)
+    assert f.flags == fut.CO_FUTURE_WITH_STATEMENT
+    assert f.lineno == 3
+    assert f.col_offset == 0
+
+# This looks like a bug in cpython parser
+# and would require extensive modifications
+# to future.py in order to emulate the same behaviour
+def __test_continuation_lines_raise():
+    s = "   \\\n  \t\\\nfrom __future__ import with_statement\n"
+    try:
+        f = run(s)
+    except IndentationError, e:
+        assert e.args == 'unexpected indent'
+        assert f.pos == len(s)
+        assert f.flags == 0
+        assert f.lineno == -1
+        assert f.col_offset == 0
+    else:
+        raise AssertionError('IndentationError not raised')
     assert f.lineno == 2
     assert f.col_offset == 0
