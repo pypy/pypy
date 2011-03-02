@@ -298,9 +298,9 @@ class TestCLibffi(BaseFfiTest):
         sum_x_y = lib.getrawpointer('sum_x_y', [tpe.ffistruct], slong)
 
         buffer = lltype.malloc(rffi.LONGP.TO, 3, flavor='raw')
-        buffer[0] = 200
-        buffer[1] = 220
-        buffer[2] = 666
+        buffer[0] = rffi.r_long(200)
+        buffer[1] = rffi.r_long(220)
+        buffer[2] = rffi.r_long(666)
         sum_x_y.call([rffi.cast(rffi.VOIDP, buffer)],
                      rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 2)))
         assert buffer[2] == 420
@@ -408,8 +408,8 @@ class TestCLibffi(BaseFfiTest):
         del lib     # already delete here
 
         buffer = lltype.malloc(rffi.LONGP.TO, 2, flavor='raw')
-        buffer[0] = 200
-        buffer[1] = -1
+        buffer[0] = rffi.r_long(200)
+        buffer[1] = rffi.r_long(-1)
         fun.call([rffi.cast(rffi.VOIDP, buffer)],
                  rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 1)))
         assert buffer[1] == 242
@@ -423,10 +423,10 @@ class TestWin32Handles(BaseFfiTest):
     def setup_class(cls):
         if sys.platform != 'win32':
             py.test.skip("Handle to libc library, Win-only test")
-        BaseFfiTest.setup_class(cls)
+        BaseFfiTest.setup_class()
     
     def test_get_libc_handle(self):
-        handle = get_libc_handle()
+        handle = rffi.cast(lltype.Signed, get_libc_handle())
         print get_libc_name()
         print hex(handle)
         assert handle != 0
