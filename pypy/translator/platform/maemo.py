@@ -61,7 +61,7 @@ class Maemo(Linux):
         log.execute('/scratchbox/login ' + cc + ' ' + ' '.join(args))
         args = [cc] + args
         returncode, stdout, stderr = _run_subprocess('/scratchbox/login', args)
-        self._handle_error(returncode, stderr, stdout, outname)
+        self._handle_error(returncode, stdout, stderr, outname)
     
     def execute(self, executable, args=[], env=None):
         if isinstance(args, str):

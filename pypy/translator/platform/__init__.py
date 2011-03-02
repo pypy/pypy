@@ -117,9 +117,9 @@ class Platform(object):
         args = cclist[1:] + args
         returncode, stdout, stderr = _run_subprocess(cc, args, self.c_environ,
                                                      cwd)
-        self._handle_error(returncode, stderr, stdout, outname)
+        self._handle_error(returncode, stdout, stderr, outname)
 
-    def _handle_error(self, returncode, stderr, stdout, outname):
+    def _handle_error(self, returncode, stdout, stderr, outname):
         if returncode != 0:
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, 'wb')
