@@ -243,7 +243,7 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
     from pypy.rpython.lltypesystem import lltype
     from pypy.rpython.lltypesystem.lloperation import llop
     if hasattr(callable, '_errorcode_'):
-        errorcode = callable._errorcode_
+        errorcode = cast(TP.TO.RESULT, callable._errorcode_)
     else:
         errorcode = TP.TO.RESULT._example()
     callable_name = getattr(callable, '__name__', '?')

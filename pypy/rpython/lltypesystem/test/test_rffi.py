@@ -407,7 +407,7 @@ class BaseTestRffi:
     def test_c_callback(self):
         eating_callback = self.eating_callback()
         def g(i):
-            return i + 3
+            return cast(lltype.Signed, i) + 3
 
         def f():
             return eating_callback(3, g)
@@ -423,7 +423,7 @@ class BaseTestRffi:
             return i
 
         def two(i):
-            return i + 2
+            return cast(lltype.Signed, i) + 2
         
         def f(i):
             if i > 3:
@@ -441,7 +441,7 @@ class BaseTestRffi:
         eating_callback = self.eating_callback()
 
         def raising(i):
-            if i > 3:
+            if cast(lltype.Signed, i) > 3:
                 raise ValueError
             else:
                 return 3
@@ -456,8 +456,8 @@ class BaseTestRffi:
     def test_callback_already_llptr(self):
         eating_callback = self.eating_callback()
         def g(i):
-            return i + 3
-        G = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+            return cast(LONG, cast(lltype.Signed, i) + 3)
+        G = lltype.Ptr(lltype.FuncType([LONG], LONG))
 
         def f():
             return eating_callback(3, llhelper(G, g))
@@ -467,9 +467,9 @@ class BaseTestRffi:
 
     def test_pass_opaque_pointer_via_callback(self):
         eating_callback = self.eating_callback()
-        TP = lltype.Ptr(lltype.GcStruct('X', ('x', lltype.Signed)))
+        TP = lltype.Ptr(lltype.GcStruct('X', ('x', LONG)))
         struct = lltype.malloc(TP.TO) # gc structure
-        struct.x = 8
+        struct.x = cast(LONG, 8)
         
         def g(i):
             return get_keepalive_object(i, TP).x
