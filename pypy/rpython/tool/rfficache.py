@@ -54,9 +54,12 @@ def sizeof_c_types(typenames_c, **kwds):
 class Platform:
     def __init__(self):
         self.types = {}
+        # XXX similar to rarithmetic._predefined_ints?
         self.numbertype_to_rclass = {
             lltype.Signed: rarithmetic.r_int,
             lltype.Unsigned: rarithmetic.r_uint,
+            lltype.SignedLongLong: rarithmetic.r_longlong,
+            lltype.UnsignedLongLong: rarithmetic.r_ulonglong,
             }
     
     def inttype(self, name, c_name, signed, **kwds):
