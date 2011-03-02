@@ -604,8 +604,7 @@ def contains__List_ANY(space, w_list, w_obj):
 
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
-    import pdb; pdb.set_trace()
-    return iterobject.W_FastListIterObject(w_list, w_list.getitems())
+    return iterobject.W_FastListIterObject(w_list)
 
 def add__List_List(space, w_list1, w_list2):
     return W_ListObject(space, w_list1.getitems() + w_list2.getitems())

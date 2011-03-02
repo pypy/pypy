@@ -30,9 +30,9 @@ class W_FastListIterObject(W_AbstractSeqIterObject):
     """Sequence iterator specialized for lists, accessing
     directly their RPython-level list of wrapped objects.
     """
-    def __init__(w_self, w_seq, wrappeditems):
+    def __init__(w_self, w_seq):
         W_AbstractSeqIterObject.__init__(w_self, w_seq)
-        w_self.listitems = wrappeditems
+        w_self.w_seq = w_seq
 
 class W_FastTupleIterObject(W_AbstractSeqIterObject):
    """Sequence iterator specialized for tuples, accessing
@@ -102,13 +102,13 @@ def iter__FastListIter(space, w_seqiter):
     return w_seqiter
 
 def next__FastListIter(space, w_seqiter):
-    if w_seqiter.listitems is None:
+    if w_seqiter.w_seq is None:
         raise OperationError(space.w_StopIteration, space.w_None)
     index = w_seqiter.index
     try:
-        w_item = w_seqiter.listitems[index]
+        w_item = w_seqiter.w_seq.getitem(index)
     except IndexError:
-        w_seqiter.listitems = None
+        w_seqiter.w_seq = None
         w_seqiter.w_seq = None
         raise OperationError(space.w_StopIteration, space.w_None) 
     w_seqiter.index = index + 1
