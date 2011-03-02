@@ -1,0 +1,14 @@
+.hg
+.svn
+
+*.pyc
+*.pyo
+*~
+
+bin/pypy-c
+include/*.h
+lib_pypy/ctypes_config_cache/_[^_]*_*.py
+pypy/_cache
+pypy/translator/goal/pypy-c
+pypy/translator/goal/target*-c
+release/

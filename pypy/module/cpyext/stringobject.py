@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
     PyObjectFields, Py_ssize_t, CONST_STRING)
+from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
@@ -252,7 +253,7 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
     the parameters of the same name in the string encode() method. The codec to
     be used is looked up using the Python codec registry. Return NULL if an
     exception was raised by the codec.
-    
+
     This function is not available in 3.x and does not have a PyBytes alias."""
     if not PyString_Check(space, w_str):
         PyErr_BadArgument(space)

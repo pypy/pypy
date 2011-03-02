@@ -450,13 +450,13 @@ class FunctionGcRootTracker(object):
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
-        'movap', 'movd', 'movlp', 'sqrtsd',
+        'movap', 'movd', 'movlp', 'sqrtsd', 'movhpd',
         'mins', 'minp', 'maxs', 'maxp', 'unpck', 'pxor', 'por', # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
-        'punpck', 'pshufd', 'pcmp',
+        'punpck', 'pshufd', 'pcmp', 'pand', 'psslw', 'pssld', 'psslq',
         # zero-extending moves should not produce GC pointers
         'movz', 
         ])
@@ -799,7 +799,8 @@ class FunctionGcRootTracker(object):
                 insns.append(InsnStackAdjust(int(target.rsplit('@', 1)[1])))
             # Some (intrinsic?) functions use the "fastcall" calling convention
             # XXX without any declaration, how can we guess the stack effect?
-            if target in ['__alldiv', '__allrem', '__allmul', '__alldvrm']:
+            if target in ['__alldiv', '__allrem', '__allmul', '__alldvrm',
+                          '__aulldiv', '__aullrem', '__aullmul', '__aulldvrm']:
                 insns.append(InsnStackAdjust(16))
         return insns
 

@@ -60,7 +60,8 @@ for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
 
 def external(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           sandboxsafe=True, **kwds)
 
 pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
 pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)

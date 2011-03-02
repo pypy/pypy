@@ -122,6 +122,7 @@ class MsvcPlatform(Platform):
     def _libs(self, libraries):
         libs = []
         for lib in libraries:
+            lib = str(lib)
             if lib.endswith('.dll'):
                 lib = lib[:-4]
             libs.append('%s.lib' % (lib,))
@@ -192,7 +193,7 @@ class MsvcPlatform(Platform):
 
         return exe_name
 
-    def _handle_error(self, returncode, stderr, stdout, outname):
+    def _handle_error(self, returncode, stdout, stderr, outname):
         if returncode != 0:
             # Microsoft compilers write compilation errors to stdout
             stderr = stdout + stderr
@@ -360,7 +361,7 @@ class MingwPlatform(posix.BasePosix):
     def library_dirs_for_libffi(self):
         return []
 
-    def _handle_error(self, returncode, stderr, stdout, outname):
+    def _handle_error(self, returncode, stdout, stderr, outname):
         # Mingw tools write compilation errors to stdout
         super(MingwPlatform, self)._handle_error(
-            returncode, stderr + stdout, '', outname)
+            returncode, '', stderr + stdout, outname)
