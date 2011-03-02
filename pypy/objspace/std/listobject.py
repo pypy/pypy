@@ -7,6 +7,7 @@ from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
+from pypy.rlib.objectmodel import instantiate
 from pypy.rlib.listsort import TimSort
 from pypy.interpreter.argument import Signature
 
@@ -20,6 +21,11 @@ def cast_from_void_star(wrapper, from_where=""):
     # this will later be replaced by something in rlib.rerased
     assert wrapper._from_where == from_where
     return wrapper._content
+
+def make_range_list(space, start, step, length):
+    storage = cast_to_void_star((start, step, length))
+    strategy = RangeListStrategy(space)
+    return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 # don't know where to put this function, so it is global for now
 def get_strategy_from_list_objects(space, list_w):
@@ -58,6 +64,14 @@ class W_ListObject(W_Object):
         w_self.space = space
         w_self.strategy = get_strategy_from_list_objects(space, wrappeditems)
         w_self.strategy.init_from_list_w(w_self, wrappeditems)
+
+    @staticmethod
+    def from_storage_and_strategy(space, storage, strategy):
+        w_self = instantiate(W_ListObject)
+        w_self.space = space
+        w_self.strategy = strategy
+        w_self.storage = storage
+        return w_self
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -227,6 +241,37 @@ class EmptyListStrategy(ListStrategy):
 
     def reverse(self, w_list):
         pass
+
+class RangeListStrategy(ListStrategy):
+
+    def wrap(self, intval):
+        return self.space.wrap(intval)
+
+    def unwrap(self, w_int):
+        return self.space.int_w(w_int)
+
+    def init_from_list_w(self, w_list, list_w):
+        raise NotImplementedError
+
+    def cast_from_void_star(self, storage):
+        return cast_from_void_star(storage, "integer")
+
+    def getitems(self, w_list):
+        l = self.cast_from_void_star(w_list.storage)
+        start = l[0]
+        step = l[1]
+        length  = l[2]
+
+        r = [None] * length
+
+        i = start
+        n = 0
+        while n < length:
+            r[n] = self.wrap(i)
+            i += step
+            n += 1
+
+        return r
 
 class AbstractUnwrappedStrategy(ListStrategy):
 
@@ -559,6 +604,7 @@ def contains__List_ANY(space, w_list, w_obj):
 
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
+    import pdb; pdb.set_trace()
     return iterobject.W_FastListIterObject(w_list, w_list.getitems())
 
 def add__List_List(space, w_list1, w_list2):
