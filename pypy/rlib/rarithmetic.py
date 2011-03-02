@@ -482,15 +482,8 @@ class unsigned_int(base_int):
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
 
-_inttypes = {}
-
-def build_int(name, sign, bits, force_creation=False):
+def build_int(name, sign, bits):
     sign = bool(sign)
-    if not force_creation:
-        try:
-            return _inttypes[sign, bits]
-        except KeyError:
-            pass
     if sign:
         base_int_type = signed_int
     else:
@@ -501,8 +494,6 @@ def build_int(name, sign, bits, force_creation=False):
     int_type = type(name, (base_int_type,), {'MASK': mask,
                                              'BITS': bits,
                                              'SIGN': sign})
-    if not force_creation:
-        _inttypes[sign, bits] = int_type
     class ForValuesEntry(extregistry.ExtRegistryEntry):
         _type_ = int_type
 

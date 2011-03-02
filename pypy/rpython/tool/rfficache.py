@@ -54,7 +54,10 @@ def sizeof_c_types(typenames_c, **kwds):
 class Platform:
     def __init__(self):
         self.types = {}
-        self.numbertype_to_rclass = {}
+        self.numbertype_to_rclass = {
+            lltype.Signed: rarithmetic.r_int,
+            lltype.Unsigned: rarithmetic.r_uint,
+            }
     
     def inttype(self, name, c_name, signed, **kwds):
         try:

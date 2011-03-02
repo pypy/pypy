@@ -612,8 +612,8 @@ integer_class = [rffi.SIGNEDCHAR, rffi.UCHAR, rffi.CHAR,
                  rffi.SHORT, rffi.USHORT,
                  rffi.INT, rffi.UINT,
                  rffi.LONG, rffi.ULONG,
-                 rffi.LONGLONG, rffi.ULONGLONG]
-# XXX SIZE_T?
+                 rffi.LONGLONG, rffi.ULONGLONG,
+                 rffi.SIZE_T]
 
 float_class = [rffi.DOUBLE]
 

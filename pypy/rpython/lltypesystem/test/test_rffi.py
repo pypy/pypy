@@ -693,6 +693,10 @@ class TestRffiInternals:
         res = interpret(f, [])
         assert res == 3
 
+    def test_type_identity(self):
+        assert INT != lltype.Signed
+        assert LONG != INT
+
     def test_size_t_sign(self):
         assert r_size_t(-1) > 0
     
