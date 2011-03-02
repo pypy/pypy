@@ -97,10 +97,12 @@ get a list in decending order."""
     return space.newlist(res_w)
 
 
-def range_withspecialized_implementation(space, start, step, howmany):
+def range_withspecialized_implementation(space, start, step, length):
     assert space.config.objspace.std.withrangelist
-    from pypy.objspace.std.rangeobject import W_RangeListObject
-    return W_RangeListObject(start, step, howmany)
+    from pypy.objspace.std.listobject import make_range_list
+    return make_range_list(space, start, step, length)
+    #from pypy.objspace.std.rangeobject import W_RangeListObject
+    #return W_RangeListObject(start, step, length)
 
 bigint_one = rbigint.fromint(1)
 
