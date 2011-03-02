@@ -465,7 +465,7 @@ def type_attach(space, py_obj, w_type):
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
 
-@cpython_api([PyTypeObjectPtr], rffi.INT_real, error=-1)
+@cpython_api([PyTypeObjectPtr], rffi.INT, error=-1)
 def PyType_Ready(space, pto):
     if pto.c_tp_flags & Py_TPFLAGS_READY:
         return 0
@@ -602,7 +602,7 @@ def finish_type_2(space, pto, w_obj):
         w_dict = space.newdict(from_strdict_shared=w_obj.dict_w)
         pto.c_tp_dict = make_ref(space, w_dict)
 
-@cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):
     """Return true if a is a subtype of b.
     """

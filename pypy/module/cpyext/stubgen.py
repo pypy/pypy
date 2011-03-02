@@ -15,7 +15,7 @@ def %(functionname)s(%(params)s):
 
 C_TYPE_TO_PYPY_TYPE = {
         "void": "lltype.Void",
-        "int": "rffi.INT_real",
+        "int": "rffi.INT",
         "PyTypeObject*": "PyTypeObjectPtr",
         "PyVarObject*": "PyObject",
         "const char*": "rffi.CCHARP",

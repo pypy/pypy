@@ -24,7 +24,7 @@ PyMethodDef = cpython_struct(
     'PyMethodDef',
     [('ml_name', rffi.CCHARP),
      ('ml_meth', PyCFunction_typedef),
-     ('ml_flags', rffi.INT_real),
+     ('ml_flags', rffi.INT),
      ('ml_doc', rffi.CCHARP),
      ])
 

@@ -21,7 +21,7 @@ def PyList_New(space, len):
     """
     return space.newlist([None] * len)
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT, error=-1)
 def PyList_SetItem(space, w_list, index, w_item):
     """Set the item at index index in list to item.  Return 0 on success
     or -1 on failure.
@@ -54,14 +54,14 @@ def PyList_GetItem(space, w_list, index):
     return borrow_from(w_list, wrappeditems[index])
 
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-1)
 def PyList_Append(space, w_list, w_item):
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
     w_list.append(w_item)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT, error=-1)
 def PyList_Insert(space, w_list, index, w_item):
     """Insert the item item into list list in front of index index.  Return
     0 if successful; return -1 and set an exception if unsuccessful.
@@ -93,7 +93,7 @@ def PyList_AsTuple(space, w_list):
     tuple(list)."""
     return space.call_function(space.w_tuple, w_list)
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT, error=-1)
 def PyList_Sort(space, w_list):
     """Sort the items of list in place.  Return 0 on success, -1 on
     failure.  This is equivalent to list.sort()."""
@@ -102,7 +102,7 @@ def PyList_Sort(space, w_list):
     space.call_method(w_list, "sort")
     return 0
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT, error=-1)
 def PyList_Reverse(space, w_list):
     """Reverse the items of list in place.  Return 0 on success, -1 on
     failure.  This is the equivalent of list.reverse()."""
@@ -111,7 +111,7 @@ def PyList_Reverse(space, w_list):
     space.call_method(w_list, "reverse")
     return 0
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT, error=-1)
 def PyList_SetSlice(space, w_list, low, high, w_sequence):
     """Set the slice of list between low and high to the contents of
     itemlist.  Analogous to list[low:high] = itemlist. The itemlist may

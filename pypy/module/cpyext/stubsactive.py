@@ -58,7 +58,7 @@ def PyEval_ReleaseThread(space, tstate):
     compile time."""
     raise NotImplementedError
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([], rffi.INT, error=CANNOT_FAIL)
 def Py_MakePendingCalls(space):
     return 0
 

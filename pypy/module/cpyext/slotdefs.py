@@ -194,7 +194,7 @@ def get_richcmp_func(OP_CONST):
         args_w = space.fixedview(w_args)
         other_w = args_w[0]
         return generic_cpy_call(space, func_target,
-            w_self, other_w, rffi.cast(rffi.INT_real, OP_CONST))
+            w_self, other_w, rffi.cast(rffi.INT, OP_CONST))
     return inner
 
 richcmp_eq = get_richcmp_func(Py_EQ)
@@ -211,7 +211,7 @@ def slot_tp_new(space, type, w_args, w_kwds):
     w_args_new = space.newtuple(args_w)
     return space.call(w_func, w_args_new, w_kwds)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, external=False)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT, error=-1, external=False)
 def slot_tp_init(space, w_self, w_args, w_kwds):
     w_descr = space.lookup(w_self, '__init__')
     args = Arguments.frompacked(space, w_args, w_kwds)
@@ -253,7 +253,7 @@ def build_slot_tp_function(space, typedef, name):
         if setattr_fn is None:
             return
 
-        @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
+        @cpython_api([PyObject, PyObject, PyObject], rffi.INT,
                      error=-1, external=True) # XXX should not be exported
         @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
         def slot_tp_setattro(space, w_self, w_name, w_value):

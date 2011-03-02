@@ -65,7 +65,7 @@ def PySlice_New(space, w_start, w_stop, w_step):
     return W_SliceObject(w_start, w_stop, w_step)
 
 @cpython_api([PySliceObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP,
-                Py_ssize_tP], rffi.INT_real, error=-1)
+                Py_ssize_tP], rffi.INT, error=-1)
 def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
                          slicelength_p):
     """Usable replacement for PySlice_GetIndices().  Retrieve the start,
@@ -83,7 +83,7 @@ def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
     return 0
 
 @cpython_api([PySliceObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP],
-                rffi.INT_real, error=-1)
+                rffi.INT, error=-1)
 def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     """Retrieve the start, stop and step indices from the slice object slice,
     assuming a sequence of length length. Treats indices greater than

@@ -13,44 +13,44 @@ PyOPtr = Ptr(lltype.Array(PyO, hints={'nolength': True}))
 
 freefunc = P(FT([rffi.VOIDP], Void))
 destructor = P(FT([PyO], Void))
-printfunc = P(FT([PyO, FILEP, rffi.INT_real], rffi.INT))
+printfunc = P(FT([PyO, FILEP, rffi.INT], rffi.INT))
 getattrfunc = P(FT([PyO, rffi.CCHARP], PyO))
 getattrofunc = P(FT([PyO, PyO], PyO))
-setattrfunc = P(FT([PyO, rffi.CCHARP, PyO], rffi.INT_real))
-setattrofunc = P(FT([PyO, PyO, PyO], rffi.INT_real))
-cmpfunc = P(FT([PyO, PyO], rffi.INT_real))
+setattrfunc = P(FT([PyO, rffi.CCHARP, PyO], rffi.INT))
+setattrofunc = P(FT([PyO, PyO, PyO], rffi.INT))
+cmpfunc = P(FT([PyO, PyO], rffi.INT))
 reprfunc = P(FT([PyO], PyO))
 hashfunc = P(FT([PyO], lltype.Signed))
-richcmpfunc = P(FT([PyO, PyO, rffi.INT_real], PyO))
+richcmpfunc = P(FT([PyO, PyO, rffi.INT], PyO))
 getiterfunc = P(FT([PyO], PyO))
 iternextfunc = P(FT([PyO], PyO))
 descrgetfunc = P(FT([PyO, PyO, PyO], PyO))
-descrsetfunc = P(FT([PyO, PyO, PyO], rffi.INT_real))
-initproc = P(FT([PyO, PyO, PyO], rffi.INT_real))
+descrsetfunc = P(FT([PyO, PyO, PyO], rffi.INT))
+initproc = P(FT([PyO, PyO, PyO], rffi.INT))
 newfunc = P(FT([PyTypeObjectPtr, PyO, PyO], PyO))
 allocfunc = P(FT([PyTypeObjectPtr, Py_ssize_t], PyO))
 unaryfunc = P(FT([PyO], PyO))
 binaryfunc = P(FT([PyO, PyO], PyO))
 ternaryfunc = P(FT([PyO, PyO, PyO], PyO))
-inquiry = P(FT([PyO], rffi.INT_real))
+inquiry = P(FT([PyO], rffi.INT))
 lenfunc = P(FT([PyO], Py_ssize_t))
-coercion = P(FT([PyOPtr, PyOPtr], rffi.INT_real))
-intargfunc = P(FT([PyO, rffi.INT_real], PyO))
-intintargfunc = P(FT([PyO, rffi.INT_real, rffi.INT], PyO))
+coercion = P(FT([PyOPtr, PyOPtr], rffi.INT))
+intargfunc = P(FT([PyO, rffi.INT], PyO))
+intintargfunc = P(FT([PyO, rffi.INT, rffi.INT], PyO))
 ssizeargfunc = P(FT([PyO, Py_ssize_t], PyO))
 ssizessizeargfunc = P(FT([PyO, Py_ssize_t, Py_ssize_t], PyO))
-intobjargproc = P(FT([PyO, rffi.INT_real, PyO], rffi.INT))
-intintobjargproc = P(FT([PyO, rffi.INT_real, rffi.INT, PyO], rffi.INT))
-ssizeobjargproc = P(FT([PyO, Py_ssize_t, PyO], rffi.INT_real))
-ssizessizeobjargproc = P(FT([PyO, Py_ssize_t, Py_ssize_t, PyO], rffi.INT_real))
-objobjargproc = P(FT([PyO, PyO, PyO], rffi.INT_real))
+intobjargproc = P(FT([PyO, rffi.INT, PyO], rffi.INT))
+intintobjargproc = P(FT([PyO, rffi.INT, rffi.INT, PyO], rffi.INT))
+ssizeobjargproc = P(FT([PyO, Py_ssize_t, PyO], rffi.INT))
+ssizessizeobjargproc = P(FT([PyO, Py_ssize_t, Py_ssize_t, PyO], rffi.INT))
+objobjargproc = P(FT([PyO, PyO, PyO], rffi.INT))
 
-objobjproc = P(FT([PyO, PyO], rffi.INT_real))
-visitproc = P(FT([PyO, rffi.VOIDP], rffi.INT_real))
-traverseproc = P(FT([PyO, visitproc, rffi.VOIDP], rffi.INT_real))
+objobjproc = P(FT([PyO, PyO], rffi.INT))
+visitproc = P(FT([PyO, rffi.VOIDP], rffi.INT))
+traverseproc = P(FT([PyO, visitproc, rffi.VOIDP], rffi.INT))
 
 getter = P(FT([PyO, rffi.VOIDP], PyO))
-setter = P(FT([PyO, PyO, rffi.VOIDP], rffi.INT_real))
+setter = P(FT([PyO, PyO, rffi.VOIDP], rffi.INT))
 
 wrapperfunc = P(FT([PyO, PyO, rffi.VOIDP], PyO))
 wrapperfunc_kwds = P(FT([PyO, PyO, rffi.VOIDP, PyO], PyO))
@@ -140,9 +140,9 @@ PyBufferProcs = cpython_struct("PyBufferProcs", (
 
 PyMemberDef = cpython_struct("PyMemberDef", (
     ("name", rffi.CCHARP),
-    ("type",  rffi.INT_real),
+    ("type",  rffi.INT),
     ("offset", Py_ssize_t),
-    ("flags", rffi.INT_real),
+    ("flags", rffi.INT),
     ("doc", rffi.CCHARP),
 ))
 

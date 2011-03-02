@@ -12,7 +12,7 @@ def PySys_GetObject(space, name):
     w_obj = space.finditem_str(w_dict, name)
     return borrow_from(None, w_obj)
 
-@cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
+@cpython_api([CONST_STRING, PyObject], rffi.INT, error=-1)
 def PySys_SetObject(space, name, w_obj):
     """Set name in the sys module to v unless v is NULL, in which
     case name is deleted from the sys module. Returns 0 on success, -1

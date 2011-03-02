@@ -79,7 +79,7 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     num = space.bigint_w(w_long)
     return num.ulonglongmask()
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], lltype.Signed,
+@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT)], lltype.Signed,
              error=-1)
 def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     """
@@ -88,19 +88,19 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     respectively, and return -1; otherwise, set *overflow to 0.  If any other
     exception occurs (for example a TypeError or MemoryError), then -1 will be
     returned and *overflow will be 0."""
-    overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
+    overflow_ptr[0] = rffi.cast(rffi.INT, 0)
     try:
         return space.int_w(w_long)
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
-        overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
+        overflow_ptr[0] = rffi.cast(rffi.INT, 1)
     else:
-        overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
+        overflow_ptr[0] = rffi.cast(rffi.INT, -1)
     return -1
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], rffi.LONGLONG,
+@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT)], rffi.LONGLONG,
              error=-1)
 def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     """
@@ -109,16 +109,16 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     -1, respectively, and return -1; otherwise, set *overflow to 0.  If any
     other exception occurs (for example a TypeError or MemoryError), then -1
     will be returned and *overflow will be 0."""
-    overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
+    overflow_ptr[0] = rffi.cast(rffi.INT, 0)
     try:
         return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
-        overflow_ptr[0] = rffi.cast(rffi.INT_real, 1)
+        overflow_ptr[0] = rffi.cast(rffi.INT, 1)
     else:
-        overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
+        overflow_ptr[0] = rffi.cast(rffi.INT, -1)
     return -1
 
 @cpython_api([lltype.Float], PyObject)
@@ -133,7 +133,7 @@ def PyLong_AsDouble(space, w_long):
     OverflowError exception is raised and -1.0 will be returned."""
     return space.float_w(space.float(w_long))
 
-@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
+@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT], PyObject)
 def PyLong_FromString(space, str, pend, base):
     """Return a new PyLongObject based on the string value in str, which is
     interpreted according to the radix in base.  If pend is non-NULL,
@@ -172,7 +172,7 @@ def PyLong_AsVoidPtr(space, w_long):
 def _PyLong_NumBits(space, w_long):
     return space.uint_w(space.call_method(w_long, "bit_length"))
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def _PyLong_Sign(space, w_long):
     assert isinstance(w_long, W_LongObject)
     return w_long.num.sign

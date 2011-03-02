@@ -30,7 +30,7 @@ def PyEval_RestoreThread(space, tstate):
 def PyEval_InitThreads(space):
     return
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([], rffi.INT, error=CANNOT_FAIL)
 def PyEval_ThreadsInitialized(space):
     return 1
 

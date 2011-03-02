@@ -14,7 +14,7 @@ PyTuple_Check, PyTuple_CheckExact = build_type_checkers("Tuple")
 def PyTuple_New(space, size):
     return space.newtuple([space.w_None] * size)
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT, error=-1)
 def PyTuple_SetItem(space, w_t, pos, w_obj):
     if not PyTuple_Check(space, w_t):
         # XXX this should also steal a reference, test it!!!
@@ -48,7 +48,7 @@ def PyTuple_Size(space, ref):
     return PyTuple_GET_SIZE(space, ref)
 
 
-@cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
+@cpython_api([PyObjectP, Py_ssize_t], rffi.INT, error=-1)
 def _PyTuple_Resize(space, ref, newsize):
     """Can be used to resize a tuple.  newsize will be the new length of the tuple.
     Because tuples are supposed to be immutable, this should only be used if there

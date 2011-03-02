@@ -74,7 +74,7 @@ def PyInt_FromSsize_t(space, ival):
     """
     return space.wrap(ival) # XXX this is wrong on win64
 
-@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
+@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT], PyObject)
 def PyInt_FromString(space, str, pend, base):
     """Return a new PyIntObject or PyLongObject based on the string
     value in str, which is interpreted according to the radix in base.  If

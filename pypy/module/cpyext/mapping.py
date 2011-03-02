@@ -4,7 +4,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject
 
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyMapping_Check(space, w_obj):
     """Return 1 if the object provides mapping protocol, and 0 otherwise.  This
     function always succeeds."""
@@ -44,7 +44,7 @@ def PyMapping_GetItemString(space, w_obj, key):
     w_key = space.wrap(rffi.charp2str(key))
     return space.getitem(w_obj, w_key)
 
-@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT, error=-1)
 def PyMapping_SetItemString(space, w_obj, key, w_value):
     """Map the object key to the value v in object o. Returns -1 on failure.
     This is the equivalent of the Python statement o[key] = v."""
@@ -52,7 +52,7 @@ def PyMapping_SetItemString(space, w_obj, key, w_value):
     space.setitem(w_obj, w_key, w_value)
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyMapping_HasKey(space, w_obj, w_key):
     """Return 1 if the mapping object has the key key and 0 otherwise.
     This is equivalent to o[key], returning True on success and False
@@ -63,7 +63,7 @@ def PyMapping_HasKey(space, w_obj, w_key):
     except:
         return 0
 
-@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, CONST_STRING], rffi.INT, error=CANNOT_FAIL)
 def PyMapping_HasKeyString(space, w_obj, key):
     """Return 1 if the mapping object has the key key and 0 otherwise.
     This is equivalent to o[key], returning True on success and False

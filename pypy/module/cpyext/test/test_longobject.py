@@ -68,7 +68,7 @@ class TestLongObject(BaseApiTest):
             space.wrap(1<<64)) == 0
 
     def test_as_long_and_overflow(self, space, api):
-        overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
+        overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT).TO, 1, flavor='raw')
         assert api.PyLong_AsLongAndOverflow(
             space.wrap(sys.maxint), overflow) == sys.maxint
         assert api.PyLong_AsLongAndOverflow(
@@ -78,7 +78,7 @@ class TestLongObject(BaseApiTest):
         lltype.free(overflow, flavor='raw')
 
     def test_as_longlong_and_overflow(self, space, api):
-        overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
+        overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT).TO, 1, flavor='raw')
         assert api.PyLong_AsLongLongAndOverflow(
             space.wrap(1<<62), overflow) == 1<<62
         assert api.PyLong_AsLongLongAndOverflow(

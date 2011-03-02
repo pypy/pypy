@@ -154,7 +154,7 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
                                       space.wrap(msg))
     raise OperationError(w_type, w_error)
 
-@cpython_api([], rffi.INT_real, error=-1)
+@cpython_api([], rffi.INT, error=-1)
 def PyErr_CheckSignals(space):
     """
     This function interacts with Python's signal handling.  It checks whether a
@@ -168,7 +168,7 @@ def PyErr_CheckSignals(space):
     # XXX implement me
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyErr_GivenExceptionMatches(space, w_given, w_exc):
     """Return true if the given exception matches the exception in exc.  If
     exc is a class object, this also returns true when given is an instance
@@ -181,7 +181,7 @@ def PyErr_GivenExceptionMatches(space, w_given, w_exc):
         w_given_type = w_given
     return space.exception_match(w_given_type, w_exc)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyErr_ExceptionMatches(space, w_exc):
     """Equivalent to PyErr_GivenExceptionMatches(PyErr_Occurred(), exc).  This
     should only be called when an exception is actually set; a memory access
@@ -190,7 +190,7 @@ def PyErr_ExceptionMatches(space, w_exc):
     return PyErr_GivenExceptionMatches(space, w_type, w_exc)
 
 
-@cpython_api([PyObject, CONST_STRING, rffi.INT_real], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING, rffi.INT], rffi.INT, error=-1)
 def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     """Issue a warning message.  The category argument is a warning category (see
     below) or NULL; the message argument is a message string.  stacklevel is a
@@ -235,7 +235,7 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     space.call_function(w_warn, w_message, w_category, w_stacklevel)
     return 0
 
-@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING], rffi.INT, error=-1)
 def PyErr_Warn(space, w_category, message):
     """Issue a warning message.  The category argument is a warning category (see
     below) or NULL; the message argument is a message string.  The warning will
@@ -245,7 +245,7 @@ def PyErr_Warn(space, w_category, message):
     Deprecated; use PyErr_WarnEx() instead."""
     return PyErr_WarnEx(space, w_category, message, 1)
 
-@cpython_api([rffi.INT_real], lltype.Void)
+@cpython_api([rffi.INT], lltype.Void)
 def PyErr_PrintEx(space, set_sys_last_vars):
     """Print a standard traceback to sys.stderr and clear the error indicator.
     Call this function only when the error indicator is set.  (Otherwise it will
@@ -276,7 +276,7 @@ def PyErr_Print(space):
     """Alias for PyErr_PrintEx(1)."""
     PyErr_PrintEx(space, 1)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-1)
 def PyTraceBack_Print(space, w_tb, w_file):
     space.call_method(w_file, "write", space.wrap(
         'Traceback (most recent call last):\n'))

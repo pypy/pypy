@@ -34,7 +34,7 @@ def PyImport_AddModule(space, name):
 # This is actually the Py_InitModule4 function,
 # renamed to refuse modules built against CPython headers.
 @cpython_api([CONST_STRING, lltype.Ptr(PyMethodDef), CONST_STRING,
-              PyObject, rffi.INT_real], PyObject)
+              PyObject, rffi.INT], PyObject)
 def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     """
     Create a new module object based on a name and table of functions, returning
@@ -102,7 +102,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
             dict_w[methodname] = w_obj
 
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyModule_Check(space, w_obj):
     w_type = space.gettypeobject(Module.typedef)
     w_obj_type = space.type(w_obj)

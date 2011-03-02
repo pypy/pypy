@@ -36,7 +36,7 @@ def PyIter_Next(space, w_obj):
             raise
     return None
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyIter_Check(space, w_obj):
     """Return true if the object o supports the iterator protocol."""
     try:

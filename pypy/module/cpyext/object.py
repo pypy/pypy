@@ -84,11 +84,11 @@ def PyObject_GC_UnTrack(space, op):
 def _PyObject_GetDictPtr(space, op):
     return lltype.nullptr(PyObjectP.TO)
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT, error=-1)
 def PyObject_IsTrue(space, w_obj):
     return space.is_true(w_obj)
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT, error=-1)
 def PyObject_Not(space, w_obj):
     return not space.is_true(w_obj)
 
@@ -107,7 +107,7 @@ def PyObject_GetAttrString(space, w_obj, name_ptr):
     name = rffi.charp2str(name_ptr)
     return space.getattr(w_obj, space.wrap(name))
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyObject_HasAttr(space, w_obj, w_name):
     try:
         w_res = operation.hasattr(space, w_obj, w_name)
@@ -115,7 +115,7 @@ def PyObject_HasAttr(space, w_obj, w_name):
     except OperationError:
         return 0
 
-@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, CONST_STRING], rffi.INT, error=CANNOT_FAIL)
 def PyObject_HasAttrString(space, w_obj, name_ptr):
     try:
         name = rffi.charp2str(name_ptr)
@@ -124,25 +124,25 @@ def PyObject_HasAttrString(space, w_obj, name_ptr):
     except OperationError:
         return 0
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT, error=-1)
 def PyObject_SetAttr(space, w_obj, w_name, w_value):
     operation.setattr(space, w_obj, w_name, w_value)
     return 0
 
-@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT, error=-1)
 def PyObject_SetAttrString(space, w_obj, name_ptr, w_value):
     w_name = space.wrap(rffi.charp2str(name_ptr))
     operation.setattr(space, w_obj, w_name, w_value)
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-1)
 def PyObject_DelAttr(space, w_obj, w_name):
     """Delete attribute named attr_name, for object o. Returns -1 on failure.
     This is the equivalent of the Python statement del o.attr_name."""
     space.delattr(w_obj, w_name)
     return 0
 
-@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING], rffi.INT, error=-1)
 def PyObject_DelAttrString(space, w_obj, name_ptr):
     """Delete attribute named attr_name, for object o. Returns -1 on failure.
     This is the equivalent of the Python statement del o.attr_name."""
@@ -158,7 +158,7 @@ def PyObject_ClearWeakRefs(space, w_object):
 def PyObject_Size(space, w_obj):
     return space.len_w(w_obj)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyCallable_Check(space, w_obj):
     """Determine if the object o is callable.  Return 1 if the object is callable
     and 0 otherwise.  This function always succeeds."""
@@ -170,14 +170,14 @@ def PyObject_GetItem(space, w_obj, w_key):
     This is the equivalent of the Python expression o[key]."""
     return space.getitem(w_obj, w_key)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT, error=-1)
 def PyObject_SetItem(space, w_obj, w_key, w_value):
     """Map the object key to the value v.  Returns -1 on failure.  This is the
     equivalent of the Python statement o[key] = v."""
     space.setitem(w_obj, w_key, w_value)
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-1)
 def PyObject_DelItem(space, w_obj, w_key):
     """Delete the mapping for key from o.  Returns -1 on failure. This is the
     equivalent of the Python statement del o[key]."""
@@ -246,7 +246,7 @@ def PyObject_Unicode(space, w_obj):
     function."""
     return space.call_function(space.w_unicode, w_obj)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-1)
 def PyObject_Compare(space, w_o1, w_o2):
     """
     Compare the values of o1 and o2 using a routine provided by o1, if one
@@ -256,7 +256,7 @@ def PyObject_Compare(space, w_o1, w_o2):
     expression cmp(o1, o2)."""
     return space.int_w(space.cmp(w_o1, w_o2))
 
-@cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
+@cpython_api([PyObject, PyObject, rffi.INT], PyObject)
 def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,
     which must be one of Py_LT, Py_LE, Py_EQ,
@@ -273,7 +273,7 @@ def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     if opid == Py_GE: return space.ge(w_o1, w_o2)
     PyErr_BadInternalCall(space)
 
-@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, rffi.INT], rffi.INT, error=-1)
 def PyObject_RichCompareBool(space, ref1, ref2, opid):
     """Compare the values of o1 and o2 using the operation specified by opid,
     which must be one of Py_LT, Py_LE, Py_EQ,
@@ -303,7 +303,7 @@ def PyObject_GenericGetAttr(space, w_obj, w_name):
     w_descr = object_getattribute(space)
     return space.get_and_call_function(w_descr, w_obj, w_name)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT, error=-1)
 def PyObject_GenericSetAttr(space, w_obj, w_name, w_value):
     """Generic attribute setter function that is meant to be put into a type
     object's tp_setattro slot.  It looks for a data descriptor in the
@@ -320,7 +320,7 @@ def PyObject_GenericSetAttr(space, w_obj, w_name, w_value):
         space.get_and_call_function(w_descr, w_obj, w_name)
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-1)
 def PyObject_IsInstance(space, w_inst, w_cls):
     """Returns 1 if inst is an instance of the class cls or a subclass of
     cls, or 0 if not.  On error, returns -1 and sets an exception.  If
@@ -335,7 +335,7 @@ def PyObject_IsInstance(space, w_inst, w_cls):
     from pypy.module.__builtin__.abstractinst import abstract_isinstance_w
     return abstract_isinstance_w(space, w_inst, w_cls)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-1)
 def PyObject_IsSubclass(space, w_derived, w_cls):
     """Returns 1 if the class derived is identical to or derived from the class
     cls, otherwise returns 0.  In case of an error, returns -1. If cls
@@ -346,7 +346,7 @@ def PyObject_IsSubclass(space, w_derived, w_cls):
     from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
     return abstract_issubclass_w(space, w_derived, w_cls)
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT, error=-1)
 def PyObject_AsFileDescriptor(space, w_obj):
     """Derives a file descriptor from a Python object.  If the object is an
     integer or long integer, its value is returned.  If not, the object's
@@ -371,7 +371,7 @@ def PyObject_AsFileDescriptor(space, w_obj):
             space.w_ValueError, space.wrap(
             "file descriptor cannot be a negative integer"))
 
-    return rffi.cast(rffi.INT_real, fd)
+    return rffi.cast(rffi.INT, fd)
 
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
@@ -381,7 +381,7 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
 
-@cpython_api([PyObject, rffi.CCHARPP, Py_ssize_tP], rffi.INT_real, error=-1)
+@cpython_api([PyObject, rffi.CCHARPP, Py_ssize_tP], rffi.INT, error=-1)
 def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     """Returns a pointer to a read-only memory location usable as
     character-based input.  The obj argument must support the single-segment
@@ -409,7 +409,7 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
 # Also in include/object.h
 Py_PRINT_RAW = 1 # No string quotes etc.
 
-@cpython_api([PyObject, FILEP, rffi.INT_real], rffi.INT_real, error=-1)
+@cpython_api([PyObject, FILEP, rffi.INT], rffi.INT, error=-1)
 def PyObject_Print(space, w_obj, fp, flags):
     """Print an object o, on file fp.  Returns -1 on error.  The flags argument
     is used to enable certain printing options.  The only option currently
@@ -431,7 +431,7 @@ def PyObject_Print(space, w_obj, fp, flags):
 
 PyFile_Check, PyFile_CheckExact = build_type_checkers("File", W_File)
 
-@cpython_api([PyObject, rffi.INT_real], PyObject)
+@cpython_api([PyObject, rffi.INT], PyObject)
 def PyFile_GetLine(space, w_obj, n):
     """
     Equivalent to p.readline([n]), this function reads one line from the

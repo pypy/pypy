@@ -65,7 +65,7 @@ def PyMethod_Class(space, w_method):
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_class)
 
-@cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
+@cpython_api([CONST_STRING, CONST_STRING, rffi.INT], PyObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
     return space.wrap(PyCode(space,

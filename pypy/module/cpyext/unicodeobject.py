@@ -52,32 +52,32 @@ def unicode_dealloc(space, py_obj):
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UNICODE], rffi.INT, error=CANNOT_FAIL)
 def Py_UNICODE_ISSPACE(space, ch):
     """Return 1 or 0 depending on whether ch is a whitespace character."""
     return unicodedb.isspace(ord(ch))
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UNICODE], rffi.INT, error=CANNOT_FAIL)
 def Py_UNICODE_ISALNUM(space, ch):
     """Return 1 or 0 depending on whether ch is an alphanumeric character."""
     return unicodedb.isalnum(ord(ch))
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UNICODE], rffi.INT, error=CANNOT_FAIL)
 def Py_UNICODE_ISLINEBREAK(space, ch):
     """Return 1 or 0 depending on whether ch is a linebreak character."""
     return unicodedb.islinebreak(ord(ch))
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UNICODE], rffi.INT, error=CANNOT_FAIL)
 def Py_UNICODE_ISDECIMAL(space, ch):
     """Return 1 or 0 depending on whether ch is a decimal character."""
     return unicodedb.isdecimal(ord(ch))
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UNICODE], rffi.INT, error=CANNOT_FAIL)
 def Py_UNICODE_ISLOWER(space, ch):
     """Return 1 or 0 depending on whether ch is a lowercase character."""
     return unicodedb.islower(ord(ch))
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UNICODE], rffi.INT, error=CANNOT_FAIL)
 def Py_UNICODE_ISUPPER(space, ch):
     """Return 1 or 0 depending on whether ch is an uppercase character."""
     return unicodedb.isupper(ord(ch))
@@ -179,7 +179,7 @@ def PyUnicode_GetDefaultEncoding(space):
             i += 1
     return default_encoding
 
-@cpython_api([CONST_STRING], rffi.INT_real, error=-1)
+@cpython_api([CONST_STRING], rffi.INT, error=-1)
 def PyUnicode_SetDefaultEncoding(space, encoding):
     """Sets the currently active default encoding. Returns 0 on
     success, -1 in case of an error."""
@@ -442,7 +442,7 @@ if sys.platform == 'win32':
             w_errors = space.w_None
         return space.call_method(w_str, 'decode', w_encoding, w_errors)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
     """Compare two strings and return -1, 0, 1 for less than, equal, and greater
     than, respectively."""

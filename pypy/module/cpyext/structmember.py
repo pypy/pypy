@@ -82,7 +82,7 @@ def PyMember_GetOne(space, obj, w_member):
     return w_result
 
 
-@cpython_api([PyObject, lltype.Ptr(PyMemberDef), PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, lltype.Ptr(PyMemberDef), PyObject], rffi.INT, error=-1)
 def PyMember_SetOne(space, obj, w_member, w_value):
     addr = rffi.cast(ADDR, obj)
     addr += w_member.c_offset

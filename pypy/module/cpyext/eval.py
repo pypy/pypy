@@ -84,7 +84,7 @@ def run_string(space, source, filename, start, w_globals, w_locals):
     w_code = compiling.compile(space, w_source, filename, mode)
     return compiling.eval(space, w_code, w_globals, w_locals)
 
-@cpython_api([CONST_STRING, rffi.INT_real,PyObject, PyObject], PyObject)
+@cpython_api([CONST_STRING, rffi.INT,PyObject, PyObject], PyObject)
 def PyRun_String(space, source, start, w_globals, w_locals):
     """This is a simplified interface to PyRun_StringFlags() below, leaving
     flags set to NULL."""
@@ -92,7 +92,7 @@ def PyRun_String(space, source, start, w_globals, w_locals):
     filename = "<string>"
     return run_string(space, source, filename, start, w_globals, w_locals)
 
-@cpython_api([FILEP, CONST_STRING, rffi.INT_real, PyObject, PyObject], PyObject)
+@cpython_api([FILEP, CONST_STRING, rffi.INT, PyObject, PyObject], PyObject)
 def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     """This is a simplified interface to PyRun_FileExFlags() below, leaving
     closeit set to 0 and flags set to NULL."""
@@ -113,7 +113,7 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     return run_string(space, source, filename, start, w_globals, w_locals)
 
 # Undocumented function!
-@cpython_api([PyObject, Py_ssize_tP], rffi.INT_real, error=0)
+@cpython_api([PyObject, Py_ssize_tP], rffi.INT, error=0)
 def _PyEval_SliceIndex(space, w_obj, pi):
     """Extract a slice index from a PyInt or PyLong or an object with the
     nb_index slot defined, and store in *pi.

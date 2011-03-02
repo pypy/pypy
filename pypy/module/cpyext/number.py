@@ -4,7 +4,7 @@ from pypy.module.cpyext.pyobject import PyObject
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.tool.sourcetools import func_with_new_name
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyIndex_Check(space, w_obj):
     """Returns True if o is an index integer (has the nb_index slot of the
     tp_as_number structure filled in).
@@ -15,7 +15,7 @@ def PyIndex_Check(space, w_obj):
     except OperationError:
         return 0
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def PyNumber_Check(space, w_obj):
     """Returns 1 if the object o provides numeric protocols, and false otherwise.
     This function always succeeds."""

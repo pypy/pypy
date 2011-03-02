@@ -466,9 +466,9 @@ def build_type_checkers(type_name, cls=None):
         w_type = get_w_type(space)
         return space.is_w(w_obj_type, w_type)
 
-    check = cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)(
+    check = cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)(
         func_with_new_name(check, check_name))
-    check_exact = cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)(
+    check_exact = cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)(
         func_with_new_name(check_exact, check_name + "Exact"))
     return check, check_exact
 

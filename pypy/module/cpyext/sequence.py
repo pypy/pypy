@@ -18,7 +18,7 @@ def PySequence_Repeat(space, w_obj, count):
     """
     return space.mul(w_obj, space.wrap(count))
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
 def PySequence_Check(space, w_obj):
     """Return 1 if the object provides sequence protocol, and 0 otherwise.
     This function always succeeds."""
@@ -81,14 +81,14 @@ def PySequence_GetSlice(space, w_obj, start, end):
     failure. This is the equivalent of the Python expression o[i1:i2]."""
     return space.getslice(w_obj, space.wrap(start), space.wrap(end))
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT, error=-1)
 def PySequence_SetSlice(space, w_obj, start, end, w_value):
     """Assign the sequence object v to the slice in sequence object o from i1 to
     i2.  This is the equivalent of the Python statement o[i1:i2] = v."""
     space.setslice(w_obj, space.wrap(start), space.wrap(end), w_value)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], rffi.INT, error=-1)
 def PySequence_DelSlice(space, w_obj, start, end):
     """Delete the slice in sequence object o from i1 to i2.  Returns -1 on
     failure.  This is the equivalent of the Python statement del o[i1:i2]."""
@@ -121,7 +121,7 @@ def PySequence_Concat(space, w_o1, w_o2):
     This is the equivalent of the Python expression o1 + o2."""
     return space.add(w_o1, w_o2)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT, error=-1)
 def PySequence_Contains(space, w_obj, w_value):
     """Determine if o contains value.  If an item in o is equal to value,
     return 1, otherwise return 0. On error, return -1.  This is
@@ -137,7 +137,7 @@ def PySeqIter_New(space, w_seq):
     """
     return space.iter(w_seq)
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT, error=-1)
 def PySequence_SetItem(space, w_o, i, w_v):
     """Assign object v to the ith element of o.  Returns -1 on failure.  This
     is the equivalent of the Python statement o[i] = v.  This function does
@@ -148,7 +148,7 @@ def PySequence_SetItem(space, w_o, i, w_v):
     space.setitem(w_o, space.wrap(i), w_v)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t], rffi.INT, error=-1)
 def PySequence_DelItem(space, w_o, i):
     """Delete the ith element of object o.  Returns -1 on failure.  This is the
     equivalent of the Python statement del o[i]."""
