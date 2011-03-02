@@ -5,7 +5,7 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.rpython.typesystem import getfunctionptr
-from pypy.rpython.lltypesystem.rffi import VOIDP, INT_real, INT
+from pypy.rpython.lltypesystem.rffi import VOIDP, INT
 
 
 def dump_on_stdout(database):
@@ -228,11 +228,13 @@ def test_voidp():
     assert db.gettype(A) == "void *@"
 
 def test_intlong_unique():
-    A = INT_real
-    B = Signed
+    A = INT
+    B = LONG
+    C = Signed
     db = LowLevelDatabase()
     assert db.gettype(A) == "int @"
     assert db.gettype(B) == "long @"
+    assert db.gettype(C) == "long @" # except on win64
 
 
 def test_recursive_struct():

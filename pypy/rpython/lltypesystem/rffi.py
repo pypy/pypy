@@ -405,10 +405,6 @@ def setup():
 
 NUMBER_TYPES = setup()
 platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for common cases
-r_int_real = rarithmetic.build_int("r_int_real", r_int.SIGN, r_int.BITS)
-INT_real = lltype.build_number("INT", r_int_real)
-platform.numbertype_to_rclass[INT_real] = r_int_real
-NUMBER_TYPES.append(INT_real)
 
 # ^^^ this creates at least the following names:
 # --------------------------------------------------------------------
