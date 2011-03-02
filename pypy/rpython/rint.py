@@ -439,30 +439,35 @@ def ll_check_unichr(n):
 
 
 py_to_ll_conversion_functions = {
-    UnsignedLongLong: ('RPyLong_AsUnsignedLongLong', lambda pyo: r_ulonglong(pyo._obj.value)),
-    SignedLongLong: ('RPyLong_AsLongLong', lambda pyo: r_longlong(pyo._obj.value)),
-    Unsigned: ('RPyLong_AsUnsignedLong', lambda pyo: r_uint(pyo._obj.value)),
-    Signed: ('PyInt_AsLong', lambda pyo: int(pyo._obj.value))
+    'ULONGLONG': ('RPyLong_AsUnsignedLongLong', lambda pyo: r_ulonglong(pyo._obj.value)),
+    'LONGLONG': ('RPyLong_AsLongLong', lambda pyo: r_longlong(pyo._obj.value)),
+    'ULONG': ('RPyLong_AsUnsignedLong', lambda pyo: r_uint(pyo._obj.value)),
+    'LONG': ('PyInt_AsLong', lambda pyo: int(pyo._obj.value))
 }
 
 ll_to_py_conversion_functions = {
-    UnsignedLongLong: ('PyLong_FromUnsignedLongLong', lambda i: pyobjectptr(i)),
-    SignedLongLong: ('PyLong_FromLongLong', lambda i: pyobjectptr(i)),
-    Unsigned: ('PyLong_FromUnsignedLong', lambda i: pyobjectptr(i)),
-    Signed: ('PyInt_FromLong', lambda i: pyobjectptr(i)),
+    'ULONGLONG': ('PyLong_FromUnsignedLongLong', lambda i: pyobjectptr(i)),
+    'LONGLONG': ('PyLong_FromLongLong', lambda i: pyobjectptr(i)),
+    'ULONG': ('PyLong_FromUnsignedLong', lambda i: pyobjectptr(i)),
+    'LONG': ('PyInt_FromLong', lambda i: pyobjectptr(i)),
 }
-    
+
+# XXX this does not work on win64
+py_to_ll_conversion_functions['Signed'] = py_to_ll_conversion_functions['LONG']
+ll_to_py_conversion_functions['Signed'] = ll_to_py_conversion_functions['LONG']
+py_to_ll_conversion_functions['SIZE_T'] = py_to_ll_conversion_functions['ULONG']
+ll_to_py_conversion_functions['SIZE_T'] = ll_to_py_conversion_functions['ULONG']
 
 class __extend__(pairtype(PyObjRepr, IntegerRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         tolltype = r_to.lowleveltype
-        fnname, callable = py_to_ll_conversion_functions[tolltype]
+        fnname, callable = py_to_ll_conversion_functions[tolltype._name]
         return llops.gencapicall(fnname, [v],
                                  resulttype=r_to, _callable=callable)
 
 class __extend__(pairtype(IntegerRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         fromlltype = r_from.lowleveltype
-        fnname, callable = ll_to_py_conversion_functions[fromlltype]
+        fnname, callable = ll_to_py_conversion_functions[fromlltype._name]
         return llops.gencapicall(fnname, [v],
                                  resulttype=pyobj_repr, _callable=callable)
