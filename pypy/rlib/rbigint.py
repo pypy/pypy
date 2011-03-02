@@ -1,6 +1,7 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, isinf, isnan
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
+from pypy.rlib.rfloat import isinf, isnan
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, rffi
