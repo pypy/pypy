@@ -437,7 +437,9 @@ else:
 _predefined_ints = {
     (True, 64): r_longlong,
     (False, 64): r_ulonglong,
-    }
+    (True, 32): build_int('r_int32', True, 32),
+    (False, 32): build_int('r_uint32', True, 32),
+}
 
 # the 'float' C type
 

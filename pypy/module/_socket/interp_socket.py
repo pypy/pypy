@@ -345,7 +345,7 @@ class W_RSocket(Wrappable, RSocket):
             try:
                 if cmd == _c.SIO_RCVALL:
                     option_ptr = rffi.cast(rffi.INTP, value_ptr)
-                    option_ptr[0] = space.int_w(w_option)
+                    option_ptr[0] = rffi.cast(rffi.INT, space.int_w(w_option))
                 elif cmd == _c.SIO_KEEPALIVE_VALS:
                     w_onoff, w_time, w_interval = space.unpackiterable(w_option)
                     option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
