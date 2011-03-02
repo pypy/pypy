@@ -109,8 +109,8 @@ class HeapDumper(object):
         self.gc = gc
         self.gcflag = gc.gcflag_extra
         self.fd = rffi.cast(rffi.INT, fd)
-        self.writebuffer = lltype.malloc(rffi.LONGP.TO, self.BUFSIZE,
-                                         flavor='raw')
+        self.writebuffer = lltype.malloc(rffi.CArrayPtr(lltype.Signed).TO,
+                                         self.BUFSIZE, flavor='raw')
         self.buf_count = 0
         if self.gcflag == 0:
             self.seen = AddressDict()
