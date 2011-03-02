@@ -270,7 +270,7 @@ def convert_to_regdata(space, w_value, typ):
         if space.is_true(space.isinstance(w_value, space.w_int)):
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
-            buf1[0] = space.uint_w(w_value)
+            buf1[0] = rffi.cast(rwin32.DWORD, space.uint_w(w_value))
             buf = rffi.cast(rffi.CCHARP, buf1)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
@@ -471,7 +471,7 @@ If the function fails, an exception is raised."""
             raiseWindowsError(space, ret, 'CreateKey')
         return space.wrap(W_HKEY(rethkey[0]))
 
-@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
+@unwrap_spec(subkey=str, res=int, sam=r_uint)
 def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -521,7 +521,7 @@ value is a string that identifies the value to remove."""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteValue')
 
-@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
+@unwrap_spec(subkey=str, res=int, sam=r_uint)
 def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
     """key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
 
@@ -624,7 +624,7 @@ raised, indicating no more values are available."""
     # retrieve such a key name.
     with lltype.scoped_alloc(rffi.CCHARP.TO, 257) as buf:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
-            retValueSize[0] = r_uint(257) # includes NULL terminator
+            retValueSize[0] = rffi.cast(rwin32.DWORD, r_uint(257))
             ret = rwinreg.RegEnumKeyEx(hkey, index, buf, retValueSize,
                                        null_dword, None, null_dword,
                                        lltype.nullptr(rwin32.PFILETIME.TO))
