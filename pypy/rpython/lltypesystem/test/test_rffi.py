@@ -558,8 +558,9 @@ class TestRffiInternals:
         assert interpret(f, []) == 3
     
     def test_structcopy(self):
-        X2 = lltype.Struct('X2', ('x', LONG))
-        X1 = lltype.Struct('X1', ('a', LONG), ('x2', X2), ('p', lltype.Ptr(X2)))
+        X2 = lltype.Struct('X2', ('x', lltype.Signed))
+        X1 = lltype.Struct('X1', ('a', lltype.Signed), ('x2', X2),
+                                 ('p', lltype.Ptr(X2)))
         def f():
             p2 = make(X2, x=123)
             p1 = make(X1, a=5, p=p2)
