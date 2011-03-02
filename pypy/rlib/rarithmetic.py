@@ -270,7 +270,7 @@ def compute_restype(self_type, other_type):
         return self_type
     if self_type in (bool, int, long):
         return other_type
-    return build_int(None, self_type.SIGNED and other_type.SIGNED, max(self_type.BITS, other_type.BITS))
+    return get_int(self_type.SIGNED and other_type.SIGNED, max(self_type.BITS, other_type.BITS))
 
 def signedtype(t):
     if t in (bool, int, long):
@@ -283,10 +283,10 @@ def normalizedinttype(t):
     if t is int:
         return int
     if t.BITS <= r_int.BITS:
-        return build_int(None, t.SIGNED, r_int.BITS)
+        return get_int(t.SIGNED, r_int.BITS)
     else:
         assert t.BITS <= r_longlong.BITS
-        return build_int(None, t.SIGNED, r_longlong.BITS)
+        return get_int(t.SIGNED, r_longlong.BITS)
 
 def most_neg_value_of_same_type(x):
     from pypy.rpython.lltypesystem import lltype
@@ -482,6 +482,12 @@ class unsigned_int(base_int):
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
 
+def get_int(sign, bits):
+    try:
+        return _predefined_ints[sign, bits]
+    except KeyError:
+        raise TypeError('No predefined %sint%d'%(['u', ''][sign], bits))
+
 def build_int(name, sign, bits):
     sign = bool(sign)
     if sign:
@@ -489,8 +495,6 @@ def build_int(name, sign, bits):
     else:
         base_int_type = unsigned_int
     mask = (2 ** bits) - 1
-    if name is None:
-        raise TypeError('No predefined %sint%d'%(['u', ''][sign], bits))
     int_type = type(name, (base_int_type,), {'MASK': mask,
                                              'BITS': bits,
                                              'SIGN': sign})
@@ -541,6 +545,10 @@ if r_longlong is not r_int:
 else:
     r_int64 = int
 
+_predefined_ints = {
+    (True, 64): r_longlong,
+    (False, 64): r_ulonglong,
+    }
 
 def rstring_to_float(s):
     if USE_SHORT_FLOAT_REPR:
