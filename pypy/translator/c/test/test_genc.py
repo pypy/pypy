@@ -270,8 +270,7 @@ def test_infinite_float():
     assert res == 1.5
 
 def test_nan_and_special_values():
-    from pypy.translator.c.primitive import isnan, isinf
-    from pypy.rlib.rarithmetic import copysign
+    from pypy.rlib.rfloat import isnan, isinf, copysign
     inf = 1e300 * 1e300
     assert isinf(inf)
     nan = inf/inf
