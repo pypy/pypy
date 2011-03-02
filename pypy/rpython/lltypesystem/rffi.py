@@ -219,11 +219,11 @@ def llexternal(name, args, result, _callable=None,
         for i, TARGET in unrolling_arg_tps:
             if to_free[i]:
                 lltype.free(to_free[i], flavor='raw')
-        if rarithmetic.r_int is not r_int:
-            if result is INT:
-                return cast(lltype.Signed, res)
-            elif result is UINT or result is SIZE_T:
-                return cast(lltype.Unsigned, res)
+        # XXX these don't work on win64
+        if result is LONG:
+            return cast(lltype.Signed, res)
+        elif result is ULONG or result is SIZE_T:
+            return cast(lltype.Unsigned, res)
         return res
     wrapper._annspecialcase_ = 'specialize:ll'
     wrapper._always_inline_ = True
