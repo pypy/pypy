@@ -4,23 +4,51 @@ from subprocess import Popen, PIPE
 import pypy
 pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
 
-def get_mercurial_info(hgexe=None):
-    '''Obtain Mercurial version information by invoking the 'hg' command.'''
+def get_repo_version_info(hgexe=None):
+    '''Obtain version information by invoking the 'hg' or 'git' commands.'''
     # TODO: support extracting from .hg_archival.txt
 
     default_retval = 'PyPy', '?', '?'
     pypyroot = os.path.abspath(os.path.join(pypydir, '..'))
-    if hgexe is None:
-        hgexe = py.path.local.sysfind('hg')
 
-    def maywarn(err):
+    def maywarn(err, repo_type='Mercurial'):
         if not err:
             return
 
         from pypy.tool.ansi_print import ansi_log
         log = py.log.Producer("version")
         py.log.setconsumer("version", ansi_log)
-        log.WARNING('Errors getting Mercurial information: %s' % err)
+        log.WARNING('Errors getting %s information: %s' % (repo_type, err))
+
+    # Try to see if we can get info from Git if hgexe is not specified.
+    if not hgexe:
+        if os.path.isdir(os.path.join(pypyroot, '.git')):
+            gitexe = py.path.local.sysfind('git')
+            if gitexe:
+                try:
+                    p = Popen(
+                        [str(gitexe), 'describe', '--tags', '--always'],
+                        stdout=PIPE, stderr=PIPE
+                        )
+                except OSError, e:
+                    maywarn(e, 'Git')
+                    return default_retval
+                if p.wait() != 0:
+                    maywarn(p.stderr.read(), 'Git')
+                    return default_retval
+                tag = p.stdout.read().strip()
+                p = Popen(
+                    [str(gitexe), 'rev-parse', 'HEAD'],
+                    stdout=PIPE, stderr=PIPE
+                    )
+                if p.wait() != 0:
+                    maywarn(p.stderr.read(), 'Git')
+                    return 'PyPy', tag, '?'
+                return 'PyPy', tag, p.stdout.read().strip()[:12]
+
+    # Fallback to trying Mercurial.
+    if hgexe is None:
+        hgexe = py.path.local.sysfind('hg')
 
     if not os.path.isdir(os.path.join(pypyroot, '.hg')):
         maywarn('Not running from a Mercurial repository!')
