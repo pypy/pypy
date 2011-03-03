@@ -435,10 +435,10 @@ else:
     r_int64 = int
 
 _predefined_ints = {
-    (True, 64): r_longlong,
-    (False, 64): r_ulonglong,
     (True, LONG_BIT): r_int,
     (False, LONG_BIT): r_uint,
+    (True, 64): r_longlong,
+    (False, 64): r_ulonglong,
 }
 
 # the 'float' C type

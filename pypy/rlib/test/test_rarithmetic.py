@@ -17,9 +17,6 @@ while i == l and type(i) is int:
 
 class Test_r_int:
 
-    def setup_method(self,method):
-        space = self.space
-
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
     def test__sub__(self):
@@ -73,9 +70,6 @@ class Test_r_int:
                     assert res == cmp
                     
 class Test_r_uint:
-
-    def setup_method(self,method):
-        space = self.space
 
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
@@ -330,10 +324,6 @@ class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
 
 class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
     pass
-
-def test_int_real_union():
-    from pypy.rpython.lltypesystem.rffi import r_int_real
-    assert compute_restype(r_int_real, r_int_real) is r_int_real
 
 def test_most_neg_value_of():
     assert most_neg_value_of_same_type(123) == -sys.maxint-1
