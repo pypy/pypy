@@ -9,7 +9,7 @@ import os, sys, errno
 import py
 from pypy.rpython.module.support import ll_strcpy, OOSupport
 from pypy.tool.sourcetools import func_with_new_name, func_renamer
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, r_uint
 from pypy.rpython.extfunc import (
     BaseLazyRegistering, lazy_register, register_external)
 from pypy.rpython.extfunc import registering, registering_if, extdef
@@ -1733,7 +1733,7 @@ if sys.platform == 'win32':
 
         @registering(rwin32.FormatError)
         def register_rwin32_FormatError(self):
-            return extdef([rwin32.DWORD], str,
+            return extdef([r_uint], str,
                           "rwin32_FormatError",
                           llimpl=rwin32.llimpl_FormatError,
                           ooimpl=rwin32.fake_FormatError)

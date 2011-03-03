@@ -256,7 +256,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                 if ret == rwinreg.ERROR_MORE_DATA:
                     # Resize and retry
                     bufSize *= 2
-                    bufsize_p[0] = bufSize
+                    bufsize_p[0] = rffi.cast(rwin32.LONG, bufSize)
                     continue
 
                 if ret != 0:

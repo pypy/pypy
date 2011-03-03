@@ -349,9 +349,12 @@ class W_RSocket(Wrappable, RSocket):
                 elif cmd == _c.SIO_KEEPALIVE_VALS:
                     w_onoff, w_time, w_interval = space.unpackiterable(w_option)
                     option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
-                    option_ptr.c_onoff = space.uint_w(w_onoff)
-                    option_ptr.c_keepalivetime = space.uint_w(w_time)
-                    option_ptr.c_keepaliveinterval = space.uint_w(w_interval)
+                    rffi.setintfield(option_ptr, 'c_onoff',
+                                     space.uint_w(w_onoff))
+                    rffi.setintfield(option_ptr, 'c_keepalivetime',
+                                     space.uint_w(w_time))
+                    rffi.setintfield(option_ptr, 'c_keepaliveinterval',
+                                     space.uint_w(w_interval))
 
                 res = _c.WSAIoctl(
                     self.fd, cmd, value_ptr, value_size,

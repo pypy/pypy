@@ -540,7 +540,7 @@ class MMap(object):
             FILE_BEGIN = 0
             high_ref = lltype.malloc(PLONG.TO, 1, flavor='raw')
             try:
-                high_ref[0] = newsize_high
+                high_ref[0] = rffi.cast(LONG, newsize_high)
                 SetFilePointer(self.file_handle, newsize_low, high_ref,
                                FILE_BEGIN)
             finally:
