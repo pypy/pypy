@@ -1642,7 +1642,7 @@ s_Frame = annmodel.SomePtr(FRAME)
 
 if longlong.FLOATSTORAGE is lltype.Float:
     s_FloatStorage = annmodel.SomeFloat()
-elif longlong.FLOATSTORAGE is lltype.SignedLongLong:
+elif longlong.FLOATSTORAGE is rffi.LONGLONG:
     s_FloatStorage = annmodel.SomeInteger(knowntype=longlong.r_float_storage)
 else:
     assert 0

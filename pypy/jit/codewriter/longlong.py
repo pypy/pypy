@@ -7,7 +7,7 @@ converting them back and forth.
 """
 
 import sys
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 
 
 if sys.maxint > 2147483647:
@@ -34,7 +34,7 @@ else:
 
     supports_longlong = True
     r_float_storage = rarithmetic.r_longlong
-    FLOATSTORAGE = lltype.SignedLongLong
+    FLOATSTORAGE = rffi.LONGLONG
 
     getfloatstorage = longlong2float.float2longlong
     getrealfloat    = longlong2float.longlong2float
