@@ -27,7 +27,7 @@ def get_repo_version_info(hgexe=None):
             if gitexe:
                 try:
                     p = Popen(
-                        [str(gitexe), 'describe', '--tags', '--always'],
+                        [str(gitexe), 'rev-parse', 'HEAD'],
                         stdout=PIPE, stderr=PIPE
                         )
                 except OSError, e:
@@ -36,15 +36,25 @@ def get_repo_version_info(hgexe=None):
                 if p.wait() != 0:
                     maywarn(p.stderr.read(), 'Git')
                     return default_retval
-                tag = p.stdout.read().strip()
+                revision_id = p.stdout.read().strip()[:12]
                 p = Popen(
-                    [str(gitexe), 'rev-parse', 'HEAD'],
+                    [str(gitexe), 'describe', '--tags', '--exact-match'],
                     stdout=PIPE, stderr=PIPE
                     )
                 if p.wait() != 0:
-                    maywarn(p.stderr.read(), 'Git')
-                    return 'PyPy', tag, '?'
-                return 'PyPy', tag, p.stdout.read().strip()[:12]
+                    p = Popen([str(gitexe), 'branch'], stdout=PIPE, stderr=PIPE)
+                    if p.wait() != 0:
+                        maywarn(p.stderr.read(), 'Git')
+                        return 'PyPy', '?', revision_id
+                    branch = '?'
+                    for line in p.stdout.read().strip().split('\n'):
+                        if line.startswith('* '):
+                            branch = line[1:].strip()
+                            if branch == '(no branch)':
+                                branch = '?'
+                            break
+                    return 'PyPy', branch, revision_id
+                return 'PyPy', p.stdout.read().strip(), revision_id
 
     # Fallback to trying Mercurial.
     if hgexe is None:
