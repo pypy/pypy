@@ -28,7 +28,7 @@ def get_repo_version_info(hgexe=None):
                 try:
                     p = Popen(
                         [str(gitexe), 'rev-parse', 'HEAD'],
-                        stdout=PIPE, stderr=PIPE
+                        stdout=PIPE, stderr=PIPE, cwd=pypyroot
                         )
                 except OSError, e:
                     maywarn(e, 'Git')
@@ -39,10 +39,13 @@ def get_repo_version_info(hgexe=None):
                 revision_id = p.stdout.read().strip()[:12]
                 p = Popen(
                     [str(gitexe), 'describe', '--tags', '--exact-match'],
-                    stdout=PIPE, stderr=PIPE
+                    stdout=PIPE, stderr=PIPE, cwd=pypyroot
                     )
                 if p.wait() != 0:
-                    p = Popen([str(gitexe), 'branch'], stdout=PIPE, stderr=PIPE)
+                    p = Popen(
+                        [str(gitexe), 'branch'], stdout=PIPE, stderr=PIPE,
+                        cwd=pypyroot
+                        )
                     if p.wait() != 0:
                         maywarn(p.stderr.read(), 'Git')
                         return 'PyPy', '?', revision_id
