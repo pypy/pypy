@@ -25,7 +25,14 @@ def hint(x, **kwds):
     """ Hint for the JIT
 
     possible arguments are:
-    XXX
+
+    * promote - promote the argument from a variable into a constant
+    * access_directly - directly access a virtualizable, as a structure
+                        and don't treat it as a virtualizable
+    * fresh_virtualizable - means that virtualizable was just allocated.
+                            Useful in say Frame.__init__ when we do want
+                            to store things directly on it. Has to come with
+                            access_directly=True
     """
     return x
 
