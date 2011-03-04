@@ -62,7 +62,8 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
-                    inline=False, loop_longevity=0, retrace_limit=5, **kwds):
+                    inline=False, loop_longevity=0, retrace_limit=5,
+                    disable_opts='', **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -81,6 +82,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_loop_longevity(loop_longevity)
         jd.warmstate.set_param_retrace_limit(retrace_limit)
+        jd.warmstate.set_param_disable_opts(disable_opts)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
@@ -786,16 +788,26 @@ class WarmRunnerDesc(object):
                                 annhelper = self.annhelper)
 
     def rewrite_set_param(self):
+        from pypy.rpython.lltypesystem.rstr import STR
+        
         closures = {}
         graphs = self.translator.graphs
         _, PTR_SET_PARAM_FUNCTYPE = self.cpu.ts.get_FuncType([lltype.Signed],
                                                              lltype.Void)
-        def make_closure(jd, fullfuncname):
+        _, PTR_SET_PARAM_STR_FUNCTYPE = self.cpu.ts.get_FuncType(
+            [lltype.Ptr(STR)], lltype.Void)
+        def make_closure(jd, fullfuncname, is_string):
             state = jd.warmstate
             def closure(i):
+                if is_string:
+                    i = hlstr(i)
                 getattr(state, fullfuncname)(i)
-            funcptr = self.helper_func(PTR_SET_PARAM_FUNCTYPE, closure)
-            return Constant(funcptr, PTR_SET_PARAM_FUNCTYPE)
+            if is_string:
+                TP = PTR_SET_PARAM_STR_FUNCTYPE
+            else:
+                TP = PTR_SET_PARAM_FUNCTYPE
+            funcptr = self.helper_func(TP, closure)
+            return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
             op = block.operations[i]
@@ -807,7 +819,8 @@ class WarmRunnerDesc(object):
             funcname = op.args[2].value
             key = jd, funcname
             if key not in closures:
-                closures[key] = make_closure(jd, 'set_param_' + funcname)
+                closures[key] = make_closure(jd, 'set_param_' + funcname,
+                                             funcname == 'disable_opts')
             op.opname = 'direct_call'
             op.args[:3] = [closures[key]]
 

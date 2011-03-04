@@ -9,6 +9,8 @@ class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
 
+    name = 'intbounds'
+
     def setup(self):
         self.posponedop = None
         self.nextop = None

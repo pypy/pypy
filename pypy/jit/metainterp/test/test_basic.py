@@ -2391,5 +2391,25 @@ class BaseLLtypeTests(BasicTests):
 
         self.meta_interp(main, [])
 
+    def test_disable_opts(self):
+        jitdriver = JitDriver(greens = [], reds = ['a'])
+
+        class A(object):
+            def __init__(self, i):
+                self.i = i
+
+        def f():
+            a = A(0)
+            
+            while a.i < 10:
+                jitdriver.jit_merge_point(a=a)
+                jitdriver.can_enter_jit(a=a)
+                a = A(a.i + 1)
+
+        self.meta_interp(f, [])
+        self.check_loops(new_with_vtable=0)
+        self.meta_interp(f, [], disable_opts='virtualize')
+        self.check_loops(new_with_vtable=1)
+
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass

@@ -51,8 +51,7 @@ class TranslationTest:
                               set_jitcell_at=set_jitcell_at,
                               get_printable_location=get_printable_location)
         def f(i):
-            for param in unroll_parameters:
-                defl = PARAMETERS[param]
+            for param, defl in unroll_parameters:
                 jitdriver.set_param(param, defl)
             jitdriver.set_param("threshold", 3)
             jitdriver.set_param("trace_eagerness", 2)
