@@ -27,21 +27,21 @@ def _fixup_ulcase(space):
     # create uppercase map string
     ul = []
     for c in xrange(256):
-        if rlocale.isupper(c):
+        if intmask(rlocale.isupper(c)):
             ul.append(chr(c))
     space.setattr(stringmod, space.wrap('uppercase'), space.wrap(''.join(ul)))
 
     # create lowercase string
     ul = []
     for c in xrange(256):
-        if rlocale.islower(c):
+        if intmask(rlocale.islower(c)):
             ul.append(chr(c))
     space.setattr(stringmod, space.wrap('lowercase'), space.wrap(''.join(ul)))
 
     # create letters string
     ul = []
     for c in xrange(256):
-        if rlocale.isalpha(c):
+        if intmask(rlocale.isalpha(c)):
             ul.append(chr(c))
     space.setattr(stringmod, space.wrap('letters'), space.wrap(''.join(ul)))
 
