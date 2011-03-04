@@ -58,7 +58,7 @@ class W_File(W_AbstractStream):
         except OSError:
             pass
         else:
-            if (stat.S_ISDIR(st[0])):
+            if stat.S_ISDIR(int(st[0])):
                 ose = OSError(errno.EISDIR, '')
                 raise wrap_oserror_as_ioerror(self.space, ose, self.w_name)
 

@@ -29,7 +29,7 @@ class State:
 
 def checkdir(path):
     st = os.stat(path)
-    if not stat.S_ISDIR(st[0]):
+    if not stat.S_ISDIR(int(st[0])):
         raise OSError(errno.ENOTDIR, path)
 
 

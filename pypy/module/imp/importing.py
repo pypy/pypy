@@ -341,7 +341,7 @@ class W_NullImporter(Wrappable):
         except OSError:
             pass
         else:
-            if stat.S_ISDIR(st.st_mode):
+            if stat.S_ISDIR(int(st.st_mode)):
                 raise OperationError(space.w_ImportError, space.wrap(
                     "existing directory"))
 

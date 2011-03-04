@@ -253,7 +253,7 @@ class W_FileIO(W_RawIOBase):
             st = os.fstat(self.fd)
         except OSError:
             return
-        if stat.S_ISDIR(st.st_mode):
+        if stat.S_ISDIR(int(st.st_mode)):
             self._close(space)
             raise wrap_oserror2(space, OSError(errno.EISDIR, "fstat"),
                                 w_filename, exception_name='w_IOError')

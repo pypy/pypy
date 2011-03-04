@@ -369,7 +369,7 @@ def descr_new_zipimporter(space, w_type, name):
         except OSError:
             raise operationerrfmt(w_ZipImportError,
                 "Cannot find name %s", filename)
-        if not stat.S_ISDIR(s.st_mode):
+        if not stat.S_ISDIR(int(s.st_mode)):
             ok = True
             break
     if not ok:
