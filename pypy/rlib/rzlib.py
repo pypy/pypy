@@ -1,5 +1,6 @@
 import sys
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.rlib.rarithmetic import intmask
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform as compiler, CompilationError
@@ -231,6 +232,7 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
     """
     stream = lltype.malloc(z_stream, flavor='raw', zero=True)
     err = _deflateInit2(stream, level, method, wbits, memLevel, strategy)
+    err = intmask(err)
     if err == Z_OK:
         return stream
     else:
@@ -259,6 +261,7 @@ def inflateInit(wbits=MAX_WBITS):
     """
     stream = lltype.malloc(z_stream, flavor='raw', zero=True)
     err = _inflateInit2(stream, wbits)
+    err = intmask(err)
     if err == Z_OK:
         return stream
     else:
@@ -327,6 +330,7 @@ def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
         # detect incomplete input
         rffi.setintfield(stream, 'c_avail_in', 0)
         err = _inflate(stream, Z_FINISH)
+        err = intmask(err)
         if err < 0:
             raise RZlibError.fromstream(stream, err, while_doing)
     finished = (err == Z_STREAM_END)
@@ -366,6 +370,7 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
                 max_length -= bufsize
                 rffi.setintfield(stream, 'c_avail_out', bufsize)
                 err = cfunc(stream, flush)
+                err = intmask(err)
                 if err == Z_OK or err == Z_STREAM_END:
                     # accumulate data into 'result'
                     avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)

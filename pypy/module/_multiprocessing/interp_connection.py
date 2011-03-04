@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_longlong
 from pypy.rlib import rpoll
 import sys
 
@@ -474,7 +474,7 @@ class W_PipeConnection(W_BaseConnection):
         block = timeout < 0
         if not block:
             # XXX does not check for overflow
-            deadline = _GetTickCount() + int(1000 * timeout + 0.5)
+            deadline = r_longlong(_GetTickCount()) + int(1000 * timeout + 0.5)
         else:
             deadline = 0
 
@@ -498,7 +498,7 @@ class W_PipeConnection(W_BaseConnection):
                 return True
 
             if not block:
-                now = _GetTickCount()
+                now = r_longlong(_GetTickCount())
                 if now > deadline:
                     return False
                 diff = deadline - now

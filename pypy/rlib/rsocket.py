@@ -729,6 +729,7 @@ class RSocket(object):
         """Bind the socket to a local address."""
         addr = address.lock()
         res = _c.socketbind(self.fd, addr, address.addrlen)
+        res = intmask(res)
         address.unlock()
         if res < 0:
             raise self.error_handler()
@@ -747,6 +748,7 @@ class RSocket(object):
             """Connect the socket to a remote address."""
             addr = address.lock()
             res = _c.socketconnect(self.fd, addr, address.addrlen)
+            res = intmask(res)
             address.unlock()
             errno = _c.geterrno()
             timeout = self.timeout
@@ -793,6 +795,7 @@ class RSocket(object):
             """Connect the socket to a remote address."""
             addr = address.lock()
             res = _c.socketconnect(self.fd, addr, address.addrlen)
+            res = intmask(res)
             address.unlock()
             errno = _c.geterrno()
             if self.timeout > 0.0 and res < 0 and errno == _c.EINPROGRESS:
@@ -801,6 +804,7 @@ class RSocket(object):
                 if timeout == 0:
                     addr = address.lock()
                     res = _c.socketconnect(self.fd, addr, address.addrlen)
+                    res = intmask(res)
                     address.unlock()
                     if res < 0:
                         errno = _c.geterrno()
@@ -844,6 +848,7 @@ class RSocket(object):
         address, addr_p, addrlen_p = self._addrbuf()
         try:
             res = _c.socketgetpeername(self.fd, addr_p, addrlen_p)
+            res = intmask(res)
             addrlen = addrlen_p[0]
         finally:
             lltype.free(addrlen_p, flavor='raw')
@@ -858,6 +863,7 @@ class RSocket(object):
         address, addr_p, addrlen_p = self._addrbuf()
         try:
             res = _c.socketgetsockname(self.fd, addr_p, addrlen_p)
+            res = intmask(res)
             addrlen = addrlen_p[0]
         finally:
             lltype.free(addrlen_p, flavor='raw')
@@ -875,6 +881,7 @@ class RSocket(object):
                 bufsize_p[0] = rffi.cast(_c.socklen_t, maxlen)
                 res = _c.socketgetsockopt(self.fd, level, option,
                                           buf, bufsize_p)
+                res = intmask(res)
                 if res < 0:
                     raise self.error_handler()
                 size = rffi.cast(lltype.Signed, bufsize_p[0])
@@ -895,6 +902,7 @@ class RSocket(object):
                 res = _c.socketgetsockopt(self.fd, level, option,
                                           rffi.cast(rffi.VOIDP, flag_p),
                                           flagsize_p)
+                res = intmask(res)
                 if res < 0:
                     raise self.error_handler()
                 result = rffi.cast(lltype.Signed, flag_p[0])
@@ -916,6 +924,7 @@ class RSocket(object):
         if backlog < 1:
             backlog = 1
         res = _c.socketlisten(self.fd, backlog)
+        res = intmask(res)
         if res < 0:
             raise self.error_handler()
 
@@ -985,6 +994,7 @@ class RSocket(object):
             raise SocketTimeout
         elif timeout == 0:
             res = _c.send(self.fd, dataptr, length, flags)
+            res = intmask(res)
         if res < 0:
             raise self.error_handler()
         return res
@@ -1032,6 +1042,7 @@ class RSocket(object):
             addr = address.lock()
             res = _c.sendto(self.fd, data, len(data), flags,
                             addr, address.addrlen)
+            res = intmask(res)
             address.unlock()
         if res < 0:
             raise self.error_handler()
@@ -1049,6 +1060,7 @@ class RSocket(object):
             res = _c.socketsetsockopt(self.fd, level, option,
                                       rffi.cast(rffi.VOIDP, buf),
                                       len(value))
+            res = intmask(res)
             if res < 0:
                 raise self.error_handler()
 
@@ -1058,6 +1070,7 @@ class RSocket(object):
             res = _c.socketsetsockopt(self.fd, level, option,
                                       rffi.cast(rffi.VOIDP, flag_p),
                                       rffi.sizeof(rffi.INT))
+            res = intmask(res)
             if res < 0:
                 raise self.error_handler()
 
@@ -1075,6 +1088,7 @@ class RSocket(object):
         writing side of the socket (flag == SHUT_WR), or both ends
         (flag == SHUT_RDWR)."""
         res = _c.socketshutdown(self.fd, how)
+        res = intmask(res)
         if res < 0:
             raise self.error_handler()
 
@@ -1162,6 +1176,7 @@ if hasattr(_c, 'socketpair'):
         """
         result = lltype.malloc(_c.socketpair_t, 2, flavor='raw')
         res = _c.socketpair(family, type, proto, result)
+        res = intmask(res)
         if res < 0:
             raise last_error()
         fd0 = rffi.cast(lltype.Signed, result[0])
@@ -1376,6 +1391,7 @@ if hasattr(_c, 'inet_pton'):
         buf = mallocbuf(size)
         try:
             res = _c.inet_pton(family, ip, buf)
+            res = intmask(res)
             if res < 0:
                 raise last_error()
             elif res == 0:

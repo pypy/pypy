@@ -550,7 +550,7 @@ class W_BZ2Compressor(Wrappable):
                 rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
 
                 while True:
-                    bzerror = BZ2_bzCompress(self.bzs, BZ_RUN)
+                    bzerror = intmask(BZ2_bzCompress(self.bzs, BZ_RUN))
                     if bzerror != BZ_RUN_OK:
                         _catch_bz2_error(self.space, bzerror)
 
@@ -570,7 +570,7 @@ class W_BZ2Compressor(Wrappable):
 
         with OutBuffer(self.bzs) as out:
             while True:
-                bzerror = BZ2_bzCompress(self.bzs, BZ_FINISH)
+                bzerror = intmask(BZ2_bzCompress(self.bzs, BZ_FINISH))
                 if bzerror == BZ_STREAM_END:
                     break
                 elif bzerror != BZ_FINISH_OK:
@@ -613,7 +613,7 @@ class W_BZ2Decompressor(Wrappable):
         self._init_bz2decomp()
     
     def _init_bz2decomp(self):
-        bzerror = BZ2_bzDecompressInit(self.bzs, 0, 0)
+        bzerror = intmask(BZ2_bzDecompressInit(self.bzs, 0, 0))
         if bzerror != BZ_OK:
             _catch_bz2_error(self.space, bzerror)
         
@@ -649,7 +649,7 @@ class W_BZ2Decompressor(Wrappable):
 
             with OutBuffer(self.bzs) as out:
                 while True:
-                    bzerror = BZ2_bzDecompress(self.bzs)
+                    bzerror = intmask(BZ2_bzDecompress(self.bzs))
                     if bzerror == BZ_STREAM_END:
                         if rffi.getintfield(self.bzs, 'c_avail_in') != 0:
                             unused = [self.bzs.c_next_in[i]
@@ -705,12 +705,12 @@ def compress(space, data, compresslevel=9):
             with OutBuffer(bzs,
                            in_bufsize + (in_bufsize / 100 + 1) + 600) as out:
 
-                bzerror = BZ2_bzCompressInit(bzs, compresslevel, 0, 0)
+                bzerror = intmask(BZ2_bzCompressInit(bzs, compresslevel, 0, 0))
                 if bzerror != BZ_OK:
                     _catch_bz2_error(space, bzerror)
 
                 while True:
-                    bzerror = BZ2_bzCompress(bzs, BZ_FINISH)
+                    bzerror = intmask(BZ2_bzCompress(bzs, BZ_FINISH))
                     if bzerror == BZ_STREAM_END:
                         break
                     elif bzerror != BZ_FINISH_OK:
@@ -743,12 +743,12 @@ def decompress(space, data):
             rffi.setintfield(bzs, 'c_avail_in', in_bufsize)
 
             with OutBuffer(bzs) as out:
-                bzerror = BZ2_bzDecompressInit(bzs, 0, 0)
+                bzerror = intmask(BZ2_bzDecompressInit(bzs, 0, 0))
                 if bzerror != BZ_OK:
                     _catch_bz2_error(space, bzerror)
 
                 while True:
-                    bzerror = BZ2_bzDecompress(bzs)
+                    bzerror = intmask(BZ2_bzDecompress(bzs))
                     if bzerror == BZ_STREAM_END:
                         break
                     if bzerror != BZ_OK:

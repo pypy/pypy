@@ -738,7 +738,7 @@ elif _MS_WINDOWS:
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE
         m.map_handle = INVALID_HANDLE
-        if fh:
+        if fh != NULL_HANDLE:
             # it is necessary to duplicate the handle, so the
             # Python code can close it on us
             handle_ref = lltype.malloc(LPHANDLE.TO, 1, flavor='raw')
