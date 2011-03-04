@@ -154,8 +154,8 @@ def descr_dictiter__reduce__(w_self, space):
     w_typeobj = space.gettypeobject(dictiter_typedef)
 
     raise OperationError(
-        space.w_RuntimeError,
-        space.wrap("cannot pickle dictiters with multidicts"))
+        space.w_TypeError,
+        space.wrap("can't pickle dictionary-keyiterator objects"))
     # XXXXXX get that working again
 
     # we cannot call __init__ since we don't have the original dict
