@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 from pypy.rlib import rpoll, rsocket
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.ropenssl import *
 
 from pypy.module._socket import interp_socket
@@ -172,6 +173,7 @@ class SSLObject(Wrappable):
             
             num_bytes = libssl_SSL_write(self.ssl, data, len(data))
             err = libssl_SSL_get_error(self.ssl, num_bytes)
+            err = intmask(err)
         
             if err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(self.space,
@@ -224,6 +226,7 @@ class SSLObject(Wrappable):
             
             count = libssl_SSL_read(self.ssl, raw_buf, num_bytes)
             err = libssl_SSL_get_error(self.ssl, count)
+            err = intmask(err)
         
             if err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(self.space,
@@ -269,6 +272,8 @@ class SSLObject(Wrappable):
         while True:
             ret = libssl_SSL_do_handshake(self.ssl)
             err = libssl_SSL_get_error(self.ssl, ret)
+            err = intmask(err)
+
             # XXX PyErr_CheckSignals()
             if err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(
@@ -328,7 +333,7 @@ class SSLObject(Wrappable):
                 libssl_SSL_set_read_ahead(self.ssl, 0)
             ret = libssl_SSL_shutdown(self.ssl)
 
-            # if err == 1, a secure shutdown with SSL_shutdown() is complete
+            # if ret == 1, a secure shutdown with SSL_shutdown() is complete
             if ret > 0:
                 break
             if ret == 0:
@@ -343,18 +348,20 @@ class SSLObject(Wrappable):
                 continue
 
             # Possibly retry shutdown until timeout or failure 
-            ssl_err = libssl_SSL_get_error(self.ssl, ret)
-            if ssl_err == SSL_ERROR_WANT_READ:
+            err = libssl_SSL_get_error(self.ssl, ret)
+            err = intmask(err)
+
+            if err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(
                     self.space, self.w_socket, False)
-            elif ssl_err == SSL_ERROR_WANT_WRITE:
+            elif err == SSL_ERROR_WANT_WRITE:
                 sockstate = check_socket_and_wait_for_timeout(
                     self.space, self.w_socket, True)
             else:
                 break
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                if ssl_err == SSL_ERROR_WANT_READ:
+                if err == SSL_ERROR_WANT_READ:
                     raise ssl_error(self.space, "The read operation timed out")
                 else:
                     raise ssl_error(self.space, "The write operation timed out")
@@ -495,6 +502,7 @@ def _ssl_seterror(space, ss, ret):
     assert ret <= 0
 
     err = libssl_SSL_get_error(ss.ssl, ret)
+    err = intmask(err)
     errstr = ""
     errval = 0
 

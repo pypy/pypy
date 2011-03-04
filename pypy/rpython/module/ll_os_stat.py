@@ -30,21 +30,21 @@ else:
 
 # all possible fields - some of them are not available on all platforms
 ALL_STAT_FIELDS = [
-    ("st_mode",      lltype.Signed),
-    ("st_ino",       lltype.SignedLongLong),
-    ("st_dev",       lltype.SignedLongLong),
-    ("st_nlink",     lltype.Signed),
-    ("st_uid",       lltype.Signed),
-    ("st_gid",       lltype.Signed),
-    ("st_size",      lltype.SignedLongLong),
+    ("st_mode",      rffi.LONG),
+    ("st_ino",       rffi.LONGLONG),
+    ("st_dev",       rffi.LONGLONG),
+    ("st_nlink",     rffi.LONG),
+    ("st_uid",       rffi.LONG),
+    ("st_gid",       rffi.LONG),
+    ("st_size",      rffi.LONGLONG),
     ("st_atime",     lltype.Float),
     ("st_mtime",     lltype.Float),
     ("st_ctime",     lltype.Float),
-    ("st_blksize",   lltype.Signed),
-    ("st_blocks",    lltype.Signed),
-    ("st_rdev",      lltype.Signed),
-    ("st_flags",     lltype.Signed),
-    #("st_gen",       lltype.Signed),     -- new in CPy 2.5, not implemented
+    ("st_blksize",   rffi.LONG),
+    ("st_blocks",    rffi.LONG),
+    ("st_rdev",      rffi.LONG),
+    ("st_flags",     rffi.LONG),
+    #("st_gen",       rffi.LONG),     -- new in CPy 2.5, not implemented
     #("st_birthtime", lltype.Float),      -- new in CPy 2.5, not implemented
     ]
 N_INDEXABLE_FIELDS = 10
@@ -172,7 +172,7 @@ if sys.platform != 'win32':
         for name in ('st_atime', 'st_mtime', 'st_ctime', 'st_birthtime'):
             for i, (_name, _TYPE) in enumerate(LL_STAT_FIELDS):
                 if _name == name:
-                    LL_STAT_FIELDS[i] = (_name, lltype.Signed)
+                    LL_STAT_FIELDS[i] = (_name, rffi.LONG)
                     break
 
     class CConfig:

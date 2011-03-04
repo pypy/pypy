@@ -111,6 +111,7 @@ def select(inl, outl, excl, timeout=-1.0):
         ll_timeval = lltype.nullptr(_c.timeval)
     try:
         res = _c.select(nfds + 1, ll_inl, ll_outl, ll_excl, ll_timeval)
+        res = intmask(res)
         if res == -1:
             raise SelectError(_c.geterrno())
         if res == 0:

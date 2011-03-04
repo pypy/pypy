@@ -27,5 +27,5 @@ class BaseOsPath:
             st = os.stat(cls.from_rstr_nonnull(path))
         except OSError:
             return False
-        return stat.S_ISDIR(st[0])
+        return stat.S_ISDIR(int(st[0]))
 

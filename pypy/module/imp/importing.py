@@ -752,7 +752,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
         cpathname = pathname + 'c'
         src_stat = os.stat(pathname)
         mtime = int(src_stat[stat.ST_MTIME])
-        mode = src_stat[stat.ST_MODE]
+        mode = int(src_stat[stat.ST_MODE])
         stream = check_compiled_module(space, cpathname, mtime)
     else:
         cpathname = None
