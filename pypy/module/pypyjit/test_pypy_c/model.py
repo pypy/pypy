@@ -1,7 +1,7 @@
 import py
 import re
 import os.path
-from pypy.tool.jitlogparser.parser import parse, Function, TraceForOpcode
+from pypy.tool.jitlogparser.parser import SimpleParser, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
 
@@ -40,7 +40,7 @@ def find_ids(code):
 class Log(object):
     def __init__(self, func, rawtraces):
         storage = LoopStorage()
-        traces = [parse(rawtrace) for rawtrace in rawtraces]
+        traces = [SimpleParser.parse_from_input(rawtrace) for rawtrace in rawtraces]
         traces = storage.reconnect_loops(traces)
         self.loops = [LoopWithIds.from_trace(trace, storage) for trace in traces]
 
@@ -150,6 +150,24 @@ class LoopWithIds(Function):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
 
+    def match(self, expected_src):
+        ops = list(self.allops())
+        matcher = OpMatcher(ops)
+        return matcher.match(expected_src)
+
+    def match_by_id(self, id, expected_src):
+        ops = list(self.ops_by_id(id))
+        matcher = OpMatcher(ops)
+        return matcher.match(expected_src)
+
+class InvalidMatch(Exception):
+    pass
+
+class OpMatcher(object):
+
+    def __init__(self, ops):
+        self.ops = ops
+        self.alpha_map = {}
 
     @classmethod
     def parse_ops(cls, src):
@@ -162,68 +180,130 @@ class LoopWithIds(Function):
         if '#' in line:
             line = line[:line.index('#')]
         # find the resvar, if any
-        if '=' in line:
-            resvar, _, line = line.partition('=')
+        if ' = ' in line:
+            resvar, _, line = line.partition(' = ')
             resvar = resvar.strip()
         else:
             resvar = None
         line = line.strip()
         if not line:
             return None
+        if line == '...':
+            return line
         opname, _, args = line.partition('(')
         opname = opname.strip()
         assert args.endswith(')')
         args = args[:-1]
         args = args.split(',')
         args = map(str.strip, args)
-        return opname, resvar, args
+        if args[-1].startswith('descr='):
+            descr = args.pop()
+            descr = descr[len('descr='):]
+        else:
+            descr = None
+        return opname, resvar, args, descr
 
-    def preprocess_expected_src(self, src):
+    @classmethod
+    def preprocess_expected_src(cls, src):
         # all loops decrement the tick-counter at the end. The rpython code is
         # in jump_absolute() in pypyjit/interp.py. The string --TICK-- is
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
         ticker_check = """
-            ticker0 = getfield_raw(ticker_address)
+            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
             ticker1 = int_sub(ticker0, 1)
-            setfield_raw(ticker_address, ticker1)
+            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
             ticker_cond = int_lt(ticker1, 0)
-            guard_false(ticker_cond)
+            guard_false(ticker_cond, descr=...)
         """
         src = src.replace('--TICK--', ticker_check)
         return src
 
     @classmethod
-    def _get_match_var(cls):
-        def is_const(v1):
-            return isinstance(v1, str) and v1.startswith('ConstClass(')
-        alpha_map = {}
-        def match_var(v1, v2):
-            if is_const(v1) or is_const(v2):
-                return v1 == v2
-            if v1 not in alpha_map:
-                alpha_map[v1] = v2
-            return alpha_map[v1] == v2
-        return match_var
+    def is_const(cls, v1):
+        return isinstance(v1, str) and v1.startswith('ConstClass(')
+    
+    def match_var(self, v1, exp_v2):
+        assert v1 != '_'
+        if exp_v2 == '_':
+            return True
+        if self.is_const(v1) or self.is_const(exp_v2):
+            return v1 == exp_v2
+        if v1 not in self.alpha_map:
+            self.alpha_map[v1] = exp_v2
+        return self.alpha_map[v1] == exp_v2
 
-    def match_ops(self, ops, expected_src):
-        expected_src = self.preprocess_expected_src(expected_src)
-        match_var = self._get_match_var()
+    def _assert(self, cond, message):
+        if not cond:
+            raise InvalidMatch(message)
+
+    def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr)):
+        self._assert(op.name == exp_opname, "operation mismatch")
+        self.match_var(op.res, exp_res)
+        self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
+        for arg, exp_arg in zip(op.args, exp_args):
+            self._assert(self.match_var(arg, exp_arg), "variable mismatch")
+        self._assert(op.descr == exp_descr or exp_descr == '...', "descr mismatch")
+
+    def _next_op(self, iter_ops, assert_raises=False):
+        try:
+            op = iter_ops.next()
+        except StopIteration:
+            self._assert(assert_raises, "not enough operations")
+            return
+        else:
+            self._assert(not assert_raises, "operation list too long")
+            return op
+
+    def match_until(self, until_op, iter_ops):
+        while True:
+            op = self._next_op(iter_ops)
+            try:
+                # try to match the op, but be sure not to modify the
+                # alpha-renaming map in case the match does not work
+                alpha_map = self.alpha_map.copy()
+                self.match_op(op, until_op)
+            except InvalidMatch:
+                # it did not match: rollback the alpha_map, and just skip this
+                # operation
+                self.alpha_map = alpha_map
+            else:
+                # it matched! The '...' operator ends here
+                return op
+
+    def match_loop(self, expected_ops):
+        """
+        A note about partial matching: the '...' operator is non-greedy,
+        i.e. it matches all the operations until it finds one that matches
+        what is after the '...'
+        """
+        iter_exp_ops = iter(expected_ops)
+        iter_ops = iter(self.ops)
+        for exp_op in iter_exp_ops:
+            if exp_op == '...':
+                # loop until we find an operation which matches
+                try:
+                    exp_op = iter_exp_ops.next()
+                except StopIteration:
+                    # the ... is the last line in the expected_ops, so we just
+                    # return because it matches everything until the end
+                    return
+                op = self.match_until(exp_op, iter_ops)
+            else:
+                op = self._next_op(iter_ops)
+            self.match_op(op, exp_op)
         #
-        expected_ops = self.parse_ops(expected_src)
-        assert len(ops) == len(expected_ops), "wrong number of operations"
-        for op, (exp_opname, exp_res, exp_args) in zip(ops, expected_ops):
-            assert op.name == exp_opname
-            match_var(op.res, exp_res)
-            assert len(op.args) == len(exp_args), "wrong number of arguments"
-            for arg, exp_arg in zip(op.args, exp_args):
-                assert match_var(arg, exp_arg), "variable mismatch"
-        return True
+        # make sure we exhausted iter_ops
+        self._next_op(iter_ops, assert_raises=True)
 
     def match(self, expected_src):
-        ops = list(self.allops())
-        return self.match_ops(ops, expected_src)
+        expected_src = self.preprocess_expected_src(expected_src)
+        expected_ops = self.parse_ops(expected_src)
+        try:
+            self.match_loop(expected_ops)
+        except InvalidMatch:
+            #raise # uncomment this and use py.test --pdb for better debugging
+            return False
+        else:
+            return True
 
-    def match_by_id(self, id, expected_src):
-        ops = list(self.ops_by_id(id))
-        return self.match_ops(ops, expected_src)

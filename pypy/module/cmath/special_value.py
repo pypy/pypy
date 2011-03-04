@@ -1,5 +1,5 @@
 import math
-from pypy.rlib.rarithmetic import isnan, isinf, copysign
+from pypy.rlib.rfloat import isnan, isinf, copysign
 
 # code to deal with special values (infinities, NaNs, ...)
 #

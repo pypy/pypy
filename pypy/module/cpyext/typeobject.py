@@ -159,7 +159,7 @@ def add_operators(space, dict_w, pto):
             if not struct:
                 continue
             func = getattr(struct, slot_names[1])
-        func_voidp = rffi.cast(rffi.VOIDP_real, func)
+        func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
             continue
         if wrapper_func is None and wrapper_func_kwds is None:
@@ -372,12 +372,27 @@ def str_getreadbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
+@cpython_api([PyObject, lltype.Signed, rffi.CCHARPP], lltype.Signed,
+             external=False, error=-1)
+def str_getcharbuffer(space, w_str, segment, ref):
+    from pypy.module.cpyext.stringobject import PyString_AsString
+    if segment != 0:
+        raise OperationError(space.w_SystemError, space.wrap
+                             ("accessing non-existent string segment"))
+    pyref = make_ref(space, w_str)
+    ref[0] = PyString_AsString(space, pyref)
+    # Stolen reference: the object has better exist somewhere else
+    Py_DecRef(space, pyref)
+    return space.len_w(w_str)
+
 def setup_string_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
                                       str_segcount.api_func.get_wrapper(space))
     c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
                                  str_getreadbuffer.api_func.get_wrapper(space))
+    c_buf.c_bf_getcharbuffer = llhelper(str_getcharbuffer.api_func.functype,
+                                 str_getcharbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
 
 @cpython_api([PyObject], lltype.Void, external=False)

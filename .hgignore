@@ -62,3 +62,5 @@ syntax: regexp
 ^pypy/doc/image/stackless_informal\.png$
 ^pypy/doc/image/parsing_example.+\.png$
 ^compiled
+^.git/
+^release/

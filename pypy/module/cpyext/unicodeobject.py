@@ -361,10 +361,7 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
 
     If byteorder is NULL, the codec starts in native order mode.
 
-    Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    Return NULL if an exception was raised by the codec."""
 
     string = rffi.charpsize2str(s, size)
 
@@ -405,10 +402,7 @@ def PyUnicode_AsASCIIString(space, w_unicode):
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeASCII(space, s, size, errors):
     """Create a Unicode object by decoding size bytes of the ASCII encoded string
-    s.  Return NULL if an exception was raised by the codec.
-    
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    s.  Return NULL if an exception was raised by the codec."""
     w_s = space.wrap(rffi.charpsize2str(s, size))
     return space.call_method(w_s, 'decode', space.wrap('ascii'))
 
@@ -416,9 +410,7 @@ def PyUnicode_DecodeASCII(space, s, size, errors):
 def PyUnicode_EncodeASCII(space, s, size, errors):
     """Encode the Py_UNICODE buffer of the given size using ASCII and return a
     Python string object.  Return NULL if an exception was raised by the codec.
-    
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    """
 
     w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
     return space.call_method(w_s, 'encode', space.wrap('ascii'))

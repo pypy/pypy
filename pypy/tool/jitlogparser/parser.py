@@ -33,7 +33,10 @@ class Op(object):
         return self._is_guard
 
     def repr(self):
-        arglist = ', '.join(self.getargs())
+        args = self.getargs()
+        if self.descr is not None:
+            args.append('descr=%s' % self.descr)
+        arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
         else:
@@ -45,6 +48,15 @@ class Op(object):
         ##                                             for a in self.args]))
 
 class SimpleParser(OpParser):
+
+    # factory method
+    Op = Op
+
+    @classmethod
+    def parse_from_input(cls, input):
+        return cls(input, None, {}, 'lltype', None,
+                   nonstrict=True).parse()
+    
     def parse_args(self, opname, argspec):
         if not argspec.strip():
             return [], None
@@ -56,13 +68,17 @@ class SimpleParser(OpParser):
             if args[-1].startswith('descr='):
                 descr = args[-1][len('descr='):]
                 args = args[:-1]
+            if args == ['']:
+                args = []
             return (args, descr)
 
     def box_for_var(self, res):
         return res
 
     def create_op(self, opnum, args, res, descr):
-        return Op(intern(opname[opnum].lower()), args, res, descr)
+        return self.Op(intern(opname[opnum].lower()), args, res, descr)
+
+
 
 class NonCodeError(Exception):
     pass
@@ -127,6 +143,9 @@ class Function(object):
     _lineset = None
     is_bytecode = False
     inline_level = None
+
+    # factory method
+    TraceForOpcode = TraceForOpcode
     
     def __init__(self, chunks, path, storage):
         self.path = path
@@ -167,13 +186,13 @@ class Function(object):
         for op in operations:
             if op.name == 'debug_merge_point':
                 if so_far:
-                    append_to_res(TraceForOpcode(so_far, storage))
+                    append_to_res(cls.TraceForOpcode(so_far, storage))
                     if limit:
                         break
                     so_far = []
             so_far.append(op)
         if so_far:
-            append_to_res(TraceForOpcode(so_far, storage))
+            append_to_res(cls.TraceForOpcode(so_far, storage))
         # wrap stack back up
         if not stack:
             # no ops whatsoever
@@ -233,10 +252,6 @@ class Function(object):
                                                 chunk.startlineno]
                 print >>out, "  ", source
             chunk.pretty_print(out)
-
-def parse(input):
-    return SimpleParser(input, None, {}, 'lltype', None,
-                        nonstrict=True).parse()
 
 
 def adjust_bridges(loop, bridges):

@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 import py
 import sys, random
@@ -134,6 +134,11 @@ class TestDecoding(UnicodeTests):
     def test_single_chars_utf8(self):
         for s in ["\xd7\x90", "\xd6\x96", "\xeb\x96\x95", "\xf0\x90\x91\x93"]:
             self.checkdecode(s, "utf-8")
+
+    def test_utf8_surrogate(self):
+        # A surrogate should not be valid utf-8, but python 2.x accepts them.
+        # This test will raise an error with python 3.x
+        self.checkdecode(u"\ud800", "utf-8")
 
     def test_utf8_errors(self):
         for s in [# unexpected end of data

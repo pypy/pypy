@@ -2,7 +2,8 @@
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.rlib.rstruct import ieee
-from pypy.rlib.rarithmetic import LONG_BIT, INFINITY, NAN, isnan
+from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.rfloat import INFINITY, NAN, isnan
 from pypy.translator.c.test.test_genc import compile
 import struct
 

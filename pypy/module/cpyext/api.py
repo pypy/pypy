@@ -308,7 +308,7 @@ FUNCTIONS = {}
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
-    '_PyArg_NoKeywords',
+    'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyString_FromFormat', 'PyString_FromFormatV',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
@@ -832,6 +832,9 @@ def build_eci(building_bridge, export_symbols, code):
         if sys.platform == "win32":
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
+            # Sometimes the library is wrapped into another DLL, ensure that
+            # the correct bootstrap code is installed
+            kwds["link_extra"] = ["msvcrt.lib"]
         elif sys.platform == 'linux2':
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
@@ -1002,7 +1005,7 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     # exception checking occurs in call_external_function.
     argnames = ', '.join(['a%d' % i for i in range(len(FT.ARGS))])
     source = py.code.Source("""
-        def call_external_function(funcptr, %(argnames)s):
+        def cpy_call_external(funcptr, %(argnames)s):
             # NB. it is essential that no exception checking occurs here!
             res = funcptr(%(argnames)s)
             return res
@@ -1010,12 +1013,10 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     miniglobals = {'__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
-    call_external_function = miniglobals['call_external_function']
+    call_external_function = miniglobals['cpy_call_external']
     call_external_function._dont_inline_ = True
     call_external_function._annspecialcase_ = 'specialize:ll'
     call_external_function._gctransformer_hint_close_stack_ = True
-    call_external_function = func_with_new_name(call_external_function,
-                                                'ccall_' + name)
     # don't inline, as a hack to guarantee that no GC pointer is alive
     # anywhere in call_external_function
 

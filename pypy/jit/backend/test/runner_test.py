@@ -1272,7 +1272,7 @@ class BaseBackendTest(Runner):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
 
-        from pypy.rlib.rarithmetic import INFINITY, NAN, isinf, isnan
+        from pypy.rlib.rfloat import INFINITY, NAN, isinf, isnan
         from pypy.jit.metainterp.resoperation import opname
 
         fzer = boxfloat(0.0)

@@ -1,7 +1,8 @@
 import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import r_longlong, isinf, isnan
+from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rfloat import isinf, isnan
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rffi, llgroup
 from pypy.rpython.lltypesystem.llmemory import Address, \

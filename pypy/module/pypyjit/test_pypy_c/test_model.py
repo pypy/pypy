@@ -4,7 +4,8 @@ import py
 from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
-from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, LoopWithIds
+from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, \
+    LoopWithIds, OpMatcher
 
 class BaseTestPyPyC(object):
     def setup_class(cls):
@@ -18,7 +19,7 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def run(self, func, args=[], threshold=1000):
+    def run(self, func, args=[], **jitopts):
         # write the snippet
         arglist = ', '.join(map(repr, args))
         with self.filepath.open("w") as f:
@@ -27,10 +28,13 @@ class BaseTestPyPyC(object):
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
+        #
+        cmdline = [sys.executable, '-S']
+        for key, value in jitopts.iteritems():
+            cmdline += ['--jit', '%s=%s' % (key, value)]
+        cmdline.append(str(self.filepath))
+        #
         env={'PYPYLOG': 'jit-log-opt,jit-summary:' + str(logfile)}
-        cmdline = [sys.executable, '-S',
-                   '--jit', 'threshold=%d' % threshold,
-                   str(self.filepath)]
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
@@ -76,8 +80,16 @@ class TestLog(object):
         opcodes_names = [opcode.__class__.__name__ for opcode in myline]
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
+class TestOpMatcher(object):
+
+    def match(self, src1, src2):
+        from pypy.tool.jitlogparser.parser import SimpleParser
+        loop = SimpleParser.parse_from_input(src1)
+        matcher = OpMatcher(loop.operations)
+        return matcher.match(src2)
+
     def test_match_var(self):
-        match_var = LoopWithIds._get_match_var()
+        match_var = OpMatcher([]).match_var
         assert match_var('v0', 'V0')
         assert not match_var('v0', 'V1')
         assert match_var('v0', 'V0')
@@ -91,6 +103,116 @@ class TestLog(object):
         assert match_var('ConstClass(foo)', 'ConstClass(foo)')
         assert not match_var('ConstClass(bar)', 'v1')
         assert not match_var('v2', 'ConstClass(baz)')
+        #
+        # the var '_' matches everything (but only on the right, of course)
+        assert match_var('v0', '_')
+        assert match_var('v0', 'V0')
+        assert match_var('ConstPtr(ptr0)', '_')
+        py.test.raises(AssertionError, "match_var('_', 'v0')")
+
+    def test_parse_op(self):
+        res = OpMatcher.parse_op("  a =   int_add(  b,  3 ) # foo")
+        assert res == ("int_add", "a", ["b", "3"], None)
+        res = OpMatcher.parse_op("guard_true(a)")
+        assert res == ("guard_true", None, ["a"], None)
+        res = OpMatcher.parse_op("setfield_gc(p0, i0, descr=<foobar>)")
+        assert res == ("setfield_gc", None, ["p0", "i0"], "<foobar>")
+        res = OpMatcher.parse_op("i1 = getfield_gc(p0, descr=<foobar>)")
+        assert res == ("getfield_gc", "i1", ["p0"], "<foobar>")
+
+    def test_exact_match(self):
+        loop = """
+            [i0]
+            i2 = int_add(i0, 1)
+            jump(i2)
+        """
+        expected = """
+            i5 = int_add(i2, 1)
+            jump(i5, descr=...)
+        """
+        assert self.match(loop, expected)
+        #
+        expected = """
+            i5 = int_sub(i2, 1)
+            jump(i5, descr=...)
+        """
+        assert not self.match(loop, expected)
+        #
+        expected = """
+            i5 = int_add(i2, 1)
+            jump(i5, descr=...)
+            extra_stuff(i5)
+        """
+        assert not self.match(loop, expected)
+        #
+        expected = """
+            i5 = int_add(i2, 1)
+            # missing op at the end
+        """
+        assert not self.match(loop, expected)
+
+    def test_match_descr(self):
+        loop = """
+            [p0]
+            setfield_gc(p0, 1, descr=<foobar>)
+        """
+        assert self.match(loop, "setfield_gc(p0, 1, descr=<foobar>)")
+        assert self.match(loop, "setfield_gc(p0, 1, descr=...)")
+        assert not self.match(loop, "setfield_gc(p0, 1)")
+        assert not self.match(loop, "setfield_gc(p0, 1, descr=<zzz>)")
+
+
+    def test_partial_match(self):
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i2 = int_sub(i1, 10)
+            i3 = int_floordiv(i2, 100)
+            i4 = int_mul(i1, 1000)
+            jump(i4)
+        """
+        expected = """
+            i1 = int_add(0, 1)
+            ...
+            i4 = int_mul(i1, 1000)
+            jump(i4, descr=...)
+        """
+        assert self.match(loop, expected)
+
+    def test_partial_match_is_non_greedy(self):
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i2 = int_sub(i1, 10)
+            i3 = int_mul(i2, 1000)
+            i4 = int_mul(i1, 1000)
+            jump(i4, descr=...)
+        """
+        expected = """
+            i1 = int_add(0, 1)
+            ...
+            _ = int_mul(_, 1000)
+            jump(i4, descr=...)
+        """
+        # this does not match, because the ... stops at the first int_mul, and
+        # then the second one does not match
+        assert not self.match(loop, expected)
+
+    def test_partial_match_at_the_end(self):
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i2 = int_sub(i1, 10)
+            i3 = int_floordiv(i2, 100)
+            i4 = int_mul(i1, 1000)
+            jump(i4)
+        """
+        expected = """
+            i1 = int_add(0, 1)
+            ...
+        """
+        assert self.match(loop, expected)
+
 
 class TestRunPyPyC(BaseTestPyPyC):
 
@@ -202,13 +324,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             'jump'
             ]
 
-    def test_parse_op(self):
-        res = LoopWithIds.parse_op("  a =   int_add(  b,  3 ) # foo")
-        assert res == ("int_add", "a", ["b", "3"])
-        res = LoopWithIds.parse_op("guard_true(a)")
-        assert res == ("guard_true", None, ["a"])
-
-    def test_match(self):
+    def test_loop_match(self):
         def f():
             i = 0
             while i < 1003:
@@ -219,31 +335,31 @@ class TestRunPyPyC(BaseTestPyPyC):
         loop, = log.loops_by_id('increment')
         assert loop.match("""
             i6 = int_lt(i4, 1003)
-            guard_true(i6)
+            guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             # signal checking stuff
-            i10 = getfield_raw(37212896)
+            i10 = getfield_raw(37212896, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
             i12 = int_sub(i10, 1)
-            setfield_raw(37212896, i12)
+            setfield_raw(37212896, i12, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
             i14 = int_lt(i12, 0)
-            guard_false(i14)
-            jump(p0, p1, p2, p3, i8)
+            guard_false(i14, descr=...)
+            jump(p0, p1, p2, p3, i8, descr=...)
         """)
         #
         assert loop.match("""
             i6 = int_lt(i4, 1003)
-            guard_true(i6)
+            guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i8)
+            jump(p0, p1, p2, p3, i8, descr=...)
         """)
         #
-        py.test.raises(AssertionError, loop.match, """
+        assert not loop.match("""
             i6 = int_lt(i4, 1003)
             guard_true(i6)
             i8 = int_add(i5, 1) # variable mismatch
             --TICK--
-            jump(p0, p1, p2, p3, i8)
+            jump(p0, p1, p2, p3, i8, descr=...)
         """)
 
     def test_match_by_id(self):
@@ -263,7 +379,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         """)
         assert loop.match_by_id('product', """
             i4 = int_sub_ovf(i3, 1)
-            guard_no_overflow()
+            guard_no_overflow(descr=...)
         """)
 
     def test_match_constants(self):
@@ -276,12 +392,12 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_id('increment')
         assert loop.match_by_id('increment', """
-            p12 = call(ConstClass(rbigint.add), p4, ConstPtr(ptr11))
-            guard_no_exception()
+            p12 = call(ConstClass(rbigint.add), p4, ConstPtr(ptr11), descr=...)
+            guard_no_exception(descr=...)
         """)
         #
-        py.test.raises(AssertionError, loop.match_by_id, 'increment', """
-            p12 = call(ConstClass(rbigint.SUB), p4, ConstPtr(ptr11))
-            guard_no_exception()
+        assert not loop.match_by_id('increment', """
+            p12 = call(ConstClass(rbigint.SUB), p4, ConstPtr(ptr11), descr=...)
+            guard_no_exception(descr=...)
         """)
         

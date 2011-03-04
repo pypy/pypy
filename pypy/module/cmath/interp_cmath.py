@@ -1,7 +1,7 @@
 import math
 from math import fabs
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import copysign, asinh, log1p, isinf, isnan
+from pypy.rlib.rfloat import copysign, asinh, log1p, isinf, isnan
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped

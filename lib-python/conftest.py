@@ -498,7 +498,7 @@ testmap = [
     RegrTest('test_coding.py'),
     RegrTest('test_complex_args.py'),
     RegrTest('test_contextlib.py', usemodules="thread"),
-    RegrTest('test_ctypes.py', usemodules="_rawffi"),
+    RegrTest('test_ctypes.py', usemodules="_rawffi thread"),
     RegrTest('test_defaultdict.py', usemodules='_collections'),
     RegrTest('test_email_renamed.py'),
     RegrTest('test_exception_variations.py'),
