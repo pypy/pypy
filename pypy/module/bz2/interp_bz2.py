@@ -152,6 +152,7 @@ BZ2_bzDecompressEnd = external('BZ2_bzDecompressEnd', [bz_stream], rffi.INT)
 BZ2_bzDecompress = external('BZ2_bzDecompress', [bz_stream], rffi.INT)
 
 def _catch_bz2_error(space, bzerror):
+    error = intmask(bzerror)
     if BZ_CONFIG_ERROR and bzerror == BZ_CONFIG_ERROR:
         raise OperationError(space.w_SystemError,
             space.wrap("the bz2 library was not compiled correctly"))

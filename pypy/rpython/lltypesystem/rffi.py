@@ -16,6 +16,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import llmemory
+from pypy.rpython import rint
 import os, sys
 
 class CConstant(Symbolic):
@@ -405,6 +406,9 @@ def setup():
 
 NUMBER_TYPES = setup()
 platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for common cases
+# Allow arithmetic on some types
+rint.getintegerrepr(LONGLONG, 'llong_')
+rint.getintegerrepr(ULONGLONG, 'ullong_')
 
 # ^^^ this creates at least the following names:
 # --------------------------------------------------------------------

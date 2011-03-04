@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.module.thread import ll_thread
@@ -92,22 +92,22 @@ else:
         return res
 
     def sem_unlink(name):
-        res = _sem_unlink(name)
+        res = intmask(_sem_unlink(name))
         if res < 0:
             raise OSError(rposix.get_errno(), "sem_unlink failed")
 
     def sem_wait(sem):
-        res = _sem_wait(sem)
+        res = intmask(_sem_wait(sem))
         if res < 0:
             raise OSError(rposix.get_errno(), "sem_wait failed")
 
     def sem_trywait(sem):
-        res = _sem_trywait(sem)
+        res = intmask(_sem_trywait(sem))
         if res < 0:
             raise OSError(rposix.get_errno(), "sem_trywait failed")
 
     def sem_timedwait(sem, deadline):
-        res = _sem_timedwait(sem, deadline)
+        res = intmask(_sem_timedwait(sem, deadline))
         if res < 0:
             raise OSError(rposix.get_errno(), "sem_timedwait failed")
 
@@ -145,7 +145,7 @@ else:
                 # sleep
                 rffi.setintfield(tvdeadline[0], 'c_tv_sec', delay / 1000000)
                 rffi.setintfield(tvdeadline[0], 'c_tv_usec', delay % 1000000)
-                if _select(0, void, void, void, tvdeadline) < 0:
+                if intmask(_select(0, void, void, void, tvdeadline)) < 0:
                     return -1
 
     if SEM_TIMED_WAIT:
@@ -154,14 +154,14 @@ else:
         _sem_timedwait = _sem_timedwait_save
 
     def sem_post(sem):
-        res = _sem_post(sem)
+        res = intmask(_sem_post(sem))
         if res < 0:
             raise OSError(rposix.get_errno(), "sem_post failed")
 
     def sem_getvalue(sem):
         sval_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
-            res = _sem_getvalue(sem, sval_ptr)
+            res = intmask(_sem_getvalue(sem, sval_ptr))
             if res < 0:
                 raise OSError(rposix.get_errno(), "sem_getvalue failed")
             return rffi.cast(lltype.Signed, sval_ptr[0])
@@ -171,7 +171,7 @@ else:
     def gettimeofday():
         now = lltype.malloc(TIMEVALP.TO, 1, flavor='raw')
         try:
-            res = _gettimeofday(now, None)
+            res = intmask(_gettimeofday(now, None))
             if res < 0:
                 raise OSError(rposix.get_errno(), "gettimeofday failed")
             return rffi.getintfield(now[0], 'c_tv_sec'), rffi.getintfield(now[0], 'c_tv_usec')
