@@ -13,8 +13,6 @@ class OptRewrite(Optimization):
        This includes already executed operations and constants.
     """
 
-    name = 'rewrite'
-
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return self
     

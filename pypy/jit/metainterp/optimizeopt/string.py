@@ -367,8 +367,6 @@ class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
     enabled = True
 
-    name = 'string'
-
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         self.enabled = True
         return self

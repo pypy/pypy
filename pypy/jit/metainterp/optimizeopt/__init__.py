@@ -11,26 +11,20 @@ def optimize_loop_1(metainterp_sd, loop, unroll=True,
     """Optimize loop.operations to remove internal overheadish operations. 
     """
     opt_str = OptString()
-    _optimizations = [OptIntBounds(),
-                      OptRewrite(),
-                      OptVirtualize(),
-                      opt_str,
-                      OptHeap(),
-                      ]
-    
+    optimizations = [OptIntBounds(),
+                     OptRewrite(),
+                     OptVirtualize(),
+                     opt_str,
+                     OptHeap(),
+                    ]
     if inline_short_preamble:
-        _optimizations = [OptInlineShortPreamble(retraced)] +  _optimizations
+        optimizations = [OptInlineShortPreamble(retraced)] +  optimizations
         
     if metainterp_sd.jit_ffi:
         from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
-        _optimizations = _optimizations + [
+        optimizations = optimizations + [
                      OptFfiCall(),
                     ]
-
-    optimizations = []
-    for opt in _optimizations:
-        if opt.name not in metainterp_sd.disable_opts:
-            optimizations.append(opt)
 
     if unroll:
         opt_str.enabled = False # FIXME: Workaround to disable string optimisation

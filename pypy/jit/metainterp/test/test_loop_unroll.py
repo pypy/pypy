@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import OPTIMIZER_FULL, JitDriver
+from pypy.rlib.jit import OPTIMIZER_FULL
 from pypy.jit.metainterp.test import test_loop
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 

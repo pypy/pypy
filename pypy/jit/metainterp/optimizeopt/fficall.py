@@ -64,8 +64,6 @@ class FuncInfo(object):
 
 class OptFfiCall(Optimization):
 
-    name = 'fficall'
-
     def __init__(self):
         self.funcinfo = None
 

@@ -13,8 +13,6 @@ class CachedArrayItems(object):
 
 class OptHeap(Optimization):
     """Cache repeated heap accesses"""
-
-    name = 'heap'
     
     def __init__(self):
         # cached fields:  {descr: {OptValue_instance: OptValue_fieldvalue}}

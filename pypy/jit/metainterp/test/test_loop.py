@@ -751,6 +751,7 @@ class LoopTest(object):
 
         res = self.meta_interp(f, [200])
 
+
 class TestOOtype(LoopTest, OOJitMixin):
     pass
 

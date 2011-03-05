@@ -239,8 +239,6 @@ class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
-
-    name = 'unroll'
     
     def __init__(self, metainterp_sd, loop, optimizations):
         self.optimizer = Optimizer(metainterp_sd, loop, optimizations)
@@ -623,9 +621,6 @@ class BoxMap(object):
         return self.map[loopbox]
 
 class OptInlineShortPreamble(Optimization):
-
-    name = 'inlineshortpreamble'
-    
     def __init__(self, retraced):
         self.retraced = retraced
         self.inliner = None

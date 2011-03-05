@@ -240,12 +240,6 @@ class WarmEnterState(object):
         else:
             raise ValueError("unknown optimizer")
 
-    def set_param_disable_opts(self, value):
-        d = self.warmrunnerdesc.metainterp_sd.disable_opts
-        for name in value.split(":"):
-            if name:
-                d[name] = None
-
     def set_param_loop_longevity(self, value):
         # note: it's a global parameter, not a per-jitdriver one
         if (self.warmrunnerdesc is not None and

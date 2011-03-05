@@ -1231,7 +1231,6 @@ class MetaInterpStaticData(object):
     def __init__(self, cpu, options,
                  ProfilerClass=EmptyProfiler, warmrunnerdesc=None,
                  jit_ffi=True):
-        self.disable_opts = {}
         self.cpu = cpu
         self.stats = self.cpu.stats
         self.options = options
