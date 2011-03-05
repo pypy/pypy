@@ -28,8 +28,10 @@ class W_File(W_AbstractStream):
     stream   = None
     w_name   = None
     mode     = "<uninitialized file>"
+    binary   = False
     softspace= 0     # Required according to file object docs
-    encoding = None  # This is not used internally by file objects
+    encoding = None
+    errors   = None
     fd       = -1
 
     newlines = 0     # Updated when the stream is closed
@@ -46,6 +48,7 @@ class W_File(W_AbstractStream):
     def fdopenstream(self, stream, fd, mode, w_name=None):
         self.fd = fd
         self.mode = mode
+        self.binary = "b" in mode
         if w_name is not None:
             self.w_name = w_name
         self.stream = stream
@@ -229,8 +232,11 @@ class W_File(W_AbstractStream):
             size = space.r_longlong_w(w_size)
         stream.truncate(size)
 
-    @unwrap_spec(data='bufferstr')
-    def direct_write(self, data):
+    def direct_write(self, w_data):
+        space = self.space
+        if not self.binary and space.isinstance_w(w_data, space.w_unicode):
+            w_data = space.call_method(w_data, "encode", space.wrap(self.encoding), space.wrap(self.errors))
+        data = space.bufferstr_w(w_data)
         self.softspace = 0
         self.getstream().write(data)
 
@@ -423,7 +429,7 @@ producing strings. This is equivalent to calling write() for each string."""
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
-            self.file_write(space.str_w(w_line))
+            self.file_write(w_line)
 
     def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""
@@ -510,6 +516,7 @@ Note:  open() is an alias for file().
                               doc = "file mode ('r', 'U', 'w', 'a', "
                                     "possibly with 'b' or '+' added)"),
     encoding = interp_attrproperty('encoding', cls=W_File),
+    errors = interp_attrproperty('errors', cls=W_File),
     closed   = GetSetProperty(descr_file_closed, cls=W_File,
                               doc="True if the file is closed"),
     newlines = GetSetProperty(descr_file_newlines, cls=W_File,
@@ -538,3 +545,9 @@ class FileState:
 
 def getopenstreams(space):
     return space.fromcache(FileState).openstreams
+
+
+@unwrap_spec(file=W_File, encoding="str_or_None", errors="str_or_None")
+def set_file_encoding(space, file, encoding=None, errors=None):
+    file.encoding = encoding
+    file.errors = errors

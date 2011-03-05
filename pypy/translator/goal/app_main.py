@@ -254,6 +254,22 @@ def setup_initial_paths(ignore_environment=False, **extra):
             sys.path.append(dir)
             _seen[dir] = True
 
+def set_io_encoding(io_encoding):
+    try:
+        import _file
+    except ImportError:
+        import ctypes # HACK: while running on top of CPython
+        set_file_encoding = ctypes.pythonapi.PyFile_SetEncodingAndErrors
+        set_file_encoding.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p]
+    else:
+        set_file_encoding = _file.set_file_encoding
+    if ":" in io_encoding:
+        encoding, errors = io_encoding.split(":", 1)
+    else:
+        encoding, errors = io_encoding, None
+    for f in [sys.stdin, sys.stdout, sys.stderr]:
+        set_file_encoding(f, encoding, errors)
+
 # Order is significant!
 sys_flags = (
     "debug",
@@ -447,7 +463,6 @@ def run_command_line(interactive,
     elif not sys.stdout.isatty():
         set_fully_buffered_io()
 
-
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
@@ -458,6 +473,10 @@ def run_command_line(interactive,
             print >> sys.stderr, "'import site' failed"
 
     readenv = not ignore_environment
+    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    if io_encoding:
+        set_io_encoding(io_encoding)
+
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
         warnoptions.extend(pythonwarnings.split(','))
