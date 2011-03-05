@@ -237,6 +237,9 @@ class W_File(W_AbstractStream):
         if not self.binary and space.isinstance_w(w_data, space.w_unicode):
             w_data = space.call_method(w_data, "encode", space.wrap(self.encoding), space.wrap(self.errors))
         data = space.bufferstr_w(w_data)
+        self.do_direct_write(data)
+
+    def do_direct_write(self, data):
         self.softspace = 0
         self.getstream().write(data)
 
@@ -324,7 +327,7 @@ may return an exit status upon closing.""")
         '''fileno() -> integer "file descriptor".
 
 This is needed for lower-level file interfaces, such os.read().''')
-    
+
     _decl(locals(), "flush",
         """flush() -> None.  Flush the internal I/O buffer.""")
 
@@ -409,7 +412,7 @@ optimizations previously implemented in the xreadlines module.""")
             return '?'
         elif self.space.is_true(self.space.isinstance(w_name,
                                                       self.space.w_str)):
-            return "'%s'" % self.space.str_w(w_name) 
+            return "'%s'" % self.space.str_w(w_name)
         else:
             return self.space.str_w(self.space.repr(w_name))
 
