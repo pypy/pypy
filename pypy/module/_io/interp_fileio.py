@@ -1,7 +1,6 @@
 from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty)
-from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.rstring import StringBuilder
@@ -132,13 +131,12 @@ class W_FileIO(W_RawIOBase):
         self.closefd = True
         self.w_name = None
 
-    @unwrap_spec(ObjSpace, W_Root, Arguments)
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_FileIO, w_subtype)
         W_FileIO.__init__(self, space)
         return space.wrap(self)
 
-    @unwrap_spec('self', ObjSpace, W_Root, str, int)
+    @unwrap_spec(mode=str, closefd=int)
     def descr_init(self, space, w_name, mode='r', closefd=True):
         if space.isinstance_w(w_name, space.w_float):
             raise OperationError(space.w_TypeError, space.wrap(
@@ -201,7 +199,7 @@ class W_FileIO(W_RawIOBase):
         else:
             return 'wb'
 
-    def descr_get_mode(space, self):
+    def descr_get_mode(self, space):
         return space.wrap(self._mode())
 
     def _closed(self, space):
@@ -238,7 +236,6 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 
-    @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         if not self.closefd:
             self.fd = -1
@@ -261,7 +258,7 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror2(space, OSError(errno.EISDIR, "fstat"),
                                 w_filename, exception_name='w_IOError')
 
-    @unwrap_spec('self', ObjSpace, r_longlong, int)
+    @unwrap_spec(pos=r_longlong, whence=int)
     def seek_w(self, space, pos, whence=0):
         self._check_closed(space)
         try:
@@ -271,7 +268,6 @@ class W_FileIO(W_RawIOBase):
                                exception_name='w_IOError')
         return space.wrap(pos)
 
-    @unwrap_spec('self', ObjSpace)
     def tell_w(self, space):
         self._check_closed(space)
         try:
@@ -281,17 +277,14 @@ class W_FileIO(W_RawIOBase):
                                exception_name='w_IOError')
         return space.wrap(pos)
 
-    @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         self._check_closed(space)
         return space.wrap(self.readable)
 
-    @unwrap_spec('self', ObjSpace)
     def writable_w(self, space):
         self._check_closed(space)
         return space.wrap(self.writable)
 
-    @unwrap_spec('self', ObjSpace)
     def seekable_w(self, space):
         self._check_closed(space)
         if self.seekable < 0:
@@ -305,12 +298,10 @@ class W_FileIO(W_RawIOBase):
 
     # ______________________________________________
 
-    @unwrap_spec('self', ObjSpace)
     def fileno_w(self, space):
         self._check_closed(space)
         return space.wrap(self.fd)
 
-    @unwrap_spec('self', ObjSpace)
     def isatty_w(self, space):
         self._check_closed(space)
         try:
@@ -319,7 +310,6 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e, exception_name='w_IOError')
         return space.wrap(res)
 
-    @unwrap_spec('self', ObjSpace)
     def repr_w(self, space):
         if self.fd < 0:
             return space.wrap("<_io.FileIO [closed]>")
@@ -336,7 +326,6 @@ class W_FileIO(W_RawIOBase):
 
     # ______________________________________________
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._check_closed(space)
         self._check_writable(space)
@@ -350,7 +339,6 @@ class W_FileIO(W_RawIOBase):
 
         return space.wrap(n)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         self._check_readable(space)
@@ -367,7 +355,6 @@ class W_FileIO(W_RawIOBase):
 
         return space.wrap(s)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
         self._check_readable(space)
@@ -381,7 +368,6 @@ class W_FileIO(W_RawIOBase):
         rwbuffer.setslice(0, buf)
         return space.wrap(len(buf))
 
-    @unwrap_spec('self', ObjSpace)
     def readall_w(self, space):
         self._check_closed(space)
         self._check_readable(space)
@@ -416,7 +402,6 @@ class W_FileIO(W_RawIOBase):
         def _truncate(self, size):
             os.ftruncate(self.fd, size)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
         self._check_writable(space)

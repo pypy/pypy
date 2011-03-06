@@ -3,10 +3,10 @@ from pypy.jit.codewriter.flatten import Register, Label, TLabel, KINDS
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter.format import format_assembler
 from pypy.jit.codewriter.jitcode import SwitchDictDescr, JitCode
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.objectmodel import ComputedIntSymbolic
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rffi
 
 
 class AssemblerError(Exception):
@@ -87,7 +87,11 @@ class Assembler(object):
             value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
             constants = self.constants_r
         elif kind == 'float':
-            assert const.concretetype == lltype.Float
+            if const.concretetype == lltype.Float:
+                value = longlong.getfloatstorage(value)
+            else:
+                assert longlong.is_longlong(const.concretetype)
+                value = rffi.cast(lltype.SignedLongLong, value)
             constants = self.constants_f
         else:
             raise AssemblerError('unimplemented %r in %r' %

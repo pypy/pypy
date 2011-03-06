@@ -3,12 +3,11 @@ Interp-level implementation of the basic space operations.
 """
 
 from pypy.interpreter import gateway
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.runicode import UNICHR
-from pypy.rlib.rarithmetic import isnan, isinf
+from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
 import math
 import __builtin__
@@ -27,6 +26,7 @@ def chr(space, w_ascii):
                              space.wrap("character code not in range(256)"))
     return space.wrap(char)
 
+@unwrap_spec(code=int)
 def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     # XXX range checking!
@@ -36,7 +36,6 @@ def unichr(space, code):
         raise OperationError(space.w_ValueError,
                              space.wrap("unichr() arg out of range"))
     return space.wrap(c)
-unichr.unwrap_spec = [ObjSpace, int]
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
@@ -128,6 +127,7 @@ def _issubtype(space, w_cls1, w_cls2):
 NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
 NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
+@unwrap_spec(number=float)
 def round(space, number, w_ndigits=0):
     """round(number[, ndigits]) -> floating point number
 
@@ -151,38 +151,12 @@ This always returns a floating point number.  Precision may be negative."""
         # return 0.0, but with sign of x
         return space.wrap(0.0 * number)
 
-    if ndigits >= 0:
-        if ndigits > 22:
-            # pow1 and pow2 are each safe from overflow, but
-            # pow1*pow2 ~= pow(10.0, ndigits) might overflow
-            pow1 = math.pow(10.0, ndigits - 22)
-            pow2 = 1e22
-        else:
-            pow1 = math.pow(10.0, ndigits)
-            pow2 = 1.0
-
-        y = (number * pow1) * pow2
-        # if y overflows, then rounded value is exactly x
-        if isinf(y):
-            return space.wrap(number)
-
-    else:
-        pow1 = math.pow(10.0, -ndigits);
-        pow2 = 1.0 # unused; for translation
-        y = number / pow1
-
-    if y >= 0.0:
-        z = math.floor(y + 0.5)
-    else:
-        z = math.ceil(y - 0.5)
-
-    if ndigits >= 0:
-        z = (z / pow2) / pow1
-    else:
-        z *= pow1
+    # finite x, and ndigits is not unreasonably large
+    z = round_double(number, ndigits)
+    if isinf(z):
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("rounded value too large to represent"))
     return space.wrap(z)
-#
-round.unwrap_spec = [ObjSpace, float, W_Root]
 
 # ____________________________________________________________
 
@@ -262,8 +236,6 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
-def format(space, w_obj, w_format_spec=NoneNotWrapped):
+def format(space, w_obj, w_format_spec=""):
     """Format a obj according to format_spec"""
-    if w_format_spec is None:
-        w_format_spec = space.wrap("")
     return space.format(w_obj, w_format_spec)

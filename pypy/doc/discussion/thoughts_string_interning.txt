@@ -1,5 +1,5 @@
 String Interning in PyPy
-===========================
+========================
 
 A few thoughts about string interning. CPython gets a remarkable
 speed-up by interning strings. Interned are all builtin string
@@ -8,8 +8,8 @@ a string lookup is done during instance attribute access,
 the dict lookup method will find the string always by identity,
 saving the need to do a string comparison.
 
-Interned Srings in CPython
---------------------------
+Interned Strings in CPython
+---------------------------
 
 CPython keeps an internal dictionary named ``interned`` for all of these
 strings. It contains the string both as key and as value, which means
@@ -73,7 +73,7 @@ the strings immortal and support mortality later when we have a cheap
 way to express this (less refcount, exclusion from Boehm, whatever).
 
 A prototype brute-force patch
---------------------------------
+-----------------------------
 
 In order to get some idea how efficient string interning is at the moment,
 I implemented a quite crude version of interning. I patched space.wrap
@@ -137,7 +137,7 @@ Here the results of the richards benchmark::
   D:\pypy\dist\pypy\translator\goal>
 
 
-This was just an exercize to get an idea. For sure this is not to be checked in.
+This was just an exercise to get an idea. For sure this is not to be checked in.
 Instead, I'm attaching the simple patch here for reference.
 ::
 

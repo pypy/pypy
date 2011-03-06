@@ -14,12 +14,14 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.objspace.std.stringtype import wrapchar
 
 from pypy.rlib import rope
-from pypy.objspace.std.stringobject import mod__String_ANY as mod__Rope_ANY,\
-    _upper, _lower, DEFAULT_NOOP_TABLE
+from pypy.objspace.std.stringobject import (
+    mod__String_ANY as mod__Rope_ANY,
+    str_format__String as str_format__Rope,
+    _upper, _lower, DEFAULT_NOOP_TABLE)
 
 class W_RopeObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['_node']
 
     def __init__(w_self, node):
         if not we_are_translated():
@@ -837,11 +839,10 @@ def str_translate__Rope_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     remaining characters have been mapped through the given translation table,
     which must be a string of length 256"""
 
-    # XXX CPython accepts buffers, too, not sure what we should do
     if space.is_w(w_table, space.w_None):
         table = DEFAULT_NOOP_TABLE
     else:
-        table = space.str_w(w_table)
+        table = space.bufferstr_w(w_table)
         if len(table) != 256:
             raise OperationError(
                 space.w_ValueError,

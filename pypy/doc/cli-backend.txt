@@ -14,7 +14,7 @@ as defined by the `Standard Ecma 335`_.
 
 While in an ideal world we might suppose GenCLI to run fine with
 every implementation conforming to that standard, we know the world we
-live in is far from ideal, so extra efforts can be needed to mantain
+live in is far from ideal, so extra efforts can be needed to maintain
 compatibility with more than one implementation.
 
 At the moment of writing the two most popular implementations of the
@@ -84,7 +84,7 @@ module: it defines an abstract class which exposes some methods
 returning the name of the helpers and one subclass for each of the two
 supported platforms.
 
-Since Microfost ``ilasm`` is not capable of compiling the PyPy
+Since Microsoft ``ilasm`` is not capable of compiling the PyPy
 standard interpreter due to its size, on Windows machines we also look
 for an existing Mono installation: if present, we use CLR for
 everything except the assembling phase, for which we use Mono's
@@ -132,7 +132,7 @@ distinct types for plain ASCII and Unicode characters (named UniChar),
 while .NET only supports Unicode with the char type. There are at
 least two ways to map plain Char to CTS:
 
-  - map UniChar to char, thus mantaining the original distinction
+  - map UniChar to char, thus maintaining the original distinction
     between the two types: this has the advantage of being a
     one-to-one translation, but has the disadvantage that RPython
     strings will not be recognized as .NET strings, since they only
@@ -234,7 +234,7 @@ CLI ones: this worked for simple cases, but it would have triggered
 subtle bugs in more complex ones, because the two exception
 hierarchies don't completely overlap.
 
-At the moment we've choosen to build an RPython exception hierarchy
+At the moment we've chosen to build an RPython exception hierarchy
 completely independent from the CLI one, but this means that we can't
 rely on exceptions raised by built-in operations.  The currently
 implemented solution is to do an exception translation on-the-fly.
@@ -242,7 +242,7 @@ implemented solution is to do an exception translation on-the-fly.
 As an example consider the RPython int_add_ovf operation, that sums
 two integers and raises an OverflowError exception in case of
 overflow. For implementing it we can use the built-in add.ovf CLI
-instruction that raises System.OverflowExcepion when the result
+instruction that raises System.OverflowException when the result
 overflows, catch that exception and throw a new one::
 
     .try 
@@ -267,7 +267,7 @@ As we saw previously in PyPy function and method bodies are
 represented by flow graphs that we need to translate CLI IL code. Flow
 graphs are expressed in a format that is very suitable for being
 translated to low level code, so that phase is quite straightforward,
-though the code is a bit involed because we need to take care of three
+though the code is a bit involved because we need to take care of three
 different types of blocks.
 
 The code doing this work is located in the Function.render
@@ -278,7 +278,7 @@ each block; once they are collected it emits a .local IL
 statement used for indicating the virtual machine the number and type
 of local variables used.
 
-Then it sequentally renders all blocks in the graph, starting from the
+Then it sequentially renders all blocks in the graph, starting from the
 start block; special care is taken for the return block which is
 always rendered at last to meet CLI requirements.
 

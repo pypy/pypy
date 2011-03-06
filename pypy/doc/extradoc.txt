@@ -323,7 +323,7 @@ Related projects
 * Jython_ is a Python implementation in Java.
 
 * IronPython_ a new Python implementation compiling Python into 
-  Microsofts Common Language Runtime (CLR) Intermediate Language (IL).
+  Microsoft's Common Language Runtime (CLR) Intermediate Language (IL).
 
 * Tunes_ is not entirely unrelated.  The web site changed a lot, but a
   snapshot of the `old Tunes Wiki`_ is available on codespeak; browsing

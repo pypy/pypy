@@ -7,12 +7,12 @@ import sys
 
 class Module(MixedModule):
     appleveldefs = {
-        'error': 'app_select.error',
     }
 
     interpleveldefs = {
         'poll'  : 'interp_select.poll',
         'select': 'interp_select.select',
+        'error' : 'space.fromcache(interp_select.Cache).w_error'
     }
 
     # TODO: this doesn't feel right...

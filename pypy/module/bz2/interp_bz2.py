@@ -6,7 +6,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app, Arguments
+from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
 from pypy.rlib.streamio import Stream
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform as compiler
@@ -246,6 +246,7 @@ class W_BZ2File(W_File):
             raise operationerrfmt(space.w_ValueError,
                                   "invalid mode: '%s'", mode)
 
+    @unwrap_spec(mode=str, buffering=int, compresslevel=int)
     def direct_bz2__init__(self, w_name, mode='r', buffering=-1,
                            compresslevel=9):
         self.direct_close()
@@ -259,8 +260,8 @@ class W_BZ2File(W_File):
         self.fdopenstream(stream, fd, mode, w_name)
 
     _exposed_method_names = []
-    W_File._decl.im_func(locals(), "bz2__init__", ['self', W_Root, str, int, int],
-          """Opens a BZ2-compressed file.""")
+    W_File._decl.im_func(locals(), "bz2__init__",
+                         """Opens a BZ2-compressed file.""")
     # XXX ^^^ hacking hacking... can't just use the name "__init__" again
     # because the RTyper is confused about the two direct__init__() with
     # a different signature, confusion caused by the fact that
@@ -278,19 +279,17 @@ class W_BZ2File(W_File):
         info = "%s bz2.BZ2File %s, mode '%s'" % (head, self.getdisplayname(),
                                                  self.mode)
         return self.getrepr(self.space, info)
-    file_bz2__repr__.unwrap_spec = ['self']
 
-def descr_bz2file__new__(space, w_subtype, args):
+def descr_bz2file__new__(space, w_subtype, __args__):
     bz2file = space.allocate_instance(W_BZ2File, w_subtype)
     W_BZ2File.__init__(bz2file, space)
     return space.wrap(bz2file)
-descr_bz2file__new__.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
 same_attributes_as_in_file = list(W_File._exposed_method_names)
 same_attributes_as_in_file.remove('__init__')
 same_attributes_as_in_file.extend([
     'name', 'mode', 'encoding', 'closed', 'newlines', 'softspace',
-    '__weakref__'])
+    'writelines', '__exit__', '__weakref__'])
 
 W_BZ2File.typedef = TypeDef(
     "BZ2File",
@@ -485,12 +484,12 @@ class WriteBZ2Filter(Stream):
     def try_to_find_file_descriptor(self):
         return self.stream.try_to_find_file_descriptor()
 
+@unwrap_spec(compresslevel=int)
 def descr_compressor__new__(space, w_subtype, compresslevel=9):
     x = space.allocate_instance(W_BZ2Compressor, w_subtype)
     x = space.interp_w(W_BZ2Compressor, x)
     W_BZ2Compressor.__init__(x, space, compresslevel)
     return space.wrap(x)
-descr_compressor__new__.unwrap_spec = [ObjSpace, W_Root, int]
 
 class W_BZ2Compressor(Wrappable):
     """BZ2Compressor([compresslevel=9]) -> compressor object
@@ -504,7 +503,6 @@ class W_BZ2Compressor(Wrappable):
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
         self.running = False
         self._init_bz2comp(compresslevel)
-    __init__.unwrap_spec = ['self', ObjSpace, int]
         
     def _init_bz2comp(self, compresslevel):
         if compresslevel < 1 or compresslevel > 9:
@@ -521,6 +519,7 @@ class W_BZ2Compressor(Wrappable):
         BZ2_bzCompressEnd(self.bzs)
         lltype.free(self.bzs, flavor='raw')
     
+    @unwrap_spec(data='bufferstr')
     def compress(self, data):
         """compress(data) -> string
 
@@ -561,8 +560,6 @@ class W_BZ2Compressor(Wrappable):
 
                 res = out.make_result_string()
                 return self.space.wrap(res)
-
-    compress.unwrap_spec = ['self', 'bufferstr']
     
     def flush(self):
         if not self.running:
@@ -583,7 +580,6 @@ class W_BZ2Compressor(Wrappable):
 
             res = out.make_result_string()
             return self.space.wrap(res)
-    flush.unwrap_spec = ['self']
 
 W_BZ2Compressor.typedef = TypeDef("BZ2Compressor",
     __doc__ = W_BZ2Compressor.__doc__,
@@ -598,7 +594,6 @@ def descr_decompressor__new__(space, w_subtype):
     x = space.interp_w(W_BZ2Decompressor, x)
     W_BZ2Decompressor.__init__(x, space)
     return space.wrap(x)
-descr_decompressor__new__.unwrap_spec = [ObjSpace, W_Root]
 
 class W_BZ2Decompressor(Wrappable):
     """BZ2Decompressor() -> decompressor object
@@ -626,7 +621,8 @@ class W_BZ2Decompressor(Wrappable):
     def __del__(self):
         BZ2_bzDecompressEnd(self.bzs)
         lltype.free(self.bzs, flavor='raw')
-    
+
+    @unwrap_spec(data='bufferstr')
     def decompress(self, data):
         """decompress(data) -> string
 
@@ -673,8 +669,6 @@ class W_BZ2Decompressor(Wrappable):
                 res = out.make_result_string()
                 return self.space.wrap(res)
 
-    decompress.unwrap_spec = ['self', 'bufferstr']
-
 
 W_BZ2Decompressor.typedef = TypeDef("BZ2Decompressor",
     __doc__ = W_BZ2Decompressor.__doc__,
@@ -684,6 +678,7 @@ W_BZ2Decompressor.typedef = TypeDef("BZ2Decompressor",
 )
 
 
+@unwrap_spec(data='bufferstr', compresslevel=int)
 def compress(space, data, compresslevel=9):
     """compress(data [, compresslevel=9]) -> string
 
@@ -727,8 +722,8 @@ def compress(space, data, compresslevel=9):
                 res = out.make_result_string()
                 BZ2_bzCompressEnd(bzs)
                 return space.wrap(res)
-compress.unwrap_spec = [ObjSpace, 'bufferstr', int]
 
+@unwrap_spec(data='bufferstr')
 def decompress(space, data):
     """decompress(data) -> decompressed data
 
@@ -769,4 +764,3 @@ def decompress(space, data):
                 res = out.make_result_string()
                 BZ2_bzDecompressEnd(bzs)
                 return space.wrap(res)
-decompress.unwrap_spec = [ObjSpace, 'bufferstr']

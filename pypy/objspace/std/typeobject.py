@@ -408,6 +408,18 @@ class W_TypeObject(W_Object):
                 return w_self.dict_w['__module__']
             return space.wrap('__builtin__')
 
+    def get_module_type_name(w_self):
+        space = w_self.space
+        w_mod = w_self.get_module()
+        if not space.is_true(space.isinstance(w_mod, space.w_str)):
+            mod = '__builtin__'
+        else:
+            mod = space.str_w(w_mod)
+        if mod !='__builtin__':
+            return '%s.%s' % (mod, w_self.name)
+        else:
+            return w_self.name
+
     def add_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:
@@ -599,12 +611,14 @@ def create_slot(w_self, slot_name):
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
-        w_self.dict_w['__dict__'] = w_self.space.wrap(std_dict_descr)
+        w_self.dict_w.setdefault('__dict__',
+                                 w_self.space.wrap(std_dict_descr))
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
-        w_self.dict_w['__weakref__'] = w_self.space.wrap(weakref_descr)
+        w_self.dict_w.setdefault('__weakref__',
+                                 w_self.space.wrap(weakref_descr))
         w_self.weakrefable = True
 
 def valid_slot_name(slot_name):

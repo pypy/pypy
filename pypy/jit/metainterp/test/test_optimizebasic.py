@@ -3352,6 +3352,8 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []        
         i2 = int_sub(i0, 10)
         i3 = int_lt(i2, -5)
         guard_true(i3) []
@@ -3361,6 +3363,8 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []        
         i2 = int_sub(i0, 10)
         jump(i0)
         """
@@ -3604,7 +3608,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_false(i2) []
         i3 = int_add(i1, 1)
         i331 = force_token()
-        setfield_gc(p0, i1, descr=valuedescr)
         jump(p0, i22)
         """
         self.optimize_loop(ops, expected)
@@ -3709,7 +3712,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_no_overflow() []
         i2 = int_gt(i1, 1)
         guard_true(i2) []
-        i3 = int_sub(1, i0)
         jump(i0)
         """
         self.optimize_loop(ops, expected)

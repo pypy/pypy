@@ -90,7 +90,7 @@ class FakeBuiltinCallControl:
         self.callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'builtin'
-    def getcalldescr(self, op, oopspecindex=None):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
         assert oopspecindex is not None    # in this test
         EI = effectinfo.EffectInfo
         if oopspecindex != EI.OS_ARRAYCOPY:
@@ -116,6 +116,10 @@ class FakeBuiltinCallControl:
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
             assert argtypes[1] == op.result.concretetype
+            if oopspecindex == EI.OS_STR2UNICODE:
+                assert extraeffect == None    # not pure, can raise!
+            else:
+                assert extraeffect == EI.EF_PURE
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
@@ -722,18 +726,19 @@ def test_jit_merge_point_1():
     tr = Transformer()
     tr.portal_jd = jd
     oplist = tr.rewrite_operation(op)
-    assert len(oplist) == 6
+    assert len(oplist) == 7
     assert oplist[0].opname == '-live-'
     assert oplist[1].opname == 'int_guard_value'
     assert oplist[1].args   == [v1]
     assert oplist[2].opname == '-live-'
     assert oplist[3].opname == 'int_guard_value'
     assert oplist[3].args   == [v2]
-    assert oplist[4].opname == 'jit_merge_point'
-    assert oplist[4].args[0].value == 42
-    assert list(oplist[4].args[1]) == [v1, v2]
-    assert list(oplist[4].args[4]) == [v3, v4]
-    assert oplist[5].opname == '-live-'
+    assert oplist[4].opname == '-live-'
+    assert oplist[5].opname == 'jit_merge_point'
+    assert oplist[5].args[0].value == 42
+    assert list(oplist[5].args[1]) == [v1, v2]
+    assert list(oplist[5].args[4]) == [v3, v4]
+    assert oplist[6].opname == '-live-'
 
 def test_getfield_gc():
     S = lltype.GcStruct('S', ('x', lltype.Char))

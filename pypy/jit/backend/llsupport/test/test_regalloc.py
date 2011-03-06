@@ -16,9 +16,12 @@ def boxes_and_longevity(num):
     return res, longevity
 
 class FakeReg(object):
-    pass
+    def __init__(self, i):
+        self.n = i
+    def __repr__(self):
+        return 'r%d' % self.n
 
-r0, r1, r2, r3 = [FakeReg() for _ in range(4)]
+r0, r1, r2, r3 = [FakeReg(i) for i in range(4)]
 regs = [r0, r1, r2, r3]
 
 class RegisterManager(BaseRegMan):
@@ -326,3 +329,21 @@ class TestRegalloc(object):
         assert fm.frame_depth == 3
         
         
+
+    def test_spilling(self):
+        b0, b1, b2, b3, b4, b5 = newboxes(0, 1, 2, 3, 4, 5)
+        longevity = {b0: (0, 3), b1: (0, 3), b3: (0, 5), b2: (0, 2), b4: (1, 4), b5: (1, 3)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        for b in b0, b1, b2, b3:
+            rm.force_allocate_reg(b)
+        assert len(rm.free_regs) == 0
+        rm.next_instruction()
+        loc = rm.loc(b3)
+        spilled = rm.force_allocate_reg(b4)
+        assert spilled is loc
+        spilled2 = rm.force_allocate_reg(b5)
+        assert spilled2 is loc
+        rm._check_invariants()

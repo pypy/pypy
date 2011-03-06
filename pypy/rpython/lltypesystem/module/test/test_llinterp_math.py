@@ -5,7 +5,7 @@
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
 from pypy.rpython.lltypesystem.module import ll_math
 import math
-from pypy.rlib import rarithmetic
+from pypy.rlib import rfloat
 
 # XXX no OORtypeMixin here
 
@@ -15,7 +15,7 @@ class TestMath(BaseRtypingTest, LLRtypeMixin):
             fn = getattr(math, name)
             assert_exact = True
         except AttributeError:
-            fn = getattr(rarithmetic, name)
+            fn = getattr(rfloat, name)
             assert_exact = False
         if name == 'acosh':
             value = 1.3     # acosh(x) is only defined for x >= 1.0

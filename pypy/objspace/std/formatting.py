@@ -2,11 +2,12 @@
 String formatting routines.
 """
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import (
-    ovfcheck, formatd_overflow, DTSF_ALT, isnan, isinf)
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.objspace.std.unicodetype import unicode_from_object
 
 class BaseStringFormatter(object):
     def __init__(self, space, values_w, w_valuedict):
@@ -142,11 +143,7 @@ class BaseStringFormatter(object):
             flags = 0
             if self.f_alt:
                 flags |= DTSF_ALT
-            try:
-                r = formatd_overflow(x, char, prec, self.f_alt)
-            except OverflowError:
-                raise OperationError(space.w_OverflowError, space.wrap(
-                    "formatted float is too long (precision too large?)"))
+            r = formatd(x, char, prec, flags)
         self.std_wp_number(r)
 
     def std_wp_number(self, r, prefix=''):
@@ -434,6 +431,8 @@ def make_formatter_subclass(do_unicode):
             else:
                 if not got_unicode:
                     w_value = space.call_function(space.w_unicode, w_value)
+                else:
+                    w_value = unicode_from_object(space, w_value)
                 s = space.unicode_w(w_value)
             self.std_wp(s)
 
@@ -552,5 +551,3 @@ def format_num_helper_generator(fmt, digits):
 int_num_helper = format_num_helper_generator('%d', '0123456789')
 oct_num_helper = format_num_helper_generator('%o', '01234567')
 hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef')
-
-

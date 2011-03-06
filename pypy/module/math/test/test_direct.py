@@ -2,8 +2,8 @@
 """
 
 import py, sys, math
-from pypy.rlib import rarithmetic
-from pypy.rlib.rarithmetic import isinf, isnan, INFINITY, NAN
+from pypy.rlib import rfloat
+from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
 consistent_host = True
 if '__pypy__' not in sys.builtin_module_names:
@@ -75,6 +75,8 @@ class MathTests:
         ('asin', (-INFINITY,), ValueError),
         ('atan', (INFINITY,), math.pi / 2),
         ('atan', (-INFINITY,), -math.pi / 2),
+        ('atanh', (INFINITY,), ValueError),
+        ('atanh', (-INFINITY,), ValueError),
         ('ceil', (INFINITY,), positiveinf),
         ('ceil', (-INFINITY,), negativeinf),
         ('cos', (INFINITY,), ValueError),
@@ -227,7 +229,7 @@ def make_test_case((fnname, args, expected), dict):
         try:
             fn = getattr(math, fnname)
         except AttributeError:
-            fn = getattr(rarithmetic, fnname)
+            fn = getattr(rfloat, fnname)
         do_test(fn, fnname, args, expected)
     #
     dict[fnname] = dict.get(fnname, 0) + 1

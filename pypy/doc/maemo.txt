@@ -70,7 +70,7 @@ can be controlled via::
 Installing the Maemo SDK 
 +++++++++++++++++++++++++++++++
 
-To mimick the specific N810_ environment we now install the Maemo-SDK.  
+To mimic the specific N810_ environment we now install the Maemo-SDK.  
 This will create an target within our new scratchbox environment 
 that we then use to compile PyPy.  
 
@@ -81,7 +81,7 @@ Then, download
 
    http://repository.maemo.org/stable/diablo/maemo-sdk-install_4.1.1.sh
 
-and execute it with user priviliges::
+and execute it with user privileges::
 
    $ sh maemo-sdk-install_4.1.1.sh
 
@@ -115,7 +115,7 @@ into our Scratchbox target environment.
 
 3. Perform ``apt-get update``.
 
-4. Install some neccessary packages::
+4. Install some necessary packages::
 
      apt-get install python2.5-dev libffi4-dev zlib1g-dev libbz2-dev libgc-dev libncurses5-dev 
 
@@ -152,7 +152,7 @@ When this step succeeds, your ``goal`` directory will contain a binary called
 ``pypy-c`` which is executable on the Maemo device. To run this binary
 on your device you need to also copy some support files. A good way to 
 perform copies to your device is to install OpenSSH on the
-mobile device and use "scp" or rsync for transfering files.
+mobile device and use "scp" or rsync for transferring files.
 
 You can just copy your whole pypy-trunk directory over to your mobile 
 device - however, only these should be needed::
@@ -161,7 +161,7 @@ device - however, only these should be needed::
     lib/pypy1.2/lib-python
     pypy/translator/goal/pypy-c
 
-It is neccessary that the ``pypy-c`` can find a "lib-python" and "lib_pypy" directory
+It is necessary that the ``pypy-c`` can find a "lib-python" and "lib_pypy" directory
 if you want to successfully startup the interpreter on the device. 
 
 Start ``pypy-c`` on the device. If you see an error like "setupterm: could not find terminal" 

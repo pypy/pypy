@@ -8,6 +8,14 @@ class AppTestBytesIO:
         import _io
         raises(TypeError, _io.BytesIO, u"12345")
 
+    def test_init_kwargs(self):
+        import _io
+
+        buf = "1234567890"
+        b = _io.BytesIO(initial_bytes=buf)
+        assert b.read() == buf
+        raises(TypeError, _io.BytesIO, buf, foo=None)
+
     def test_capabilities(self):
         import _io
         f = _io.BytesIO()
@@ -59,3 +67,14 @@ class AppTestBytesIO:
         assert f.read() == "ld"
         assert f.a == 1
         assert f.__getstate__() == ("world", 5, {"a": 1})
+        raises(TypeError, f.__setstate__, ("", 0))
+        f.close()
+        raises(ValueError, f.__getstate__)
+        raises(ValueError, f.__setstate__, ("world", 3, {"a": 1}))
+
+    def test_readinto(self):
+        import _io
+
+        b = _io.BytesIO("hello")
+        b.close()
+        raises(ValueError, b.readinto, bytearray("hello"))

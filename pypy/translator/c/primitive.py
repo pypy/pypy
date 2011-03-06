@@ -1,7 +1,8 @@
 import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import r_longlong, isinf, isnan
+from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rfloat import isinf, isnan
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rffi, llgroup
 from pypy.rpython.lltypesystem.llmemory import Address, \
@@ -120,7 +121,7 @@ def name_char(value, db):
     if ' ' <= value < '\x7f':
         return "'%s'" % (value.replace("\\", r"\\").replace("'", r"\'"),)
     else:
-        return '%d' % ord(value)
+        return '((char)%d)' % ord(value)
 
 def name_bool(value, db):
     return '%d' % value
@@ -130,7 +131,7 @@ def name_void(value, db):
 
 def name_unichar(value, db):
     assert type(value) is unicode and len(value) == 1
-    return '%d' % ord(value)
+    return '((wchar_t)%d)' % ord(value)
 
 def name_address(value, db):
     if value:

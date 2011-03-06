@@ -107,7 +107,7 @@ the entire project and the results with the Just In Time Compiler
 Generator in particular. He offered his help in establishing
 collaborations with the communities around Prolog, Smalltalk, Lisp and
 other dynamic languages, as well as giving hints on how to get our
-results most widely pubicized.
+results most widely publicized.
 
 The preparations for the review left the team rather exhausted so
 development progress will be rather slow until the sprint at

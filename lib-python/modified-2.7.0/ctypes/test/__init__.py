@@ -211,9 +211,9 @@ def xfail(method):
     """
     Poor's man xfail: remove it when all the failures have been fixed
     """
-    def new_method(self):
+    def new_method(self, *args, **kwds):
         try:
-            method(self)
+            method(self, *args, **kwds)
         except:
             pass
         else:

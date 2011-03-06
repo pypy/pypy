@@ -1070,7 +1070,7 @@ class RecursiveTests:
         assert portal(0, 1) == 2095
         res = self.meta_interp(portal, [0, 1], inline=True)
         assert res == 2095
-        self.check_loops(call_assembler=6, everywhere=True)
+        self.check_loops(call_assembler=12, everywhere=True)
 
     def test_inline_with_hitting_the_loop_sometimes_exc(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
@@ -1108,7 +1108,7 @@ class RecursiveTests:
         assert main(0, 1) == 2095
         res = self.meta_interp(main, [0, 1], inline=True)
         assert res == 2095
-        self.check_loops(call_assembler=6, everywhere=True)
+        self.check_loops(call_assembler=12, everywhere=True)
 
     def test_handle_jitexception_in_portal(self):
         # a test for _handle_jitexception_in_portal in blackhole.py

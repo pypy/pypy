@@ -158,7 +158,13 @@ class AbstractInstanceRepr(Repr):
         pass
 
     def _check_for_immutable_hints(self, hints):
-        if self.classdef.classdesc.lookup('_immutable_') is not None:
+        loc = self.classdef.classdesc.lookup('_immutable_')
+        if loc is not None:
+            if loc is not self.classdef.classdesc:
+                raise ImmutableConflictError(
+                    "class %r inherits from its parent _immutable_=True, "
+                    "so it should also declare _immutable_=True" % (
+                    self.classdef,))
             hints = hints.copy()
             hints['immutable'] = True
         self.immutable_field_list = []  # unless overwritten below

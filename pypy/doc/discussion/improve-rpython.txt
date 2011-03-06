@@ -4,7 +4,7 @@ Possible improvements of the rpython language
 Improve the interpreter API
 ---------------------------
 
-- Rationalize the modules, and the names, of the differents functions needed to
+- Rationalize the modules, and the names, of the different functions needed to
   implement a pypy module. A typical rpython file is likely to contain many
   `import` statements::
 
@@ -34,7 +34,7 @@ RPython language
 ----------------
 
 - Arithmetic with unsigned integer, and between integer of different signedness,
-  when this is not ambiguous.  At least, comparison and assignement with
+  when this is not ambiguous.  At least, comparison and assignment with
   constants should be allowed.
 
 - Allocate variables on the stack, and pass their address ("by reference") to

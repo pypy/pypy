@@ -714,16 +714,41 @@ class TestECCompiler(BaseTestCompiler):
 
 class AppTestCompiler:
 
+    def test_values_of_different_types(self):
+        exec "a = 0; b = 0L; c = 0.0; d = 0j"
+        assert type(a) is int
+        assert type(b) is long
+        assert type(c) is float
+        assert type(d) is complex
+
+    def test_values_of_different_types_in_tuples(self):
+        exec "a = ((0,),); b = ((0L,),); c = ((0.0,),); d = ((0j,),)"
+        assert type(a[0][0]) is int
+        assert type(b[0][0]) is long
+        assert type(c[0][0]) is float
+        assert type(d[0][0]) is complex
+
     def test_zeros_not_mixed(self):
         import math
         code = compile("x = -0.0; y = 0.0", "<test>", "exec")
         consts = code.co_consts
-        assert len(consts) == 3
-        assert math.copysign(1, consts[0]) != math.copysign(1, consts[1])
+        x, y, z = consts
+        assert isinstance(x, float) and isinstance(y, float)
+        assert math.copysign(1, x) != math.copysign(1, y)
         ns = {}
         exec "z1, z2 = 0j, -0j" in ns
         assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)
         assert math.atan2(ns["z2"].imag, -1.) == math.atan2(-0., -1.)
+
+    def test_zeros_not_mixed_in_tuples(self):
+        import math
+        exec "a = (0.0, 0.0); b = (-0.0, 0.0); c = (-0.0, -0.0)"
+        assert math.copysign(1., a[0]) == 1.0
+        assert math.copysign(1., a[1]) == 1.0
+        assert math.copysign(1., b[0]) == -1.0
+        assert math.copysign(1., b[1]) == 1.0
+        assert math.copysign(1., c[0]) == -1.0
+        assert math.copysign(1., c[1]) == -1.0
 
 
 ##class TestPythonAstCompiler(BaseTestCompiler):

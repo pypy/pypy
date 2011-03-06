@@ -13,10 +13,10 @@ Business Logic
 We define Business Logic as expressing consistency (as an example) on
 a set of objects in a business application.
 
-For exeample checking the consistency of a calculation before
+For example checking the consistency of a calculation before
 committing the changes.
 
-The domain is quite rich in example of uses of Busines Logic.
+The domain is quite rich in example of uses of Business Logic.
 
 Datamining
 ===========
@@ -26,7 +26,7 @@ An example is Genetic sequence matching.
 Databases
 =========
 
-Validity contraints for the data can be expressed as constraints.
+Validity constraints for the data can be expressed as constraints.
 
 Constraints can be used to perform type inference when querying the
 database.
@@ -34,7 +34,7 @@ database.
 Semantic web
 =============
 
-The use case is like the database case, except the ontology langauge
+The use case is like the database case, except the ontology language
 it self is born out of Descriptive Logic
 
 
@@ -50,8 +50,8 @@ colour).
 Configuration
 ==============
 
-User configuration can use information infered from : the current
-user, current plantform , version requirements, ...
+User configuration can use information inferred from : the current
+user, current platforms , version requirements, ...
 
 The validity of the configuration can be checked with the constraints.
 
@@ -61,15 +61,15 @@ Scheduling and planning
 
 Timetables, process scheduling, task scheduling.
 
-Use rules to determin when to execute tasks (only start batch, if load
+Use rules to determine when to execute tasks (only start batch, if load
 is low, and previous batch is finished.
 
 Load sharing.
 
-Route optimisation. Planning the routes of a technitian based on tools
+Route optimization. Planning the routes of a technician based on tools
 needed and such
 
-An example is scheduling a confenre like Europython see:
+An example is scheduling a conference like Europython see:
 
 http://lists.logilab.org/pipermail/python-logic/2005-May/000107.html
 

@@ -19,9 +19,11 @@ class CompilationError(Exception):
 
     def __repr__(self):
         if self.err:
-            return "<CompilationError err=%s>" % py.io.saferepr(self.err)
+            attr = 'err'
         else:
-            return "<CompilationError out=%s>" % py.io.saferepr(self.out)
+            attr = 'out'
+        text = getattr(self, attr).replace('\n', '\n\t')
+        return 'CompilationError(%s="""\n\t%s""")' % (attr, text)
 
     __str__ = __repr__
 
@@ -115,9 +117,9 @@ class Platform(object):
         args = cclist[1:] + args
         returncode, stdout, stderr = _run_subprocess(cc, args, self.c_environ,
                                                      cwd)
-        self._handle_error(returncode, stderr, stdout, outname)
+        self._handle_error(returncode, stdout, stderr, outname)
 
-    def _handle_error(self, returncode, stderr, stdout, outname):
+    def _handle_error(self, returncode, stdout, stderr, outname):
         if returncode != 0:
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, 'wb')

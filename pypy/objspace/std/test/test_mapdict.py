@@ -366,7 +366,6 @@ def test_setdict():
 
 def test_specialized_class():
     from pypy.objspace.std.objectobject import W_ObjectObject
-    from pypy.rlib import rerased
     classes = memo_get_subclass_of_correct_size(space, W_ObjectObject)
     w1 = W_Root()
     w2 = W_Root()
@@ -379,12 +378,12 @@ def test_specialized_class():
         obj = objectcls()
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
-        assert rerased.unerase(obj._value0, W_Root) is w1
+        assert unerase_item(obj._value0) is w1
         assert obj.getdictvalue(space, "a") is w1
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
-        assert rerased.unerase(obj._value0, W_Root) is w2
+        assert unerase_item(obj._value0) is w2
         assert obj.getdictvalue(space, "a") == w2
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
@@ -402,7 +401,7 @@ def test_specialized_class():
 
         res = obj.deldictvalue(space, "a")
         assert res
-        assert rerased.unerase(obj._value0, W_Root) is w4
+        assert unerase_item(obj._value0) is w4
         assert obj.getdictvalue(space, "a") is None
         assert obj.getdictvalue(space, "b") is w4
         assert obj.getdictvalue(space, "c") is None
@@ -865,6 +864,38 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 2, 1)
         res = self.check(f, 'm')
         assert res == (0, 2, 1)
+
+    def test_dont_keep_class_alive(self):
+        import weakref
+        import gc
+        def f():
+            class C(object):
+                def m(self):
+                    pass
+            r = weakref.ref(C)
+            # Trigger cache.
+            C().m()
+            del C
+            gc.collect(); gc.collect(); gc.collect()
+            assert r() is None
+            return 42
+        f()
+
+    def test_instance_keeps_class_alive(self):
+        import weakref
+        import gc
+        def f():
+            class C(object):
+                def m(self):
+                    return 42
+            r = weakref.ref(C)
+            c = C()
+            del C
+            gc.collect(); gc.collect(); gc.collect()
+            return c.m()
+        val = f()
+        assert val == 42
+        f() 
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):

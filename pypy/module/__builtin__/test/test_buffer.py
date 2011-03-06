@@ -190,9 +190,9 @@ class AppTestMemoryView:
         v = memoryview(data)
         assert v.readonly is False
         v[0] = 'z'
-        assert data == bytearray(b'zbcefg')
+        assert data == bytearray(eval("b'zbcefg'"))
         v[1:4] = '123'
-        assert data == bytearray(b'z123fg')
+        assert data == bytearray(eval("b'z123fg'"))
         raises((ValueError, TypeError), "v[2] = 'spam'")
 
     def test_memoryview_attrs(self):
@@ -205,7 +205,12 @@ class AppTestMemoryView:
 
     def test_suboffsets(self):
         v = memoryview("a"*100)
-        assert v.suboffsets == (0,)
+        assert v.suboffsets == None
         v = memoryview(buffer("a"*100, 2))
         assert v.shape == (98,)
-        assert v.suboffsets == (2,)
+        assert v.suboffsets == None
+
+    def test_compare(self):
+        assert memoryview("abc") == "abc"
+        assert memoryview("abc") == bytearray("abc")
+        assert memoryview("abc") != 3

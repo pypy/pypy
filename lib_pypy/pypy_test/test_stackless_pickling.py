@@ -8,7 +8,7 @@ try:
     import stackless
 except ImportError:
     try:
-        from .. import stackless as stackless
+        from lib_pypy import stackless as stackless
     except ImportError, e:
         skip('cannot import stackless: %s' % (e,))
 

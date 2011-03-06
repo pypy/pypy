@@ -52,7 +52,7 @@ def test_dir_structure(test='test'):
                 else:
                     assert th.getmember(member)
         check_include('Python.h')
-        check_include('modsupport.inl')
+        check_include('modsupport.h')
         check_include('pypy_decl.h')
     finally:
         if fake_pypy_c:

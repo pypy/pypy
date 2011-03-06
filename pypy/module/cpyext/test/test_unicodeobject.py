@@ -184,8 +184,7 @@ class TestUnicode(BaseApiTest):
         assert space.eq_w(space.wrap(ustr), result)
 
         w_ustr = space.wrap(u"abcd\xe9f")
-        result = api.PyUnicode_AsASCIIString(w_ustr)
-        assert result is None
+        self.raises(space, api, UnicodeEncodeError, api.PyUnicode_AsASCIIString, w_ustr)
 
     def test_decode_utf16(self, space, api):
         def test(encoded, endian, realendian=None):
@@ -225,3 +224,49 @@ class TestUnicode(BaseApiTest):
 
     def test_compare(self, space, api):
         assert api.PyUnicode_Compare(space.wrap('a'), space.wrap('b')) == -1
+
+    def test_copy(self, space, api):
+        w_x = space.wrap(u"abcd\u0660")
+        target_chunk, _ = rffi.alloc_unicodebuffer(space.int_w(space.len(w_x)))
+        #lltype.malloc(Py_UNICODE, space.int_w(space.len(w_x)), flavor='raw')
+
+        x_chunk = api.PyUnicode_AS_UNICODE(w_x)
+        api.Py_UNICODE_COPY(target_chunk, x_chunk, 4)
+        w_y = api.PyUnicode_FromUnicode(target_chunk, 4)
+
+        assert space.eq_w(w_y, space.wrap(u"abcd"))
+
+        size = api.PyUnicode_GET_SIZE(w_x)
+        api.Py_UNICODE_COPY(target_chunk, x_chunk, size)
+        w_y = api.PyUnicode_FromUnicode(target_chunk, size)
+
+        assert space.eq_w(w_y, w_x)
+
+        lltype.free(target_chunk, flavor='raw')
+
+    def test_ascii_codec(self, space, api):
+        s = 'abcdefg'
+        data = rffi.str2charp(s)
+        w_u = api.PyUnicode_DecodeASCII(data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(w_u, space.wrap(u"abcdefg"))
+        rffi.free_charp(data)
+
+        s = 'abcd\xFF'
+        data = rffi.str2charp(s)
+        self.raises(space, api, UnicodeDecodeError, api.PyUnicode_DecodeASCII,
+                    data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        rffi.free_charp(data)
+
+        uni = u'abcdefg'
+        data = rffi.unicode2wcharp(uni)
+        w_s = api.PyUnicode_EncodeASCII(data, len(uni), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(space.wrap("abcdefg"), w_s)
+        rffi.free_wcharp(data)
+
+        u = u'äbcdéfg'
+        data = rffi.unicode2wcharp(u)
+        w_s = api.PyUnicode_EncodeASCII(data, len(u), lltype.nullptr(rffi.CCHARP.TO))
+        self.raises(space, api, UnicodeEncodeError, api.PyUnicode_EncodeASCII,
+                    data, len(u), lltype.nullptr(rffi.CCHARP.TO))
+        rffi.free_wcharp(data)
+

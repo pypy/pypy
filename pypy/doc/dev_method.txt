@@ -77,11 +77,11 @@ Other typical sprint factors:
     pairs.
 
 It is a method that fits distributed teams well because it gets the team
-focused around clear (and challenging) goals while working collarobative
+focused around clear (and challenging) goals while working collaborative
 (pairprogramming, status meeting, discussions etc) as well as accelerated
 (short increments and tasks, "doing" and testing instead of long start ups of
 planning and requirement gathering). This means that most of the time a sprint
-is a great way of getting results, but also to get new people aquinted with
+is a great way of getting results, but also to get new people acquainted with
 the codebase. It is also a great method for dissemination and learning within
 the team because of the pairprogramming.
 
@@ -112,7 +112,7 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    month before the event. Beforehand we have some rough plans called "between
    sprints" and the sprintplan is based on the status of those issues but also
    with a focus on upcoming releases and deliverables. Usually its the core
-   developers who does this but the transparancy and participation have
+   developers who does this but the transparency and participation have
    increased since we started with our weekly "pypy-sync meetings" on IRC. The
    sync meetings in combination with a rough in between planning makes it
    easier for other developer to follow the progress and thus participating in
@@ -121,7 +121,7 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    The goal needs to be challenging or it won't rally the full effort of the
    team, but it must not be unrealistic as that tends to be very frustrating
    and dissatisfying. It is also very important to take into account the
-   particpants when you set the goal for the sprint. If the sprint takes place
+   participants when you set the goal for the sprint. If the sprint takes place
    connected to a conference (or similar open events) the goals for the actual
    coding progress should be set lower (or handled in another way) and focus
    should shift to dissemination and getting new/interested people to a
@@ -140,8 +140,8 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    evacuated by 23:00? These are important questions that can gravely affect
    the "feel and atmosphere" of the sprint as well as the desired results!
 
-   Also, somewhat close to low cost places to eat and accomodate
-   participants. Facilities for making tea/coffe as well as some kind of
+   Also, somewhat close to low cost places to eat and accommodate
+   participants. Facilities for making tea/coffee as well as some kind of
    refrigerator for storing food. A permanent Internet connection is a must -
    has the venue were the sprint is planned to be weird rules for access to
    their network etc etc?
@@ -151,7 +151,7 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    project also owns one beamer - specifically for sprint purposes.
 
    The person making sure that the requirements for a good sprint venue is
-   being met should therefore have very good local connections or, preferrably
+   being met should therefore have very good local connections or, preferably
    live there.
 
 3. Information - discussions about content and goals (pre announcements) are
@@ -164,7 +164,7 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    the sprint announcements points to information about local transportation
    (to the country and to the city and to the venue), currency issues, food
    and restaurants etc. There are also webpages in which people announce when
-   they will arrive and where they are accomodated.
+   they will arrive and where they are accommodated.
 
    The planning text for the sprint is updated up till the sprint and is then
    used during the status meetings and between to track work. After the sprint
@@ -174,11 +174,11 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    people involved. 
 
    One very important strategy when planning the venue is cost
-   efficiency. Keeping accomodation and food/travel costs as low as possible
+   efficiency. Keeping accommodation and food/travel costs as low as possible
    makes sure that more people can afford to visit or join the sprint
    fully. The partially EU funded parts of the project do have a so called sprint budget
    which we use to try to help developers to participate in our sprints
-   (travel expenses and accomodation) and because most of the funding is so
+   (travel expenses and accommodation) and because most of the funding is so
    called matched funding we pay for most of our expenses in our own
    organizations and companies anyway.
  
@@ -205,8 +205,8 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    formally responsible for the sprints.
 
    Suggestions for off hours activities and social events for the break day is
-   a good way of emphazising how important it is to take breaks - some
-   pointers in that direction from the local organiziser is good.
+   a good way of emphasizing how important it is to take breaks - some
+   pointers in that direction from the local organizer is good.
 
    At the end of the sprint we do a technical summary (did we achieve the
    goals/content), what should be a rough focus for the work until the next
@@ -231,7 +231,7 @@ Can I join in?
 
 Of course. Just follow the work on pypy-dev and if you specifically are
 interested in information about our sprints - subscribe to
-pypy-sprint@codespeak.net and read the news on codespeak for anouncements etc.
+pypy-sprint@codespeak.net and read the news on codespeak for announcements etc.
 
 If you think we should sprint in your town - send us an email - we are very
 interested in using sprints as away of making contact with active developers

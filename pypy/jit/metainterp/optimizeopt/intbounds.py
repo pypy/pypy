@@ -94,21 +94,27 @@ class OptIntBounds(Optimization):
         v2 = self.getvalue(op.getarg(1))
         self.emit_operation(op)
         r = self.getvalue(op.result)
-        r.intbound.intersect(v1.intbound.sub_bound(v2.intbound))
+        b = v1.intbound.sub_bound(v2.intbound)
+        if b.bounded():
+            r.intbound.intersect(b)
 
     def optimize_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         self.emit_operation(op)
         r = self.getvalue(op.result)
-        r.intbound.intersect(v1.intbound.add_bound(v2.intbound))
+        b = v1.intbound.add_bound(v2.intbound)
+        if b.bounded():
+            r.intbound.intersect(b)
 
     def optimize_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         self.emit_operation(op)
         r = self.getvalue(op.result)
-        r.intbound.intersect(v1.intbound.mul_bound(v2.intbound))
+        b = v1.intbound.mul_bound(v2.intbound)
+        if b.bounded():
+            r.intbound.intersect(b)
 
     def optimize_INT_FLOORDIV(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -150,6 +156,10 @@ class OptIntBounds(Optimization):
             r = self.getvalue(op.result)
             r.intbound.intersect(resbound)
             self.emit_operation(self.nextop)
+            if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
+                # Synthesize the non overflowing op for optimize_default to reuse
+                self.pure(rop.INT_ADD, op.getarglist()[:], op.result)
+                
 
     def optimize_INT_SUB_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -165,6 +175,9 @@ class OptIntBounds(Optimization):
             r = self.getvalue(op.result)
             r.intbound.intersect(resbound)
             self.emit_operation(self.nextop)
+            if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
+                # Synthesize the non overflowing op for optimize_default to reuse
+                self.pure(rop.INT_SUB, op.getarglist()[:], op.result)
             
     def optimize_INT_MUL_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -180,6 +193,10 @@ class OptIntBounds(Optimization):
             r = self.getvalue(op.result)
             r.intbound.intersect(resbound)
             self.emit_operation(self.nextop)
+            if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
+                # Synthesize the non overflowing op for optimize_default to reuse
+                self.pure(rop.INT_MUL, op.getarglist()[:], op.result)
+            
 
     def optimize_INT_LT(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -289,7 +306,7 @@ class OptIntBounds(Optimization):
             if r.box.same_constant(CONST_1):
                 self.make_int_gt(op.getarg(0), op.getarg(1))
             else:
-                self.make_int_le(op.getarg(0), op.getarg(1))
+                self.make_int_le(op.getarg(0), op.getarg(1))        
 
     def propagate_bounds_INT_LE(self, op):
         r = self.getvalue(op.result)

@@ -644,9 +644,17 @@ class FunctionCodeGenerator(object):
         return '%s = %s;' % (self.expr(op.result), items)
 
     def OP_DIRECT_PTRADD(self, op):
-        return '%s = %s + %s;' % (self.expr(op.result),
-                                  self.expr(op.args[0]),
-                                  self.expr(op.args[1]))
+        ARRAY = self.lltypemap(op.args[0]).TO
+        if ARRAY._hints.get("render_as_void"):
+            return '%s = (char *)%s + %s;' % (
+                self.expr(op.result), 
+                self.expr(op.args[0]),
+                self.expr(op.args[1]))
+        else:
+            return '%s = %s + %s;' % (
+                self.expr(op.result),
+                self.expr(op.args[0]),
+                self.expr(op.args[1]))
 
     def OP_CAST_POINTER(self, op):
         TYPE = self.lltypemap(op.result)

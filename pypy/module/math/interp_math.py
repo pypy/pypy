@@ -1,9 +1,9 @@
 import math
 import sys
 
-from pypy.rlib import rarithmetic, unroll
+from pypy.rlib import rfloat, unroll
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
+from pypy.interpreter.gateway import NoneNotWrapped
 
 class State: 
     def __init__(self, space): 
@@ -61,25 +61,21 @@ math2._annspecialcase_ = 'specialize:arg(1)'
 def trunc(space, w_x):
     """Truncate x."""
     return space.trunc(w_x)
-trunc.unwrap_spec = [ObjSpace, W_Root]
 
 def copysign(space, w_x, w_y):
     """Return x with the sign of y."""
     # No exceptions possible.
     x = _get_double(space, w_x)
     y = _get_double(space, w_y)
-    return space.wrap(rarithmetic.copysign(x, y))
-copysign.unwrap_spec = [ObjSpace, W_Root, W_Root]
+    return space.wrap(rfloat.copysign(x, y))
 
 def isinf(space, w_x):
     """Return True if x is infinity."""
-    return space.wrap(rarithmetic.isinf(_get_double(space, w_x)))
-isinf.unwrap_spec = [ObjSpace, W_Root]
+    return space.wrap(rfloat.isinf(_get_double(space, w_x)))
 
 def isnan(space, w_x):
     """Return True if x is not a number."""
-    return space.wrap(rarithmetic.isnan(_get_double(space, w_x)))
-isnan.unwrap_spec = [ObjSpace, W_Root]
+    return space.wrap(rfloat.isnan(_get_double(space, w_x)))
 
 def pow(space, w_x, w_y):
     """pow(x,y)
@@ -87,7 +83,6 @@ def pow(space, w_x, w_y):
        Return x**y (x to the power of y).
     """
     return math2(space, math.pow, w_x, w_y)
-pow.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def cosh(space, w_x):
     """cosh(x)
@@ -95,7 +90,6 @@ def cosh(space, w_x):
        Return the hyperbolic cosine of x.
     """
     return math1(space, math.cosh, w_x)
-cosh.unwrap_spec = [ObjSpace, W_Root]
 
 def ldexp(space, w_x,  w_i):
     """ldexp(x, i) -> x * (2**i)
@@ -124,7 +118,6 @@ def ldexp(space, w_x,  w_i):
         raise OperationError(space.w_ValueError,
                              space.wrap("math domain error"))
     return space.wrap(r)
-ldexp.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def hypot(space, w_x, w_y):
     """hypot(x,y)
@@ -132,7 +125,6 @@ def hypot(space, w_x, w_y):
        Return the Euclidean distance, sqrt(x*x + y*y).
     """
     return math2(space, math.hypot, w_x, w_y)
-hypot.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def tan(space, w_x):
     """tan(x)
@@ -140,7 +132,6 @@ def tan(space, w_x):
        Return the tangent of x (measured in radians).
     """
     return math1(space, math.tan, w_x)
-tan.unwrap_spec = [ObjSpace, W_Root]
 
 def asin(space, w_x):
     """asin(x)
@@ -148,7 +139,6 @@ def asin(space, w_x):
        Return the arc sine (measured in radians) of x.
     """
     return math1(space, math.asin, w_x)
-asin.unwrap_spec = [ObjSpace, W_Root]
 
 def fabs(space, w_x):
     """fabs(x)
@@ -156,7 +146,6 @@ def fabs(space, w_x):
        Return the absolute value of the float x.
     """
     return math1(space, math.fabs, w_x)
-fabs.unwrap_spec = [ObjSpace, W_Root]
 
 def floor(space, w_x):
     """floor(x)
@@ -165,7 +154,6 @@ def floor(space, w_x):
        This is the largest integral value <= x.
     """
     return math1(space, math.floor, w_x)
-floor.unwrap_spec = [ObjSpace, W_Root]
 
 def sqrt(space, w_x):
     """sqrt(x)
@@ -173,7 +161,6 @@ def sqrt(space, w_x):
        Return the square root of x.
     """
     return math1(space, math.sqrt, w_x)
-sqrt.unwrap_spec = [ObjSpace, W_Root]
 
 def frexp(space, w_x):
     """frexp(x)
@@ -184,7 +171,6 @@ def frexp(space, w_x):
     """
     mant, expo = math1_w(space, math.frexp, w_x)
     return space.newtuple([space.wrap(mant), space.wrap(expo)])
-frexp.unwrap_spec = [ObjSpace, W_Root]
 
 degToRad = math.pi / 180.0
 
@@ -192,7 +178,6 @@ def degrees(space, w_x):
     """degrees(x) -> converts angle x from radians to degrees
     """
     return space.wrap(_get_double(space, w_x) / degToRad)
-degrees.unwrap_spec = [ObjSpace, W_Root]
 
 def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
@@ -230,13 +215,11 @@ def log(space, w_x, w_base=NoneNotWrapped):
             # just for raising the proper errors
             return math1(space, math.log, w_base)
     return _log_any(space, w_x, base)
-log.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def log10(space, w_x):
     """log10(x) -> the base 10 logarithm of x.
     """
     return _log_any(space, w_x, 10.0)
-log10.unwrap_spec = [ObjSpace, W_Root]
 
 def fmod(space, w_x, w_y):
     """fmod(x,y)
@@ -244,7 +227,6 @@ def fmod(space, w_x, w_y):
        Return fmod(x, y), according to platform C.  x % y may differ.
     """
     return math2(space, math.fmod, w_x, w_y)
-fmod.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def atan(space, w_x):
     """atan(x)
@@ -252,7 +234,6 @@ def atan(space, w_x):
        Return the arc tangent (measured in radians) of x.
     """
     return math1(space, math.atan, w_x)
-atan.unwrap_spec = [ObjSpace, W_Root]
 
 def ceil(space, w_x):
     """ceil(x)
@@ -261,7 +242,6 @@ def ceil(space, w_x):
        This is the smallest integral value >= x.
     """
     return math1(space, math.ceil, w_x)
-ceil.unwrap_spec = [ObjSpace, W_Root]
 
 def sinh(space, w_x):
     """sinh(x)
@@ -269,7 +249,6 @@ def sinh(space, w_x):
        Return the hyperbolic sine of x.
     """
     return math1(space, math.sinh, w_x)
-sinh.unwrap_spec = [ObjSpace, W_Root]
 
 def cos(space, w_x):
     """cos(x)
@@ -277,7 +256,6 @@ def cos(space, w_x):
        Return the cosine of x (measured in radians).
     """
     return math1(space, math.cos, w_x)
-cos.unwrap_spec = [ObjSpace, W_Root]
 
 def tanh(space, w_x):
     """tanh(x)
@@ -285,13 +263,11 @@ def tanh(space, w_x):
        Return the hyperbolic tangent of x.
     """
     return math1(space, math.tanh, w_x)
-tanh.unwrap_spec = [ObjSpace, W_Root]
 
 def radians(space, w_x):
     """radians(x) -> converts angle x from degrees to radians
     """
     return space.wrap(_get_double(space, w_x) * degToRad)
-radians.unwrap_spec = [ObjSpace, W_Root]
 
 def sin(space, w_x):
     """sin(x)
@@ -299,7 +275,6 @@ def sin(space, w_x):
        Return the sine of x (measured in radians).
     """
     return math1(space, math.sin, w_x)
-sin.unwrap_spec = [ObjSpace, W_Root]
 
 def atan2(space, w_y, w_x):
     """atan2(y, x)
@@ -308,7 +283,6 @@ def atan2(space, w_y, w_x):
        Unlike atan(y/x), the signs of both x and y are considered.
     """
     return math2(space, math.atan2, w_y,  w_x)
-atan2.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def modf(space, w_x):
     """modf(x)
@@ -318,7 +292,6 @@ def modf(space, w_x):
     """
     frac, intpart = math1_w(space, math.modf, w_x)
     return space.newtuple([space.wrap(frac), space.wrap(intpart)])
-modf.unwrap_spec = [ObjSpace, W_Root]
 
 def exp(space, w_x):
     """exp(x)
@@ -326,7 +299,6 @@ def exp(space, w_x):
        Return e raised to the power of x.
     """
     return math1(space, math.exp, w_x)
-exp.unwrap_spec = [ObjSpace, W_Root]
 
 def acos(space, w_x):
     """acos(x)
@@ -334,7 +306,6 @@ def acos(space, w_x):
        Return the arc cosine (measured in radians) of x.
     """
     return math1(space, math.acos, w_x)
-acos.unwrap_spec = [ObjSpace, W_Root]
 
 def fsum(space, w_iterable):
     """Sum an iterable of floats, trying to keep precision."""
@@ -363,19 +334,19 @@ def fsum(space, w_iterable):
             v = hi
         del partials[added:]
         if v != 0.0:
-            if rarithmetic.isinf(v) or rarithmetic.isnan(v):
-                if (not rarithmetic.isinf(original) and
-                    not rarithmetic.isnan(original)):
+            if rfloat.isinf(v) or rfloat.isnan(v):
+                if (not rfloat.isinf(original) and
+                    not rfloat.isnan(original)):
                     raise OperationError(space.w_OverflowError,
                                          space.wrap("intermediate overflow"))
-                if rarithmetic.isinf(original):
+                if rfloat.isinf(original):
                     inf_sum += original
                 special_sum += original
                 del partials[:]
             else:
                 partials.append(v)
     if special_sum != 0.0:
-        if rarithmetic.isnan(special_sum):
+        if rfloat.isnan(special_sum):
             raise OperationError(space.w_ValueError, space.wrap("-inf + inf"))
         return space.wrap(special_sum)
     hi = 0.0
@@ -400,7 +371,6 @@ def fsum(space, w_iterable):
             if y == yr:
                 hi = v
     return space.wrap(hi)
-fsum.unwrap_spec = [ObjSpace, W_Root]
 
 def factorial(space, w_x):
     """Find x!."""
@@ -420,48 +390,39 @@ def factorial(space, w_x):
 
 def log1p(space, w_x):
     """Find log(x + 1)."""
-    return math1(space, rarithmetic.log1p, w_x)
-log1p.unwrap_spec = [ObjSpace, W_Root]
+    return math1(space, rfloat.log1p, w_x)
 
 def acosh(space, w_x):
     """Inverse hyperbolic cosine"""
-    return math1(space, rarithmetic.acosh, w_x)
-acosh.unwrap_spec = [ObjSpace, W_Root]
+    return math1(space, rfloat.acosh, w_x)
 
 def asinh(space, w_x):
     """Inverse hyperbolic sine"""
-    return math1(space, rarithmetic.asinh, w_x)
-asinh.unwrap_spec = [ObjSpace, W_Root]
+    return math1(space, rfloat.asinh, w_x)
 
 def atanh(space, w_x):
     """Inverse hyperbolic tangent"""
-    return math1(space, rarithmetic.atanh, w_x)
-atanh.unwrap_spec = [ObjSpace, W_Root]
+    return math1(space, rfloat.atanh, w_x)
 
 def expm1(space, w_x):
     """exp(x) - 1"""
-    return math1(space, rarithmetic.expm1, w_x)
-expm1.unwrap_spec = [ObjSpace, W_Root]
+    return math1(space, rfloat.expm1, w_x)
 
 def erf(space, w_x):
     """The error function"""
     return math1(space, _erf, w_x)
-erf.unwrap_spec = [ObjSpace, W_Root]
 
 def erfc(space, w_x):
     """The complementary error function"""
     return math1(space, _erfc, w_x)
-erfc.unwrap_spec = [ObjSpace, W_Root]
 
 def gamma(space, w_x):
     """Compute the gamma function for x."""
     return math1(space, _gamma, w_x)
-gamma.unwrap_spec = [ObjSpace, W_Root]
 
 def lgamma(space, w_x):
     """Compute the natural logarithm of the gamma function for x."""
     return math1(space, _lgamma, w_x)
-lgamma.unwrap_spec = [ObjSpace, W_Root]
 
 # Implementation of the error function, the complimentary error function, the
 # gamma function, and the natural log of the gamma function.  These exist in
@@ -501,7 +462,7 @@ def _erfc_contfrac(x):
     return p / q * x * math.exp(-x2) / _sqrtpi
 
 def _erf(x):
-    if rarithmetic.isnan(x):
+    if rfloat.isnan(x):
         return x
     absx = abs(x)
     if absx < ERF_SERIES_CUTOFF:
@@ -511,7 +472,7 @@ def _erf(x):
         return 1. - cf if x > 0. else cf - 1.
 
 def _erfc(x):
-    if rarithmetic.isnan(x):
+    if rfloat.isnan(x):
         return x
     absx = abs(x)
     if absx < ERF_SERIES_CUTOFF:
@@ -522,7 +483,7 @@ def _erfc(x):
 
 def _sinpi(x):
     y = math.fmod(abs(x), 2.)
-    n = int(rarithmetic.round_away(2. * y))
+    n = int(rfloat.round_away(2. * y))
     if n == 0:
         r = math.sin(math.pi * y)
     elif n == 1:
@@ -535,7 +496,7 @@ def _sinpi(x):
         r = math.sin(math.pi * (y - 2.))
     else:
         raise AssertionError("should not reach")
-    return rarithmetic.copysign(1., x) * r
+    return rfloat.copysign(1., x) * r
 
 _lanczos_g = 6.024680040776729583740234375
 _lanczos_g_minus_half = 5.524680040776729583740234375
@@ -582,9 +543,9 @@ def _lanczos_sum(x):
     return num / den
 
 def _gamma(x):
-    if rarithmetic.isnan(x) or (rarithmetic.isinf(x) and x > 0.):
+    if rfloat.isnan(x) or (rfloat.isinf(x) and x > 0.):
         return x
-    if rarithmetic.isinf(x):
+    if rfloat.isinf(x):
         raise ValueError("math domain error")
     if x == 0.:
         raise ValueError("math domain error")
@@ -596,7 +557,7 @@ def _gamma(x):
     absx = abs(x)
     if absx < 1e-20:
         r = 1. / x
-        if rarithmetic.isinf(r):
+        if rfloat.isinf(r):
             raise OverflowError("math range error")
         return r
     if absx > 200.:
@@ -630,15 +591,15 @@ def _gamma(x):
             sqrtpow = math.pow(y, absx / 2. - .25)
             r *= sqrtpow
             r *= sqrtpow
-    if rarithmetic.isinf(r):
+    if rfloat.isinf(r):
         raise OverflowError("math range error")
     return r
 
 def _lgamma(x):
-    if rarithmetic.isnan(x):
+    if rfloat.isnan(x):
         return x
-    if rarithmetic.isinf(x):
-        return rarithmetic.INFINITY
+    if rfloat.isinf(x):
+        return rfloat.INFINITY
     if x == math.floor(x) and x <= 2.:
         if x <= 0.:
             raise ValueError("math range error")
@@ -653,6 +614,6 @@ def _lgamma(x):
         r = (math.log(math.pi) - math.log(abs(_sinpi(absx))) - math.log(absx) -
              (math.log(_lanczos_sum(absx)) - _lanczos_g +
               (absx - .5) * (math.log(absx + _lanczos_g - .5) - 1)))
-    if rarithmetic.isinf(r):
+    if rfloat.isinf(r):
         raise OverflowError("math domain error")
     return r

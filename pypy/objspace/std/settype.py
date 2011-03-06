@@ -75,9 +75,7 @@ set_typedef = StdTypeDef("set",
     __doc__ = """set(iterable) --> set object
 
 Build an unordered collection.""",
-    __new__ = gateway.interp2app(descr__new__, unwrap_spec=[gateway.ObjSpace,
-                                                            gateway.W_Root,
-                                                            gateway.Arguments]),
+    __new__ = gateway.interp2app(descr__new__),
     __hash__ = None,
     )
 

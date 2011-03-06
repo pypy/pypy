@@ -3,7 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 import pypy
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 
 import sys, os, stat, errno
 
@@ -64,6 +64,7 @@ def getinitialpath(prefix):
     #
     return importlist
 
+@unwrap_spec(srcdir=str)
 def pypy_initial_path(space, srcdir):
     try:
         path = getinitialpath(srcdir)
@@ -75,8 +76,6 @@ def pypy_initial_path(space, srcdir):
         space.setitem(space.sys.w_dict, space.wrap('exec_prefix'),
                                         space.wrap(srcdir))
         return space.newlist([space.wrap(p) for p in path])
-
-pypy_initial_path.unwrap_spec = [ObjSpace, str]
 
 def get(space):
     return space.fromcache(State)

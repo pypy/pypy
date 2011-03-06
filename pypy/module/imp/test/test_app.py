@@ -32,6 +32,9 @@ class AppTestImpModule:
         assert pathname.endswith('.py') # even if .pyc is up-to-date
         assert description in self.imp.get_suffixes()
 
+    def test_load_dynamic(self):
+        raises(ImportError, self.imp.load_dynamic, 'foo', 'bar')
+        raises(ImportError, self.imp.load_dynamic, 'foo', 'bar', 'baz.so')
 
     def test_suffixes(self):
         for suffix, mode, type in self.imp.get_suffixes():
@@ -125,3 +128,13 @@ class AppTestImpModule:
         importer = self.imp.NullImporter("path")
         assert importer.find_module(1, 2, 3, 4) is None
         raises(ImportError, self.imp.NullImporter, os.getcwd())
+
+    def test_path_importer_cache(self):
+        import os
+        import sys
+
+        lib_pypy = os.path.abspath(
+            os.path.join(self.file_module, "..", "..", "..", "..", "..", "lib_pypy")
+        )
+        # Doesn't end up in there when run with -A
+        assert sys.path_importer_cache.get(lib_pypy) is None
