@@ -534,7 +534,7 @@ class TestInteraction:
 
 class TestNonInteractive:
 
-    def run(self, cmdline, senddata='', expect_prompt=False,
+    def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
             expect_banner=False, python_flags='', env=None):
         cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
                                      app_main, cmdline)
@@ -546,11 +546,14 @@ class TestNonInteractive:
         )
         child_in, child_out_err = process.stdin, process.stdout
         child_in.write(senddata)
-        child_in.close()
         data = child_out_err.read()
-        child_out_err.close()
+        process.communicate()
         assert (banner in data) == expect_banner   # no banner unless expected
         assert ('>>> ' in data) == expect_prompt   # no prompt unless expected
+        return data, process.returncode
+
+    def run(self, *args, **kwargs):
+        data, status = self.run_with_status_code(*args, **kwargs)
         return data
 
     def test_script_on_stdin(self):
@@ -753,6 +756,19 @@ class TestNonInteractive:
             env["PYTHONIOENCODING"] = encoding
             data = self.run(p, env=env)
             assert data == expected
+
+    def test_sys_exit_pythonioencoding(self):
+        if sys.version_info < (2, 7):
+            skip("test required Python >= 2.7")
+        p = getscript_in_dir("""
+        import sys
+        sys.exit(u'15\u20ac')
+        """)
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        data, status = self.run_with_status_code(p, env=env)
+        assert status == 1
+        assert data.startswith("15\xe2\x82\xac")
 
 
 class AppTestAppMain:

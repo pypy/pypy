@@ -37,7 +37,7 @@ def handle_sys_exit(e):
             except AttributeError:
                 pass   # too bad
             else:
-                print >> stderr, exitcode
+                stderr.write(exitcode)
             exitcode = 1
     raise SystemExit(exitcode)
 
