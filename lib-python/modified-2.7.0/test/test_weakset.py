@@ -332,10 +332,11 @@ class TestWeakSet(unittest.TestCase):
         next(it)             # Trigger internal iteration
         # Destroy an item
         del items[-1]
-        gc.collect()    # just in case
+        test_support.gc_collect()
         # We have removed either the first consumed items, or another one
         self.assertIn(len(list(it)), [len(items), len(items) - 1])
         del it
+        test_support.gc_collect()
         # The removal has been committed
         self.assertEqual(len(s), len(items))
 
