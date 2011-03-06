@@ -245,6 +245,8 @@ class Connection(object):
         self._isolation_level = isolation_level
         self.detect_types = detect_types
 
+        self.cursors = []
+
         self.Error = Error
         self.Warning = Warning
         self.InterfaceError = InterfaceError
@@ -306,6 +308,12 @@ class Connection(object):
                 "SQLite objects created in a thread can only be used in that same thread."
                 "The object was created in thread id %d and this is thread id %d",
                 self.thread_ident, thread_get_ident())
+
+    def _reset_cursors(self):
+        for cursor_ref in self.cursors:
+            cursor = cursor_ref()
+            if cursor:
+                cursor.reset = True
 
     def cursor(self, factory=None):
         self._check_thread()
@@ -421,6 +429,7 @@ class Connection(object):
                 raise self._get_exception(ret)
         finally:
             sqlite.sqlite3_finalize(statement)
+            self._reset_cursors()
 
     def _check_closed(self):
         if getattr(self, 'closed', True):
@@ -450,6 +459,7 @@ class Connection(object):
 
         self.closed = True
         ret = sqlite.sqlite3_close(self.db)
+        self._reset_cursors()
         if ret != SQLITE_OK:
             raise self._get_exception(ret)
 
@@ -629,6 +639,7 @@ class Cursor(object):
             raise TypeError
         con._check_thread()
         con._check_closed()
+        con.cursors.append(weakref.ref(self))
         self.connection = con
         self._description = None
         self.arraysize = 1
@@ -636,6 +647,7 @@ class Cursor(object):
         self.row_factory = None
         self.rowcount = -1
         self.statement = None
+        self.reset = False
 
     def _check_closed(self):
         if not getattr(self, 'connection', None):
@@ -736,8 +748,17 @@ class Cursor(object):
     def __iter__(self):
         return self.statement
 
+    def _check_reset(self):
+        if self.reset:
+            raise self.connection.InterfaceError("Cursor needed to be reset because "
+                                                 "of commit/rollback and can "
+                                                 "no longer be fetched from.")
+
+    # do all statements
     def fetchone(self):
         self._check_closed()
+        self._check_reset()
+
         if self.statement is None:
             return None
 
@@ -750,6 +771,7 @@ class Cursor(object):
 
     def fetchmany(self, size=None):
         self._check_closed()
+        self._check_reset()
         if self.statement is None:
             return []
         if size is None:
@@ -763,6 +785,7 @@ class Cursor(object):
 
     def fetchall(self):
         self._check_closed()
+        self._check_reset()
         if self.statement is None:
             return []
         return list(self.statement)
@@ -782,6 +805,7 @@ class Cursor(object):
         if self.statement:
             self.statement.reset()
             self.statement = None
+        self.connection.cursors.remove(weakref.ref(self))
         self.connection = None
 
     def setinputsizes(self, *args):
