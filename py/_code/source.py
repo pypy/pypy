@@ -215,7 +215,7 @@ class Source(object):
             msglines = self.lines[:ex.lineno]
             if ex.offset:
                 msglines.append(" "*ex.offset + '^')
-            msglines.append("syntax error probably generated here: %s" % filename)
+            msglines.append("(code was compiled probably from here: %s)" % filename)
             newex = SyntaxError('\n'.join(msglines))
             newex.offset = ex.offset
             newex.lineno = ex.lineno

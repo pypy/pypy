@@ -121,9 +121,6 @@ class HookProxy:
 
 def compatproperty(name):
     def fget(self):
-        #print "retrieving %r property from %s" %(name, self.fspath)
-        py.log._apiwarn("2.0", "use pytest.%s for "
-            "test collection and item classes" % name)
         return getattr(pytest, name)
     return property(fget, None, None,
         "deprecated attribute %r, use pytest.%s" % (name,name))
@@ -156,6 +153,14 @@ class Node(object):
     Function = compatproperty("Function")
     File = compatproperty("File")
     Item = compatproperty("Item")
+
+    def _getcustomclass(self, name):
+        cls = getattr(self, name)
+        if cls != getattr(pytest, name):
+            py.log._apiwarn("2.0", "use of node.%s is deprecated, "
+                "use pytest_pycollect_makeitem(...) to create custom "
+                "collection nodes" % name)
+        return cls
 
     def __repr__(self):
         return "<%s %r>" %(self.__class__.__name__, getattr(self, 'name', None))
@@ -449,7 +454,7 @@ class Session(FSCollector):
             p = p.dirpath()
         else:
             p = p.new(basename=p.purebasename+".py")
-        return p
+        return str(p)
 
     def _parsearg(self, arg):
         """ return (fspath, names) tuple after checking the file exists. """
@@ -495,9 +500,15 @@ class Session(FSCollector):
             node.ihook.pytest_collectstart(collector=node)
             rep = node.ihook.pytest_make_collect_report(collector=node)
             if rep.passed:
+                has_matched = False
                 for x in rep.result:
                     if x.name == name:
                         resultnodes.extend(self.matchnodes([x], nextnames))
+                        has_matched = True
+                # XXX accept IDs that don't have "()" for class instances
+                if not has_matched and len(rep.result) == 1 and x.name == "()":
+                    nextnames.insert(0, name)
+                    resultnodes.extend(self.matchnodes([x], nextnames))
             node.ihook.pytest_collectreport(report=rep)
         return resultnodes
 

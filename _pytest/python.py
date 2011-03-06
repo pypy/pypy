@@ -73,7 +73,8 @@ def pytest_pycollect_makeitem(__multicall__, collector, name, obj):
     if collector._istestclasscandidate(name, obj):
         #if hasattr(collector.obj, 'unittest'):
         #    return # we assume it's a mixin class for a TestCase derived one
-        return collector.Class(name, parent=collector)
+        Class = collector._getcustomclass("Class")
+        return Class(name, parent=collector)
     elif collector.funcnamefilter(name) and hasattr(obj, '__call__'):
         if is_generator(obj):
             return Generator(name, parent=collector)
@@ -213,15 +214,17 @@ class PyCollectorMixin(PyobjMixin, pytest.Collector):
             extra.append(cls())
         plugins = self.getplugins() + extra
         gentesthook.pcall(plugins, metafunc=metafunc)
+        Function = self._getcustomclass("Function")
         if not metafunc._calls:
-            return self.Function(name, parent=self)
+            return Function(name, parent=self)
         l = []
         for callspec in metafunc._calls:
             subname = "%s[%s]" %(name, callspec.id)
-            function = self.Function(name=subname, parent=self,
+            function = Function(name=subname, parent=self,
                 callspec=callspec, callobj=funcobj, keywords={callspec.id:True})
             l.append(function)
         return l
+
 
 class Module(pytest.File, PyCollectorMixin):
     def _getobj(self):
@@ -272,7 +275,7 @@ class Module(pytest.File, PyCollectorMixin):
 class Class(PyCollectorMixin, pytest.Collector):
 
     def collect(self):
-        return [self.Instance(name="()", parent=self)]
+        return [self._getcustomclass("Instance")(name="()", parent=self)]
 
     def setup(self):
         setup_class = getattr(self.obj, 'setup_class', None)
@@ -297,13 +300,8 @@ class Instance(PyCollectorMixin, pytest.Collector):
 class FunctionMixin(PyobjMixin):
     """ mixin for the code common to Function and Generator.
     """
-
     def setup(self):
         """ perform setup for this test function. """
-        if inspect.ismethod(self.obj):
-            name = 'setup_method'
-        else:
-            name = 'setup_function'
         if hasattr(self, '_preservedparent'):
             obj = self._preservedparent
         elif isinstance(self.parent, Instance):
@@ -311,6 +309,10 @@ class FunctionMixin(PyobjMixin):
             self.obj = self._getobj()
         else:
             obj = self.parent.obj
+        if inspect.ismethod(self.obj):
+            name = 'setup_method'
+        else:
+            name = 'setup_function'
         setup_func_or_method = getattr(obj, name, None)
         if setup_func_or_method is not None:
             setup_func_or_method(self.obj)
@@ -487,10 +489,11 @@ def hasinit(obj):
             return True
 
 
-def getfuncargnames(function):
+def getfuncargnames(function, startindex=None):
     # XXX merge with main.py's varnames
     argnames = py.std.inspect.getargs(py.code.getrawcode(function))[0]
-    startindex = py.std.inspect.ismethod(function) and 1 or 0
+    if startindex is None:
+        startindex = py.std.inspect.ismethod(function) and 1 or 0
     defaults = getattr(function, 'func_defaults',
                        getattr(function, '__defaults__', None)) or ()
     numdefaults = len(defaults)
@@ -519,7 +522,8 @@ class Metafunc:
         self.config = config
         self.module = module
         self.function = function
-        self.funcargnames = getfuncargnames(function)
+        self.funcargnames = getfuncargnames(function,
+                                            startindex=int(cls is not None))
         self.cls = cls
         self.module = module
         self._calls = []
@@ -527,7 +531,11 @@ class Metafunc:
 
     def addcall(self, funcargs=None, id=_notexists, param=_notexists):
         """ add a new call to the underlying test function during the
-        collection phase of a test run.
+        collection phase of a test run.  Note that request.addcall() is
+        called during the test collection phase prior and independently
+        to actual test execution.  Therefore you should perform setup
+        of resources in a funcarg factory which can be instrumented
+        with the ``param``.
 
         :arg funcargs: argument keyword dictionary used when invoking
             the test function.
@@ -537,14 +545,15 @@ class Metafunc:
             list of calls to the test function will be used.
 
         :arg param: will be exposed to a later funcarg factory invocation
-            through the ``request.param`` attribute.  Setting it (instead of
-            directly providing a ``funcargs`` ditionary) is called
-            *indirect parametrization*.  Indirect parametrization is
-            preferable if test values are expensive to setup or can
-            only be created after certain fixtures or test-run related
-            initialization code has been run.
+            through the ``request.param`` attribute.  It allows to
+            defer test fixture setup activities to when an actual
+            test is run.
         """
         assert funcargs is None or isinstance(funcargs, dict)
+        if funcargs is not None:
+            for name in funcargs:
+                if name not in self.funcargnames:
+                    pytest.fail("funcarg %r not used in this function." % name)
         if id is None:
             raise ValueError("id=None not allowed")
         if id is _notexists:
@@ -556,7 +565,13 @@ class Metafunc:
         self._calls.append(CallSpec(funcargs, id, param))
 
 class FuncargRequest:
-    """ A request for function arguments from a test function. """
+    """ A request for function arguments from a test function.
+        
+        Note that there is an optional ``param`` attribute in case
+        there was an invocation to metafunc.addcall(param=...).
+        If no such call was done in a ``pytest_generate_tests``
+        hook, the attribute will not be present.
+    """
     _argprefix = "pytest_funcarg__"
     _argname = None
 

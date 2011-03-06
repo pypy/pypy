@@ -267,20 +267,9 @@ class DebugInterpreter(ast.NodeVisitor):
             result = self.frame.eval(co, **ns)
         except Exception:
             raise Failure(explanation)
-        # Only show result explanation if it's not a builtin call or returns a
-        # bool.
-        if not isinstance(call.func, ast.Name) or \
-                not self._is_builtin_name(call.func):
-            source = "isinstance(__exprinfo_value, bool)"
-            co = self._compile(source)
-            try:
-                is_bool = self.frame.eval(co, __exprinfo_value=result)
-            except Exception:
-                is_bool = False
-            if not is_bool:
-                pattern = "%s\n{%s = %s\n}"
-                rep = self.frame.repr(result)
-                explanation = pattern % (rep, rep, explanation)
+        pattern = "%s\n{%s = %s\n}"
+        rep = self.frame.repr(result)
+        explanation = pattern % (rep, rep, explanation)
         return explanation, result
 
     def _is_builtin_name(self, name):

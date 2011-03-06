@@ -37,6 +37,8 @@ class ErrorMaker(object):
     _errno2class = {}
 
     def __getattr__(self, name):
+        if name[0] == "_":
+            raise AttributeError(name)
         eno = getattr(errno, name)
         cls = self._geterrnoclass(eno)
         setattr(self, name, cls)
