@@ -163,7 +163,10 @@ class BaseTestOptimizeOpt(BaseTest):
 
     def optimize_loop(self, ops, optops, expected_preamble=None):
         loop = self.parse(ops)
-        expected = self.parse(optops)
+        if optops != "crash!":
+            expected = self.parse(optops)
+        else:
+            expected = "crash!"
         if expected_preamble:
             expected_preamble = self.parse(expected_preamble)
         #
@@ -195,7 +198,8 @@ class BaseTestOptimizeOpt(BaseTest):
         print loop.inputargs
         print '\n'.join([str(o) for o in loop.operations])
         print
-        
+
+        assert expected != "crash!", "should have raised an exception"
         self.assert_equal(loop, expected)
         if expected_preamble:
             self.assert_equal(loop.preamble, expected_preamble,
@@ -1344,6 +1348,26 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         jump()
         """
         self.node.value = 5
+        self.optimize_loop(ops, expected)
+
+    def test_getfield_gc_pure_3(self):
+        ops = """
+        []
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        escape(p2)
+        p3 = getfield_gc_pure(p1, descr=nextdescr)
+        escape(p3)
+        jump()
+        """
+        expected = """
+        []
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        escape(p2)
+        escape(p2)
+        jump()
+        """
         self.optimize_loop(ops, expected)
 
     def test_getfield_gc_nonpure_2(self):
@@ -3805,6 +3829,47 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.node.value = 5
         self.optimize_loop(ops, expected)
+
+    def test_complains_getfieldpure_setfield(self):
+        from pypy.jit.metainterp.optimizeopt.heap import BogusPureField
+        ops = """
+        [p3]
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        setfield_gc(p1, p3, descr=nextdescr)
+        jump(p3)
+        """
+        py.test.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+
+    def test_dont_complains_different_field(self):
+        ops = """
+        [p3]
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        setfield_gc(p1, p3, descr=otherdescr)
+        escape(p2)
+        jump(p3)
+        """
+        expected = """
+        [p3]
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        setfield_gc(p1, p3, descr=otherdescr)
+        escape(p2)
+        jump(p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_dont_complains_different_object(self):
+        ops = """
+        []
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        p3 = escape()
+        setfield_gc(p3, p1, descr=nextdescr)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
 
     def test_getfield_guard_const(self):
         ops = """
