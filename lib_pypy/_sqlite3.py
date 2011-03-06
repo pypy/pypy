@@ -657,6 +657,7 @@ class Cursor(object):
 
     def execute(self, sql, params=None):
         self._description = None
+        self.reset = False
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
         self._check_closed()
@@ -691,6 +692,7 @@ class Cursor(object):
 
     def executemany(self, sql, many_params):
         self._description = None
+        self.reset = False
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
         self._check_closed()
@@ -712,6 +714,7 @@ class Cursor(object):
 
     def executescript(self, sql):
         self._description = None
+        self.reset = False
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
         self._check_closed()
