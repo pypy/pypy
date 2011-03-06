@@ -15,19 +15,19 @@ class CConfig:
         ('l_pid', rffi.LONG), ('l_type', rffi.SHORT),
         ('l_whence', rffi.SHORT)])
     has_flock = platform.Has('flock')
-    
+
 # constants, look in fcntl.h and platform docs for the meaning
-# some constants are linux only so they will be correctly exposed outside 
+# some constants are linux only so they will be correctly exposed outside
 # depending on the OS
 constants = {}
 constant_names = ['LOCK_SH', 'LOCK_EX', 'LOCK_NB', 'LOCK_UN', 'F_DUPFD',
     'F_GETFD', 'F_SETFD', 'F_GETFL', 'F_SETFL', 'F_UNLCK', 'FD_CLOEXEC',
-    'LOCK_MAND', 'LOCK_READ', 'LOCK_WRITE', 'LOCK_RW', 'F_GETSIG', 'F_SETSIG', 
+    'LOCK_MAND', 'LOCK_READ', 'LOCK_WRITE', 'LOCK_RW', 'F_GETSIG', 'F_SETSIG',
     'F_GETLK64', 'F_SETLK64', 'F_SETLKW64', 'F_GETLK', 'F_SETLK', 'F_SETLKW',
     'F_GETOWN', 'F_SETOWN', 'F_RDLCK', 'F_WRLCK', 'F_SETLEASE', 'F_GETLEASE',
     'F_NOTIFY', 'F_EXLCK', 'F_SHLCK', 'DN_ACCESS', 'DN_MODIFY', 'DN_CREATE',
     'DN_DELETE', 'DN_RENAME', 'DN_ATTRIB', 'DN_MULTISHOT', 'I_NREAD',
-    'I_PUSH', 'I_POP', 'I_LOOK', 'I_FLUSH', 'I_SRDOPT', 'I_GRDOPT', 'I_STR', 
+    'I_PUSH', 'I_POP', 'I_LOOK', 'I_FLUSH', 'I_SRDOPT', 'I_GRDOPT', 'I_STR',
     'I_SETSIG', 'I_GETSIG', 'I_FIND', 'I_LINK', 'I_UNLINK', 'I_PEEK',
     'I_FDINSERT', 'I_SENDFD', 'I_RECVFD', 'I_SWROPT', 'I_LIST', 'I_PLINK',
     'I_PUNLINK', 'I_FLUSHBAND', 'I_CKBAND', 'I_GETBAND', 'I_ATMARK',
@@ -79,12 +79,6 @@ def _get_module_object(space, obj_name):
     w_obj = space.getattr(w_module, space.wrap(obj_name))
     return w_obj
 
-def _conv_descriptor(space, w_f):
-    w_conv_descriptor = _get_module_object(space, "_conv_descriptor")
-    w_fd = space.call_function(w_conv_descriptor, w_f)
-    fd = space.int_w(w_fd)
-    return rffi.cast(rffi.INT, fd)     # C long => C int
-
 def _check_flock_op(space, op):
 
     if op == LOCK_UN:
@@ -114,7 +108,7 @@ def fcntl(space, w_fd, op, w_arg=0):
     integer corresponding to the return value of the fcntl call in the C code.
     """
 
-    fd = _conv_descriptor(space, w_fd)
+    fd = space.c_filedescriptor_w(w_fd)
     op = rffi.cast(rffi.INT, op)        # C long => C int
 
     try:
@@ -154,7 +148,7 @@ def flock(space, w_fd, op):
     manual flock(3) for details.  (On some systems, this function is
     emulated using fcntl().)"""
 
-    fd = _conv_descriptor(space, w_fd)
+    fd = space.c_filedescriptor_w(w_fd)
 
     if has_flock:
         rv = c_flock(fd, op)
@@ -196,7 +190,7 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
     1 - relative to the current buffer position (SEEK_CUR)
     2 - relative to the end of the file (SEEK_END)"""
 
-    fd = _conv_descriptor(space, w_fd)
+    fd = space.c_filedescriptor_w(w_fd)
 
     l = _check_flock_op(space, op)
     if start:
@@ -230,8 +224,8 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
 
     # XXX this function's interface is a mess.
     # We try to emulate the behavior of Python >= 2.5 w.r.t. mutate_flag
-    
-    fd = _conv_descriptor(space, w_fd)
+
+    fd = space.c_filedescriptor_w(w_fd)
     op = rffi.cast(rffi.INT, op)        # C long => C int
 
     if mutate_flag != 0:
