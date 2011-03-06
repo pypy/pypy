@@ -1408,6 +1408,8 @@ app = gateway.applevel(r'''
     def print_item_to(x, stream):
         if file_softspace(stream, False):
            stream.write(" ")
+        if isinstance(x, unicode) and getattr(stream, "encoding", None) is not None:
+            x = x.encode(stream.encoding, getattr(stream, "errors", None) or "strict")
         stream.write(str(x))
 
         # add a softspace unless we just printed a string which ends in a '\t'
