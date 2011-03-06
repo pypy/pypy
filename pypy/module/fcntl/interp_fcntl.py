@@ -74,11 +74,6 @@ def _get_error(space, funcname):
     return wrap_oserror(space, OSError(errno, funcname),
                         exception_name = 'w_IOError')
 
-def _get_module_object(space, obj_name):
-    w_module = space.getbuiltinmodule('fcntl')
-    w_obj = space.getattr(w_module, space.wrap(obj_name))
-    return w_obj
-
 def _check_flock_op(space, op):
 
     if op == LOCK_UN:
