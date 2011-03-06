@@ -3,7 +3,7 @@ Tests for the entry point of pypy-c, app_main.py.
 """
 from __future__ import with_statement
 import py
-import sys, os, re, runpy
+import sys, os, re, runpy, subprocess
 import autopath
 from pypy.tool.udir import udir
 from contextlib import contextmanager
@@ -535,11 +535,16 @@ class TestInteraction:
 class TestNonInteractive:
 
     def run(self, cmdline, senddata='', expect_prompt=False,
-            expect_banner=False, python_flags=''):
+            expect_banner=False, python_flags='', env=None):
         cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
                                      app_main, cmdline)
         print 'POPEN:', cmdline
-        child_in, child_out_err = os.popen4(cmdline)
+        process = subprocess.Popen(
+            cmdline,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            shell=True, env=env
+        )
+        child_in, child_out_err = process.stdin, process.stdout
         child_in.write(senddata)
         child_in.close()
         data = child_out_err.read()
@@ -727,6 +732,27 @@ class TestNonInteractive:
         assert data == '42\n'
         data = self.run(p + os.sep)
         assert data == '42\n'
+
+    def test_pythonioencoding(self):
+        if sys.version_info < (2, 7):
+            skip("test requires Python >= 2.7")
+        for encoding, expected in [
+            ("iso-8859-15", "15\xa4"),
+            ("utf-8", '15\xe2\x82\xac'),
+            ("utf-16-le", '1\x005\x00\xac\x20'),
+            ("iso-8859-1:ignore", "15"),
+            ("iso-8859-1:replace", "15?"),
+            ("iso-8859-1:backslashreplace", "15\\u20ac"),
+        ]:
+            p = getscript_in_dir("""
+            import sys
+            sys.stdout.write(u'15\u20ac')
+            sys.stdout.flush()
+            """)
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = encoding
+            data = self.run(p, env=env)
+            assert data == expected
 
 
 class AppTestAppMain:
