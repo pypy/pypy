@@ -216,6 +216,14 @@ class Optimization(object):
         op = ResOperation(opnum, args, result)
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
+    def has_pure_result(self, opnum, args, descr):
+        op = ResOperation(opnum, args, None)
+        key = self.optimizer.make_args_key(op)
+        op = self.optimizer.pure_operations.get(key, None)
+        if op is None:
+            return False
+        return op.getdescr() is descr
+
     def setup(self):
         pass
 
