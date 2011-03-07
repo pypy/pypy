@@ -593,7 +593,7 @@ def run_command_line(interactive,
                     # the module __main__
                     import runpy
                     sys.path.insert(0, filename)
-                    args = (runpy._run_module_as_main, '__main__')
+                    args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # no.  That's the normal path, "pypy stuff.py".
                     args = (execfile, filename, mainmodule.__dict__)
