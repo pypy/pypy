@@ -546,8 +546,10 @@ class TestNonInteractive:
         )
         child_in, child_out_err = process.stdin, process.stdout
         child_in.write(senddata)
+        child_in.close()
         data = child_out_err.read()
-        process.communicate()
+        child_out_err.close()
+        process.wait()
         assert (banner in data) == expect_banner   # no banner unless expected
         assert ('>>> ' in data) == expect_prompt   # no prompt unless expected
         return data, process.returncode
