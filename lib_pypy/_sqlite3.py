@@ -890,9 +890,7 @@ class Statement(object):
         if cvt is not None:
             cvt = param = cvt(param)
 
-        adapter = adapters.get((type(param), PrepareProtocol), None)
-        if adapter is not None:
-            param = adapter(param)
+        param = adapt(param)
 
         if param is None:
             sqlite.sqlite3_bind_null(self.statement, idx)
@@ -1101,12 +1099,6 @@ def _check_remaining_sql(s):
                 return 1
     return 0
 
-def register_adapter(typ, callable):
-    adapters[typ, PrepareProtocol] = callable
-
-def register_converter(name, callable):
-    converters[name.upper()] = callable
-
 def _convert_params(con, nargs, params):
     _params  = []
     for i in range(nargs):
@@ -1187,6 +1179,12 @@ adapters = {}
 class PrepareProtocol(object):
     pass
 
+def register_adapter(typ, callable):
+    adapters[typ, PrepareProtocol] = callable
+
+def register_converter(name, callable):
+    converters[name.upper()] = callable
+
 def register_adapters_and_converters():
     def adapt_date(val):
         return val.isoformat()
@@ -1216,11 +1214,39 @@ def register_adapters_and_converters():
     register_converter("date", convert_date)
     register_converter("timestamp", convert_timestamp)
 
+def adapt(val, proto=PrepareProtocol):
+    # look for an adapter in the registry
+    adapter = adapters.get((type(val), proto), None)
+    if adapter is not None:
+        return adapter(val)
+
+    # try to have the protocol adapt this object
+    if hasattr(proto, '__adapt__'):
+        try:
+            adapted = proto.__adapt__(val)
+        except TypeError:
+            pass
+        else:
+            if adapted is not None:
+                return adapted
+
+    # and finally try to have the object adapt itself
+    if hasattr(val, '__conform__'):
+        try:
+            adapted = val.__conform__(proto)
+        except TypeError:
+            pass
+        else:
+            if adapted is not None:
+                return adapted
+
+    return val
+
+register_adapters_and_converters()
+
 def OptimizedUnicode(s):
     try:
         val = unicode(s, "ascii").encode("ascii")
     except UnicodeDecodeError:
         val = unicode(s, "utf-8")
     return val
-
-register_adapters_and_converters()
