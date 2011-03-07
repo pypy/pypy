@@ -933,8 +933,8 @@ class Statement(object):
             if len(params) != sqlite.sqlite3_bind_parameter_count(self.statement):
                 raise ProgrammingError("wrong number of arguments")
 
-            for idx, param in enumerate(params):
-                self.set_param(idx+1, param)
+            for i in range(len(params)):
+                self.set_param(i+1, params[i])
         else:
             for idx in range(1, sqlite.sqlite3_bind_parameter_count(self.statement) + 1):
                 param_name = sqlite.sqlite3_bind_parameter_name(self.statement, idx)
