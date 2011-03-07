@@ -5,9 +5,14 @@ import os.path
 import sys
 import re
 import tempfile
-from test.test_support import verbose, run_unittest, forget
+from test.test_support import verbose, run_unittest, forget, check_impl_detail
 from test.script_helper import (temp_dir, make_script, compile_script,
                                 make_pkg, make_zip_script, make_zip_pkg)
+
+if check_impl_detail(pypy=True):
+    no_lone_pyc_file = True
+else:
+    no_lone_pyc_file = False
 
 
 from runpy import _run_code, _run_module_code, run_module, run_path
@@ -168,13 +173,14 @@ class RunModuleTest(unittest.TestCase):
             self.assertIn("x", d1)
             self.assertTrue(d1["x"] == 1)
             del d1 # Ensure __loader__ entry doesn't keep file open
-            __import__(mod_name)
-            os.remove(mod_fname)
-            if verbose: print "Running from compiled:", mod_name
-            d2 = run_module(mod_name) # Read from bytecode
-            self.assertIn("x", d2)
-            self.assertTrue(d2["x"] == 1)
-            del d2 # Ensure __loader__ entry doesn't keep file open
+            if not no_lone_pyc_file:
+                __import__(mod_name)
+                os.remove(mod_fname)
+                if verbose: print "Running from compiled:", mod_name
+                d2 = run_module(mod_name) # Read from bytecode
+                self.assertIn("x", d2)
+                self.assertTrue(d2["x"] == 1)
+                del d2 # Ensure __loader__ entry doesn't keep file open
         finally:
             self._del_pkg(pkg_dir, depth, mod_name)
         if verbose: print "Module executed successfully"
@@ -190,13 +196,14 @@ class RunModuleTest(unittest.TestCase):
             self.assertIn("x", d1)
             self.assertTrue(d1["x"] == 1)
             del d1 # Ensure __loader__ entry doesn't keep file open
-            __import__(mod_name)
-            os.remove(mod_fname)
-            if verbose: print "Running from compiled:", pkg_name
-            d2 = run_module(pkg_name) # Read from bytecode
-            self.assertIn("x", d2)
-            self.assertTrue(d2["x"] == 1)
-            del d2 # Ensure __loader__ entry doesn't keep file open
+            if not no_lone_pyc_file:
+                __import__(mod_name)
+                os.remove(mod_fname)
+                if verbose: print "Running from compiled:", pkg_name
+                d2 = run_module(pkg_name) # Read from bytecode
+                self.assertIn("x", d2)
+                self.assertTrue(d2["x"] == 1)
+                del d2 # Ensure __loader__ entry doesn't keep file open
         finally:
             self._del_pkg(pkg_dir, depth, pkg_name)
         if verbose: print "Package executed successfully"
@@ -244,15 +251,17 @@ from ..uncle.cousin import nephew
             self.assertIn("sibling", d1)
             self.assertIn("nephew", d1)
             del d1 # Ensure __loader__ entry doesn't keep file open
-            __import__(mod_name)
-            os.remove(mod_fname)
-            if verbose: print "Running from compiled:", mod_name
-            d2 = run_module(mod_name, run_name=run_name) # Read from bytecode
-            self.assertIn("__package__", d2)
-            self.assertTrue(d2["__package__"] == pkg_name)
-            self.assertIn("sibling", d2)
-            self.assertIn("nephew", d2)
-            del d2 # Ensure __loader__ entry doesn't keep file open
+            if not no_lone_pyc_file:
+                __import__(mod_name)
+                os.remove(mod_fname)
+                if verbose: print "Running from compiled:", mod_name
+                # Read from bytecode
+                d2 = run_module(mod_name, run_name=run_name)
+                self.assertIn("__package__", d2)
+                self.assertTrue(d2["__package__"] == pkg_name)
+                self.assertIn("sibling", d2)
+                self.assertIn("nephew", d2)
+                del d2 # Ensure __loader__ entry doesn't keep file open
         finally:
             self._del_pkg(pkg_dir, depth, mod_name)
         if verbose: print "Module executed successfully"
@@ -345,6 +354,8 @@ argv0 = sys.argv[0]
                                script_dir, '')
 
     def test_directory_compiled(self):
+        if no_lone_pyc_file:
+            return
         with temp_dir() as script_dir:
             mod_name = '__main__'
             script_name = self._make_test_script(script_dir, mod_name)
