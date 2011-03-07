@@ -678,8 +678,12 @@ class Cursor(object):
             raise self.connection._get_exception(ret)
 
         if self.statement.kind == "DQL":
-            self.statement._readahead()
-            self.statement._build_row_cast_map()
+            if ret == SQLITE_ROW:
+                self.statement._build_row_cast_map()
+                self.statement._readahead()
+            else:
+                self.statement.item = None
+                self.statement.exhausted = True
 
         if self.statement.kind in ("DML", "DDL"):
             self.statement.reset()
@@ -856,7 +860,7 @@ class Statement(object):
 
     def _build_row_cast_map(self):
         self.row_cast_map = []
-        for i in range(sqlite.sqlite3_column_count(self.statement)):
+        for i in xrange(sqlite.sqlite3_column_count(self.statement)):
             converter = None
 
             if self.con.detect_types & PARSE_COLNAMES:
@@ -969,7 +973,8 @@ class Statement(object):
         self.column_count = sqlite.sqlite3_column_count(self.statement)
         row = []
         for i in xrange(self.column_count):
-            typ =  sqlite.sqlite3_column_type(self.statement, i)
+            typ = sqlite.sqlite3_column_type(self.statement, i)
+
             converter = self.row_cast_map[i]
             if converter is None:
                 if typ == SQLITE_INTEGER:
