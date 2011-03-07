@@ -546,7 +546,7 @@ class Connection(object):
         self._check_closed()
         try:
             c_closure, _ = self.func_cache[callback]
-        except KeyError:            
+        except KeyError:
             def closure(context, nargs, c_params):
                 function_callback(callback, context, nargs, c_params)
             c_closure = FUNC(closure)
@@ -557,7 +557,7 @@ class Connection(object):
                                              cast(None, STEP),
                                              cast(None, FINAL))
         if ret != SQLITE_OK:
-            raise self._get_exception(ret)
+            raise self.OperationalError("Error creating function")
 
     def create_aggregate(self, name, num_args, cls):
         self._check_thread()
