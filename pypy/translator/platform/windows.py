@@ -37,7 +37,7 @@ def _get_msvc_env(vsver):
         key, value = line.split('=', 1)
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
             env[key.upper()] = value
-    log.msg("Updated environment with %s" % (vcvars,))
+    ## log.msg("Updated environment with %s" % (vcvars,))
     return env
 
 def find_msvc_env():
