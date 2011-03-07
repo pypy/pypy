@@ -246,7 +246,7 @@ class W_ZipImporter(Wrappable):
             fname = filename + ext
             try:
                 buf = self.zip_file.read(fname)
-            except (KeyError, OSError):
+            except (KeyError, OSError, BadZipfile):
                 pass
             else:
                 if is_package:
@@ -277,7 +277,7 @@ class W_ZipImporter(Wrappable):
         try:
             data = self.zip_file.read(filename)
             return w(data)
-        except (KeyError, OSError):
+        except (KeyError, OSError, BadZipfile):
             raise OperationError(space.w_IOError, space.wrap("Error reading file"))
 
     @unwrap_spec(fullname=str)
@@ -345,8 +345,6 @@ class W_ZipImporter(Wrappable):
 @unwrap_spec(name=str)
 def descr_new_zipimporter(space, w_type, name):
     w = space.wrap
-    w_ZipImportError = space.getattr(space.getbuiltinmodule('zipimport'),
-                                     w('ZipImportError'))
     ok = False
     parts_ends = [i for i in range(0, len(name))
                     if name[i] == os.path.sep or name[i] == ZIPSEP]
@@ -359,18 +357,18 @@ def descr_new_zipimporter(space, w_type, name):
         try:
             s = os.stat(filename)
         except OSError:
-            raise operationerrfmt(w_ZipImportError,
+            raise operationerrfmt(get_error(space),
                 "Cannot find name %s", filename)
         if not stat.S_ISDIR(s.st_mode):
             ok = True
             break
     if not ok:
-        raise operationerrfmt(w_ZipImportError,
+        raise operationerrfmt(get_error(space),
             "Did not find %s to be a valid zippath", name)
     try:
         w_result = zip_cache.get(filename)
         if w_result is None:
-            raise operationerrfmt(w_ZipImportError,
+            raise operationerrfmt(get_error(space),
                 "Cannot import %s from zipfile, recursion detected or"
                 "already tried and failed", name)
     except KeyError:
@@ -378,7 +376,7 @@ def descr_new_zipimporter(space, w_type, name):
     try:
         zip_file = RZipFile(filename, 'r')
     except (BadZipfile, OSError):
-        raise operationerrfmt(w_ZipImportError,
+        raise operationerrfmt(get_error(space),
             "%s seems not to be a zipfile", filename)
     prefix = name[len(filename):]
     if prefix.startswith(os.path.sep) or prefix.startswith(ZIPSEP):
