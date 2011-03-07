@@ -150,11 +150,11 @@ class RZipFile(object):
             raise TypeError("Read only support by now")
         self.compression = compression
         self.filename = zipname
-        self.mode = mode
         self.filelist = []
         self.NameToInfo = {}
         if 'b' not in mode:
             mode += 'b'
+        self.mode = mode
         fp = self.get_fp()
         try:
             self._GetContents(fp)
