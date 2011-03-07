@@ -47,7 +47,7 @@ class BaseTestPyPyC(object):
         # parse the JIT log
         rawlog = logparser.parse_log_file(str(logfile))
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
-        log = Log(func, rawtraces)
+        log = Log(rawtraces)
         log.result = eval(stdout)
         return log
 
