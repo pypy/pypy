@@ -1,6 +1,7 @@
 """
 unit and functional testing with Python.
 (pypy version of startup script)
+see http://pytest.org for details.
 """
 __version__ = '2.0.2.dev5' # base pytest version
 __all__ = ['main']
