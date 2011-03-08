@@ -228,6 +228,9 @@ def connect(database, **kwargs):
     factory = kwargs.get("factory", Connection)
     return factory(database, **kwargs)
 
+def unicode_text_factory(x):
+    return unicode(x, 'utf-8')
+
 class Connection(object):
     def __init__(self, database, isolation_level="", detect_types=0, timeout=None, *args, **kwargs):
         self.db = c_void_p()
@@ -237,7 +240,7 @@ class Connection(object):
             timeout = int(timeout * 1000) # pysqlite2 uses timeout in seconds
             sqlite.sqlite3_busy_timeout(self.db, timeout)
 
-        self.text_factory = lambda x: unicode(x, "utf-8")
+        self.text_factory = unicode_text_factory
         self.closed = False
         self.statements = []
         self.statement_counter = 0
@@ -643,7 +646,6 @@ class Cursor(object):
         self.connection = con
         self._description = None
         self.arraysize = 1
-        self.text_factory = con.text_factory
         self.row_factory = None
         self.rowcount = -1
         self.statement = None
@@ -885,6 +887,17 @@ class Statement(object):
 
             self.row_cast_map.append(converter)
 
+    def _check_decodable(self, param):
+        if self.con.text_factory in (unicode, OptimizedUnicode, unicode_text_factory):
+            for c in param:
+                if ord(c) & 0x80 != 0:
+                    raise self.con.ProgrammingError(
+                            "You must not use 8-bit bytestrings unless "
+                            "you use a text_factory that can interpret "
+                            "8-bit bytestrings (like text_factory = str). "
+                            "It is highly recommended that you instead "
+                            "just switch your application to Unicode strings.")
+
     def set_param(self, idx, param):
         cvt = converters.get(type(param))
         if cvt is not None:
@@ -902,6 +915,7 @@ class Statement(object):
         elif type(param) is float:
             sqlite.sqlite3_bind_double(self.statement, idx, param)
         elif isinstance(param, str):
+            self._check_decodable(param)
             sqlite.sqlite3_bind_text(self.statement, idx, param, -1, SQLITE_TRANSIENT)
         elif isinstance(param, unicode):
             param = param.encode("utf-8")
@@ -989,7 +1003,7 @@ class Statement(object):
                     val = None
                 elif typ == SQLITE_TEXT:
                     val = sqlite.sqlite3_column_text(self.statement, i)
-                    val = self.cur().text_factory(val)
+                    val = self.con.text_factory(val)
             else:
                 blob = sqlite.sqlite3_column_blob(self.statement, i)
                 if not blob:
