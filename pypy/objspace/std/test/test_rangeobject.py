@@ -13,7 +13,7 @@ class AppTestRangeListObject(object):
             import __pypy__
             def f(r):
                 return (isinstance(r, list) and
-                        "W_ListObject" not in __pypy__.internal_repr(r))
+                        "RangeListStrategy" in __pypy__.internal_repr(r))
             return f
         """)
         cls.w_SORT_FORCES_LISTS = cls.space.wrap(False)

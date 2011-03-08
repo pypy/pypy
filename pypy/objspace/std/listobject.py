@@ -23,7 +23,7 @@ def cast_from_void_star(wrapper, from_where=""):
     return wrapper._content
 
 def make_range_list(space, start, step, length):
-    storage = cast_to_void_star((start, step, length))
+    storage = cast_to_void_star((start, step, length), "integer")
     strategy = RangeListStrategy(space)
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
@@ -75,7 +75,7 @@ class W_ListObject(W_Object):
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        return "%s(%s)" % (w_self.__class__.__name__, w_self.getitems())
+        return "%s(%s, %s)" % (w_self.__class__.__name__, w_self.strategy, w_self.storage._content)
 
     def unwrap(w_list, space):
         # for tests only!
@@ -244,6 +244,12 @@ class EmptyListStrategy(ListStrategy):
 
 class RangeListStrategy(ListStrategy):
 
+    def switch_to_integer_strategy(self, w_list):
+        #XXX write storage directly to avoid wrapping and unwrapping
+        list_w = w_list.getitems()
+        w_list.strategy = IntegerListStrategy(self.space)
+        w_list.strategy.init_from_list_w(w_list, list_w)
+
     def wrap(self, intval):
         return self.space.wrap(intval)
 
@@ -256,12 +262,27 @@ class RangeListStrategy(ListStrategy):
     def cast_from_void_star(self, storage):
         return cast_from_void_star(storage, "integer")
 
+    def length(self, w_list):
+        return self.cast_from_void_star(w_list.storage)[2]
+
+    def getitem(self, w_list, i):
+        v = self.cast_from_void_star(w_list.storage)
+        start = v[0]
+        step = v[1]
+        length = v[2]
+        if i < 0:
+            i += length
+            if i < 0:
+                raise IndexError
+        elif i >= length:
+            raise IndexError
+        return self.wrap(start + i * step)
+
     def getitems(self, w_list):
         l = self.cast_from_void_star(w_list.storage)
         start = l[0]
         step = l[1]
         length  = l[2]
-
         r = [None] * length
 
         i = start
@@ -272,6 +293,61 @@ class RangeListStrategy(ListStrategy):
             n += 1
 
         return r
+
+    def getslice(self, w_list, start, stop, step, length):
+        v = self.cast_from_void_star(w_list.storage)
+        old_start = v[0]
+        old_step = v[1]
+        old_length = v[2]
+
+        new_start = self.unwrap(w_list.getitem(start))
+        new_step = old_step * step
+        return make_range_list(self.space, new_start, new_step, length)
+
+    def append(self, w_list, w_item):
+        #XXX maybe check later if w_item fits in range to keep RangeListStrategy
+        if is_W_IntObject(w_item):
+            self.switch_to_integer_strategy(w_list)
+        else:
+            w_list.switch_to_object_strategy(w_list)
+        w_list.append(w_item)
+
+    def inplace_mul(self, w_list, times):
+        self.switch_to_integer_strategy(w_list)
+        w_list.inplace_mul(times)
+
+    def deleteitem(self, w_list, index):
+        self.switch_to_integer_strategy(w_list)
+        w_list.deleteitem(index)
+
+    def deleteslice(self, w_list, start, step, slicelength):
+        self.switch_to_integer_strategy(w_list)
+        w_list.deleteslice(start, step, slicelength)
+
+    def pop(self, w_list, index):
+        self.switch_to_integer_strategy(w_list)
+        return w_list.pop(index)
+
+    def setitem(self, w_list, index, w_item):
+        self.switch_to_integer_strategy(w_list)
+        w_list.setitem(index, w_item)
+
+    def setslice(self, w_list, start, step, slicelength, sequence_w):
+        self.switch_to_integer_strategy(w_list)
+        w_list.setslice(start, step, slicelength)
+
+    def insert(self, w_list, index, w_item):
+        self.switch_to_integer_strategy(w_list)
+        w_list.insert(index, w_item)
+
+    def extend(self, w_list, items_w):
+        self.switch_to_integer_strategy(w_list)
+        w_list.extend(items_w)
+
+    def reverse(self, w_list):
+        #XXX better: switch start, end, and negate step?
+        self.switch_to_integer_strategy(w_list)
+        w_list.reverse()
 
 class AbstractUnwrappedStrategy(ListStrategy):
 
