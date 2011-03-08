@@ -123,3 +123,20 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_id("except")
         ops = list(loop.ops_by_id("except", opcode="COMPARE_OP"))
         assert ops == []
+
+    def test_reraise(self):
+        def f(n):
+            i = 0
+            while i < n:
+                try:
+                    try:
+                        raise KeyError
+                    except KeyError:
+                        raise
+                except KeyError:
+                    i += 1
+            return i
+
+        log = self.run(f, [100000])
+        assert log.result == 100000
+        loop, = log.loops_by_filename(self.filepath)
