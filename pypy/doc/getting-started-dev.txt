@@ -207,32 +207,52 @@ or start off at one of the following points:
 Running PyPy's unit tests
 -------------------------
 
-The PyPy project uses test-driven-development.  Right now, there are
-a couple of different categories of tests which you can run.
-To run all the unit tests::
+PyPy development always was and is still thorougly test-driven. 
+We use the flexible `py.test testing tool`_ which you can `install independently
+<http://pytest.org/getting-started.html>`_ and use indepedently
+from PyPy for other projects.
 
-    cd pypy
-    python test_all.py
+The PyPy source tree comes with an inlined version of ``py.test``
+which you can invoke by typing::
 
-(this is not recommended, since it takes hours and uses huge amounts of RAM).
-Alternatively, you may run subtests by going to the correct subdirectory
-and running them individually::
+    python pytest.py -h
 
-    python test_all.py interpreter/test/test_pyframe.py
+This is usually equivalent to using an installed version::
 
-``test_all.py`` is actually just a synonym for `py.test`_ which is 
-our external testing tool. If you have installed that you 
-can as well just issue ``py.test DIRECTORY_OR_FILE`` in order 
-to perform test runs or simply start it without arguments to 
-run all tests below the current directory. 
+    py.test -h
 
-Finally, there are the CPython regression tests which you can 
-run like this (this will take hours and hours and hours)::
+If you encounter problems with the installed version
+make sure you have the correct version installed which
+you can find out with the ``--version`` switch.
 
-    cd lib-python/2.5.2/test 
-    python ../../../pypy/test_all.py
+Now on to running some tests.  PyPy has many different test directories
+and you can use shell completion to point at directories or files::
 
-.. _`installed py.test`: https://codespeak.net/py/current/doc/download.html
+    py.test pypy/interpreter/test/test_pyframe.py
+
+    # or for running tests of a whole subdirectory
+    py.test pypy/interpreter/
+
+See `py.test usage and invocations`_ for some more generic info 
+on how you can run tests.
+
+Beware trying to run "all" pypy tests by pointing to the root
+directory or even the top level subdirectory ``pypy``.  It takes
+hours and uses huge amounts of RAM and is not recommended.
+
+To run CPython regression tests you can point to the ``lib-python``
+directory::
+
+    py.test lib-python/2.7.0/test/test_datetime.py
+
+This will usually take a long time because this will run
+the PyPy Python interpreter on top of CPython.  On the plus
+side, it's usually still faster than doing a full translation
+and running the regression test with the translated PyPy Python
+interpreter.
+
+.. _`py.test testing tool`: http://pytest.org
+.. _`py.test usage and invocations`: http://pytest.org/usage.html#usage
 
 Special Introspection Features of the Untranslated Python Interpreter
 ---------------------------------------------------------------------
@@ -345,14 +365,13 @@ the `download page of ctypes`_.
 py.test and the py lib 
 +++++++++++++++++++++++
 
-The `py library`_ is used for supporting PyPy development and 
-running our tests against code and documentation as well as
-compliance tests.  You don't need to install the py library because 
-it ships with PyPy and `pypy/test_all.py`_ is an alias for ``py.test``
-but if you want to have the ``py.test`` tool generally in your 
-path, you might like to visit: 
+The `py.test testing tool`_ drives all our testing needs.
 
-    http://codespeak.net/py/dist/download.html
+We use the `py library`_ for filesystem path manipulations, terminal
+writing, logging and some other support  functionality.
+
+You don't neccessarily need to install these two libraries because 
+we also ship them inlined in the PyPy source tree.
 
 Getting involved 
 -----------------
@@ -370,7 +389,7 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: index.html
 
-.. _`py library`: http://codespeak.net/py 
+.. _`py library`: http://pylib.org
 
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 

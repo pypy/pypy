@@ -138,8 +138,9 @@ def test_safe_filename(testdir):
             def test_one(self):
                 pass
     """)
-    ev, = sorter.getreports("pytest_runtest_logreport")
-    assert ev.passed
+    evlist = sorter.getcalls("pytest_runtest_makereport")
+    ev = [x for x in evlist if x.call.when == "call"][0]
+    print ev
     sfn = ev.item.safe_filename()
     print sfn
     assert sfn == 'test_safe_filename_test_safe_filename_ExpectTestOne_paren_test_one_1.py'
