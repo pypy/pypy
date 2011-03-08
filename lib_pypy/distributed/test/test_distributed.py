@@ -6,12 +6,6 @@ from pypy.conftest import gettestobjspace
 import sys
 import pytest
 
-class AppTestNoProxy(object):
-
-    @pytest.mark.xfail(run=False)
-    def test_init(self):
-        raises(ImportError, "import distributed")
-
 class AppTestDistributed(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
