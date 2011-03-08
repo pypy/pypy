@@ -133,11 +133,11 @@ class LoopWithIds(Function):
             for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                 yield op
 
-    def print_ops(self, id=None):
+    def print_ops(self, id=None, **kwds):
         if id is None:
             ops = self.allops()
         else:
-            ops = self.ops_by_id(id)
+            ops = self.ops_by_id(id, **kwds)
         print '\n'.join(map(str, ops))
 
     def ops_by_id(self, id, include_debug_merge_points=False, opcode=None):

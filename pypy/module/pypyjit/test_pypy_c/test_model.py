@@ -400,20 +400,22 @@ class TestRunPyPyC(BaseTestPyPyC):
 
     def test_match_constants(self):
         def f():
-            i = 0L # force it to long, so that we get calls to rbigint
+            from socket import ntohs
+            i = 0
             while i < 1003:
-                i += 1L # ID: increment
+                i += 1
+                j = ntohs(1) # ID: ntohs
                 a = 0
             return i
         log = self.run(f)
-        loop, = log.loops_by_id('increment')
-        assert loop.match_by_id('increment', """
-            p12 = call(ConstClass(rbigint.add), p4, ConstPtr(ptr11), descr=...)
+        loop, = log.loops_by_id('ntohs')
+        assert loop.match_by_id('ntohs', """
+            p12 = call(ConstClass(ntohs), 1, descr=...)
             guard_no_exception(descr=...)
         """)
         #
-        assert not loop.match_by_id('increment', """
-            p12 = call(ConstClass(rbigint.SUB), p4, ConstPtr(ptr11), descr=...)
+        assert not loop.match_by_id('ntohs', """
+            p12 = call(ConstClass(foobar), 1, descr=...)
             guard_no_exception(descr=...)
         """)
         

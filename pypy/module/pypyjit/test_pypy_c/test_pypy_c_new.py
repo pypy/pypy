@@ -124,6 +124,22 @@ class TestPyPyCNew(BaseTestPyPyC):
         ops = list(loop.ops_by_id("except", opcode="COMPARE_OP"))
         assert ops == []
 
+    def test_simple_call(self):
+        src = """
+            OFFSET = 0
+            def f(i):
+                return i + 1 + OFFSET # ID: add
+            def main(n):
+                i = 0
+                while i < n+OFFSET:
+                    i = f(f(i)) # ID: call
+                return i
+        """
+        log = self.run(src, [1000], threshold=400)
+        assert log.result == 1000
+        entry_bridge, = log.loops_by_id('call', is_entry_bridge=True)
+        import pdb;pdb.set_trace()
+
     def test_reraise(self):
         def f(n):
             i = 0
