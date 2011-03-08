@@ -698,11 +698,9 @@ class Assembler386(object):
             else:
                 target = tmp
             if inputargs[i].type == REF:
-                # This uses XCHG to put zeroes in fail_boxes_ptr after
-                # reading them
-                self.mc.XOR(target, target)
                 adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                self.mc.XCHG(target, heap(adr))
+                self.mc.MOV(target, heap(adr))
+                self.mc.MOV(heap(adr), imm0)
             else:
                 adr = self.fail_boxes_int.get_addr_for_num(i)
                 self.mc.MOV(target, heap(adr))
@@ -1908,8 +1906,8 @@ class Assembler386(object):
                     self.mc.MOV(eax, heap(adr))
                 elif kind == REF:
                     adr = self.fail_boxes_ptr.get_addr_for_num(0)
-                    self.mc.XOR_rr(eax.value, eax.value)
-                    self.mc.XCHG(eax, heap(adr))
+                    self.mc.MOV(eax, heap(adr))
+                    self.mc.MOV(heap(adr), imm0)
                 else:
                     raise AssertionError(kind)
         #

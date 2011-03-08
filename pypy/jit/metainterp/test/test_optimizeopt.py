@@ -4287,8 +4287,11 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i13 = int_lshift(i1b, i2)
         i14 = int_rshift(i13, i2)
         i15 = int_lshift(i1b, 2)
+        i16 = int_rshift(i15, 2)
         i17 = int_lshift(i1b, 100)
         i18 = int_rshift(i17, 100)
+        i19 = int_eq(i1b, i16)
+        guard_true(i19) []
         jump(i2, i3, i1b, i2b)
         """
         self.optimize_loop(ops, expected)

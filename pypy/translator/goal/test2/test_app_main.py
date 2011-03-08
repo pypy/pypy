@@ -542,12 +542,15 @@ class TestNonInteractive:
         process = subprocess.Popen(
             cmdline,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            shell=True, env=env
+            shell=True, env=env,
+            universal_newlines=True
         )
         child_in, child_out_err = process.stdin, process.stdout
         child_in.write(senddata)
+        child_in.close()
         data = child_out_err.read()
-        process.communicate()
+        child_out_err.close()
+        process.wait()
         assert (banner in data) == expect_banner   # no banner unless expected
         assert ('>>> ' in data) == expect_prompt   # no prompt unless expected
         return data, process.returncode
@@ -730,11 +733,11 @@ class TestNonInteractive:
     def test_main_in_dir_commandline_argument(self):
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
-        p = getscript_in_dir('print 6*7\n')
+        p = getscript_in_dir('import sys; print sys.argv[0]\n')
         data = self.run(p)
-        assert data == '42\n'
+        assert data == p + '\n'
         data = self.run(p + os.sep)
-        assert data == '42\n'
+        assert data == p + os.sep + '\n'
 
     def test_pythonioencoding(self):
         if sys.version_info < (2, 7):

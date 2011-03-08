@@ -228,6 +228,9 @@ def connect(database, **kwargs):
     factory = kwargs.get("factory", Connection)
     return factory(database, **kwargs)
 
+def unicode_text_factory(x):
+    return unicode(x, 'utf-8')
+
 class Connection(object):
     def __init__(self, database, isolation_level="", detect_types=0, timeout=None, *args, **kwargs):
         self.db = c_void_p()
@@ -237,7 +240,7 @@ class Connection(object):
             timeout = int(timeout * 1000) # pysqlite2 uses timeout in seconds
             sqlite.sqlite3_busy_timeout(self.db, timeout)
 
-        self.text_factory = lambda x: unicode(x, "utf-8")
+        self.text_factory = unicode_text_factory
         self.closed = False
         self.statements = []
         self.statement_counter = 0
@@ -546,7 +549,7 @@ class Connection(object):
         self._check_closed()
         try:
             c_closure, _ = self.func_cache[callback]
-        except KeyError:            
+        except KeyError:
             def closure(context, nargs, c_params):
                 function_callback(callback, context, nargs, c_params)
             c_closure = FUNC(closure)
@@ -557,7 +560,7 @@ class Connection(object):
                                              cast(None, STEP),
                                              cast(None, FINAL))
         if ret != SQLITE_OK:
-            raise self._get_exception(ret)
+            raise self.OperationalError("Error creating function")
 
     def create_aggregate(self, name, num_args, cls):
         self._check_thread()
@@ -643,7 +646,6 @@ class Cursor(object):
         self.connection = con
         self._description = None
         self.arraysize = 1
-        self.text_factory = con.text_factory
         self.row_factory = None
         self.rowcount = -1
         self.statement = None
@@ -678,8 +680,12 @@ class Cursor(object):
             raise self.connection._get_exception(ret)
 
         if self.statement.kind == "DQL":
-            self.statement._readahead()
-            self.statement._build_row_cast_map()
+            if ret == SQLITE_ROW:
+                self.statement._build_row_cast_map()
+                self.statement._readahead()
+            else:
+                self.statement.item = None
+                self.statement.exhausted = True
 
         if self.statement.kind in ("DML", "DDL"):
             self.statement.reset()
@@ -856,7 +862,7 @@ class Statement(object):
 
     def _build_row_cast_map(self):
         self.row_cast_map = []
-        for i in range(sqlite.sqlite3_column_count(self.statement)):
+        for i in xrange(sqlite.sqlite3_column_count(self.statement)):
             converter = None
 
             if self.con.detect_types & PARSE_COLNAMES:
@@ -881,14 +887,23 @@ class Statement(object):
 
             self.row_cast_map.append(converter)
 
+    def _check_decodable(self, param):
+        if self.con.text_factory in (unicode, OptimizedUnicode, unicode_text_factory):
+            for c in param:
+                if ord(c) & 0x80 != 0:
+                    raise self.con.ProgrammingError(
+                            "You must not use 8-bit bytestrings unless "
+                            "you use a text_factory that can interpret "
+                            "8-bit bytestrings (like text_factory = str). "
+                            "It is highly recommended that you instead "
+                            "just switch your application to Unicode strings.")
+
     def set_param(self, idx, param):
         cvt = converters.get(type(param))
         if cvt is not None:
             cvt = param = cvt(param)
 
-        adapter = adapters.get((type(param), PrepareProtocol), None)
-        if adapter is not None:
-            param = adapter(param)
+        param = adapt(param)
 
         if param is None:
             sqlite.sqlite3_bind_null(self.statement, idx)
@@ -900,6 +915,7 @@ class Statement(object):
         elif type(param) is float:
             sqlite.sqlite3_bind_double(self.statement, idx, param)
         elif isinstance(param, str):
+            self._check_decodable(param)
             sqlite.sqlite3_bind_text(self.statement, idx, param, -1, SQLITE_TRANSIENT)
         elif isinstance(param, unicode):
             param = param.encode("utf-8")
@@ -929,8 +945,8 @@ class Statement(object):
             if len(params) != sqlite.sqlite3_bind_parameter_count(self.statement):
                 raise ProgrammingError("wrong number of arguments")
 
-            for idx, param in enumerate(params):
-                self.set_param(idx+1, param)
+            for i in range(len(params)):
+                self.set_param(i+1, params[i])
         else:
             for idx in range(1, sqlite.sqlite3_bind_parameter_count(self.statement) + 1):
                 param_name = sqlite.sqlite3_bind_parameter_name(self.statement, idx)
@@ -969,7 +985,8 @@ class Statement(object):
         self.column_count = sqlite.sqlite3_column_count(self.statement)
         row = []
         for i in xrange(self.column_count):
-            typ =  sqlite.sqlite3_column_type(self.statement, i)
+            typ = sqlite.sqlite3_column_type(self.statement, i)
+
             converter = self.row_cast_map[i]
             if converter is None:
                 if typ == SQLITE_INTEGER:
@@ -986,7 +1003,7 @@ class Statement(object):
                     val = None
                 elif typ == SQLITE_TEXT:
                     val = sqlite.sqlite3_column_text(self.statement, i)
-                    val = self.cur().text_factory(val)
+                    val = self.con.text_factory(val)
             else:
                 blob = sqlite.sqlite3_column_blob(self.statement, i)
                 if not blob:
@@ -1096,12 +1113,6 @@ def _check_remaining_sql(s):
                 return 1
     return 0
 
-def register_adapter(typ, callable):
-    adapters[typ, PrepareProtocol] = callable
-
-def register_converter(name, callable):
-    converters[name.upper()] = callable
-
 def _convert_params(con, nargs, params):
     _params  = []
     for i in range(nargs):
@@ -1182,6 +1193,12 @@ adapters = {}
 class PrepareProtocol(object):
     pass
 
+def register_adapter(typ, callable):
+    adapters[typ, PrepareProtocol] = callable
+
+def register_converter(name, callable):
+    converters[name.upper()] = callable
+
 def register_adapters_and_converters():
     def adapt_date(val):
         return val.isoformat()
@@ -1211,11 +1228,39 @@ def register_adapters_and_converters():
     register_converter("date", convert_date)
     register_converter("timestamp", convert_timestamp)
 
+def adapt(val, proto=PrepareProtocol):
+    # look for an adapter in the registry
+    adapter = adapters.get((type(val), proto), None)
+    if adapter is not None:
+        return adapter(val)
+
+    # try to have the protocol adapt this object
+    if hasattr(proto, '__adapt__'):
+        try:
+            adapted = proto.__adapt__(val)
+        except TypeError:
+            pass
+        else:
+            if adapted is not None:
+                return adapted
+
+    # and finally try to have the object adapt itself
+    if hasattr(val, '__conform__'):
+        try:
+            adapted = val.__conform__(proto)
+        except TypeError:
+            pass
+        else:
+            if adapted is not None:
+                return adapted
+
+    return val
+
+register_adapters_and_converters()
+
 def OptimizedUnicode(s):
     try:
         val = unicode(s, "ascii").encode("ascii")
     except UnicodeDecodeError:
         val = unicode(s, "utf-8")
     return val
-
-register_adapters_and_converters()
