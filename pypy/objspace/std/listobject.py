@@ -309,7 +309,7 @@ class RangeListStrategy(ListStrategy):
         if is_W_IntObject(w_item):
             self.switch_to_integer_strategy(w_list)
         else:
-            w_list.switch_to_object_strategy(w_list)
+            w_list.switch_to_object_strategy()
         w_list.append(w_item)
 
     def inplace_mul(self, w_list, times):

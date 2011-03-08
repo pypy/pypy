@@ -1,4 +1,4 @@
-from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy, StringListStrategy
+from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy, StringListStrategy, RangeListStrategy, make_range_list
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
 class TestW_ListStrategies(TestW_ListObject):
@@ -144,4 +144,16 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, IntegerListStrategy)
         l.extend(W_ListObject(self.space, [self.space.wrap(4), self.space.wrap(5), self.space.wrap(6)]))
         assert isinstance(l.strategy, IntegerListStrategy)
+
+    def test_rangelist(self):
+        l = make_range_list(self.space, 1,3,7)
+        assert isinstance(l.strategy, RangeListStrategy)
+        v = l.pop(6)
+        assert self.space.eq_w(v, self.space.wrap(19))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+        l = make_range_list(self.space, 1,3,7)
+        assert isinstance(l.strategy, RangeListStrategy)
+        l.append(self.space.wrap("string"))
+        assert isinstance(l.strategy, ObjectListStrategy)
 
