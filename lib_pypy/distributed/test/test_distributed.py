@@ -4,9 +4,11 @@
 
 from pypy.conftest import gettestobjspace
 import sys
+import pytest
 
 class AppTestNoProxy(object):
-    disabled = True
+
+    @pytest.mark.xfail(run=False)
     def test_init(self):
         raises(ImportError, "import distributed")
 
