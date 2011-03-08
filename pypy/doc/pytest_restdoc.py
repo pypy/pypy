@@ -74,14 +74,19 @@ class ReSTSyntaxTest(py.test.collect.Item):
         py.test.importorskip("docutils")
         self.register_linkrole()
         from docutils.utils import SystemMessage
-        try: 
+        try:
             self._checkskip(path, self.project.get_htmloutputpath(path))
             self.project.process(path)
-        except KeyboardInterrupt: 
-            raise 
-        except SystemMessage: 
-            # we assume docutils printed info on stdout 
-            py.test.fail("docutils processing failed, see captured stderr") 
+        except KeyboardInterrupt:
+            raise
+        except SystemExit, error:
+            if error.message == "ERROR: dot not found":
+                py.test.skip("system doesn't have graphviz installed")
+                return
+            raise
+        except SystemMessage:
+            # we assume docutils printed info on stdout
+            py.test.fail("docutils processing failed, see captured stderr")
 
     def register_linkrole(self):
         #directive.register_linkrole('api', self.resolve_linkrole)
