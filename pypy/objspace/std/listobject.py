@@ -14,33 +14,33 @@ from pypy.interpreter.argument import Signature
 
 def make_range_list(space, start, step, length):
     if length <= 0:
-        strategy = EmptyListStrategy(space)
+        strategy = space.fromcache(EmptyListStrategy)
         storage = strategy.cast_to_void_star(None)
     else:
-        strategy = RangeListStrategy(space)
+        strategy = space.fromcache(RangeListStrategy)(space)
         storage = strategy.cast_to_void_star((start, step, length))
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 # don't know where to put this function, so it is global for now
 def get_strategy_from_list_objects(space, list_w):
     if list_w == []:
-        return EmptyListStrategy(space)
+        return space.fromcache(EmptyListStrategy)
 
     # check for ints
     for e in list_w:
         if not is_W_IntObject(e):
             break
         if e is list_w[-1]:
-            return IntegerListStrategy(space)
+            return space.fromcache(IntegerListStrategy)
 
     # check for ints
     for e in list_w:
         if not is_W_StringObject(e):
             break
         if e is list_w[-1]:
-            return StringListStrategy(space)
+            return space.fromcache(StringListStrategy)
 
-    return ObjectListStrategy(space)
+    return space.fromcache(ObjectListStrategy)
 
 def is_W_IntObject(w_object):
     from pypy.objspace.std.intobject import W_IntObject
@@ -78,12 +78,12 @@ class W_ListObject(W_Object):
 
     def switch_to_object_strategy(self):
         list_w = self.getitems()
-        self.strategy = ObjectListStrategy(self.space)
+        self.strategy = self.space.fromcache(ObjectListStrategy)
         self.strategy.init_from_list_w(self, list_w)
 
     def check_empty_strategy(self):
         if self.length() == 0:
-            self.strategy = EmptyListStrategy(self.space)
+            self.strategy = self.space.fromcache(EmptyListStrategy)
             self.strategy.init_from_list_w(self, [])
 
     # ___________________________________________________
@@ -244,7 +244,7 @@ class RangeListStrategy(ListStrategy):
 
     def switch_to_integer_strategy(self, w_list):
         items = self.getitems(w_list, unwrapped=True)
-        w_list.strategy = IntegerListStrategy(self.space)
+        w_list.strategy = self.space.fromcache(IntegerListStrategy)
         w_list.storage = w_list.strategy.cast_to_void_star(items)
 
     def wrap(self, intval):
