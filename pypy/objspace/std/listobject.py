@@ -357,16 +357,12 @@ class RangeListStrategy(ListStrategy):
 
         #XXX merge these parts
         l = self.cast_from_void_star(w_list.storage)
-        if index == 0:
+        if index in [0, self.length(w_list)-1]:
             r = self.getitem(w_list, index)
-            new = self.cast_to_void_star((l[0]+l[1],l[1],l[2]-1))
-            w_list.storage = new
-            w_list.check_empty_strategy()
-            return r
-
-        if index == self.length(w_list)-1:
-            r = self.getitem(w_list, index)
-            new = self.cast_to_void_star((l[0],l[1],l[2]-1))
+            if index == 0:
+                new = self.cast_to_void_star((l[0]+l[1],l[1],l[2]-1))
+            else:
+                new = self.cast_to_void_star((l[0],l[1],l[2]-1))
             w_list.storage = new
             w_list.check_empty_strategy()
             return r
