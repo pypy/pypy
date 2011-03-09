@@ -543,9 +543,10 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         if nbargs == 0:
             frame = self
+            ec = self.space.getexecutioncontext()
             while frame:
                 if frame.last_exception is not None:
-                    operror = frame.last_exception
+                    operror = ec._convert_exc(frame.last_exception)
                     break
                 frame = frame.f_backref()
             else:
