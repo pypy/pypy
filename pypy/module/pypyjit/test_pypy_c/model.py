@@ -38,7 +38,7 @@ def find_ids(code):
 
 
 class Log(object):
-    def __init__(self, func, rawtraces):
+    def __init__(self, rawtraces):
         storage = LoopStorage()
         traces = [SimpleParser.parse_from_input(rawtrace) for rawtrace in rawtraces]
         traces = storage.reconnect_loops(traces)

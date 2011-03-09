@@ -1,4 +1,5 @@
 import sys
+import types
 import subprocess
 import py
 from lib_pypy import disassembler
@@ -19,12 +20,17 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def run(self, func, args=[], **jitopts):
+    def run(self, func_or_src, args=[], **jitopts):
+        src = py.code.Source(func_or_src)
+        if isinstance(func_or_src, types.FunctionType):
+            funcname = func_or_src.func_name
+        else:
+            funcname = 'main'
         # write the snippet
         arglist = ', '.join(map(repr, args))
         with self.filepath.open("w") as f:
-            f.write(str(py.code.Source(func)) + "\n")
-            f.write("print %s(%s)\n" % (func.func_name, arglist))
+            f.write(str(src) + "\n")
+            f.write("print %s(%s)\n" % (funcname, arglist))
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
@@ -47,7 +53,7 @@ class BaseTestPyPyC(object):
         # parse the JIT log
         rawlog = logparser.parse_log_file(str(logfile))
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
-        log = Log(func, rawtraces)
+        log = Log(rawtraces)
         log.result = eval(stdout)
         return log
 
@@ -220,6 +226,16 @@ class TestRunPyPyC(BaseTestPyPyC):
         def f(a, b):
             return a+b
         log = self.run(f, [30, 12])
+        assert log.result == 42
+
+    def test_run_src(self):
+        src = """
+            def f(a, b):
+                return a+b
+            def main(a, b):
+                return f(a, b)
+        """
+        log = self.run(src, [30, 12])
         assert log.result == 42
 
     def test_parse_jitlog(self):
