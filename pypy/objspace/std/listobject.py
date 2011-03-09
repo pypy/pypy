@@ -305,8 +305,15 @@ class RangeListStrategy(ListStrategy):
         return make_range_list(self.space, new_start, new_step, length)
 
     def append(self, w_list, w_item):
-        #XXX maybe check later if w_item fits in range to keep RangeListStrategy
         if is_W_IntObject(w_item):
+            l = self.cast_from_void_star(w_list.storage)
+            step = l[1]
+            last_in_range = self.getitem(w_list, -1)
+            if self.unwrap(w_item) - step == self.unwrap(last_in_range):
+                new = cast_to_void_star((l[0],l[1],l[2]+1), "integer")
+                w_list.storage = new
+                return
+
             self.switch_to_integer_strategy(w_list)
         else:
             w_list.switch_to_object_strategy()
@@ -325,6 +332,23 @@ class RangeListStrategy(ListStrategy):
         w_list.deleteslice(start, step, slicelength)
 
     def pop(self, w_list, index):
+        #XXX move this to list_pop_List_ANY
+        if index < 0:
+            index += self.length(w_list)
+
+        l = self.cast_from_void_star(w_list.storage)
+        if index == 0:
+            r = self.getitem(w_list, 0)
+            new = cast_to_void_star((l[0]+l[1],l[1],l[2]-1), "integer")
+            w_list.storage = new
+            return r
+
+        if index == self.length(w_list)-1:
+            r = self.getitem(w_list, -1)
+            new = cast_to_void_star((l[0],l[1],l[2]-1), "integer")
+            w_list.storage = new
+            return r
+
         self.switch_to_integer_strategy(w_list)
         return w_list.pop(index)
 

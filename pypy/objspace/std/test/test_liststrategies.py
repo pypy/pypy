@@ -148,8 +148,8 @@ class TestW_ListStrategies(TestW_ListObject):
     def test_rangelist(self):
         l = make_range_list(self.space, 1,3,7)
         assert isinstance(l.strategy, RangeListStrategy)
-        v = l.pop(6)
-        assert self.space.eq_w(v, self.space.wrap(19))
+        v = l.pop(5)
+        assert self.space.eq_w(v, self.space.wrap(16))
         assert isinstance(l.strategy, IntegerListStrategy)
 
         l = make_range_list(self.space, 1,3,7)
@@ -157,3 +157,25 @@ class TestW_ListStrategies(TestW_ListObject):
         l.append(self.space.wrap("string"))
         assert isinstance(l.strategy, ObjectListStrategy)
 
+        l = make_range_list(self.space, 1,1,5)
+        assert isinstance(l.strategy, RangeListStrategy)
+        l.append(self.space.wrap(19))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+    def test_keep_range(self):
+        # simple list
+        l = make_range_list(self.space, 1,1,5)
+        assert isinstance(l.strategy, RangeListStrategy)
+        x = l.pop(0)
+        assert self.space.eq_w(x, self.space.wrap(1))
+        assert isinstance(l.strategy, RangeListStrategy)
+        l.pop(-1)
+        assert isinstance(l.strategy, RangeListStrategy)
+        l.append(self.space.wrap(5))
+        assert isinstance(l.strategy, RangeListStrategy)
+
+        # complex list
+        l = make_range_list(self.space, 1,3,5)
+        assert isinstance(l.strategy, RangeListStrategy)
+        l.append(self.space.wrap(16))
+        assert isinstance(l.strategy, RangeListStrategy)
