@@ -355,7 +355,6 @@ class RangeListStrategy(ListStrategy):
         if index < 0:
             index += self.length(w_list)
 
-        #XXX merge these parts
         l = self.cast_from_void_star(w_list.storage)
         if index in [0, self.length(w_list)-1]:
             r = self.getitem(w_list, index)
