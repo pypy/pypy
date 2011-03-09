@@ -246,9 +246,9 @@ class RangeListStrategy(ListStrategy):
 
     def switch_to_integer_strategy(self, w_list):
         #XXX write storage directly to avoid wrapping and unwrapping
-        list_w = w_list.getitems()
+        items = self.getitems(w_list, unwrapped=True)
         w_list.strategy = IntegerListStrategy(self.space)
-        w_list.strategy.init_from_list_w(w_list, list_w)
+        w_list.storage = w_list.strategy.cast_to_void_star(items)
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -278,7 +278,7 @@ class RangeListStrategy(ListStrategy):
             raise IndexError
         return self.wrap(start + i * step)
 
-    def getitems(self, w_list):
+    def getitems(self, w_list, unwrapped=False):
         l = self.cast_from_void_star(w_list.storage)
         start = l[0]
         step = l[1]
@@ -288,7 +288,10 @@ class RangeListStrategy(ListStrategy):
         i = start
         n = 0
         while n < length:
-            r[n] = self.wrap(i)
+            if unwrapped:
+                r[n] = i
+            else:
+                r[n] = self.wrap(i)
             i += step
             n += 1
 
@@ -369,9 +372,12 @@ class RangeListStrategy(ListStrategy):
         w_list.extend(items_w)
 
     def reverse(self, w_list):
-        #XXX better: switch start, end, and negate step?
-        self.switch_to_integer_strategy(w_list)
-        w_list.reverse()
+        v = self.cast_from_void_star(w_list.storage)
+        last = w_list.getitem(-1) #XXX wrapped
+        length = v[2]
+        skip = v[1]
+        new = cast_to_void_star((self.unwrap(last), -skip, length), "integer")
+        w_list.storage = new
 
 class AbstractUnwrappedStrategy(ListStrategy):
 
