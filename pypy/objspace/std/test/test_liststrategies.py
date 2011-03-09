@@ -179,3 +179,15 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, RangeListStrategy)
         l.append(self.space.wrap(16))
         assert isinstance(l.strategy, RangeListStrategy)
+
+    def test_empty_range(self):
+        l = make_range_list(self.space, 0, 0, 0)
+        assert isinstance(l.strategy, EmptyListStrategy)
+
+        l = make_range_list(self.space, 1, 1, 10)
+        print l.getitems()
+        for i in l.getitems():
+            assert isinstance(l.strategy, RangeListStrategy)
+            l.pop(-1)
+
+        assert isinstance(l.strategy, EmptyListStrategy)

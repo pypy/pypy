@@ -44,12 +44,9 @@ class AppTestRangeListObject(object):
 
     def test_empty_range(self):
         r = range(10, 10)
-        if not self.SORT_FORCES_LISTS:
-            r.sort(reverse=True)
         assert len(r) == 0
         assert list(reversed(r)) == []
         assert r[:] == []
-        assert self.not_forced(r)
 
     def test_repr(self):
         r = range(5)
@@ -72,23 +69,6 @@ class AppTestRangeListObject(object):
         assert r == [1, 1, 2]
         r.reverse()
         assert r == [2, 1, 1]
-
-    def test_sort(self):
-        if self.SORT_FORCES_LISTS:
-            skip("sort() forces these lists")
-        r = range(10, -1, -1)
-        r.sort()
-        assert self.not_forced(r)
-        assert r == range(11)
-        r = range(11)
-        r.sort(reverse=True)
-        assert self.not_forced(r)
-        assert r == range(10, -1, -1)
-        r = range(100)
-        r[0] = 999
-        assert not self.not_forced(r)
-        r.sort()
-        assert r == range(1, 100) + [999]
 
     def test_pop(self):
         r = range(10)

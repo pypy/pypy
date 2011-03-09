@@ -23,8 +23,12 @@ def cast_from_void_star(wrapper, from_where=""):
     return wrapper._content
 
 def make_range_list(space, start, step, length):
-    storage = cast_to_void_star((start, step, length), "integer")
-    strategy = RangeListStrategy(space)
+    if length <= 0:
+        storage = cast_to_void_star(None)
+        strategy = EmptyListStrategy(space)
+    else:
+        storage = cast_to_void_star((start, step, length), "integer")
+        strategy = RangeListStrategy(space)
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 # don't know where to put this function, so it is global for now
@@ -339,17 +343,20 @@ class RangeListStrategy(ListStrategy):
         if index < 0:
             index += self.length(w_list)
 
+        #XXX merge these parts
         l = self.cast_from_void_star(w_list.storage)
         if index == 0:
-            r = self.getitem(w_list, 0)
+            r = self.getitem(w_list, index)
             new = cast_to_void_star((l[0]+l[1],l[1],l[2]-1), "integer")
             w_list.storage = new
+            w_list.check_empty_strategy()
             return r
 
         if index == self.length(w_list)-1:
-            r = self.getitem(w_list, -1)
+            r = self.getitem(w_list, index)
             new = cast_to_void_star((l[0],l[1],l[2]-1), "integer")
             w_list.storage = new
+            w_list.check_empty_strategy()
             return r
 
         self.switch_to_integer_strategy(w_list)
