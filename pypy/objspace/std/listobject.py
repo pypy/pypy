@@ -24,11 +24,11 @@ def cast_from_void_star(wrapper, from_where=""):
 
 def make_range_list(space, start, step, length):
     if length <= 0:
-        storage = cast_to_void_star(None)
         strategy = EmptyListStrategy(space)
+        storage = strategy.cast_to_void_star(None)
     else:
-        storage = cast_to_void_star((start, step, length), "integer")
         strategy = RangeListStrategy(space)
+        storage = strategy.cast_to_void_star((start, step, length))
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 # don't know where to put this function, so it is global for now
@@ -199,7 +199,15 @@ class EmptyListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
-        w_list.storage = cast_to_void_star(None)
+        w_list.storage = self.cast_to_void_star(None)
+
+    @staticmethod
+    def cast_from_void_star(storage):
+        return cast_from_void_star(storage, "empty")
+
+    @staticmethod
+    def cast_to_void_star(obj):
+        return cast_to_void_star(obj, "empty")
 
     def length(self, w_list):
         return 0
@@ -249,7 +257,6 @@ class EmptyListStrategy(ListStrategy):
 class RangeListStrategy(ListStrategy):
 
     def switch_to_integer_strategy(self, w_list):
-        #XXX write storage directly to avoid wrapping and unwrapping
         items = self.getitems(w_list, unwrapped=True)
         w_list.strategy = IntegerListStrategy(self.space)
         w_list.storage = w_list.strategy.cast_to_void_star(items)
@@ -263,8 +270,13 @@ class RangeListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
-    def cast_from_void_star(self, storage):
-        return cast_from_void_star(storage, "integer")
+    @staticmethod
+    def cast_from_void_star(storage):
+        return cast_from_void_star(storage, "range")
+
+    @staticmethod
+    def cast_to_void_star(obj):
+        return cast_to_void_star(obj, "range")
 
     def length(self, w_list):
         return self.cast_from_void_star(w_list.storage)[2]
@@ -317,7 +329,7 @@ class RangeListStrategy(ListStrategy):
             step = l[1]
             last_in_range = self.getitem(w_list, -1)
             if self.unwrap(w_item) - step == self.unwrap(last_in_range):
-                new = cast_to_void_star((l[0],l[1],l[2]+1), "integer")
+                new = self.cast_to_void_star((l[0],l[1],l[2]+1))
                 w_list.storage = new
                 return
 
@@ -347,14 +359,14 @@ class RangeListStrategy(ListStrategy):
         l = self.cast_from_void_star(w_list.storage)
         if index == 0:
             r = self.getitem(w_list, index)
-            new = cast_to_void_star((l[0]+l[1],l[1],l[2]-1), "integer")
+            new = self.cast_to_void_star((l[0]+l[1],l[1],l[2]-1))
             w_list.storage = new
             w_list.check_empty_strategy()
             return r
 
         if index == self.length(w_list)-1:
             r = self.getitem(w_list, index)
-            new = cast_to_void_star((l[0],l[1],l[2]-1), "integer")
+            new = self.cast_to_void_star((l[0],l[1],l[2]-1))
             w_list.storage = new
             w_list.check_empty_strategy()
             return r
@@ -383,7 +395,7 @@ class RangeListStrategy(ListStrategy):
         last = w_list.getitem(-1) #XXX wrapped
         length = v[2]
         skip = v[1]
-        new = cast_to_void_star((self.unwrap(last), -skip, length), "integer")
+        new = self.cast_to_void_star((self.unwrap(last), -skip, length))
         w_list.storage = new
 
 class AbstractUnwrappedStrategy(ListStrategy):
@@ -394,7 +406,12 @@ class AbstractUnwrappedStrategy(ListStrategy):
     def unwrap(self, wrapped):
         raise NotImplementedError
 
-    def cast_from_void_star(self, storage):
+    @staticmethod
+    def cast_from_void_star(storage):
+        raise NotImplementedError("abstract base class")
+
+    @staticmethod
+    def cast_to_void_star(obj):
         raise NotImplementedError("abstract base class")
 
     def is_correct_type(self, w_obj):
@@ -590,8 +607,13 @@ class ObjectListStrategy(AbstractUnwrappedStrategy):
     def wrap(self, item):
         return item
 
-    def cast_from_void_star(self, storage):
+    @staticmethod
+    def cast_from_void_star(storage):
         return cast_from_void_star(storage, "object")
+
+    @staticmethod
+    def cast_to_void_star(obj):
+        return cast_to_void_star(obj, "object")
 
     def is_correct_type(self, w_obj):
         return True
@@ -600,7 +622,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy):
         return ObjectListStrategy is type(w_list.strategy)
 
     def init_from_list_w(self, w_list, list_w):
-        w_list.storage = cast_to_void_star(list_w, "object")
+        w_list.storage = self.cast_to_void_star(list_w)
 
 class IntegerListStrategy(AbstractUnwrappedStrategy):
 
@@ -610,11 +632,13 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
     def unwrap(self, w_int):
         return self.space.int_w(w_int)
 
-    def cast_from_void_star(self, storage):
+    @staticmethod
+    def cast_from_void_star(storage):
         return cast_from_void_star(storage, "integer")
 
-    def cast_to_void_star(self, l):
-        return cast_to_void_star(l, "integer")
+    @staticmethod
+    def cast_to_void_star(obj):
+        return cast_to_void_star(obj, "integer")
 
     def is_correct_type(self, w_obj):
         return is_W_IntObject(w_obj)
@@ -630,11 +654,13 @@ class StringListStrategy(AbstractUnwrappedStrategy):
     def unwrap(self, w_string):
         return self.space.str_w(w_string)
 
-    def cast_from_void_star(self, storage):
+    @staticmethod
+    def cast_from_void_star(storage):
         return cast_from_void_star(storage, "string")
 
-    def cast_to_void_star(self, l):
-        return cast_to_void_star(l, "string")
+    @staticmethod
+    def cast_to_void_star(obj):
+        return cast_to_void_star(obj, "string")
 
     def is_correct_type(self, w_obj):
         return is_W_StringObject(w_obj)
