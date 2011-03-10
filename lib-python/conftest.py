@@ -337,7 +337,7 @@ testmap = [
     RegrTest('test_peepholer.py'),
     RegrTest('test_pep247.py'),
     RegrTest('test_pep263.py'),
-    RegrTest('test_pep277.py', skip=only_win32),
+    RegrTest('test_pep277.py'),
     RegrTest('test_pep292.py'),
     RegrTest('test_pickle.py', core=True),
     RegrTest('test_pickletools.py', core=False),
