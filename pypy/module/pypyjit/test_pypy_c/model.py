@@ -195,7 +195,9 @@ class OpMatcher(object):
         args = args[:-1]
         args = args.split(',')
         args = map(str.strip, args)
-        if args[-1].startswith('descr='):
+        if args == ['']:
+            args = []
+        if args and args[-1].startswith('descr='):
             descr = args.pop()
             descr = descr[len('descr='):]
         else:

@@ -126,6 +126,8 @@ class TestOpMatcher(object):
         assert res == ("setfield_gc", None, ["p0", "i0"], "<foobar>")
         res = OpMatcher.parse_op("i1 = getfield_gc(p0, descr=<foobar>)")
         assert res == ("getfield_gc", "i1", ["p0"], "<foobar>")
+        res = OpMatcher.parse_op("p0 = force_token()")
+        assert res == ("force_token", "p0", [], None)
 
     def test_exact_match(self):
         loop = """

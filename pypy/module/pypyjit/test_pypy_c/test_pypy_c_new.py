@@ -131,14 +131,71 @@ class TestPyPyCNew(BaseTestPyPyC):
                 return i + 1 + OFFSET # ID: add
             def main(n):
                 i = 0
-                while i < n+OFFSET:
-                    i = f(f(i)) # ID: call
+                while i < n+OFFSET:   # ID: cond
+                    i = f(f(i))       # ID: call
+                    a = 0
                 return i
         """
         log = self.run(src, [1000], threshold=400)
         assert log.result == 1000
+        # first, we test what is inside the entry bridge
+        # -----------------------------------------------
         entry_bridge, = log.loops_by_id('call', is_entry_bridge=True)
-        import pdb;pdb.set_trace()
+        # LOAD_GLOBAL of OFFSET
+        ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
+        assert log.opnames(ops) == ["guard_value",
+                                    "getfield_gc", "guard_value",
+                                    "getfield_gc", "guard_isnull",
+                                    "getfield_gc", "guard_nonnull_class"]
+        # LOAD_GLOBAL of OFFSET but in different function partially folded
+        # away
+        # XXX could be improved
+        ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
+        assert log.opnames(ops) == ["guard_value", "getfield_gc", "guard_isnull"]
+        #
+        # two LOAD_GLOBAL of f, the second is folded away
+        ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
+        assert log.opnames(ops) == ["getfield_gc", "guard_nonnull_class"]
+        #
+        assert entry_bridge.match_by_id('call', """
+            p29 = getfield_gc(ConstPtr(ptr28), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
+            guard_nonnull_class(p29, ConstClass(Function), descr=<Guard17>)
+            i32 = getfield_gc(p0, descr=<BoolFieldDescr pypy.interpreter.pyframe.PyFrame.inst_is_being_profiled 161>)
+            guard_false(i32, descr=<Guard18>)
+            p33 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_code 24>)
+            guard_value(p33, ConstPtr(ptr34), descr=<Guard19>)
+            p35 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_w_func_globals 64>)
+            p36 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_closure 16>)
+            p38 = call(ConstClass(getexecutioncontext), descr=<GcPtrCallDescr>)
+            p39 = getfield_gc(p38, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref 56>)
+            i40 = force_token()
+            p41 = getfield_gc(p38, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc 72>)
+            guard_isnull(p41, descr=<Guard20>)
+            i42 = getfield_gc(p38, descr=<NonGcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc 40>)
+            i43 = int_is_zero(i42)
+            guard_true(i43, descr=<Guard21>)
+            i50 = force_token()
+        """)
+        #
+        # then, we test the actual loop
+        # -----------------------------
+        loop, = log.loops_by_id('call')
+        assert loop.match("""
+            i12 = int_lt(i5, i6)
+            guard_true(i12, descr=<Guard3>)
+            i13 = force_token()
+            i15 = int_add(i5, 1)
+            i16 = int_add_ovf(i15, i7)
+            guard_no_overflow(descr=<Guard4>)
+            i18 = force_token()
+            i20 = int_add_ovf(i16, 1)
+            guard_no_overflow(descr=<Guard5>)
+            i21 = int_add_ovf(i20, i7)
+            guard_no_overflow(descr=<Guard6>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, p10, p11, descr=<Loop0>)
+        """)
+
 
     def test_reraise(self):
         def f(n):
