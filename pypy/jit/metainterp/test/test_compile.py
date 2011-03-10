@@ -7,7 +7,7 @@ from pypy.jit.metainterp.compile import compile_tmp_callback
 from pypy.jit.metainterp import nounroll_optimize, jitprof, typesystem, compile
 from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 from pypy.jit.tool.oparser import parse
-
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 def test_insert_loop_token():
     # XXX this test is a bit useless now that there are no specnodes
@@ -39,6 +39,7 @@ class FakeLogger:
 
 class FakeState:
     optimize_loop = staticmethod(nounroll_optimize.optimize_loop)
+    enable_opts = {}
 
     def attach_unoptimized_bridge_from_interp(*args):
         pass

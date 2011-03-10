@@ -2,7 +2,7 @@ import py
 import sys
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.nonconst import NonConstant
 
@@ -263,19 +263,15 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-OPTIMIZER_SIMPLE = 0
-OPTIMIZER_NO_UNROLL = 1
-OPTIMIZER_FULL = 2
-
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
               'trace_limit': 10000,
-              'inlining': False,
-              'optimizer': OPTIMIZER_FULL,
+              'inlining': 0,
               'loop_longevity': 1000,
               'retrace_limit': 5,
+              'enable_opts': None, # patched later by optimizeopt/__init__.py
               }
-unroll_parameters = unrolling_iterable(PARAMETERS.keys())
+unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
 # ____________________________________________________________
 
@@ -332,14 +328,14 @@ class JitDriver(object):
         # (internal, must receive a constant 'name')
         assert name in PARAMETERS
 
+    @specialize.arg(0, 1)
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""
-        for name1 in unroll_parameters:
+        for name1, _ in unroll_parameters:
             if name1 == name:
                 self._set_param(name1, value)
                 return
         raise ValueError("no such parameter")
-    set_param._annspecialcase_ = 'specialize:arg(0)'
 
     def set_user_param(self, text):
         """Set the tunable JIT parameters from a user-supplied string
@@ -351,12 +347,17 @@ class JitDriver(object):
             parts = s.split('=')
             if len(parts) != 2:
                 raise ValueError
-            try:
-                value = int(parts[1])
-            except ValueError:
-                raise    # re-raise the ValueError (annotator hint)
             name = parts[0]
-            self.set_param(name, value)
+            value = parts[1]
+            if name == 'enable_opts':
+                self.set_param('enable_opts', value)
+            else:
+                for name1, _ in unroll_parameters:
+                    if name1 == name and name1 != 'enable_opts':
+                        try:
+                            self.set_param(name1, int(value))
+                        except ValueError:
+                            raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
     def _make_extregistryentries(self):
@@ -537,7 +538,10 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        assert annmodel.SomeInteger().contains(s_value)
+        if annmodel.SomeInteger().contains(s_value):
+            pass
+        else:
+            assert annmodel.SomeString().contains(s_value)
         return annmodel.s_None
 
     def specialize_call(self, hop):
@@ -545,7 +549,7 @@ class ExtSetParam(ExtRegistryEntry):
         hop.exception_cannot_occur()
         driver = self.instance.im_self
         name = hop.args_s[0].const
-        v_value = hop.inputarg(lltype.Signed, arg=1)
+        v_value = hop.inputarg(hop.args_r[1], arg=1)
         vlist = [hop.inputconst(lltype.Void, "set_param"),
                  hop.inputconst(lltype.Void, driver),
                  hop.inputconst(lltype.Void, name),
