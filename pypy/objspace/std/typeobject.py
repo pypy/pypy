@@ -10,7 +10,7 @@ from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from pypy.rlib.jit import hint, purefunction_promote, we_are_jitted
-from pypy.rlib.jit import dont_look_inside, purefunction
+from pypy.rlib.jit import purefunction
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE
