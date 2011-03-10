@@ -86,6 +86,7 @@ class TestLog(object):
         opcodes_names = [opcode.__class__.__name__ for opcode in myline]
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
+
 class TestOpMatcher(object):
 
     def match(self, src1, src2):
@@ -283,7 +284,7 @@ class TestRunPyPyC(BaseTestPyPyC):
     def test_ops_by_id(self):
         def f():
             i = 0
-            while i < 1003:
+            while i < 1003: # ID: cond
                 i += 1 # ID: increment
                 a = 0  # to make sure that JUMP_ABSOLUTE is not part of the ID
             return i
@@ -293,6 +294,12 @@ class TestRunPyPyC(BaseTestPyPyC):
         #
         ops = loop.ops_by_id('increment')
         assert log.opnames(ops) == ['int_add']
+        #
+        ops = loop.ops_by_id('cond')
+        # the 'jump' at the end is because the last opcode in the loop
+        # coincides with the first, and so it thinks that 'jump' belongs to
+        # the id
+        assert log.opnames(ops) == ['int_lt', 'guard_true', 'jump']
 
     def test_ops_by_id_and_opcode(self):
         def f():

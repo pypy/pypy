@@ -99,12 +99,11 @@ class LoopWithIds(Function):
         # 1. compute the ids of self, i.e. the outer function
         id2opcodes = find_ids(self.code)
         all_my_opcodes = self.get_set_of_opcodes()
-        # XXX: for now, we just look for the first opcode in the id range
         for id, opcodes in id2opcodes.iteritems():
             if not opcodes:
                 continue
-            target_opcode = opcodes[0]
-            if target_opcode in all_my_opcodes:
+            target_opcodes = set(opcodes)
+            if all_my_opcodes.intersection(target_opcodes):
                 ids[id] = opcodes
         #
         # 2. compute the ids of all the inlined functions
