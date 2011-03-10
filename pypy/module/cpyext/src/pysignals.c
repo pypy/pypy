@@ -46,8 +46,10 @@ PyOS_setsig(int sig, PyOS_sighandler_t handler)
 #else
         PyOS_sighandler_t oldhandler;
         oldhandler = signal(sig, handler);
+#ifndef MS_WINDOWS
         /* should check if this exists */
         siginterrupt(sig, 1);
+#endif
         return oldhandler;
 #endif
 }
