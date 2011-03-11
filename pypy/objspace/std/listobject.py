@@ -17,7 +17,7 @@ def make_range_list(space, start, step, length):
         strategy = space.fromcache(EmptyListStrategy)
         storage = strategy.cast_to_void_star(None)
     else:
-        strategy = space.fromcache(RangeListStrategy)(space)
+        strategy = space.fromcache(RangeListStrategy)
         storage = strategy.cast_to_void_star((start, step, length))
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
@@ -474,7 +474,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
         assert slicelength >= 0
         items = self.cast_from_void_star(w_list.storage)
 
-        if (type(self) is not ObjectListStrategy and
+        if (self is not self.space.fromcache(ObjectListStrategy) and
                 not self.list_is_correct_type(W_ListObject(self.space, sequence_w)) and
                 len(sequence_w) != 0):
             w_list.switch_to_object_strategy()
@@ -584,7 +584,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy):
     def wrap(self, item):
         return item
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("range")
+    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("object")
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
 
@@ -592,7 +592,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy):
         return True
 
     def list_is_correct_type(self, w_list):
-        return ObjectListStrategy is type(w_list.strategy)
+        return w_list.strategy is self.space.fromcache(ObjectListStrategy)
 
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = self.cast_to_void_star(list_w)
@@ -605,7 +605,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
     def unwrap(self, w_int):
         return self.space.int_w(w_int)
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("range")
+    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("integer")
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
 
@@ -613,7 +613,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
         return is_W_IntObject(w_obj)
 
     def list_is_correct_type(self, w_list):
-        return IntegerListStrategy is type(w_list.strategy)
+        return w_list.strategy is self.space.fromcache(IntegerListStrategy)
 
 class StringListStrategy(AbstractUnwrappedStrategy):
 
@@ -623,7 +623,7 @@ class StringListStrategy(AbstractUnwrappedStrategy):
     def unwrap(self, w_string):
         return self.space.str_w(w_string)
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("range")
+    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("string")
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
 
@@ -631,7 +631,7 @@ class StringListStrategy(AbstractUnwrappedStrategy):
         return is_W_StringObject(w_obj)
 
     def list_is_correct_type(self, w_list):
-        return StringListStrategy is type(w_list.strategy)
+        return w_list.strategy is self.space.fromcache(StringListStrategy)
 
 # _______________________________________________________
 
