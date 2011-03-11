@@ -618,11 +618,10 @@ def link(space, src, dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(src=str, dst=str)
-def symlink(space, src, dst):
+def symlink(space, w_src, w_dst):
     "Create a symbolic link pointing to src named dst."
     try:
-        os.symlink(src, dst)
+        dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
     except OSError, e:
         raise wrap_oserror(space, e)
 

@@ -779,6 +779,16 @@ class AppTestPosix:
             assert os.WIFEXITED(status1)
             assert os.WEXITSTATUS(status1) == myprio + 3
 
+    if hasattr(os, 'symlink'):
+        def test_symlink(self):
+            posix = self.posix
+            unicode_dir = self.unicode_dir
+            dest = u"%s/file.txt" % unicode_dir
+            posix.symlink(u"%s/somefile" % unicode_dir, dest)
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+
     def test_tmpfile(self):
         os = self.posix
         f = os.tmpfile()
