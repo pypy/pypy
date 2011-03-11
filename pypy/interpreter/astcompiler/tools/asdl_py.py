@@ -407,7 +407,7 @@ class AppExposeVisitor(ASDLVisitor):
 
     def visitConstructor(self, cons, base):
         super(AppExposeVisitor, self).visitConstructor(cons, cons.name)
-        self.make_init(cons.name, cons.fields + self.data.cons_attributes[cons])
+        self.make_init(cons.name, cons.fields)
         self.make_typedef(cons.name, base, cons.fields, concrete=True,
                           needs_init=True)
 
@@ -608,7 +608,7 @@ def missing_field(space, state, required, host):
         if not (state >> i) & 1:
             missing = required[i]
             if missing is not None:
-                 err = "required attribute '%s' missing from %s"
+                 err = "required field \\"%s\\" missing from %s"
                  err = err % (missing, host)
                  w_err = space.wrap(err)
                  raise OperationError(space.w_TypeError, w_err)

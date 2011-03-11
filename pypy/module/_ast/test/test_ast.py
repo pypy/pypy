@@ -60,24 +60,25 @@ class AppTestAST:
         mod = ast.Module()
         raises(AttributeError, getattr, mod, "body")
         exc = raises(TypeError, com, mod).value
-        assert str(exc) == "required attribute 'body' missing from Module"
+        assert str(exc) == "required field \"body\" missing from Module"
         expr = ast.Name()
         expr.id = "hi"
         expr.ctx = ast.Load()
         expr.lineno = 4
-        exc = raises(TypeError, com, ast.Module([ast.Expr(expr, 0, 0)])).value
-        assert str(exc) == "required attribute 'col_offset' missing from Name"
+        exc = raises(TypeError, com, ast.Module([ast.Expr(expr)])).value
+        assert (str(exc) == "required field \"lineno\" missing from stmt" or # cpython
+                str(exc) == "required field \"lineno\" missing from Expr")   # pypy, better
 
     def test_int(self):
         ast = self.ast
-        imp = ast.ImportFrom("", ["apples"], -1, 0, 0)
+        imp = ast.ImportFrom("", ["apples"], -1)
         assert imp.level == -1
         imp.level = 3
         assert imp.level == 3
 
     def test_identifier(self):
         ast = self.ast
-        name = ast.Name("name_word", ast.Load(), 0, 0)
+        name = ast.Name("name_word", ast.Load())
         assert name.id == "name_word"
         name.id = "hi"
         assert name.id == "hi"
@@ -85,7 +86,7 @@ class AppTestAST:
 
     def test_bool(self):
         ast = self.ast
-        pr = ast.Print(None, [ast.Name("hi", ast.Load(), 0, 0)], False, 0, 0)
+        pr = ast.Print(None, [ast.Name("hi", ast.Load())], False)
         assert not pr.nl
         assert isinstance(pr.nl, bool)
         pr.nl = True
@@ -93,7 +94,7 @@ class AppTestAST:
 
     def test_object(self):
         ast = self.ast
-        const = ast.Const(4, 0, 0)
+        const = ast.Const(4)
         assert const.value == 4
         const.value = 5
         assert const.value == 5
@@ -114,9 +115,12 @@ class AppTestAST:
         mod = self.get_ast("x = y = 3")
         assign = mod.body[0]
         assert len(assign.targets) == 2
-        assign.targets[1] = ast.Name("lemon", ast.Store(), 0, 0)
-        name = ast.Name("apple", ast.Store(), 0, 0)
-        mod.body.append(ast.Assign([name], ast.Num(4, 0, 0), 0, 0))
+        assign.targets[1] = ast.Name("lemon", ast.Store(),
+                                     lineno=0, col_offset=0)
+        name = ast.Name("apple", ast.Store(),
+                        lineno=0, col_offset=0)
+        mod.body.append(ast.Assign([name], ast.Num(4, lineno=0, col_offset=0),
+                                   lineno=0, col_offset=0))
         co = compile(mod, "<test>", "exec")
         ns = {}
         exec co in ns
@@ -141,10 +145,10 @@ class AppTestAST:
         body = []
         mod = ast.Module(body)
         assert mod.body is body
-        target = ast.Name("hi", ast.Store(), 0, 0)
-        expr = ast.Name("apples", ast.Load(), 0, 0)
+        target = ast.Name("hi", ast.Store())
+        expr = ast.Name("apples", ast.Load())
         otherwise = []
-        fr = ast.For(target, expr, body, otherwise, 0, 1)
+        fr = ast.For(target, expr, body, otherwise, lineno=0, col_offset=1)
         assert fr.target is target
         assert fr.iter is expr
         assert fr.orelse is otherwise
