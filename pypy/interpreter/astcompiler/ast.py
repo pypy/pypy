@@ -3143,6 +3143,10 @@ Interactive.typedef = typedef.TypeDef("Interactive",
 Interactive.typedef.acceptable_as_base_class = False
 
 def Expression_get_body(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'body')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'body'" % typename)
@@ -3150,7 +3154,13 @@ def Expression_get_body(space, w_self):
     return space.wrap(w_self.body)
 
 def Expression_set_body(space, w_self, w_new_value):
-    w_self.body = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.body = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'body', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Expression_field_unroller = unrolling_iterable(['body'])
@@ -3221,6 +3231,10 @@ Suite.typedef = typedef.TypeDef("Suite",
 Suite.typedef.acceptable_as_base_class = False
 
 def stmt_get_lineno(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'lineno')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & w_self._lineno_mask:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'lineno'" % typename)
@@ -3228,10 +3242,20 @@ def stmt_get_lineno(space, w_self):
     return space.wrap(w_self.lineno)
 
 def stmt_set_lineno(space, w_self, w_new_value):
-    w_self.lineno = space.int_w(w_new_value)
+    try:
+        w_self.lineno = space.int_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'lineno', w_new_value)
+        return
     w_self.initialization_state |= w_self._lineno_mask
 
 def stmt_get_col_offset(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'col_offset')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & w_self._col_offset_mask:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'col_offset'" % typename)
@@ -3239,7 +3263,13 @@ def stmt_get_col_offset(space, w_self):
     return space.wrap(w_self.col_offset)
 
 def stmt_set_col_offset(space, w_self, w_new_value):
-    w_self.col_offset = space.int_w(w_new_value)
+    try:
+        w_self.col_offset = space.int_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'col_offset', w_new_value)
+        return
     w_self.initialization_state |= w_self._col_offset_mask
 
 stmt.typedef = typedef.TypeDef("stmt",
@@ -3251,6 +3281,10 @@ stmt.typedef = typedef.TypeDef("stmt",
 stmt.typedef.acceptable_as_base_class = False
 
 def FunctionDef_get_name(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'name')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'name'" % typename)
@@ -3258,10 +3292,20 @@ def FunctionDef_get_name(space, w_self):
     return space.wrap(w_self.name)
 
 def FunctionDef_set_name(space, w_self, w_new_value):
-    w_self.name = space.str_w(w_new_value)
+    try:
+        w_self.name = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'name', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def FunctionDef_get_args(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'args')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'args'" % typename)
@@ -3269,7 +3313,13 @@ def FunctionDef_get_args(space, w_self):
     return space.wrap(w_self.args)
 
 def FunctionDef_set_args(space, w_self, w_new_value):
-    w_self.args = space.interp_w(arguments, w_new_value, False)
+    try:
+        w_self.args = space.interp_w(arguments, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'args', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def FunctionDef_get_body(space, w_self):
@@ -3338,6 +3388,10 @@ FunctionDef.typedef = typedef.TypeDef("FunctionDef",
 FunctionDef.typedef.acceptable_as_base_class = False
 
 def ClassDef_get_name(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'name')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'name'" % typename)
@@ -3345,7 +3399,13 @@ def ClassDef_get_name(space, w_self):
     return space.wrap(w_self.name)
 
 def ClassDef_set_name(space, w_self, w_new_value):
-    w_self.name = space.str_w(w_new_value)
+    try:
+        w_self.name = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'name', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def ClassDef_get_bases(space, w_self):
@@ -3433,6 +3493,10 @@ ClassDef.typedef = typedef.TypeDef("ClassDef",
 ClassDef.typedef.acceptable_as_base_class = False
 
 def Return_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -3440,7 +3504,13 @@ def Return_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def Return_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Return_field_unroller = unrolling_iterable(['value'])
@@ -3529,6 +3599,10 @@ def Assign_set_targets(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Assign_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -3536,7 +3610,13 @@ def Assign_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def Assign_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _Assign_field_unroller = unrolling_iterable(['targets', 'value'])
@@ -3566,6 +3646,10 @@ Assign.typedef = typedef.TypeDef("Assign",
 Assign.typedef.acceptable_as_base_class = False
 
 def AugAssign_get_target(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'target')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'target'" % typename)
@@ -3573,10 +3657,20 @@ def AugAssign_get_target(space, w_self):
     return space.wrap(w_self.target)
 
 def AugAssign_set_target(space, w_self, w_new_value):
-    w_self.target = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.target = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'target', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def AugAssign_get_op(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'op')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'op'" % typename)
@@ -3584,11 +3678,21 @@ def AugAssign_get_op(space, w_self):
     return operator_to_class[w_self.op - 1]()
 
 def AugAssign_set_op(space, w_self, w_new_value):
-    obj = space.interp_w(operator, w_new_value)
-    w_self.op = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(operator, w_new_value)
+        w_self.op = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'op', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def AugAssign_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -3596,7 +3700,13 @@ def AugAssign_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def AugAssign_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _AugAssign_field_unroller = unrolling_iterable(['target', 'op', 'value'])
@@ -3626,6 +3736,10 @@ AugAssign.typedef = typedef.TypeDef("AugAssign",
 AugAssign.typedef.acceptable_as_base_class = False
 
 def Print_get_dest(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'dest')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'dest'" % typename)
@@ -3633,7 +3747,13 @@ def Print_get_dest(space, w_self):
     return space.wrap(w_self.dest)
 
 def Print_set_dest(space, w_self, w_new_value):
-    w_self.dest = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.dest = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'dest', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Print_get_values(space, w_self):
@@ -3655,6 +3775,10 @@ def Print_set_values(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def Print_get_nl(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'nl')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'nl'" % typename)
@@ -3662,7 +3786,13 @@ def Print_get_nl(space, w_self):
     return space.wrap(w_self.nl)
 
 def Print_set_nl(space, w_self, w_new_value):
-    w_self.nl = space.bool_w(w_new_value)
+    try:
+        w_self.nl = space.bool_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'nl', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _Print_field_unroller = unrolling_iterable(['dest', 'values', 'nl'])
@@ -3693,6 +3823,10 @@ Print.typedef = typedef.TypeDef("Print",
 Print.typedef.acceptable_as_base_class = False
 
 def For_get_target(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'target')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'target'" % typename)
@@ -3700,10 +3834,20 @@ def For_get_target(space, w_self):
     return space.wrap(w_self.target)
 
 def For_set_target(space, w_self, w_new_value):
-    w_self.target = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.target = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'target', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def For_get_iter(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'iter')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'iter'" % typename)
@@ -3711,7 +3855,13 @@ def For_get_iter(space, w_self):
     return space.wrap(w_self.iter)
 
 def For_set_iter(space, w_self, w_new_value):
-    w_self.iter = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.iter = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'iter', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def For_get_body(space, w_self):
@@ -3780,6 +3930,10 @@ For.typedef = typedef.TypeDef("For",
 For.typedef.acceptable_as_base_class = False
 
 def While_get_test(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'test')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'test'" % typename)
@@ -3787,7 +3941,13 @@ def While_get_test(space, w_self):
     return space.wrap(w_self.test)
 
 def While_set_test(space, w_self, w_new_value):
-    w_self.test = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.test = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'test', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def While_get_body(space, w_self):
@@ -3855,6 +4015,10 @@ While.typedef = typedef.TypeDef("While",
 While.typedef.acceptable_as_base_class = False
 
 def If_get_test(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'test')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'test'" % typename)
@@ -3862,7 +4026,13 @@ def If_get_test(space, w_self):
     return space.wrap(w_self.test)
 
 def If_set_test(space, w_self, w_new_value):
-    w_self.test = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.test = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'test', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def If_get_body(space, w_self):
@@ -3930,6 +4100,10 @@ If.typedef = typedef.TypeDef("If",
 If.typedef.acceptable_as_base_class = False
 
 def With_get_context_expr(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'context_expr')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'context_expr'" % typename)
@@ -3937,10 +4111,20 @@ def With_get_context_expr(space, w_self):
     return space.wrap(w_self.context_expr)
 
 def With_set_context_expr(space, w_self, w_new_value):
-    w_self.context_expr = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.context_expr = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'context_expr', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def With_get_optional_vars(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'optional_vars')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'optional_vars'" % typename)
@@ -3948,7 +4132,13 @@ def With_get_optional_vars(space, w_self):
     return space.wrap(w_self.optional_vars)
 
 def With_set_optional_vars(space, w_self, w_new_value):
-    w_self.optional_vars = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.optional_vars = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'optional_vars', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def With_get_body(space, w_self):
@@ -3997,6 +4187,10 @@ With.typedef = typedef.TypeDef("With",
 With.typedef.acceptable_as_base_class = False
 
 def Raise_get_type(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'type')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'type'" % typename)
@@ -4004,10 +4198,20 @@ def Raise_get_type(space, w_self):
     return space.wrap(w_self.type)
 
 def Raise_set_type(space, w_self, w_new_value):
-    w_self.type = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.type = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'type', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Raise_get_inst(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'inst')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'inst'" % typename)
@@ -4015,10 +4219,20 @@ def Raise_get_inst(space, w_self):
     return space.wrap(w_self.inst)
 
 def Raise_set_inst(space, w_self, w_new_value):
-    w_self.inst = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.inst = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'inst', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def Raise_get_tback(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'tback')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'tback'" % typename)
@@ -4026,7 +4240,13 @@ def Raise_get_tback(space, w_self):
     return space.wrap(w_self.tback)
 
 def Raise_set_tback(space, w_self, w_new_value):
-    w_self.tback = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.tback = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'tback', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _Raise_field_unroller = unrolling_iterable(['type', 'inst', 'tback'])
@@ -4202,6 +4422,10 @@ TryFinally.typedef = typedef.TypeDef("TryFinally",
 TryFinally.typedef.acceptable_as_base_class = False
 
 def Assert_get_test(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'test')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'test'" % typename)
@@ -4209,10 +4433,20 @@ def Assert_get_test(space, w_self):
     return space.wrap(w_self.test)
 
 def Assert_set_test(space, w_self, w_new_value):
-    w_self.test = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.test = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'test', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Assert_get_msg(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'msg')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'msg'" % typename)
@@ -4220,7 +4454,13 @@ def Assert_get_msg(space, w_self):
     return space.wrap(w_self.msg)
 
 def Assert_set_msg(space, w_self, w_new_value):
-    w_self.msg = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.msg = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'msg', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _Assert_field_unroller = unrolling_iterable(['test', 'msg'])
@@ -4292,6 +4532,10 @@ Import.typedef = typedef.TypeDef("Import",
 Import.typedef.acceptable_as_base_class = False
 
 def ImportFrom_get_module(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'module')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'module'" % typename)
@@ -4299,10 +4543,16 @@ def ImportFrom_get_module(space, w_self):
     return space.wrap(w_self.module)
 
 def ImportFrom_set_module(space, w_self, w_new_value):
-    if space.is_w(w_new_value, space.w_None):
-        w_self.module = None
-    else:
-        w_self.module = space.str_w(w_new_value)
+    try:
+        if space.is_w(w_new_value, space.w_None):
+            w_self.module = None
+        else:
+            w_self.module = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'module', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def ImportFrom_get_names(space, w_self):
@@ -4324,6 +4574,10 @@ def ImportFrom_set_names(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def ImportFrom_get_level(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'level')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'level'" % typename)
@@ -4331,7 +4585,13 @@ def ImportFrom_get_level(space, w_self):
     return space.wrap(w_self.level)
 
 def ImportFrom_set_level(space, w_self, w_new_value):
-    w_self.level = space.int_w(w_new_value)
+    try:
+        w_self.level = space.int_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'level', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _ImportFrom_field_unroller = unrolling_iterable(['module', 'names', 'level'])
@@ -4362,6 +4622,10 @@ ImportFrom.typedef = typedef.TypeDef("ImportFrom",
 ImportFrom.typedef.acceptable_as_base_class = False
 
 def Exec_get_body(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'body')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'body'" % typename)
@@ -4369,10 +4633,20 @@ def Exec_get_body(space, w_self):
     return space.wrap(w_self.body)
 
 def Exec_set_body(space, w_self, w_new_value):
-    w_self.body = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.body = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'body', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Exec_get_globals(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'globals')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'globals'" % typename)
@@ -4380,10 +4654,20 @@ def Exec_get_globals(space, w_self):
     return space.wrap(w_self.globals)
 
 def Exec_set_globals(space, w_self, w_new_value):
-    w_self.globals = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.globals = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'globals', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def Exec_get_locals(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'locals')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'locals'" % typename)
@@ -4391,7 +4675,13 @@ def Exec_get_locals(space, w_self):
     return space.wrap(w_self.locals)
 
 def Exec_set_locals(space, w_self, w_new_value):
-    w_self.locals = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.locals = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'locals', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _Exec_field_unroller = unrolling_iterable(['body', 'globals', 'locals'])
@@ -4464,6 +4754,10 @@ Global.typedef = typedef.TypeDef("Global",
 Global.typedef.acceptable_as_base_class = False
 
 def Expr_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -4471,7 +4765,13 @@ def Expr_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def Expr_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Expr_field_unroller = unrolling_iterable(['value'])
@@ -4550,6 +4850,10 @@ Continue.typedef = typedef.TypeDef("Continue",
 Continue.typedef.acceptable_as_base_class = False
 
 def expr_get_lineno(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'lineno')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & w_self._lineno_mask:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'lineno'" % typename)
@@ -4557,10 +4861,20 @@ def expr_get_lineno(space, w_self):
     return space.wrap(w_self.lineno)
 
 def expr_set_lineno(space, w_self, w_new_value):
-    w_self.lineno = space.int_w(w_new_value)
+    try:
+        w_self.lineno = space.int_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'lineno', w_new_value)
+        return
     w_self.initialization_state |= w_self._lineno_mask
 
 def expr_get_col_offset(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'col_offset')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & w_self._col_offset_mask:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'col_offset'" % typename)
@@ -4568,7 +4882,13 @@ def expr_get_col_offset(space, w_self):
     return space.wrap(w_self.col_offset)
 
 def expr_set_col_offset(space, w_self, w_new_value):
-    w_self.col_offset = space.int_w(w_new_value)
+    try:
+        w_self.col_offset = space.int_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'col_offset', w_new_value)
+        return
     w_self.initialization_state |= w_self._col_offset_mask
 
 expr.typedef = typedef.TypeDef("expr",
@@ -4580,6 +4900,10 @@ expr.typedef = typedef.TypeDef("expr",
 expr.typedef.acceptable_as_base_class = False
 
 def BoolOp_get_op(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'op')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'op'" % typename)
@@ -4587,8 +4911,14 @@ def BoolOp_get_op(space, w_self):
     return boolop_to_class[w_self.op - 1]()
 
 def BoolOp_set_op(space, w_self, w_new_value):
-    obj = space.interp_w(boolop, w_new_value)
-    w_self.op = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(boolop, w_new_value)
+        w_self.op = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'op', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def BoolOp_get_values(space, w_self):
@@ -4636,6 +4966,10 @@ BoolOp.typedef = typedef.TypeDef("BoolOp",
 BoolOp.typedef.acceptable_as_base_class = False
 
 def BinOp_get_left(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'left')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'left'" % typename)
@@ -4643,10 +4977,20 @@ def BinOp_get_left(space, w_self):
     return space.wrap(w_self.left)
 
 def BinOp_set_left(space, w_self, w_new_value):
-    w_self.left = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.left = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'left', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def BinOp_get_op(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'op')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'op'" % typename)
@@ -4654,11 +4998,21 @@ def BinOp_get_op(space, w_self):
     return operator_to_class[w_self.op - 1]()
 
 def BinOp_set_op(space, w_self, w_new_value):
-    obj = space.interp_w(operator, w_new_value)
-    w_self.op = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(operator, w_new_value)
+        w_self.op = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'op', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def BinOp_get_right(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'right')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'right'" % typename)
@@ -4666,7 +5020,13 @@ def BinOp_get_right(space, w_self):
     return space.wrap(w_self.right)
 
 def BinOp_set_right(space, w_self, w_new_value):
-    w_self.right = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.right = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'right', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _BinOp_field_unroller = unrolling_iterable(['left', 'op', 'right'])
@@ -4696,6 +5056,10 @@ BinOp.typedef = typedef.TypeDef("BinOp",
 BinOp.typedef.acceptable_as_base_class = False
 
 def UnaryOp_get_op(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'op')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'op'" % typename)
@@ -4703,11 +5067,21 @@ def UnaryOp_get_op(space, w_self):
     return unaryop_to_class[w_self.op - 1]()
 
 def UnaryOp_set_op(space, w_self, w_new_value):
-    obj = space.interp_w(unaryop, w_new_value)
-    w_self.op = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(unaryop, w_new_value)
+        w_self.op = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'op', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def UnaryOp_get_operand(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'operand')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'operand'" % typename)
@@ -4715,7 +5089,13 @@ def UnaryOp_get_operand(space, w_self):
     return space.wrap(w_self.operand)
 
 def UnaryOp_set_operand(space, w_self, w_new_value):
-    w_self.operand = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.operand = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'operand', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _UnaryOp_field_unroller = unrolling_iterable(['op', 'operand'])
@@ -4744,6 +5124,10 @@ UnaryOp.typedef = typedef.TypeDef("UnaryOp",
 UnaryOp.typedef.acceptable_as_base_class = False
 
 def Lambda_get_args(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'args')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'args'" % typename)
@@ -4751,10 +5135,20 @@ def Lambda_get_args(space, w_self):
     return space.wrap(w_self.args)
 
 def Lambda_set_args(space, w_self, w_new_value):
-    w_self.args = space.interp_w(arguments, w_new_value, False)
+    try:
+        w_self.args = space.interp_w(arguments, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'args', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Lambda_get_body(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'body')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'body'" % typename)
@@ -4762,7 +5156,13 @@ def Lambda_get_body(space, w_self):
     return space.wrap(w_self.body)
 
 def Lambda_set_body(space, w_self, w_new_value):
-    w_self.body = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.body = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'body', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _Lambda_field_unroller = unrolling_iterable(['args', 'body'])
@@ -4791,6 +5191,10 @@ Lambda.typedef = typedef.TypeDef("Lambda",
 Lambda.typedef.acceptable_as_base_class = False
 
 def IfExp_get_test(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'test')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'test'" % typename)
@@ -4798,10 +5202,20 @@ def IfExp_get_test(space, w_self):
     return space.wrap(w_self.test)
 
 def IfExp_set_test(space, w_self, w_new_value):
-    w_self.test = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.test = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'test', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def IfExp_get_body(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'body')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'body'" % typename)
@@ -4809,10 +5223,20 @@ def IfExp_get_body(space, w_self):
     return space.wrap(w_self.body)
 
 def IfExp_set_body(space, w_self, w_new_value):
-    w_self.body = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.body = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'body', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def IfExp_get_orelse(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'orelse')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'orelse'" % typename)
@@ -4820,7 +5244,13 @@ def IfExp_get_orelse(space, w_self):
     return space.wrap(w_self.orelse)
 
 def IfExp_set_orelse(space, w_self, w_new_value):
-    w_self.orelse = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.orelse = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'orelse', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _IfExp_field_unroller = unrolling_iterable(['test', 'body', 'orelse'])
@@ -4956,6 +5386,10 @@ Set.typedef = typedef.TypeDef("Set",
 Set.typedef.acceptable_as_base_class = False
 
 def ListComp_get_elt(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'elt')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'elt'" % typename)
@@ -4963,7 +5397,13 @@ def ListComp_get_elt(space, w_self):
     return space.wrap(w_self.elt)
 
 def ListComp_set_elt(space, w_self, w_new_value):
-    w_self.elt = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.elt = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'elt', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def ListComp_get_generators(space, w_self):
@@ -5011,6 +5451,10 @@ ListComp.typedef = typedef.TypeDef("ListComp",
 ListComp.typedef.acceptable_as_base_class = False
 
 def SetComp_get_elt(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'elt')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'elt'" % typename)
@@ -5018,7 +5462,13 @@ def SetComp_get_elt(space, w_self):
     return space.wrap(w_self.elt)
 
 def SetComp_set_elt(space, w_self, w_new_value):
-    w_self.elt = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.elt = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'elt', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def SetComp_get_generators(space, w_self):
@@ -5066,6 +5516,10 @@ SetComp.typedef = typedef.TypeDef("SetComp",
 SetComp.typedef.acceptable_as_base_class = False
 
 def DictComp_get_key(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'key')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'key'" % typename)
@@ -5073,10 +5527,20 @@ def DictComp_get_key(space, w_self):
     return space.wrap(w_self.key)
 
 def DictComp_set_key(space, w_self, w_new_value):
-    w_self.key = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.key = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'key', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def DictComp_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -5084,7 +5548,13 @@ def DictComp_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def DictComp_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def DictComp_get_generators(space, w_self):
@@ -5133,6 +5603,10 @@ DictComp.typedef = typedef.TypeDef("DictComp",
 DictComp.typedef.acceptable_as_base_class = False
 
 def GeneratorExp_get_elt(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'elt')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'elt'" % typename)
@@ -5140,7 +5614,13 @@ def GeneratorExp_get_elt(space, w_self):
     return space.wrap(w_self.elt)
 
 def GeneratorExp_set_elt(space, w_self, w_new_value):
-    w_self.elt = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.elt = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'elt', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def GeneratorExp_get_generators(space, w_self):
@@ -5188,6 +5668,10 @@ GeneratorExp.typedef = typedef.TypeDef("GeneratorExp",
 GeneratorExp.typedef.acceptable_as_base_class = False
 
 def Yield_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -5195,7 +5679,13 @@ def Yield_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def Yield_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Yield_field_unroller = unrolling_iterable(['value'])
@@ -5223,6 +5713,10 @@ Yield.typedef = typedef.TypeDef("Yield",
 Yield.typedef.acceptable_as_base_class = False
 
 def Compare_get_left(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'left')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'left'" % typename)
@@ -5230,7 +5724,13 @@ def Compare_get_left(space, w_self):
     return space.wrap(w_self.left)
 
 def Compare_set_left(space, w_self, w_new_value):
-    w_self.left = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.left = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'left', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Compare_get_ops(space, w_self):
@@ -5298,6 +5798,10 @@ Compare.typedef = typedef.TypeDef("Compare",
 Compare.typedef.acceptable_as_base_class = False
 
 def Call_get_func(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'func')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'func'" % typename)
@@ -5305,7 +5809,13 @@ def Call_get_func(space, w_self):
     return space.wrap(w_self.func)
 
 def Call_set_func(space, w_self, w_new_value):
-    w_self.func = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.func = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'func', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Call_get_args(space, w_self):
@@ -5345,6 +5855,10 @@ def Call_set_keywords(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 def Call_get_starargs(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'starargs')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'starargs'" % typename)
@@ -5352,10 +5866,20 @@ def Call_get_starargs(space, w_self):
     return space.wrap(w_self.starargs)
 
 def Call_set_starargs(space, w_self, w_new_value):
-    w_self.starargs = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.starargs = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'starargs', w_new_value)
+        return
     w_self.initialization_state |= 8
 
 def Call_get_kwargs(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'kwargs')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'kwargs'" % typename)
@@ -5363,7 +5887,13 @@ def Call_get_kwargs(space, w_self):
     return space.wrap(w_self.kwargs)
 
 def Call_set_kwargs(space, w_self, w_new_value):
-    w_self.kwargs = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.kwargs = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'kwargs', w_new_value)
+        return
     w_self.initialization_state |= 16
 
 _Call_field_unroller = unrolling_iterable(['func', 'args', 'keywords', 'starargs', 'kwargs'])
@@ -5397,6 +5927,10 @@ Call.typedef = typedef.TypeDef("Call",
 Call.typedef.acceptable_as_base_class = False
 
 def Repr_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -5404,7 +5938,13 @@ def Repr_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def Repr_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Repr_field_unroller = unrolling_iterable(['value'])
@@ -5432,6 +5972,10 @@ Repr.typedef = typedef.TypeDef("Repr",
 Repr.typedef.acceptable_as_base_class = False
 
 def Num_get_n(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'n')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'n'" % typename)
@@ -5439,7 +5983,13 @@ def Num_get_n(space, w_self):
     return w_self.n
 
 def Num_set_n(space, w_self, w_new_value):
-    w_self.n = w_new_value
+    try:
+        w_self.n = w_new_value
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'n', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Num_field_unroller = unrolling_iterable(['n'])
@@ -5467,6 +6017,10 @@ Num.typedef = typedef.TypeDef("Num",
 Num.typedef.acceptable_as_base_class = False
 
 def Str_get_s(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 's')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 's'" % typename)
@@ -5474,10 +6028,13 @@ def Str_get_s(space, w_self):
     return w_self.s
 
 def Str_set_s(space, w_self, w_new_value):
-    if not space.is_true(space.isinstance(w_new_value, space.w_basestring)):
-        w_err = space.wrap("some kind of string required")
-        raise OperationError(space.w_TypeError, w_err)
-    w_self.s = w_new_value
+    try:
+        w_self.s = w_new_value
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 's', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Str_field_unroller = unrolling_iterable(['s'])
@@ -5505,6 +6062,10 @@ Str.typedef = typedef.TypeDef("Str",
 Str.typedef.acceptable_as_base_class = False
 
 def Attribute_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -5512,10 +6073,20 @@ def Attribute_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def Attribute_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Attribute_get_attr(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'attr')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'attr'" % typename)
@@ -5523,10 +6094,20 @@ def Attribute_get_attr(space, w_self):
     return space.wrap(w_self.attr)
 
 def Attribute_set_attr(space, w_self, w_new_value):
-    w_self.attr = space.str_w(w_new_value)
+    try:
+        w_self.attr = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'attr', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def Attribute_get_ctx(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'ctx')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'ctx'" % typename)
@@ -5534,8 +6115,14 @@ def Attribute_get_ctx(space, w_self):
     return expr_context_to_class[w_self.ctx - 1]()
 
 def Attribute_set_ctx(space, w_self, w_new_value):
-    obj = space.interp_w(expr_context, w_new_value)
-    w_self.ctx = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(expr_context, w_new_value)
+        w_self.ctx = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'ctx', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _Attribute_field_unroller = unrolling_iterable(['value', 'attr', 'ctx'])
@@ -5565,6 +6152,10 @@ Attribute.typedef = typedef.TypeDef("Attribute",
 Attribute.typedef.acceptable_as_base_class = False
 
 def Subscript_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -5572,10 +6163,20 @@ def Subscript_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def Subscript_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Subscript_get_slice(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'slice')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'slice'" % typename)
@@ -5583,10 +6184,20 @@ def Subscript_get_slice(space, w_self):
     return space.wrap(w_self.slice)
 
 def Subscript_set_slice(space, w_self, w_new_value):
-    w_self.slice = space.interp_w(slice, w_new_value, False)
+    try:
+        w_self.slice = space.interp_w(slice, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'slice', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def Subscript_get_ctx(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'ctx')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'ctx'" % typename)
@@ -5594,8 +6205,14 @@ def Subscript_get_ctx(space, w_self):
     return expr_context_to_class[w_self.ctx - 1]()
 
 def Subscript_set_ctx(space, w_self, w_new_value):
-    obj = space.interp_w(expr_context, w_new_value)
-    w_self.ctx = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(expr_context, w_new_value)
+        w_self.ctx = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'ctx', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _Subscript_field_unroller = unrolling_iterable(['value', 'slice', 'ctx'])
@@ -5625,6 +6242,10 @@ Subscript.typedef = typedef.TypeDef("Subscript",
 Subscript.typedef.acceptable_as_base_class = False
 
 def Name_get_id(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'id')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'id'" % typename)
@@ -5632,10 +6253,20 @@ def Name_get_id(space, w_self):
     return space.wrap(w_self.id)
 
 def Name_set_id(space, w_self, w_new_value):
-    w_self.id = space.str_w(w_new_value)
+    try:
+        w_self.id = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'id', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Name_get_ctx(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'ctx')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'ctx'" % typename)
@@ -5643,8 +6274,14 @@ def Name_get_ctx(space, w_self):
     return expr_context_to_class[w_self.ctx - 1]()
 
 def Name_set_ctx(space, w_self, w_new_value):
-    obj = space.interp_w(expr_context, w_new_value)
-    w_self.ctx = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(expr_context, w_new_value)
+        w_self.ctx = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'ctx', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _Name_field_unroller = unrolling_iterable(['id', 'ctx'])
@@ -5691,6 +6328,10 @@ def List_set_elts(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def List_get_ctx(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'ctx')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'ctx'" % typename)
@@ -5698,8 +6339,14 @@ def List_get_ctx(space, w_self):
     return expr_context_to_class[w_self.ctx - 1]()
 
 def List_set_ctx(space, w_self, w_new_value):
-    obj = space.interp_w(expr_context, w_new_value)
-    w_self.ctx = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(expr_context, w_new_value)
+        w_self.ctx = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'ctx', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _List_field_unroller = unrolling_iterable(['elts', 'ctx'])
@@ -5747,6 +6394,10 @@ def Tuple_set_elts(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Tuple_get_ctx(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'ctx')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'ctx'" % typename)
@@ -5754,8 +6405,14 @@ def Tuple_get_ctx(space, w_self):
     return expr_context_to_class[w_self.ctx - 1]()
 
 def Tuple_set_ctx(space, w_self, w_new_value):
-    obj = space.interp_w(expr_context, w_new_value)
-    w_self.ctx = obj.to_simple_int(space)
+    try:
+        obj = space.interp_w(expr_context, w_new_value)
+        w_self.ctx = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'ctx', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _Tuple_field_unroller = unrolling_iterable(['elts', 'ctx'])
@@ -5785,6 +6442,10 @@ Tuple.typedef = typedef.TypeDef("Tuple",
 Tuple.typedef.acceptable_as_base_class = False
 
 def Const_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -5792,7 +6453,13 @@ def Const_get_value(space, w_self):
     return w_self.value
 
 def Const_set_value(space, w_self, w_new_value):
-    w_self.value = w_new_value
+    try:
+        w_self.value = w_new_value
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Const_field_unroller = unrolling_iterable(['value'])
@@ -5891,6 +6558,10 @@ Ellipsis.typedef = typedef.TypeDef("Ellipsis",
 Ellipsis.typedef.acceptable_as_base_class = False
 
 def Slice_get_lower(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'lower')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'lower'" % typename)
@@ -5898,10 +6569,20 @@ def Slice_get_lower(space, w_self):
     return space.wrap(w_self.lower)
 
 def Slice_set_lower(space, w_self, w_new_value):
-    w_self.lower = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.lower = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'lower', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def Slice_get_upper(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'upper')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'upper'" % typename)
@@ -5909,10 +6590,20 @@ def Slice_get_upper(space, w_self):
     return space.wrap(w_self.upper)
 
 def Slice_set_upper(space, w_self, w_new_value):
-    w_self.upper = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.upper = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'upper', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def Slice_get_step(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'step')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'step'" % typename)
@@ -5920,7 +6611,13 @@ def Slice_get_step(space, w_self):
     return space.wrap(w_self.step)
 
 def Slice_set_step(space, w_self, w_new_value):
-    w_self.step = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.step = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'step', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 _Slice_field_unroller = unrolling_iterable(['lower', 'upper', 'step'])
@@ -5993,6 +6690,10 @@ ExtSlice.typedef = typedef.TypeDef("ExtSlice",
 ExtSlice.typedef.acceptable_as_base_class = False
 
 def Index_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -6000,7 +6701,13 @@ def Index_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def Index_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 _Index_field_unroller = unrolling_iterable(['value'])
@@ -6248,6 +6955,10 @@ _NotIn.typedef = typedef.TypeDef("NotIn",
 _NotIn.typedef.acceptable_as_base_class = False
 
 def comprehension_get_target(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'target')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'target'" % typename)
@@ -6255,10 +6966,20 @@ def comprehension_get_target(space, w_self):
     return space.wrap(w_self.target)
 
 def comprehension_set_target(space, w_self, w_new_value):
-    w_self.target = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.target = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'target', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def comprehension_get_iter(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'iter')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'iter'" % typename)
@@ -6266,7 +6987,13 @@ def comprehension_get_iter(space, w_self):
     return space.wrap(w_self.iter)
 
 def comprehension_set_iter(space, w_self, w_new_value):
-    w_self.iter = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.iter = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'iter', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def comprehension_get_ifs(space, w_self):
@@ -6315,6 +7042,10 @@ comprehension.typedef = typedef.TypeDef("comprehension",
 comprehension.typedef.acceptable_as_base_class = False
 
 def excepthandler_get_lineno(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'lineno')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & w_self._lineno_mask:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'lineno'" % typename)
@@ -6322,10 +7053,20 @@ def excepthandler_get_lineno(space, w_self):
     return space.wrap(w_self.lineno)
 
 def excepthandler_set_lineno(space, w_self, w_new_value):
-    w_self.lineno = space.int_w(w_new_value)
+    try:
+        w_self.lineno = space.int_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'lineno', w_new_value)
+        return
     w_self.initialization_state |= w_self._lineno_mask
 
 def excepthandler_get_col_offset(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'col_offset')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & w_self._col_offset_mask:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'col_offset'" % typename)
@@ -6333,7 +7074,13 @@ def excepthandler_get_col_offset(space, w_self):
     return space.wrap(w_self.col_offset)
 
 def excepthandler_set_col_offset(space, w_self, w_new_value):
-    w_self.col_offset = space.int_w(w_new_value)
+    try:
+        w_self.col_offset = space.int_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'col_offset', w_new_value)
+        return
     w_self.initialization_state |= w_self._col_offset_mask
 
 excepthandler.typedef = typedef.TypeDef("excepthandler",
@@ -6345,6 +7092,10 @@ excepthandler.typedef = typedef.TypeDef("excepthandler",
 excepthandler.typedef.acceptable_as_base_class = False
 
 def ExceptHandler_get_type(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'type')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'type'" % typename)
@@ -6352,10 +7103,20 @@ def ExceptHandler_get_type(space, w_self):
     return space.wrap(w_self.type)
 
 def ExceptHandler_set_type(space, w_self, w_new_value):
-    w_self.type = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.type = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'type', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def ExceptHandler_get_name(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'name')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'name'" % typename)
@@ -6363,7 +7124,13 @@ def ExceptHandler_get_name(space, w_self):
     return space.wrap(w_self.name)
 
 def ExceptHandler_set_name(space, w_self, w_new_value):
-    w_self.name = space.interp_w(expr, w_new_value, True)
+    try:
+        w_self.name = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'name', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def ExceptHandler_get_body(space, w_self):
@@ -6430,6 +7197,10 @@ def arguments_set_args(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def arguments_get_vararg(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'vararg')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'vararg'" % typename)
@@ -6437,13 +7208,23 @@ def arguments_get_vararg(space, w_self):
     return space.wrap(w_self.vararg)
 
 def arguments_set_vararg(space, w_self, w_new_value):
-    if space.is_w(w_new_value, space.w_None):
-        w_self.vararg = None
-    else:
-        w_self.vararg = space.str_w(w_new_value)
+    try:
+        if space.is_w(w_new_value, space.w_None):
+            w_self.vararg = None
+        else:
+            w_self.vararg = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'vararg', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 def arguments_get_kwarg(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'kwarg')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'kwarg'" % typename)
@@ -6451,10 +7232,16 @@ def arguments_get_kwarg(space, w_self):
     return space.wrap(w_self.kwarg)
 
 def arguments_set_kwarg(space, w_self, w_new_value):
-    if space.is_w(w_new_value, space.w_None):
-        w_self.kwarg = None
-    else:
-        w_self.kwarg = space.str_w(w_new_value)
+    try:
+        if space.is_w(w_new_value, space.w_None):
+            w_self.kwarg = None
+        else:
+            w_self.kwarg = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'kwarg', w_new_value)
+        return
     w_self.initialization_state |= 4
 
 def arguments_get_defaults(space, w_self):
@@ -6505,6 +7292,10 @@ arguments.typedef = typedef.TypeDef("arguments",
 arguments.typedef.acceptable_as_base_class = False
 
 def keyword_get_arg(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'arg')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'arg'" % typename)
@@ -6512,10 +7303,20 @@ def keyword_get_arg(space, w_self):
     return space.wrap(w_self.arg)
 
 def keyword_set_arg(space, w_self, w_new_value):
-    w_self.arg = space.str_w(w_new_value)
+    try:
+        w_self.arg = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'arg', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def keyword_get_value(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
@@ -6523,7 +7324,13 @@ def keyword_get_value(space, w_self):
     return space.wrap(w_self.value)
 
 def keyword_set_value(space, w_self, w_new_value):
-    w_self.value = space.interp_w(expr, w_new_value, False)
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _keyword_field_unroller = unrolling_iterable(['arg', 'value'])
@@ -6552,6 +7359,10 @@ keyword.typedef = typedef.TypeDef("keyword",
 keyword.typedef.acceptable_as_base_class = False
 
 def alias_get_name(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'name')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'name'" % typename)
@@ -6559,10 +7370,20 @@ def alias_get_name(space, w_self):
     return space.wrap(w_self.name)
 
 def alias_set_name(space, w_self, w_new_value):
-    w_self.name = space.str_w(w_new_value)
+    try:
+        w_self.name = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'name', w_new_value)
+        return
     w_self.initialization_state |= 1
 
 def alias_get_asname(space, w_self):
+    if getattr(w_self, 'w_dict', None):
+        w_obj = w_self.getdictvalue(space, 'asname')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'asname'" % typename)
@@ -6570,10 +7391,16 @@ def alias_get_asname(space, w_self):
     return space.wrap(w_self.asname)
 
 def alias_set_asname(space, w_self, w_new_value):
-    if space.is_w(w_new_value, space.w_None):
-        w_self.asname = None
-    else:
-        w_self.asname = space.str_w(w_new_value)
+    try:
+        if space.is_w(w_new_value, space.w_None):
+            w_self.asname = None
+        else:
+            w_self.asname = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'asname', w_new_value)
+        return
     w_self.initialization_state |= 2
 
 _alias_field_unroller = unrolling_iterable(['name', 'asname'])

@@ -428,6 +428,11 @@ class AppExposeVisitor(ASDLVisitor):
             flag = "w_self._%s_mask" % (field.name,)
         else:
             flag = self.data.field_masks[field]
+        if not field.seq:
+            self.emit("if getattr(w_self, 'w_dict', None):", 1)
+            self.emit("    w_obj = w_self.getdictvalue(space, '%s')" % (field.name,), 1)
+            self.emit("    if w_obj is not None:", 1)
+            self.emit("        return w_obj", 1)
         self.emit("if not w_self.initialization_state & %s:" % (flag,), 1)
         self.emit("typename = space.type(w_self).getname(space)", 2)
         self.emit("w_err = space.wrap(\"'%%s' object has no attribute '%s'\" %% typename)" %
@@ -460,38 +465,38 @@ class AppExposeVisitor(ASDLVisitor):
         self.emit(func)
         if field.seq:
             self.emit("w_self.w_%s = w_new_value" % (field.name,), 1)
-        elif field.type.value not in asdl.builtin_types:
-            # These are always other AST nodes.
-            if field.type.value in self.data.simple_types:
-                self.emit("obj = space.interp_w(%s, w_new_value)" % \
-                              (field.type,), 1)
-                self.emit("w_self.%s = obj.to_simple_int(space)" %
-                          (field.name,), 1)
-            else:
-                config = (field.name, field.type, repr(field.opt))
-                self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
-                          config, 1)
         else:
-            level = 1
-            if field.opt and field.type.value != "int":
-                self.emit("if space.is_w(w_new_value, space.w_None):", 1)
-                self.emit("w_self.%s = None" % (field.name,), 2)
-                level += 1
-                self.emit("else:", 1)
-            if field.type.value == "object":
-                self.emit("w_self.%s = w_new_value" % (field.name,), level)
-            elif field.type.value == "string":
-                self.emit("if not space.is_true(space.isinstance(" \
-                              "w_new_value, space.w_basestring)):", level)
-                line = "w_err = space.wrap(\"some kind of string required\")"
-                self.emit(line, level + 1)
-                self.emit("raise OperationError(space.w_TypeError, w_err)",
-                          level + 1)
-                self.emit("w_self.%s = w_new_value" % (field.name,), level)
+            self.emit("try:", 1)
+            if field.type.value not in asdl.builtin_types:
+                # These are always other AST nodes.
+                if field.type.value in self.data.simple_types:
+                    self.emit("obj = space.interp_w(%s, w_new_value)" % \
+                                  (field.type,), 2)
+                    self.emit("w_self.%s = obj.to_simple_int(space)" %
+                              (field.name,), 2)
+                else:
+                    config = (field.name, field.type, repr(field.opt))
+                    self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
+                              config, 2)
             else:
-                space_method = asdl_type_map[field.type.value]
-                config = (field.name, space_method)
-                self.emit("w_self.%s = space.%s(w_new_value)" % config, level)
+                level = 2
+                if field.opt and field.type.value != "int":
+                    self.emit("if space.is_w(w_new_value, space.w_None):", 2)
+                    self.emit("w_self.%s = None" % (field.name,), 3)
+                    level += 1
+                    self.emit("else:", 2)
+                if field.type.value in ("object", "string"):
+                    self.emit("w_self.%s = w_new_value" % (field.name,), level)
+                else:
+                    space_method = asdl_type_map[field.type.value]
+                    config = (field.name, space_method)
+                    self.emit("w_self.%s = space.%s(w_new_value)" % config, level)
+            self.emit("except OperationError, e:", 1)
+            self.emit("    if not e.match(space, space.w_TypeError):", 1)
+            self.emit("        raise", 1)
+            self.emit("    w_self.setdictvalue(space, '%s', w_new_value)"
+                      % (field.name,), 1)
+            self.emit("    return", 1)
         self.emit("w_self.initialization_state |= %s" % (flag,), 1)
         self.emit("")
 

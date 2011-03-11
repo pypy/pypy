@@ -50,8 +50,8 @@ class AppTestAST:
         s = mod.body
         assert s.s == "hi"
         s.s = "pypy"
-        raises(TypeError, setattr, s, "s", 43)
-        assert eval(compile(mod, "<test>", "eval")) == "pypy"
+        s.s = 43
+        assert eval(compile(mod, "<test>", "eval")) == 43
 
     def test_empty_initialization(self):
         ast = self.ast
@@ -82,7 +82,6 @@ class AppTestAST:
         assert name.id == "name_word"
         name.id = "hi"
         assert name.id == "hi"
-        raises(TypeError, setattr, name, "id", 32)
 
     def test_bool(self):
         ast = self.ast
@@ -92,6 +91,7 @@ class AppTestAST:
         pr.nl = True
         assert pr.nl
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_object(self):
         ast = self.ast
         const = ast.Const(4)
@@ -131,7 +131,7 @@ class AppTestAST:
     def test_ast_types(self):
         ast = self.ast
         expr = ast.Expr()
-        raises(TypeError, setattr, expr, "value", ast.Lt())
+        expr.value = ast.Lt()
 
     def test_abstract_ast_types(self):
         ast = self.ast
@@ -210,8 +210,6 @@ from __future__ import generators""")
         exc = raises(AttributeError, getattr, x, 'lineno')
         assert exc.value.args[0] == "'Num' object has no attribute 'lineno'"
 
-        skip("WIP")
-
         y = ast.Num()
         x.lineno = y
         assert x.lineno == y
@@ -220,12 +218,12 @@ from __future__ import generators""")
         assert exc.value.args[0] == "'Num' object has no attribute 'foobar'"
 
         x = ast.Num(lineno=2)
-        self.assertEquals(x.lineno, 2)
+        assert x.lineno == 2
 
         x = ast.Num(42, lineno=0)
-        self.assertEquals(x.lineno, 0)
-        self.assertEquals(x._fields, ('n',))
-        self.assertEquals(x.n, 42)
+        assert x.lineno == 0
+        assert x._fields == ('n',)
+        assert x.n == 42
 
-        self.assertRaises(TypeError, ast.Num, 1, 2)
-        self.assertRaises(TypeError, ast.Num, 1, 2, lineno=0)
+        raises(TypeError, ast.Num, 1, 2)
+        raises(TypeError, ast.Num, 1, 2, lineno=0)
