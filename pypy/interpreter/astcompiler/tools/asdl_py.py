@@ -429,7 +429,7 @@ class AppExposeVisitor(ASDLVisitor):
         else:
             flag = self.data.field_masks[field]
         if not field.seq:
-            self.emit("if getattr(w_self, 'w_dict', None):", 1)
+            self.emit("if w_self.w_dict is not None:", 1)
             self.emit("    w_obj = w_self.getdictvalue(space, '%s')" % (field.name,), 1)
             self.emit("    if w_obj is not None:", 1)
             self.emit("        return w_obj", 1)
@@ -561,7 +561,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 class AST(Wrappable):
 
-    __slots__ = ("initialization_state", "w_dict")
+    w_dict = None
 
     __metaclass__ = extendabletype
 
@@ -575,7 +575,7 @@ class AST(Wrappable):
         raise NotImplementedError
 
     def getdict(self, space):
-        if not hasattr(self, 'w_dict'):
+        if self.w_dict is None:
             self.w_dict = space.newdict(instance=True)
         return self.w_dict
 

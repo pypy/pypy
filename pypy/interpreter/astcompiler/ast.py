@@ -10,9 +10,12 @@ from pypy.tool.sourcetools import func_with_new_name
 
 class AST(Wrappable):
 
-    __slots__ = ("initialization_state", "w_dict")
+    w_dict = None
 
     __metaclass__ = extendabletype
+
+    def __init__(self):
+        self.w_dict = None
 
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
@@ -24,7 +27,7 @@ class AST(Wrappable):
         raise NotImplementedError
 
     def getdict(self, space):
-        if not hasattr(self, 'w_dict'):
+        if self.w_dict is None:
             self.w_dict = space.newdict(instance=True)
         return self.w_dict
 
@@ -209,6 +212,7 @@ class stmt(AST):
     __slots__ = ('lineno', 'col_offset')
 
     def __init__(self, lineno, col_offset):
+        AST.__init__(self)
         self.lineno = lineno
         self.col_offset = col_offset
 
@@ -1188,6 +1192,7 @@ class expr(AST):
     __slots__ = ('lineno', 'col_offset')
 
     def __init__(self, lineno, col_offset):
+        AST.__init__(self)
         self.lineno = lineno
         self.col_offset = col_offset
 
@@ -2085,6 +2090,7 @@ class Ellipsis(slice):
 
 
     def __init__(self):
+        AST.__init__(self)
         self.initialization_state = 0
 
     def walkabout(self, visitor):
@@ -2480,6 +2486,7 @@ class excepthandler(AST):
     __slots__ = ('lineno', 'col_offset')
 
     def __init__(self, lineno, col_offset):
+        AST.__init__(self)
         self.lineno = lineno
         self.col_offset = col_offset
 
@@ -3143,7 +3150,7 @@ Interactive.typedef = typedef.TypeDef("Interactive",
 Interactive.typedef.acceptable_as_base_class = False
 
 def Expression_get_body(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'body')
         if w_obj is not None:
             return w_obj
@@ -3231,7 +3238,7 @@ Suite.typedef = typedef.TypeDef("Suite",
 Suite.typedef.acceptable_as_base_class = False
 
 def stmt_get_lineno(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'lineno')
         if w_obj is not None:
             return w_obj
@@ -3252,7 +3259,7 @@ def stmt_set_lineno(space, w_self, w_new_value):
     w_self.initialization_state |= w_self._lineno_mask
 
 def stmt_get_col_offset(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
         if w_obj is not None:
             return w_obj
@@ -3281,7 +3288,7 @@ stmt.typedef = typedef.TypeDef("stmt",
 stmt.typedef.acceptable_as_base_class = False
 
 def FunctionDef_get_name(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'name')
         if w_obj is not None:
             return w_obj
@@ -3302,7 +3309,7 @@ def FunctionDef_set_name(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def FunctionDef_get_args(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'args')
         if w_obj is not None:
             return w_obj
@@ -3388,7 +3395,7 @@ FunctionDef.typedef = typedef.TypeDef("FunctionDef",
 FunctionDef.typedef.acceptable_as_base_class = False
 
 def ClassDef_get_name(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'name')
         if w_obj is not None:
             return w_obj
@@ -3493,7 +3500,7 @@ ClassDef.typedef = typedef.TypeDef("ClassDef",
 ClassDef.typedef.acceptable_as_base_class = False
 
 def Return_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -3599,7 +3606,7 @@ def Assign_set_targets(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Assign_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -3646,7 +3653,7 @@ Assign.typedef = typedef.TypeDef("Assign",
 Assign.typedef.acceptable_as_base_class = False
 
 def AugAssign_get_target(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'target')
         if w_obj is not None:
             return w_obj
@@ -3667,7 +3674,7 @@ def AugAssign_set_target(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def AugAssign_get_op(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'op')
         if w_obj is not None:
             return w_obj
@@ -3689,7 +3696,7 @@ def AugAssign_set_op(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def AugAssign_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -3736,7 +3743,7 @@ AugAssign.typedef = typedef.TypeDef("AugAssign",
 AugAssign.typedef.acceptable_as_base_class = False
 
 def Print_get_dest(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'dest')
         if w_obj is not None:
             return w_obj
@@ -3775,7 +3782,7 @@ def Print_set_values(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def Print_get_nl(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'nl')
         if w_obj is not None:
             return w_obj
@@ -3823,7 +3830,7 @@ Print.typedef = typedef.TypeDef("Print",
 Print.typedef.acceptable_as_base_class = False
 
 def For_get_target(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'target')
         if w_obj is not None:
             return w_obj
@@ -3844,7 +3851,7 @@ def For_set_target(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def For_get_iter(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'iter')
         if w_obj is not None:
             return w_obj
@@ -3930,7 +3937,7 @@ For.typedef = typedef.TypeDef("For",
 For.typedef.acceptable_as_base_class = False
 
 def While_get_test(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'test')
         if w_obj is not None:
             return w_obj
@@ -4015,7 +4022,7 @@ While.typedef = typedef.TypeDef("While",
 While.typedef.acceptable_as_base_class = False
 
 def If_get_test(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'test')
         if w_obj is not None:
             return w_obj
@@ -4100,7 +4107,7 @@ If.typedef = typedef.TypeDef("If",
 If.typedef.acceptable_as_base_class = False
 
 def With_get_context_expr(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'context_expr')
         if w_obj is not None:
             return w_obj
@@ -4121,7 +4128,7 @@ def With_set_context_expr(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def With_get_optional_vars(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'optional_vars')
         if w_obj is not None:
             return w_obj
@@ -4187,7 +4194,7 @@ With.typedef = typedef.TypeDef("With",
 With.typedef.acceptable_as_base_class = False
 
 def Raise_get_type(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'type')
         if w_obj is not None:
             return w_obj
@@ -4208,7 +4215,7 @@ def Raise_set_type(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Raise_get_inst(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'inst')
         if w_obj is not None:
             return w_obj
@@ -4229,7 +4236,7 @@ def Raise_set_inst(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def Raise_get_tback(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'tback')
         if w_obj is not None:
             return w_obj
@@ -4422,7 +4429,7 @@ TryFinally.typedef = typedef.TypeDef("TryFinally",
 TryFinally.typedef.acceptable_as_base_class = False
 
 def Assert_get_test(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'test')
         if w_obj is not None:
             return w_obj
@@ -4443,7 +4450,7 @@ def Assert_set_test(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Assert_get_msg(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'msg')
         if w_obj is not None:
             return w_obj
@@ -4532,7 +4539,7 @@ Import.typedef = typedef.TypeDef("Import",
 Import.typedef.acceptable_as_base_class = False
 
 def ImportFrom_get_module(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'module')
         if w_obj is not None:
             return w_obj
@@ -4574,7 +4581,7 @@ def ImportFrom_set_names(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def ImportFrom_get_level(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'level')
         if w_obj is not None:
             return w_obj
@@ -4622,7 +4629,7 @@ ImportFrom.typedef = typedef.TypeDef("ImportFrom",
 ImportFrom.typedef.acceptable_as_base_class = False
 
 def Exec_get_body(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'body')
         if w_obj is not None:
             return w_obj
@@ -4643,7 +4650,7 @@ def Exec_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Exec_get_globals(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'globals')
         if w_obj is not None:
             return w_obj
@@ -4664,7 +4671,7 @@ def Exec_set_globals(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def Exec_get_locals(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'locals')
         if w_obj is not None:
             return w_obj
@@ -4754,7 +4761,7 @@ Global.typedef = typedef.TypeDef("Global",
 Global.typedef.acceptable_as_base_class = False
 
 def Expr_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -4850,7 +4857,7 @@ Continue.typedef = typedef.TypeDef("Continue",
 Continue.typedef.acceptable_as_base_class = False
 
 def expr_get_lineno(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'lineno')
         if w_obj is not None:
             return w_obj
@@ -4871,7 +4878,7 @@ def expr_set_lineno(space, w_self, w_new_value):
     w_self.initialization_state |= w_self._lineno_mask
 
 def expr_get_col_offset(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
         if w_obj is not None:
             return w_obj
@@ -4900,7 +4907,7 @@ expr.typedef = typedef.TypeDef("expr",
 expr.typedef.acceptable_as_base_class = False
 
 def BoolOp_get_op(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'op')
         if w_obj is not None:
             return w_obj
@@ -4966,7 +4973,7 @@ BoolOp.typedef = typedef.TypeDef("BoolOp",
 BoolOp.typedef.acceptable_as_base_class = False
 
 def BinOp_get_left(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'left')
         if w_obj is not None:
             return w_obj
@@ -4987,7 +4994,7 @@ def BinOp_set_left(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def BinOp_get_op(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'op')
         if w_obj is not None:
             return w_obj
@@ -5009,7 +5016,7 @@ def BinOp_set_op(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def BinOp_get_right(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'right')
         if w_obj is not None:
             return w_obj
@@ -5056,7 +5063,7 @@ BinOp.typedef = typedef.TypeDef("BinOp",
 BinOp.typedef.acceptable_as_base_class = False
 
 def UnaryOp_get_op(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'op')
         if w_obj is not None:
             return w_obj
@@ -5078,7 +5085,7 @@ def UnaryOp_set_op(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def UnaryOp_get_operand(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'operand')
         if w_obj is not None:
             return w_obj
@@ -5124,7 +5131,7 @@ UnaryOp.typedef = typedef.TypeDef("UnaryOp",
 UnaryOp.typedef.acceptable_as_base_class = False
 
 def Lambda_get_args(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'args')
         if w_obj is not None:
             return w_obj
@@ -5145,7 +5152,7 @@ def Lambda_set_args(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Lambda_get_body(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'body')
         if w_obj is not None:
             return w_obj
@@ -5191,7 +5198,7 @@ Lambda.typedef = typedef.TypeDef("Lambda",
 Lambda.typedef.acceptable_as_base_class = False
 
 def IfExp_get_test(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'test')
         if w_obj is not None:
             return w_obj
@@ -5212,7 +5219,7 @@ def IfExp_set_test(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def IfExp_get_body(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'body')
         if w_obj is not None:
             return w_obj
@@ -5233,7 +5240,7 @@ def IfExp_set_body(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def IfExp_get_orelse(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'orelse')
         if w_obj is not None:
             return w_obj
@@ -5386,7 +5393,7 @@ Set.typedef = typedef.TypeDef("Set",
 Set.typedef.acceptable_as_base_class = False
 
 def ListComp_get_elt(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'elt')
         if w_obj is not None:
             return w_obj
@@ -5451,7 +5458,7 @@ ListComp.typedef = typedef.TypeDef("ListComp",
 ListComp.typedef.acceptable_as_base_class = False
 
 def SetComp_get_elt(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'elt')
         if w_obj is not None:
             return w_obj
@@ -5516,7 +5523,7 @@ SetComp.typedef = typedef.TypeDef("SetComp",
 SetComp.typedef.acceptable_as_base_class = False
 
 def DictComp_get_key(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'key')
         if w_obj is not None:
             return w_obj
@@ -5537,7 +5544,7 @@ def DictComp_set_key(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def DictComp_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -5603,7 +5610,7 @@ DictComp.typedef = typedef.TypeDef("DictComp",
 DictComp.typedef.acceptable_as_base_class = False
 
 def GeneratorExp_get_elt(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'elt')
         if w_obj is not None:
             return w_obj
@@ -5668,7 +5675,7 @@ GeneratorExp.typedef = typedef.TypeDef("GeneratorExp",
 GeneratorExp.typedef.acceptable_as_base_class = False
 
 def Yield_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -5713,7 +5720,7 @@ Yield.typedef = typedef.TypeDef("Yield",
 Yield.typedef.acceptable_as_base_class = False
 
 def Compare_get_left(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'left')
         if w_obj is not None:
             return w_obj
@@ -5798,7 +5805,7 @@ Compare.typedef = typedef.TypeDef("Compare",
 Compare.typedef.acceptable_as_base_class = False
 
 def Call_get_func(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'func')
         if w_obj is not None:
             return w_obj
@@ -5855,7 +5862,7 @@ def Call_set_keywords(space, w_self, w_new_value):
     w_self.initialization_state |= 4
 
 def Call_get_starargs(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'starargs')
         if w_obj is not None:
             return w_obj
@@ -5876,7 +5883,7 @@ def Call_set_starargs(space, w_self, w_new_value):
     w_self.initialization_state |= 8
 
 def Call_get_kwargs(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'kwargs')
         if w_obj is not None:
             return w_obj
@@ -5927,7 +5934,7 @@ Call.typedef = typedef.TypeDef("Call",
 Call.typedef.acceptable_as_base_class = False
 
 def Repr_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -5972,7 +5979,7 @@ Repr.typedef = typedef.TypeDef("Repr",
 Repr.typedef.acceptable_as_base_class = False
 
 def Num_get_n(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'n')
         if w_obj is not None:
             return w_obj
@@ -6017,7 +6024,7 @@ Num.typedef = typedef.TypeDef("Num",
 Num.typedef.acceptable_as_base_class = False
 
 def Str_get_s(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 's')
         if w_obj is not None:
             return w_obj
@@ -6062,7 +6069,7 @@ Str.typedef = typedef.TypeDef("Str",
 Str.typedef.acceptable_as_base_class = False
 
 def Attribute_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -6083,7 +6090,7 @@ def Attribute_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Attribute_get_attr(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'attr')
         if w_obj is not None:
             return w_obj
@@ -6104,7 +6111,7 @@ def Attribute_set_attr(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def Attribute_get_ctx(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
@@ -6152,7 +6159,7 @@ Attribute.typedef = typedef.TypeDef("Attribute",
 Attribute.typedef.acceptable_as_base_class = False
 
 def Subscript_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -6173,7 +6180,7 @@ def Subscript_set_value(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Subscript_get_slice(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'slice')
         if w_obj is not None:
             return w_obj
@@ -6194,7 +6201,7 @@ def Subscript_set_slice(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def Subscript_get_ctx(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
@@ -6242,7 +6249,7 @@ Subscript.typedef = typedef.TypeDef("Subscript",
 Subscript.typedef.acceptable_as_base_class = False
 
 def Name_get_id(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'id')
         if w_obj is not None:
             return w_obj
@@ -6263,7 +6270,7 @@ def Name_set_id(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Name_get_ctx(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
@@ -6328,7 +6335,7 @@ def List_set_elts(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def List_get_ctx(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
@@ -6394,7 +6401,7 @@ def Tuple_set_elts(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Tuple_get_ctx(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
@@ -6442,7 +6449,7 @@ Tuple.typedef = typedef.TypeDef("Tuple",
 Tuple.typedef.acceptable_as_base_class = False
 
 def Const_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -6558,7 +6565,7 @@ Ellipsis.typedef = typedef.TypeDef("Ellipsis",
 Ellipsis.typedef.acceptable_as_base_class = False
 
 def Slice_get_lower(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'lower')
         if w_obj is not None:
             return w_obj
@@ -6579,7 +6586,7 @@ def Slice_set_lower(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def Slice_get_upper(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'upper')
         if w_obj is not None:
             return w_obj
@@ -6600,7 +6607,7 @@ def Slice_set_upper(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def Slice_get_step(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'step')
         if w_obj is not None:
             return w_obj
@@ -6690,7 +6697,7 @@ ExtSlice.typedef = typedef.TypeDef("ExtSlice",
 ExtSlice.typedef.acceptable_as_base_class = False
 
 def Index_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -6955,7 +6962,7 @@ _NotIn.typedef = typedef.TypeDef("NotIn",
 _NotIn.typedef.acceptable_as_base_class = False
 
 def comprehension_get_target(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'target')
         if w_obj is not None:
             return w_obj
@@ -6976,7 +6983,7 @@ def comprehension_set_target(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def comprehension_get_iter(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'iter')
         if w_obj is not None:
             return w_obj
@@ -7042,7 +7049,7 @@ comprehension.typedef = typedef.TypeDef("comprehension",
 comprehension.typedef.acceptable_as_base_class = False
 
 def excepthandler_get_lineno(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'lineno')
         if w_obj is not None:
             return w_obj
@@ -7063,7 +7070,7 @@ def excepthandler_set_lineno(space, w_self, w_new_value):
     w_self.initialization_state |= w_self._lineno_mask
 
 def excepthandler_get_col_offset(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
         if w_obj is not None:
             return w_obj
@@ -7092,7 +7099,7 @@ excepthandler.typedef = typedef.TypeDef("excepthandler",
 excepthandler.typedef.acceptable_as_base_class = False
 
 def ExceptHandler_get_type(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'type')
         if w_obj is not None:
             return w_obj
@@ -7113,7 +7120,7 @@ def ExceptHandler_set_type(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def ExceptHandler_get_name(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'name')
         if w_obj is not None:
             return w_obj
@@ -7197,7 +7204,7 @@ def arguments_set_args(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def arguments_get_vararg(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'vararg')
         if w_obj is not None:
             return w_obj
@@ -7221,7 +7228,7 @@ def arguments_set_vararg(space, w_self, w_new_value):
     w_self.initialization_state |= 2
 
 def arguments_get_kwarg(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'kwarg')
         if w_obj is not None:
             return w_obj
@@ -7292,7 +7299,7 @@ arguments.typedef = typedef.TypeDef("arguments",
 arguments.typedef.acceptable_as_base_class = False
 
 def keyword_get_arg(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'arg')
         if w_obj is not None:
             return w_obj
@@ -7313,7 +7320,7 @@ def keyword_set_arg(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def keyword_get_value(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
@@ -7359,7 +7366,7 @@ keyword.typedef = typedef.TypeDef("keyword",
 keyword.typedef.acceptable_as_base_class = False
 
 def alias_get_name(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'name')
         if w_obj is not None:
             return w_obj
@@ -7380,7 +7387,7 @@ def alias_set_name(space, w_self, w_new_value):
     w_self.initialization_state |= 1
 
 def alias_get_asname(space, w_self):
-    if getattr(w_self, 'w_dict', None):
+    if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'asname')
         if w_obj is not None:
             return w_obj
