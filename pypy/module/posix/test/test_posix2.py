@@ -53,7 +53,12 @@ class AppTestPosix:
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
         cls.w_pdir = space.wrap(str(pdir))
-        cls.w_unicode_dir = space.wrap(str(unicode_dir).decode(sys.getfilesystemencoding()))
+        try:
+            cls.w_unicode_dir = space.wrap(
+                str(unicode_dir).decode(sys.getfilesystemencoding()))
+        except UnicodeDecodeError:
+            # filesystem encoding is not good enough
+            cls.w_unicode_dir = space.w_None
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())
@@ -299,6 +304,8 @@ class AppTestPosix:
 
     def test_listdir_unicode(self):
         unicode_dir = self.unicode_dir
+        if unicode_dir is None:
+            skip("encoding not good enough")
         posix = self.posix
         result = posix.listdir(unicode_dir)
         result.sort()
@@ -783,6 +790,8 @@ class AppTestPosix:
         def test_symlink(self):
             posix = self.posix
             unicode_dir = self.unicode_dir
+            if unicode_dir is None:
+                skip("encoding not good enough")
             dest = u"%s/file.txt" % unicode_dir
             posix.symlink(u"%s/somefile" % unicode_dir, dest)
             with open(dest) as f:
