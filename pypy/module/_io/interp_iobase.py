@@ -44,7 +44,7 @@ class W_IOBase(Wrappable):
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
 
-    def getdict(self):
+    def getdict(self, space):
         return self.w_dict
 
     def _closed(self, space):
