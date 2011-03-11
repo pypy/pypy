@@ -211,6 +211,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             return i
         #
         log = self.run(fn, [1000], threshold=400)
+        assert log.result == 1000
         #
         # first, we test the entry bridge
         # -------------------------------
@@ -236,6 +237,39 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, p14, descr=<Loop0>)
         """)
+
+    def test_static_classmethod_call(self):
+        def fn(n):
+            class A(object):
+                @classmethod
+                def f(cls, i):
+                    return i + (cls is A) + 1
+                @staticmethod
+                def g(i):
+                    return i - 1
+            #
+            i = 0
+            a = A()
+            while i < n:
+                x = a.f(i)
+                i = a.g(x)
+            return i
+        #
+        log = self.run(fn, [1000], threshold=400)
+        assert log.result == 1000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i14 = int_lt(i6, i9)
+            guard_true(i14, descr=<Guard3>)
+            i15 = force_token()
+            i17 = int_add_ovf(i8, 1)
+            guard_no_overflow(descr=<Guard4>)
+            i18 = force_token()
+            i20 = int_sub(i17, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, p13, descr=<Loop0>)
+        """)
+
 
     def test_reraise(self):
         def f(n):
