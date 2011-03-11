@@ -341,6 +341,7 @@ class AppExposeVisitor(ASDLVisitor):
             display_name = name
         self.emit("%s.typedef = typedef.TypeDef(\"%s\"," % (name, display_name))
         self.emit("%s.typedef," % (base,), 1)
+        self.emit("__module__='_ast',", 1)
         comma_fields = ", ".join(repr(field.name.value) for field in fields)
         self.emit("%s=_FieldsWrapper([%s])," % (fields_name, comma_fields), 1)
         for field in fields:
@@ -563,6 +564,29 @@ class AST(Wrappable):
             self.w_dict = space.newdict(instance=True)
         return self.w_dict
 
+    def reduce_w(self, space):
+        w_dict = self.w_dict
+        if w_dict is None:
+            w_dict = space.newdict()
+        w_type = space.type(self)
+        w_fields = w_type.getdictvalue(space, "_fields")
+        for w_name in space.fixedview(w_fields):
+            space.setitem(w_dict, w_name,
+                          space.getattr(self, w_name))
+        w_attrs = space.findattr(w_type, space.wrap("_attributes"))
+        if w_attrs:
+            for w_name in space.fixedview(w_attrs):
+                space.setitem(w_dict, w_name,
+                              space.getattr(self, w_name))
+        return space.newtuple([space.type(self),
+                               space.newtuple([]),
+                               w_dict])
+
+    def setstate_w(self, space, w_state):
+        for w_name in space.unpackiterable(w_state):
+            space.setattr(self, w_name,
+                          space.getitem(w_state, w_name))
+
 
 class NodeVisitorNotImplemented(Exception):
     pass
@@ -589,6 +613,11 @@ def get_AST_new(node_class):
 AST.typedef = typedef.TypeDef("AST",
     _fields=_FieldsWrapper([]),
     _attributes=_FieldsWrapper([]),
+    __module__='_ast',
+    __reduce__=interp2app(AST.reduce_w),
+    __setstate__=interp2app(AST.setstate_w),
+    __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
+                                      typedef.descr_set_dict, cls=AST),
 )
 AST.typedef.acceptable_as_base_class = False
 

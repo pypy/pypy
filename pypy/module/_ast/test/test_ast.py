@@ -186,7 +186,6 @@ from __future__ import generators""")
         assert x._fields == 666
 
     def test_pickle(self):
-        skip("XXX implement me")
         import pickle
         mod = self.get_ast("if y: x = 4")
         co = compile(mod, "<example>", "exec")

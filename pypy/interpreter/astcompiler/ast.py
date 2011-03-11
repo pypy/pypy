@@ -28,6 +28,29 @@ class AST(Wrappable):
             self.w_dict = space.newdict(instance=True)
         return self.w_dict
 
+    def reduce_w(self, space):
+        w_dict = self.w_dict
+        if w_dict is None:
+            w_dict = space.newdict()
+        w_type = space.type(self)
+        w_fields = w_type.getdictvalue(space, "_fields")
+        for w_name in space.fixedview(w_fields):
+            space.setitem(w_dict, w_name,
+                          space.getattr(self, w_name))
+        w_attrs = space.findattr(w_type, space.wrap("_attributes"))
+        if w_attrs:
+            for w_name in space.fixedview(w_attrs):
+                space.setitem(w_dict, w_name,
+                              space.getattr(self, w_name))
+        return space.newtuple([space.type(self),
+                               space.newtuple([]),
+                               w_dict])
+
+    def setstate_w(self, space, w_state):
+        for w_name in space.unpackiterable(w_state):
+            space.setattr(self, w_name,
+                          space.getitem(w_state, w_name))
+
 
 class NodeVisitorNotImplemented(Exception):
     pass
@@ -54,6 +77,11 @@ def get_AST_new(node_class):
 AST.typedef = typedef.TypeDef("AST",
     _fields=_FieldsWrapper([]),
     _attributes=_FieldsWrapper([]),
+    __module__='_ast',
+    __reduce__=interp2app(AST.reduce_w),
+    __setstate__=interp2app(AST.setstate_w),
+    __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
+                                      typedef.descr_set_dict, cls=AST),
 )
 AST.typedef.acceptable_as_base_class = False
 
@@ -2923,6 +2951,7 @@ class GenericASTVisitor(ASTVisitor):
 
 mod.typedef = typedef.TypeDef("mod",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper([]),
 )
 mod.typedef.acceptable_as_base_class = False
@@ -2963,6 +2992,7 @@ def Module_init(space, w_self, __args__):
 
 Module.typedef = typedef.TypeDef("Module",
     mod.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['body']),
     body=typedef.GetSetProperty(Module_get_body, Module_set_body, cls=Module),
     __new__=interp2app(get_AST_new(Module)),
@@ -3006,6 +3036,7 @@ def Interactive_init(space, w_self, __args__):
 
 Interactive.typedef = typedef.TypeDef("Interactive",
     mod.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['body']),
     body=typedef.GetSetProperty(Interactive_get_body, Interactive_set_body, cls=Interactive),
     __new__=interp2app(get_AST_new(Interactive)),
@@ -3051,6 +3082,7 @@ def Expression_init(space, w_self, __args__):
 
 Expression.typedef = typedef.TypeDef("Expression",
     mod.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['body']),
     body=typedef.GetSetProperty(Expression_get_body, Expression_set_body, cls=Expression),
     __new__=interp2app(get_AST_new(Expression)),
@@ -3094,6 +3126,7 @@ def Suite_init(space, w_self, __args__):
 
 Suite.typedef = typedef.TypeDef("Suite",
     mod.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['body']),
     body=typedef.GetSetProperty(Suite_get_body, Suite_set_body, cls=Suite),
     __new__=interp2app(get_AST_new(Suite)),
@@ -3145,6 +3178,7 @@ def stmt_set_col_offset(space, w_self, w_new_value):
 
 stmt.typedef = typedef.TypeDef("stmt",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
     lineno=typedef.GetSetProperty(stmt_get_lineno, stmt_set_lineno, cls=stmt),
     col_offset=typedef.GetSetProperty(stmt_get_col_offset, stmt_set_col_offset, cls=stmt),
@@ -3248,6 +3282,7 @@ def FunctionDef_init(space, w_self, __args__):
 
 FunctionDef.typedef = typedef.TypeDef("FunctionDef",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['name', 'args', 'body', 'decorator_list']),
     name=typedef.GetSetProperty(FunctionDef_get_name, FunctionDef_set_name, cls=FunctionDef),
     args=typedef.GetSetProperty(FunctionDef_get_args, FunctionDef_set_args, cls=FunctionDef),
@@ -3353,6 +3388,7 @@ def ClassDef_init(space, w_self, __args__):
 
 ClassDef.typedef = typedef.TypeDef("ClassDef",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['name', 'bases', 'body', 'decorator_list']),
     name=typedef.GetSetProperty(ClassDef_get_name, ClassDef_set_name, cls=ClassDef),
     bases=typedef.GetSetProperty(ClassDef_get_bases, ClassDef_set_bases, cls=ClassDef),
@@ -3401,6 +3437,7 @@ def Return_init(space, w_self, __args__):
 
 Return.typedef = typedef.TypeDef("Return",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['value']),
     value=typedef.GetSetProperty(Return_get_value, Return_set_value, cls=Return),
     __new__=interp2app(get_AST_new(Return)),
@@ -3444,6 +3481,7 @@ def Delete_init(space, w_self, __args__):
 
 Delete.typedef = typedef.TypeDef("Delete",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['targets']),
     targets=typedef.GetSetProperty(Delete_get_targets, Delete_set_targets, cls=Delete),
     __new__=interp2app(get_AST_new(Delete)),
@@ -3508,6 +3546,7 @@ def Assign_init(space, w_self, __args__):
 
 Assign.typedef = typedef.TypeDef("Assign",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['targets', 'value']),
     targets=typedef.GetSetProperty(Assign_get_targets, Assign_set_targets, cls=Assign),
     value=typedef.GetSetProperty(Assign_get_value, Assign_set_value, cls=Assign),
@@ -3597,6 +3636,7 @@ def AugAssign_init(space, w_self, __args__):
 
 AugAssign.typedef = typedef.TypeDef("AugAssign",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['target', 'op', 'value']),
     target=typedef.GetSetProperty(AugAssign_get_target, AugAssign_set_target, cls=AugAssign),
     op=typedef.GetSetProperty(AugAssign_get_op, AugAssign_set_op, cls=AugAssign),
@@ -3684,6 +3724,7 @@ def Print_init(space, w_self, __args__):
 
 Print.typedef = typedef.TypeDef("Print",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['dest', 'values', 'nl']),
     dest=typedef.GetSetProperty(Print_get_dest, Print_set_dest, cls=Print),
     values=typedef.GetSetProperty(Print_get_values, Print_set_values, cls=Print),
@@ -3790,6 +3831,7 @@ def For_init(space, w_self, __args__):
 
 For.typedef = typedef.TypeDef("For",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['target', 'iter', 'body', 'orelse']),
     target=typedef.GetSetProperty(For_get_target, For_set_target, cls=For),
     iter=typedef.GetSetProperty(For_get_iter, For_set_iter, cls=For),
@@ -3876,6 +3918,7 @@ def While_init(space, w_self, __args__):
 
 While.typedef = typedef.TypeDef("While",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['test', 'body', 'orelse']),
     test=typedef.GetSetProperty(While_get_test, While_set_test, cls=While),
     body=typedef.GetSetProperty(While_get_body, While_set_body, cls=While),
@@ -3961,6 +4004,7 @@ def If_init(space, w_self, __args__):
 
 If.typedef = typedef.TypeDef("If",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['test', 'body', 'orelse']),
     test=typedef.GetSetProperty(If_get_test, If_set_test, cls=If),
     body=typedef.GetSetProperty(If_get_body, If_set_body, cls=If),
@@ -4048,6 +4092,7 @@ def With_init(space, w_self, __args__):
 
 With.typedef = typedef.TypeDef("With",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['context_expr', 'optional_vars', 'body']),
     context_expr=typedef.GetSetProperty(With_get_context_expr, With_set_context_expr, cls=With),
     optional_vars=typedef.GetSetProperty(With_get_optional_vars, With_set_optional_vars, cls=With),
@@ -4137,6 +4182,7 @@ def Raise_init(space, w_self, __args__):
 
 Raise.typedef = typedef.TypeDef("Raise",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['type', 'inst', 'tback']),
     type=typedef.GetSetProperty(Raise_get_type, Raise_set_type, cls=Raise),
     inst=typedef.GetSetProperty(Raise_get_inst, Raise_set_inst, cls=Raise),
@@ -4220,6 +4266,7 @@ def TryExcept_init(space, w_self, __args__):
 
 TryExcept.typedef = typedef.TypeDef("TryExcept",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['body', 'handlers', 'orelse']),
     body=typedef.GetSetProperty(TryExcept_get_body, TryExcept_set_body, cls=TryExcept),
     handlers=typedef.GetSetProperty(TryExcept_get_handlers, TryExcept_set_handlers, cls=TryExcept),
@@ -4284,6 +4331,7 @@ def TryFinally_init(space, w_self, __args__):
 
 TryFinally.typedef = typedef.TypeDef("TryFinally",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['body', 'finalbody']),
     body=typedef.GetSetProperty(TryFinally_get_body, TryFinally_set_body, cls=TryFinally),
     finalbody=typedef.GetSetProperty(TryFinally_get_finalbody, TryFinally_set_finalbody, cls=TryFinally),
@@ -4351,6 +4399,7 @@ def Assert_init(space, w_self, __args__):
 
 Assert.typedef = typedef.TypeDef("Assert",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['test', 'msg']),
     test=typedef.GetSetProperty(Assert_get_test, Assert_set_test, cls=Assert),
     msg=typedef.GetSetProperty(Assert_get_msg, Assert_set_msg, cls=Assert),
@@ -4395,6 +4444,7 @@ def Import_init(space, w_self, __args__):
 
 Import.typedef = typedef.TypeDef("Import",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['names']),
     names=typedef.GetSetProperty(Import_get_names, Import_set_names, cls=Import),
     __new__=interp2app(get_AST_new(Import)),
@@ -4483,6 +4533,7 @@ def ImportFrom_init(space, w_self, __args__):
 
 ImportFrom.typedef = typedef.TypeDef("ImportFrom",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['module', 'names', 'level']),
     module=typedef.GetSetProperty(ImportFrom_get_module, ImportFrom_set_module, cls=ImportFrom),
     names=typedef.GetSetProperty(ImportFrom_get_names, ImportFrom_set_names, cls=ImportFrom),
@@ -4572,6 +4623,7 @@ def Exec_init(space, w_self, __args__):
 
 Exec.typedef = typedef.TypeDef("Exec",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['body', 'globals', 'locals']),
     body=typedef.GetSetProperty(Exec_get_body, Exec_set_body, cls=Exec),
     globals=typedef.GetSetProperty(Exec_get_globals, Exec_set_globals, cls=Exec),
@@ -4617,6 +4669,7 @@ def Global_init(space, w_self, __args__):
 
 Global.typedef = typedef.TypeDef("Global",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['names']),
     names=typedef.GetSetProperty(Global_get_names, Global_set_names, cls=Global),
     __new__=interp2app(get_AST_new(Global)),
@@ -4662,6 +4715,7 @@ def Expr_init(space, w_self, __args__):
 
 Expr.typedef = typedef.TypeDef("Expr",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['value']),
     value=typedef.GetSetProperty(Expr_get_value, Expr_set_value, cls=Expr),
     __new__=interp2app(get_AST_new(Expr)),
@@ -4680,6 +4734,7 @@ def Pass_init(space, w_self, __args__):
 
 Pass.typedef = typedef.TypeDef("Pass",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(Pass)),
     __init__=interp2app(Pass_init),
@@ -4697,6 +4752,7 @@ def Break_init(space, w_self, __args__):
 
 Break.typedef = typedef.TypeDef("Break",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(Break)),
     __init__=interp2app(Break_init),
@@ -4714,6 +4770,7 @@ def Continue_init(space, w_self, __args__):
 
 Continue.typedef = typedef.TypeDef("Continue",
     stmt.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(Continue)),
     __init__=interp2app(Continue_init),
@@ -4764,6 +4821,7 @@ def expr_set_col_offset(space, w_self, w_new_value):
 
 expr.typedef = typedef.TypeDef("expr",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
     lineno=typedef.GetSetProperty(expr_get_lineno, expr_set_lineno, cls=expr),
     col_offset=typedef.GetSetProperty(expr_get_col_offset, expr_set_col_offset, cls=expr),
@@ -4828,6 +4886,7 @@ def BoolOp_init(space, w_self, __args__):
 
 BoolOp.typedef = typedef.TypeDef("BoolOp",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['op', 'values']),
     op=typedef.GetSetProperty(BoolOp_get_op, BoolOp_set_op, cls=BoolOp),
     values=typedef.GetSetProperty(BoolOp_get_values, BoolOp_set_values, cls=BoolOp),
@@ -4917,6 +4976,7 @@ def BinOp_init(space, w_self, __args__):
 
 BinOp.typedef = typedef.TypeDef("BinOp",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['left', 'op', 'right']),
     left=typedef.GetSetProperty(BinOp_get_left, BinOp_set_left, cls=BinOp),
     op=typedef.GetSetProperty(BinOp_get_op, BinOp_set_op, cls=BinOp),
@@ -4986,6 +5046,7 @@ def UnaryOp_init(space, w_self, __args__):
 
 UnaryOp.typedef = typedef.TypeDef("UnaryOp",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['op', 'operand']),
     op=typedef.GetSetProperty(UnaryOp_get_op, UnaryOp_set_op, cls=UnaryOp),
     operand=typedef.GetSetProperty(UnaryOp_get_operand, UnaryOp_set_operand, cls=UnaryOp),
@@ -5053,6 +5114,7 @@ def Lambda_init(space, w_self, __args__):
 
 Lambda.typedef = typedef.TypeDef("Lambda",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['args', 'body']),
     args=typedef.GetSetProperty(Lambda_get_args, Lambda_set_args, cls=Lambda),
     body=typedef.GetSetProperty(Lambda_get_body, Lambda_set_body, cls=Lambda),
@@ -5141,6 +5203,7 @@ def IfExp_init(space, w_self, __args__):
 
 IfExp.typedef = typedef.TypeDef("IfExp",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['test', 'body', 'orelse']),
     test=typedef.GetSetProperty(IfExp_get_test, IfExp_set_test, cls=IfExp),
     body=typedef.GetSetProperty(IfExp_get_body, IfExp_set_body, cls=IfExp),
@@ -5205,6 +5268,7 @@ def Dict_init(space, w_self, __args__):
 
 Dict.typedef = typedef.TypeDef("Dict",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['keys', 'values']),
     keys=typedef.GetSetProperty(Dict_get_keys, Dict_set_keys, cls=Dict),
     values=typedef.GetSetProperty(Dict_get_values, Dict_set_values, cls=Dict),
@@ -5249,6 +5313,7 @@ def Set_init(space, w_self, __args__):
 
 Set.typedef = typedef.TypeDef("Set",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['elts']),
     elts=typedef.GetSetProperty(Set_get_elts, Set_set_elts, cls=Set),
     __new__=interp2app(get_AST_new(Set)),
@@ -5313,6 +5378,7 @@ def ListComp_init(space, w_self, __args__):
 
 ListComp.typedef = typedef.TypeDef("ListComp",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['elt', 'generators']),
     elt=typedef.GetSetProperty(ListComp_get_elt, ListComp_set_elt, cls=ListComp),
     generators=typedef.GetSetProperty(ListComp_get_generators, ListComp_set_generators, cls=ListComp),
@@ -5378,6 +5444,7 @@ def SetComp_init(space, w_self, __args__):
 
 SetComp.typedef = typedef.TypeDef("SetComp",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['elt', 'generators']),
     elt=typedef.GetSetProperty(SetComp_get_elt, SetComp_set_elt, cls=SetComp),
     generators=typedef.GetSetProperty(SetComp_get_generators, SetComp_set_generators, cls=SetComp),
@@ -5464,6 +5531,7 @@ def DictComp_init(space, w_self, __args__):
 
 DictComp.typedef = typedef.TypeDef("DictComp",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['key', 'value', 'generators']),
     key=typedef.GetSetProperty(DictComp_get_key, DictComp_set_key, cls=DictComp),
     value=typedef.GetSetProperty(DictComp_get_value, DictComp_set_value, cls=DictComp),
@@ -5530,6 +5598,7 @@ def GeneratorExp_init(space, w_self, __args__):
 
 GeneratorExp.typedef = typedef.TypeDef("GeneratorExp",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['elt', 'generators']),
     elt=typedef.GetSetProperty(GeneratorExp_get_elt, GeneratorExp_set_elt, cls=GeneratorExp),
     generators=typedef.GetSetProperty(GeneratorExp_get_generators, GeneratorExp_set_generators, cls=GeneratorExp),
@@ -5576,6 +5645,7 @@ def Yield_init(space, w_self, __args__):
 
 Yield.typedef = typedef.TypeDef("Yield",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['value']),
     value=typedef.GetSetProperty(Yield_get_value, Yield_set_value, cls=Yield),
     __new__=interp2app(get_AST_new(Yield)),
@@ -5659,6 +5729,7 @@ def Compare_init(space, w_self, __args__):
 
 Compare.typedef = typedef.TypeDef("Compare",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['left', 'ops', 'comparators']),
     left=typedef.GetSetProperty(Compare_get_left, Compare_set_left, cls=Compare),
     ops=typedef.GetSetProperty(Compare_get_ops, Compare_set_ops, cls=Compare),
@@ -5786,6 +5857,7 @@ def Call_init(space, w_self, __args__):
 
 Call.typedef = typedef.TypeDef("Call",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['func', 'args', 'keywords', 'starargs', 'kwargs']),
     func=typedef.GetSetProperty(Call_get_func, Call_set_func, cls=Call),
     args=typedef.GetSetProperty(Call_get_args, Call_set_args, cls=Call),
@@ -5835,6 +5907,7 @@ def Repr_init(space, w_self, __args__):
 
 Repr.typedef = typedef.TypeDef("Repr",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['value']),
     value=typedef.GetSetProperty(Repr_get_value, Repr_set_value, cls=Repr),
     __new__=interp2app(get_AST_new(Repr)),
@@ -5880,6 +5953,7 @@ def Num_init(space, w_self, __args__):
 
 Num.typedef = typedef.TypeDef("Num",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['n']),
     n=typedef.GetSetProperty(Num_get_n, Num_set_n, cls=Num),
     __new__=interp2app(get_AST_new(Num)),
@@ -5925,6 +5999,7 @@ def Str_init(space, w_self, __args__):
 
 Str.typedef = typedef.TypeDef("Str",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['s']),
     s=typedef.GetSetProperty(Str_get_s, Str_set_s, cls=Str),
     __new__=interp2app(get_AST_new(Str)),
@@ -6013,6 +6088,7 @@ def Attribute_init(space, w_self, __args__):
 
 Attribute.typedef = typedef.TypeDef("Attribute",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['value', 'attr', 'ctx']),
     value=typedef.GetSetProperty(Attribute_get_value, Attribute_set_value, cls=Attribute),
     attr=typedef.GetSetProperty(Attribute_get_attr, Attribute_set_attr, cls=Attribute),
@@ -6103,6 +6179,7 @@ def Subscript_init(space, w_self, __args__):
 
 Subscript.typedef = typedef.TypeDef("Subscript",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['value', 'slice', 'ctx']),
     value=typedef.GetSetProperty(Subscript_get_value, Subscript_set_value, cls=Subscript),
     slice=typedef.GetSetProperty(Subscript_get_slice, Subscript_set_slice, cls=Subscript),
@@ -6172,6 +6249,7 @@ def Name_init(space, w_self, __args__):
 
 Name.typedef = typedef.TypeDef("Name",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['id', 'ctx']),
     id=typedef.GetSetProperty(Name_get_id, Name_set_id, cls=Name),
     ctx=typedef.GetSetProperty(Name_get_ctx, Name_set_ctx, cls=Name),
@@ -6238,6 +6316,7 @@ def List_init(space, w_self, __args__):
 
 List.typedef = typedef.TypeDef("List",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['elts', 'ctx']),
     elts=typedef.GetSetProperty(List_get_elts, List_set_elts, cls=List),
     ctx=typedef.GetSetProperty(List_get_ctx, List_set_ctx, cls=List),
@@ -6304,6 +6383,7 @@ def Tuple_init(space, w_self, __args__):
 
 Tuple.typedef = typedef.TypeDef("Tuple",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['elts', 'ctx']),
     elts=typedef.GetSetProperty(Tuple_get_elts, Tuple_set_elts, cls=Tuple),
     ctx=typedef.GetSetProperty(Tuple_get_ctx, Tuple_set_ctx, cls=Tuple),
@@ -6350,6 +6430,7 @@ def Const_init(space, w_self, __args__):
 
 Const.typedef = typedef.TypeDef("Const",
     expr.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['value']),
     value=typedef.GetSetProperty(Const_get_value, Const_set_value, cls=Const),
     __new__=interp2app(get_AST_new(Const)),
@@ -6359,12 +6440,14 @@ Const.typedef.acceptable_as_base_class = False
 
 expr_context.typedef = typedef.TypeDef("expr_context",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper([]),
 )
 expr_context.typedef.acceptable_as_base_class = False
 
 _Load.typedef = typedef.TypeDef("Load",
     expr_context.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Load)),
 )
@@ -6372,6 +6455,7 @@ _Load.typedef.acceptable_as_base_class = False
 
 _Store.typedef = typedef.TypeDef("Store",
     expr_context.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Store)),
 )
@@ -6379,6 +6463,7 @@ _Store.typedef.acceptable_as_base_class = False
 
 _Del.typedef = typedef.TypeDef("Del",
     expr_context.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Del)),
 )
@@ -6386,6 +6471,7 @@ _Del.typedef.acceptable_as_base_class = False
 
 _AugLoad.typedef = typedef.TypeDef("AugLoad",
     expr_context.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_AugLoad)),
 )
@@ -6393,6 +6479,7 @@ _AugLoad.typedef.acceptable_as_base_class = False
 
 _AugStore.typedef = typedef.TypeDef("AugStore",
     expr_context.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_AugStore)),
 )
@@ -6400,6 +6487,7 @@ _AugStore.typedef.acceptable_as_base_class = False
 
 _Param.typedef = typedef.TypeDef("Param",
     expr_context.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Param)),
 )
@@ -6407,6 +6495,7 @@ _Param.typedef.acceptable_as_base_class = False
 
 slice.typedef = typedef.TypeDef("slice",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper([]),
 )
 slice.typedef.acceptable_as_base_class = False
@@ -6422,6 +6511,7 @@ def Ellipsis_init(space, w_self, __args__):
 
 Ellipsis.typedef = typedef.TypeDef("Ellipsis",
     slice.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(Ellipsis)),
     __init__=interp2app(Ellipsis_init),
@@ -6508,6 +6598,7 @@ def Slice_init(space, w_self, __args__):
 
 Slice.typedef = typedef.TypeDef("Slice",
     slice.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['lower', 'upper', 'step']),
     lower=typedef.GetSetProperty(Slice_get_lower, Slice_set_lower, cls=Slice),
     upper=typedef.GetSetProperty(Slice_get_upper, Slice_set_upper, cls=Slice),
@@ -6553,6 +6644,7 @@ def ExtSlice_init(space, w_self, __args__):
 
 ExtSlice.typedef = typedef.TypeDef("ExtSlice",
     slice.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['dims']),
     dims=typedef.GetSetProperty(ExtSlice_get_dims, ExtSlice_set_dims, cls=ExtSlice),
     __new__=interp2app(get_AST_new(ExtSlice)),
@@ -6598,6 +6690,7 @@ def Index_init(space, w_self, __args__):
 
 Index.typedef = typedef.TypeDef("Index",
     slice.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['value']),
     value=typedef.GetSetProperty(Index_get_value, Index_set_value, cls=Index),
     __new__=interp2app(get_AST_new(Index)),
@@ -6607,12 +6700,14 @@ Index.typedef.acceptable_as_base_class = False
 
 boolop.typedef = typedef.TypeDef("boolop",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper([]),
 )
 boolop.typedef.acceptable_as_base_class = False
 
 _And.typedef = typedef.TypeDef("And",
     boolop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_And)),
 )
@@ -6620,6 +6715,7 @@ _And.typedef.acceptable_as_base_class = False
 
 _Or.typedef = typedef.TypeDef("Or",
     boolop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Or)),
 )
@@ -6627,12 +6723,14 @@ _Or.typedef.acceptable_as_base_class = False
 
 operator.typedef = typedef.TypeDef("operator",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper([]),
 )
 operator.typedef.acceptable_as_base_class = False
 
 _Add.typedef = typedef.TypeDef("Add",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Add)),
 )
@@ -6640,6 +6738,7 @@ _Add.typedef.acceptable_as_base_class = False
 
 _Sub.typedef = typedef.TypeDef("Sub",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Sub)),
 )
@@ -6647,6 +6746,7 @@ _Sub.typedef.acceptable_as_base_class = False
 
 _Mult.typedef = typedef.TypeDef("Mult",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Mult)),
 )
@@ -6654,6 +6754,7 @@ _Mult.typedef.acceptable_as_base_class = False
 
 _Div.typedef = typedef.TypeDef("Div",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Div)),
 )
@@ -6661,6 +6762,7 @@ _Div.typedef.acceptable_as_base_class = False
 
 _Mod.typedef = typedef.TypeDef("Mod",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Mod)),
 )
@@ -6668,6 +6770,7 @@ _Mod.typedef.acceptable_as_base_class = False
 
 _Pow.typedef = typedef.TypeDef("Pow",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Pow)),
 )
@@ -6675,6 +6778,7 @@ _Pow.typedef.acceptable_as_base_class = False
 
 _LShift.typedef = typedef.TypeDef("LShift",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_LShift)),
 )
@@ -6682,6 +6786,7 @@ _LShift.typedef.acceptable_as_base_class = False
 
 _RShift.typedef = typedef.TypeDef("RShift",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_RShift)),
 )
@@ -6689,6 +6794,7 @@ _RShift.typedef.acceptable_as_base_class = False
 
 _BitOr.typedef = typedef.TypeDef("BitOr",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitOr)),
 )
@@ -6696,6 +6802,7 @@ _BitOr.typedef.acceptable_as_base_class = False
 
 _BitXor.typedef = typedef.TypeDef("BitXor",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitXor)),
 )
@@ -6703,6 +6810,7 @@ _BitXor.typedef.acceptable_as_base_class = False
 
 _BitAnd.typedef = typedef.TypeDef("BitAnd",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitAnd)),
 )
@@ -6710,6 +6818,7 @@ _BitAnd.typedef.acceptable_as_base_class = False
 
 _FloorDiv.typedef = typedef.TypeDef("FloorDiv",
     operator.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_FloorDiv)),
 )
@@ -6717,12 +6826,14 @@ _FloorDiv.typedef.acceptable_as_base_class = False
 
 unaryop.typedef = typedef.TypeDef("unaryop",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper([]),
 )
 unaryop.typedef.acceptable_as_base_class = False
 
 _Invert.typedef = typedef.TypeDef("Invert",
     unaryop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Invert)),
 )
@@ -6730,6 +6841,7 @@ _Invert.typedef.acceptable_as_base_class = False
 
 _Not.typedef = typedef.TypeDef("Not",
     unaryop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Not)),
 )
@@ -6737,6 +6849,7 @@ _Not.typedef.acceptable_as_base_class = False
 
 _UAdd.typedef = typedef.TypeDef("UAdd",
     unaryop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_UAdd)),
 )
@@ -6744,6 +6857,7 @@ _UAdd.typedef.acceptable_as_base_class = False
 
 _USub.typedef = typedef.TypeDef("USub",
     unaryop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_USub)),
 )
@@ -6751,12 +6865,14 @@ _USub.typedef.acceptable_as_base_class = False
 
 cmpop.typedef = typedef.TypeDef("cmpop",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper([]),
 )
 cmpop.typedef.acceptable_as_base_class = False
 
 _Eq.typedef = typedef.TypeDef("Eq",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Eq)),
 )
@@ -6764,6 +6880,7 @@ _Eq.typedef.acceptable_as_base_class = False
 
 _NotEq.typedef = typedef.TypeDef("NotEq",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_NotEq)),
 )
@@ -6771,6 +6888,7 @@ _NotEq.typedef.acceptable_as_base_class = False
 
 _Lt.typedef = typedef.TypeDef("Lt",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Lt)),
 )
@@ -6778,6 +6896,7 @@ _Lt.typedef.acceptable_as_base_class = False
 
 _LtE.typedef = typedef.TypeDef("LtE",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_LtE)),
 )
@@ -6785,6 +6904,7 @@ _LtE.typedef.acceptable_as_base_class = False
 
 _Gt.typedef = typedef.TypeDef("Gt",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Gt)),
 )
@@ -6792,6 +6912,7 @@ _Gt.typedef.acceptable_as_base_class = False
 
 _GtE.typedef = typedef.TypeDef("GtE",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_GtE)),
 )
@@ -6799,6 +6920,7 @@ _GtE.typedef.acceptable_as_base_class = False
 
 _Is.typedef = typedef.TypeDef("Is",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Is)),
 )
@@ -6806,6 +6928,7 @@ _Is.typedef.acceptable_as_base_class = False
 
 _IsNot.typedef = typedef.TypeDef("IsNot",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_IsNot)),
 )
@@ -6813,6 +6936,7 @@ _IsNot.typedef.acceptable_as_base_class = False
 
 _In.typedef = typedef.TypeDef("In",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_In)),
 )
@@ -6820,6 +6944,7 @@ _In.typedef.acceptable_as_base_class = False
 
 _NotIn.typedef = typedef.TypeDef("NotIn",
     cmpop.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_NotIn)),
 )
@@ -6903,6 +7028,7 @@ def comprehension_init(space, w_self, __args__):
 
 comprehension.typedef = typedef.TypeDef("comprehension",
     AST.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['target', 'iter', 'ifs']),
     target=typedef.GetSetProperty(comprehension_get_target, comprehension_set_target, cls=comprehension),
     iter=typedef.GetSetProperty(comprehension_get_iter, comprehension_set_iter, cls=comprehension),
@@ -6956,6 +7082,7 @@ def excepthandler_set_col_offset(space, w_self, w_new_value):
 
 excepthandler.typedef = typedef.TypeDef("excepthandler",
     AST.typedef,
+    __module__='_ast',
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
     lineno=typedef.GetSetProperty(excepthandler_get_lineno, excepthandler_set_lineno, cls=excepthandler),
     col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, cls=excepthandler),
@@ -7040,6 +7167,7 @@ def ExceptHandler_init(space, w_self, __args__):
 
 ExceptHandler.typedef = typedef.TypeDef("ExceptHandler",
     excepthandler.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['type', 'name', 'body']),
     type=typedef.GetSetProperty(ExceptHandler_get_type, ExceptHandler_set_type, cls=ExceptHandler),
     name=typedef.GetSetProperty(ExceptHandler_get_name, ExceptHandler_set_name, cls=ExceptHandler),
@@ -7152,6 +7280,7 @@ def arguments_init(space, w_self, __args__):
 
 arguments.typedef = typedef.TypeDef("arguments",
     AST.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['args', 'vararg', 'kwarg', 'defaults']),
     args=typedef.GetSetProperty(arguments_get_args, arguments_set_args, cls=arguments),
     vararg=typedef.GetSetProperty(arguments_get_vararg, arguments_set_vararg, cls=arguments),
@@ -7221,6 +7350,7 @@ def keyword_init(space, w_self, __args__):
 
 keyword.typedef = typedef.TypeDef("keyword",
     AST.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['arg', 'value']),
     arg=typedef.GetSetProperty(keyword_get_arg, keyword_set_arg, cls=keyword),
     value=typedef.GetSetProperty(keyword_get_value, keyword_set_value, cls=keyword),
@@ -7291,6 +7421,7 @@ def alias_init(space, w_self, __args__):
 
 alias.typedef = typedef.TypeDef("alias",
     AST.typedef,
+    __module__='_ast',
     _fields=_FieldsWrapper(['name', 'asname']),
     name=typedef.GetSetProperty(alias_get_name, alias_set_name, cls=alias),
     asname=typedef.GetSetProperty(alias_get_asname, alias_set_asname, cls=alias),
