@@ -261,7 +261,7 @@ def _builduserclswithfeature(config, supercls, *features):
         if "user_setup" in body:
             base_user_setup = body["user_setup"]
         class Proto(object):
-            def getdict(self):
+            def getdict(self, space):
                 return self.w__dict__
             
             def setdict(self, space, w_dict):
@@ -566,7 +566,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
 def descr_get_dict(space, w_obj):
-    w_dict = w_obj.getdict()
+    w_dict = w_obj.getdict(space)
     if w_dict is None:
         typename = space.type(w_obj).getname(space)
         raise operationerrfmt(space.w_TypeError,
