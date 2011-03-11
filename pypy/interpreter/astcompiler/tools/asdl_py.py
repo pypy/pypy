@@ -78,15 +78,14 @@ class ASTNodeVisitor(ASDLVisitor):
             self.emit("")
         else:
             self.emit("class %s(AST):" % (base,))
-            self.emit("")
-            slots = ", ".join(repr(attr.name.value) for attr in sum.attributes)
-            self.emit("__slots__ = (%s)" % (slots,), 1)
-            self.emit("")
             if sum.attributes:
                 args = ", ".join(attr.name.value for attr in sum.attributes)
                 self.emit("def __init__(self, %s):" % (args,), 1)
                 for attr in sum.attributes:
                     self.visit(attr)
+                self.emit("")
+            else:
+                self.emit("pass", 1)
                 self.emit("")
             for cons in sum.types:
                 self.visit(cons, base, sum.attributes)
@@ -95,9 +94,6 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitProduct(self, product, name):
         self.emit("class %s(AST):" % (name,))
         self.emit("")
-        slots = self.make_slots(product.fields)
-        self.emit("__slots__ = (%s)" % (slots,), 1)
-        self.emit("")
         self.make_constructor(product.fields, product)
         self.emit("")
         self.make_mutate_over(product, name)
@@ -105,15 +101,6 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
         self.make_var_syncer(product.fields, product, name)
-
-    def make_slots(self, fields):
-        slots = []
-        for field in fields:
-            name = repr(field.name.value)
-            slots.append(name)
-            if field.seq:
-                slots.append("'w_%s'" % (field.name,))
-        return ", ".join(slots)
 
     def make_var_syncer(self, fields, node, name):
         self.emit("def sync_app_attrs(self, space):", 1)
@@ -207,9 +194,6 @@ class ASTNodeVisitor(ASDLVisitor):
 
     def visitConstructor(self, cons, base, extra_attributes):
         self.emit("class %s(%s):" % (cons.name, base))
-        self.emit("")
-        slots = self.make_slots(cons.fields)
-        self.emit("__slots__ = (%s)" % (slots,), 1)
         self.emit("")
         for field in self.data.cons_attributes[cons]:
             subst = (field.name, self.data.field_masks[field])

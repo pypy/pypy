@@ -14,9 +14,6 @@ class AST(Wrappable):
 
     __metaclass__ = extendabletype
 
-    def __init__(self):
-        self.w_dict = None
-
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
 
@@ -75,12 +72,9 @@ def missing_field(space, state, required, host):
 
 
 class mod(AST):
-
-    __slots__ = ()
+    pass
 
 class Module(mod):
-
-    __slots__ = ('body', 'w_body')
 
 
     def __init__(self, body):
@@ -115,8 +109,6 @@ class Module(mod):
 
 class Interactive(mod):
 
-    __slots__ = ('body', 'w_body')
-
 
     def __init__(self, body):
         self.body = body
@@ -150,8 +142,6 @@ class Interactive(mod):
 
 class Expression(mod):
 
-    __slots__ = ('body')
-
 
     def __init__(self, body):
         self.body = body
@@ -173,8 +163,6 @@ class Expression(mod):
 
 
 class Suite(mod):
-
-    __slots__ = ('body', 'w_body')
 
 
     def __init__(self, body):
@@ -208,17 +196,11 @@ class Suite(mod):
 
 
 class stmt(AST):
-
-    __slots__ = ('lineno', 'col_offset')
-
     def __init__(self, lineno, col_offset):
-        AST.__init__(self)
         self.lineno = lineno
         self.col_offset = col_offset
 
 class FunctionDef(stmt):
-
-    __slots__ = ('name', 'args', 'body', 'w_body', 'decorator_list', 'w_decorator_list')
 
     _lineno_mask = 16
     _col_offset_mask = 32
@@ -273,8 +255,6 @@ class FunctionDef(stmt):
 
 
 class ClassDef(stmt):
-
-    __slots__ = ('name', 'bases', 'w_bases', 'body', 'w_body', 'decorator_list', 'w_decorator_list')
 
     _lineno_mask = 16
     _col_offset_mask = 32
@@ -341,8 +321,6 @@ class ClassDef(stmt):
 
 class Return(stmt):
 
-    __slots__ = ('value')
-
     _lineno_mask = 2
     _col_offset_mask = 4
 
@@ -370,8 +348,6 @@ class Return(stmt):
 
 
 class Delete(stmt):
-
-    __slots__ = ('targets', 'w_targets')
 
     _lineno_mask = 2
     _col_offset_mask = 4
@@ -408,8 +384,6 @@ class Delete(stmt):
 
 
 class Assign(stmt):
-
-    __slots__ = ('targets', 'w_targets', 'value')
 
     _lineno_mask = 4
     _col_offset_mask = 8
@@ -450,8 +424,6 @@ class Assign(stmt):
 
 class AugAssign(stmt):
 
-    __slots__ = ('target', 'op', 'value')
-
     _lineno_mask = 8
     _col_offset_mask = 16
 
@@ -480,8 +452,6 @@ class AugAssign(stmt):
 
 
 class Print(stmt):
-
-    __slots__ = ('dest', 'values', 'w_values', 'nl')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -525,8 +495,6 @@ class Print(stmt):
 
 
 class For(stmt):
-
-    __slots__ = ('target', 'iter', 'body', 'w_body', 'orelse', 'w_orelse')
 
     _lineno_mask = 16
     _col_offset_mask = 32
@@ -584,8 +552,6 @@ class For(stmt):
 
 class While(stmt):
 
-    __slots__ = ('test', 'body', 'w_body', 'orelse', 'w_orelse')
-
     _lineno_mask = 8
     _col_offset_mask = 16
 
@@ -638,8 +604,6 @@ class While(stmt):
 
 
 class If(stmt):
-
-    __slots__ = ('test', 'body', 'w_body', 'orelse', 'w_orelse')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -694,8 +658,6 @@ class If(stmt):
 
 class With(stmt):
 
-    __slots__ = ('context_expr', 'optional_vars', 'body', 'w_body')
-
     _lineno_mask = 8
     _col_offset_mask = 16
 
@@ -741,8 +703,6 @@ class With(stmt):
 
 class Raise(stmt):
 
-    __slots__ = ('type', 'inst', 'tback')
-
     _lineno_mask = 8
     _col_offset_mask = 16
 
@@ -784,8 +744,6 @@ class Raise(stmt):
 
 
 class TryExcept(stmt):
-
-    __slots__ = ('body', 'w_body', 'handlers', 'w_handlers', 'orelse', 'w_orelse')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -851,8 +809,6 @@ class TryExcept(stmt):
 
 class TryFinally(stmt):
 
-    __slots__ = ('body', 'w_body', 'finalbody', 'w_finalbody')
-
     _lineno_mask = 4
     _col_offset_mask = 8
 
@@ -903,8 +859,6 @@ class TryFinally(stmt):
 
 class Assert(stmt):
 
-    __slots__ = ('test', 'msg')
-
     _lineno_mask = 4
     _col_offset_mask = 8
 
@@ -935,8 +889,6 @@ class Assert(stmt):
 
 
 class Import(stmt):
-
-    __slots__ = ('names', 'w_names')
 
     _lineno_mask = 2
     _col_offset_mask = 4
@@ -973,8 +925,6 @@ class Import(stmt):
 
 
 class ImportFrom(stmt):
-
-    __slots__ = ('module', 'names', 'w_names', 'level')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -1017,8 +967,6 @@ class ImportFrom(stmt):
 
 class Exec(stmt):
 
-    __slots__ = ('body', 'globals', 'locals')
-
     _lineno_mask = 8
     _col_offset_mask = 16
 
@@ -1057,8 +1005,6 @@ class Exec(stmt):
 
 class Global(stmt):
 
-    __slots__ = ('names', 'w_names')
-
     _lineno_mask = 2
     _col_offset_mask = 4
 
@@ -1090,8 +1036,6 @@ class Global(stmt):
 
 class Expr(stmt):
 
-    __slots__ = ('value')
-
     _lineno_mask = 2
     _col_offset_mask = 4
 
@@ -1117,8 +1061,6 @@ class Expr(stmt):
 
 class Pass(stmt):
 
-    __slots__ = ()
-
     _lineno_mask = 1
     _col_offset_mask = 2
 
@@ -1140,8 +1082,6 @@ class Pass(stmt):
 
 
 class Break(stmt):
-
-    __slots__ = ()
 
     _lineno_mask = 1
     _col_offset_mask = 2
@@ -1165,8 +1105,6 @@ class Break(stmt):
 
 class Continue(stmt):
 
-    __slots__ = ()
-
     _lineno_mask = 1
     _col_offset_mask = 2
 
@@ -1188,17 +1126,11 @@ class Continue(stmt):
 
 
 class expr(AST):
-
-    __slots__ = ('lineno', 'col_offset')
-
     def __init__(self, lineno, col_offset):
-        AST.__init__(self)
         self.lineno = lineno
         self.col_offset = col_offset
 
 class BoolOp(expr):
-
-    __slots__ = ('op', 'values', 'w_values')
 
     _lineno_mask = 4
     _col_offset_mask = 8
@@ -1237,8 +1169,6 @@ class BoolOp(expr):
 
 class BinOp(expr):
 
-    __slots__ = ('left', 'op', 'right')
-
     _lineno_mask = 8
     _col_offset_mask = 16
 
@@ -1268,8 +1198,6 @@ class BinOp(expr):
 
 class UnaryOp(expr):
 
-    __slots__ = ('op', 'operand')
-
     _lineno_mask = 4
     _col_offset_mask = 8
 
@@ -1295,8 +1223,6 @@ class UnaryOp(expr):
 
 
 class Lambda(expr):
-
-    __slots__ = ('args', 'body')
 
     _lineno_mask = 4
     _col_offset_mask = 8
@@ -1325,8 +1251,6 @@ class Lambda(expr):
 
 
 class IfExp(expr):
-
-    __slots__ = ('test', 'body', 'orelse')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -1358,8 +1282,6 @@ class IfExp(expr):
 
 
 class Dict(expr):
-
-    __slots__ = ('keys', 'w_keys', 'values', 'w_values')
 
     _lineno_mask = 4
     _col_offset_mask = 8
@@ -1411,8 +1333,6 @@ class Dict(expr):
 
 class Set(expr):
 
-    __slots__ = ('elts', 'w_elts')
-
     _lineno_mask = 2
     _col_offset_mask = 4
 
@@ -1448,8 +1368,6 @@ class Set(expr):
 
 
 class ListComp(expr):
-
-    __slots__ = ('elt', 'generators', 'w_generators')
 
     _lineno_mask = 4
     _col_offset_mask = 8
@@ -1490,8 +1408,6 @@ class ListComp(expr):
 
 class SetComp(expr):
 
-    __slots__ = ('elt', 'generators', 'w_generators')
-
     _lineno_mask = 4
     _col_offset_mask = 8
 
@@ -1530,8 +1446,6 @@ class SetComp(expr):
 
 
 class DictComp(expr):
-
-    __slots__ = ('key', 'value', 'generators', 'w_generators')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -1575,8 +1489,6 @@ class DictComp(expr):
 
 class GeneratorExp(expr):
 
-    __slots__ = ('elt', 'generators', 'w_generators')
-
     _lineno_mask = 4
     _col_offset_mask = 8
 
@@ -1616,8 +1528,6 @@ class GeneratorExp(expr):
 
 class Yield(expr):
 
-    __slots__ = ('value')
-
     _lineno_mask = 2
     _col_offset_mask = 4
 
@@ -1645,8 +1555,6 @@ class Yield(expr):
 
 
 class Compare(expr):
-
-    __slots__ = ('left', 'ops', 'w_ops', 'comparators', 'w_comparators')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -1695,8 +1603,6 @@ class Compare(expr):
 
 
 class Call(expr):
-
-    __slots__ = ('func', 'args', 'w_args', 'keywords', 'w_keywords', 'starargs', 'kwargs')
 
     _lineno_mask = 32
     _col_offset_mask = 64
@@ -1764,8 +1670,6 @@ class Call(expr):
 
 class Repr(expr):
 
-    __slots__ = ('value')
-
     _lineno_mask = 2
     _col_offset_mask = 4
 
@@ -1791,8 +1695,6 @@ class Repr(expr):
 
 class Num(expr):
 
-    __slots__ = ('n')
-
     _lineno_mask = 2
     _col_offset_mask = 4
 
@@ -1816,8 +1718,6 @@ class Num(expr):
 
 class Str(expr):
 
-    __slots__ = ('s')
-
     _lineno_mask = 2
     _col_offset_mask = 4
 
@@ -1840,8 +1740,6 @@ class Str(expr):
 
 
 class Attribute(expr):
-
-    __slots__ = ('value', 'attr', 'ctx')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -1869,8 +1767,6 @@ class Attribute(expr):
 
 
 class Subscript(expr):
-
-    __slots__ = ('value', 'slice', 'ctx')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -1901,8 +1797,6 @@ class Subscript(expr):
 
 class Name(expr):
 
-    __slots__ = ('id', 'ctx')
-
     _lineno_mask = 4
     _col_offset_mask = 8
 
@@ -1926,8 +1820,6 @@ class Name(expr):
 
 
 class List(expr):
-
-    __slots__ = ('elts', 'w_elts', 'ctx')
 
     _lineno_mask = 4
     _col_offset_mask = 8
@@ -1966,8 +1858,6 @@ class List(expr):
 
 class Tuple(expr):
 
-    __slots__ = ('elts', 'w_elts', 'ctx')
-
     _lineno_mask = 4
     _col_offset_mask = 8
 
@@ -2004,8 +1894,6 @@ class Tuple(expr):
 
 
 class Const(expr):
-
-    __slots__ = ('value')
 
     _lineno_mask = 2
     _col_offset_mask = 4
@@ -2081,16 +1969,12 @@ expr_context_to_class = [
 ]
 
 class slice(AST):
-
-    __slots__ = ()
+    pass
 
 class Ellipsis(slice):
 
-    __slots__ = ()
-
 
     def __init__(self):
-        AST.__init__(self)
         self.initialization_state = 0
 
     def walkabout(self, visitor):
@@ -2107,8 +1991,6 @@ class Ellipsis(slice):
 
 
 class Slice(slice):
-
-    __slots__ = ('lower', 'upper', 'step')
 
 
     def __init__(self, lower, upper, step):
@@ -2149,8 +2031,6 @@ class Slice(slice):
 
 class ExtSlice(slice):
 
-    __slots__ = ('dims', 'w_dims')
-
 
     def __init__(self, dims):
         self.dims = dims
@@ -2183,8 +2063,6 @@ class ExtSlice(slice):
 
 
 class Index(slice):
-
-    __slots__ = ('value')
 
 
     def __init__(self, value):
@@ -2444,8 +2322,6 @@ cmpop_to_class = [
 
 class comprehension(AST):
 
-    __slots__ = ('target', 'iter', 'ifs', 'w_ifs')
-
     def __init__(self, target, iter, ifs):
         self.target = target
         self.iter = iter
@@ -2482,17 +2358,11 @@ class comprehension(AST):
                 node.sync_app_attrs(space)
 
 class excepthandler(AST):
-
-    __slots__ = ('lineno', 'col_offset')
-
     def __init__(self, lineno, col_offset):
-        AST.__init__(self)
         self.lineno = lineno
         self.col_offset = col_offset
 
 class ExceptHandler(excepthandler):
-
-    __slots__ = ('type', 'name', 'body', 'w_body')
 
     _lineno_mask = 8
     _col_offset_mask = 16
@@ -2542,8 +2412,6 @@ class ExceptHandler(excepthandler):
 
 
 class arguments(AST):
-
-    __slots__ = ('args', 'w_args', 'vararg', 'kwarg', 'defaults', 'w_defaults')
 
     def __init__(self, args, vararg, kwarg, defaults):
         self.args = args
@@ -2595,8 +2463,6 @@ class arguments(AST):
 
 class keyword(AST):
 
-    __slots__ = ('arg', 'value')
-
     def __init__(self, arg, value):
         self.arg = arg
         self.value = value
@@ -2617,8 +2483,6 @@ class keyword(AST):
         self.value.sync_app_attrs(space)
 
 class alias(AST):
-
-    __slots__ = ('name', 'asname')
 
     def __init__(self, name, asname):
         self.name = name
