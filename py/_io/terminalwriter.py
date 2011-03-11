@@ -199,8 +199,10 @@ class Win32ConsoleWriter(TerminalWriter):
                     attr |= FOREGROUND_BLUE
                 elif kw.pop('green', False):
                     attr |= FOREGROUND_GREEN
+                elif kw.pop('yellow', False):
+                    attr |= FOREGROUND_GREEN|FOREGROUND_RED
                 else:
-                    attr |= FOREGROUND_BLACK # (oldcolors & 0x0007)
+                    attr |= oldcolors & 0x0007
 
                 SetConsoleTextAttribute(handle, attr)
             if not isinstance(self._file, WriteFile):
@@ -211,7 +213,8 @@ class Win32ConsoleWriter(TerminalWriter):
                 SetConsoleTextAttribute(handle, oldcolors)
 
     def line(self, s="", **kw):
-        self.write(s+"\n", **kw)
+        self.write(s, **kw) # works better for resetting colors
+        self.write("\n")
 
 class WriteFile(object):
     def __init__(self, writemethod, encoding=None):
