@@ -4442,12 +4442,11 @@ Expr.typedef = typedef.TypeDef("Expr",
 )
 Expr.typedef.acceptable_as_base_class = False
 
-_Pass_field_unroller = unrolling_iterable([])
 def Pass_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Pass, w_self)
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        w_err = space.wrap("Pass constructor takes no  arguments")
+        w_err = space.wrap("Pass constructor takes no arguments")
         raise OperationError(space.w_TypeError, w_err)
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
@@ -4460,12 +4459,11 @@ Pass.typedef = typedef.TypeDef("Pass",
 )
 Pass.typedef.acceptable_as_base_class = False
 
-_Break_field_unroller = unrolling_iterable([])
 def Break_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Break, w_self)
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        w_err = space.wrap("Break constructor takes no  arguments")
+        w_err = space.wrap("Break constructor takes no arguments")
         raise OperationError(space.w_TypeError, w_err)
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
@@ -4478,12 +4476,11 @@ Break.typedef = typedef.TypeDef("Break",
 )
 Break.typedef.acceptable_as_base_class = False
 
-_Continue_field_unroller = unrolling_iterable([])
 def Continue_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Continue, w_self)
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        w_err = space.wrap("Continue constructor takes no  arguments")
+        w_err = space.wrap("Continue constructor takes no arguments")
         raise OperationError(space.w_TypeError, w_err)
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
@@ -5769,12 +5766,11 @@ slice.typedef = typedef.TypeDef("slice",
 )
 slice.typedef.acceptable_as_base_class = False
 
-_Ellipsis_field_unroller = unrolling_iterable([])
 def Ellipsis_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Ellipsis, w_self)
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        w_err = space.wrap("Ellipsis constructor takes no  arguments")
+        w_err = space.wrap("Ellipsis constructor takes no arguments")
         raise OperationError(space.w_TypeError, w_err)
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)

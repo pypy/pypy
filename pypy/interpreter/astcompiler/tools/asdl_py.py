@@ -378,8 +378,9 @@ class AppExposeVisitor(ASDLVisitor):
 
     def make_init(self, name, fields):
         comma_fields = ", ".join(repr(field.name.value) for field in fields)
-        config = (name, comma_fields)
-        self.emit("_%s_field_unroller = unrolling_iterable([%s])" % config)
+        if fields:
+            config = (name, comma_fields)
+            self.emit("_%s_field_unroller = unrolling_iterable([%s])" % config)
         self.emit("def %s_init(space, w_self, __args__):" % (name,))
         self.emit("w_self = space.descr_self_interp_w(%s, w_self)" % (name,), 1)
         for field in fields:
@@ -399,7 +400,7 @@ class AppExposeVisitor(ASDLVisitor):
             self.emit("i += 1", 3)
         else:
             self.emit("w_err = space.wrap(\"%s constructor takes no " \
-                          " arguments\")" % (name,), 2)
+                          "arguments\")" % (name,), 2)
             self.emit("raise OperationError(space.w_TypeError, w_err)", 2)
         self.emit("for field, w_value in kwargs_w.iteritems():", 1)
         self.emit("space.setattr(w_self, space.wrap(field), w_value)", 2)
