@@ -23,7 +23,7 @@ def make_test(loop=100):
         assert d.get("hello") is None
         return x1, x3    # x2 dies
     def f():
-        d = RWeakValueDictionary(X)
+        d = RWeakValueDictionary(str, X)
         x1, x3 = g(d)
         rgc.collect(); rgc.collect()
         assert d.get("abc") is x1
@@ -70,7 +70,7 @@ def test_rpython_RWeakValueDictionary():
     interpret(make_test(loop=12), [])
 
 def test_rpython_prebuilt():
-    d = RWeakValueDictionary(X)
+    d = RWeakValueDictionary(str, X)
     living = [X() for i in range(8)]
     for i in range(8):
         d.set(str(i), living[i])
@@ -89,13 +89,13 @@ def test_rpython_prebuilt():
     interpret(f, [])
 
 def test_rpython_merge_RWeakValueDictionary():
-    empty = RWeakValueDictionary(X)
+    empty = RWeakValueDictionary(str, X)
     def f(n):
         x = X()
         if n:
             d = empty
         else:
-            d = RWeakValueDictionary(X)
+            d = RWeakValueDictionary(str, X)
             d.set("a", x)
         return d.get("a") is x
     assert f(0)
@@ -107,7 +107,7 @@ def test_rpython_merge_RWeakValueDictionary():
 def test_rpython_merge_RWeakValueDictionary2():
     class A(object):
         def __init__(self):
-            self.d = RWeakValueDictionary(A)
+            self.d = RWeakValueDictionary(str, A)
         def f(self, key):
             a = A()
             self.d.set(key, a)
@@ -126,8 +126,8 @@ def test_rpython_merge_RWeakValueDictionary2():
 
     def g(x):
         if x:
-            d = RWeakValueDictionary(X)
+            d = RWeakValueDictionary(str, X)
         else:
-            d = RWeakValueDictionary(Y)
+            d = RWeakValueDictionary(str, Y)
         d.set("x", X())
     py.test.raises(Exception, interpret, g, [1])

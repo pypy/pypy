@@ -12,14 +12,17 @@ class RWeakValueDictionary(object):
     Only supports string keys.
     """
 
-    def __init__(self, valueclass):
+    def __init__(self, keyclass, valueclass):
         self._dict = weakref.WeakValueDictionary()
+        self._keyclass = keyclass
         self._valueclass = valueclass
 
     def get(self, key):
+        assert isinstance(key, self._keyclass)
         return self._dict.get(key, None)
 
     def set(self, key, value):
+        assert isinstance(key, self._keyclass)
         if value is None:
             self._dict.pop(key, None)
         else:
@@ -94,7 +97,7 @@ class __extend__(pairtype(SomeWeakValueDict, SomeWeakValueDict)):
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = RWeakValueDictionary
 
-    def compute_result_annotation(self, s_valueclass):
+    def compute_result_annotation(self, s_keyclass, s_valueclass):
         return SomeWeakValueDict(_getclassdef(s_valueclass))
 
     def specialize_call(self, hop):
