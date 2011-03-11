@@ -355,10 +355,9 @@ class W_TypeObject(W_Object):
             del w_self.lazyloaders
         return False
 
-    def getdict(w_self): # returning a dict-proxy!
+    def getdict(w_self, space): # returning a dict-proxy!
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
-        space = w_self.space
         newdic = space.newdict(from_strdict_shared=w_self.dict_w)
         return W_DictProxyObject(newdic)
 

@@ -180,7 +180,7 @@ class W_BytesIO(W_BufferedIOBase):
         return space.newtuple([
             w_content,
             space.wrap(self.pos),
-            self.getdict()])
+            self.getdict(space)])
 
     def setstate_w(self, space, w_state):
         self._check_closed(space)
@@ -200,7 +200,7 @@ class W_BytesIO(W_BufferedIOBase):
                 "position value cannot be negative"))
         self.pos = pos
         if not space.is_w(w_dict, space.w_None):
-            space.call_method(self.getdict(), "update", w_dict)
+            space.call_method(self.getdict(space), "update", w_dict)
 
 W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,

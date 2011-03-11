@@ -223,8 +223,8 @@ def test_getdict():
     obj.setdictvalue(space, "a", 51)
     obj.setdictvalue(space, "b", 61)
     obj.setdictvalue(space, "c", 71)
-    assert obj.getdict() is obj.getdict()
-    assert obj.getdict().length() == 3
+    assert obj.getdict(space) is obj.getdict(space)
+    assert obj.getdict(space).length() == 3
 
 
 def test_materialize_r_dict():
@@ -282,7 +282,7 @@ from pypy.objspace.std.test.test_dictmultiobject import BaseTestRDictImplementat
 def get_impl(self):
     cls = Class()
     w_obj = cls.instantiate(self.fakespace)
-    return w_obj.getdict()
+    return w_obj.getdict(self.fakespace)
 class TestMapDictImplementation(BaseTestRDictImplementation):
     ImplementionClass = MapDictImplementation
     get_impl = get_impl
@@ -293,8 +293,8 @@ class TestDevolvedMapDictImplementation(BaseTestDevolvedDictImplementation):
 # ___________________________________________________________
 # tests that check the obj interface after the dict has devolved
 
-def devolve_dict(obj):
-    w_d = obj.getdict()
+def devolve_dict(space, obj):
+    w_d = obj.getdict(space)
     w_d._as_rdict()
 
 def test_get_setdictvalue_after_devolve():
@@ -310,7 +310,7 @@ def test_get_setdictvalue_after_devolve():
     obj.setdictvalue(space, "b", 6)
     obj.setdictvalue(space, "c", 7)
     obj.setdictvalue(space, "weakref", 42)
-    devolve_dict(obj)
+    devolve_dict(space, obj)
     assert obj.getdictvalue(space, "a") == 5
     assert obj.getdictvalue(space, "b") == 6
     assert obj.getdictvalue(space, "c") == 7
@@ -348,10 +348,10 @@ def test_setdict():
     obj.setdictvalue(space, "a", 5)
     obj.setdictvalue(space, "b", 6)
     obj.setdictvalue(space, "c", 7)
-    w_d = obj.getdict()
+    w_d = obj.getdict(space)
     obj2 = cls.instantiate()
     obj2.setdictvalue(space, "d", 8)
-    obj.setdict(space, obj2.getdict())
+    obj.setdict(space, obj2.getdict(space))
     assert obj.getdictvalue(space, "a") is None
     assert obj.getdictvalue(space, "b") is None
     assert obj.getdictvalue(space, "c") is None
