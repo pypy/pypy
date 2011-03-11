@@ -205,29 +205,19 @@ from __future__ import generators""")
         exc = raises(AttributeError, getattr, x, 'n')
         assert exc.value.args[0] == "'Num' object has no attribute 'n'"
 
-        skip("WIP")
-
         x = ast.Num(42)
-        self.assertEquals(x.n, 42)
-        try:
-            x.lineno
-        except AttributeError, e:
-            self.assertEquals(e.args[0],
-                              "'Num' object has no attribute 'lineno'")
-        else:
-            self.assert_(False)
+        assert x.n == 42
+        exc = raises(AttributeError, getattr, x, 'lineno')
+        assert exc.value.args[0] == "'Num' object has no attribute 'lineno'"
+
+        skip("WIP")
 
         y = ast.Num()
         x.lineno = y
-        self.assertEquals(x.lineno, y)
+        assert x.lineno == y
 
-        try:
-            x.foobar
-        except AttributeError, e:
-            self.assertEquals(e.args[0],
-                              "'Num' object has no attribute 'foobar'")
-        else:
-            self.assert_(False)
+        exc = raises(AttributeError, getattr, x, 'foobar')
+        assert exc.value.args[0] == "'Num' object has no attribute 'foobar'"
 
         x = ast.Num(lineno=2)
         self.assertEquals(x.lineno, 2)

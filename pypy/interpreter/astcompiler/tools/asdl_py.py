@@ -429,8 +429,9 @@ class AppExposeVisitor(ASDLVisitor):
         else:
             flag = self.data.field_masks[field]
         self.emit("if not w_self.initialization_state & %s:" % (flag,), 1)
-        self.emit("w_err = space.wrap(\"'%s' object has no attribute '%s'\")" %
-                  (name, field.name,), 2)
+        self.emit("typename = space.type(w_self).getname(space)", 2)
+        self.emit("w_err = space.wrap(\"'%%s' object has no attribute '%s'\" %% typename)" %
+                  (field.name,), 2)
         self.emit("raise OperationError(space.w_AttributeError, w_err)", 2)
         if field.seq:
             self.emit("if w_self.w_%s is None:" % (field.name,), 1)
