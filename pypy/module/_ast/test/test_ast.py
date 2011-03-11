@@ -162,7 +162,7 @@ class AppTestAST:
         exc = raises(TypeError, ast.Module, 1, 2).value
         msg = str(exc)
         assert msg == "Module constructor takes 0 or 1 positional arguments"
-        raises(AttributeError, ast.Module, nothing=23)
+        ast.Module(nothing=23)
 
     def test_future(self):
         mod = self.get_ast("from __future__ import with_statement")
@@ -173,6 +173,13 @@ from __future__ import generators""")
         mod = self.get_ast("from __future__ import with_statement; import y; " \
                                "from __future__ import nested_scopes")
         raises(SyntaxError, compile, mod, "<test>", "exec")
+
+    def test_field_attr_writable(self):
+        import _ast as ast
+        x = ast.Num()
+        # We can assign to _fields
+        x._fields = 666
+        assert x._fields == 666
 
     def test_pickle(self):
         skip("XXX implement me")
@@ -186,3 +193,45 @@ from __future__ import generators""")
         co2 = compile(mod2, "<example>", "exec")
         exec co2 in ns
         assert ns["x"] == 4
+
+    def test_classattrs(self):
+        import ast
+        x = ast.Num()
+        assert x._fields == ('n',)
+        exc = raises(AttributeError, getattr, x, 'n')
+        assert exc.value.args[0] == "'Num' object has no attribute 'n'"
+
+        skip("WIP")
+
+        x = ast.Num(42)
+        self.assertEquals(x.n, 42)
+        try:
+            x.lineno
+        except AttributeError, e:
+            self.assertEquals(e.args[0],
+                              "'Num' object has no attribute 'lineno'")
+        else:
+            self.assert_(False)
+
+        y = ast.Num()
+        x.lineno = y
+        self.assertEquals(x.lineno, y)
+
+        try:
+            x.foobar
+        except AttributeError, e:
+            self.assertEquals(e.args[0],
+                              "'Num' object has no attribute 'foobar'")
+        else:
+            self.assert_(False)
+
+        x = ast.Num(lineno=2)
+        self.assertEquals(x.lineno, 2)
+
+        x = ast.Num(42, lineno=0)
+        self.assertEquals(x.lineno, 0)
+        self.assertEquals(x._fields, ('n',))
+        self.assertEquals(x.n, 42)
+
+        self.assertRaises(TypeError, ast.Num, 1, 2)
+        self.assertRaises(TypeError, ast.Num, 1, 2, lineno=0)

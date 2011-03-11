@@ -10,7 +10,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 class AST(Wrappable):
 
-    __slots__ = ("initialization_state",)
+    __slots__ = ("initialization_state", "w_dict")
 
     __metaclass__ = extendabletype
 
@@ -22,6 +22,11 @@ class AST(Wrappable):
 
     def sync_app_attrs(self, space):
         raise NotImplementedError
+
+    def getdict(self, space):
+        if not hasattr(self, 'w_dict'):
+            self.w_dict = space.newdict(instance=True)
+        return self.w_dict
 
 
 class NodeVisitorNotImplemented(Exception):
@@ -3053,7 +3058,7 @@ mod.typedef.acceptable_as_base_class = False
 
 def Module_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'Module' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3095,7 +3100,7 @@ Module.typedef.acceptable_as_base_class = False
 
 def Interactive_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'Interactive' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3137,7 +3142,7 @@ Interactive.typedef.acceptable_as_base_class = False
 
 def Expression_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'Expression' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.body)
 
@@ -3171,7 +3176,7 @@ Expression.typedef.acceptable_as_base_class = False
 
 def Suite_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'Suite' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3213,7 +3218,7 @@ Suite.typedef.acceptable_as_base_class = False
 
 def stmt_get_lineno(space, w_self):
     if not w_self.initialization_state & w_self._lineno_mask:
-        w_err = space.wrap("attribute 'lineno' has not been set")
+        w_err = space.wrap("'stmt' object has no attribute 'lineno'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.lineno)
 
@@ -3223,7 +3228,7 @@ def stmt_set_lineno(space, w_self, w_new_value):
 
 def stmt_get_col_offset(space, w_self):
     if not w_self.initialization_state & w_self._col_offset_mask:
-        w_err = space.wrap("attribute 'col_offset' has not been set")
+        w_err = space.wrap("'stmt' object has no attribute 'col_offset'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.col_offset)
 
@@ -3241,7 +3246,7 @@ stmt.typedef.acceptable_as_base_class = False
 
 def FunctionDef_get_name(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'name' has not been set")
+        w_err = space.wrap("'FunctionDef' object has no attribute 'name'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.name)
 
@@ -3251,7 +3256,7 @@ def FunctionDef_set_name(space, w_self, w_new_value):
 
 def FunctionDef_get_args(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'args' has not been set")
+        w_err = space.wrap("'FunctionDef' object has no attribute 'args'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.args)
 
@@ -3261,7 +3266,7 @@ def FunctionDef_set_args(space, w_self, w_new_value):
 
 def FunctionDef_get_body(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'FunctionDef' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3278,7 +3283,7 @@ def FunctionDef_set_body(space, w_self, w_new_value):
 
 def FunctionDef_get_decorator_list(space, w_self):
     if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'decorator_list' has not been set")
+        w_err = space.wrap("'FunctionDef' object has no attribute 'decorator_list'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_decorator_list is None:
         if w_self.decorator_list is None:
@@ -3324,7 +3329,7 @@ FunctionDef.typedef.acceptable_as_base_class = False
 
 def ClassDef_get_name(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'name' has not been set")
+        w_err = space.wrap("'ClassDef' object has no attribute 'name'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.name)
 
@@ -3334,7 +3339,7 @@ def ClassDef_set_name(space, w_self, w_new_value):
 
 def ClassDef_get_bases(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'bases' has not been set")
+        w_err = space.wrap("'ClassDef' object has no attribute 'bases'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_bases is None:
         if w_self.bases is None:
@@ -3351,7 +3356,7 @@ def ClassDef_set_bases(space, w_self, w_new_value):
 
 def ClassDef_get_body(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'ClassDef' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3368,7 +3373,7 @@ def ClassDef_set_body(space, w_self, w_new_value):
 
 def ClassDef_get_decorator_list(space, w_self):
     if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'decorator_list' has not been set")
+        w_err = space.wrap("'ClassDef' object has no attribute 'decorator_list'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_decorator_list is None:
         if w_self.decorator_list is None:
@@ -3415,7 +3420,7 @@ ClassDef.typedef.acceptable_as_base_class = False
 
 def Return_get_value(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Return' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -3449,7 +3454,7 @@ Return.typedef.acceptable_as_base_class = False
 
 def Delete_get_targets(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'targets' has not been set")
+        w_err = space.wrap("'Delete' object has no attribute 'targets'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_targets is None:
         if w_self.targets is None:
@@ -3491,7 +3496,7 @@ Delete.typedef.acceptable_as_base_class = False
 
 def Assign_get_targets(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'targets' has not been set")
+        w_err = space.wrap("'Assign' object has no attribute 'targets'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_targets is None:
         if w_self.targets is None:
@@ -3508,7 +3513,7 @@ def Assign_set_targets(space, w_self, w_new_value):
 
 def Assign_get_value(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Assign' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -3544,7 +3549,7 @@ Assign.typedef.acceptable_as_base_class = False
 
 def AugAssign_get_target(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'target' has not been set")
+        w_err = space.wrap("'AugAssign' object has no attribute 'target'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.target)
 
@@ -3554,7 +3559,7 @@ def AugAssign_set_target(space, w_self, w_new_value):
 
 def AugAssign_get_op(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'op' has not been set")
+        w_err = space.wrap("'AugAssign' object has no attribute 'op'")
         raise OperationError(space.w_AttributeError, w_err)
     return operator_to_class[w_self.op - 1]()
 
@@ -3565,7 +3570,7 @@ def AugAssign_set_op(space, w_self, w_new_value):
 
 def AugAssign_get_value(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'AugAssign' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -3601,7 +3606,7 @@ AugAssign.typedef.acceptable_as_base_class = False
 
 def Print_get_dest(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'dest' has not been set")
+        w_err = space.wrap("'Print' object has no attribute 'dest'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.dest)
 
@@ -3611,7 +3616,7 @@ def Print_set_dest(space, w_self, w_new_value):
 
 def Print_get_values(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'values' has not been set")
+        w_err = space.wrap("'Print' object has no attribute 'values'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_values is None:
         if w_self.values is None:
@@ -3628,7 +3633,7 @@ def Print_set_values(space, w_self, w_new_value):
 
 def Print_get_nl(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'nl' has not been set")
+        w_err = space.wrap("'Print' object has no attribute 'nl'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.nl)
 
@@ -3665,7 +3670,7 @@ Print.typedef.acceptable_as_base_class = False
 
 def For_get_target(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'target' has not been set")
+        w_err = space.wrap("'For' object has no attribute 'target'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.target)
 
@@ -3675,7 +3680,7 @@ def For_set_target(space, w_self, w_new_value):
 
 def For_get_iter(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'iter' has not been set")
+        w_err = space.wrap("'For' object has no attribute 'iter'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.iter)
 
@@ -3685,7 +3690,7 @@ def For_set_iter(space, w_self, w_new_value):
 
 def For_get_body(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'For' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3702,7 +3707,7 @@ def For_set_body(space, w_self, w_new_value):
 
 def For_get_orelse(space, w_self):
     if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'orelse' has not been set")
+        w_err = space.wrap("'For' object has no attribute 'orelse'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_orelse is None:
         if w_self.orelse is None:
@@ -3748,7 +3753,7 @@ For.typedef.acceptable_as_base_class = False
 
 def While_get_test(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'test' has not been set")
+        w_err = space.wrap("'While' object has no attribute 'test'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.test)
 
@@ -3758,7 +3763,7 @@ def While_set_test(space, w_self, w_new_value):
 
 def While_get_body(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'While' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3775,7 +3780,7 @@ def While_set_body(space, w_self, w_new_value):
 
 def While_get_orelse(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'orelse' has not been set")
+        w_err = space.wrap("'While' object has no attribute 'orelse'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_orelse is None:
         if w_self.orelse is None:
@@ -3820,7 +3825,7 @@ While.typedef.acceptable_as_base_class = False
 
 def If_get_test(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'test' has not been set")
+        w_err = space.wrap("'If' object has no attribute 'test'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.test)
 
@@ -3830,7 +3835,7 @@ def If_set_test(space, w_self, w_new_value):
 
 def If_get_body(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'If' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3847,7 +3852,7 @@ def If_set_body(space, w_self, w_new_value):
 
 def If_get_orelse(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'orelse' has not been set")
+        w_err = space.wrap("'If' object has no attribute 'orelse'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_orelse is None:
         if w_self.orelse is None:
@@ -3892,7 +3897,7 @@ If.typedef.acceptable_as_base_class = False
 
 def With_get_context_expr(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'context_expr' has not been set")
+        w_err = space.wrap("'With' object has no attribute 'context_expr'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.context_expr)
 
@@ -3902,7 +3907,7 @@ def With_set_context_expr(space, w_self, w_new_value):
 
 def With_get_optional_vars(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'optional_vars' has not been set")
+        w_err = space.wrap("'With' object has no attribute 'optional_vars'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.optional_vars)
 
@@ -3912,7 +3917,7 @@ def With_set_optional_vars(space, w_self, w_new_value):
 
 def With_get_body(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'With' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -3956,7 +3961,7 @@ With.typedef.acceptable_as_base_class = False
 
 def Raise_get_type(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'type' has not been set")
+        w_err = space.wrap("'Raise' object has no attribute 'type'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.type)
 
@@ -3966,7 +3971,7 @@ def Raise_set_type(space, w_self, w_new_value):
 
 def Raise_get_inst(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'inst' has not been set")
+        w_err = space.wrap("'Raise' object has no attribute 'inst'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.inst)
 
@@ -3976,7 +3981,7 @@ def Raise_set_inst(space, w_self, w_new_value):
 
 def Raise_get_tback(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'tback' has not been set")
+        w_err = space.wrap("'Raise' object has no attribute 'tback'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.tback)
 
@@ -4012,7 +4017,7 @@ Raise.typedef.acceptable_as_base_class = False
 
 def TryExcept_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'TryExcept' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -4029,7 +4034,7 @@ def TryExcept_set_body(space, w_self, w_new_value):
 
 def TryExcept_get_handlers(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'handlers' has not been set")
+        w_err = space.wrap("'TryExcept' object has no attribute 'handlers'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_handlers is None:
         if w_self.handlers is None:
@@ -4046,7 +4051,7 @@ def TryExcept_set_handlers(space, w_self, w_new_value):
 
 def TryExcept_get_orelse(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'orelse' has not been set")
+        w_err = space.wrap("'TryExcept' object has no attribute 'orelse'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_orelse is None:
         if w_self.orelse is None:
@@ -4092,7 +4097,7 @@ TryExcept.typedef.acceptable_as_base_class = False
 
 def TryFinally_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'TryFinally' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -4109,7 +4114,7 @@ def TryFinally_set_body(space, w_self, w_new_value):
 
 def TryFinally_get_finalbody(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'finalbody' has not been set")
+        w_err = space.wrap("'TryFinally' object has no attribute 'finalbody'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_finalbody is None:
         if w_self.finalbody is None:
@@ -4153,7 +4158,7 @@ TryFinally.typedef.acceptable_as_base_class = False
 
 def Assert_get_test(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'test' has not been set")
+        w_err = space.wrap("'Assert' object has no attribute 'test'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.test)
 
@@ -4163,7 +4168,7 @@ def Assert_set_test(space, w_self, w_new_value):
 
 def Assert_get_msg(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'msg' has not been set")
+        w_err = space.wrap("'Assert' object has no attribute 'msg'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.msg)
 
@@ -4198,7 +4203,7 @@ Assert.typedef.acceptable_as_base_class = False
 
 def Import_get_names(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'names' has not been set")
+        w_err = space.wrap("'Import' object has no attribute 'names'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_names is None:
         if w_self.names is None:
@@ -4240,7 +4245,7 @@ Import.typedef.acceptable_as_base_class = False
 
 def ImportFrom_get_module(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'module' has not been set")
+        w_err = space.wrap("'ImportFrom' object has no attribute 'module'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.module)
 
@@ -4253,7 +4258,7 @@ def ImportFrom_set_module(space, w_self, w_new_value):
 
 def ImportFrom_get_names(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'names' has not been set")
+        w_err = space.wrap("'ImportFrom' object has no attribute 'names'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_names is None:
         if w_self.names is None:
@@ -4270,7 +4275,7 @@ def ImportFrom_set_names(space, w_self, w_new_value):
 
 def ImportFrom_get_level(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'level' has not been set")
+        w_err = space.wrap("'ImportFrom' object has no attribute 'level'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.level)
 
@@ -4307,7 +4312,7 @@ ImportFrom.typedef.acceptable_as_base_class = False
 
 def Exec_get_body(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'Exec' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.body)
 
@@ -4317,7 +4322,7 @@ def Exec_set_body(space, w_self, w_new_value):
 
 def Exec_get_globals(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'globals' has not been set")
+        w_err = space.wrap("'Exec' object has no attribute 'globals'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.globals)
 
@@ -4327,7 +4332,7 @@ def Exec_set_globals(space, w_self, w_new_value):
 
 def Exec_get_locals(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'locals' has not been set")
+        w_err = space.wrap("'Exec' object has no attribute 'locals'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.locals)
 
@@ -4363,7 +4368,7 @@ Exec.typedef.acceptable_as_base_class = False
 
 def Global_get_names(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'names' has not been set")
+        w_err = space.wrap("'Global' object has no attribute 'names'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_names is None:
         if w_self.names is None:
@@ -4405,7 +4410,7 @@ Global.typedef.acceptable_as_base_class = False
 
 def Expr_get_value(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Expr' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -4508,7 +4513,7 @@ Continue.typedef.acceptable_as_base_class = False
 
 def expr_get_lineno(space, w_self):
     if not w_self.initialization_state & w_self._lineno_mask:
-        w_err = space.wrap("attribute 'lineno' has not been set")
+        w_err = space.wrap("'expr' object has no attribute 'lineno'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.lineno)
 
@@ -4518,7 +4523,7 @@ def expr_set_lineno(space, w_self, w_new_value):
 
 def expr_get_col_offset(space, w_self):
     if not w_self.initialization_state & w_self._col_offset_mask:
-        w_err = space.wrap("attribute 'col_offset' has not been set")
+        w_err = space.wrap("'expr' object has no attribute 'col_offset'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.col_offset)
 
@@ -4536,7 +4541,7 @@ expr.typedef.acceptable_as_base_class = False
 
 def BoolOp_get_op(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'op' has not been set")
+        w_err = space.wrap("'BoolOp' object has no attribute 'op'")
         raise OperationError(space.w_AttributeError, w_err)
     return boolop_to_class[w_self.op - 1]()
 
@@ -4547,7 +4552,7 @@ def BoolOp_set_op(space, w_self, w_new_value):
 
 def BoolOp_get_values(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'values' has not been set")
+        w_err = space.wrap("'BoolOp' object has no attribute 'values'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_values is None:
         if w_self.values is None:
@@ -4590,7 +4595,7 @@ BoolOp.typedef.acceptable_as_base_class = False
 
 def BinOp_get_left(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'left' has not been set")
+        w_err = space.wrap("'BinOp' object has no attribute 'left'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.left)
 
@@ -4600,7 +4605,7 @@ def BinOp_set_left(space, w_self, w_new_value):
 
 def BinOp_get_op(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'op' has not been set")
+        w_err = space.wrap("'BinOp' object has no attribute 'op'")
         raise OperationError(space.w_AttributeError, w_err)
     return operator_to_class[w_self.op - 1]()
 
@@ -4611,7 +4616,7 @@ def BinOp_set_op(space, w_self, w_new_value):
 
 def BinOp_get_right(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'right' has not been set")
+        w_err = space.wrap("'BinOp' object has no attribute 'right'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.right)
 
@@ -4647,7 +4652,7 @@ BinOp.typedef.acceptable_as_base_class = False
 
 def UnaryOp_get_op(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'op' has not been set")
+        w_err = space.wrap("'UnaryOp' object has no attribute 'op'")
         raise OperationError(space.w_AttributeError, w_err)
     return unaryop_to_class[w_self.op - 1]()
 
@@ -4658,7 +4663,7 @@ def UnaryOp_set_op(space, w_self, w_new_value):
 
 def UnaryOp_get_operand(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'operand' has not been set")
+        w_err = space.wrap("'UnaryOp' object has no attribute 'operand'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.operand)
 
@@ -4693,7 +4698,7 @@ UnaryOp.typedef.acceptable_as_base_class = False
 
 def Lambda_get_args(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'args' has not been set")
+        w_err = space.wrap("'Lambda' object has no attribute 'args'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.args)
 
@@ -4703,7 +4708,7 @@ def Lambda_set_args(space, w_self, w_new_value):
 
 def Lambda_get_body(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'Lambda' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.body)
 
@@ -4738,7 +4743,7 @@ Lambda.typedef.acceptable_as_base_class = False
 
 def IfExp_get_test(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'test' has not been set")
+        w_err = space.wrap("'IfExp' object has no attribute 'test'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.test)
 
@@ -4748,7 +4753,7 @@ def IfExp_set_test(space, w_self, w_new_value):
 
 def IfExp_get_body(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'IfExp' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.body)
 
@@ -4758,7 +4763,7 @@ def IfExp_set_body(space, w_self, w_new_value):
 
 def IfExp_get_orelse(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'orelse' has not been set")
+        w_err = space.wrap("'IfExp' object has no attribute 'orelse'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.orelse)
 
@@ -4794,7 +4799,7 @@ IfExp.typedef.acceptable_as_base_class = False
 
 def Dict_get_keys(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'keys' has not been set")
+        w_err = space.wrap("'Dict' object has no attribute 'keys'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_keys is None:
         if w_self.keys is None:
@@ -4811,7 +4816,7 @@ def Dict_set_keys(space, w_self, w_new_value):
 
 def Dict_get_values(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'values' has not been set")
+        w_err = space.wrap("'Dict' object has no attribute 'values'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_values is None:
         if w_self.values is None:
@@ -4855,7 +4860,7 @@ Dict.typedef.acceptable_as_base_class = False
 
 def Set_get_elts(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'elts' has not been set")
+        w_err = space.wrap("'Set' object has no attribute 'elts'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_elts is None:
         if w_self.elts is None:
@@ -4897,7 +4902,7 @@ Set.typedef.acceptable_as_base_class = False
 
 def ListComp_get_elt(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'elt' has not been set")
+        w_err = space.wrap("'ListComp' object has no attribute 'elt'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.elt)
 
@@ -4907,7 +4912,7 @@ def ListComp_set_elt(space, w_self, w_new_value):
 
 def ListComp_get_generators(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'generators' has not been set")
+        w_err = space.wrap("'ListComp' object has no attribute 'generators'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_generators is None:
         if w_self.generators is None:
@@ -4950,7 +4955,7 @@ ListComp.typedef.acceptable_as_base_class = False
 
 def SetComp_get_elt(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'elt' has not been set")
+        w_err = space.wrap("'SetComp' object has no attribute 'elt'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.elt)
 
@@ -4960,7 +4965,7 @@ def SetComp_set_elt(space, w_self, w_new_value):
 
 def SetComp_get_generators(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'generators' has not been set")
+        w_err = space.wrap("'SetComp' object has no attribute 'generators'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_generators is None:
         if w_self.generators is None:
@@ -5003,7 +5008,7 @@ SetComp.typedef.acceptable_as_base_class = False
 
 def DictComp_get_key(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'key' has not been set")
+        w_err = space.wrap("'DictComp' object has no attribute 'key'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.key)
 
@@ -5013,7 +5018,7 @@ def DictComp_set_key(space, w_self, w_new_value):
 
 def DictComp_get_value(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'DictComp' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -5023,7 +5028,7 @@ def DictComp_set_value(space, w_self, w_new_value):
 
 def DictComp_get_generators(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'generators' has not been set")
+        w_err = space.wrap("'DictComp' object has no attribute 'generators'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_generators is None:
         if w_self.generators is None:
@@ -5067,7 +5072,7 @@ DictComp.typedef.acceptable_as_base_class = False
 
 def GeneratorExp_get_elt(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'elt' has not been set")
+        w_err = space.wrap("'GeneratorExp' object has no attribute 'elt'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.elt)
 
@@ -5077,7 +5082,7 @@ def GeneratorExp_set_elt(space, w_self, w_new_value):
 
 def GeneratorExp_get_generators(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'generators' has not been set")
+        w_err = space.wrap("'GeneratorExp' object has no attribute 'generators'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_generators is None:
         if w_self.generators is None:
@@ -5120,7 +5125,7 @@ GeneratorExp.typedef.acceptable_as_base_class = False
 
 def Yield_get_value(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Yield' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -5154,7 +5159,7 @@ Yield.typedef.acceptable_as_base_class = False
 
 def Compare_get_left(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'left' has not been set")
+        w_err = space.wrap("'Compare' object has no attribute 'left'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.left)
 
@@ -5164,7 +5169,7 @@ def Compare_set_left(space, w_self, w_new_value):
 
 def Compare_get_ops(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'ops' has not been set")
+        w_err = space.wrap("'Compare' object has no attribute 'ops'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_ops is None:
         if w_self.ops is None:
@@ -5181,7 +5186,7 @@ def Compare_set_ops(space, w_self, w_new_value):
 
 def Compare_get_comparators(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'comparators' has not been set")
+        w_err = space.wrap("'Compare' object has no attribute 'comparators'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_comparators is None:
         if w_self.comparators is None:
@@ -5226,7 +5231,7 @@ Compare.typedef.acceptable_as_base_class = False
 
 def Call_get_func(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'func' has not been set")
+        w_err = space.wrap("'Call' object has no attribute 'func'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.func)
 
@@ -5236,7 +5241,7 @@ def Call_set_func(space, w_self, w_new_value):
 
 def Call_get_args(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'args' has not been set")
+        w_err = space.wrap("'Call' object has no attribute 'args'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_args is None:
         if w_self.args is None:
@@ -5253,7 +5258,7 @@ def Call_set_args(space, w_self, w_new_value):
 
 def Call_get_keywords(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'keywords' has not been set")
+        w_err = space.wrap("'Call' object has no attribute 'keywords'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_keywords is None:
         if w_self.keywords is None:
@@ -5270,7 +5275,7 @@ def Call_set_keywords(space, w_self, w_new_value):
 
 def Call_get_starargs(space, w_self):
     if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'starargs' has not been set")
+        w_err = space.wrap("'Call' object has no attribute 'starargs'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.starargs)
 
@@ -5280,7 +5285,7 @@ def Call_set_starargs(space, w_self, w_new_value):
 
 def Call_get_kwargs(space, w_self):
     if not w_self.initialization_state & 16:
-        w_err = space.wrap("attribute 'kwargs' has not been set")
+        w_err = space.wrap("'Call' object has no attribute 'kwargs'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.kwargs)
 
@@ -5320,7 +5325,7 @@ Call.typedef.acceptable_as_base_class = False
 
 def Repr_get_value(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Repr' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -5354,7 +5359,7 @@ Repr.typedef.acceptable_as_base_class = False
 
 def Num_get_n(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'n' has not been set")
+        w_err = space.wrap("'Num' object has no attribute 'n'")
         raise OperationError(space.w_AttributeError, w_err)
     return w_self.n
 
@@ -5388,7 +5393,7 @@ Num.typedef.acceptable_as_base_class = False
 
 def Str_get_s(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 's' has not been set")
+        w_err = space.wrap("'Str' object has no attribute 's'")
         raise OperationError(space.w_AttributeError, w_err)
     return w_self.s
 
@@ -5425,7 +5430,7 @@ Str.typedef.acceptable_as_base_class = False
 
 def Attribute_get_value(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Attribute' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -5435,7 +5440,7 @@ def Attribute_set_value(space, w_self, w_new_value):
 
 def Attribute_get_attr(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'attr' has not been set")
+        w_err = space.wrap("'Attribute' object has no attribute 'attr'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.attr)
 
@@ -5445,7 +5450,7 @@ def Attribute_set_attr(space, w_self, w_new_value):
 
 def Attribute_get_ctx(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'ctx' has not been set")
+        w_err = space.wrap("'Attribute' object has no attribute 'ctx'")
         raise OperationError(space.w_AttributeError, w_err)
     return expr_context_to_class[w_self.ctx - 1]()
 
@@ -5482,7 +5487,7 @@ Attribute.typedef.acceptable_as_base_class = False
 
 def Subscript_get_value(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Subscript' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -5492,7 +5497,7 @@ def Subscript_set_value(space, w_self, w_new_value):
 
 def Subscript_get_slice(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'slice' has not been set")
+        w_err = space.wrap("'Subscript' object has no attribute 'slice'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.slice)
 
@@ -5502,7 +5507,7 @@ def Subscript_set_slice(space, w_self, w_new_value):
 
 def Subscript_get_ctx(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'ctx' has not been set")
+        w_err = space.wrap("'Subscript' object has no attribute 'ctx'")
         raise OperationError(space.w_AttributeError, w_err)
     return expr_context_to_class[w_self.ctx - 1]()
 
@@ -5539,7 +5544,7 @@ Subscript.typedef.acceptable_as_base_class = False
 
 def Name_get_id(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'id' has not been set")
+        w_err = space.wrap("'Name' object has no attribute 'id'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.id)
 
@@ -5549,7 +5554,7 @@ def Name_set_id(space, w_self, w_new_value):
 
 def Name_get_ctx(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'ctx' has not been set")
+        w_err = space.wrap("'Name' object has no attribute 'ctx'")
         raise OperationError(space.w_AttributeError, w_err)
     return expr_context_to_class[w_self.ctx - 1]()
 
@@ -5585,7 +5590,7 @@ Name.typedef.acceptable_as_base_class = False
 
 def List_get_elts(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'elts' has not been set")
+        w_err = space.wrap("'List' object has no attribute 'elts'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_elts is None:
         if w_self.elts is None:
@@ -5602,7 +5607,7 @@ def List_set_elts(space, w_self, w_new_value):
 
 def List_get_ctx(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'ctx' has not been set")
+        w_err = space.wrap("'List' object has no attribute 'ctx'")
         raise OperationError(space.w_AttributeError, w_err)
     return expr_context_to_class[w_self.ctx - 1]()
 
@@ -5639,7 +5644,7 @@ List.typedef.acceptable_as_base_class = False
 
 def Tuple_get_elts(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'elts' has not been set")
+        w_err = space.wrap("'Tuple' object has no attribute 'elts'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_elts is None:
         if w_self.elts is None:
@@ -5656,7 +5661,7 @@ def Tuple_set_elts(space, w_self, w_new_value):
 
 def Tuple_get_ctx(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'ctx' has not been set")
+        w_err = space.wrap("'Tuple' object has no attribute 'ctx'")
         raise OperationError(space.w_AttributeError, w_err)
     return expr_context_to_class[w_self.ctx - 1]()
 
@@ -5693,7 +5698,7 @@ Tuple.typedef.acceptable_as_base_class = False
 
 def Const_get_value(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Const' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return w_self.value
 
@@ -5799,7 +5804,7 @@ Ellipsis.typedef.acceptable_as_base_class = False
 
 def Slice_get_lower(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'lower' has not been set")
+        w_err = space.wrap("'Slice' object has no attribute 'lower'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.lower)
 
@@ -5809,7 +5814,7 @@ def Slice_set_lower(space, w_self, w_new_value):
 
 def Slice_get_upper(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'upper' has not been set")
+        w_err = space.wrap("'Slice' object has no attribute 'upper'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.upper)
 
@@ -5819,7 +5824,7 @@ def Slice_set_upper(space, w_self, w_new_value):
 
 def Slice_get_step(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'step' has not been set")
+        w_err = space.wrap("'Slice' object has no attribute 'step'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.step)
 
@@ -5855,7 +5860,7 @@ Slice.typedef.acceptable_as_base_class = False
 
 def ExtSlice_get_dims(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'dims' has not been set")
+        w_err = space.wrap("'ExtSlice' object has no attribute 'dims'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_dims is None:
         if w_self.dims is None:
@@ -5897,7 +5902,7 @@ ExtSlice.typedef.acceptable_as_base_class = False
 
 def Index_get_value(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'Index' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -6151,7 +6156,7 @@ _NotIn.typedef.acceptable_as_base_class = False
 
 def comprehension_get_target(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'target' has not been set")
+        w_err = space.wrap("'comprehension' object has no attribute 'target'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.target)
 
@@ -6161,7 +6166,7 @@ def comprehension_set_target(space, w_self, w_new_value):
 
 def comprehension_get_iter(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'iter' has not been set")
+        w_err = space.wrap("'comprehension' object has no attribute 'iter'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.iter)
 
@@ -6171,7 +6176,7 @@ def comprehension_set_iter(space, w_self, w_new_value):
 
 def comprehension_get_ifs(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'ifs' has not been set")
+        w_err = space.wrap("'comprehension' object has no attribute 'ifs'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_ifs is None:
         if w_self.ifs is None:
@@ -6215,7 +6220,7 @@ comprehension.typedef.acceptable_as_base_class = False
 
 def excepthandler_get_lineno(space, w_self):
     if not w_self.initialization_state & w_self._lineno_mask:
-        w_err = space.wrap("attribute 'lineno' has not been set")
+        w_err = space.wrap("'excepthandler' object has no attribute 'lineno'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.lineno)
 
@@ -6225,7 +6230,7 @@ def excepthandler_set_lineno(space, w_self, w_new_value):
 
 def excepthandler_get_col_offset(space, w_self):
     if not w_self.initialization_state & w_self._col_offset_mask:
-        w_err = space.wrap("attribute 'col_offset' has not been set")
+        w_err = space.wrap("'excepthandler' object has no attribute 'col_offset'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.col_offset)
 
@@ -6243,7 +6248,7 @@ excepthandler.typedef.acceptable_as_base_class = False
 
 def ExceptHandler_get_type(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'type' has not been set")
+        w_err = space.wrap("'ExceptHandler' object has no attribute 'type'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.type)
 
@@ -6253,7 +6258,7 @@ def ExceptHandler_set_type(space, w_self, w_new_value):
 
 def ExceptHandler_get_name(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'name' has not been set")
+        w_err = space.wrap("'ExceptHandler' object has no attribute 'name'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.name)
 
@@ -6263,7 +6268,7 @@ def ExceptHandler_set_name(space, w_self, w_new_value):
 
 def ExceptHandler_get_body(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'body' has not been set")
+        w_err = space.wrap("'ExceptHandler' object has no attribute 'body'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_body is None:
         if w_self.body is None:
@@ -6307,7 +6312,7 @@ ExceptHandler.typedef.acceptable_as_base_class = False
 
 def arguments_get_args(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'args' has not been set")
+        w_err = space.wrap("'arguments' object has no attribute 'args'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_args is None:
         if w_self.args is None:
@@ -6324,7 +6329,7 @@ def arguments_set_args(space, w_self, w_new_value):
 
 def arguments_get_vararg(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'vararg' has not been set")
+        w_err = space.wrap("'arguments' object has no attribute 'vararg'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.vararg)
 
@@ -6337,7 +6342,7 @@ def arguments_set_vararg(space, w_self, w_new_value):
 
 def arguments_get_kwarg(space, w_self):
     if not w_self.initialization_state & 4:
-        w_err = space.wrap("attribute 'kwarg' has not been set")
+        w_err = space.wrap("'arguments' object has no attribute 'kwarg'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.kwarg)
 
@@ -6350,7 +6355,7 @@ def arguments_set_kwarg(space, w_self, w_new_value):
 
 def arguments_get_defaults(space, w_self):
     if not w_self.initialization_state & 8:
-        w_err = space.wrap("attribute 'defaults' has not been set")
+        w_err = space.wrap("'arguments' object has no attribute 'defaults'")
         raise OperationError(space.w_AttributeError, w_err)
     if w_self.w_defaults is None:
         if w_self.defaults is None:
@@ -6396,7 +6401,7 @@ arguments.typedef.acceptable_as_base_class = False
 
 def keyword_get_arg(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'arg' has not been set")
+        w_err = space.wrap("'keyword' object has no attribute 'arg'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.arg)
 
@@ -6406,7 +6411,7 @@ def keyword_set_arg(space, w_self, w_new_value):
 
 def keyword_get_value(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'value' has not been set")
+        w_err = space.wrap("'keyword' object has no attribute 'value'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.value)
 
@@ -6441,7 +6446,7 @@ keyword.typedef.acceptable_as_base_class = False
 
 def alias_get_name(space, w_self):
     if not w_self.initialization_state & 1:
-        w_err = space.wrap("attribute 'name' has not been set")
+        w_err = space.wrap("'alias' object has no attribute 'name'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.name)
 
@@ -6451,7 +6456,7 @@ def alias_set_name(space, w_self, w_new_value):
 
 def alias_get_asname(space, w_self):
     if not w_self.initialization_state & 2:
-        w_err = space.wrap("attribute 'asname' has not been set")
+        w_err = space.wrap("'alias' object has no attribute 'asname'")
         raise OperationError(space.w_AttributeError, w_err)
     return space.wrap(w_self.asname)
 

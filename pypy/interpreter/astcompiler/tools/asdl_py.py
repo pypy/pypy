@@ -428,8 +428,8 @@ class AppExposeVisitor(ASDLVisitor):
         else:
             flag = self.data.field_masks[field]
         self.emit("if not w_self.initialization_state & %s:" % (flag,), 1)
-        self.emit("w_err = space.wrap(\"attribute '%s' has not been set\")" %
-                  (field.name,), 2)
+        self.emit("w_err = space.wrap(\"'%s' object has no attribute '%s'\")" %
+                  (name, field.name,), 2)
         self.emit("raise OperationError(space.w_AttributeError, w_err)", 2)
         if field.seq:
             self.emit("if w_self.w_%s is None:" % (field.name,), 1)
@@ -554,7 +554,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 class AST(Wrappable):
 
-    __slots__ = ("initialization_state",)
+    __slots__ = ("initialization_state", "w_dict")
 
     __metaclass__ = extendabletype
 
@@ -566,6 +566,11 @@ class AST(Wrappable):
 
     def sync_app_attrs(self, space):
         raise NotImplementedError
+
+    def getdict(self, space):
+        if not hasattr(self, 'w_dict'):
+            self.w_dict = space.newdict(instance=True)
+        return self.w_dict
 
 
 class NodeVisitorNotImplemented(Exception):
