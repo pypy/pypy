@@ -3,7 +3,7 @@ unit and functional testing with Python.
 (pypy version of startup script)
 see http://pytest.org for details.
 """
-__version__ = '2.0.2' # base pytest version
+__version__ = '2.0.3.dev0' # base pytest version
 __all__ = ['main']
 
 from _pytest.core import main, UsageError, _preloadplugins
