@@ -383,6 +383,8 @@ def _make_objclass_getter(cls):
     return res
 
 class GetSetProperty(Wrappable):
+    _immutable_fields_ = ["fget", "fset", "fdel"]
+
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
                  cls=None, use_closure=False, tag=None):
