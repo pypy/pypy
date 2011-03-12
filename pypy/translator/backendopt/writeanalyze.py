@@ -1,3 +1,4 @@
+from pypy.objspace.flow.model import Variable
 from pypy.translator.backendopt import graphanalyze
 from pypy.rpython.ootypesystem import ootype
 
@@ -27,13 +28,13 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         return result is top_set
 
     def analyze_simple_operation(self, op, graphinfo):
-        if graphinfo and op.args[0] in graphinfo:
-            return empty_set
         if op.opname in ("setfield", "oosetfield"):
-            return frozenset([
-                ("struct", op.args[0].concretetype, op.args[1].value)])
+            if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
+                return frozenset([
+                    ("struct", op.args[0].concretetype, op.args[1].value)])
         elif op.opname == "setarrayitem":
-            return self._array_result(op.args[0].concretetype)
+            if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
+                return self._array_result(op.args[0].concretetype)
         return empty_set
 
     def _array_result(self, TYPE):
@@ -49,16 +50,43 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         return graphanalyze.GraphAnalyzer.analyze_external_method(self, op, TYPE, meth)
 
     def compute_graph_info(self, graph):
-        newstructs = set()
-        for block in graph.iterblocks():
+        return FreshMallocs(graph)
+
+
+class FreshMallocs(object):
+    def __init__(self, graph):
+        self.nonfresh = set(graph.getargs())
+        pendingblocks = list(graph.iterblocks())
+        self.allvariables = set()
+        for block in pendingblocks:
+            self.allvariables.update(block.inputargs)
+        pendingblocks.reverse()
+        while pendingblocks:
+            block = pendingblocks.pop()
             for op in block.operations:
+                self.allvariables.add(op.result)
                 if (op.opname == 'malloc' or op.opname == 'malloc_varsize'
                     or op.opname == 'new'):
-                    newstructs.add(op.result)
+                    continue
                 elif op.opname in ('cast_pointer', 'same_as'):
-                    if op.args[0] in newstructs:
-                        newstructs.add(op.result)
-        return newstructs
+                    if self.is_fresh_malloc(op.args[0]):
+                        continue
+                self.nonfresh.add(op.result)
+            for link in block.exits:
+                self.nonfresh.update(link.getextravars())
+                self.allvariables.update(link.getextravars())
+                prevlen = len(self.nonfresh)
+                for v1, v2 in zip(link.args, link.target.inputargs):
+                    if not self.is_fresh_malloc(v1):
+                        self.nonfresh.add(v2)
+                if len(self.nonfresh) > prevlen:
+                    pendingblocks.append(link.target)
+
+    def is_fresh_malloc(self, v):
+        if not isinstance(v, Variable):
+            return False
+        assert v in self.allvariables
+        return v not in self.nonfresh
 
 
 class ReadWriteAnalyzer(WriteAnalyzer):
