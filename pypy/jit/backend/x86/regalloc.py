@@ -716,11 +716,7 @@ class RegAlloc(object):
             loc1 = self._loc_of_const_longlong(r_longlong(box.value))
             loc2 = None    # unused
         else:
-            # requires the argument to be in eax, and trash edx.
-            loc1 = self.rm.make_sure_var_in_reg(box, selected_reg=eax)
-            tmpvar = TempBox()
-            self.rm.force_allocate_reg(tmpvar, [box], selected_reg=edx)
-            self.rm.possibly_free_var(tmpvar)
+            loc1 = self.rm.make_sure_var_in_reg(box)
             tmpxvar = TempBox()
             loc2 = self.xrm.force_allocate_reg(tmpxvar, [op.result])
             self.xrm.possibly_free_var(tmpxvar)
