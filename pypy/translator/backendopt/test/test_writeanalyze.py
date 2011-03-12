@@ -51,6 +51,18 @@ class BaseTestWriteAnalyze(BaseTest):
         result = wa.analyze(ggraph.startblock.operations[-1])
         assert not result
 
+    def test_write_to_new_struct(self):
+        class A(object):
+            pass
+        def f(x):
+            a = A()
+            a.baz = x   # writes to a fresh new struct are ignored
+            return a
+        t, wa = self.translate(f, [int])
+        fgraph = graphof(t, f)
+        result = wa.analyze_direct_call(fgraph)
+        assert not result
+
     def test_method(self):
         class A(object):
             def f(self):
@@ -314,14 +326,14 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                             adtmeths = {'yep': True,
                                         'callme': ll_callme})
-        def g(x, y, z):
-            p = lltype.malloc(S)
+        def g(p, x, y, z):
             p.x = x
             if p.yep:
                 z *= p.callme(y)
             return z
         def f(x, y, z):
-            return g(x, y, z)
+            p = lltype.malloc(S)
+            return g(p, x, y, z)
 
         t, wa = self.translate(f, [int, int, int])
         fgraph = graphof(t, f)

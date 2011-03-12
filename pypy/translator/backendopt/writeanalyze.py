@@ -26,7 +26,9 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     def is_top_result(result):
         return result is top_set
 
-    def analyze_simple_operation(self, op):
+    def analyze_simple_operation(self, op, graphinfo):
+        if graphinfo and op.args[0] in graphinfo:
+            return empty_set
         if op.opname in ("setfield", "oosetfield"):
             return frozenset([
                 ("struct", op.args[0].concretetype, op.args[1].value)])
@@ -46,14 +48,26 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
                 return self.bottom_result()
         return graphanalyze.GraphAnalyzer.analyze_external_method(self, op, TYPE, meth)
 
+    def compute_graph_info(self, graph):
+        newstructs = set()
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if (op.opname == 'malloc' or op.opname == 'malloc_varsize'
+                    or op.opname == 'new'):
+                    newstructs.add(op.result)
+                elif op.opname in ('cast_pointer', 'same_as'):
+                    if op.args[0] in newstructs:
+                        newstructs.add(op.result)
+        return newstructs
+
 
 class ReadWriteAnalyzer(WriteAnalyzer):
 
-    def analyze_simple_operation(self, op):
+    def analyze_simple_operation(self, op, graphinfo):
         if op.opname == "getfield":
             return frozenset([
                 ("readstruct", op.args[0].concretetype, op.args[1].value)])
         elif op.opname == "getarrayitem":
             return frozenset([
                 ("readarray", op.args[0].concretetype)])
-        return WriteAnalyzer.analyze_simple_operation(self, op)
+        return WriteAnalyzer.analyze_simple_operation(self, op, graphinfo)
