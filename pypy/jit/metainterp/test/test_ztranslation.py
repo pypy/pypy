@@ -89,7 +89,6 @@ class TranslationTest:
         res = rpython_ll_meta_interp(main, [40, 5],
                                      CPUClass=self.CPUClass,
                                      type_system=self.type_system,
-                                     optimizer=OPTIMIZER_FULL,
                                      ProfilerClass=Profiler)
         assert res == main(40, 5)
 
