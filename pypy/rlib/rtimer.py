@@ -25,10 +25,10 @@ def read_timestamp():
 class ReadTimestampEntry(ExtRegistryEntry):
     _about_ = read_timestamp
 
-    def compute_annotation(self):
+    def compute_result_annotation(self):
         from pypy.annotation.model import SomeInteger
         return SomeInteger(knowntype=r_longlong)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        return hop.genop("ll_read_timestamp")
+        return hop.genop("ll_read_timestamp", [], resulttype=rffi.LONGLONG)
