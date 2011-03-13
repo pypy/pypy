@@ -538,18 +538,24 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if annmodel.SomeInteger().contains(s_value):
-            pass
+        if s_name.const == 'enable_opts':
+            assert annmodel.SomeString(can_be_None=True).contains(s_value)
         else:
-            assert annmodel.SomeString().contains(s_value)
+            assert annmodel.SomeInteger().contains(s_value)
         return annmodel.s_None
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.lltypesystem.rstr import string_repr
+        
         hop.exception_cannot_occur()
         driver = self.instance.im_self
         name = hop.args_s[0].const
-        v_value = hop.inputarg(hop.args_r[1], arg=1)
+        if name == 'enable_opts':
+            repr = string_repr
+        else:
+            repr = lltype.Signed
+        v_value = hop.inputarg(repr, arg=1)
         vlist = [hop.inputconst(lltype.Void, "set_param"),
                  hop.inputconst(lltype.Void, driver),
                  hop.inputconst(lltype.Void, name),

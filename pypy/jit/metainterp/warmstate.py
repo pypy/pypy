@@ -224,9 +224,11 @@ class WarmEnterState(object):
         self.inlining = value
 
     def set_param_enable_opts(self, value):
-        from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
+        from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
 
         d = {}
+        if value is None:
+            value = ALL_OPTS_NAMES
         for name in value.split(":"):
             if name:
                 if name not in ALL_OPTS_DICT:
