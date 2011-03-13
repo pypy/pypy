@@ -10,6 +10,7 @@
 #  include "traceback.h"
 #  include "marshal.h"
 #  include "eval.h"
+#  include "timer.h"
 #else
 #  include <stdlib.h>
 #  include <assert.h>

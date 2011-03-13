@@ -440,7 +440,7 @@ LL_OPERATIONS = {
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
-    'll_read_timestamp': LLOp(sideeffects=False, canrun=True),
+    'll_read_timestamp': LLOp(canrun=True),
 
     # __________ GC operations __________
 
