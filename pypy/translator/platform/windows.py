@@ -1,9 +1,11 @@
+"""Support for Windows."""
 
 import py, os, sys, re
-from pypy.translator.platform import CompilationError, ExecutionResult
+
+from pypy.tool import autopath
+from pypy.translator.platform import CompilationError
 from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
-from pypy.tool import autopath
 
 def Windows(cc=None):
     if cc == 'mingw32':
@@ -355,10 +357,10 @@ class MingwPlatform(posix.BasePosix):
     def _args_for_shared(self, args):
         return ['-shared'] + args
 
-    def include_dirs_for_libffi(self):
+    def _include_dirs_for_libffi(self):
         return []
 
-    def library_dirs_for_libffi(self):
+    def _library_dirs_for_libffi(self):
         return []
 
     def _handle_error(self, returncode, stdout, stderr, outname):
