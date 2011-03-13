@@ -740,6 +740,23 @@ class VirtualTests:
             return i.value + j.value
         assert self.meta_interp(f, []) == 20
                 
+    def test_virtual_skipped_by_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'x'])
+        def f(n, m):
+            x = self._new()
+            x.value = 0
+            i = 0
+            while i < n:
+                myjitdriver.can_enter_jit(n=n, m=m, i=i, x=x)
+                myjitdriver.jit_merge_point(n=n, m=m, i=i, x=x)
+                if i&m != m:
+                    newx = self._new()
+                    newx.value = x.value + i
+                    x = newx
+                i = i + 1
+            return x.value
+        res = self.meta_interp(f, [0x1F, 0x11])
+        assert res == f(0x1F, 0x11)
 
 class VirtualMiscTests:
 
