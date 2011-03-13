@@ -1,10 +1,9 @@
+"""Base support for POSIX-like platforms."""
 
-""" Base class for all posixish platforms
-"""
+import py, os
 
-from pypy.translator.platform import Platform, log, _run_subprocess
 from pypy.tool import autopath
-import py, os, sys
+from pypy.translator.platform import Platform, log, _run_subprocess
 
 class BasePosix(Platform):
     exe_ext = ''
@@ -21,13 +20,13 @@ class BasePosix(Platform):
         self.cc = cc
 
     def _libs(self, libraries):
-        return ['-l%s' % (lib,) for lib in libraries]
+        return ['-l%s' % lib for lib in libraries]
 
     def _libdirs(self, library_dirs):
-        return ['-L%s' % (ldir,) for ldir in library_dirs]
+        return ['-L%s' % ldir for ldir in library_dirs]
 
     def _includedirs(self, include_dirs):
-        return ['-I%s' % (idir,) for idir in include_dirs]
+        return ['-I%s' % idir for idir in include_dirs]
 
     def _linkfiles(self, link_files):
         return list(link_files)
