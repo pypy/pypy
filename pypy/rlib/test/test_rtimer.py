@@ -1,14 +1,23 @@
 import time
 
 from pypy.rlib.rtimer import read_timestamp
+from pypy.rpython.test.test_llinterp import interpret
 
 
-def test_timer():
+def timer():
     t1 = read_timestamp()
     start = time.time()
-    while time.time() - start < 1.0:
+    while time.time() - start < 0.1:
         # busy wait
         pass
     t2 = read_timestamp()
+    return t2 - t1
+
+def test_timer():
+    diff = timer()
     # We're counting ticks, verify they look correct
-    assert t2 - t1 > 1000
+    assert diff > 1000
+
+def test_annotation():
+    diff = interpret(timer, [])
+    assert diff > 1000

@@ -3,6 +3,7 @@ import time
 import py
 
 from pypy.rlib.rarithmetic import r_longlong
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import rffi
 from pypy.tool.autopath import pypydir
 
@@ -19,3 +20,15 @@ c_read_timestamp = rffi.llexternal(
 
 def read_timestamp():
     return c_read_timestamp()
+
+
+class ReadTimestampEntry(ExtRegistryEntry):
+    _about_ = read_timestamp
+
+    def compute_annotation(self):
+        from pypy.annotation.model import SomeInteger
+        return SomeInteger(knowntype=r_longlong)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop("ll_read_timestamp")
