@@ -233,13 +233,17 @@ def get_L2cache_darwin():
 get_L2cache = globals().get('get_L2cache_' + sys.platform,
                             lambda: -1)     # implement me for other platforms
 
+NURSERY_SIZE_UNKNOWN_CACHE = 1024*1024*1024
+# arbitrary 1M. better than default of 131k for most cases
+# in case it didn't work
+
 def best_nursery_size_for_L2cache(L2cache):
     # Heuristically, the best nursery size to choose is about half
     # of the L2 cache.
     if L2cache > 0:
         return L2cache // 2
     else:
-        return -1
+        return NURSERY_SIZE_UNKNOWN_CACHE
 
 def estimate_best_nursery_size():
     """Try to estimate the best nursery size at run-time, depending
