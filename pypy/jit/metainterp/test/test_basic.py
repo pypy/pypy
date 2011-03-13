@@ -379,7 +379,7 @@ class BasicTests:
                           'int_add': 1, 'int_sub': 1, 'int_gt': 1,
                           'jump': 1})
 
-    def test_loop_invariant_mul_ovf(self):
+    def test_loop_invariant_mul_ovf1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
             res = 0
@@ -398,6 +398,26 @@ class BasicTests:
                           'int_lshift': 1,
                           'jump': 1})
 
+    def test_loop_invariant_mul_ovf2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                b = y * 2
+                try:
+                    res += ovfcheck(x * x) + b
+                except OverflowError:
+                    res += 1
+                y -= 1
+            return res
+        res = self.meta_interp(f, [sys.maxint, 7])
+        assert res == f(sys.maxint, 7)
+        self.check_loop_count(1)
+        res = self.meta_interp(f, [6, 7])
+        assert res == 308
+
     def test_loop_invariant_mul_bridge1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
@@ -413,6 +433,43 @@ class BasicTests:
         res = self.meta_interp(f, [6, 32])
         assert res == 3427
         self.check_loop_count(3)
+
+    def test_loop_invariant_mul_bridge_ovf1(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x1', 'x2'])
+        def f(x1, x2, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x1=x1, x2=x2, y=y, res=res)
+                myjitdriver.jit_merge_point(x1=x1, x2=x2, y=y, res=res)
+                try:
+                    res += ovfcheck(x1 * x1)
+                except OverflowError:
+                    res += 1
+                if y<32 and (y>>2)&1==0:
+                    x1, x2 = x2, x1
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, sys.maxint, 48])
+        assert res == f(6, sys.maxint, 48)
+
+    def test_loop_invariant_mul_bridge_ovf2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x1', 'x2', 'n'])
+        def f(x1, x2, n, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x1=x1, x2=x2, y=y, res=res, n=n)
+                myjitdriver.jit_merge_point(x1=x1, x2=x2, y=y, res=res, n=n)
+                try:
+                    res += ovfcheck(x1 * x1)
+                except OverflowError:
+                    res += 1
+                #if y<n and (y>>2)&1==0:
+                y -= 1
+                if (y>>2)&1==0:
+                    x1, x2 = x2, x1
+            return res
+        res = self.meta_interp(f, [6, sys.maxint, 32, 48])
+        assert res == f(6, sys.maxint, 32, 48)
 
     def test_loop_invariant_mul_bridge_maintaining1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])

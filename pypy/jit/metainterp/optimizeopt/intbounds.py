@@ -9,13 +9,19 @@ class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
 
+    def __init__(self):
+        self.overflow_guarded = {}
+
     def setup(self):
         self.posponedop = None
         self.nextop = None
-
+        self.optimizer.overflow_guarded = self.overflow_guarded 
+        
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         assert self.posponedop is None
-        return self 
+        new = OptIntBounds()
+        new.overflow_guarded = self.optimizer.overflow_guarded
+        return new
 
     def propagate_forward(self, op):
         if op.is_ovf():
@@ -159,6 +165,7 @@ class OptIntBounds(Optimization):
             if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
                 # Synthesize the non overflowing op for optimize_default to reuse
                 self.pure(rop.INT_ADD, op.getarglist()[:], op.result)
+                self.optimizer.overflow_guarded[op] = True
                 
 
     def optimize_INT_SUB_OVF(self, op):
@@ -178,6 +185,7 @@ class OptIntBounds(Optimization):
             if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
                 # Synthesize the non overflowing op for optimize_default to reuse
                 self.pure(rop.INT_SUB, op.getarglist()[:], op.result)
+                self.optimizer.overflow_guarded[op] = True
             
     def optimize_INT_MUL_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -196,6 +204,7 @@ class OptIntBounds(Optimization):
             if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
                 # Synthesize the non overflowing op for optimize_default to reuse
                 self.pure(rop.INT_MUL, op.getarglist()[:], op.result)
+                self.optimizer.overflow_guarded[op] = True
             
 
     def optimize_INT_LT(self, op):

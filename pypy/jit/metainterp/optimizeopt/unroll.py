@@ -493,9 +493,14 @@ class UnrollOptimizer(Optimization):
         op = self.optimizer.producer[box]
 
         ok = False
-        if op.is_always_pure() or op.is_ovf():
+        if op.is_always_pure():
             ok = True
-            # FIXME: Allow getitems if they are still in the heap cache
+        elif op.is_ovf() and op in self.optimizer.overflow_guarded:
+            ok = True
+        elif op.has_no_side_effect():
+            # FIXME: When are these safe to include? Allow getitems only
+            # if they are still in the heap cache?
+            ok = True
         elif op.getopnum() == rop.CALL:
             effectinfo = op.getdescr().get_extra_info()
             if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT:
@@ -507,7 +512,11 @@ class UnrollOptimizer(Optimization):
                 self.produce_box_in_short_preamble(arg)
             if self.short_operations is not None:
                 self.short_operations.append(op)
+                guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+                self.short_operations.append(guard)
         else:
+            import pdb; pdb.set_trace()
+            
             self.short_operations = None
         
     def create_short_preamble(self, preamble, loop):
