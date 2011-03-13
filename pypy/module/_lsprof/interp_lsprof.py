@@ -7,6 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.rlib import jit
+from pypy.rlib.rtimer import read_timestamp
 from pypy.rpython.lltypesystem import rffi
 
 import time, sys
@@ -229,7 +230,7 @@ class W_Profiler(Wrappable):
                 e.write_unraisable(space, "timer function ",
                                    self.w_callable)
                 return 0.0
-        return read_timestamp_double()
+        return float(read_timestamp())
 
     def enable(self, space, w_subcalls=NoneNotWrapped,
                w_builtins=NoneNotWrapped):

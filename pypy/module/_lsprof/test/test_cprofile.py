@@ -91,6 +91,19 @@ class AppTestCProfile(object):
         assert spam2bar.inlinetime == 1.0
         assert spam2bar.totaltime == 1.0
 
+    def test_direct_read_timestamp(self):
+        import _lsprof
+
+        def f():
+            pass
+
+        profiler = _lsprof.Profiler()
+        profiler.enable()
+        f()
+        profiler.disable()
+        stats = profiler.getstats()
+        xxx
+
     def test_cprofile(self):
         import sys, os
         # XXX this is evil trickery to walk around the fact that we don't
