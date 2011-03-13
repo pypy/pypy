@@ -225,13 +225,14 @@ class GenRpy:
         return ", ".join(res)
 
     def oper(self, op, localscope):
-        if op.opname == 'issubtype':
+        if op.opname in ('issubtype', 'isinstance'):
             arg = op.args[1]
             if (not isinstance(arg, Constant)
                 or not isinstance(arg.value, (type, types.ClassType))):
-                  op = SpaceOperation("simple_call",
-                                      [Constant(issubclass)]+op.args,
-                                      op.result)
+                func = issubclass if op.opname == 'issubtype' else isinstance
+                op = SpaceOperation("simple_call",
+                                    [Constant(func)]+op.args,
+                                    op.result)
         if op.opname == "simple_call":
             v = op.args[0]
             space_shortcut = self.try_space_shortcut_for_builtin(v, len(op.args)-1,
@@ -703,21 +704,15 @@ else:
             arities = self._space_arities = {}
             for name, sym, arity, specnames in self.space.MethodTable:
                 arities[name] = arity
-            arities['isinstance'] = 2
+            del arities["isinstance"]
         return self._space_arities
         
     def try_space_shortcut_for_builtin(self, v, nargs, args):
         if isinstance(v, Constant) and v.value in self.ibuiltin_ids:
             name = self.ibuiltin_ids[v.value].__name__
-            if hasattr(self.space, name):
-                if self.space_arities().get(name, -1) == nargs:
-                    if name != 'isinstance':
-                        return "space.%s" % name
-                    else:
-                        arg = args[1]
-                        if (isinstance(arg, Constant)
-                            and isinstance(arg.value, (type, types.ClassType))):
-                            return "space.isinstance"
+            if (hasattr(self.space, name) and
+                self.space_arities().get(name, -1) == nargs):
+                return "space.%s" % name
         return None
         
     def nameof_builtin_function_or_method(self, func):

@@ -55,6 +55,24 @@ class AppTestStruct(object):
         assert calcsize('=bQ3i') == 1 + 8 + 3*4
 
 
+    def test_index(self):
+        class X(object):
+            def __index__(self):
+                return 3
+        assert self.struct.unpack("i", self.struct.pack("i", X()))[0] == 3
+
+
+    def test_deprecation_warning(self):
+        import warnings
+        for code in 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q':
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                raises(TypeError, self.struct.pack, code, 3j)
+            assert len(w) == 1
+            assert str(w[0].message) == "integer argument expected, got non-integer"
+            assert w[0].category is DeprecationWarning
+
+
     def test_pack_standard_little(self):
         """
         Check packing with the '<' format specifier.
@@ -260,7 +278,41 @@ class AppTestStruct(object):
         assert pack("<f", 12.5) == '\x00\x00HA'
         assert unpack("!f", 'AH\x00\x00') == (12.5,)
         assert unpack("<f", '\x00\x00H\xc1') == (-12.5,)
+        raises(OverflowError, pack, "<f", 10e100)
 
+    def test_bool(self):
+        pack = self.struct.pack
+        unpack = self.struct.unpack
+        assert pack("!?", True) == '\x01'
+        assert pack(">?", True) == '\x01'
+        assert pack("!?", False) == '\x00'
+        assert pack(">?", False) == '\x00'
+        assert pack("@?", True) == '\x01'
+        assert pack("@?", False) == '\x00'
+
+    def test_transitiveness(self):
+        c = 'a'
+        b = 1
+        h = 255
+        i = 65535
+        l = 65536
+        f = 3.1415
+        d = 3.1415
+        t = True
+
+        for prefix in ('', '@', '<', '>', '=', '!'):
+            for format in ('xcbhilfd?', 'xcBHILfd?'):
+                format = prefix + format
+                s = self.struct.pack(format, c, b, h, i, l, f, d, t)
+                cp, bp, hp, ip, lp, fp, dp, tp = self.struct.unpack(format, s)
+                assert cp == c
+                assert bp == b
+                assert hp == h
+                assert ip == i
+                assert lp == l
+                assert int(100 * fp) == int(100 * f)
+                assert int(100 * dp) == int(100 * d)
+                assert tp == t
 
     def test_struct_error(self):
         """
@@ -309,18 +361,6 @@ class AppTestStruct(object):
         raises(someerror, calcsize, "%dcc" % (sys.maxint,))
         raises(someerror, calcsize, "c%dc" % (sys.maxint,))
         raises(someerror, calcsize, "%dci" % (sys.maxint,))
-
-
-    def test_broken_input(self):
-        """
-        For compatibility: check that we also accept inputs that are
-        wrongly accepted by CPython 2.4.
-        """
-        pack = self.struct.pack
-        assert pack("!b", 0xa0) == '\xa0'
-        assert pack("!B", -1.1) == '\xff'
-        assert pack("!h", 0xa000) == '\xa0\x00'
-        assert pack("!H", -2.2) == '\xff\xfe'
 
 
     def test_unicode(self):

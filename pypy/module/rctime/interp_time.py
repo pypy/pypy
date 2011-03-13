@@ -1,7 +1,7 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int
 from pypy.rlib import rposix
@@ -13,6 +13,83 @@ import time as pytime
 
 _POSIX = os.name == "posix"
 _WIN = os.name == "nt"
+
+if _WIN:
+    # Interruptible sleeps on Windows:
+    # We install a specific Console Ctrl Handler which sets an 'event'.
+    # time.sleep() will actually call WaitForSingleObject with the desired
+    # timeout.  On Ctrl-C, the signal handler is called, the event is set,
+    # and the wait function exits.
+    from pypy.rlib import rwin32
+    from pypy.interpreter.error import wrap_windowserror, wrap_oserror
+    from pypy.module.thread import ll_thread as thread
+
+    eci = ExternalCompilationInfo(
+        separate_module_sources=['''
+            #include <windows.h>
+
+            static HANDLE interrupt_event;
+
+            static BOOL WINAPI CtrlHandlerRoutine(
+              DWORD dwCtrlType)
+            {
+                SetEvent(interrupt_event);
+                /* allow other default handlers to be called.
+                 * Default Python handler will setup the
+                 * KeyboardInterrupt exception.
+                 */
+                return 0;
+            }
+
+            BOOL pypy_timemodule_setCtrlHandler(HANDLE event)
+            {
+                interrupt_event = event;
+                return SetConsoleCtrlHandler(CtrlHandlerRoutine, TRUE);
+            }
+
+        '''],
+        export_symbols=['pypy_timemodule_setCtrlHandler'],
+        )
+    _setCtrlHandlerRoutine = rffi.llexternal(
+        'pypy_timemodule_setCtrlHandler',
+        [rwin32.HANDLE], rwin32.BOOL,
+        compilation_info=eci)
+
+    class GlobalState:
+        def __init__(self):
+            self.init()
+
+        def init(self):
+            self.interrupt_event = rwin32.NULL_HANDLE
+
+        def startup(self, space):
+            # Initialize the event handle used to signal Ctrl-C
+            try:
+                globalState.interrupt_event = rwin32.CreateEvent(
+                    rffi.NULL, True, False, rffi.NULL)
+            except WindowsError, e:
+                raise wrap_windowserror(space, e)
+            if not _setCtrlHandlerRoutine(globalState.interrupt_event):
+                raise wrap_windowserror(
+                    space, rwin32.lastWindowsError("SetConsoleCtrlHandler"))
+
+    globalState = GlobalState()
+
+    class State:
+        def __init__(self, space):
+            self.main_thread = 0
+
+        def _freeze_(self):
+            self.main_thread = 0
+            globalState.init()
+
+        def startup(self, space):
+            self.main_thread = thread.get_ident()
+            globalState.startup(space)
+
+        def get_interrupt_event(self):
+            return globalState.interrupt_event
+
 
 _includes = ["time.h"]
 if _POSIX:
@@ -166,9 +243,38 @@ def _get_error_msg():
     errno = rposix.get_errno()
     return os.strerror(errno)
 
-def sleep(secs):
-    pytime.sleep(secs)
-sleep.unwrap_spec = [float]
+if sys.platform != 'win32':
+    @unwrap_spec(secs=float)
+    def sleep(space, secs):
+        pytime.sleep(secs)
+else:
+    from pypy.rlib import rwin32
+    from errno import EINTR
+    def _simple_sleep(space, secs, interruptible):
+        if secs == 0.0 or not interruptible:
+            pytime.sleep(secs)
+        else:
+            millisecs = int(secs * 1000)
+            interrupt_event = space.fromcache(State).get_interrupt_event()
+            rwin32.ResetEvent(interrupt_event)
+            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
+            if rc == rwin32.WAIT_OBJECT_0:
+                # Yield to make sure real Python signal handler
+                # called.
+                pytime.sleep(0.001)
+                raise wrap_oserror(space,
+                                   OSError(EINTR, "sleep() interrupted"))
+    @unwrap_spec(secs=float)
+    def sleep(space, secs):
+        # as decreed by Guido, only the main thread can be
+        # interrupted.
+        main_thread = space.fromcache(State).main_thread
+        interruptible = (main_thread == thread.get_ident())
+        MAX = sys.maxint / 1000.0 # > 24 days
+        while secs > MAX:
+            _simple_sleep(space, MAX, interruptible)
+            secs -= MAX
+        _simple_sleep(space, secs, interruptible)
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
@@ -324,7 +430,6 @@ def ctime(space, w_seconds=None):
             space.wrap("unconvertible time"))
 
     return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
-ctime.unwrap_spec = [ObjSpace, W_Root]
 
 # by now w_tup is an optional argument (and not *args)
 # because of the ext. compiler bugs in handling such arguments (*args, **kwds)
@@ -341,7 +446,6 @@ def asctime(space, w_tup=None):
             space.wrap("unconvertible time"))
     
     return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
-asctime.unwrap_spec = [ObjSpace, W_Root]
 
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -362,7 +466,6 @@ def gmtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p)
-gmtime.unwrap_spec = [ObjSpace, W_Root]
 
 def localtime(space, w_seconds=None):
     """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -380,7 +483,6 @@ def localtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p)
-localtime.unwrap_spec = [ObjSpace, W_Root]
 
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number
@@ -394,7 +496,6 @@ def mktime(space, w_tup):
             space.wrap("mktime argument out of range"))
 
     return space.wrap(float(tt))
-mktime.unwrap_spec = [ObjSpace, W_Root]
 
 if _POSIX:
     def tzset(space):
@@ -414,8 +515,8 @@ if _POSIX:
 
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
-    tzset.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(format=str)
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
 
@@ -450,6 +551,21 @@ def strftime(space, format, w_tup=None):
         raise OperationError(space.w_ValueError,
                              space.wrap("daylight savings flag out of range"))
 
+    if _WIN:
+        # check that the format string contains only valid directives
+        length = len(format)
+        i = 0
+        while i < length:
+            if format[i] == '%':
+                i += 1
+                if i < length and format[i] == '#':
+                    # not documented by python
+                    i += 1
+                if i >= length or format[i] not in "aAbBcdfHIjmMpSUwWxXyYzZ%":
+                    raise OperationError(space.w_ValueError,
+                                         space.wrap("invalid format string"))
+            i += 1
+
     i = 1024
     while True:
         outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
@@ -466,4 +582,3 @@ def strftime(space, format, w_tup=None):
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i
-strftime.unwrap_spec = [ObjSpace, str, W_Root]

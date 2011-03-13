@@ -1,6 +1,6 @@
+import py, os, sys
 
 from pypy.translator.platform import Platform, log, CompilationError
-import py, sys, os
 from pypy.translator.tool import stdoutcapture
 
 def log_spawned_cmd(spawn):
@@ -105,7 +105,7 @@ class DistutilsPlatform(Platform):
                     fdump.write(data)
                     fdump.close()
         except (distutils.errors.CompileError,
-                distutils.errors.LinkError), e:
+                distutils.errors.LinkError):
             raise CompilationError('', data)
         except:
             print >>sys.stderr, data
@@ -157,9 +157,9 @@ class DistutilsPlatform(Platform):
             extra_preargs=self.link_extra,
             library_dirs=self.eci.library_dirs)
 
-    def include_dirs_for_libffi(self):
+    def _include_dirs_for_libffi(self):
         return ['/usr/include/libffi']
 
-    def library_dirs_for_libffi(self):
+    def _library_dirs_for_libffi(self):
         return ['/usr/lib/libffi']
 

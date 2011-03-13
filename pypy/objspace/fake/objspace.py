@@ -25,7 +25,7 @@ uint_dummy  = make_dummy(r_uint(42), r_uint(43))
 str_dummy   = make_dummy('foo', 'bar')
 bool_dummy  = make_dummy(True, False)
 unicode_dummy = make_dummy(u'abc', u'cde')
-bigint_dummy = make_dummy(rbigint([0]), rbigint([1]))
+bigint_dummy = make_dummy(rbigint.fromint(0), rbigint.fromint(1))
 
 class FakeObjSpace(ObjSpace):
     w_None           = W_Object()

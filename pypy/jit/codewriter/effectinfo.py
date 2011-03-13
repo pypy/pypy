@@ -10,9 +10,9 @@ class EffectInfo(object):
 
     # the 'extraeffect' field is one of the following values:
     EF_PURE                            = 0 #pure function (and cannot raise)
-    EF_CANNOT_RAISE                    = 1 #a function which cannot raise
-    EF_CAN_RAISE                       = 2 #normal function (can raise)
-    EF_LOOPINVARIANT                   = 3 #special: call it only once per loop
+    EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
+    EF_CANNOT_RAISE                    = 2 #a function which cannot raise
+    EF_CAN_RAISE                       = 3 #normal function (can raise)
     EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 4 #can raise and force virtualizables
 
     # the 'oopspecindex' field is one of the following values:
@@ -46,6 +46,32 @@ class EffectInfo(object):
     OS_LIBFFI_PREPARE           = 60
     OS_LIBFFI_PUSH_ARG          = 61
     OS_LIBFFI_CALL              = 62
+    #
+    OS_LLONG_INVERT             = 69
+    OS_LLONG_ADD                = 70
+    OS_LLONG_SUB                = 71
+    OS_LLONG_MUL                = 72
+    OS_LLONG_LT                 = 73
+    OS_LLONG_LE                 = 74
+    OS_LLONG_EQ                 = 75
+    OS_LLONG_NE                 = 76
+    OS_LLONG_GT                 = 77
+    OS_LLONG_GE                 = 78
+    OS_LLONG_AND                = 79
+    OS_LLONG_OR                 = 80
+    OS_LLONG_LSHIFT             = 81
+    OS_LLONG_RSHIFT             = 82
+    OS_LLONG_XOR                = 83
+    OS_LLONG_FROM_INT           = 84
+    OS_LLONG_TO_INT             = 85
+    OS_LLONG_FROM_FLOAT         = 86
+    OS_LLONG_TO_FLOAT           = 87
+    OS_LLONG_ULT                = 88
+    OS_LLONG_ULE                = 89
+    OS_LLONG_UGT                = 90
+    OS_LLONG_UGE                = 91
+    OS_LLONG_URSHIFT            = 92
+    OS_LLONG_FROM_UINT          = 93
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,
@@ -60,8 +86,13 @@ class EffectInfo(object):
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
-        result.write_descrs_fields = write_descrs_fields
-        result.write_descrs_arrays = write_descrs_arrays
+        if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
+           extraeffect == EffectInfo.EF_PURE:            
+            result.write_descrs_fields = []
+            result.write_descrs_arrays = []
+        else:
+            result.write_descrs_fields = write_descrs_fields
+            result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
         result.oopspecindex = oopspecindex
         cls._cache[key] = result
@@ -138,7 +169,7 @@ def consider_array(ARRAY):
 # ____________________________________________________________
 
 class VirtualizableAnalyzer(BoolGraphAnalyzer):
-    def analyze_simple_operation(self, op):
+    def analyze_simple_operation(self, op, graphinfo):
         return op.opname in ('jit_force_virtualizable',
                              'jit_force_virtual')
 

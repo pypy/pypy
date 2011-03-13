@@ -6,6 +6,7 @@ from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rfloat import isnan
 
 def import_ctypes():
     try:
@@ -106,6 +107,18 @@ def test_defined():
     res = rffi_platform.getdefined('ALFKJLKJFLKJFKLEJDLKEWMECEE',
                                      '#define ALFKJLKJFLKJFKLEJDLKEWMECEE')
     assert res
+
+def test_defined_constant_float():
+    value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0')
+    assert value == 1.0
+    value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.5')
+    assert value == 1.5
+    value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0e20')
+    assert value == 1.0e20
+    value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0e50000')
+    assert value == float("inf")
+    value = rffi_platform.getdefineddouble('BLAH', '#define BLAH (double)0/0')
+    assert isnan(value)
 
 def test_configure():
     test_h = udir.join('test_ctypes_platform.h')

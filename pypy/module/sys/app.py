@@ -3,10 +3,18 @@
 The 'sys' module.
 """
 
-import sys 
+from _structseq import structseqtype, structseqfield
+import sys
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
+
+    # Flush stdout as well, both files may refer to the same file
+    try:
+        sys.stdout.flush()
+    except:
+        pass
+
     try:
         from traceback import print_exception
         print_exception(exctype, value, traceback)
@@ -58,9 +66,9 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2010 PyPy development team.
-All rights reserved.
-For further information see http://www.codespeak.net/pypy.
+Copyright 2003-2011 PyPy development team.
+All Rights Reserved.
+For further information, see <http://pypy.org>
 
 Portions Copyright (c) 2001-2008 Python Software Foundation.
 All Rights Reserved.
@@ -74,3 +82,28 @@ All Rights Reserved.
 Portions Copyright (c) 1991-1995 Stichting Mathematisch Centrum, Amsterdam.
 All Rights Reserved.
 """
+
+
+# This is tested in test_app_main.py
+class sysflags:
+    __metaclass__ = structseqtype
+
+    name = "sys.flags"
+
+    debug = structseqfield(0)
+    py3k_warning = structseqfield(1)
+    division_warning = structseqfield(2)
+    division_new = structseqfield(3)
+    inspect = structseqfield(4)
+    interactive = structseqfield(5)
+    optimize = structseqfield(6)
+    dont_write_bytecode = structseqfield(7)
+    no_user_site = structseqfield(8)
+    no_site = structseqfield(9)
+    ignore_environment = structseqfield(10)
+    tabcheck = structseqfield(11)
+    verbose = structseqfield(12)
+    unicode = structseqfield(13)
+    bytes_warning = structseqfield(14)
+
+null_sysflags = sysflags((0,)*15)

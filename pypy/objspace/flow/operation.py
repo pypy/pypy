@@ -159,6 +159,9 @@ def do_setslice(a, b, c, d):
 def do_delslice(a, b, c):
     del a[b:c]
 
+def unsupported(*args):
+    raise ValueError("this is not supported")
+
 # ____________________________________________________________
 
 # The following table can list several times the same operation name,
@@ -171,9 +174,11 @@ Table = [
     ('id',              id),
     ('type',            new_style_type),
     ('type',            type),
+    ('isinstance',      isinstance),
     ('issubtype',       issubclass),
     ('repr',            repr),
     ('str',             str),
+    ('format',          unsupported),
     ('len',             len),
     ('hash',            hash),
     ('getattr',         getattr),
@@ -183,6 +188,7 @@ Table = [
     ('nonzero',         operator.truth),
     ('is_true',         bool),
     ('is_true',         operator.truth),
+    ('trunc',           unsupported),
     ('abs' ,            abs),
     ('hex',             hex),
     ('oct',             oct),

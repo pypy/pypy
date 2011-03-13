@@ -216,6 +216,8 @@ class TestRx86_32(object):
             m = modes[0]
             lst = tests[m]()
             random.shuffle(lst)
+            if methname == 'PSRAD_xi' and m == 'i':
+                lst = [x for x in lst if 0 <= x <= 31]
             result = []
             for v in lst:
                 result += self.make_all_tests(methname, modes[1:], args+[v])
@@ -223,7 +225,7 @@ class TestRx86_32(object):
         else:
             # special cases
             if methname in ('ADD_ri', 'AND_ri', 'CMP_ri', 'OR_ri',
-                            'SUB_ri', 'XOR_ri'):
+                            'SUB_ri', 'XOR_ri', 'SBB_ri'):
                 if args[0] == rx86.R.eax:
                     return []     # ADD EAX, constant: there is a special encoding
             if methname == 'XCHG_rr' and rx86.R.eax in args:

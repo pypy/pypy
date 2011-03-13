@@ -17,8 +17,8 @@ class W_Tainted(baseobjspace.W_Root):
     def __init__(self, w_obj):
         self.w_obj = w_obj
 
-##    def getdict(self):
-##        return taint(self.w_obj.getdict())
+##    def getdict(self, space):
+##        return taint(self.w_obj.getdict(space))
 
 ##    def getdictvalue(self, space, attr):
 ##        return taint(self.w_obj.getdictvalue(space, attr))
@@ -64,7 +64,6 @@ def taint(w_obj):
         return w_obj
     else:
         return W_Tainted(w_obj)
-taint.unwrap_spec = [gateway.W_Root]
 app_taint = gateway.interp2app(taint)
 
 def is_tainted(space, w_obj):
@@ -101,6 +100,7 @@ app_untaint = gateway.interp2app(untaint)
 
 # ____________________________________________________________
 
+@gateway.unwrap_spec(args_w='args_w')
 def taint_atomic_function(space, w_func, args_w):
     newargs_w = []
     tainted = False
@@ -122,9 +122,7 @@ def taint_atomic_function(space, w_func, args_w):
         w_res = taint(w_res)
     return w_res
 
-app_taint_atomic_function = gateway.interp2app(
-    taint_atomic_function,
-    unwrap_spec=[gateway.ObjSpace, gateway.W_Root, 'args_w'])
+app_taint_atomic_function = gateway.interp2app(taint_atomic_function)
 
 def taint_atomic(space, w_callable):
     """decorator to make a callable "taint-atomic": if the function is called
@@ -140,13 +138,13 @@ app_taint_atomic = gateway.interp2app(taint_atomic)
 
 executioncontext.ExecutionContext.taint_debug = 0
 
+@gateway.unwrap_spec(level=int)
 def taint_debug(space, level):
     """Set the debug level. If the debug level is greater than 0, the creation
 of taint bombs will print debug information. For debugging purposes
 only!"""
     space.getexecutioncontext().taint_debug = level
-app_taint_debug = gateway.interp2app(taint_debug,
-                                     unwrap_spec=[gateway.ObjSpace, int])
+app_taint_debug = gateway.interp2app(taint_debug)
 
 def taint_look(space, w_obj):
     """Print some info about the taintedness of an object. For debugging

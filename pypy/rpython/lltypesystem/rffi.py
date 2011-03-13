@@ -185,6 +185,15 @@ def llexternal(name, args, result, _callable=None,
                     # XXX leaks if a unicode2wcharp() fails with MemoryError
                     # and was not the first in this function
                     freeme = arg
+            elif TARGET is VOIDP:
+                if arg is None:
+                    arg = lltype.nullptr(VOIDP.TO)
+                elif isinstance(arg, str):
+                    arg = str2charp(arg)
+                    freeme = arg
+                elif isinstance(arg, unicode):
+                    arg = unicode2wcharp(arg)
+                    freeme = arg
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
                 if invoke_around_handlers:
@@ -542,6 +551,7 @@ INTPTR_T = SSIZE_T
 
 # double
 DOUBLE = lltype.Float
+LONGDOUBLE = lltype.LongFloat
 
 # float - corresponds to pypy.rlib.rarithmetic.r_float, and supports no
 #         operation except rffi.cast() between FLOAT and DOUBLE
@@ -549,8 +559,8 @@ FLOAT = lltype.SingleFloat
 r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
-VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
-VOIDP_real = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+NULL = None
 
 # void **
 VOIDPP = CArrayPtr(VOIDP)
@@ -927,8 +937,67 @@ getintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
 
 class scoped_str2charp:
     def __init__(self, value):
-        self.buf = str2charp(value)
+        if value is not None:
+            self.buf = str2charp(value)
+        else:
+            self.buf = lltype.nullptr(CCHARP.TO)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
-        free_charp(self.buf)
+        if self.buf:
+            free_charp(self.buf)
+
+
+class scoped_unicode2wcharp:
+    def __init__(self, value):
+        if value is not None:
+            self.buf = unicode2wcharp(value)
+        else:
+            self.buf = lltype.nullptr(CWCHARP.TO)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        if self.buf:
+            free_wcharp(self.buf)
+
+
+class scoped_nonmovingbuffer:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf = get_nonmovingbuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmovingbuffer(self.data, self.buf)
+
+
+class scoped_nonmoving_unicodebuffer:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf = get_nonmoving_unicodebuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmoving_unicodebuffer(self.data, self.buf)
+
+class scoped_alloc_buffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf = alloc_buffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_buffer_alive_until_here(self.raw, self.gc_buf)
+    def str(self, length):
+        return str_from_buffer(self.raw, self.gc_buf, self.size, length)
+
+class scoped_alloc_unicodebuffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf = alloc_unicodebuffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
+    def str(self, length):
+        return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)

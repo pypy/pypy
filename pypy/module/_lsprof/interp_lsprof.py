@@ -1,11 +1,11 @@
 import py
 
-from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
-                                           Arguments)
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.function import Method, Function
+from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped
-from pypy.interpreter.function import Method, Function
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import rffi
 from pypy.tool.autopath import pypydir
@@ -33,7 +33,7 @@ class W_StatsEntry(Wrappable):
         self.tt = tt
         self.w_calls = w_sublist
 
-    def get_calls(space, self):
+    def get_calls(self, space):
         return self.w_calls
 
     def repr(self, space):
@@ -45,9 +45,8 @@ class W_StatsEntry(Wrappable):
         return space.wrap('("%s", %d, %d, %f, %f, %s)' % (
             frame_repr, self.callcount, self.reccallcount,
             self.tt, self.it, calls_repr))
-    repr.unwrap_spec = ['self', ObjSpace]
 
-    def get_code(space, self):
+    def get_code(self, space):
         return self.frame
 
 W_StatsEntry.typedef = TypeDef(
@@ -73,9 +72,8 @@ class W_StatsSubEntry(Wrappable):
         frame_repr = space.str_w(space.repr(self.frame))
         return space.wrap('("%s", %d, %d, %f, %f)' % (
             frame_repr, self.callcount, self.reccallcount, self.tt, self.it))
-    repr.unwrap_spec = ['self', ObjSpace]
 
-    def get_code(space, self):
+    def get_code(self, space):
         return self.frame
 
 W_StatsSubEntry.typedef = TypeDef(
@@ -173,11 +171,19 @@ class ProfilerContext(object):
 def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
         w_function = w_arg.w_function
-        class_name = w_arg.w_class.getname(space, '?')
         if isinstance(w_function, Function):
             name = w_function.name
         else:
             name = '?'
+        # try to get the real class that defines the method,
+        # which is a superclass of the class of the instance
+        from pypy.objspace.std.typeobject import W_TypeObject   # xxx
+        w_type = w_arg.w_class
+        class_name = w_type.getname(space)    # if the rest doesn't work
+        if isinstance(w_type, W_TypeObject) and name != '?':
+            w_realclass, _ = space.lookup_in_type_where(w_type, name)
+            if isinstance(w_realclass, W_TypeObject):
+                class_name = w_realclass.get_module_type_name()
         return "{method '%s' of '%s' objects}" % (name, class_name)
     elif isinstance(w_arg, Function):
         if w_arg.w_module is None:
@@ -192,7 +198,7 @@ def create_spec(space, w_arg):
     else:
         class_name = space.type(w_arg).getname(space, '?')
         return "{'%s' object}" % (class_name,)
-    
+
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)
     if event == 'call':
@@ -227,7 +233,12 @@ class W_Profiler(Wrappable):
     def timer(self):
         if self.w_callable:
             space = self.space
-            return space.float_w(space.call_function(self.w_callable))
+            try:
+                return space.float_w(space.call_function(self.w_callable))
+            except OperationError, e:
+                e.write_unraisable(space, "timer function ",
+                                   self.w_callable)
+                return 0.0
         return read_timestamp_double()
 
     def enable(self, space, w_subcalls=NoneNotWrapped,
@@ -238,7 +249,6 @@ class W_Profiler(Wrappable):
             self.builtins = space.bool_w(w_builtins)
         # set profiler hook
         space.getexecutioncontext().setllprofile(lsprof_call, space.wrap(self))
-    enable.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     @jit.purefunction
     def _get_or_make_entry(self, f_code, make=True):
@@ -307,7 +317,6 @@ class W_Profiler(Wrappable):
         # unset profiler hook
         space.getexecutioncontext().setllprofile(None, None)
         self._flush_unmatched()
-    disable.unwrap_spec = ['self', ObjSpace]
 
     def getstats(self, space):
         if self.w_callable is None:
@@ -318,17 +327,17 @@ class W_Profiler(Wrappable):
             factor = 1.0 / sys.maxint
         return stats(space, self.data.values() + self.builtin_data.values(),
                      factor)
-    getstats.unwrap_spec = ['self', ObjSpace]
 
+@unwrap_spec(time_unit=float, subcalls=bool, builtins=bool)
 def descr_new_profile(space, w_type, w_callable=NoneNotWrapped, time_unit=0.0,
                       subcalls=True, builtins=True):
     p = space.allocate_instance(W_Profiler, w_type)
     p.__init__(space, w_callable, time_unit, subcalls, builtins)
     return space.wrap(p)
-descr_new_profile.unwrap_spec = [ObjSpace, W_Root, W_Root, float, bool, bool]
 
 W_Profiler.typedef = TypeDef(
     'Profiler',
+    __module__ = '_lsprof',
     __new__ = interp2app(descr_new_profile),
     enable = interp2app(W_Profiler.enable),
     disable = interp2app(W_Profiler.disable),

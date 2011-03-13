@@ -1,13 +1,12 @@
 
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
-     Arguments
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.descroperation import object_getattribute, object_setattr
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, \
-     descr_set_dict, interp_attrproperty_w
+     descr_set_dict, interp_attrproperty_w, generic_new_descr
 
 class W_Super(Wrappable):
     def __init__(self, space, w_starttype, w_objtype, w_self):
@@ -24,8 +23,8 @@ class W_Super(Wrappable):
             #     XXX write a fast path for this common case
             w_selftype = space.type(w(self))
             return space.call_function(w_selftype, self.w_starttype, w_obj)
-    get.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
+    @unwrap_spec(name=str)
     def getattribute(self, space, name):
         w = space.wrap
         # only use a special logic for bound super objects and not for
@@ -49,7 +48,6 @@ class W_Super(Wrappable):
         # fallback to object.__getattribute__()
         return space.call_function(object_getattribute(space),
                                    w(self), w(name))
-    getattribute.unwrap_spec = ['self', ObjSpace, str]
 
 def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
     if space.is_w(w_obj_or_type, space.w_None):
@@ -77,7 +75,6 @@ def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
     w_result = space.allocate_instance(W_Super, w_subtype)
     W_Super.__init__(w_result, space, w_starttype, w_type, w_obj_or_type)
     return w_result
-descr_new_super.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 W_Super.typedef = TypeDef(
     'super',
@@ -98,22 +95,26 @@ class C(B):
 class W_Property(Wrappable):
     _immutable_fields_ = ["w_fget", "w_fset", "w_fdel"]
 
+    def __init__(self, space):
+        pass
+
     def init(self, space, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         self.w_fget = w_fget
         self.w_fset = w_fset
         self.w_fdel = w_fdel
         self.w_doc = w_doc
+        self.getter_doc = False
         # our __doc__ comes from the getter if we don't have an explicit one
-        if space.is_w(self.w_doc, space.w_None):
+        if (space.is_w(self.w_doc, space.w_None) and
+            not space.is_w(self.w_fget, space.w_None)):
             w_getter_doc = space.findattr(self.w_fget, space.wrap("__doc__"))
             if w_getter_doc is not None:
-                self.w_doc = w_getter_doc
-    init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root, W_Root]
-
-    def new(space, w_subtype, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
-        w_result = space.allocate_instance(W_Property, w_subtype)
-        return w_result
-    new.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root]
+                if type(self) is W_Property:
+                    self.w_doc = w_getter_doc
+                else:
+                    space.setattr(space.wrap(self), space.wrap("__doc__"),
+                                  w_getter_doc)
+                self.getter_doc = True
 
     def get(self, space, w_obj, w_objtype=None):
         if space.is_w(w_obj, space.w_None):
@@ -122,7 +123,6 @@ class W_Property(Wrappable):
             raise OperationError(space.w_AttributeError, space.wrap(
                 "unreadable attribute"))
         return space.call_function(self.w_fget, w_obj)
-    get.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def set(self, space, w_obj, w_value):
         if space.is_w(self.w_fset, space.w_None):
@@ -130,7 +130,6 @@ class W_Property(Wrappable):
                 "can't set attribute"))
         space.call_function(self.w_fset, w_obj, w_value)
         return space.w_None
-    set.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def delete(self, space, w_obj):
         if space.is_w(self.w_fdel, space.w_None):
@@ -138,29 +137,29 @@ class W_Property(Wrappable):
                 "can't delete attribute"))
         space.call_function(self.w_fdel, w_obj)
         return space.w_None
-    delete.unwrap_spec = ['self', ObjSpace, W_Root]
 
-    def getattribute(self, space, attr):
-        # XXX fixme: this is a workaround.  It's hard but not impossible
-        # to have both a __doc__ on the 'property' type, and a __doc__
-        # descriptor that can read the docstring of 'property' instances.
-        if attr == '__doc__':
-            return self.w_doc
-        # shortcuts
-        return space.call_function(object_getattribute(space),
-                                   space.wrap(self), space.wrap(attr))
-    getattribute.unwrap_spec = ['self', ObjSpace, str]
+    def getter(self, space, w_getter):
+        return self._copy(space, w_getter=w_getter)
 
-    def setattr(self, space, attr, w_value):
-        # XXX kill me?  This is mostly to make tests happy, raising
-        # a TypeError instead of an AttributeError and using "readonly"
-        # instead of "read-only" in the error message :-/
-        if attr in ["__doc__", "fget", "fset", "fdel"]:
-            raise operationerrfmt(space.w_TypeError,
-                "Trying to set readonly attribute %s on property", attr)
-        return space.call_function(object_setattr(space),
-                                   space.wrap(self), space.wrap(attr), w_value)
-    setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
+    def setter(self, space, w_setter):
+        return self._copy(space, w_setter=w_setter)
+
+    def deleter(self, space, w_deleter):
+        return self._copy(space, w_deleter=w_deleter)
+
+    def _copy(self, space, w_getter=None, w_setter=None, w_deleter=None):
+        if w_getter is None:
+            w_getter = self.w_fget
+        if w_setter is None:
+            w_setter = self.w_fset
+        if w_deleter is None:
+            w_deleter = self.w_fdel
+        if self.getter_doc and w_getter is not None:
+            w_doc = space.w_None
+        else:
+            w_doc = self.w_doc
+        w_type = self.getclass(space)
+        return space.call_function(w_type, w_getter, w_setter, w_deleter, w_doc)
 
 W_Property.typedef = TypeDef(
     'property',
@@ -174,14 +173,20 @@ class C(object):
     def setx(self, value): self.__x = value
     def delx(self): del self.__x
     x = property(getx, setx, delx, "I am the 'x' property.")''',
-    __new__ = interp2app(W_Property.new.im_func),
+    __new__ = generic_new_descr(W_Property),
     __init__ = interp2app(W_Property.init),
     __get__ = interp2app(W_Property.get),
     __set__ = interp2app(W_Property.set),
     __delete__ = interp2app(W_Property.delete),
-    __getattribute__ = interp2app(W_Property.getattribute),
-    __setattr__ = interp2app(W_Property.setattr),
     fdel = interp_attrproperty_w('w_fdel', W_Property),
     fget = interp_attrproperty_w('w_fget', W_Property),
     fset = interp_attrproperty_w('w_fset', W_Property),
+    getter = interp2app(W_Property.getter),
+    setter = interp2app(W_Property.setter),
+    deleter = interp2app(W_Property.deleter),
 )
+# This allows there to be a __doc__ of the property type and a __doc__
+# descriptor for the instances.
+W_Property.typedef.rawdict['__doc__'] = interp_attrproperty_w('w_doc',
+                                                              W_Property)
+

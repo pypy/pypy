@@ -4,6 +4,9 @@ from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.metainterp.optimizeopt.intutils import IntBound
+from pypy.rlib.rarithmetic import highest_bit
+
 
 class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
@@ -141,6 +144,14 @@ class OptRewrite(Optimization):
              (v2.is_constant() and v2.box.getint() == 0):
             self.make_constant_int(op.result, 0)
         else:
+            for lhs, rhs in [(v1, v2), (v2, v1)]:
+                # x & (x -1) == 0 is a quick test for power of 2
+                if (lhs.is_constant() and
+                    (lhs.box.getint() & (lhs.box.getint() - 1)) == 0):
+                    new_rhs = ConstInt(highest_bit(lhs.box.getint()))
+                    op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
+                    break
+
             self.emit_operation(op)
 
     def optimize_CALL_PURE(self, op):
@@ -378,6 +389,18 @@ class OptRewrite(Optimization):
         if length and length.getint() == 0:
             return True # 0-length arraycopy
         return False
+
+    def optimize_INT_FLOORDIV(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+
+        if v1.intbound.known_ge(IntBound(0, 0)) and v2.is_constant():
+            val = v2.box.getint()
+            if val & (val - 1) == 0 and val > 0: # val == 2**shift
+                op = op.copy_and_change(rop.INT_RSHIFT,
+                                        args = [op.getarg(0), ConstInt(highest_bit(val))])
+        self.emit_operation(op)
+
 
 optimize_ops = _findall(OptRewrite, 'optimize_')
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')

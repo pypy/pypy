@@ -46,8 +46,8 @@ class AppTestApi:
 
     def test_dllhandle(self):
         import sys
-        if sys.version_info < (2, 6):
-            skip("Python >= 2.6 only")
+        if sys.platform != "win32" or sys.version_info < (2, 6):
+            skip("Windows Python >= 2.6 only")
         assert sys.dllhandle
         assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
         import ctypes # slow
@@ -164,8 +164,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         importhook(cls.space, "os") # warm up reference counts
         state = cls.space.fromcache(RefcountState)
         state.non_heaptypes_w[:] = []
-
-        cls.w_cleanup_references = cls.space.wrap(interp2app(cls.cleanup_references))
 
     def compile_module(self, name, **kwds):
         """

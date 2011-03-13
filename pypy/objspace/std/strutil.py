@@ -2,8 +2,8 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rlib.rarithmetic import ovfcheck, break_up_float, parts_to_float,\
-     INFINITY, NAN
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rfloat import rstring_to_float, INFINITY, NAN
 from pypy.rlib.rbigint import rbigint, parse_digit_string
 from pypy.interpreter.error import OperationError
 import math
@@ -34,11 +34,9 @@ class ParseStringOverflowError(Exception):
 class NumberStringParser:
 
     def error(self):
-        if self.literal:
-            raise ParseStringError, 'invalid literal for %s(): %s' % (self.fname, self.literal)
-        else:
-            raise ParseStringError, 'empty string for %s()' % (self.fname,)        
-        
+        raise ParseStringError("invalid literal for %s() with base %d: '%s'" %
+                               (self.fname, self.base, self.literal))
+
     def __init__(self, s, literal, base, fname):
         self.literal = literal
         self.fname = fname
@@ -53,7 +51,9 @@ class NumberStringParser:
         if base == 0:
             if s.startswith('0x') or s.startswith('0X'):
                 base = 16
-            elif s.startswith('0'):
+            elif s.startswith('0b') or s.startswith('0B'):
+                base = 2
+            elif s.startswith('0'): # also covers the '0o' case
                 base = 8
             else:
                 base = 10
@@ -61,10 +61,14 @@ class NumberStringParser:
             raise ParseStringError, "%s() base must be >= 2 and <= 36" % (fname,)
         self.base = base
 
-        if not s:
-            self.error()
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
             s = s[2:]
+        if base == 8 and (s.startswith('0o') or s.startswith('0O')):
+            s = s[2:]
+        if base == 2 and (s.startswith('0b') or s.startswith('0B')):
+            s = s[2:]
+        if not s:
+            self.error()
         self.s = s
         self.n = len(s)
         self.i = 0
@@ -166,100 +170,16 @@ def string_to_float(s):
 
 
     low = s.lower()
-    if low == "-inf":
+    if low == "-inf" or low == "-infinity":
         return -INFINITY
-    elif low == "inf":
+    elif low == "inf" or low == "+inf":
         return INFINITY
-    elif low == "nan" or low == "-nan":
+    elif low == "infinity" or low == "+infinity":
+        return INFINITY
+    elif low == "nan" or low == "-nan" or low == "+nan":
         return NAN
 
-    # 1) parse the string into pieces.
     try:
-        sign, before_point, after_point, exponent = break_up_float(s)
+        return rstring_to_float(s)
     except ValueError:
         raise ParseStringError("invalid literal for float()")
-    
-    digits = before_point + after_point
-    if not digits:
-        raise ParseStringError("invalid literal for float()")
-
-    # 2) pre-calculate digit exponent dexp.
-    dexp = len(before_point)
-
-    # 3) truncate and adjust dexp.
-    p = 0
-    plim = dexp + len(after_point)
-    while p < plim and digits[p] == '0':
-        p += 1
-        dexp -= 1
-    digits = digits[p : p + MANTISSA_DIGITS]
-    p = len(digits) - 1
-    while p >= 0 and digits[p] == '0':
-        p -= 1
-    dexp -= p + 1
-    p += 1
-    assert p >= 0
-    digits = digits[:p]
-    if len(digits) == 0:
-        digits = '0'
-
-    # 4) compute the exponent and truncate to +-400
-    if not exponent:
-        exponent = '0'
-    long_exponent = rbigint.fromdecimalstr(exponent)
-    long_exponent = long_exponent.add(rbigint.fromint(dexp))
-    try:
-        e = long_exponent.toint()
-    except OverflowError:
-        # XXX poking at internals
-        e = long_exponent.sign * 400
-    else:
-        if e >= 400:
-            e = 400
-        elif e <= -400:
-            e = -400
-
-    # 5) compute the value using long math and proper rounding.
-    b_digits = rbigint.fromdecimalstr(digits)
-    b_10 = rbigint.fromint(10)
-    b_1 = rbigint.fromint(1)
-    if e >= 0:
-        bits = 0
-        b_power_of_ten = b_10.pow(rbigint.fromint(e))
-        b_mantissa = b_digits.mul(b_power_of_ten)
-    else:
-        # compute a sufficiently large scale
-        prec = MANTISSA_DIGITS * 2 + 22 # 128, maybe
-        bits = - (int(math.ceil(-e / math.log10(2.0) - 1e-10)) + prec)
-        b_scale = b_1.lshift(-bits)
-        b_power_of_ten = b_10.pow(rbigint.fromint(-e))
-        b_mantissa = b_digits.mul(b_scale).div(b_power_of_ten)
-
-    # we now have a fairly large mantissa.
-    # Shift it and round the last bit.
-
-    # first estimate the bits and do a big shift
-    mbits = b_mantissa._count_bits()
-    needed = MANTISSA_BITS
-    if mbits > needed:
-        if mbits > needed+1:
-            shifted = mbits - (needed+1)
-            b_mantissa = b_mantissa.rshift(shifted)
-            bits += shifted
-        # do the rounding
-        bits += 1
-        round = b_mantissa.is_odd()
-        b_mantissa = b_mantissa.rshift(1).add(rbigint.fromint(round))
-
-    try:
-        r = math.ldexp(b_mantissa.tofloat(), bits)
-        # XXX I guess we do not check for overflow in ldexp as we agreed to!
-        if r == 2*r and r != 0.0:
-            raise OverflowError
-    except OverflowError:
-        r = INFINITY
-
-    if sign == '-':
-        r = -r
-
-    return r

@@ -10,8 +10,8 @@ module Python version "$Revision: 43614 $"
 	    | Suite(stmt* body)
 
 	stmt = FunctionDef(identifier name, arguments args, 
-                           stmt* body, expr* decorators)
-	      | ClassDef(identifier name, expr* bases, stmt* body)
+                            stmt* body, expr* decorator_list)
+	      | ClassDef(identifier name, expr* bases, stmt* body, expr* decorator_list)
 	      | Return(expr? value)
 
 	      | Delete(expr* targets)
@@ -56,7 +56,10 @@ module Python version "$Revision: 43614 $"
 	     | Lambda(arguments args, expr body)
 	     | IfExp(expr test, expr body, expr orelse)
 	     | Dict(expr* keys, expr* values)
+	     | Set(expr* elts)
 	     | ListComp(expr elt, comprehension* generators)
+	     | SetComp(expr elt, comprehension* generators)
+	     | DictComp(expr key, expr value, comprehension* generators)
 	     | GeneratorExp(expr elt, comprehension* generators)
 	     -- the grammar constrains where yield expressions can occur
 	     | Yield(expr? value)
@@ -75,7 +78,7 @@ module Python version "$Revision: 43614 $"
 	     | Subscript(expr value, slice slice, expr_context ctx)
 	     | Name(identifier id, expr_context ctx)
 	     | List(expr* elts, expr_context ctx) 
-	     | Tuple(expr *elts, expr_context ctx)
+	     | Tuple(expr* elts, expr_context ctx)
 
              -- PyPy modification
              | Const(object value)
@@ -101,11 +104,8 @@ module Python version "$Revision: 43614 $"
 	comprehension = (expr target, expr iter, expr* ifs)
 
 	-- not sure what to call the first argument for raise and except
-	-- TODO(jhylton): Figure out if there is a better way to handle
-	--                lineno and col_offset fields, particularly when
-        --                ast is exposed to Python.
-	excepthandler = (expr? type, expr? name, stmt* body, int lineno,
-	                 int col_offset)
+	excepthandler = ExceptHandler(expr? type, expr? name, stmt* body)
+	                attributes(int lineno, int col_offset)
 
 	arguments = (expr* args, identifier? vararg, 
 		     identifier? kwarg, expr* defaults)

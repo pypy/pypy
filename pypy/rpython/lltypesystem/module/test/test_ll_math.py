@@ -6,7 +6,19 @@ from pypy.module.math.test.test_direct import MathTests, get_tester
 
 
 class TestMath(MathTests):
-    pass
+    def test_isinf(self):
+        inf = 1e200 * 1e200
+        nan = inf / inf
+        assert not ll_math.ll_math_isinf(0)
+        assert ll_math.ll_math_isinf(inf)
+        assert not ll_math.ll_math_isinf(nan)
+
+    def test_isnan(self):
+        inf = 1e200 * 1e200
+        nan = inf / inf
+        assert not ll_math.ll_math_isnan(0)
+        assert ll_math.ll_math_isnan(nan)
+        assert not ll_math.ll_math_isnan(inf)
 
 def make_test_case((fnname, args, expected), dict):
     #
@@ -22,7 +34,8 @@ def make_test_case((fnname, args, expected), dict):
                 repr,)
         else:
             if not get_tester(expected)(got):
-                raise AssertionError("%r: got %s" % (repr, got))
+                raise AssertionError("%r: got %r, expected %r" %
+                                     (repr, got, expected))
     #
     dict[fnname] = dict.get(fnname, 0) + 1
     testname = 'test_%s_%d' % (fnname, dict[fnname])

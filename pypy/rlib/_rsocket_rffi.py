@@ -60,13 +60,31 @@ if _WIN32:
         ]
     if _MSVC:
         header_lines.extend([
+            '#include <Mstcpip.h>',
             # these types do not exist on microsoft compilers
             'typedef int ssize_t;',
             'typedef unsigned __int16 uint16_t;',
             'typedef unsigned __int32 uint32_t;',
             ])
-    else:
+    else: # MINGW
         includes = ('stdint.h',)
+        header_lines.extend([
+            '''\
+            #ifndef _WIN32_WINNT
+            #define _WIN32_WINNT 0x0501
+            #endif''',
+            '#define SIO_RCVALL             _WSAIOW(IOC_VENDOR,1)',
+            '#define SIO_KEEPALIVE_VALS     _WSAIOW(IOC_VENDOR,4)',
+            '#define RCVALL_OFF             0',
+            '#define RCVALL_ON              1',
+            '#define RCVALL_SOCKETLEVELONLY 2',
+            '''\
+            struct tcp_keepalive {
+                u_long  onoff;
+                u_long  keepalivetime;
+                u_long  keepaliveinterval;
+            };'''
+            ])
     HEADER = '\n'.join(header_lines)
     COND_HEADER = ''
 constants = {}
@@ -116,6 +134,8 @@ class CConfig:
     INVALID_SOCKET = platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = platform.DefinedConstantInteger('INET_ADDRSTRLEN')
     INET6_ADDRSTRLEN= platform.DefinedConstantInteger('INET6_ADDRSTRLEN')
+    EINTR = platform.DefinedConstantInteger('EINTR')
+    WSAEINTR = platform.DefinedConstantInteger('WSAEINTR')
     EINPROGRESS = platform.DefinedConstantInteger('EINPROGRESS')
     WSAEINPROGRESS = platform.DefinedConstantInteger('WSAEINPROGRESS')
     EWOULDBLOCK = platform.DefinedConstantInteger('EWOULDBLOCK')
@@ -195,13 +215,20 @@ WSA_WAIT_TIMEOUT WSA_WAIT_FAILED INFINITE
 FD_CONNECT_BIT FD_CLOSE_BIT
 WSA_IO_PENDING WSA_IO_INCOMPLETE WSA_INVALID_HANDLE
 WSA_INVALID_PARAMETER WSA_NOT_ENOUGH_MEMORY WSA_OPERATION_ABORTED
+SIO_RCVALL SIO_KEEPALIVE_VALS
 
 SIOCGIFNAME
 '''.split()
 
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
-    
+
+if _WIN32:
+    # some SDKs define these values with an enum, #ifdef won't work
+    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY'):
+        setattr(CConfig, name, platform.ConstantInteger(name))
+        constant_names.append(name)
+
 constants["BDADDR_ANY"] =  "00:00:00:00:00:00"
 constants["BDADDR_LOCAL"] = "00:00:00:FF:FF:FF"
 
@@ -354,6 +381,12 @@ if _WIN32:
                                       ('iMaxUdpDg', rffi.USHORT),
                                       ('lpVendorInfo', CCHARP)])
 
+    CConfig.tcp_keepalive = platform.Struct(
+        'struct tcp_keepalive',
+        [('onoff', rffi.ULONG),
+         ('keepalivetime', rffi.ULONG),
+         ('keepaliveinterval', rffi.ULONG)])
+
 
 class cConfig:
     pass
@@ -392,6 +425,7 @@ F_SETFL = cConfig.F_SETFL
 FIONBIO = cConfig.FIONBIO
 INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN
 INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
+EINTR = cConfig.EINTR or cConfig.WSAEINTR
 EINPROGRESS = cConfig.EINPROGRESS or cConfig.WSAEINPROGRESS
 EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
 EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT
@@ -401,7 +435,7 @@ linux = cConfig.linux
 WIN32 = cConfig.WIN32
 assert WIN32 == _WIN32
 
-if WIN32:
+if _MSVC:
     def invalid_socket(fd):
         return fd == INVALID_SOCKET
     INVALID_SOCKET = cConfig.INVALID_SOCKET
@@ -558,6 +592,7 @@ if _POSIX:
                     rffi.INT)
     
 elif WIN32:
+    from pypy.rlib import rwin32
     #
     # The following is for pypy.rlib.rpoll
     #
@@ -580,6 +615,14 @@ elif WIN32:
                                     [socketfd_type, WSAEVENT,
                                      lltype.Ptr(WSANETWORKEVENTS)],
                                     rffi.INT)
+
+    WSAIoctl = external('WSAIoctl',
+                        [socketfd_type, rwin32.DWORD,
+                         rffi.VOIDP, rwin32.DWORD,
+                         rffi.VOIDP, rwin32.DWORD,
+                         rwin32.LPDWORD, rffi.VOIDP, rffi.VOIDP],
+                        rffi.INT)
+    tcp_keepalive = cConfig.tcp_keepalive
 
 if WIN32:
     WSAData = cConfig.WSAData

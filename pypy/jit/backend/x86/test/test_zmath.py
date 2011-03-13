@@ -5,10 +5,14 @@ import py, math
 from pypy.module.math.test import test_direct
 from pypy.translator.c.test.test_genc import compile
 from pypy.jit.backend.x86.support import ensure_sse2_floats
+from pypy.rlib import rfloat
 
 
 def get_test_case((fnname, args, expected)):
-    fn = getattr(math, fnname)
+    try:
+        fn = getattr(math, fnname)
+    except AttributeError:
+        fn = getattr(rfloat, fnname)
     expect_valueerror = (expected == ValueError)
     expect_overflowerror = (expected == OverflowError)
     check = test_direct.get_tester(expected)

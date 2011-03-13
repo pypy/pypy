@@ -400,6 +400,99 @@ class LoopTest(object):
             res = self.meta_interp(f, [25, th])
             assert res == expected
 
+    def test_nested_loops_discovered_by_bridge_virtual(self):
+        # Same loop as above, but with virtuals
+        class A:
+            def __init__(self, val):
+                self.val = val
+            def add(self, val):
+                return A(self.val + val)
+        myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'j', 'n', 'x'])
+        bytecode = "IzJxji"
+        def f(nval, threshold):
+            myjitdriver.set_param('threshold', threshold)        
+            i, j, x = A(0), A(0), A(0)
+            n = A(nval)
+            pos = 0
+            op = '-'
+            while pos < len(bytecode):
+                myjitdriver.jit_merge_point(pos=pos, i=i, j=j, n=n, x=x)
+                op = bytecode[pos]
+                if op == 'z':
+                    j = A(0)
+                elif op == 'i':
+                    i = i.add(1)
+                    pos = 0
+                    myjitdriver.can_enter_jit(pos=pos, i=i, j=j, n=n, x=x)
+                    continue
+                elif op == 'j':
+                    j = j.add(1)
+                    pos = 2
+                    myjitdriver.can_enter_jit(pos=pos, i=i, j=j, n=n, x=x)
+                    continue
+                elif op == 'I':
+                    if not (i.val < n.val):
+                        pos = 5
+                elif op == 'J':
+                    if not (j.val <= i.val):
+                        pos = 4
+                elif op == 'x':
+                    x = x.add(i.val & j.val)
+
+                pos += 1
+
+            return x.val
+
+        for th in (5, 3, 1, 2, 4): # Start with the interesting case
+            expected = f(25, th)
+            res = self.meta_interp(f, [25, th])
+            assert res == expected
+
+    def test_two_bridged_loops(self):
+        myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'n', 's', 'x'])
+        bytecode = "zI7izI8i"
+        def f(n, s):
+            i = x = 0
+            pos = 0
+            op = '-'
+            while pos < len(bytecode):
+                myjitdriver.jit_merge_point(pos=pos, i=i, n=n, s=s, x=x)
+                op = bytecode[pos]
+                if op == 'z':
+                    i = 0
+                if op == 'i':
+                    i += 1
+                    pos -= 2
+                    myjitdriver.can_enter_jit(pos=pos, i=i, n=n, s=s, x=x)
+                    continue
+                elif op == 'I':
+                    if not (i < n):
+                        pos += 2
+                elif op == '7':
+                    if s==1: 
+                        x = x + 7
+                    else:
+                        x = x + 2
+                elif op == '8':
+                    if s==1: 
+                        x = x + 8
+                    else:
+                        x = x + 3
+
+                pos += 1
+            return x
+        
+        def g(n, s):
+            sa = 0
+            for i in range(7):
+                sa += f(n, s)
+            return sa
+        assert self.meta_interp(g, [25, 1]) == 7 * 25 * (7 + 8) 
+
+        def h(n):
+            return g(n, 1) + g(n, 2)
+        assert self.meta_interp(h, [25]) == 7 * 25 * (7 + 8 + 2 + 3) 
+        
     def test_three_nested_loops(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x'])
         bytecode = ".+357"

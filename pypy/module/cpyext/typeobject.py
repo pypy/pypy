@@ -4,7 +4,7 @@ import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.interpreter.baseobjspace import DescrMismatch
-from pypy.objspace.std.typeobject import W_TypeObject, _CPYTYPE
+from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
@@ -32,6 +32,7 @@ from pypy.rlib.rstring import rsplit
 from pypy.rlib.objectmodel import specialize
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
+from pypy.rlib import jit
 
 WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
@@ -159,7 +160,7 @@ def add_operators(space, dict_w, pto):
             if not struct:
                 continue
             func = getattr(struct, slot_names[1])
-        func_voidp = rffi.cast(rffi.VOIDP_real, func)
+        func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
             continue
         if wrapper_func is None and wrapper_func_kwds is None:
@@ -267,6 +268,7 @@ class GettersAndSetters:
         PyMember_SetOne(space, w_self, self.member, w_value)
 
 class W_PyCTypeObject(W_TypeObject):
+    @jit.dont_look_inside
     def __init__(self, space, pto):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
@@ -285,7 +287,7 @@ class W_PyCTypeObject(W_TypeObject):
 
         W_TypeObject.__init__(self, space, extension_name,
             bases_w or [space.w_object], dict_w)
-        self.__flags__ = _CPYTYPE
+        self.flag_cpytype = True
 
 @bootstrap_function
 def init_typeobject(space):
@@ -356,7 +358,7 @@ def subtype_dealloc(space, obj):
              error=CANNOT_FAIL)
 def str_segcount(space, w_obj, ref):
     if ref:
-        ref[0] = rffi.cast(rffi.INT, space.int_w(space.len(w_obj)))
+        ref[0] = rffi.cast(rffi.INT, space.len_w(w_obj))
     return 1
 
 @cpython_api([PyObject, lltype.Signed, rffi.VOIDPP], lltype.Signed,
@@ -370,7 +372,20 @@ def str_getreadbuffer(space, w_str, segment, ref):
     ref[0] = PyString_AsString(space, pyref)
     # Stolen reference: the object has better exist somewhere else
     Py_DecRef(space, pyref)
-    return space.int_w(space.len(w_str))
+    return space.len_w(w_str)
+
+@cpython_api([PyObject, lltype.Signed, rffi.CCHARPP], lltype.Signed,
+             external=False, error=-1)
+def str_getcharbuffer(space, w_str, segment, ref):
+    from pypy.module.cpyext.stringobject import PyString_AsString
+    if segment != 0:
+        raise OperationError(space.w_SystemError, space.wrap
+                             ("accessing non-existent string segment"))
+    pyref = make_ref(space, w_str)
+    ref[0] = PyString_AsString(space, pyref)
+    # Stolen reference: the object has better exist somewhere else
+    Py_DecRef(space, pyref)
+    return space.len_w(w_str)
 
 def setup_string_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
@@ -378,6 +393,8 @@ def setup_string_buffer_procs(space, pto):
                                       str_segcount.api_func.get_wrapper(space))
     c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
                                  str_getreadbuffer.api_func.get_wrapper(space))
+    c_buf.c_bf_getcharbuffer = llhelper(str_getcharbuffer.api_func.functype,
+                                 str_getcharbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -617,6 +634,3 @@ def _PyType_Lookup(space, type, w_name):
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
     return borrow_from(w_type, w_obj)
-
-
-

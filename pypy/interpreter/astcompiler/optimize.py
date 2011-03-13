@@ -45,9 +45,9 @@ class __extend__(ast.expr):
     def accept_jump_if(self, gen, condition, target):
         self.walkabout(gen)
         if condition:
-            gen.emit_jump(ops.JUMP_IF_TRUE, target)
+            gen.emit_jump(ops.POP_JUMP_IF_TRUE, target, True)
         else:
-            gen.emit_jump(ops.JUMP_IF_FALSE, target)
+            gen.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
 
 
 class __extend__(ast.Num):
@@ -67,6 +67,15 @@ class __extend__(ast.Const):
     def as_constant(self):
         return self.value
 
+class __extend__(ast.Index):
+    def as_constant(self):
+        return self.value.as_constant()
+
+class __extend__(ast.Slice):
+    def as_constant(self):
+        # XXX: this ought to return a slice object if all the indices are
+        # constants, but we don't have a space here.
+        return None
 
 class __extend__(ast.UnaryOp):
 
@@ -83,7 +92,6 @@ class __extend__(ast.BoolOp):
     def _accept_jump_if_any_is(self, gen, condition, target):
         self.values[0].accept_jump_if(gen, condition, target)
         for i in range(1, len(self.values)):
-            gen.emit_op(ops.POP_TOP)
             self.values[i].accept_jump_if(gen, condition, target)
 
     def accept_jump_if(self, gen, condition, target):
@@ -126,7 +134,7 @@ binary_folders = {
     ast.RShift : _binary_fold("rshift"),
     ast.BitOr : _binary_fold("or_"),
     ast.BitXor : _binary_fold("xor"),
-    ast.BitAnd : _binary_fold("and_")
+    ast.BitAnd : _binary_fold("and_"),
 }
 unrolling_binary_folders = unrolling_iterable(binary_folders.items())
 
@@ -275,3 +283,16 @@ class OptimizingVisitor(ast.ASTVisitor):
             consts_w = []
         w_consts = self.space.newtuple(consts_w)
         return ast.Const(w_consts, tup.lineno, tup.col_offset)
+
+    def visit_Subscript(self, subs):
+        if subs.ctx == ast.Load:
+            w_obj = subs.value.as_constant()
+            if w_obj is not None:
+                w_idx = subs.slice.as_constant()
+                if w_idx is not None:
+                    try:
+                        return ast.Const(self.space.getitem(w_obj, w_idx), subs.lineno, subs.col_offset)
+                    except OperationError:
+                        # Let exceptions propgate at runtime.
+                        pass
+        return subs

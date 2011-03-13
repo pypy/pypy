@@ -4,21 +4,23 @@
 
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                         ResOperation, BoxPtr,
-                                         LoopToken, INT, REF, FLOAT)
+                                         ResOperation, BoxPtr, ConstFloat,
+                                         BoxFloat, LoopToken, INT, REF, FLOAT)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.x86.jump import remap_frame_layout
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE, IS_X86_32, IS_X86_64
+from pypy.rlib.rarithmetic import r_longlong, r_uint
 
 class X86RegisterManager(RegisterManager):
 
@@ -69,7 +71,16 @@ class X86XMMRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
-        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        x = c.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
+        return ConstFloatLoc(adr)
+
+    def convert_to_imm_16bytes_align(self, c):
+        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        x = c.getfloatstorage()
+        y = longlong.ZEROF
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
     def after_call(self, v):
@@ -210,17 +221,15 @@ class RegAlloc(object):
                 self.possibly_free_var(var)
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
-                             selected_reg=None, imm_fine=True,
-                             need_lower_byte=False):
+                             selected_reg=None, need_lower_byte=False):
         if var.type == FLOAT:
-            # always pass imm_fine=False for now in this case
+            if isinstance(var, ConstFloat):
+                return FloatImmedLoc(var.getfloatstorage())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
-                                                 selected_reg, False,
-                                                 need_lower_byte)
+                                                 selected_reg, need_lower_byte)
         else:
             return self.rm.make_sure_var_in_reg(var, forbidden_vars,
-                                                selected_reg, imm_fine,
-                                                need_lower_byte)
+                                                selected_reg, need_lower_byte)
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
@@ -230,6 +239,14 @@ class RegAlloc(object):
         else:
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
+
+    def load_xmm_aligned_16_bytes(self, var, forbidden_vars=[]):
+        # Load 'var' in a register; but if it is a constant, we can return
+        # a 16-bytes-aligned ConstFloatLoc.
+        if isinstance(var, Const):
+            return self.xrm.convert_to_imm_16bytes_align(var)
+        else:
+            return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
 
     def _compute_loop_consts(self, inputargs, jump, looptoken):
         if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
@@ -280,6 +297,11 @@ class RegAlloc(object):
         if not we_are_translated():
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform(op, arglocs, result_loc)
+
+    def PerformLLong(self, op, arglocs, result_loc):
+        if not we_are_translated():
+            self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
+        self.assembler.regalloc_perform_llong(op, arglocs, result_loc)
 
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
@@ -375,35 +397,42 @@ class RegAlloc(object):
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
         # operations that is a "last-time-seen"
-        longevity = {}
-        start_live = {}
-        for inputarg in inputargs:
-            start_live[inputarg] = 0
-        for i in range(len(operations)):
+        produced = {}
+        last_used = {}
+        for i in range(len(operations)-1, -1, -1):
             op = operations[i]
-            if op.result is not None:
-                start_live[op.result] = i
+            if op.result:
+                if op.result not in last_used and op.has_no_side_effect():
+                    continue
+                assert op.result not in produced
+                produced[op.result] = i
             for j in range(op.numargs()):
                 arg = op.getarg(j)
-                if isinstance(arg, Box):
-                    if arg not in start_live:
-                        not_implemented("Bogus arg in operation %d at %d" %
-                                        (op.getopnum(), i))
-                    longevity[arg] = (start_live[arg], i)
+                if isinstance(arg, Box) and arg not in last_used:
+                    last_used[arg] = i
             if op.is_guard():
                 for arg in op.getfailargs():
                     if arg is None: # hole
                         continue
                     assert isinstance(arg, Box)
-                    if arg not in start_live:
-                        not_implemented("Bogus arg in guard %d at %d" %
-                                        (op.getopnum(), i))
-                    longevity[arg] = (start_live[arg], i)
+                    if arg not in last_used:
+                        last_used[arg] = i
+                        
+        longevity = {}
+        for arg in produced:
+            if arg in last_used:
+                assert isinstance(arg, Box)
+                assert produced[arg] < last_used[arg]
+                longevity[arg] = (produced[arg], last_used[arg])
+                del last_used[arg]
         for arg in inputargs:
-            if arg not in longevity:
-                longevity[arg] = (-1, -1)
-        for arg in longevity:
             assert isinstance(arg, Box)
+            if arg not in last_used:
+                longevity[arg] = (-1, -1)
+            else:
+                longevity[arg] = (0, last_used[arg])
+                del last_used[arg]
+        assert len(last_used) == 0
         return longevity
 
     def loc(self, v):
@@ -583,11 +612,15 @@ class RegAlloc(object):
     consider_float_truediv = _consider_float_op
 
     def _consider_float_cmp(self, op, guard_op):
-        args = op.getarglist()
-        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), args,
-                                             imm_fine=False)
-        loc1 = self.xrm.loc(op.getarg(1))
-        arglocs = [loc0, loc1]
+        vx = op.getarg(0)
+        vy = op.getarg(1)
+        arglocs = [self.loc(vx), self.loc(vy)]
+        if not (isinstance(arglocs[0], RegLoc) or
+                isinstance(arglocs[1], RegLoc)):
+            if isinstance(vx, Const):
+                arglocs[1] = self.xrm.make_sure_var_in_reg(vy)
+            else:
+                arglocs[0] = self.xrm.make_sure_var_in_reg(vx)
         self.xrm.possibly_free_vars_for_op(op)
         if guard_op is None:
             res = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
@@ -613,7 +646,7 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(op.getarg(0))
 
     def consider_cast_float_to_int(self, op):
-        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), imm_fine=False)
+        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
         loc1 = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [loc0], loc1)
         self.xrm.possibly_free_var(op.getarg(0))
@@ -623,6 +656,79 @@ class RegAlloc(object):
         loc1 = self.xrm.force_allocate_reg(op.result)
         self.Perform(op, [loc0], loc1)
         self.rm.possibly_free_var(op.getarg(0))
+
+    def _consider_llong_binop_xx(self, op):
+        # must force both arguments into xmm registers, because we don't
+        # know if they will be suitably aligned.  Exception: if the second
+        # argument is a constant, we can ask it to be aligned to 16 bytes.
+        args = [op.getarg(1), op.getarg(2)]
+        loc1 = self.load_xmm_aligned_16_bytes(args[1])
+        loc0 = self.xrm.force_result_in_reg(op.result, args[0], args)
+        self.PerformLLong(op, [loc0, loc1], loc0)
+        self.xrm.possibly_free_vars(args)
+
+    def _consider_llong_eq_ne_xx(self, op):
+        # must force both arguments into xmm registers, because we don't
+        # know if they will be suitably aligned.  Exception: if they are
+        # constants, we can ask them to be aligned to 16 bytes.
+        args = [op.getarg(1), op.getarg(2)]
+        loc1 = self.load_xmm_aligned_16_bytes(args[0])
+        loc2 = self.load_xmm_aligned_16_bytes(args[1], args)
+        tmpxvar = TempBox()
+        loc3 = self.xrm.force_allocate_reg(tmpxvar, args)
+        self.xrm.possibly_free_var(tmpxvar)
+        loc0 = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
+        self.PerformLLong(op, [loc1, loc2, loc3], loc0)
+        self.xrm.possibly_free_vars(args)
+
+    def _maybe_consider_llong_lt(self, op):
+        # XXX just a special case for now
+        box = op.getarg(2)
+        if not isinstance(box, ConstFloat):
+            return False
+        if box.getlonglong() != 0:
+            return False
+        # "x < 0"
+        box = op.getarg(1)
+        assert isinstance(box, BoxFloat)
+        loc1 = self.xrm.make_sure_var_in_reg(box)
+        loc0 = self.rm.force_allocate_reg(op.result)
+        self.PerformLLong(op, [loc1], loc0)
+        self.xrm.possibly_free_var(box)
+        return True
+
+    def _consider_llong_to_int(self, op):
+        # accept an argument in a xmm register or in the stack
+        loc1 = self.xrm.loc(op.getarg(1))
+        loc0 = self.rm.force_allocate_reg(op.result)
+        self.PerformLLong(op, [loc1], loc0)
+        self.xrm.possibly_free_var(op.getarg(1))
+
+    def _loc_of_const_longlong(self, value64):
+        c = ConstFloat(value64)
+        return self.xrm.convert_to_imm(c)
+
+    def _consider_llong_from_int(self, op):
+        assert IS_X86_32
+        loc0 = self.xrm.force_allocate_reg(op.result)
+        box = op.getarg(1)
+        if isinstance(box, ConstInt):
+            loc1 = self._loc_of_const_longlong(r_longlong(box.value))
+            loc2 = None    # unused
+        else:
+            loc1 = self.rm.make_sure_var_in_reg(box)
+            tmpxvar = TempBox()
+            loc2 = self.xrm.force_allocate_reg(tmpxvar, [op.result])
+            self.xrm.possibly_free_var(tmpxvar)
+        self.PerformLLong(op, [loc1, loc2], loc0)
+        self.rm.possibly_free_var(box)
+
+    def _consider_llong_from_uint(self, op):
+        assert IS_X86_32
+        loc0 = self.xrm.force_allocate_reg(op.result)
+        loc1 = self.rm.make_sure_var_in_reg(op.getarg(1))
+        self.PerformLLong(op, [loc1], loc0)
+        self.rm.possibly_free_vars_for_op(op)
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
@@ -655,6 +761,31 @@ class RegAlloc(object):
                    guard_not_forced_op=guard_not_forced_op)
 
     def consider_call(self, op):
+        if IS_X86_32:
+            # support for some of the llong operations,
+            # which only exist on x86-32
+            effectinfo = op.getdescr().get_extra_info()
+            if effectinfo is not None:
+                oopspecindex = effectinfo.oopspecindex
+                if oopspecindex in (EffectInfo.OS_LLONG_ADD,
+                                    EffectInfo.OS_LLONG_SUB,
+                                    EffectInfo.OS_LLONG_AND,
+                                    EffectInfo.OS_LLONG_OR,
+                                    EffectInfo.OS_LLONG_XOR):
+                    return self._consider_llong_binop_xx(op)
+                if oopspecindex == EffectInfo.OS_LLONG_TO_INT:
+                    return self._consider_llong_to_int(op)
+                if oopspecindex == EffectInfo.OS_LLONG_FROM_INT:
+                    return self._consider_llong_from_int(op)
+                if oopspecindex == EffectInfo.OS_LLONG_FROM_UINT:
+                    return self._consider_llong_from_uint(op)
+                if (oopspecindex == EffectInfo.OS_LLONG_EQ or
+                    oopspecindex == EffectInfo.OS_LLONG_NE):
+                    return self._consider_llong_eq_ne_xx(op)
+                if oopspecindex == EffectInfo.OS_LLONG_LT:
+                    if self._maybe_consider_llong_lt(op):
+                        return
+        #
         self._consider_call(op)
 
     def consider_call_may_force(self, op, guard_op):
@@ -684,8 +815,7 @@ class RegAlloc(object):
         # ^^^ we force loc_newvalue in a reg (unless it's a Const),
         # because it will be needed anyway by the following setfield_gc.
         # It avoids loading it twice from the memory.
-        loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args,
-                                                imm_fine=False)
+        loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         arglocs = [loc_base, loc_newvalue]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these

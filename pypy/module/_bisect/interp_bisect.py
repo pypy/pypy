@@ -1,6 +1,8 @@
-from pypy.interpreter.gateway import ObjSpace, W_Root
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec
 
 
+@unwrap_spec(lo=int, hi=int)
 def bisect_left(space, w_a, w_x, lo=0, hi=-1):
     """Return the index where to insert item x in list a, assuming a is sorted.
 
@@ -10,8 +12,11 @@ before the leftmost x already there.
 
 Optional args lo (default 0) and hi (default len(a)) bound the
 slice of a to be searched."""
+    if lo < 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("lo must be non-negative"))
     if hi == -1:
-        hi = space.int_w(space.len(w_a))
+        hi = space.len_w(w_a)
     while lo < hi:
         mid = (lo + hi) >> 1
         w_litem = space.getitem(w_a, space.wrap(mid))
@@ -20,9 +25,9 @@ slice of a to be searched."""
         else:
             hi = mid
     return space.wrap(lo)
-bisect_left.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int]
 
 
+@unwrap_spec(lo=int, hi=int)
 def bisect_right(space, w_a, w_x, lo=0, hi=-1):
     """Return the index where to insert item x in list a, assuming a is sorted.
 
@@ -32,8 +37,11 @@ beyond the rightmost x already there
 
 Optional args lo (default 0) and hi (default len(a)) bound the
 slice of a to be searched."""
+    if lo < 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("lo must be non-negative"))
     if hi == -1:
-        hi = space.int_w(space.len(w_a))
+        hi = space.len_w(w_a)
     while lo < hi:
         mid = (lo + hi) >> 1
         w_litem = space.getitem(w_a, space.wrap(mid))
@@ -42,4 +50,3 @@ slice of a to be searched."""
         else:
             lo = mid + 1
     return space.wrap(lo)
-bisect_right.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int]

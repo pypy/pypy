@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import isnan, isinf
+from pypy.rlib.rfloat import isnan, isinf
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator
 from pypy.translator.oosupport.constant import push_constant

@@ -59,17 +59,27 @@ def makePyPseudoDFA ():
     hexNumber = chain(states,
                       newArcPair(states, "0"),
                       groupStr(states, "xX"),
-                      any(states, groupStr(states, "0123456789abcdefABCDEF")),
+                      atleastonce(states,
+                                  groupStr(states, "0123456789abcdefABCDEF")),
                       maybe(states, groupStr(states, "lL")))
     octNumber = chain(states,
                       newArcPair(states, "0"),
+                      maybe(states,
+                            chain(states,
+                                  groupStr(states, "oO"),
+                                  groupStr(states, "01234567"))),
                       any(states, groupStr(states, "01234567")),
+                      maybe(states, groupStr(states, "lL")))
+    binNumber = chain(states,
+                      newArcPair(states, "0"),
+                      groupStr(states, "bB"),
+                      atleastonce(states, groupStr(states, "01")),
                       maybe(states, groupStr(states, "lL")))
     decNumber = chain(states,
                       groupStr(states, "123456789"),
                       any(states, makeDigits()),
                       maybe(states, groupStr(states, "lL")))
-    intNumber = group(states, hexNumber, octNumber, decNumber)
+    intNumber = group(states, hexNumber, octNumber, binNumber, decNumber)
     # ____________________________________________________________
     # Exponents
     def makeExp ():
@@ -135,7 +145,7 @@ def makePyPseudoDFA ():
     # ____________________________________________________________
     def makeStrPrefix ():
         return chain(states,
-                     maybe(states, groupStr(states, "uU")),
+                     maybe(states, groupStr(states, "uUbB")),
                      maybe(states, groupStr(states, "rR")))
     # ____________________________________________________________
     contStr = group(states,
@@ -242,8 +252,10 @@ def makePyEndDFAMap ():
            "r" : None,
            "R" : None,
            "u" : None,
-           "U" : None}
-    for uniPrefix in ("", "u", "U", ):
+           "U" : None,
+           "b" : None,
+           "B" : None}
+    for uniPrefix in ("", "u", "U", "b", "B", ):
         for rawPrefix in ("", "r", "R"):
             prefix = uniPrefix + rawPrefix
             map[prefix + "'''"] = single3DFA

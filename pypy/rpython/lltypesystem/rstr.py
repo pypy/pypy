@@ -145,6 +145,8 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     def ll_str(self, s):
         # XXX crazy that this is here, but I don't want to break
         #     rmodel logic
+        if not s:
+            return self.ll.ll_constant('None')
         lgt = len(s.chars)
         result = mallocstr(lgt)
         for i in range(lgt):
@@ -487,6 +489,7 @@ class LLHelpers(AbstractLLHelpers):
                 return i
             i += 1
         return -1
+    ll_find_char._annenforceargs_ = [None, None, int, int]
 
     @purefunction
     def ll_rfind_char(s, ch, start, end):
@@ -512,7 +515,6 @@ class LLHelpers(AbstractLLHelpers):
         return count
 
     @classmethod
-    @purefunction
     def ll_find(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -526,11 +528,10 @@ class LLHelpers(AbstractLLHelpers):
             return start
         elif m == 1:
             return cls.ll_find_char(s1, s2.chars[0], start, end)
-        
+
         return cls.ll_search(s1, s2, start, end, FAST_FIND)
 
     @classmethod
-    @purefunction
     def ll_rfind(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -544,11 +545,10 @@ class LLHelpers(AbstractLLHelpers):
             return end
         elif m == 1:
             return cls.ll_rfind_char(s1, s2.chars[0], start, end)
-        
+
         return cls.ll_search(s1, s2, start, end, FAST_RFIND)
 
     @classmethod
-    @purefunction
     def ll_count(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -562,7 +562,7 @@ class LLHelpers(AbstractLLHelpers):
             return end - start + 1
         elif m == 1:
             return cls.ll_count_char(s1, s2.chars[0], start, end)
-            
+
         res = cls.ll_search(s1, s2, start, end, FAST_COUNT)
         # For a few cases ll_search can return -1 to indicate an "impossible"
         # condition for a string match, count just returns 0 in these cases.
@@ -675,19 +675,21 @@ class LLHelpers(AbstractLLHelpers):
         return result
     ll_join_strs._annenforceargs_ = [int, None]
 
-    def ll_join_chars(length, chars):
+    def ll_join_chars(length, chars, RES):
         # no need to optimize this, will be replaced by string builder
         # at some point soon
         num_chars = length
-        if typeOf(chars).TO.OF == Char:
+        if RES is StringRepr.lowleveltype:
+            target = Char
             malloc = mallocstr
         else:
+            target = UniChar
             malloc = mallocunicode
         result = malloc(num_chars)
         res_chars = result.chars
         i = 0
         while i < num_chars:
-            res_chars[i] = chars[i]
+            res_chars[i] = cast_primitive(target, chars[i])
             i += 1
         return result
 

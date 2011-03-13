@@ -1,6 +1,8 @@
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+from _ctypes.primitive import SimpleType
 from _ctypes.basics import ArgumentError, keepalive_key
+from _ctypes.builtin import set_errno, set_last_error
 import _rawffi
 import sys
 import traceback
@@ -97,7 +99,7 @@ class CFuncPtr(_CData):
     def _ffishapes(self, args, restype):
         argtypes = [arg._ffiargshape for arg in args]
         if restype is not None:
-            if not isinstance(restype, _CDataMeta):
+            if not isinstance(restype, SimpleType):
                 raise TypeError("invalid result type for callback function")
             restype = restype._ffiargshape
         else:
@@ -108,51 +110,73 @@ class CFuncPtr(_CData):
         self.name = None
         self._objects = {keepalive_key(0):self}
         self._needs_free = True
-        argument = None
-        if len(args) == 1:
-            argument = args[0]
 
-        if isinstance(argument, (int, long)):
-            # direct construction from raw address
+        # Empty function object -- this is needed for casts
+        if not args:
+            self._buffer = _rawffi.Array('P')(1)
+            return
+
+        args = list(args)
+        argument = args.pop(0)
+
+        # Direct construction from raw address
+        if isinstance(argument, (int, long)) and not args:
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
-            self._ptr = _rawffi.FuncPtr(argument, ffiargs, ffires,
-                                        self._flags_)
+            self._ptr = _rawffi.FuncPtr(argument, ffiargs, ffires, self._flags_)
             self._buffer = self._ptr.byptr()
-        elif callable(argument):
-            # A callback into python
+            return
+
+        # A callback into python
+        if callable(argument) and not args:
             self.callable = argument
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
-            self._ptr = _rawffi.CallbackPtr(self._wrap_callable(argument,
-                                                                self.argtypes),
-                                            ffiargs, ffires, self._flags_)
+            if self._restype_ is None:
+                ffires = None
+            self._ptr = _rawffi.CallbackPtr(self._wrap_callable(
+                argument, self.argtypes
+                ), ffiargs, ffires, self._flags_)
             self._buffer = self._ptr.byptr()
-        elif isinstance(argument, tuple) and len(argument) == 2:
-            # function exported from a shared library
+            return
+
+        # Function exported from a shared library
+        if isinstance(argument, tuple) and len(argument) == 2:
             import ctypes
-            self.name, self.dll = argument
-            if isinstance(self.dll, str):
-                self.dll = ctypes.CDLL(self.dll)
+            name, dll = argument
+            # XXX Implement support for foreign function ordinal
+            if not isinstance(name, basestring):
+                raise NotImplementedError(
+                    "Support for foreign functions exported by ordinal "
+                    "hasn't been implemented yet."
+                    )
+            self.name = name
+            if isinstance(dll, str):
+                self.dll = ctypes.CDLL(dll)
+            else:
+                self.dll = dll
+            if args:
+                self._paramflags = args.pop(0)
+                if args:
+                    raise TypeError("Unknown constructor %s" % (args,))
             # we need to check dll anyway
             ptr = self._getfuncptr([], ctypes.c_int)
             self._buffer = ptr.byptr()
-
-        elif (sys.platform == 'win32' and
-              len(args) >= 2 and isinstance(args[0], (int, long))):
-            # A COM function call, by index
-            ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
-            self._com_index =  args[0] + 0x1000
-            self.name = args[1]
-            if len(args) > 2:
-                self._paramflags = args[2]
-            # XXX ignored iid = args[3]
-
-        elif len(args) == 0:
-            # Empty function object.
-            # this is needed for casts
-            self._buffer = _rawffi.Array('P')(1)
             return
-        else:
-            raise TypeError("Unknown constructor %s" % (args,))
+
+        # A COM function call, by index
+        if (sys.platform == 'win32' and isinstance(argument, (int, long))
+            and args):
+            ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
+            self._com_index =  argument + 0x1000
+            self.name = args.pop(0)
+            if args:
+                self._paramflags = args.pop(0)
+                if args:
+                    raise TypeError("Unknown constructor %s" % (args,))
+            # XXX Implement support for the optional ``iid`` pointer to the
+            # interface identifier used in extended error reporting.
+            return
+
+        raise TypeError("Unknown constructor %s" % (args,))
 
     def _wrap_callable(self, to_call, argtypes):
         def f(*args):
@@ -162,9 +186,31 @@ class CFuncPtr(_CData):
             return to_call(*args)
         return f
     
-    def __call__(self, *args):
+    def __call__(self, *args, **kwargs):
         if self.callable is not None:
-            args = args[:len(self._argtypes_)]
+            if len(args) == len(self._argtypes_):
+                pass
+            elif self._flags_ & _rawffi.FUNCFLAG_CDECL:
+                if len(args) < len(self._argtypes_):
+                    plural = len(self._argtypes_) > 1 and "s" or ""
+                    raise TypeError(
+                        "This function takes at least %d argument%s (%s given)"
+                        % (len(self._argtypes_), plural, len(args)))
+                else:
+                    # For cdecl functions, we allow more actual arguments
+                    # than the length of the argtypes tuple.
+                    args = args[:len(self._argtypes_)]
+            else:
+                plural = len(self._argtypes_) > 1 and "s" or ""
+                raise TypeError(
+                    "This function takes %d argument%s (%s given)"
+                    % (len(self._argtypes_), plural, len(args)))
+
+            # check that arguments are convertible
+            ## XXX Not as long as ctypes.cast is a callback function with
+            ## py_object arguments...
+            ## self._convert_args(self._argtypes_, args)
+
             try:
                 res = self.callable(*args)
             except:
@@ -188,13 +234,23 @@ class CFuncPtr(_CData):
             
         if argtypes is None:
             argtypes = []
-        args = self._convert_args(argtypes, args)
+        args, output_values = self._convert_args(argtypes, args, kwargs)
         argtypes = [type(arg) for arg in args]
         
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype, thisarg)
-        resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
-                              for arg in args])
+        if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
+            set_errno(_rawffi.get_errno())
+        if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
+            set_last_error(_rawffi.get_last_error())
+        try:
+            resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
+                                  for arg in args])
+        finally:
+            if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
+                set_errno(_rawffi.get_errno())
+            if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
+                set_last_error(_rawffi.get_last_error())
         result = self._build_result(restype, resbuffer, argtypes, args)
 
         # The 'errcheck' protocol
@@ -207,6 +263,11 @@ class CFuncPtr(_CData):
             # use that as result.
             if v is not args:
                 result = v
+
+        if output_values:
+            if len(output_values) == 1:
+                return output_values[0]
+            return tuple(output_values)
 
         return result
 
@@ -253,7 +314,7 @@ class CFuncPtr(_CData):
             raise
 
     @staticmethod
-    def _conv_param(argtype, arg, index):
+    def _conv_param(argtype, arg):
         from ctypes import c_char_p, c_wchar_p, c_void_p, c_int
         if argtype is not None:
             arg = argtype.from_param(arg)
@@ -276,20 +337,24 @@ class CFuncPtr(_CData):
 
         return cobj
 
-    def _convert_args(self, argtypes, args):
+    def _convert_args(self, argtypes, args, kwargs):
         wrapped_args = []
+        output_values = []
         consumed = 0
 
+        # XXX Implement support for kwargs/name
         for i, argtype in enumerate(argtypes):
             defaultvalue = None
-            if i > 0 and self._paramflags is not None:
-                paramflag = self._paramflags[i-1]
-                if len(paramflag) == 2:
+            if self._paramflags is not None:
+                paramflag = self._paramflags[i]
+                paramlen = len(paramflag)
+                name = None
+                if paramlen == 1:
+                    idlflag = paramflag[0]
+                elif paramlen == 2:
                     idlflag, name = paramflag
-                elif len(paramflag) == 3:
+                elif paramlen == 3:
                     idlflag, name, defaultvalue = paramflag
-                else:
-                    idlflag = 0
                 idlflag &= (PARAMFLAG_FIN | PARAMFLAG_FOUT | PARAMFLAG_FLCID)
 
                 if idlflag in (0, PARAMFLAG_FIN):
@@ -297,8 +362,8 @@ class CFuncPtr(_CData):
                 elif idlflag == PARAMFLAG_FOUT:
                     import ctypes
                     val = argtype._type_()
-                    wrapped = (val, ctypes.byref(val))
-                    wrapped_args.append(wrapped)
+                    output_values.append(val)
+                    wrapped_args.append(ctypes.byref(val))
                     continue
                 elif idlflag == PARAMFLAG_FIN | PARAMFLAG_FLCID:
                     # Always taken from defaultvalue if given,
@@ -306,12 +371,12 @@ class CFuncPtr(_CData):
                     val = defaultvalue
                     if val is None:
                         val = 0
-                    wrapped = self._conv_param(argtype, val, consumed)
+                    wrapped = self._conv_param(argtype, val)
                     wrapped_args.append(wrapped)
                     continue
                 else:
                     raise NotImplementedError(
-                        "paramflags = %s" % (self._paramflags[i-1],))
+                        "paramflags = %s" % (self._paramflags[i],))
 
             if consumed < len(args):
                 arg = args[consumed]
@@ -321,7 +386,7 @@ class CFuncPtr(_CData):
                 raise TypeError("Not enough arguments")
 
             try:
-                wrapped = self._conv_param(argtype, arg, consumed)
+                wrapped = self._conv_param(argtype, arg)
             except (UnicodeError, TypeError, ValueError), e:
                 raise ArgumentError(str(e))
             wrapped_args.append(wrapped)
@@ -332,11 +397,11 @@ class CFuncPtr(_CData):
             argtypes = list(argtypes)
             for i, arg in enumerate(extra):
                 try:
-                    wrapped = self._conv_param(None, arg, i)
+                    wrapped = self._conv_param(None, arg)
                 except (UnicodeError, TypeError, ValueError), e:
                     raise ArgumentError(str(e))
                 wrapped_args.append(wrapped)
-        return wrapped_args
+        return wrapped_args, output_values
 
     def _build_result(self, restype, resbuffer, argtypes, argsandobjs):
         """Build the function result:

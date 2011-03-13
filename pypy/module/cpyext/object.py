@@ -20,7 +20,7 @@ def PyObject_MALLOC(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw', zero=True)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_FREE(space, ptr):
     lltype.free(ptr, flavor='raw')
 
@@ -42,14 +42,14 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Del(space, obj):
     lltype.free(obj, flavor='raw')
 
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
     pto = obj.c_ob_type
-    obj_voidp = rffi.cast(rffi.VOIDP_real, obj)
+    obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         Py_DecRef(space, rffi.cast(PyObject, pto))
@@ -58,11 +58,11 @@ def PyObject_dealloc(space, obj):
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
     PyObject_Del(space, obj)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Track(space, op):
     """Adds the object op to the set of container objects tracked by the
     collector.  The collector can run at unexpected times so objects must be
@@ -71,7 +71,7 @@ def PyObject_GC_Track(space, op):
     end of the constructor."""
     pass
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_UnTrack(space, op):
     """Remove the object op from the set of container objects tracked by the
     collector.  Note that PyObject_GC_Track() can be called again on
@@ -156,7 +156,7 @@ def PyObject_ClearWeakRefs(space, w_object):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyObject_Size(space, w_obj):
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCallable_Check(space, w_obj):
@@ -399,7 +399,7 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
                         obj, lltype.nullptr(rffi.INTP.TO)) != 1:
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a single-segment buffer object"))
-    size = generic_cpy_call(space, pb.c_bf_getreadbuffer,
+    size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
                             obj, 0, bufferp)
     if size < 0:
         return -1
@@ -420,7 +420,7 @@ def PyObject_Print(space, w_obj, fp, flags):
     else:
         w_str = space.repr(w_obj)
 
-    count = space.int_w(space.len(w_str))
+    count = space.len_w(w_str)
     data = space.str_w(w_str)
     buf = rffi.get_nonmovingbuffer(data)
     try:

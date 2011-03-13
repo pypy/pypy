@@ -1,9 +1,9 @@
-import py, struct
-from pypy.jit.codewriter.assembler import Assembler
+import py, struct, sys
+from pypy.jit.codewriter.assembler import Assembler, AssemblerError
 from pypy.jit.codewriter.flatten import SSARepr, Label, TLabel, Register
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter.jitcode import MissingLiveness
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.metainterp.history import AbstractDescr
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -61,7 +61,28 @@ def test_assemble_float_consts():
                             "\x00\xFE"
                             "\x00\xFD")
     assert assembler.insns == {'float_return/f': 0}
-    assert jitcode.constants_f == [18.0, -4.0, 128.1]
+    assert jitcode.constants_f == [longlong.getfloatstorage(18.0),
+                                   longlong.getfloatstorage(-4.0),
+                                   longlong.getfloatstorage(128.1)]
+
+def test_assemble_llong_consts():
+    if sys.maxint > 2147483647:
+        py.test.skip("only for 32-bit platforms")
+    from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+    ssarepr = SSARepr("test")
+    ssarepr.insns = [
+        ('float_return', Constant(r_longlong(-18000000000000000),
+                                  lltype.SignedLongLong)),
+        ('float_return', Constant(r_ulonglong(9900000000000000000),
+                                  lltype.UnsignedLongLong)),
+        ]
+    assembler = Assembler()
+    jitcode = assembler.assemble(ssarepr)
+    assert jitcode.code == ("\x00\xFF"
+                            "\x00\xFE")
+    assert assembler.insns == {'float_return/f': 0}
+    assert jitcode.constants_f == [r_longlong(-18000000000000000),
+                                   r_longlong(-8546744073709551616)]
 
 def test_assemble_cast_consts():
     ssarepr = SSARepr("test")
@@ -206,3 +227,12 @@ def test_liveness():
             py.test.raises(MissingLiveness, jitcode._live_vars, i)
     assert jitcode._live_vars(4) == '%i0 %i1 %i2'
     assert jitcode._live_vars(8) == '%i2'
+
+def test_assemble_error_string_constant():
+    ssarepr = SSARepr("test")
+    c = Constant('foobar', lltype.Void)
+    ssarepr.insns = [
+        ('duh', c),
+        ]
+    assembler = Assembler()
+    py.test.raises(AssemblerError, assembler.assemble, ssarepr)

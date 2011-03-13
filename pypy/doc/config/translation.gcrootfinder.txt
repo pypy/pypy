@@ -2,7 +2,7 @@ Choose method how to find roots in the GC. Boehm and refcounting have their own
 methods, this is mostly only interesting for framework GCs. For those you have
 a choice of various alternatives:
 
- - use a shadow stack (XXX link to paper), e.g. explicitely maintaining a stack
+ - use a shadow stack (XXX link to paper), e.g. explicitly maintaining a stack
    of roots
 
  - use stackless to find roots by unwinding the stack.  Requires

@@ -81,8 +81,6 @@ You can also have a look around our documentation_.
 
 
 .. _`efficient propagators for specialized finite domains`: http://codespeak.net/svn/pypy/extradoc/soc-2006/constraints.txt
-.. _`py.test`: http://codespeak.net/py/current/doc/test.html
-.. _`py.execnet`: http://codespeak.net/py/current/doc/execnet.html
 .. _`object spaces`: objspace.html
 .. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
 

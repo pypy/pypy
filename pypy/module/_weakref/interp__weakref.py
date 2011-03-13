@@ -120,11 +120,29 @@ class W_WeakrefBase(Wrappable):
             except OperationError, e:
                 e.write_unraisable(w_self.space, 'weakref callback ', w_self.w_callable)
 
+    def descr__repr__(self, space):
+        w_obj = self.dereference()
+        if w_obj is None:
+            state = '; dead'
+        else:
+            typename = space.type(w_obj).getname(space, '?')
+            objname = w_obj.getname(space, '')
+            if objname:
+                state = "; to '%s' (%s)" % (typename, objname)
+            else:
+                state = "; to '%s'" % (typename,)
+        return self.getrepr(space, self.typedef.name, state)
 
 class W_Weakref(W_WeakrefBase):
     def __init__(w_self, space, w_obj, w_callable):
         W_WeakrefBase.__init__(w_self, space, w_obj, w_callable)
         w_self.w_hash = None
+
+    def descr__init__weakref(self, space, w_obj, w_callable=None,
+                             __args__=None):
+        if __args__.arguments_w:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "__init__ expected at most 2 arguments"))
 
     def descr_hash(self):
         if self.w_hash is not None:
@@ -142,56 +160,42 @@ class W_Weakref(W_WeakrefBase):
             return self.space.w_None
         return w_obj
 
+    def descr__eq__(self, space, w_ref2):
+        if not isinstance(w_ref2, W_Weakref):
+            return space.w_NotImplemented
+        ref1 = self
+        ref2 = w_ref2
+        w_obj1 = ref1.dereference()
+        w_obj2 = ref2.dereference()
+        if (w_obj1 is None or
+            w_obj2 is None):
+            return space.is_(ref1, ref2)
+        return space.eq(w_obj1, w_obj2)
+
+    def descr__ne__(self, space, w_ref2):
+        return space.not_(space.eq(self, w_ref2))
+
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
                         __args__=None):
+    if __args__.arguments_w:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "__new__ expected at most 2 arguments"))
     lifeline = w_obj.getweakref()
     if lifeline is None:
         lifeline = WeakrefLifeline(space)
         w_obj.setweakref(space, lifeline)
     return lifeline.get_or_make_weakref(space, w_subtype, w_obj, w_callable)
 
-def descr__eq__(space, ref1, w_ref2):
-    if not isinstance(w_ref2, W_Weakref):
-        return space.w_NotImplemented
-    ref2 = w_ref2
-    w_obj1 = ref1.dereference()
-    w_obj2 = ref2.dereference()
-    if (w_obj1 is None or
-        w_obj2 is None):
-        return space.is_(ref1, ref2)
-    return space.eq(w_obj1, w_obj2)
-
-def descr__ne__(space, ref1, w_ref2):
-    return space.not_(space.eq(ref1, w_ref2))
-
-def descr__repr__(space, ref):
-    w_obj = ref.dereference()
-    if w_obj is None:
-        state = '; dead'
-    else:
-        typename = space.type(w_obj).getname(space, '?')
-        objname = w_obj.getname(space, '')
-        if objname:
-            state = "; to '%s' (%s)" % (typename, objname)
-        else:
-            state = "; to '%s'" % (typename,)
-    return ref.getrepr(space, ref.typedef.name, state)
-
-reprdescr = interp2app(descr__repr__, unwrap_spec=[ObjSpace, W_WeakrefBase])
-
 W_Weakref.typedef = TypeDef("weakref",
     __doc__ = """A weak reference to an object 'obj'.  A 'callback' can be given,
 which is called with 'obj' as an argument when it is about to be finalized.""",
-    __new__ = interp2app(descr__new__weakref,
-                         unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root,
-                                      Arguments]),
-    __eq__ = interp2app(descr__eq__,
-                        unwrap_spec=[ObjSpace, W_Weakref, W_Root]),
-    __ne__ = interp2app(descr__ne__,
-                        unwrap_spec=[ObjSpace, W_Weakref, W_Root]),
-    __hash__ = interp2app(W_Weakref.descr_hash, unwrap_spec=['self']),
-    __repr__ = reprdescr,
-    __call__ = interp2app(W_Weakref.descr_call, unwrap_spec=['self'])
+    __new__ = interp2app(descr__new__weakref),
+    __init__ = interp2app(W_Weakref.descr__init__weakref),
+    __eq__ = interp2app(W_Weakref.descr__eq__),
+    __ne__ = interp2app(W_Weakref.descr__ne__),
+    __hash__ = interp2app(W_Weakref.descr_hash),
+    __call__ = interp2app(W_Weakref.descr_call),
+    __repr__ = interp2app(W_WeakrefBase.descr__repr__),
 )
 
 
@@ -280,24 +284,28 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
 
     func.func_name = opname
     for special_method in special_methods:
-        proxy_typedef_dict[special_method] = interp2app(
-            func, unwrap_spec=[ObjSpace] + [W_Root] * arity)
-        callable_proxy_typedef_dict[special_method] = interp2app(
-            func, unwrap_spec=[ObjSpace] + [W_Root] * arity)
+        proxy_typedef_dict[special_method] = interp2app(func)
+        callable_proxy_typedef_dict[special_method] = interp2app(func)
+
+# __unicode__ is not yet a space operation
+def proxy_unicode(space, w_obj):
+    w_obj = force(space, w_obj)
+    return space.call_method(w_obj, '__unicode__')
+proxy_typedef_dict['__unicode__'] = interp2app(proxy_unicode)
+callable_proxy_typedef_dict['__unicode__'] = interp2app(proxy_unicode)
 
 
 W_Proxy.typedef = TypeDef("weakproxy",
     __new__ = interp2app(descr__new__proxy),
-    __hash__ = interp2app(W_Proxy.descr__hash__, unwrap_spec=['self', ObjSpace]),
-    __repr__ = reprdescr,
+    __hash__ = interp2app(W_Proxy.descr__hash__),
+    __repr__ = interp2app(W_WeakrefBase.descr__repr__),
     **proxy_typedef_dict)
 W_Proxy.typedef.acceptable_as_base_class = False
 
 W_CallableProxy.typedef = TypeDef("weakcallableproxy",
     __new__ = interp2app(descr__new__callableproxy),
-    __hash__ = interp2app(W_Proxy.descr__hash__, unwrap_spec=['self', ObjSpace]),
-    __repr__ = reprdescr,
-    __call__ = interp2app(W_CallableProxy.descr__call__,
-                          unwrap_spec=['self', ObjSpace, Arguments]), 
+    __hash__ = interp2app(W_Proxy.descr__hash__),
+    __repr__ = interp2app(W_WeakrefBase.descr__repr__),
+    __call__ = interp2app(W_CallableProxy.descr__call__),
     **callable_proxy_typedef_dict)
 W_CallableProxy.typedef.acceptable_as_base_class = False

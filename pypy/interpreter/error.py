@@ -1,6 +1,7 @@
 import os, sys
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import we_are_translated
+from errno import EINTR
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
@@ -56,7 +57,7 @@ class OperationError(Exception):
             s = self._compute_value()
         return '[%s: %s]' % (self.w_type, s)
 
-    def errorstr(self, space):
+    def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
         w_value = self.get_w_value(space)
         if space is None:
@@ -74,7 +75,10 @@ class OperationError(Exception):
                 exc_value = ""
             else:
                 try:
-                    exc_value = space.str_w(space.str(w_value))
+                    if use_repr:
+                        exc_value = space.str_w(space.repr(w_value))
+                    else:
+                        exc_value = space.str_w(space.str(w_value))
                 except OperationError:
                     # oups, cannot __str__ the exception object
                     exc_value = "<oups, exception object itself cannot be str'd>"
@@ -202,19 +206,14 @@ class OperationError(Exception):
                         w_value = space.call_function(w_type, w_value)
                     w_type = space.exception_getclass(w_value)
 
-        elif space.full_exceptions and space.is_w(space.type(w_type),
-                                                  space.w_str):
-            space.warn("raising a string exception is deprecated", 
-                       space.w_DeprecationWarning)
-
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
             w_instclass = space.exception_getclass(w_inst)
             if not space.exception_is_valid_class_w(w_instclass):
                 instclassname = w_instclass.getname(space)
-                msg = ("exceptions must be classes, or instances, "
-                       "or strings (deprecated), not %s")
+                msg = ("exceptions must be old-style classes or derived "
+                       "from BaseException, not %s")
                 raise operationerrfmt(space.w_TypeError, msg, instclassname)
 
             if not space.is_w(w_value, space.w_None):
@@ -235,8 +234,8 @@ class OperationError(Exception):
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
                 objrepr = '?'
-        msg = 'Exception "%s" in %s%s ignored\n' % (self.errorstr(space),
-                                                    where, objrepr)
+        msg = 'Exception %s in %s%s ignored\n' % (
+            self.errorstr(space, use_repr=True), where, objrepr)
         try:
             space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
         except OperationError:
@@ -361,18 +360,26 @@ else:
                                           space.wrap(msg))
         return OperationError(exc, w_error)
 
-def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError'): 
+def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
+                  w_exception_class=None): 
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):
         return wrap_windowserror(space, e, w_filename)
 
     errno = e.errno
+
+    if errno == EINTR:
+        space.getexecutioncontext().checksignals()
+
     try:
         msg = os.strerror(errno)
     except ValueError:
         msg = 'error %d' % errno
-    exc = getattr(space, exception_name)
+    if w_exception_class is None:
+        exc = getattr(space, exception_name)
+    else:
+        exc = w_exception_class
     if w_filename is not None:
         w_error = space.call_function(exc, space.wrap(errno),
                                       space.wrap(msg), w_filename)
@@ -382,12 +389,45 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError'):
     return OperationError(exc, w_error)
 wrap_oserror2._annspecialcase_ = 'specialize:arg(3)'
 
-def wrap_oserror(space, e, filename=None, exception_name='w_OSError'):
+def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
+                 w_exception_class=None):
     if filename is not None:
         return wrap_oserror2(space, e, space.wrap(filename),
-                             exception_name=exception_name)
+                             exception_name=exception_name,
+                             w_exception_class=w_exception_class)
     else:
         return wrap_oserror2(space, e, None,
-                             exception_name=exception_name)
+                             exception_name=exception_name,
+                             w_exception_class=w_exception_class)
 wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
+def exception_from_errno(space, w_type):
+    from pypy.rlib.rposix import get_errno
+
+    errno = get_errno()
+    msg = os.strerror(errno)
+    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
+    return OperationError(w_type, w_error)
+
+def new_exception_class(space, name, w_bases=None, w_dict=None):
+    """Create a new exception type.
+    @param name: the name of the type.
+    @param w_bases: Either an exception type, or a wrapped tuple of
+                    exception types.  default is space.w_Exception.
+    @param w_dict: an optional dictionary to populate the class __dict__.
+    """
+    if '.' in name:
+        module, name = name.rsplit('.', 1)
+    else:
+        module = None
+    if w_bases is None:
+        w_bases = space.newtuple([space.w_Exception])
+    elif not space.isinstance_w(w_bases, space.w_tuple):
+        w_bases = space.newtuple([w_bases])
+    if w_dict is None:
+        w_dict = space.newdict()
+    w_exc = space.call_function(
+        space.w_type, space.wrap(name), w_bases, w_dict)
+    if module:
+        space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
+    return w_exc

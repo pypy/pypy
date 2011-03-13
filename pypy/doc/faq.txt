@@ -6,7 +6,7 @@ Frequently Asked Questions
 
 
 General
-========================================================================
+=======
 
 -------------
 What is PyPy?
@@ -62,13 +62,8 @@ OS X and mostly works under Windows too (but is tested there less
 extensively). PyPy needs a CPython running on the target platform to
 bootstrap, as cross compilation is not really meant to work yet.
 At the moment you need CPython 2.4 (with ctypes) or CPython 2.5 or 2.6
-for the translation process.
+for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
 
-PyPy also basically works in a 64-bit Linux environment, but
-*it requires a 32-bit Intel CPU* for the JIT right now.  (It works
-fine in a 32-bit chroot of an Intel 64.). There is also an ongoing
-summer of code project to provide 64bit support for JIT. It's scheduled
-to be finished by end of summer 2010.
 
 ------------------------------------------------
 Which Python version (2.x?) does PyPy implement?
@@ -151,9 +146,9 @@ work nicely`__ too.
 
 .. _`prolog and javascript`:
 
----------------------------------------------------------------
-Can PyPy support intepreters for other languages beyond Python?
----------------------------------------------------------------
+----------------------------------------------------------------
+Can PyPy support interpreters for other languages beyond Python?
+----------------------------------------------------------------
 
 The toolsuite that translates the PyPy interpreter is quite
 general and can be used to create optimized versions of interpreters
@@ -172,8 +167,9 @@ Currently, we have preliminary versions of a JavaScript interpreter
 .. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _`All of them`: http://codespeak.net/svn/pypy/lang/
 
+
 Development
-========================================================================
+===========
 
 -----------------------------------------------------------
 How do I get into PyPy development?  Can I come to sprints?
@@ -224,8 +220,9 @@ privileges::
 This will disable SELinux's protection and allow PyPy to configure correctly.
 Be sure to enable it again if you need it!
 
+
 PyPy translation tool chain
-========================================================================
+===========================
 
 ----------------------------------------
 Can PyPy compile normal Python programs?
@@ -303,9 +300,9 @@ To read more about the RPython limitations read the `RPython description`_.
 
 .. _`RPython description`: coding-guide.html#restricted-python
 
--------------------------------------------------------------------------
-Does RPython have anything to do with Zope's Restricted Python? 
--------------------------------------------------------------------------
+---------------------------------------------------------------
+Does RPython have anything to do with Zope's Restricted Python?
+---------------------------------------------------------------
 
 No.  `Zope's RestrictedPython`_ aims to provide a sandboxed 
 execution environment for CPython.   `PyPy's RPython`_ is the implementation
@@ -400,9 +397,9 @@ See the `getting-started`_ guide.
 
 .. _`how do I compile my own interpreters`:
 
---------------------------------------
+-------------------------------------
 How do I compile my own interpreters?
---------------------------------------
+-------------------------------------
 
 Start from the example of
 `pypy/translator/goal/targetnopstandalone.py`_, which you compile by

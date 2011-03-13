@@ -1,16 +1,17 @@
 import py
 import os
+import stat
+import errno
 from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.module._file.interp_stream import W_AbstractStream
-from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
+from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror, wrap_oserror_as_ioerror
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, make_weakref_descr
 from pypy.interpreter.typedef import interp_attrproperty_w
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 
 class W_File(W_AbstractStream):
@@ -27,9 +28,13 @@ class W_File(W_AbstractStream):
     stream   = None
     w_name   = None
     mode     = "<uninitialized file>"
+    binary   = False
     softspace= 0     # Required according to file object docs
-    encoding = None  # This is not used internally by file objects
+    encoding = None
+    errors   = None
     fd       = -1
+
+    newlines = 0     # Updated when the stream is closed
 
     def __init__(self, space):
         self.space = space
@@ -43,11 +48,22 @@ class W_File(W_AbstractStream):
     def fdopenstream(self, stream, fd, mode, w_name=None):
         self.fd = fd
         self.mode = mode
+        self.binary = "b" in mode
         if w_name is not None:
             self.w_name = w_name
         self.stream = stream
         if stream.flushable():
             getopenstreams(self.space)[stream] = None
+
+    def check_not_dir(self, fd):
+        try:
+            st = os.fstat(fd)
+        except OSError:
+            pass
+        else:
+            if (stat.S_ISDIR(st[0])):
+                ose = OSError(errno.EISDIR, '')
+                raise wrap_oserror_as_ioerror(self.space, ose, self.w_name)
 
     def check_mode_ok(self, mode):
         if (not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
@@ -56,15 +72,17 @@ class W_File(W_AbstractStream):
             raise operationerrfmt(space.w_ValueError,
                                   "invalid mode: '%s'", mode)
 
+    def check_closed(self):
+        if self.stream is None:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("I/O operation on closed file")
+            )
+
     def getstream(self):
         """Return self.stream or raise an app-level ValueError if missing
         (i.e. if the file is closed)."""
-        stream = self.stream
-        if stream is None:
-            space = self.space
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('I/O operation on closed file'))
-        return stream
+        self.check_closed()
+        return self.stream
 
     def _when_reading_first_flush(self, otherfile):
         """Flush otherfile before reading from self."""
@@ -81,6 +99,7 @@ class W_File(W_AbstractStream):
     # The 'direct_' methods assume that the caller already acquired the
     # file lock.  They don't convert StreamErrors to OperationErrors, too.
 
+    @unwrap_spec(mode=str, buffering=int)
     def direct___init__(self, w_name, mode='r', buffering=-1):
         self.direct_close()
         self.w_name = w_name
@@ -88,17 +107,16 @@ class W_File(W_AbstractStream):
         stream = dispatch_filename(streamio.open_file_as_stream)(
             self.space, w_name, mode, buffering)
         fd = stream.try_to_find_file_descriptor()
+        self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
 
     def direct___enter__(self):
-        if self.stream is None:
-            space = self.space
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('I/O operation on closed file'))
+        self.check_closed()
         return self
 
-    def direct___exit__(self, __args__):
-        self.direct_close()
+    def file__exit__(self, __args__):
+        """__exit__(*excinfo) -> None. Closes the file."""
+        self.space.call_method(self, "close")
         # can't return close() value
         return None
 
@@ -113,6 +131,7 @@ class W_File(W_AbstractStream):
         space = self.space
         stream = self.stream
         if stream is not None:
+            self.newlines = self.stream.getnewlines()
             self.stream = None
             self.fd = -1
             openstreams = getopenstreams(self.space)
@@ -135,6 +154,7 @@ class W_File(W_AbstractStream):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         return line
 
+    @unwrap_spec(n=int)
     def direct_read(self, n=-1):
         stream = self.getstream()
         if n < 0:
@@ -149,6 +169,7 @@ class W_File(W_AbstractStream):
                 result.append(data)
             return ''.join(result)
 
+    @unwrap_spec(size=int)
     def direct_readline(self, size=-1):
         stream = self.getstream()
         if size < 0:
@@ -172,6 +193,7 @@ class W_File(W_AbstractStream):
                 size -= len(c)
             return ''.join(result)
 
+    @unwrap_spec(size=int)
     def direct_readlines(self, size=0):
         stream = self.getstream()
         # NB. this implementation is very inefficient for unbuffered
@@ -194,6 +216,7 @@ class W_File(W_AbstractStream):
                 size -= len(line)
         return result
 
+    @unwrap_spec(offset=r_longlong, whence=int)
     def direct_seek(self, offset, whence=0):
         self.getstream().seek(offset, whence)
 
@@ -209,23 +232,16 @@ class W_File(W_AbstractStream):
             size = space.r_longlong_w(w_size)
         stream.truncate(size)
 
-    def direct_write(self, data):
+    def direct_write(self, w_data):
+        space = self.space
+        if not self.binary and space.isinstance_w(w_data, space.w_unicode):
+            w_data = space.call_method(w_data, "encode", space.wrap(self.encoding), space.wrap(self.errors))
+        data = space.bufferstr_w(w_data)
+        self.do_direct_write(data)
+
+    def do_direct_write(self, data):
         self.softspace = 0
         self.getstream().write(data)
-
-    def direct_writelines(self, w_lines):    # note: a wrapped list!
-        stream = self.getstream()
-        space = self.space
-        w_iterator = space.iter(w_lines)
-        self.softspace = 0
-        while True:
-            try:
-                w_line = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
-            stream.write(space.str_w(w_line))
 
     def direct___iter__(self):
         self.getstream()
@@ -248,7 +264,7 @@ class W_File(W_AbstractStream):
 
     _exposed_method_names = []
 
-    def _decl(class_scope, name, unwrap_spec, docstring,
+    def _decl(class_scope, name, docstring,
               wrapresult="space.wrap(result)"):
         # hack hack to build a wrapper around the direct_xxx methods.
         # The wrapper adds lock/unlock calls and a space.wrap() on
@@ -258,6 +274,7 @@ class W_File(W_AbstractStream):
         co = direct_fn.func_code
         argnames = co.co_varnames[:co.co_argcount]
         defaults = direct_fn.func_defaults or ()
+        unwrap_spec = getattr(direct_fn, 'unwrap_spec', None)
 
         args = []
         for i, argname in enumerate(argnames):
@@ -286,19 +303,16 @@ class W_File(W_AbstractStream):
                 return %(wrapresult)s
         """ % locals())
         exec str(src) in globals(), class_scope
-        class_scope['file_' + name].unwrap_spec = unwrap_spec
+        if unwrap_spec is not None:
+            class_scope['file_' + name].unwrap_spec = unwrap_spec
         class_scope['_exposed_method_names'].append(name)
 
 
-    _decl(locals(), "__init__", ['self', W_Root, str, int],
-          """Opens a file.""")
+    _decl(locals(), "__init__", """Opens a file.""")
 
-    _decl(locals(), "__enter__", ['self'], """__enter__() -> self.""")
+    _decl(locals(), "__enter__", """__enter__() -> self.""")
 
-    _decl(locals(), "__exit__", ['self', Arguments], 
-        """__exit__(*excinfo) -> None. Closes the file.""")
-
-    _decl(locals(), "close", ['self'],
+    _decl(locals(), "close",
         """close() -> None or (perhaps) an integer.  Close the file.
 
 Sets data attribute .closed to True.  A closed file cannot be used for
@@ -309,35 +323,35 @@ may return an exit status upon closing.""")
         # close-while-another-thread-uses-it.
 
 
-    _decl(locals(), "fileno", ['self'],
+    _decl(locals(), "fileno",
         '''fileno() -> integer "file descriptor".
 
 This is needed for lower-level file interfaces, such os.read().''')
-    
-    _decl(locals(), "flush", ['self'],
+
+    _decl(locals(), "flush",
         """flush() -> None.  Flush the internal I/O buffer.""")
 
-    _decl(locals(), "isatty", ['self'],
+    _decl(locals(), "isatty",
         """isatty() -> true or false.  True if the file is connected to a tty device.""")
 
-    _decl(locals(), "next", ['self'],
+    _decl(locals(), "next",
         """next() -> the next line in the file, or raise StopIteration""")
 
-    _decl(locals(), "read", ['self', int],
+    _decl(locals(), "read",
         """read([size]) -> read at most size bytes, returned as a string.
 
 If the size argument is negative or omitted, read until EOF is reached.
 Notice that when in non-blocking mode, less data than what was requested
 may be returned, even if no size parameter was given.""")
 
-    _decl(locals(), "readline", ['self', int],
+    _decl(locals(), "readline",
         """readlines([size]) -> list of strings, each a line from the file.
 
 Call readline() repeatedly and return a list of the lines so read.
 The optional size argument, if given, is an approximate bound on the
 total number of bytes in the lines returned.""")
 
-    _decl(locals(), "readlines", ['self', int],
+    _decl(locals(), "readlines",
         """readlines([size]) -> list of strings, each a line from the file.
 
 Call readline() repeatedly and return a list of the lines so read.
@@ -345,7 +359,7 @@ The optional size argument, if given, is an approximate bound on the
 total number of bytes in the lines returned.""",
         wrapresult = "wrap_list_of_str(space, result)")
 
-    _decl(locals(), "seek", ['self', r_longlong, int],
+    _decl(locals(), "seek",
         """seek(offset[, whence]) -> None.  Move to new file position.
 
 Argument offset is a byte count.  Optional argument whence defaults to
@@ -357,31 +371,25 @@ only offsets returned by tell() are legal.  Use of other offsets causes
 undefined behavior.
 Note that not all file objects are seekable.""")
 
-    _decl(locals(), "tell", ['self'],
+    _decl(locals(), "tell",
         "tell() -> current file position, an integer (may be a long integer).")
 
-    _decl(locals(), "truncate", ['self', W_Root],
+    _decl(locals(), "truncate",
         """truncate([size]) -> None.  Truncate the file to at most size bytes.
 
 Size defaults to the current file position, as returned by tell().""")
 
-    _decl(locals(), "write", ['self', 'bufferstr'],
+    _decl(locals(), "write",
         """write(str) -> None.  Write string str to file.
 
 Note that due to buffering, flush() or close() may be needed before
 the file on disk reflects the data written.""")
 
-    _decl(locals(), "writelines", ['self', W_Root],
-        """writelines(sequence_of_strings) -> None.  Write the strings to the file.
-
-Note that newlines are not added.  The sequence can be any iterable object
-producing strings. This is equivalent to calling write() for each string.""")
-
-    _decl(locals(), "__iter__", ['self'],
+    _decl(locals(), "__iter__",
         """Iterating over files, as in 'for line in f:', returns each line of
 the file one by one.""")
 
-    _decl(locals(), "xreadlines", ['self'],
+    _decl(locals(), "xreadlines",
         """xreadlines() -> returns self.
 
 For backward compatibility. File objects now include the performance
@@ -397,7 +405,6 @@ optimizations previously implemented in the xreadlines module.""")
             self.getdisplayname(),
             self.mode)
         return self.getrepr(self.space, info)
-    file__repr__.unwrap_spec = ['self']
 
     def getdisplayname(self):
         w_name = self.w_name
@@ -405,9 +412,27 @@ optimizations previously implemented in the xreadlines module.""")
             return '?'
         elif self.space.is_true(self.space.isinstance(w_name,
                                                       self.space.w_str)):
-            return "'%s'" % self.space.str_w(w_name) 
+            return "'%s'" % self.space.str_w(w_name)
         else:
             return self.space.str_w(self.space.repr(w_name))
+
+    def file_writelines(self, w_lines):
+        """writelines(sequence_of_strings) -> None.  Write the strings to the file.
+
+Note that newlines are not added.  The sequence can be any iterable object
+producing strings. This is equivalent to calling write() for each string."""
+
+        space = self.space
+        self.check_closed()
+        w_iterator = space.iter(w_lines)
+        while True:
+            try:
+                w_line = space.next(w_iterator)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break  # done
+            self.file_write(w_line)
 
     def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""
@@ -418,30 +443,31 @@ optimizations previously implemented in the xreadlines module.""")
         data = space.str_w(w_data)
         rwbuffer.setslice(0, data)
         return space.wrap(len(data))
-    file_readinto.unwrap_spec = ['self', W_Root]
 
 
 # ____________________________________________________________
 
 
-def descr_file__new__(space, w_subtype, args):
+def descr_file__new__(space, w_subtype, __args__):
     file = space.allocate_instance(W_File, w_subtype)
     W_File.__init__(file, space)
     return space.wrap(file)
-descr_file__new__.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
+@unwrap_spec(fd=int, mode=str, buffering=int)
 def descr_file_fdopen(space, w_subtype, fd, mode='r', buffering=-1):
     file = space.allocate_instance(W_File, w_subtype)
     W_File.__init__(file, space)
     file.file_fdopen(fd, mode, buffering)
     return space.wrap(file)
-descr_file_fdopen.unwrap_spec = [ObjSpace, W_Root, int, str, int]
 
 def descr_file_closed(space, file):
     return space.wrap(file.stream is None)
 
 def descr_file_newlines(space, file):
-    newlines = file.getstream().getnewlines()
+    if file.stream:
+        newlines = file.stream.getnewlines()
+    else:
+        newlines = file.newlines
     if newlines == 0:
         return space.w_None
     elif newlines == 1:
@@ -493,6 +519,7 @@ Note:  open() is an alias for file().
                               doc = "file mode ('r', 'U', 'w', 'a', "
                                     "possibly with 'b' or '+' added)"),
     encoding = interp_attrproperty('encoding', cls=W_File),
+    errors = interp_attrproperty('errors', cls=W_File),
     closed   = GetSetProperty(descr_file_closed, cls=W_File,
                               doc="True if the file is closed"),
     newlines = GetSetProperty(descr_file_newlines, cls=W_File,
@@ -503,6 +530,8 @@ Note:  open() is an alias for file().
                               doc="Support for 'print'."),
     __repr__ = interp2app(W_File.file__repr__),
     readinto = interp2app(W_File.file_readinto),
+    writelines = interp2app(W_File.file_writelines),
+    __exit__ = interp2app(W_File.file__exit__),
     __weakref__ = make_weakref_descr(W_File),
     **dict([(name, interp2app(getattr(W_File, 'file_' + name)))
                 for name in W_File._exposed_method_names])
@@ -519,3 +548,9 @@ class FileState:
 
 def getopenstreams(space):
     return space.fromcache(FileState).openstreams
+
+
+@unwrap_spec(file=W_File, encoding="str_or_None", errors="str_or_None")
+def set_file_encoding(space, file, encoding=None, errors=None):
+    file.encoding = encoding
+    file.errors = errors

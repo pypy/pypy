@@ -3,9 +3,10 @@ from pypy.jit.backend.x86 import rx86
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, instantiate
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.history import FLOAT
+from pypy.jit.codewriter import longlong
 
 #
 # This module adds support for "locations", which can be either in a Const,
@@ -175,6 +176,19 @@ class AddressLoc(AssemblerLocation):
                 return edx
         return eax
 
+    def add_offset(self, ofs):
+        result = instantiate(AddressLoc)
+        result._location_code = self._location_code
+        if self._location_code == 'm':
+            result.loc_m = (self.loc_m[0], self.loc_m[1] + ofs)
+        elif self._location_code == 'a':
+            result.loc_a = self.loc_a[:3] + (self.loc_a[3] + ofs,)
+        elif self._location_code == 'j':
+            result.value = self.value + ofs
+        else:
+            raise AssertionError(self._location_code)
+        return result
+
 class ConstFloatLoc(AssemblerLocation):
     # XXX: We have to use this class instead of just AddressLoc because
     # we want a width of 8  (... I think.  Check this!)
@@ -189,6 +203,44 @@ class ConstFloatLoc(AssemblerLocation):
 
     def location_code(self):
         return 'j'
+
+if IS_X86_32:
+    class FloatImmedLoc(AssemblerLocation):
+        # This stands for an immediate float.  It cannot be directly used in
+        # any assembler instruction.  Instead, it is meant to be decomposed
+        # in two 32-bit halves.  On 64-bit, FloatImmedLoc() is a function
+        # instead; see below.
+        _immutable_ = True
+        width = 8
+
+        def __init__(self, floatstorage):
+            self.aslonglong = floatstorage
+
+        def low_part(self):
+            return intmask(self.aslonglong)
+
+        def high_part(self):
+            return intmask(self.aslonglong >> 32)
+
+        def low_part_loc(self):
+            return ImmedLoc(self.low_part())
+
+        def high_part_loc(self):
+            return ImmedLoc(self.high_part())
+
+        def __repr__(self):
+            floatvalue = longlong.getrealfloat(self.aslonglong)
+            return '<FloatImmedLoc(%s)>' % (floatvalue,)
+
+        def location_code(self):
+            raise NotImplementedError
+
+if IS_X86_64:
+    def FloatImmedLoc(floatstorage):
+        from pypy.rlib.longlong2float import float2longlong
+        value = intmask(float2longlong(floatstorage))
+        return ImmedLoc(value)
+
 
 REGLOCS = [RegLoc(i, is_xmm=False) for i in range(16)]
 XMMREGLOCS = [RegLoc(i, is_xmm=True) for i in range(16)]
@@ -421,6 +473,7 @@ class LocationCodeBuilder(object):
     SHR = _binaryop('SHR')
     SAR = _binaryop('SAR')
     TEST = _binaryop('TEST')
+    TEST8 = _binaryop('TEST8')
 
     ADD = _binaryop('ADD')
     SUB = _binaryop('SUB')
@@ -438,7 +491,9 @@ class LocationCodeBuilder(object):
     MOVSX16 = _binaryop('MOVSX16')
     MOV32 = _binaryop('MOV32')
     MOVSX32 = _binaryop('MOVSX32')
-    XCHG = _binaryop('XCHG')
+    # Avoid XCHG because it always implies atomic semantics, which is
+    # slower and does not pair well for dispatch.
+    #XCHG = _binaryop('XCHG')
 
     PUSH = _unaryop('PUSH')
     POP = _unaryop('POP')
@@ -456,6 +511,13 @@ class LocationCodeBuilder(object):
 
     ANDPD = _binaryop('ANDPD')
     XORPD = _binaryop('XORPD')
+
+    PADDQ = _binaryop('PADDQ')
+    PSUBQ = _binaryop('PSUBQ')
+    PAND  = _binaryop('PAND')
+    POR   = _binaryop('POR')
+    PXOR  = _binaryop('PXOR')
+    PCMPEQD = _binaryop('PCMPEQD')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')

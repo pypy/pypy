@@ -13,7 +13,7 @@ First (simplest) step is to allow user to write RPython programs with
 some kind of remote control over program execution. For start I would
 suggest using RMI (Remote Method Invocation) and remote object access
 (in case of low level it would be struct access). For the simplicity
-it will make some sense to target high-level platform at the beggining
+it will make some sense to target high-level platform at the beginning
 (CLI platform seems like obvious choice), which provides more primitives
 for performing such operations. To make attempt easier, I'll provide
 some subset of type system to be serializable which can go as parameters
@@ -52,7 +52,7 @@ Third step - Just-in-time distribution:
 ---------------------------------------
 
 The biggest step here is to provide JIT integration into distribution
-system. This should allow to make it really usefull (probably compile-time
+system. This should allow to make it really useful (probably compile-time
 distribution will not work for example for whole Python interpreter, because
 of too huge granularity). This is quite unclear for me how to do that
 (JIT is not complete and I don't know too much about it). Probably we

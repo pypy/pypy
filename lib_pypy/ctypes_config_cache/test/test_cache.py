@@ -11,6 +11,7 @@ def run(filename, outputname):
                          dir=True)
     tmpdir.join('dumpcache.py').write(dirpath.join('dumpcache.py').read())
     path = sys.path[:]
+    sys.modules.pop('dumpcache', None)
     try:
         sys.path.insert(0, str(tmpdir))
         execfile(str(filepath), {})
@@ -33,10 +34,6 @@ def run(filename, outputname):
 def test_syslog():
     d = run('syslog.ctc.py', '_syslog_cache.py')
     assert 'LOG_NOTICE' in d
-
-def test_hashlib():
-    d = run('hashlib.ctc.py', '_hashlib_cache.py')
-    assert hasattr(d['EVP_MD_CTX'], 'digest')
 
 def test_resource():
     d = run('resource.ctc.py', '_resource_cache.py')

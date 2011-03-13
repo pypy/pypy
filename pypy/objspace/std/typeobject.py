@@ -10,11 +10,8 @@ from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from pypy.rlib.jit import hint, purefunction_promote, we_are_jitted
-from pypy.rlib.jit import dont_look_inside, purefunction
+from pypy.rlib.jit import purefunction, dont_look_inside
 from pypy.rlib.rarithmetic import intmask, r_uint
-
-from copy_reg import _HEAPTYPE
-_CPYTYPE = 1 # used for non-heap types defined in C
 
 # from compiler/misc.py
 
@@ -79,7 +76,9 @@ class W_TypeObject(W_Object):
     # other changes to the type (e.g. the name) leave it unchanged
     _version_tag = None
 
-    _immutable_fields_ = ["__flags__",
+    _immutable_fields_ = ["flag_heaptype",
+                          "flag_cpytype",
+                          #  flag_abstract is not immutable
                           'needsdel',
                           'weakrefable',
                           'hasdict',
@@ -97,6 +96,7 @@ class W_TypeObject(W_Object):
     # of the __new__ is an instance of the type
     w_bltin_new = None
 
+    @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):
         w_self.space = space
@@ -107,8 +107,11 @@ class W_TypeObject(W_Object):
         w_self.hasdict = False
         w_self.needsdel = False
         w_self.weakrefable = False
+        w_self.w_doc = space.w_None
         w_self.weak_subclasses = []
-        w_self.__flags__ = 0           # or _HEAPTYPE or _CPYTYPE
+        w_self.flag_heaptype = False
+        w_self.flag_cpytype = False
+        w_self.flag_abstract = False
         w_self.instancetypedef = overridetypedef
 
         if overridetypedef is not None:
@@ -335,7 +338,7 @@ class W_TypeObject(W_Object):
             raise operationerrfmt(space.w_TypeError,
                 "X is not a type object ('%s')",
                 space.type(w_subtype).getname(space))
-        if not space.is_true(space.issubtype(w_subtype, w_self)):
+        if not w_subtype.issubtype(w_self):
             raise operationerrfmt(space.w_TypeError,
                 "%s.__new__(%s): %s is not a subtype of %s",
                 w_self.name, w_subtype.name, w_subtype.name, w_self.name)
@@ -353,10 +356,9 @@ class W_TypeObject(W_Object):
             del w_self.lazyloaders
         return False
 
-    def getdict(w_self): # returning a dict-proxy!
+    def getdict(w_self, space): # returning a dict-proxy!
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
-        space = w_self.space
         newdic = space.newdict(from_strdict_shared=w_self.dict_w)
         return W_DictProxyObject(newdic)
 
@@ -367,10 +369,27 @@ class W_TypeObject(W_Object):
         raise UnwrapError(w_self)
 
     def is_heaptype(w_self):
-        return w_self.__flags__ & _HEAPTYPE
+        return w_self.flag_heaptype
 
     def is_cpytype(w_self):
-        return w_self.__flags__ & _CPYTYPE
+        return w_self.flag_cpytype
+
+    def is_abstract(w_self):
+        return w_self.flag_abstract
+
+    def set_abstract(w_self, abstract):
+        w_self.flag_abstract = bool(abstract)
+
+    def issubtype(w_self, w_type):
+        w_self = hint(w_self, promote=True)
+        w_type = hint(w_type, promote=True)
+        if w_self.space.config.objspace.std.withtypeversion and we_are_jitted():
+            version_tag1 = w_self.version_tag()
+            version_tag2 = w_type.version_tag()
+            if version_tag1 is not None and version_tag2 is not None:
+                res = _pure_issubtype(w_self, w_type, version_tag1, version_tag2)
+                return res
+        return _issubtype(w_self, w_type)
 
     def get_module(w_self):
         space = w_self.space
@@ -385,6 +404,18 @@ class W_TypeObject(W_Object):
                                                space.w_str))):
                 return w_self.dict_w['__module__']
             return space.wrap('__builtin__')
+
+    def get_module_type_name(w_self):
+        space = w_self.space
+        w_mod = w_self.get_module()
+        if not space.is_true(space.isinstance(w_mod, space.w_str)):
+            mod = '__builtin__'
+        else:
+            mod = space.str_w(w_mod)
+        if mod !='__builtin__':
+            return '%s.%s' % (mod, w_self.name)
+        else:
+            return w_self.name
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
@@ -534,7 +565,8 @@ def create_all_slots(w_self, hasoldstylebase):
         wantdict = False
         wantweakref = False
         w_slots = dict_w['__slots__']
-        if space.is_true(space.isinstance(w_slots, space.w_str)):
+        if (space.isinstance_w(w_slots, space.w_str) or
+            space.isinstance_w(w_slots, space.w_unicode)):
             slot_names_w = [w_slots]
         else:
             slot_names_w = space.unpackiterable(w_slots)
@@ -576,12 +608,14 @@ def create_slot(w_self, slot_name):
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
-        w_self.dict_w['__dict__'] = w_self.space.wrap(std_dict_descr)
+        w_self.dict_w.setdefault('__dict__',
+                                 w_self.space.wrap(std_dict_descr))
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
-        w_self.dict_w['__weakref__'] = w_self.space.wrap(weakref_descr)
+        w_self.dict_w.setdefault('__weakref__',
+                                 w_self.space.wrap(weakref_descr))
         w_self.weakrefable = True
 
 def valid_slot_name(slot_name):
@@ -597,11 +631,12 @@ def setup_user_defined_type(w_self):
         w_self.bases_w = [w_self.space.w_object]
     w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
     w_self.instancetypedef = w_bestbase.instancetypedef
-    w_self.__flags__ = _HEAPTYPE
+    w_self.flag_heaptype = True
     for w_base in w_self.bases_w:
         if not isinstance(w_base, W_TypeObject):
             continue
-        w_self.__flags__ |= w_base.__flags__
+        w_self.flag_cpytype |= w_base.flag_cpytype
+        w_self.flag_abstract |= w_base.flag_abstract
 
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
     create_all_slots(w_self, hasoldstylebase)
@@ -611,11 +646,12 @@ def setup_user_defined_type(w_self):
 def setup_builtin_type(w_self):
     w_self.hasdict = w_self.instancetypedef.hasdict
     w_self.weakrefable = w_self.instancetypedef.weakrefable
+    w_self.w_doc = w_self.space.wrap(w_self.instancetypedef.doc)
     ensure_common_attributes(w_self)
 
 def ensure_common_attributes(w_self):
     ensure_static_new(w_self)
-    ensure_doc_attr(w_self)
+    w_self.dict_w.setdefault('__doc__', w_self.w_doc)
     if w_self.is_heaptype():
         ensure_module_attr(w_self)
     w_self.mro_w = []      # temporarily
@@ -628,10 +664,6 @@ def ensure_static_new(w_self):
         w_new = w_self.dict_w['__new__']
         if isinstance(w_new, Function):
             w_self.dict_w['__new__'] = StaticMethod(w_new)
-
-def ensure_doc_attr(w_self):
-    # make sure there is a __doc__ in dict_w
-    w_self.dict_w.setdefault('__doc__', w_self.space.w_None)
 
 def ensure_module_attr(w_self):
     # initialize __module__ in the dict (user-defined types only)
@@ -719,24 +751,18 @@ def call__Type(space, w_type, __args__):
                                  space.wrap("__init__() should return None"))
     return w_newobject
 
-def _issubtype(w_type1, w_type2):
-    return w_type2 in w_type1.mro_w
+def _issubtype(w_sub, w_type):
+    return w_type in w_sub.mro_w
 
 @purefunction_promote()
-def _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2):
-    return _issubtype(w_type1, w_type2)
+def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
+    return _issubtype(w_sub, w_type)
 
-def issubtype__Type_Type(space, w_type1, w_type2):
-    w_type1 = hint(w_type1, promote=True)
-    w_type2 = hint(w_type2, promote=True)
-    if space.config.objspace.std.withtypeversion and we_are_jitted():
-        version_tag1 = w_type1.version_tag()
-        version_tag2 = w_type2.version_tag()
-        if version_tag1 is not None and version_tag2 is not None:
-            res = _pure_issubtype(w_type1, w_type2, version_tag1, version_tag2)
-            return space.newbool(res)
-    res = _issubtype(w_type1, w_type2)
-    return space.newbool(res)
+def issubtype__Type_Type(space, w_type, w_sub):
+    return space.newbool(w_sub.issubtype(w_type))
+
+def isinstance__Type_ANY(space, w_type, w_inst):
+    return space.newbool(space.type(w_inst).issubtype(w_type))
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
@@ -793,6 +819,9 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
         space.warn(msg, space.w_RuntimeWarning)
     w_type.mutated()
     w_type.dict_w[name] = w_value
+
+def eq__Type_Type(space, w_self, w_other):
+    return space.is_(w_self, w_other)
 
 def delattr__Type_ANY(space, w_type, w_name):
     if w_type.lazyloaders:

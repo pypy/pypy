@@ -118,13 +118,12 @@ typedef long Py_ssize_t;
 #include "datetime.h"
 #include "pystate.h"
 #include "fileobject.h"
+#include "pysignals.h"
 
 // XXX This shouldn't be included here
 #include "structmember.h"
 
 #include <pypy_decl.h>
-
-#include "modsupport.inl"
 
 /* Define macros for inline documentation. */
 #define PyDoc_VAR(name) static char name[]

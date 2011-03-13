@@ -89,7 +89,7 @@ Represents a choice between ``True`` and ``False``.
         ``default`` specifies the default value of the option. ``requires`` is
         a list of two-element tuples describing the requirements when the
         option is set to true, ``suggests`` is a list of the same structure but
-        the options in there are only suggested, not absolutely neccessary. The
+        the options in there are only suggested, not absolutely necessary. The
         difference is small: if the current option is set to True, both the
         required and the suggested options are set. The required options cannot
         be changed later, though. ``negation`` specifies whether the negative
@@ -127,7 +127,7 @@ Represents the choice of a string.
 Configuration Objects
 ---------------------
 
-``Config`` objects hold the choosen values for the options (of the default,
+``Config`` objects hold the chosen values for the options (of the default,
 if no choice was made). A ``Config`` object is described by an
 ``OptionDescription`` instance. The attributes of the ``Config`` objects are the
 names of the children of the ``OptionDescription``. Example::

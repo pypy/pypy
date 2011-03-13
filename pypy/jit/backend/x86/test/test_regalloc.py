@@ -15,6 +15,7 @@ from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
+from pypy.jit.codewriter import longlong
 from pypy.jit.backend.x86.rx86 import *
 
 def test_is_comparison_or_ovf_op():
@@ -133,6 +134,7 @@ class BaseTestRegalloc(object):
             if isinstance(arg, int):
                 self.cpu.set_future_value_int(i, arg)
             elif isinstance(arg, float):
+                arg = longlong.getfloatstorage(arg)
                 self.cpu.set_future_value_float(i, arg)
             else:
                 assert isinstance(lltype.typeOf(arg), lltype.Ptr)
@@ -153,8 +155,8 @@ class BaseTestRegalloc(object):
                 index in range(0, end)]
 
     def getfloats(self, end):
-        return [self.cpu.get_latest_value_float(index) for
-                index in range(0, end)]
+        return [longlong.getrealfloat(self.cpu.get_latest_value_float(index))
+                for index in range(0, end)]
 
     def getptr(self, index, T):
         gcref = self.cpu.get_latest_value_ref(index)
@@ -499,6 +501,22 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         s = lltype.malloc(self.A, 3)
         self.interpret(ops, [s, ord('a')])
         assert s[1] == 'a'
+
+    def test_division_optimized(self):
+        ops = '''
+        [i7, i6]
+        i18 = int_floordiv(i7, i6)
+        i19 = int_xor(i7, i6)
+        i21 = int_lt(i19, 0)
+        i22 = int_mod(i7, i6)
+        i23 = int_is_true(i22)
+        i24 = int_eq(i6, 4)
+        guard_false(i24) [i18]
+        jump(i18, i6)
+        '''
+        self.interpret(ops, [10, 4])
+        assert self.getint(0) == 2
+        # FIXME: Verify that i19 - i23 are removed
 
 class TestRegallocFloats(BaseTestRegalloc):
     def test_float_add(self):

@@ -10,7 +10,7 @@ python module).
 
 The implementation uses an RPC-like protocol, which accesses
 only members of objects, rather than whole objects. This means it
-does not rely on objects being picklable, nor on having the same
+does not rely on objects being pickleable, nor on having the same
 source code available on both sides. On each call, only the members
 that are used on the client side are retrieved, objects which
 are not used are merely references to their remote counterparts.
@@ -27,7 +27,7 @@ Under water, x.\_\_getattribute\_\_ is called, with argument 'foo'. In the
 remote side replies by providing a bound method. On the client this bound
 method appears as a remote reference: this reference is called with a remote
 reference to x as self, the integer 1 which is copied as a primitive type, a
-reference to a list and a refence to y. The remote side receives this call,
+reference to a list and a reference to y. The remote side receives this call,
 processes it as a call to the bound method x.foo, where 'x' is resolved as a
 local object, 1 as an immutable primitive, [1,2,3] as a reference to a mutable
 primitive and y as a reference to a remote object. If the type of y is not
@@ -74,7 +74,7 @@ Python, some of them are listed below:
 
   - No attribute access
 
-  - Arguments of calls must be picklable on one side and unpicklable on
+  - Arguments of calls must be pickleable on one side and unpickleable on
     remote side, which means they must share source code, they do not
     become remote references
 
@@ -105,7 +105,7 @@ Python, some of them are listed below:
 
   - two way RPC (unlike Pyro)
 
-  - also heavy restrictions on objects - they must sublcass certain class
+  - also heavy restrictions on objects - they must subclass certain class
 
 .. _`Pyro`: http://pyro.sourceforge.net/
 .. _`transparent proxies`: objspace-proxies.html#tproxy

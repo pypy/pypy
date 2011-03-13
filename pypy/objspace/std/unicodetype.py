@@ -48,6 +48,7 @@ unicode_count      = SMM('count', 4, defaults=(0, maxint),
                              ' arguments start and end are\ninterpreted as in'
                              ' slice notation.')
 unicode_encode     = SMM('encode', 3, defaults=(None, None),
+                         argnames=['encoding', 'errors'],
                          doc='S.encode([encoding[,errors]]) -> string or'
                              ' unicode\n\nEncodes S using the codec registered'
                              ' for encoding. encoding defaults\nto the default'
@@ -64,6 +65,8 @@ unicode_expandtabs = SMM('expandtabs', 2, defaults=(8,),
                              ' copy of S where all tab characters are expanded'
                              ' using spaces.\nIf tabsize is not given, a tab'
                              ' size of 8 characters is assumed.')
+unicode_format     = SMM('format', 1, general__args__=True,
+                         doc='S.format() -> new style formating')
 unicode_isalnum    = SMM('isalnum', 1,
                          doc='S.isalnum() -> bool\n\nReturn True if all'
                              ' characters in S are alphanumeric\nand there is'
@@ -148,6 +151,19 @@ unicode_zfill      = SMM('zfill', 2,
                              ' string x with zeros on the left, to fill a'
                              ' field\nof the specified width. The string x is'
                              ' never truncated.')
+
+unicode_formatter_parser           = SMM('_formatter_parser', 1)
+unicode_formatter_field_name_split = SMM('_formatter_field_name_split', 1)
+
+def unicode_formatter_parser__ANY(space, w_unicode):
+    from pypy.objspace.std.newformat import unicode_template_formatter
+    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
+    return tformat.formatter_parser()
+
+def unicode_formatter_field_name_split__ANY(space, w_unicode):
+    from pypy.objspace.std.newformat import unicode_template_formatter
+    tformat = unicode_template_formatter(space, space.unicode_w(w_unicode))
+    return tformat.formatter_field_name_split()
 
 # stuff imported from stringtype for interoperability
 
@@ -250,11 +266,13 @@ def decode_object(space, w_obj, encoding, errors):
             s = space.bufferstr_w(w_obj)
             eh = decode_error_handler(space)
             return space.wrap(str_decode_ascii(s, len(s), None,
+                                               final=True,
                                                errorhandler=eh)[0])
         if encoding == 'utf-8':
             s = space.bufferstr_w(w_obj)
             eh = decode_error_handler(space)
             return space.wrap(str_decode_utf_8(s, len(s), None,
+                                               final=True,
                                                errorhandler=eh)[0])
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.wrap("decode"))
@@ -275,13 +293,17 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     return w_retval
 
 def unicode_from_object(space, w_obj):
-    if space.is_w(space.type(w_obj), space.w_str):
+    if space.is_w(space.type(w_obj), space.w_unicode):
+        return w_obj
+    elif space.is_w(space.type(w_obj), space.w_str):
         w_res = w_obj
     else:
         w_unicode_method = space.lookup(w_obj, "__unicode__")
         # obscure workaround: for the next two lines see
         # test_unicode_conversion_with__str__
         if w_unicode_method is None:
+            if space.isinstance_w(w_obj, space.w_unicode):
+                return space.wrap(space.unicode_w(w_obj))
             w_unicode_method = space.lookup(w_obj, "__str__")
         if w_unicode_method is not None:
             w_res = space.get_and_call_function(w_unicode_method, w_obj)

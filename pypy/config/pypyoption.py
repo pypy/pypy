@@ -4,6 +4,7 @@ import sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 from pypy.config.config import ConflictConfigError
+from pypy.config.translationoption import IS_64_BITS
 
 modulepath = py.path.local(__file__).dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
@@ -12,26 +13,27 @@ all_modules = [p.basename for p in modulepath.listdir()
                and not p.basename.startswith('test')]
 
 essential_modules = dict.fromkeys(
-    ["exceptions", "_file", "sys", "__builtin__", "posix"]
+    ["exceptions", "_file", "sys", "__builtin__", "posix", "signal"]
 )
 
 default_modules = essential_modules.copy()
 default_modules.update(dict.fromkeys(
     ["_codecs", "gc", "_weakref", "marshal", "errno", "imp",
-     "math", "_sre", "_pickle_support", "operator",
-     "parser", "symbol", "token", "_ast", "_random", "__pypy__",
+     "math", "cmath", "_sre", "_pickle_support", "operator",
+     "parser", "symbol", "token", "_ast",  "_io", "_random", "__pypy__",
      "_testing"]))
 
 
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["_socket", "unicodedata", "mmap", "fcntl",
-      "rctime" , "select", "zipimport", "_lsprof",
-     "crypt", "signal", "_rawffi", "termios", "zlib",
-     "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
+    ["_socket", "unicodedata", "mmap", "fcntl", "_locale",
+     "rctime" , "select", "zipimport", "_lsprof",
+     "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
+     "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect", "binascii"]
+     "_bisect", "binascii", "_multiprocessing", '_warnings',
+     "_collections"]
 ))
 
 translation_modules = default_modules.copy()
@@ -41,7 +43,7 @@ translation_modules.update(dict.fromkeys(
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
-    ["md5", "sha", "cStringIO", "itertools"]
+    ["_md5", "_sha", "cStringIO", "itertools"]
 ))
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
@@ -54,9 +56,8 @@ if sys.platform == "win32":
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
-    # The _locale module is probably incomplete,
-    # but enough for the tests to pass on Windows
-    working_modules["_locale"] = None
+    # The _locale module is needed by site.py on Windows
+    default_modules["_locale"] = None
 
 if sys.platform == "sunos5":
     del working_modules['mmap']   # depend on ctypes, can't get at c-level 'errono'
@@ -68,7 +69,10 @@ if sys.platform == "sunos5":
 
 
 
-module_dependencies = {}
+module_dependencies = {
+    '_multiprocessing': [('objspace.usemodules.rctime', True),
+                         ('objspace.usemodules.thread', True)],
+    }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
     # itself needs the interp-level struct module
@@ -89,6 +93,7 @@ module_import_dependencies = {
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
+    "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     }
 
@@ -162,7 +167,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                suggests=[("objspace.allworkingmodules", False)]),
 
     BoolOption("geninterp", "specify whether geninterp should be used",
-               default=True),
+               default=False),
 
     BoolOption("logbytecodes",
                "keep track of bytecode usage",
@@ -209,6 +214,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
         IntOption("prebuiltintto", "highest integer which is prebuilt",
                   default=100, cmdline="--prebuiltintto"),
+
+        BoolOption("withsmalllong", "use a version of 'long' in a C long long",
+                   default=False,
+                   requires=[("objspace.std.withsmallint", False)]),
+                             #  ^^^ because of missing delegate_xx2yy
 
         BoolOption("withstrjoin", "use strings optimized for addition",
                    default=False),
@@ -343,6 +353,8 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         config.objspace.std.suggest(newshortcut=True)        
+        if not IS_64_BITS:
+            config.objspace.std.suggest(withsmalllong=True)
 
     # extra costly optimizations only go in level 3
     if level == '3':
@@ -358,6 +370,8 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withmapdict=True)
         config.objspace.std.suggest(withstrslice=True)
         config.objspace.std.suggest(withstrjoin=True)
+        if not IS_64_BITS:
+            config.objspace.std.suggest(withsmalllong=True)
         # xxx other options? ropes maybe?
 
     # completely disable geninterp in a level 0 translation

@@ -247,7 +247,7 @@ class StacklessAnalyzer(graphanalyze.BoolGraphAnalyzer):
         graphanalyze.GraphAnalyzer.__init__(self, translator)
         self.stackless_gc = stackless_gc
 
-    def analyze_simple_operation(self, op):
+    def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ('yield_current_frame_to_caller', 'resume_point',
                 'resume_state_invoke', 'resume_state_create', 'stack_frames_depth',
                 'stack_switch', 'stack_unwind', 'stack_capture',

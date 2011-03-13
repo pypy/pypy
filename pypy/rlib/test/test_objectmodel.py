@@ -159,7 +159,7 @@ def test_compute_hash():
     assert compute_hash(None) == 0
 
 def test_compute_hash_float():
-    from pypy.rlib.rarithmetic import INFINITY, NAN
+    from pypy.rlib.rfloat import INFINITY, NAN
     assert compute_hash(INFINITY) == 314159
     assert compute_hash(-INFINITY) == -271828
     assert compute_hash(NAN) == 0
@@ -331,7 +331,7 @@ class BaseTestObjectModel(BaseRtypingTest):
                     compute_hash(("world", None, 42, 7.5)))
             q = Foo()
             assert compute_hash(q) == compute_identity_hash(q)
-            from pypy.rlib.rarithmetic import INFINITY, NAN
+            from pypy.rlib.rfloat import INFINITY, NAN
             assert compute_hash(INFINITY) == 314159
             assert compute_hash(-INFINITY) == -271828
             assert compute_hash(NAN) == 0

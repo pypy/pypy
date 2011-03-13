@@ -12,10 +12,13 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
-from pypy.module.unicodedata import unicodedb_3_2_0 as unicodedb
+from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.objspace.std.formatting import mod_format
+
+from pypy.objspace.std.unicodeobject import (
+    format__Unicode_ANY as format__RopeUnicode_ANY)
 
 
 def wrapunicode(space, uni):
@@ -75,7 +78,7 @@ def encode_unicode(space, w_unistr, encoding, errors):
 
 class W_RopeUnicodeObject(W_Object):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['_node']
 
     def __init__(w_self, node):
         w_self._node = node
@@ -482,6 +485,10 @@ def unicode_swapcase__RopeUnicode(space, w_self):
 def _convert_idx_params(space, w_self, w_start, w_end):
     self = w_self._node
     length = w_self._node.length()
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
+    if space.is_w(w_end, space.w_None):
+        w_end = space.len(w_self)
     start = slicetype.adapt_bound(space, length, w_start)
     end = slicetype.adapt_bound(space, length, w_end)
 

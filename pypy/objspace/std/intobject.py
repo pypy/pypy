@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std import newformat
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
@@ -16,9 +17,8 @@ something CPython does not do anymore.
 
 class W_IntObject(W_Object):
     __slots__ = 'intval'
+    _immutable_fields_ = ['intval']
 
-    _immutable_ = True
-    
     from pypy.objspace.std.inttype import int_typedef as typedef
     
     def __init__(w_self, intval):
@@ -59,6 +59,10 @@ def repr__Int(space, w_int1):
     return space.wrap(res)
 
 str__Int = repr__Int
+
+def format__Int_ANY(space, w_int, w_format_spec):
+    return newformat.run_formatter(space, w_format_spec, "format_int_or_long",
+                                   w_int, newformat.INT_KIND)
 
 def declare_new_int_comparison(opname):
     import operator
@@ -302,6 +306,7 @@ def int__Int(space, w_int1):
     return wrapint(space, a)
 get_integer = int__Int
 pos__Int = int__Int
+trunc__Int = int__Int
 
 def index__Int(space, w_int1):
     return get_integer(space, w_int1)

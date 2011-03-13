@@ -2,8 +2,9 @@
 Implementation of interpreter-level 'sys' routines.
 """
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
 from pypy.rlib.runicode import MAXUNICODE
+from pypy.rlib import jit
 import sys
 
 # ____________________________________________________________
@@ -63,11 +64,11 @@ def getrecursionlimit(space):
     """
     return space.wrap(space.sys.recursionlimit)
 
+@unwrap_spec(interval=int)
 def setcheckinterval(space, interval):
     """Tell the Python interpreter to check for asynchronous events every
     n instructions.  This also affects how often thread switches occur."""
     space.actionflag.setcheckinterval(interval)
-setcheckinterval.unwrap_spec = [ObjSpace, int]
 
 def getcheckinterval(space):
     """Return the current check interval; see setcheckinterval()."""
@@ -111,6 +112,15 @@ def setprofile(space, w_func):
 and return.  See the profiler chapter in the library manual."""
     space.getexecutioncontext().setprofile(w_func)
 
+def getprofile(space):
+    """Set the profiling function.  It will be called on each function call
+and return.  See the profiler chapter in the library manual."""
+    w_func = space.getexecutioncontext().getprofile()
+    if w_func is not None:
+        return w_func
+    else:
+        return space.w_None
+
 def call_tracing(space, w_func, w_args):
     """Call func(*args), while tracing is enabled.  The tracing state is
 saved, and restored afterwards.  This is intended to be called from
@@ -125,3 +135,29 @@ def getwindowsversion(space):
                            space.wrap(info[2]),
                            space.wrap(info[3]),
                            space.wrap(info[4])])
+
+@jit.dont_look_inside
+def get_dllhandle(space):
+    if not space.config.objspace.usemodules.cpyext:
+        return space.wrap(0)
+    if not space.config.objspace.usemodules._rawffi:
+        return space.wrap(0)
+
+    return _get_dllhandle(space)
+
+def _get_dllhandle(space):
+    # Retrieve cpyext api handle
+    from pypy.module.cpyext.api import State
+    handle = space.fromcache(State).get_pythonapi_handle()
+
+    # Make a dll object with it
+    from pypy.module._rawffi.interp_rawffi import W_CDLL, RawCDLL
+    cdll = RawCDLL(handle)
+    return space.wrap(W_CDLL(space, "python api", cdll))
+
+def getsizeof(space, w_object, w_default=NoneNotWrapped):
+    """Not implemented on PyPy."""
+    if w_default is None:
+        raise OperationError(space.w_TypeError,
+            space.wrap("sys.getsizeof() not implemented on PyPy"))
+    return w_default

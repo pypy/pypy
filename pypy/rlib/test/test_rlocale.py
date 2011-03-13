@@ -1,10 +1,11 @@
 
 # -*- coding: utf-8 -*-
 
-import py
+import py, sys
 import locale as cpython_locale
 from pypy.rlib.rlocale import setlocale, LC_ALL, LocaleError, isupper, \
-     islower, isalpha, tolower, isalnum
+     islower, isalpha, tolower, isalnum, numeric_formatting, external
+from pypy.rpython.lltypesystem import rffi
 
 class TestLocale(object):
     def setup_class(cls):
@@ -28,4 +29,16 @@ class TestLocale(object):
         assert not isalpha(ord(" "))
         assert isalnum(ord("1"))
         assert tolower(ord("A")) == ord("a")
-        
+
+def test_numeric_formatting():
+    dec, th, grouping = numeric_formatting()
+    assert isinstance(dec, str)
+    assert isinstance(th, str)
+    assert isinstance(grouping, str)
+
+def test_libintl():
+    if sys.platform not in ("linux2", "darwin"):
+        py.test.skip("there is (maybe) no libintl here")
+    _gettext = external('gettext', [rffi.CCHARP], rffi.CCHARP)
+    res = _gettext("1234")
+    assert rffi.charp2str(res) == "1234"

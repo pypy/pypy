@@ -353,7 +353,7 @@ def test_dup():
     s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
     s.bind(INETAddress('localhost', 50007))
     s2 = s.dup()
-    assert s.fileno() != s2.fileno()
+    assert s.fd != s2.fd
     assert s.getsockname().eq(s2.getsockname())
 
 def test_inet_aton():

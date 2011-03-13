@@ -19,6 +19,8 @@ corresponding Unix manual entries for more information on calls."""
     'fdopen'     : 'app_posix.fdopen',
     'tmpfile'    : 'app_posix.tmpfile',
     'popen'      : 'app_posix.popen',
+    'tmpnam'     : 'app_posix.tmpnam',
+    'tempnam'    : 'app_posix.tempnam',
     }
     if os.name == 'nt':
         appleveldefs.update({
@@ -110,15 +112,26 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['execv'] = 'interp_posix.execv'
     if hasattr(os, 'execve'):
         interpleveldefs['execve'] = 'interp_posix.execve'
+    if hasattr(posix, 'spawnv'):
+        interpleveldefs['spawnv'] = 'interp_posix.spawnv'
     if hasattr(os, 'uname'):
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'sysconf'):
         interpleveldefs['sysconf'] = 'interp_posix.sysconf'
         interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
+    if hasattr(os, 'fpathconf'):
+        interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
+        interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):
         interpleveldefs['getloadavg'] = 'interp_posix.getloadavg'
+    if hasattr(os, 'makedev'):
+        interpleveldefs['makedev'] = 'interp_posix.makedev'
+    if hasattr(os, 'major'):
+        interpleveldefs['major'] = 'interp_posix.major'
+    if hasattr(os, 'minor'):
+        interpleveldefs['minor'] = 'interp_posix.minor'
     if hasattr(os, 'mkfifo'):
         interpleveldefs['mkfifo'] = 'interp_posix.mkfifo'
     if hasattr(os, 'mknod'):
@@ -127,9 +140,9 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['nice'] = 'interp_posix.nice'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
-                 'seteuid', 'setgid', 'setegid', 'getpgrp', 'setpgrp',
-                 'getppid', 'getpgid', 'setpgid', 'setreuid', 'setregid',
-                 'getsid', 'setsid']:
+                 'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp', 
+                 'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid', 
+                 'setregid', 'getsid', 'setsid']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:
