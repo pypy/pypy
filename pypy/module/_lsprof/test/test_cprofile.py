@@ -1,16 +1,6 @@
 import py
 from pypy.conftest import gettestobjspace, option
 
-def test_timer():
-    from pypy.module._lsprof.interp_lsprof import read_timestamp_double
-    import time
-    t1 = read_timestamp_double()
-    start = time.time()
-    while time.time() - start < 1.0:
-        pass     # busy wait
-    t2 = read_timestamp_double()
-    assert 0.9 < t2 - t1 < 1.9
-
 class AppTestCProfile(object):
     keywords = {}
 
