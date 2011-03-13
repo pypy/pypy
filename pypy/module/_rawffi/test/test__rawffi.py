@@ -611,7 +611,7 @@ class AppTestFfi:
         a3.free()
         a4.free()
         ll_to_sort.free()
-        del cb
+        cb.free()
 
     def test_another_callback(self):
         import _rawffi
@@ -625,7 +625,7 @@ class AppTestFfi:
         res = runcallback(a1)
         assert res[0] == 1<<42
         a1.free()
-        del cb
+        cb.free()
 
     def test_void_returning_callback(self):
         import _rawffi
@@ -641,7 +641,7 @@ class AppTestFfi:
         assert res is None
         assert called == [True]
         a1.free()
-        del cb
+        cb.free()
 
     def test_another_callback_in_stackless(self):
         try:
@@ -668,7 +668,7 @@ class AppTestFfi:
         res = runcallback(a1)
         assert res[0] == 1<<42
         a1.free()
-        del cb
+        cb.free()
 
     def test_raising_callback(self):
         import _rawffi, sys
@@ -686,7 +686,7 @@ class AppTestFfi:
             a1 = cb.byptr()
             res = runcallback(a1)
             a1.free()
-            del cb
+            cb.free()
             val = err.getvalue()
             assert 'ZeroDivisionError' in val
             assert 'callback' in val
@@ -970,6 +970,7 @@ class AppTestFfi:
         res = op_x_y(x_y, a1)
         a1.free()
         x_y.free()
+        cb.free()
 
         assert res[0] == 420
 

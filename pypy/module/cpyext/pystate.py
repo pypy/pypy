@@ -73,12 +73,12 @@ class InterpreterState(object):
         return ec.cpyext_threadstate
 
 @cpython_api([], PyThreadState, error=CANNOT_FAIL)
-def PyThreadState_Get(space, ):
+def PyThreadState_Get(space):
     state = space.fromcache(InterpreterState)
     return state.get_thread_state(space)
 
 @cpython_api([], PyInterpreterState, error=CANNOT_FAIL)
-def PyInterpreterState_Head(space, ):
+def PyInterpreterState_Head(space):
     """Return the interpreter state object at the head of the list of all such objects.
     """
     return space.fromcache(InterpreterState).interpreter_state

@@ -538,11 +538,18 @@ class __extend__(pyframe.PyFrame):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
 
+    @jit.unroll_safe
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs == 0:
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
+            frame = self
+            ec = self.space.getexecutioncontext()
+            while frame:
+                if frame.last_exception is not None:
+                    operror = ec._convert_exc(frame.last_exception)
+                    break
+                frame = frame.f_backref()
+            else:
                 raise OperationError(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
             # re-raise, no new traceback obj will be attached
@@ -1408,6 +1415,8 @@ app = gateway.applevel(r'''
     def print_item_to(x, stream):
         if file_softspace(stream, False):
            stream.write(" ")
+        if isinstance(x, unicode) and getattr(stream, "encoding", None) is not None:
+            x = x.encode(stream.encoding, getattr(stream, "errors", None) or "strict")
         stream.write(str(x))
 
         # add a softspace unless we just printed a string which ends in a '\t'

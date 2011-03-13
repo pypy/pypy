@@ -1,16 +1,13 @@
+"""Platform-specific support for compiling/executing C sources."""
 
-""" Platform object that allows you to compile/execute C sources for given
-platform.
-"""
+import py, os, sys
 
-import sys, py, os
-
-from pypy.tool.udir import udir
 from pypy.tool.ansi_print import ansi_log
+from pypy.tool.runsubprocess import run_subprocess as _run_subprocess
+from pypy.tool.udir import udir
+
 log = py.log.Producer("platform")
 py.log.setconsumer("platform", ansi_log)
-
-from pypy.tool.runsubprocess import run_subprocess as _run_subprocess
 
 class CompilationError(Exception):
     def __init__(self, out, err):
@@ -117,9 +114,9 @@ class Platform(object):
         args = cclist[1:] + args
         returncode, stdout, stderr = _run_subprocess(cc, args, self.c_environ,
                                                      cwd)
-        self._handle_error(returncode, stderr, stdout, outname)
+        self._handle_error(returncode, stdout, stderr, outname)
 
-    def _handle_error(self, returncode, stderr, stdout, outname):
+    def _handle_error(self, returncode, stdout, stderr, outname):
         if returncode != 0:
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, 'wb')
@@ -145,11 +142,17 @@ class Platform(object):
                 break
         return response_file
 
+    def preprocess_include_dirs(self, include_dirs):
+        if 'PYPY_LOCALBASE' in os.environ:
+            dirs = list(self._preprocess_include_dirs(include_dirs))
+            return [os.environ['PYPY_LOCALBASE'] + '/include'] + dirs
+        return self._preprocess_include_dirs(include_dirs)
+
     def _preprocess_include_dirs(self, include_dirs):
         return include_dirs
 
     def _compile_args_from_eci(self, eci, standalone):
-        include_dirs = self._preprocess_include_dirs(eci.include_dirs)
+        include_dirs = self.preprocess_include_dirs(eci.include_dirs)
         args = self._includedirs(include_dirs)
         if standalone:
             extra = self.standalone_only
@@ -158,11 +161,17 @@ class Platform(object):
         cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
     
+    def preprocess_library_dirs(self, library_dirs):
+        if 'PYPY_LOCALBASE' in os.environ:
+            dirs = list(self._preprocess_library_dirs(library_dirs))
+            return [os.environ['PYPY_LOCALBASE'] + '/lib'] + dirs
+        return self._preprocess_library_dirs(library_dirs)
+
     def _preprocess_library_dirs(self, library_dirs):
         return library_dirs
 
     def _link_args_from_eci(self, eci, standalone):
-        library_dirs = self._preprocess_library_dirs(eci.library_dirs)
+        library_dirs = self.preprocess_library_dirs(eci.library_dirs)
         library_dirs = self._libdirs(library_dirs)
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
@@ -198,9 +207,21 @@ class Platform(object):
     # below are some detailed informations for platforms
 
     def include_dirs_for_libffi(self):
-        raise NotImplementedError("Needs to be overwritten")
+        dirs = self._include_dirs_for_libffi()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/include'] + dirs
+        return dirs
 
     def library_dirs_for_libffi(self):
+        dirs = self._library_dirs_for_libffi()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/lib'] + dirs
+        return dirs
+
+    def _include_dirs_for_libffi(self):
+        raise NotImplementedError("Needs to be overwritten")
+
+    def _library_dirs_for_libffi(self):
         raise NotImplementedError("Needs to be overwritten")        
 
     def check___thread(self):

@@ -118,11 +118,6 @@ def test_set_ir():
     s.SET_ir(5, dl)
     assert s.getvalue() == '\x0F\x95\xC2'
 
-def test_xchg_rj():
-    s = CodeBuilder32()
-    s.XCHG_rj(edx, 0x01234567)
-    assert s.getvalue() == '\x87\x15\x67\x45\x23\x01'
-
 def test_movsd_rj():
     s = CodeBuilder32()
     s.MOVSD_xj(xmm2, 0x01234567)

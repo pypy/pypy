@@ -13,6 +13,7 @@ syntax: regexp
 ^pypy/module/cpyext/test/.+\.o$
 ^pypy/module/cpyext/test/.+\.obj$
 ^pypy/module/cpyext/test/.+\.manifest$
+^pypy/module/test_lib_pypy/ctypes_tests/.+\.o$
 ^pypy/doc/.+\.html$
 ^pypy/doc/basicblock\.asc$
 ^pypy/doc/.+\.svninfo$
@@ -61,3 +62,5 @@ syntax: regexp
 ^pypy/doc/image/stackless_informal\.png$
 ^pypy/doc/image/parsing_example.+\.png$
 ^compiled
+^.git/
+^release/

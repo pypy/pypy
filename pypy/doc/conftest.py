@@ -3,7 +3,7 @@ import py
 from pypy.config.makerestdoc import register_config_role 
 docdir = py.path.local(__file__).dirpath()
 
-pytest_plugins = "pytest_restdoc"
+pytest_plugins = "pypy.doc.pytest_restdoc"
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy-doc options")

@@ -454,6 +454,6 @@ def borrow_from(container, borrowed):
 
 #___________________________________________________________
 
-@cpython_api([rffi.VOIDP_real], lltype.Signed, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)

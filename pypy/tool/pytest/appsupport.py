@@ -163,7 +163,7 @@ def build_pytest_assertion(space):
             except py.error.ENOENT: 
                 source = None
             from pypy import conftest
-            if source and not conftest.option.nomagic: 
+            if source and not py.test.config.option.nomagic:
                 msg = py.code._reinterpret_old(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),
                             space.newtuple([space.wrap(msg)]))

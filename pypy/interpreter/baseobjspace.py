@@ -28,24 +28,24 @@ class W_Root(object):
     _settled_ = True
     user_overridden_class = False
 
-    def getdict(self):
+    def getdict(self, space):
         return None
 
     def getdictvalue(self, space, attr):
-        w_dict = self.getdict()
+        w_dict = self.getdict(space)
         if w_dict is not None:
             return space.finditem_str(w_dict, attr)
         return None
 
     def setdictvalue(self, space, attr, w_value):
-        w_dict = self.getdict()
+        w_dict = self.getdict(space)
         if w_dict is not None:
             space.setitem_str(w_dict, attr, w_value)
             return True
         return False
 
     def deldictvalue(self, space, w_name):
-        w_dict = self.getdict()
+        w_dict = self.getdict(space)
         if w_dict is not None:
             try:
                 space.delitem(w_dict, w_name)
@@ -374,9 +374,9 @@ class ObjSpace(object):
         else:
             name = importname
 
-        w_name = self.wrap(name)
-        w_mod = self.wrap(Module(self, w_name))
-        self.builtin_modules[name] = w_mod
+        mod = Module(self, self.wrap(name))
+        mod.install()
+
         return name
 
     def getbuiltinmodule(self, name, force_init=False):
@@ -455,22 +455,23 @@ class ObjSpace(object):
         from pypy.module.exceptions import Module
         w_name = self.wrap('exceptions')
         self.exceptions_module = Module(self, w_name)
-        self.builtin_modules['exceptions'] = self.wrap(self.exceptions_module)
+        self.exceptions_module.install()
 
         from pypy.module.sys import Module
         w_name = self.wrap('sys')
         self.sys = Module(self, w_name)
-        self.builtin_modules['sys'] = self.wrap(self.sys)
+        self.sys.install()
 
         from pypy.module.imp import Module
         w_name = self.wrap('imp')
-        self.builtin_modules['imp'] = self.wrap(Module(self, w_name))
+        mod = Module(self, w_name)
+        mod.install()
 
         from pypy.module.__builtin__ import Module
         w_name = self.wrap('__builtin__')
         self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
-        self.builtin_modules['__builtin__'] = self.wrap(w_builtin)
+        w_builtin.install()
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
 
         bootstrap_modules = set(('sys', 'imp', '__builtin__', 'exceptions'))
@@ -509,7 +510,7 @@ class ObjSpace(object):
 
     def export_builtin_exceptions(self):
         """NOT_RPYTHON"""
-        w_dic = self.exceptions_module.getdict()
+        w_dic = self.exceptions_module.getdict(self)
         w_keys = self.call_method(w_dic, "keys")
         exc_types_w = {}
         for w_name in self.unpackiterable(w_keys):

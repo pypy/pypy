@@ -10,18 +10,16 @@ class Local(Wrappable):
     """Thread-local data"""
 
     def __init__(self, space, initargs):
-        self.space = space
         self.initargs = initargs
         ident = thread.get_ident()
         self.dicts = {ident: space.newdict()}
 
-    def getdict(self):
+    def getdict(self, space):
         ident = thread.get_ident()
         try:
             w_dict = self.dicts[ident]
         except KeyError:
             # create a new dict for this thread
-            space = self.space
             w_dict = self.dicts[ident] = space.newdict(instance=True)
             # call __init__
             try:

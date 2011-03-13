@@ -1,4 +1,5 @@
 import sys
+import types
 import subprocess
 import py
 from lib_pypy import disassembler
@@ -19,12 +20,17 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def run(self, func, args=[], **jitopts):
+    def run(self, func_or_src, args=[], **jitopts):
+        src = py.code.Source(func_or_src)
+        if isinstance(func_or_src, types.FunctionType):
+            funcname = func_or_src.func_name
+        else:
+            funcname = 'main'
         # write the snippet
         arglist = ', '.join(map(repr, args))
         with self.filepath.open("w") as f:
-            f.write(str(py.code.Source(func)) + "\n")
-            f.write("print %s(%s)\n" % (func.func_name, arglist))
+            f.write(str(src) + "\n")
+            f.write("print %s(%s)\n" % (funcname, arglist))
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
@@ -34,7 +40,9 @@ class BaseTestPyPyC(object):
             cmdline += ['--jit', '%s=%s' % (key, value)]
         cmdline.append(str(self.filepath))
         #
+        print cmdline, logfile
         env={'PYPYLOG': 'jit-log-opt,jit-summary:' + str(logfile)}
+        #env={'PYPYLOG': ':' + str(logfile)}
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
@@ -47,7 +55,7 @@ class BaseTestPyPyC(object):
         # parse the JIT log
         rawlog = logparser.parse_log_file(str(logfile))
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
-        log = Log(func, rawtraces)
+        log = Log(rawtraces)
         log.result = eval(stdout)
         return log
 
@@ -79,6 +87,7 @@ class TestLog(object):
         myline = ids['myline']
         opcodes_names = [opcode.__class__.__name__ for opcode in myline]
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
+
 
 class TestOpMatcher(object):
 
@@ -119,6 +128,8 @@ class TestOpMatcher(object):
         assert res == ("setfield_gc", None, ["p0", "i0"], "<foobar>")
         res = OpMatcher.parse_op("i1 = getfield_gc(p0, descr=<foobar>)")
         assert res == ("getfield_gc", "i1", ["p0"], "<foobar>")
+        res = OpMatcher.parse_op("p0 = force_token()")
+        assert res == ("force_token", "p0", [], None)
 
     def test_exact_match(self):
         loop = """
@@ -222,6 +233,16 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f, [30, 12])
         assert log.result == 42
 
+    def test_run_src(self):
+        src = """
+            def f(a, b):
+                return a+b
+            def main(a, b):
+                return f(a, b)
+        """
+        log = self.run(src, [30, 12])
+        assert log.result == 42
+
     def test_parse_jitlog(self):
         def f():
             i = 0
@@ -267,7 +288,7 @@ class TestRunPyPyC(BaseTestPyPyC):
     def test_ops_by_id(self):
         def f():
             i = 0
-            while i < 1003:
+            while i < 1003: # ID: cond
                 i += 1 # ID: increment
                 a = 0  # to make sure that JUMP_ABSOLUTE is not part of the ID
             return i
@@ -277,6 +298,12 @@ class TestRunPyPyC(BaseTestPyPyC):
         #
         ops = loop.ops_by_id('increment')
         assert log.opnames(ops) == ['int_add']
+        #
+        ops = loop.ops_by_id('cond')
+        # the 'jump' at the end is because the last opcode in the loop
+        # coincides with the first, and so it thinks that 'jump' belongs to
+        # the id
+        assert log.opnames(ops) == ['int_lt', 'guard_true', 'jump']
 
     def test_ops_by_id_and_opcode(self):
         def f():
@@ -384,20 +411,22 @@ class TestRunPyPyC(BaseTestPyPyC):
 
     def test_match_constants(self):
         def f():
-            i = 0L # force it to long, so that we get calls to rbigint
+            from socket import ntohs
+            i = 0
             while i < 1003:
-                i += 1L # ID: increment
+                i += 1
+                j = ntohs(1) # ID: ntohs
                 a = 0
             return i
         log = self.run(f)
-        loop, = log.loops_by_id('increment')
-        assert loop.match_by_id('increment', """
-            p12 = call(ConstClass(rbigint.add), p4, ConstPtr(ptr11), descr=...)
+        loop, = log.loops_by_id('ntohs')
+        assert loop.match_by_id('ntohs', """
+            p12 = call(ConstClass(ntohs), 1, descr=...)
             guard_no_exception(descr=...)
         """)
         #
-        assert not loop.match_by_id('increment', """
-            p12 = call(ConstClass(rbigint.SUB), p4, ConstPtr(ptr11), descr=...)
+        assert not loop.match_by_id('ntohs', """
+            p12 = call(ConstClass(foobar), 1, descr=...)
             guard_no_exception(descr=...)
         """)
         

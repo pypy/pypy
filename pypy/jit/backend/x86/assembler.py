@@ -698,11 +698,9 @@ class Assembler386(object):
             else:
                 target = tmp
             if inputargs[i].type == REF:
-                # This uses XCHG to put zeroes in fail_boxes_ptr after
-                # reading them
-                self.mc.XOR(target, target)
                 adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                self.mc.XCHG(target, heap(adr))
+                self.mc.MOV(target, heap(adr))
+                self.mc.MOV(heap(adr), imm0)
             else:
                 adr = self.fail_boxes_int.get_addr_for_num(i)
                 self.mc.MOV(target, heap(adr))
@@ -1140,17 +1138,17 @@ class Assembler386(object):
             not_implemented("llong_to_int: %s" % (loc,))
 
     def genop_llong_from_int(self, op, arglocs, resloc):
-        loc = arglocs[0]
-        if isinstance(loc, ConstFloatLoc):
-            self.mc.MOVSD(resloc, loc)
+        loc1, loc2 = arglocs
+        if isinstance(loc1, ConstFloatLoc):
+            assert loc2 is None
+            self.mc.MOVSD(resloc, loc1)
         else:
-            assert loc is eax
-            assert isinstance(resloc, RegLoc)
-            loc2 = arglocs[1]
+            assert isinstance(loc1, RegLoc)
             assert isinstance(loc2, RegLoc)
-            self.mc.CDQ()       # eax -> eax:edx
-            self.mc.MOVD_xr(resloc.value, eax.value)
-            self.mc.MOVD_xr(loc2.value, edx.value)
+            assert isinstance(resloc, RegLoc)
+            self.mc.MOVD_xr(loc2.value, loc1.value)
+            self.mc.PSRAD_xi(loc2.value, 31)    # -> 0 or -1
+            self.mc.MOVD_xr(resloc.value, loc1.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
 
     def genop_llong_from_uint(self, op, arglocs, resloc):
@@ -1908,8 +1906,8 @@ class Assembler386(object):
                     self.mc.MOV(eax, heap(adr))
                 elif kind == REF:
                     adr = self.fail_boxes_ptr.get_addr_for_num(0)
-                    self.mc.XOR_rr(eax.value, eax.value)
-                    self.mc.XCHG(eax, heap(adr))
+                    self.mc.MOV(eax, heap(adr))
+                    self.mc.MOV(heap(adr), imm0)
                 else:
                     raise AssertionError(kind)
         #

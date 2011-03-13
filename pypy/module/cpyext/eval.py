@@ -20,9 +20,9 @@ def PyEval_GetBuiltins(space):
         w_globals = caller.w_globals
         w_builtins = space.getitem(w_globals, space.wrap('__builtins__'))
         if not space.isinstance_w(w_builtins, space.w_dict):
-            w_builtins = w_builtins.getdict()
+            w_builtins = w_builtins.getdict(space)
     else:
-        w_builtins = space.builtin.getdict()
+        w_builtins = space.builtin.getdict(space)
     return borrow_from(None, w_builtins)
 
 @cpython_api([], PyObject, error=CANNOT_FAIL)

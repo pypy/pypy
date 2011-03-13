@@ -6,7 +6,7 @@ Frequently Asked Questions
 
 
 General
-========================================================================
+=======
 
 -------------
 What is PyPy?
@@ -146,9 +146,9 @@ work nicely`__ too.
 
 .. _`prolog and javascript`:
 
----------------------------------------------------------------
+----------------------------------------------------------------
 Can PyPy support interpreters for other languages beyond Python?
----------------------------------------------------------------
+----------------------------------------------------------------
 
 The toolsuite that translates the PyPy interpreter is quite
 general and can be used to create optimized versions of interpreters
@@ -167,8 +167,9 @@ Currently, we have preliminary versions of a JavaScript interpreter
 .. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _`All of them`: http://codespeak.net/svn/pypy/lang/
 
+
 Development
-========================================================================
+===========
 
 -----------------------------------------------------------
 How do I get into PyPy development?  Can I come to sprints?
@@ -219,8 +220,9 @@ privileges::
 This will disable SELinux's protection and allow PyPy to configure correctly.
 Be sure to enable it again if you need it!
 
+
 PyPy translation tool chain
-========================================================================
+===========================
 
 ----------------------------------------
 Can PyPy compile normal Python programs?
@@ -298,9 +300,9 @@ To read more about the RPython limitations read the `RPython description`_.
 
 .. _`RPython description`: coding-guide.html#restricted-python
 
--------------------------------------------------------------------------
-Does RPython have anything to do with Zope's Restricted Python? 
--------------------------------------------------------------------------
+---------------------------------------------------------------
+Does RPython have anything to do with Zope's Restricted Python?
+---------------------------------------------------------------
 
 No.  `Zope's RestrictedPython`_ aims to provide a sandboxed 
 execution environment for CPython.   `PyPy's RPython`_ is the implementation
@@ -395,9 +397,9 @@ See the `getting-started`_ guide.
 
 .. _`how do I compile my own interpreters`:
 
---------------------------------------
+-------------------------------------
 How do I compile my own interpreters?
---------------------------------------
+-------------------------------------
 
 Start from the example of
 `pypy/translator/goal/targetnopstandalone.py`_, which you compile by

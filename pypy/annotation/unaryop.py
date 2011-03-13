@@ -15,6 +15,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
 from pypy.rpython import extregistry
+from pypy.tool.error import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):

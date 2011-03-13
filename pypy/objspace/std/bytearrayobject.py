@@ -539,9 +539,10 @@ def str_split__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     if not space.is_w(w_by, space.w_None):
         w_by = space.wrap(space.bufferstr_new_w(w_by))
     w_list = space.call_method(w_str, "split", w_by, w_maxsplit)
-    list_w = space.listview(w_list)
-    for i in range(len(list_w)):
-        list_w[i] = String2Bytearray(space, list_w[i])
+    length = space.int_w(space.len(w_list))
+    for i in range(length):
+        w_i = space.wrap(i)
+        space.setitem(w_list, w_i, String2Bytearray(space, space.getitem(w_list, w_i)))
     return w_list
 
 def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
@@ -549,9 +550,10 @@ def str_rsplit__Bytearray_ANY_ANY(space, w_bytearray, w_by, w_maxsplit=-1):
     if not space.is_w(w_by, space.w_None):
         w_by = space.wrap(space.bufferstr_new_w(w_by))
     w_list = space.call_method(w_str, "rsplit", w_by, w_maxsplit)
-    list_w = space.listview(w_list)
-    for i in range(len(list_w)):
-        list_w[i] = String2Bytearray(space, list_w[i])
+    length = space.int_w(space.len(w_list))
+    for i in range(length):
+        w_i = space.wrap(i)
+        space.setitem(w_list, w_i, String2Bytearray(space, space.getitem(w_list, w_i)))
     return w_list
 
 def str_partition__Bytearray_ANY(space, w_bytearray, w_sub):

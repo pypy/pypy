@@ -8,6 +8,7 @@ from pypy.module.cpyext.api import (
     CONST_WSTRING)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import PyObject, from_ref, make_typedescr
+from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.objspace.std import unicodeobject, unicodetype
 from pypy.rlib import runicode
@@ -189,8 +190,8 @@ def PyUnicode_SetDefaultEncoding(space, encoding):
     return 0
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
-def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
-    """Encode a Unicode object and return the result as Python string object.
+def PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors):
+    """Encode a Unicode object and return the result as Python object.
     encoding and errors have the same meaning as the parameters of the same name
     in the Unicode encode() method. The codec to be used is looked up using
     the Python codec registry. Return NULL if an exception was raised by the
@@ -204,6 +205,19 @@ def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
     if llerrors:
         errors = rffi.charp2str(llerrors)
     return unicodetype.encode_object(space, w_unicode, encoding, errors)
+
+@cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
+def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
+    """Encode a Unicode object and return the result as Python string object.
+    encoding and errors have the same meaning as the parameters of the same name
+    in the Unicode encode() method. The codec to be used is looked up using
+    the Python codec registry. Return NULL if an exception was raised by the
+    codec."""
+    w_str = PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors)
+    if not PyString_Check(space, w_str):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "encoder did not return a string object"))
+    return w_str
 
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsUnicodeEscapeString(space, w_unicode):
@@ -361,10 +375,7 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
 
     If byteorder is NULL, the codec starts in native order mode.
 
-    Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    Return NULL if an exception was raised by the codec."""
 
     string = rffi.charpsize2str(s, size)
 
@@ -405,10 +416,7 @@ def PyUnicode_AsASCIIString(space, w_unicode):
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeASCII(space, s, size, errors):
     """Create a Unicode object by decoding size bytes of the ASCII encoded string
-    s.  Return NULL if an exception was raised by the codec.
-    
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    s.  Return NULL if an exception was raised by the codec."""
     w_s = space.wrap(rffi.charpsize2str(s, size))
     return space.call_method(w_s, 'decode', space.wrap('ascii'))
 
@@ -416,9 +424,7 @@ def PyUnicode_DecodeASCII(space, s, size, errors):
 def PyUnicode_EncodeASCII(space, s, size, errors):
     """Encode the Py_UNICODE buffer of the given size using ASCII and return a
     Python string object.  Return NULL if an exception was raised by the codec.
-    
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    """
 
     w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
     return space.call_method(w_s, 'encode', space.wrap('ascii'))

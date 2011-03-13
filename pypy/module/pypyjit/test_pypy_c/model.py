@@ -38,7 +38,7 @@ def find_ids(code):
 
 
 class Log(object):
-    def __init__(self, func, rawtraces):
+    def __init__(self, rawtraces):
         storage = LoopStorage()
         traces = [SimpleParser.parse_from_input(rawtrace) for rawtrace in rawtraces]
         traces = storage.reconnect_loops(traces)
@@ -99,12 +99,11 @@ class LoopWithIds(Function):
         # 1. compute the ids of self, i.e. the outer function
         id2opcodes = find_ids(self.code)
         all_my_opcodes = self.get_set_of_opcodes()
-        # XXX: for now, we just look for the first opcode in the id range
         for id, opcodes in id2opcodes.iteritems():
             if not opcodes:
                 continue
-            target_opcode = opcodes[0]
-            if target_opcode in all_my_opcodes:
+            target_opcodes = set(opcodes)
+            if all_my_opcodes.intersection(target_opcodes):
                 ids[id] = opcodes
         #
         # 2. compute the ids of all the inlined functions
@@ -133,11 +132,11 @@ class LoopWithIds(Function):
             for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                 yield op
 
-    def print_ops(self, id=None):
+    def print_ops(self, id=None, **kwds):
         if id is None:
             ops = self.allops()
         else:
-            ops = self.ops_by_id(id)
+            ops = self.ops_by_id(id, **kwds)
         print '\n'.join(map(str, ops))
 
     def ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
@@ -196,7 +195,9 @@ class OpMatcher(object):
         args = args[:-1]
         args = args.split(',')
         args = map(str.strip, args)
-        if args[-1].startswith('descr='):
+        if args == ['']:
+            args = []
+        if args and args[-1].startswith('descr='):
             descr = args.pop()
             descr = descr[len('descr='):]
         else:
