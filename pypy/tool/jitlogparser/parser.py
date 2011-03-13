@@ -108,6 +108,7 @@ class TraceForOpcode(object):
         self.operations = operations
         self.storage = storage
         self.code = storage.disassemble_code(self.filename, self.startlineno)
+        assert self.code is not None, 'could not find source file'
 
     def repr(self):
         if self.filename is None:
