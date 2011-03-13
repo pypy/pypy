@@ -2233,10 +2233,19 @@ class BasicTests:
         self.check_tree_loop_count(2)
 
     def test_read_timestamp(self):
-        from pypy.rlib.test.test_rtimer import timer
+        import time
+        from pypy.rlib.rtimer import read_timestamp
+        def busy_loop():
+            start = time.time()
+            while time.time() - start < 0.1:
+                # busy wait
+                pass
+
         def f():
-            diff = timer()
-            return diff > 1000
+            t1 = read_timestamp()
+            busy_loop()
+            t2 = read_timestamp()
+            return t2 - t1 > 1000
         res = self.interp_operations(f, [])
         assert res
 

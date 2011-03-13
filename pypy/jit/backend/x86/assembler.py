@@ -301,7 +301,7 @@ class Assembler386(object):
         if log:
             self._register_counter()
             operations = self._inject_debugging_code(looptoken, operations)
-        
+
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
         looptoken._x86_arglocs = arglocs
@@ -310,7 +310,7 @@ class Assembler386(object):
         stackadjustpos = self._assemble_bootstrap_code(inputargs, arglocs)
         self.looppos = self.mc.get_relative_pos()
         looptoken._x86_frame_depth = -1     # temporarily
-        looptoken._x86_param_depth = -1     # temporarily        
+        looptoken._x86_param_depth = -1     # temporarily
         frame_depth, param_depth = self._assemble(regalloc, operations)
         looptoken._x86_frame_depth = frame_depth
         looptoken._x86_param_depth = param_depth
@@ -509,7 +509,7 @@ class Assembler386(object):
 
     def _assemble(self, regalloc, operations):
         self._regalloc = regalloc
-        regalloc.walk_operations(operations)        
+        regalloc.walk_operations(operations)
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
         frame_depth = regalloc.fm.frame_depth
@@ -957,7 +957,7 @@ class Assembler386(object):
                     dst_locs.append(unused_gpr.pop())
                 else:
                     pass_on_stack.append(loc)
-        
+
         # Emit instructions to pass the stack arguments
         # XXX: Would be nice to let remap_frame_layout take care of this, but
         # we'd need to create something like StackLoc, but relative to esp,
@@ -1362,6 +1362,15 @@ class Assembler386(object):
             self.mc.MOVZX16(resloc, AddressLoc(base_loc, ofs_loc, 1, basesize))
         else:
             assert 0, itemsize
+
+    def genop_read_timestamp(self, op, arglocs, resloc):
+        # XXX cheat
+        addr1 = self.fail_boxes_int.get_addr_for_num(0)
+        addr2 = self.fail_boxes_int.get_addr_for_num(1)
+        self.mc.RDTSC()
+        self.mc.MOV(heap(addr1), eax)
+        self.mc.MOV(heap(addr2), edx)
+        self.mc.MOVSD(resloc, heap(addr1))
 
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
@@ -1796,7 +1805,7 @@ class Assembler386(object):
             tmp = ecx
         else:
             tmp = eax
-        
+
         self._emit_call(x, arglocs, 3, tmp=tmp)
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
@@ -2040,7 +2049,7 @@ class Assembler386(object):
         # on 64-bits, 'tid' is a value that fits in 31 bits
         self.mc.MOV_mi((eax.value, 0), tid)
         self.mc.MOV(heap(nursery_free_adr), edx)
-        
+
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_llong_list = {}
@@ -2051,7 +2060,7 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_discard_'):]
         num = getattr(rop, opname.upper())
         genop_discard_list[num] = value
-    elif name.startswith('genop_guard_') and name != 'genop_guard_exception': 
+    elif name.startswith('genop_guard_') and name != 'genop_guard_exception':
         opname = name[len('genop_guard_'):]
         num = getattr(rop, opname.upper())
         genop_guard_list[num] = value

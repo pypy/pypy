@@ -138,7 +138,7 @@ class RegAlloc(object):
             xmm_reg_mgr_cls = X86_64_XMMRegisterManager
         else:
             raise AssertionError("Word size should be 4 or 8")
-            
+
         self.rm = gpr_reg_mgr_cls(longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
@@ -341,7 +341,7 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               current_depths)
-        self.possibly_free_vars(guard_op.getfailargs())        
+        self.possibly_free_vars(guard_op.getfailargs())
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -417,7 +417,7 @@ class RegAlloc(object):
                     assert isinstance(arg, Box)
                     if arg not in last_used:
                         last_used[arg] = i
-                        
+
         longevity = {}
         for arg in produced:
             if arg in last_used:
@@ -807,7 +807,7 @@ class RegAlloc(object):
         self._call(op, [imm(size), vable] +
                    [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_op)
-        
+
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
@@ -1156,6 +1156,16 @@ class RegAlloc(object):
         else:
             raise AssertionError("bad unicode item size")
 
+    def consider_read_timestamp(self, op):
+        tmpbox_high = TempBox()
+        tmpbox_low = TempBox()
+        self.rm.force_allocate_reg(tmpbox_high, selected_reg=eax)
+        self.rm.force_allocate_reg(tmpbox_low, selected_reg=edx)
+        result_loc = self.xrm.force_allocate_reg(op.result)
+        self.Perform(op, [], result_loc)
+        self.rm.possibly_free_var(tmpbox_high)
+        self.rm.possibly_free_var(tmpbox_low)
+
     def consider_jump(self, op):
         assembler = self.assembler
         assert self.jump_target_descr is None
@@ -1172,13 +1182,13 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
         dst_locations = [loc for loc in nonfloatlocs if loc is not None]
         remap_frame_layout(assembler, src_locations, dst_locations, tmploc)
         # Part about floats
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type == FLOAT]
         dst_locations = [loc for loc in floatlocs if loc is not None]
         remap_frame_layout(assembler, src_locations, dst_locations, xmmtmp)
