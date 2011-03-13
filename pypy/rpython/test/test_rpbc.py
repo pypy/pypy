@@ -617,32 +617,6 @@ class BaseTestRPBC(BaseRtypingTest):
         assert self.read_attr(res, "z") == -7645
         assert self.read_attr(res, "extra") == 42
 
-    def test_call_classes_with_noarg_init(self):
-        class A:
-            foo = 21
-        class B(A):
-            foo = 22
-        class C(A):
-            def __init__(self):
-                self.foo = 42
-        class D(A):
-            def __init__(self):
-                self.foo = 43
-        def f(i):
-            if i == 1:
-                cls = B
-            elif i == 2:
-                cls = D
-            else:
-                cls = C
-            return cls().foo
-        res = self.interpret(f, [0])
-        assert res == 42
-        res = self.interpret(f, [1])
-        assert res == 22
-        res = self.interpret(f, [2])
-        assert res == 43
-
     def test_conv_from_None(self):
         class A(object): pass
         def none():
