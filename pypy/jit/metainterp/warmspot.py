@@ -30,7 +30,8 @@ from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 # ____________________________________________________________
 # Bootstrapping
 
-def apply_jit(translator, backend_name="auto", inline=False, **kwds):
+def apply_jit(translator, backend_name="auto", inline=False,
+              enable_opts=ALL_OPTS_NAMES, **kwds):
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -45,6 +46,7 @@ def apply_jit(translator, backend_name="auto", inline=False, **kwds):
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
+        jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
@@ -275,7 +277,7 @@ class WarmRunnerDesc(object):
             stats = history.NoStats()
         else:
             stats = history.Stats()
-        self.stats = stats 
+        self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
             annhelper = self.annhelper
@@ -329,7 +331,7 @@ class WarmRunnerDesc(object):
                 return 'DoneWithThisFrameVoid()'
 
         class DoneWithThisFrameInt(JitException):
-            def __init__(self, result):                
+            def __init__(self, result):
                 assert lltype.typeOf(result) is lltype.Signed
                 self.result = result
             def __str__(self):
@@ -779,14 +781,14 @@ class WarmRunnerDesc(object):
             if self.metainterp_sd.profiler.initialized:
                 self.metainterp_sd.profiler.finish()
             self.metainterp_sd.cpu.finish_once()
-        
+
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish,
                                 annhelper = self.annhelper)
 
     def rewrite_set_param(self):
         from pypy.rpython.lltypesystem.rstr import STR
-        
+
         closures = {}
         graphs = self.translator.graphs
         _, PTR_SET_PARAM_FUNCTYPE = self.cpu.ts.get_FuncType([lltype.Signed],
