@@ -106,7 +106,7 @@ class Entry(extregistry.ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rlib import _rweakvaldict
-        return _rweakvaldict.specialize_make_weakdict(hop, hop.r_result.traits)
+        return _rweakvaldict.specialize_make_weakdict(hop)
 
 class Entry(extregistry.ExtRegistryEntry):
     _type_ = RWeakValueDictionary
