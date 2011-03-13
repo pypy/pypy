@@ -237,7 +237,7 @@ class LLJitMixin(JitMixin):
         NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
                                             ('next', lltype.Ptr(NODE))))
         return NODE
-    
+
 class OOJitMixin(JitMixin):
     type_system = 'ootype'
     #CPUClass = runner.OOtypeCPU
@@ -271,7 +271,7 @@ class OOJitMixin(JitMixin):
         return NODE
 
 
-class BasicTests:    
+class BasicTests:
 
     def test_basic(self):
         def f(x, y):
@@ -291,7 +291,7 @@ class BasicTests:
 
     def test_uint_floordiv(self):
         from pypy.rlib.rarithmetic import r_uint
-        
+
         def f(a, b):
             a = r_uint(a)
             b = r_uint(b)
@@ -506,7 +506,7 @@ class BasicTests:
             res = self.meta_interp(f, [6, 15], no_stats=True)
         finally:
             history.TreeLoop.__init__ = old_init
-            
+
         assert res == f(6, 15)
         gc.collect()
 
@@ -1094,7 +1094,7 @@ class BasicTests:
 
     def test_bridge_from_interpreter_4(self):
         jitdriver = JitDriver(reds = ['n', 'k'], greens = [])
-        
+
         def f(n, k):
             while n > 0:
                 jitdriver.can_enter_jit(n=n, k=k)
@@ -1107,7 +1107,7 @@ class BasicTests:
 
         from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
         from pypy.jit.metainterp.warmspot import WarmRunnerDesc
-        
+
         interp, graph = get_interpreter(f, [0, 0], backendopt=False,
                                         inline_threshold=0, type_system=self.type_system)
         clear_tcache()
@@ -1504,7 +1504,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_value=2)        
+        self.check_loops(guard_class=0, guard_value=2)
         self.check_loops(guard_class=0, guard_value=5, everywhere=True)
 
     def test_merge_guardnonnull_guardclass(self):
@@ -1798,9 +1798,9 @@ class BasicTests:
 
     def test_raw_malloc_and_access(self):
         from pypy.rpython.lltypesystem import rffi
-        
+
         TP = rffi.CArray(lltype.Signed)
-        
+
         def f(n):
             a = lltype.malloc(TP, n, flavor='raw')
             a[0] = n
@@ -1813,9 +1813,9 @@ class BasicTests:
 
     def test_raw_malloc_and_access_float(self):
         from pypy.rpython.lltypesystem import rffi
-        
+
         TP = rffi.CArray(lltype.Float)
-        
+
         def f(n, f):
             a = lltype.malloc(TP, n, flavor='raw')
             a[0] = f
@@ -2118,7 +2118,7 @@ class BasicTests:
 
     def test_dont_trace_every_iteration(self):
         myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'i', 'sa'])
-        
+
         def main(a, b):
             i = sa = 0
             #while i < 200:
@@ -2214,7 +2214,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [sys.maxint>>10])
         assert res == 11
-        self.check_tree_loop_count(2)        
+        self.check_tree_loop_count(2)
 
     def test_wrap_around_sub(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
@@ -2230,7 +2230,15 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [10-sys.maxint])
         assert res == 12
-        self.check_tree_loop_count(2)        
+        self.check_tree_loop_count(2)
+
+    def test_read_timestamp(self):
+        from pypy.rlib.test.test_rtimer import timer
+        def f():
+            diff = timer()
+            return diff > 1000
+        res = self.interp_operations(f, [])
+        assert res
 
 
 
@@ -2308,7 +2316,7 @@ class TestOOtype(BasicTests, OOJitMixin):
                                policy=StopAtXPolicy(getcls),
                                optimizer=OPTIMIZER_SIMPLE)
         assert not res
-        
+
         res = self.meta_interp(f, [0, 100],
                                policy=StopAtXPolicy(getcls),
                                optimizer=OPTIMIZER_SIMPLE)
@@ -2328,7 +2336,7 @@ class BaseLLtypeTests(BasicTests):
 
     def test_oops_on_nongc(self):
         from pypy.rpython.lltypesystem import lltype
-        
+
         TP = lltype.Struct('x')
         def f(i1, i2):
             p1 = prebuilt[i1]

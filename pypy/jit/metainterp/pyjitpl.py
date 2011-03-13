@@ -834,7 +834,7 @@ class MIFrame(object):
                                jcposition, redboxes):
         resumedescr = compile.ResumeAtPositionDescr()
         self.capture_resumedata(resumedescr, orgpc)
-        
+
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
@@ -852,7 +852,7 @@ class MIFrame(object):
             "found a loop_header for a JitDriver that does not match "
             "the following jit_merge_point's")
         self.metainterp.seen_loop_header_for_jdindex = -1
-        
+
         #
         if not self.metainterp.in_recursion:
             assert jitdriver_sd is self.metainterp.jitdriver_sd
@@ -1022,6 +1022,10 @@ class MIFrame(object):
         if vrefinfo.is_virtual_ref(vref):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, lastbox], None)
+
+    @arguments()
+    def opimpl_ll_read_timestamp(self):
+        return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
 
     # ------------------------------
 
@@ -1719,7 +1723,7 @@ class MetaInterp(object):
             dont_change_position = True
         else:
             dont_change_position = False
-        try:            
+        try:
             self.prepare_resume_from_failure(key.guard_opnum, dont_change_position)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(ABORT_BRIDGE)
@@ -1924,7 +1928,7 @@ class MetaInterp(object):
 
         self.history.inputargs = original_inputargs
         self.history.operations = self.history.operations[:start]
-        
+
         self.history.record(rop.JUMP, bridge_arg_boxes[num_green_args:], None)
         try:
             target_loop_token = compile.compile_new_bridge(self,
