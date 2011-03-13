@@ -4,7 +4,7 @@ import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.interpreter.baseobjspace import DescrMismatch
-from pypy.objspace.std.typeobject import W_TypeObject, _CPYTYPE
+from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
