@@ -10,64 +10,77 @@ class Y(X):
     pass
 
 
-def make_test(loop=100):
+def make_test(loop=100, keyclass=str):
+    if keyclass is str:
+        make_key = str
+        keys = ["abc", "def", "ghi", "hello"]
+    elif keyclass is int:
+        make_key = int
+        keys = [123, 456, 789, 1234]
+
     def g(d):
-        assert d.get("hello") is None
+        assert d.get(keys[3]) is None
         x1 = X(); x2 = X(); x3 = X()
-        d.set("abc", x1)
-        d.set("def", x2)
-        d.set("ghi", x3)
-        assert d.get("abc") is x1
-        assert d.get("def") is x2
-        assert d.get("ghi") is x3
-        assert d.get("hello") is None
+        d.set(keys[0], x1)
+        d.set(keys[1], x2)
+        d.set(keys[2], x3)
+        assert d.get(keys[0]) is x1
+        assert d.get(keys[1]) is x2
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
         return x1, x3    # x2 dies
     def f():
-        d = RWeakValueDictionary(str, X)
+        d = RWeakValueDictionary(keyclass, X)
         x1, x3 = g(d)
         rgc.collect(); rgc.collect()
-        assert d.get("abc") is x1
-        assert d.get("def") is None
-        assert d.get("ghi") is x3
-        assert d.get("hello") is None
-        d.set("abc", None)
-        assert d.get("abc") is None
-        assert d.get("def") is None
-        assert d.get("ghi") is x3
-        assert d.get("hello") is None
+        assert d.get(keys[0]) is x1
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+        d.set(keys[0], None)
+        assert d.get(keys[0]) is None
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
         # resizing should also work
         for i in range(loop):
-            d.set(str(i), x1)
+            d.set(make_key(i), x1)
         for i in range(loop):
-            assert d.get(str(i)) is x1
-        assert d.get("abc") is None
-        assert d.get("def") is None
-        assert d.get("ghi") is x3
-        assert d.get("hello") is None
+            assert d.get(make_key(i)) is x1
+        assert d.get(keys[0]) is None
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
         # a subclass
         y = Y()
-        d.set("hello", y)
-        assert d.get("hello") is y
+        d.set(keys[3], y)
+        assert d.get(keys[3]) is y
         # storing a lot of Nones
         for i in range(loop, loop*2-5):
-            d.set('%dfoobar' % i, x1)
+            d.set(make_key(1000 + i), x1)
         for i in range(loop):
-            d.set(str(i), None)
+            d.set(make_key(i), None)
         for i in range(loop):
-            assert d.get(str(i)) is None
-        assert d.get("abc") is None
-        assert d.get("def") is None
-        assert d.get("ghi") is x3
-        assert d.get("hello") is y
+            assert d.get(make_key(i)) is None
+        assert d.get(keys[0]) is None
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is y
         for i in range(loop, loop*2-5):
-            assert d.get('%dfoobar' % i) is x1
+            assert d.get(make_key(1000 + i)) is x1
     return f
 
 def test_RWeakValueDictionary():
     make_test()()
 
+def test_RWeakValueDictionary_int():
+    make_test(keyclass=int)()
+
 def test_rpython_RWeakValueDictionary():
     interpret(make_test(loop=12), [])
+
+def test_rpython_RWeakValueDictionary_int():
+    interpret(make_test(loop=12, keyclass=int), [])
 
 def test_rpython_prebuilt():
     d = RWeakValueDictionary(str, X)
