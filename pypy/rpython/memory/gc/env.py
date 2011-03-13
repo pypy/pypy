@@ -190,43 +190,54 @@ sysctlbyname = rffi.llexternal('sysctlbyname',
                                 rffi.VOIDP, rffi.SIZE_T],
                                rffi.INT,
                                sandboxsafe=True)
+
+def get_darwin_cache_size(cache_key):
+    cache_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
+    try:
+        len_p = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+        try:
+            size = rffi.sizeof(rffi.LONGLONG)
+            cache_p[0] = rffi.cast(rffi.LONGLONG, 0)
+            len_p[0] = rffi.cast(rffi.SIZE_T, size)
+            # XXX a hack for llhelper not being robust-enough
+            result = sysctlbyname(cache_key,
+                                  rffi.cast(rffi.VOIDP, cache_p),
+                                  len_p,
+                                  lltype.nullptr(rffi.VOIDP.TO),
+                                  rffi.cast(rffi.SIZE_T, 0))
+            if (rffi.cast(lltype.Signed, result) == 0 and
+                rffi.cast(lltype.Signed, len_p[0]) == size):
+                cache = rffi.cast(lltype.Signed, cache_p[0])
+                if rffi.cast(rffi.LONGLONG, cache) != cache_p[0]:
+                    cache = 0    # overflow!
+            return cache
+        finally:
+            lltype.free(len_p, flavor='raw')
+    finally:
+        lltype.free(cache_p, flavor='raw')
+
+
 def get_L2cache_darwin():
     """Try to estimate the best nursery size at run-time, depending
     on the machine we are running on.
     """
     debug_start("gc-hardware")
-    L2cache = 0
-    l2cache_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
-    try:
-        len_p = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
-        try:
-            size = rffi.sizeof(rffi.LONGLONG)
-            l2cache_p[0] = rffi.cast(rffi.LONGLONG, 0)
-            len_p[0] = rffi.cast(rffi.SIZE_T, size)
-            # XXX a hack for llhelper not being robust-enough
-            result = sysctlbyname("hw.l2cachesize",
-                                  rffi.cast(rffi.VOIDP, l2cache_p),
-                                  len_p,
-                                  lltype.nullptr(rffi.VOIDP.TO), 
-                                  rffi.cast(rffi.SIZE_T, 0))
-            if (rffi.cast(lltype.Signed, result) == 0 and
-                rffi.cast(lltype.Signed, len_p[0]) == size):
-                L2cache = rffi.cast(lltype.Signed, l2cache_p[0])
-                if rffi.cast(rffi.LONGLONG, L2cache) != l2cache_p[0]:
-                    L2cache = 0    # overflow!
-        finally:
-            lltype.free(len_p, flavor='raw')
-    finally:
-        lltype.free(l2cache_p, flavor='raw')
+    L2cache = get_darwin_cache_size("hw.l2cachesize")
+    L3cache = get_darwin_cache_size("hw.l3cachesize")
     debug_print("L2cache =", L2cache)
+    debug_print("L3cache =", L3cache)
     debug_stop("gc-hardware")
-    if L2cache > 0:
-        return L2cache
+
+    mangled = L2cache + L3cache
+
+    if mangled > 0:
+        return mangled
     else:
         # Print a top-level warning even in non-debug builds
         llop.debug_print(lltype.Void,
             "Warning: cannot find your CPU L2 cache size with sysctl()")
         return -1
+
 
 # --------------------
 
