@@ -32,7 +32,7 @@ class LLOp(object):
         assert isinstance(canraise, tuple)
 
         assert not canraise or not canfold
-        
+
         # The operation manipulates PyObjects
         self.pyobj = pyobj
 
@@ -440,6 +440,7 @@ LL_OPERATIONS = {
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
+    'll_read_timestamp': LLOp(sideeffects=False, canrun=True),
 
     # __________ GC operations __________
 
@@ -482,12 +483,12 @@ LL_OPERATIONS = {
     'gc_typeids_z'        : LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
-    
+
     'gc_adr_of_nursery_free' : LLOp(),
     # ^^^ returns an address of nursery free pointer, for later modifications
     'gc_adr_of_nursery_top' : LLOp(),
     # ^^^ returns an address of pointer, since it can change at runtime
-    
+
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC
     'gc_x_swap_pool':       LLOp(canraise=(MemoryError,), canunwindgc=True),
