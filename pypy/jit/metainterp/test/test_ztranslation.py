@@ -1,7 +1,7 @@
 import py
 from pypy.jit.metainterp.warmspot import rpython_ll_meta_interp, ll_meta_interp
 from pypy.jit.backend.llgraph import runner
-from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
+from pypy.rlib.jit import JitDriver, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -51,8 +51,7 @@ class TranslationTest:
                               set_jitcell_at=set_jitcell_at,
                               get_printable_location=get_printable_location)
         def f(i):
-            for param in unroll_parameters:
-                defl = PARAMETERS[param]
+            for param, defl in unroll_parameters:
                 jitdriver.set_param(param, defl)
             jitdriver.set_param("threshold", 3)
             jitdriver.set_param("trace_eagerness", 2)
@@ -90,7 +89,6 @@ class TranslationTest:
         res = rpython_ll_meta_interp(main, [40, 5],
                                      CPUClass=self.CPUClass,
                                      type_system=self.type_system,
-                                     optimizer=OPTIMIZER_FULL,
                                      ProfilerClass=Profiler)
         assert res == main(40, 5)
 

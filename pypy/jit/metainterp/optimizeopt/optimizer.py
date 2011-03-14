@@ -171,6 +171,9 @@ oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 
 class Optimization(object):
     next_optimization = None
+
+    def __init__(self):
+        pass # make rpython happy
     
     def propagate_forward(self, op):
         raise NotImplementedError

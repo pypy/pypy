@@ -4,7 +4,7 @@ from pypy.jit.tool.oparser import OpParser
 
 class Op(object):
     bridge = None
-    
+
     def __init__(self, name, args, res, descr):
         self.name = name
         self.args = args
@@ -56,7 +56,7 @@ class SimpleParser(OpParser):
     def parse_from_input(cls, input):
         return cls(input, None, {}, 'lltype', None,
                    nonstrict=True).parse()
-    
+
     def parse_args(self, opname, argspec):
         if not argspec.strip():
             return [], None
@@ -92,7 +92,7 @@ class TraceForOpcode(object):
     bytecode_name = None
     is_bytecode = True
     inline_level = None
-    
+
     def __init__(self, operations, storage):
         if operations[0].name == 'debug_merge_point':
             self.inline_level = int(operations[0].args[1])
@@ -146,7 +146,7 @@ class Function(object):
 
     # factory method
     TraceForOpcode = TraceForOpcode
-    
+
     def __init__(self, chunks, path, storage):
         self.path = path
         self.chunks = chunks
@@ -237,7 +237,7 @@ class Function(object):
             return "Unknown"
         return "%s, file '%s', line %d" % (self.name, self.filename,
                                            self.startlineno)
-        
+
     def __repr__(self):
         return "[%s]" % ", ".join([repr(chunk) for chunk in self.chunks])
 

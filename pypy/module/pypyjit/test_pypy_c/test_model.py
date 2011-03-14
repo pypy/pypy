@@ -29,6 +29,10 @@ class BaseTestPyPyC(object):
         # write the snippet
         arglist = ', '.join(map(repr, args))
         with self.filepath.open("w") as f:
+            # we don't want to see the small bridges created
+            # by the checkinterval reaching the limit
+            f.write("import sys\n")
+            f.write("sys.setcheckinterval(10000000)\n")
             f.write(str(src) + "\n")
             f.write("print %s(%s)\n" % (funcname, arglist))
         #
@@ -94,7 +98,7 @@ class TestOpMatcher(object):
     def match(self, src1, src2):
         from pypy.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
-        matcher = OpMatcher(loop.operations)
+        matcher = OpMatcher(loop.operations, src=src1)
         return matcher.match(src2)
 
     def test_match_var(self):

@@ -5,7 +5,7 @@ from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
                                                         BaseTest)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
@@ -188,7 +188,7 @@ class BaseTestOptimizeOpt(BaseTest):
             def clone_if_mutable(self):
                 return self
         loop.preamble.start_resumedescr = FakeDescr()
-        optimize_loop_1(metainterp_sd, loop)
+        optimize_loop_1(metainterp_sd, loop, ALL_OPTS_DICT)
         #
 
         print

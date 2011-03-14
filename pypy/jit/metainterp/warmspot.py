@@ -25,11 +25,13 @@ from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
 from pypy.jit.codewriter import support, codewriter, longlong
 from pypy.jit.codewriter.policy import JitPolicy
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 # ____________________________________________________________
 # Bootstrapping
 
-def apply_jit(translator, backend_name="auto", inline=False, **kwds):
+def apply_jit(translator, backend_name="auto", inline=False,
+              enable_opts=ALL_OPTS_NAMES, **kwds):
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -44,6 +46,7 @@ def apply_jit(translator, backend_name="auto", inline=False, **kwds):
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
+        jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
@@ -62,7 +65,8 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
-                    inline=False, loop_longevity=0, retrace_limit=5, **kwds):
+                    inline=False, loop_longevity=0, retrace_limit=5,
+                    enable_opts=ALL_OPTS_NAMES, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -81,6 +85,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_loop_longevity(loop_longevity)
         jd.warmstate.set_param_retrace_limit(retrace_limit)
+        jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
@@ -145,8 +150,7 @@ class ContinueRunningNormallyBase(JitException):
 class WarmRunnerDesc(object):
 
     def __init__(self, translator, policy=None, backendopt=True, CPUClass=None,
-                 optimizer=None, ProfilerClass=EmptyProfiler,
-                 jit_ffi=None, **kwds):
+                 ProfilerClass=EmptyProfiler, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         self.set_translator(translator)
         self.memory_manager = memmgr.MemoryManager()
@@ -165,7 +169,7 @@ class WarmRunnerDesc(object):
         elif self.opt.listops:
             self.prejit_optimizations_minimal_inline(policy, graphs)
 
-        self.build_meta_interp(ProfilerClass, jit_ffi)
+        self.build_meta_interp(ProfilerClass)
         self.make_args_specifications()
         #
         from pypy.jit.metainterp.virtualref import VirtualRefInfo
@@ -184,7 +188,7 @@ class WarmRunnerDesc(object):
         self.rewrite_set_param()
         self.rewrite_force_virtual(vrefinfo)
         self.add_finish()
-        self.metainterp_sd.finish_setup(self.codewriter, optimizer=optimizer)
+        self.metainterp_sd.finish_setup(self.codewriter)
 
     def finish(self):
         vinfos = set([jd.virtualizable_info for jd in self.jitdrivers_sd])
@@ -273,7 +277,7 @@ class WarmRunnerDesc(object):
             stats = history.NoStats()
         else:
             stats = history.Stats()
-        self.stats = stats 
+        self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
             annhelper = self.annhelper
@@ -283,14 +287,11 @@ class WarmRunnerDesc(object):
                        translate_support_code, gcdescr=self.gcdescr)
         self.cpu = cpu
 
-    def build_meta_interp(self, ProfilerClass, jit_ffi=None):
-        if jit_ffi is None:
-            jit_ffi = self.translator.config.translation.jit_ffi
+    def build_meta_interp(self, ProfilerClass):
         self.metainterp_sd = MetaInterpStaticData(self.cpu,
                                                   self.opt,
                                                   ProfilerClass=ProfilerClass,
-                                                  warmrunnerdesc=self,
-                                                  jit_ffi=jit_ffi)
+                                                  warmrunnerdesc=self)
 
     def make_virtualizable_infos(self):
         vinfos = {}
@@ -330,7 +331,7 @@ class WarmRunnerDesc(object):
                 return 'DoneWithThisFrameVoid()'
 
         class DoneWithThisFrameInt(JitException):
-            def __init__(self, result):                
+            def __init__(self, result):
                 assert lltype.typeOf(result) is lltype.Signed
                 self.result = result
             def __str__(self):
@@ -780,22 +781,32 @@ class WarmRunnerDesc(object):
             if self.metainterp_sd.profiler.initialized:
                 self.metainterp_sd.profiler.finish()
             self.metainterp_sd.cpu.finish_once()
-        
+
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish,
                                 annhelper = self.annhelper)
 
     def rewrite_set_param(self):
+        from pypy.rpython.lltypesystem.rstr import STR
+
         closures = {}
         graphs = self.translator.graphs
         _, PTR_SET_PARAM_FUNCTYPE = self.cpu.ts.get_FuncType([lltype.Signed],
                                                              lltype.Void)
-        def make_closure(jd, fullfuncname):
+        _, PTR_SET_PARAM_STR_FUNCTYPE = self.cpu.ts.get_FuncType(
+            [lltype.Ptr(STR)], lltype.Void)
+        def make_closure(jd, fullfuncname, is_string):
             state = jd.warmstate
             def closure(i):
+                if is_string:
+                    i = hlstr(i)
                 getattr(state, fullfuncname)(i)
-            funcptr = self.helper_func(PTR_SET_PARAM_FUNCTYPE, closure)
-            return Constant(funcptr, PTR_SET_PARAM_FUNCTYPE)
+            if is_string:
+                TP = PTR_SET_PARAM_STR_FUNCTYPE
+            else:
+                TP = PTR_SET_PARAM_FUNCTYPE
+            funcptr = self.helper_func(TP, closure)
+            return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
             op = block.operations[i]
@@ -807,7 +818,8 @@ class WarmRunnerDesc(object):
             funcname = op.args[2].value
             key = jd, funcname
             if key not in closures:
-                closures[key] = make_closure(jd, 'set_param_' + funcname)
+                closures[key] = make_closure(jd, 'set_param_' + funcname,
+                                             funcname == 'enable_opts')
             op.opname = 'direct_call'
             op.args[:3] = [closures[key]]
 

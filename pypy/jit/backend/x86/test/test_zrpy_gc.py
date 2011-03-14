@@ -11,7 +11,7 @@ from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, dont_look_inside
+from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.jit import purefunction, unroll_safe
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
@@ -88,7 +88,7 @@ def compile(f, gc, **kwds):
     ann.build_types(f, [s_list_of_strings], main_entry_point=True)
     t.buildrtyper().specialize()
     if kwds['jit']:
-        apply_jit(t, optimizer=OPTIMIZER_SIMPLE)
+        apply_jit(t, enable_opts='')
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
     cbuilder.generate_source()
     cbuilder.compile()
@@ -158,7 +158,7 @@ class TestCompileFramework(object):
             x.foo = 5
             return weakref.ref(x)
         def main_allfuncs(name, n, x):
-            num = name_to_func[name]            
+            num = name_to_func[name]
             n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s = funcs[num][0](n, x)
             while n > 0:
                 myjitdriver.can_enter_jit(num=num, n=n, x=x, x0=x0, x1=x1,
@@ -426,7 +426,7 @@ class TestCompileFramework(object):
     def define_compile_framework_external_exception_handling(cls):
         def before(n, x):
             x = X(0)
-            return n, x, None, None, None, None, None, None, None, None, None, None        
+            return n, x, None, None, None, None, None, None, None, None, None, None
 
         @dont_look_inside
         def g(x):
@@ -458,7 +458,7 @@ class TestCompileFramework(object):
 
     def test_compile_framework_external_exception_handling(self):
         self.run('compile_framework_external_exception_handling')
-            
+
     def define_compile_framework_bug1(self):
         @purefunction
         def nonmoving():

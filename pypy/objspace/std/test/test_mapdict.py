@@ -51,6 +51,13 @@ def test_plain_attribute():
 
     assert aa.get_terminator() is aa.back.back
 
+def test_huge_chain():
+    current = Terminator(space, "cls")
+    for i in range(20000):
+        current = PlainAttribute((str(i), DICT), current)
+    assert current.index(("0", DICT)) == 0
+
+
 def test_search():
     aa = PlainAttribute(("b", DICT), PlainAttribute(("a", DICT), Terminator(None, None)))
     assert aa.search(DICT) is aa

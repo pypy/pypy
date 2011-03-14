@@ -22,8 +22,12 @@ class TestPyPyCNew(BaseTestPyPyC):
             return x
         log = self.run(f1, [2117])
         assert log.result == 1083876708
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
+        # we get two loops: in the initial one "i" is only read and thus is
+        # not virtual, then "i" is written and thus we get a new loop where
+        # "i" is virtual. However, in this specific case the two loops happen
+        # to contain the very same operations
+        loop0, loop1 = log.loops_by_filename(self.filepath)
+        expected = """
             i9 = int_le(i7, i8)
             guard_true(i9, descr=...)
             i11 = int_add_ovf(i7, 1)
@@ -33,7 +37,9 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i13, i11, i8, descr=...)
-        """)
+        """
+        assert loop0.match(expected)
+        assert loop1.match(expected)
 
     def test_factorial(self):
         def fact(n):
@@ -194,6 +200,80 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_no_overflow(descr=<Guard6>)
             --TICK--
             jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, p10, p11, descr=<Loop0>)
+        """)
+
+    def test_method_call(self):
+        def fn(n):
+            class A(object):
+                def __init__(self, a):
+                    self.a = a
+                def f(self, i):
+                    return self.a + i
+            i = 0
+            a = A(1)
+            while i < n:
+                x = a.f(i)    # ID: meth1
+                i = a.f(x)    # ID: meth2
+            return i
+        #
+        log = self.run(fn, [1000], threshold=400)
+        assert log.result == 1000
+        #
+        # first, we test the entry bridge
+        # -------------------------------
+        entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        ops = entry_bridge.ops_by_id('meth1', opcode='LOOKUP_METHOD')
+        assert log.opnames(ops) == ['guard_value', 'getfield_gc', 'guard_value',
+                                    'getfield_gc', 'guard_value']
+        # the second LOOKUP_METHOD is folded away
+        assert list(entry_bridge.ops_by_id('meth2', opcode='LOOKUP_METHOD')) == []
+        #
+        # then, the actual loop
+        # ----------------------
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i15 = int_lt(i6, i9)
+            guard_true(i15, descr=<Guard3>)
+            i16 = force_token()
+            i17 = int_add_ovf(i10, i6)
+            guard_no_overflow(descr=<Guard4>)
+            i18 = force_token()
+            i19 = int_add_ovf(i10, i17)
+            guard_no_overflow(descr=<Guard5>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, p14, descr=<Loop0>)
+        """)
+
+    def test_static_classmethod_call(self):
+        def fn(n):
+            class A(object):
+                @classmethod
+                def f(cls, i):
+                    return i + (cls is A) + 1
+                @staticmethod
+                def g(i):
+                    return i - 1
+            #
+            i = 0
+            a = A()
+            while i < n:
+                x = a.f(i)
+                i = a.g(x)
+            return i
+        #
+        log = self.run(fn, [1000], threshold=400)
+        assert log.result == 1000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i14 = int_lt(i6, i9)
+            guard_true(i14, descr=<Guard3>)
+            i15 = force_token()
+            i17 = int_add_ovf(i8, 1)
+            guard_no_overflow(descr=<Guard4>)
+            i18 = force_token()
+            i20 = int_sub(i17, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, p13, descr=<Loop0>)
         """)
 
 
