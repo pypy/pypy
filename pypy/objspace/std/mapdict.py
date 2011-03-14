@@ -94,6 +94,10 @@ class AbstractAttribute(object):
         return index
 
     def _index(self, selector):
+        while isinstance(self, PlainAttribute):
+            if selector == self.selector:
+                return self.position
+            self = self.back
         return -1
 
     def copy(self, obj):
@@ -273,11 +277,6 @@ class PlainAttribute(AbstractAttribute):
         if new_obj is not None:
             self._copy_attr(obj, new_obj)
         return new_obj
-
-    def _index(self, selector):
-        if selector == self.selector:
-            return self.position
-        return self.back._index(selector)
 
     def copy(self, obj):
         new_obj = self.back.copy(obj)

@@ -160,7 +160,7 @@ class LoopWithIds(Function):
 
     def match_by_id(self, id, expected_src):
         ops = list(self.ops_by_id(id))
-        matcher = OpMatcher(ops)
+        matcher = OpMatcher(ops, src=self.format_ops(id))
         return matcher.match(expected_src)
 
 class InvalidMatch(Exception):
@@ -239,9 +239,9 @@ class OpMatcher(object):
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
         ticker_check = """
-            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker1 = int_sub(ticker0, 1)
-            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker_cond = int_lt(ticker1, 0)
             guard_false(ticker_cond, descr=...)
         """
@@ -262,6 +262,12 @@ class OpMatcher(object):
             self.alpha_map[v1] = exp_v2
         return self.alpha_map[v1] == exp_v2
 
+    def match_descr(self, descr, exp_descr):
+        if descr == exp_descr or exp_descr == '...':
+            return True
+        match = exp_descr is not None and re.match(exp_descr, descr)
+        self._assert(match, "descr mismatch")
+
     def _assert(self, cond, message):
         if not cond:
             raise InvalidMatch(message, frame=sys._getframe(1))
@@ -272,7 +278,8 @@ class OpMatcher(object):
         self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
         for arg, exp_arg in zip(op.args, exp_args):
             self._assert(self.match_var(arg, exp_arg), "variable mismatch")
-        self._assert(op.descr == exp_descr or exp_descr == '...', "descr mismatch")
+        self.match_descr(op.descr, exp_descr)
+        
 
     def _next_op(self, iter_ops, assert_raises=False):
         try:

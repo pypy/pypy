@@ -173,6 +173,7 @@ class TestOpMatcher(object):
         """
         assert self.match(loop, "setfield_gc(p0, 1, descr=<foobar>)")
         assert self.match(loop, "setfield_gc(p0, 1, descr=...)")
+        assert self.match(loop, "setfield_gc(p0, 1, descr=<.*bar>)")
         assert not self.match(loop, "setfield_gc(p0, 1)")
         assert not self.match(loop, "setfield_gc(p0, 1, descr=<zzz>)")
 
@@ -369,9 +370,9 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             # signal checking stuff
-            i10 = getfield_raw(37212896, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            i10 = getfield_raw(37212896, descr=<.* pypysig_long_struct.c_value .*>)
             i12 = int_sub(i10, 1)
-            setfield_raw(37212896, i12, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            setfield_raw(37212896, i12, descr=<.* pypysig_long_struct.c_value .*>)
             i14 = int_lt(i12, 0)
             guard_false(i14, descr=...)
             jump(p0, p1, p2, p3, i8, descr=...)
