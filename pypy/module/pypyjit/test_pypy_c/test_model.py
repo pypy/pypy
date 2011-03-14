@@ -98,7 +98,7 @@ class TestOpMatcher(object):
     def match(self, src1, src2):
         from pypy.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
-        matcher = OpMatcher(loop.operations)
+        matcher = OpMatcher(loop.operations, src=src1)
         return matcher.match(src2)
 
     def test_match_var(self):
