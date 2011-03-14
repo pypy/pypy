@@ -3,11 +3,10 @@
 
 /* XXX Some overlap with the stuff in debug_print
  */
+#define OP_LL_READ_TIMESTAMP(v) v = pypy_read_timestamp();
 
 #ifndef PYPY_NOT_MAIN_FILE
 /* implementations */
-
-#define OP_LL_READ_TIMESTAMP(v) v = pypy_read_timestamp();
 
 #ifdef _WIN32
 long long pypy_read_timestamp(void) {

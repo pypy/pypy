@@ -102,7 +102,7 @@ class AppTestCProfile(object):
         f()
         profiler.disable()
         stats = profiler.getstats()
-        xxx
+        assert stats
 
     def test_cprofile(self):
         import sys, os
