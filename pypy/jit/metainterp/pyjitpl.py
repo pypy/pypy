@@ -834,7 +834,7 @@ class MIFrame(object):
                                jcposition, redboxes):
         resumedescr = compile.ResumeAtPositionDescr()
         self.capture_resumedata(resumedescr, orgpc)
-        
+
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
@@ -852,7 +852,7 @@ class MIFrame(object):
             "found a loop_header for a JitDriver that does not match "
             "the following jit_merge_point's")
         self.metainterp.seen_loop_header_for_jdindex = -1
-        
+
         #
         if not self.metainterp.in_recursion:
             assert jitdriver_sd is self.metainterp.jitdriver_sd
@@ -1417,10 +1417,13 @@ class MetaInterp(object):
         f.setup_call(boxes)
         raise ChangeFrame
 
+    def is_main_jitcode(self, jitcode):
+        return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
+
     def newframe(self, jitcode, greenkey=None):
         if jitcode.is_portal:
             self.in_recursion += 1
-        if greenkey is not None:
+        if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (greenkey, len(self.history.operations)))
         if len(self.free_frames_list) > 0:
@@ -1433,9 +1436,10 @@ class MetaInterp(object):
 
     def popframe(self):
         frame = self.framestack.pop()
-        if frame.jitcode.is_portal:
+        jitcode = frame.jitcode
+        if jitcode.is_portal:
             self.in_recursion -= 1
-        if frame.greenkey is not None:
+        if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (None, len(self.history.operations)))
         # we save the freed MIFrames to avoid needing to re-create new
@@ -1626,6 +1630,7 @@ class MetaInterp(object):
         warmrunnerstate = self.jitdriver_sd.warmstate
         if len(self.history.operations) > warmrunnerstate.trace_limit:
             greenkey_of_huge_function = self.find_biggest_function()
+            self.staticdata.stats.record_aborted(greenkey_of_huge_function)
             self.portal_trace_positions = None
             if greenkey_of_huge_function is not None:
                 warmrunnerstate.disable_noninlinable_function(
@@ -1713,7 +1718,7 @@ class MetaInterp(object):
             dont_change_position = True
         else:
             dont_change_position = False
-        try:            
+        try:
             self.prepare_resume_from_failure(key.guard_opnum, dont_change_position)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(ABORT_BRIDGE)
@@ -1918,7 +1923,7 @@ class MetaInterp(object):
 
         self.history.inputargs = original_inputargs
         self.history.operations = self.history.operations[:start]
-        
+
         self.history.record(rop.JUMP, bridge_arg_boxes[num_green_args:], None)
         try:
             target_loop_token = compile.compile_new_bridge(self,
