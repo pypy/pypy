@@ -29,6 +29,12 @@ def get_com_error(errcode, riid, pIunk):
     from _ctypes import COMError
     return COMError(errcode, None, None)
 
+def call_function(func, args):
+    "Only for debugging so far: So that we can call CFunction instances"
+    funcptr = CFuncPtr(func)
+    funcptr.restype = int
+    return funcptr(*args)
+
 class CFuncPtrType(_CDataMeta):
     # XXX write down here defaults and such things
 
@@ -160,6 +166,8 @@ class CFuncPtr(_CData):
     errcheck = property(_geterrcheck, _seterrcheck, _delerrcheck)
 
     def _ffishapes(self, args, restype):
+        if args is None:
+            args = []
         argtypes = [arg._ffiargshape for arg in args]
         if restype is not None:
             if not isinstance(restype, SimpleType):
@@ -501,7 +509,7 @@ class CFuncPtr(_CData):
         return callargs, outargs
 
     def __nonzero__(self):
-        return bool(self._buffer[0])
+        return self._com_index is not None or bool(self._buffer[0])
 
     def __del__(self):
         if self._needs_free:
