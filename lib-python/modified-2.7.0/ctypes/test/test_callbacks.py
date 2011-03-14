@@ -125,7 +125,6 @@ class Callbacks(unittest.TestCase):
         prototype = self.functype.im_func(object)
         self.assertRaises(TypeError, prototype, lambda: None)
 
-    @xfail
     def test_issue_7959(self):
         proto = self.functype.im_func(None)
 
