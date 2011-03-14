@@ -82,16 +82,43 @@ class JumpRemapper(object):
 
 class ConcreteJumpRemapper(JumpRemapper):
 
-    def get_tmp_reg(self, src):
-        """Get a temporary register suitable for copying src."""
+    def get_tmp_reg(self, dst):
+        """Get a temporary register suitable for copying into dst."""
         raise NotImplementedError
 
     def move(self, src, dst):
         if dst.is_memory_reference() and src.is_memory_reference():
-            tmpreg = self.get_tmp_reg(src)
+            tmpreg = self.get_tmp_reg(dst)
             self.simple_move(src, tmpreg)
             src = tmpreg
         self.simple_move(src, dst)
 
     def simple_move(self, src, dst):
         raise NotImplementedError
+
+
+class X86JumpRemapper(ConcreteJumpRemapper):
+    def __init__(self, assembler, tmp, xmmtmp):
+        self.assembler = assembler
+        self.tmpreg = tmp
+        self.xmmtmpreg = xmmtmp
+
+    def get_tmp_reg(self, dst):
+        if dst.is_xmm_location():
+            return self.xmmtmpreg
+        else:
+            return self.tmpreg
+
+    def simple_move(self, src, dst):
+        self.assembler.regalloc_mov(src, dst)
+
+    def push(self, src):
+        self.assembler.regalloc_push(src)
+
+    def pop(self, dst):
+        self.assembler.regalloc_pop(dst)
+
+def remap_frame_layout(assembler, src_locations, dst_locations, tmp, xmmtmp):
+    # X86-specific logic
+    remapper = X86JumpRemapper(assembler, tmp, xmmtmp)
+    remapper.remap_frame_layout(src_locations, dst_locations)
