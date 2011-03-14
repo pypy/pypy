@@ -2,6 +2,7 @@ import random
 from pypy.jit.backend.x86.regloc import *
 from pypy.jit.backend.x86.regalloc import X86FrameManager
 from pypy.jit.backend.x86.jump import remap_frame_layout
+from pypy.jit.backend.x86.jump import remap_frame_layout_mixed
 from pypy.jit.metainterp.history import INT
 
 frame_pos = X86FrameManager.frame_pos
@@ -144,6 +145,64 @@ def test_constants_and_cycle():
                              ('mov', ebx, s12),
                              ('pop', ebx)]
 
+def test_mixed():
+    assembler = MockAssembler()
+    s23 = frame_pos(2, FLOAT)     # non-conflicting locations
+    s4  = frame_pos(4, INT)
+    remap_frame_layout_mixed(assembler, [ebx], [s4], 'tmp',
+                                        [s23], [xmm5], 'xmmtmp')
+    assert assembler.ops == [('mov', ebx, s4),
+                             ('mov', s23, xmm5)]
+    #
+    if IS_X86_32:
+        assembler = MockAssembler()
+        s23 = frame_pos(2, FLOAT)  # gets stored in pos 2 and 3, with value==3
+        s3  = frame_pos(3, INT)
+        remap_frame_layout_mixed(assembler, [ebx], [s3], 'tmp',
+                                            [s23], [xmm5], 'xmmtmp')
+        assert assembler.ops == [('push', s23),
+                                 ('mov', ebx, s3),
+                                 ('pop', xmm5)]
+    #
+    assembler = MockAssembler()
+    s23 = frame_pos(2, FLOAT)
+    s2  = frame_pos(2, INT)
+    remap_frame_layout_mixed(assembler, [ebx], [s2], 'tmp',
+                                        [s23], [xmm5], 'xmmtmp')
+    assert assembler.ops == [('push', s23),
+                             ('mov', ebx, s2),
+                             ('pop', xmm5)]
+    #
+    assembler = MockAssembler()
+    s4  = frame_pos(4, INT)
+    s45 = frame_pos(4, FLOAT)
+    s1  = frame_pos(1, INT)
+    remap_frame_layout_mixed(assembler, [s4], [s1], edi,
+                                        [s23], [s45], xmm3)
+    assert assembler.ops == [('mov', s4, edi),
+                             ('mov', edi, s1),
+                             ('mov', s23, xmm3),
+                             ('mov', xmm3, s45)]
+    #
+    assembler = MockAssembler()
+    s4  = frame_pos(4, INT)
+    s45 = frame_pos(4, FLOAT)
+    remap_frame_layout_mixed(assembler, [s4], [s2], edi,
+                                        [s23], [s45], xmm3)
+    assert assembler.ops == [('push', s23),
+                             ('mov', s4, edi),
+                             ('mov', edi, s2),
+                             ('pop', s45)]
+    #
+    if IS_X86_32:
+        assembler = MockAssembler()
+        remap_frame_layout_mixed(assembler, [s4], [s3], edi,
+                                 [s23], [s45], xmm3)
+        assert assembler.ops == [('push', s23),
+                                 ('mov', s4, edi),
+                                 ('mov', edi, s3),
+                                 ('pop', s45)]
+
 def test_random_mixed():
     assembler = MockAssembler()
     registers1 = [eax, ebx, ecx]
@@ -212,18 +271,16 @@ def test_random_mixed():
                 assert isinstance(loc, ImmedLoc)
         return regs1, regs2, stack
     #
-    for i in range(1000):
+    for i in range(500):
         seen = {}
-        src_locations1 = [pick1c() for i in range(5)]
-        dst_locations1 = pick_dst(pick1, 5, seen)
         src_locations2 = [pick2() for i in range(4)]
         dst_locations2 = pick_dst(pick2, 4, seen)
+        src_locations1 = [pick1c() for i in range(5)]
+        dst_locations1 = pick_dst(pick1, 5, seen)
         assembler = MockAssembler()
-        #remap_frame_layout_mixed(assembler,
-        #                         src_locations1, dst_locations1, edi,
-        #                         src_locations2, dst_locations2, xmm7)
-        remap_frame_layout(assembler, src_locations1, dst_locations1, edi)
-        remap_frame_layout(assembler, src_locations2, dst_locations2, xmm7)
+        remap_frame_layout_mixed(assembler,
+                                 src_locations1, dst_locations1, edi,
+                                 src_locations2, dst_locations2, xmm7)
         #
         regs1, regs2, stack = get_state(src_locations1 +
                                         src_locations2)
