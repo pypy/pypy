@@ -110,6 +110,12 @@ class X86FrameManager(FrameManager):
             return StackLoc(i, get_ebp_ofs(i+1), 2, box_type)
         else:
             return StackLoc(i, get_ebp_ofs(i), 1, box_type)
+    @staticmethod
+    def frame_size(box_type):
+        if IS_X86_32 and box_type == FLOAT:
+            return 2
+        else:
+            return 1
 
 class RegAlloc(object):
 
