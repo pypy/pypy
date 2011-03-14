@@ -299,4 +299,4 @@ options do.
 .. _clr: clr-module.html
 .. _`CPythons core language regression tests`: http://codespeak.net:8099/summary?category=applevel&branch=%3Ctrunk%3E
 
-.. include:: _ref.txt
+.. include:: _ref.rst

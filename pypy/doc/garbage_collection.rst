@@ -124,4 +124,4 @@ information in the regular headers.
 More details are available as comments at the start of the source
 in `rpython/memory/gc/markcompact.py`_.
 
-.. include:: _ref.txt
+.. include:: _ref.rst

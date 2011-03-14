@@ -244,4 +244,4 @@ links to more information.
 .. _`subsystem implementing the Python language`: architecture.html#standard-interpreter
 .. _Theory: theory.html
 
-.. include:: _ref.txt
+.. include:: _ref.rst

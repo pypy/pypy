@@ -310,5 +310,5 @@ Directory                      explanation/links
 .. _`graph viewer`: getting-started-dev.html#try-out-the-translator
 .. _`compatibility matrix`: image/compat-matrix.png
 
-.. include:: _ref.txt
+.. include:: _ref.rst
 

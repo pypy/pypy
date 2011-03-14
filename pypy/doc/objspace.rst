@@ -650,4 +650,4 @@ PyPy can do for your objects`_.
 
 .. _`What PyPy can do for your objects`: objspace-proxies.html
 
-.. include:: _ref.txt
+.. include:: _ref.rst

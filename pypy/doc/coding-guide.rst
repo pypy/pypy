@@ -1085,4 +1085,4 @@ the documentation issue::
 which will check that remote URLs are reachable.
 
 
-.. include:: _ref.txt
+.. include:: _ref.rst
