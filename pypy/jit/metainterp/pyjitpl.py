@@ -1275,11 +1275,6 @@ class MetaInterpStaticData(object):
         self._addr2name_keys = [key for key, value in list_of_addr2name]
         self._addr2name_values = [value for key, value in list_of_addr2name]
 
-    def setup_jitdrivers_sd(self, optimizer):
-        if optimizer is not None:
-            for jd in self.jitdrivers_sd:
-                jd.warmstate.set_param_optimizer(optimizer)
-
     def finish_setup(self, codewriter, optimizer=None):
         from pypy.jit.metainterp.blackhole import BlackholeInterpBuilder
         self.blackholeinterpbuilder = BlackholeInterpBuilder(codewriter, self)
@@ -1293,7 +1288,6 @@ class MetaInterpStaticData(object):
         self.jitdrivers_sd = codewriter.callcontrol.jitdrivers_sd
         self.virtualref_info = codewriter.callcontrol.virtualref_info
         self.callinfocollection = codewriter.callcontrol.callinfocollection
-        self.setup_jitdrivers_sd(optimizer)
         #
         # store this information for fastpath of call_assembler
         # (only the paths that can actually be taken)

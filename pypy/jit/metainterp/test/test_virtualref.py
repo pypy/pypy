@@ -39,15 +39,19 @@ class VRefTests:
         if not isinstance(self, TestLLtype):
             py.test.skip("purely frontend test")
         #
+        class FooBarError(Exception):
+            pass
         class X:
             def __init__(self, n):
                 self.n = n
         class ExCtx:
-            pass
+            _frame = None
         exctx = ExCtx()
         #
         @dont_look_inside
         def external(n):
+            if exctx._frame is None:
+                raise FooBarError
             if n > 100:
                 return exctx.topframeref().n
             return n
