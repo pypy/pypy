@@ -5130,6 +5130,23 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
+    def test_strlen_positive(self):
+        ops = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_ge(i0, 0)
+        guard_true(i1) []
+        i2 = int_gt(i0, -1)
+        guard_true(i2) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = strlen(p0)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops, preamble=None):
         from pypy.jit.metainterp.optimizeopt import string
