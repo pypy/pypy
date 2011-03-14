@@ -160,7 +160,7 @@ class LoopWithIds(Function):
 
     def match_by_id(self, id, expected_src):
         ops = list(self.ops_by_id(id))
-        matcher = OpMatcher(ops)
+        matcher = OpMatcher(ops, src=self.format_ops(id))
         return matcher.match(expected_src)
 
 class InvalidMatch(Exception):
