@@ -239,9 +239,9 @@ class OpMatcher(object):
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
         ticker_check = """
-            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker1 = int_sub(ticker0, 1)
-            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker_cond = int_lt(ticker1, 0)
             guard_false(ticker_cond, descr=...)
         """
