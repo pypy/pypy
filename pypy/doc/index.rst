@@ -8,10 +8,11 @@ description of the Python language itself to lower level languages.
 Rumors have it that the secret goal is being faster-than-C which is
 nonsense, isn't it?  `more...`_
 
+
+.. The following documentation is important and reasonably up-to-date:
+
 .. toctree::
    :maxdepth: 2
-
-   .. STUFF THAT'S BEEN THROUGH 1ST PASS CATEGORIZATION:
 
    .. The following stuff is high-value and (vaguely) true:
    getting-started.rst
@@ -51,6 +52,8 @@ nonsense, isn't it?  `more...`_
    jit/overview.rst
    jit/pyjitpl5.rst
 
+   index-of-release-notes.rst
+
    ctypes-implementation.rst
      .. ^^ needs attention
 
@@ -65,102 +68,6 @@ nonsense, isn't it?  `more...`_
 
    stackless.rst
      .. ^^ it still works; needs JIT integration; hasn't been maintained for years
-
-   .. The following stuff is good material relating to unmaintained areas of the project:
-      .. .Net stuff:
-   cli-backend.rst
-   clr-module.rst
-   carbonpython.rst
-
-   .. Release notes:
-   release-0.6.rst
-   release-0.7.0.rst
-   release-0.8.0.rst
-   release-0.9.0.rst
-   release-0.99.0.rst
-   release-1.0.0.rst
-   release-1.1.0.rst
-   release-1.2.0.rst
-   release-1.3.0.rst
-   release-1.4.0.rst
-   release-1.4.0beta.rst
-   release-1.4.1.rst
-
-
-   .. The following stuff is old (and crufty?), and needs further investigation:
-   buildtool.rst
-   distribution.rst
-   eventhistory.rst
-     .. ^^ Incomplete,  superceded elsewhere
-
-   externaltools.rst
-     .. ^^ Incomplete and wrong,  superceded elsewhere
-
-   geninterp.rst
-     .. ^^ apparently dead
-
-   objspace-proxies.rst
-
-   old_news.rst
-
-   sprint-reports.rst
-
-   project-ideas.rst
-
-   rffi.rst
-
-   sandbox.rst
-     .. ^^ it continues to work, but is unmaintained
-
-   statistic/index.rst
-
-   theory.rst
-     .. ^^ old ideas; we're not doing it this way any more
-
-   translation-aspects.rst
-     .. ^^ old and needs updating
-
-   .. This needs merging somehow:
-   docindex.rst
-
-   .. Needs merging/replacing with hg stuff:
-   svn-help.rst
-
-   .. The following discussions have not yet been categorized:
-
-   discussion/GC-performance.rst
-   discussion/VM-integration.rst
-   discussion/chained_getattr.rst
-   discussion/cli-optimizations.rst
-   discussion/cmd-prompt-translation.rst
-   discussion/compiled-swamp.rst
-   discussion/ctypes_modules.rst
-   discussion/ctypes_todo.rst
-   discussion/distribution.rst
-   discussion/distribution-implementation.rst
-   discussion/distribution-newattempt.rst
-   discussion/distribution-roadmap.rst
-   discussion/emptying-the-malloc-zoo.rst
-   discussion/finalizer-order.rst
-   discussion/gc.rst
-   discussion/howtoimplementpickling.rst
-   discussion/improve-rpython.rst
-   discussion/outline-external-ootype.rst
-   discussion/oz-thread-api.rst
-   discussion/paper-wishlist.rst
-   discussion/parsing-ideas.rst
-   discussion/pypy_metaclasses_in_cl.rst
-   discussion/removing-stable-compiler.rst
-   discussion/security-ideas.rst
-   discussion/somepbc-refactoring-plan.rst
-   discussion/summer-of-pypy-pytest.rst
-   discussion/testing-zope.rst
-   discussion/thoughts_string_interning.rst
-   discussion/translation-swamp.rst
-   discussion/use_case_of_logic.rst
-
-   .. STUFF THAT'S DIFFICULT TO CATEGORIZE
-   video-index.rst
 
 
 Getting into PyPy ... 
@@ -215,6 +122,7 @@ on the `development mailing list`_.
 .. _`Getting Started`: getting-started.html
 .. _papers: extradoc.html
 .. _`Release 1.4`: http://pypy.org/download.html
+
 
 Indices and tables
 ==================
