@@ -6,7 +6,7 @@ This is transformed to become a JIT by code elsewhere: pypy/jit/*
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
-from pypy.rlib.jit import current_trace_length
+from pypy.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.pycode import PyCode, CO_GENERATOR
@@ -136,12 +136,17 @@ def set_param(space, __args__):
             raise OperationError(space.w_ValueError,
                                  space.wrap("error in JIT parameters string"))
     for key, w_value in kwds_w.items():
-        intval = space.int_w(w_value)
-        try:
-            pypyjitdriver.set_param(key, intval)
-        except ValueError:
-            raise operationerrfmt(space.w_TypeError,
-                                  "no JIT parameter '%s'", key)
+        if key == 'enable_opts':
+            pypyjitdriver.set_param('enable_opts', space.str_w(w_value))
+        else:
+            intval = space.int_w(w_value)
+            for name, _ in unroll_parameters:
+                if name == key and name != 'enable_opts':
+                    pypyjitdriver.set_param(name, intval)
+                    break
+            else:
+                raise operationerrfmt(space.w_TypeError,
+                                      "no JIT parameter '%s'", key)
 
 @dont_look_inside
 def residual_call(space, w_callable, __args__):

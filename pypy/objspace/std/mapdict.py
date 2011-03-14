@@ -217,15 +217,15 @@ class NoDictTerminator(Terminator):
 class DevolvedDictTerminator(Terminator):
     def _read_terminator(self, obj, selector):
         if selector[1] == DICT:
-            w_dict = obj.getdict()
             space = self.space
+            w_dict = obj.getdict(space)
             return space.finditem_str(w_dict, selector[0])
         return Terminator._read_terminator(self, obj, selector)
 
     def _write_terminator(self, obj, selector, w_value):
         if selector[1] == DICT:
-            w_dict = obj.getdict()
             space = self.space
+            w_dict = obj.getdict(space)
             space.setitem_str(w_dict, selector[0], w_value)
             return True
         return Terminator._write_terminator(self, obj, selector, w_value)
@@ -233,8 +233,8 @@ class DevolvedDictTerminator(Terminator):
     def delete(self, obj, selector):
         from pypy.interpreter.error import OperationError
         if selector[1] == DICT:
-            w_dict = obj.getdict()
             space = self.space
+            w_dict = obj.getdict(space)
             try:
                 space.delitem(w_dict, space.wrap(selector[0]))
             except OperationError, ex:
@@ -377,12 +377,12 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         self._become(new_obj)
         return True
 
-    def getdict(self):
+    def getdict(self, space):
         w_dict = self._get_mapdict_map().read(self, ("dict", SPECIAL))
         if w_dict is not None:
             assert isinstance(w_dict, W_DictMultiObject)
             return w_dict
-        w_dict = MapDictImplementation(self.space, self)
+        w_dict = MapDictImplementation(space, self)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag
         return w_dict
@@ -390,7 +390,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
     def setdict(self, space, w_dict):
         from pypy.interpreter.typedef import check_new_dictionary
         w_dict = check_new_dictionary(space, w_dict)
-        w_olddict = self.getdict()
+        w_olddict = self.getdict(space)
         assert isinstance(w_dict, W_DictMultiObject)
         if w_olddict.r_dict_content is None:
             w_olddict._as_rdict()
@@ -648,7 +648,7 @@ class MapDictImplementation(W_DictMultiObject):
 
 def materialize_r_dict(space, obj, w_d):
     map = obj._get_mapdict_map()
-    assert obj.getdict() is w_d
+    assert obj.getdict(space) is w_d
     new_obj = map.materialize_r_dict(space, obj, w_d)
     _become(obj, new_obj)
 

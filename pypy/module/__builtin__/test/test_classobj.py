@@ -988,7 +988,7 @@ class AppTestOldStyleClassStrDict(object):
             py.test.skip("can only be run on py.py")
         def is_strdict(space, w_class):
             from pypy.objspace.std.dictmultiobject import StrDictImplementation
-            w_d = w_class.getdict()
+            w_d = w_class.getdict(space)
             return space.wrap(isinstance(w_d, StrDictImplementation) and w_d.r_dict_content is None)
 
         cls.w_is_strdict = cls.space.wrap(gateway.interp2app(is_strdict))

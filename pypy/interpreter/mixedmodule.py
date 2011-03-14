@@ -115,9 +115,8 @@ class MixedModule(Module):
             return w_value
 
 
-    def getdict(self):
+    def getdict(self, space):
         if self.lazy:
-            space = self.space
             for name in self.loaders:
                 w_value = self.get(name)
                 space.setitem(self.w_dict, space.new_interned_str(name), w_value)
@@ -126,7 +125,7 @@ class MixedModule(Module):
         return self.w_dict
 
     def _freeze_(self):
-        self.getdict()
+        self.getdict(self.space)
         self.w_initialdict = None
         self.startup_called = False
         self._frozen = True

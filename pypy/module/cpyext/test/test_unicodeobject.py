@@ -45,6 +45,9 @@ class TestUnicode(BaseApiTest):
         encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
                                                 utf_8, None)
         assert space.unwrap(encoded) == 'sp\xc3\xa4m'
+        encoded_obj = api.PyUnicode_AsEncodedObject(space.wrap(u'späm'),
+                                                utf_8, None)
+        assert space.eq_w(encoded, encoded_obj)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,
                space.newtuple([1, 2, 3]), None, None)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,

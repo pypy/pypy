@@ -24,7 +24,6 @@ PyFloatObject = rffi.VOIDP
 _inittab = rffi.VOIDP
 PyThreadState = rffi.VOIDP
 PyInterpreterState = rffi.VOIDP
-PyOS_sighandler_t = rffi.VOIDP
 Py_UNICODE = lltype.UniChar
 PyCompilerFlags = rffi.VOIDP
 _node = rffi.VOIDP
@@ -2311,22 +2310,6 @@ def PyOS_CheckStack(space):
     on Windows using the Microsoft Visual C++ compiler).  USE_STACKCHECK
     will be defined automatically; you should never change the definition in your
     own code."""
-    raise NotImplementedError
-
-@cpython_api([rffi.INT_real], PyOS_sighandler_t)
-def PyOS_getsig(space, i):
-    """Return the current signal handler for signal i.  This is a thin wrapper around
-    either sigaction() or signal().  Do not call those functions
-    directly! PyOS_sighandler_t is a typedef alias for void
-    (*)(int)."""
-    raise NotImplementedError
-
-@cpython_api([rffi.INT_real, PyOS_sighandler_t], PyOS_sighandler_t)
-def PyOS_setsig(space, i, h):
-    """Set the signal handler for signal i to be h; return the old signal handler.
-    This is a thin wrapper around either sigaction() or signal().  Do
-    not call those functions directly!  PyOS_sighandler_t is a typedef
-    alias for void (*)(int)."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, FILE], FILE)

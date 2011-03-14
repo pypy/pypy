@@ -331,6 +331,8 @@ SYMBOLS_C = [
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
+    
+    'PyOS_getsig', 'PyOS_setsig',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
 ]
@@ -886,6 +888,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "cobject.c",
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
+                               source_dir / "pysignals.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,

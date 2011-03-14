@@ -58,7 +58,7 @@ class Module(Wrappable):
         sys.exitfunc(), if the module has been imported.
         """
 
-    def getdict(self):
+    def getdict(self, space):
         return self.w_dict
 
     def descr_module__new__(space, w_subtype, __args__):
@@ -87,8 +87,9 @@ class Module(Wrappable):
             w_mod    = space.getbuiltinmodule('_pickle_support')
             mod      = space.interp_w(MixedModule, w_mod)
             new_inst = mod.get('module_new')
-            return space.newtuple([new_inst, space.newtuple([w_name,
-                                    self.getdict()]),
+            return space.newtuple([new_inst,
+                                   space.newtuple([w_name,
+                                                   self.getdict(space)]),
                                   ])
         #already imported case
         w_import = space.builtin.get('__import__')

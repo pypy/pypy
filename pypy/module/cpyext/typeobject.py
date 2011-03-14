@@ -4,7 +4,7 @@ import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.interpreter.baseobjspace import DescrMismatch
-from pypy.objspace.std.typeobject import W_TypeObject, _CPYTYPE
+from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
@@ -32,6 +32,7 @@ from pypy.rlib.rstring import rsplit
 from pypy.rlib.objectmodel import specialize
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
+from pypy.rlib import jit
 
 WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
@@ -267,6 +268,7 @@ class GettersAndSetters:
         PyMember_SetOne(space, w_self, self.member, w_value)
 
 class W_PyCTypeObject(W_TypeObject):
+    @jit.dont_look_inside
     def __init__(self, space, pto):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
@@ -285,7 +287,7 @@ class W_PyCTypeObject(W_TypeObject):
 
         W_TypeObject.__init__(self, space, extension_name,
             bases_w or [space.w_object], dict_w)
-        self.__flags__ = _CPYTYPE
+        self.flag_cpytype = True
 
 @bootstrap_function
 def init_typeobject(space):
