@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
-#from pypy.jit.backend.x86.jump import remap_frame_layout
+from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
