@@ -1,6 +1,6 @@
-======================================
-PyPy: Python in Python implementation 
-======================================
+=====================================
+PyPy: Python in Python Implementation 
+=====================================
 
 Welcome to PyPy!
 
@@ -13,18 +13,12 @@ The home page is:
 
     http://pypy.org/
 
-We invite you to head over to our detailed getting-started document:
-
-    pypy/doc/getting-started.html or
-    pypy/doc/getting-started.txt
-    (local if you got a source tarball or svn checkout)
+The getting-started document will help guide you:
 
     http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
 
-which gives you many good starting and entry points into playing with
-PyPy.  It will also point you to our documentation section which is
-generated from information in the pypy/doc directory.
-
-Enjoy and send us feedback!
+It will also point you to the rest of the documentation which is generated
+from files in the pypy/doc directory within the source repositories. Enjoy
+and send us feedback!
 
     the pypy-dev team <pypy-dev@codespeak.net>
