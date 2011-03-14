@@ -36,8 +36,6 @@ class AssemblerLocation(object):
 
     def find_unused_reg(self): return eax
 
-    def is_xmm_location(self): raise NotImplementedError
-
 class StackLoc(AssemblerLocation):
     _immutable_ = True
     def __init__(self, position, ebp_offset, num_words, type):
@@ -47,9 +45,6 @@ class StackLoc(AssemblerLocation):
         self.width = num_words * WORD
         # One of INT, REF, FLOAT
         self.type = type
-
-    def is_xmm_location(self):
-        return self.type == FLOAT
 
     def frame_size(self):
         return self.width // WORD
@@ -73,15 +68,11 @@ class RegLoc(AssemblerLocation):
             self.width = 8
         else:
             self.width = WORD
-
     def __repr__(self):
         if self.is_xmm:
             return rx86.R.xmmnames[self.value]
         else:
             return rx86.R.names[self.value]
-
-    def is_xmm_location(self):
-        return self.is_xmm
 
     def lowest8bits(self):
         assert not self.is_xmm

@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.backend.x86.jump import remap_frame_layout
+#from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
@@ -1172,19 +1172,16 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
-        dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
+        dst_locations = [loc for loc in nonfloatlocs if loc is not None]
+        remap_frame_layout(assembler, src_locations, dst_locations, tmploc)
         # Part about floats
-        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
                          if op.getarg(i).type == FLOAT]
-        dst_locations2 = [loc for loc in floatlocs if loc is not None]
-        # Do the remapping
-        remap_frame_layout(assembler,
-                           src_locations1 + src_locations2,
-                           dst_locations1 + dst_locations2,
-                           tmploc, xmmtmp)
+        dst_locations = [loc for loc in floatlocs if loc is not None]
+        remap_frame_layout(assembler, src_locations, dst_locations, xmmtmp)
         self.rm.possibly_free_var(box)
         self.xrm.possibly_free_var(box1)
         self.possibly_free_vars_for_op(op)
