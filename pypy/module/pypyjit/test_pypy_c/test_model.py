@@ -29,6 +29,10 @@ class BaseTestPyPyC(object):
         # write the snippet
         arglist = ', '.join(map(repr, args))
         with self.filepath.open("w") as f:
+            # we don't want to see the small bridges created
+            # by the checkinterval reaching the limit
+            f.write("import sys\n")
+            f.write("sys.setcheckinterval(10000000)\n")
             f.write(str(src) + "\n")
             f.write("print %s(%s)\n" % (funcname, arglist))
         #
