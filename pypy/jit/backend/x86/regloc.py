@@ -80,9 +80,6 @@ class RegLoc(AssemblerLocation):
         else:
             return rx86.R.names[self.value]
 
-    def _getregkey(self):
-        return (self.value << 1) | self.is_xmm
-
     def is_xmm_location(self):
         return self.is_xmm
 
