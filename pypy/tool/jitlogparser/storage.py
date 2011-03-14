@@ -31,8 +31,11 @@ class LoopStorage(object):
             return res
 
     def disassemble_code(self, fname, startlineno):
-        if py.path.local(fname).check(file=False):
-            return None # cannot find source file
+        try:
+            if py.path.local(fname).check(file=False):
+                return None # cannot find source file
+        except py.error.EACCES:
+            return None # cannot open the file
         key = (fname, startlineno)
         try:
             return self.disassembled_codes[key]
