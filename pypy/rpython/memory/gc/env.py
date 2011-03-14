@@ -6,6 +6,7 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
+from __future__ import with_statement
 
 # ____________________________________________________________
 # Reading env vars.  Supports returning ints, uints or floats,
