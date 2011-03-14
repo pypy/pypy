@@ -223,7 +223,9 @@ class OpMatcher(object):
         args = args[:-1]
         args = args.split(',')
         args = map(str.strip, args)
-        if args[-1].startswith('descr='):
+        if args == ['']:
+            args = []
+        if args and args[-1].startswith('descr='):
             descr = args.pop()
             descr = descr[len('descr='):]
         else:
@@ -324,6 +326,11 @@ class OpMatcher(object):
         self._next_op(iter_ops, assert_raises=True)
 
     def match(self, expected_src):
+        def format(src):
+            if src is None:
+                return ''
+            return py.code.Source(src).deindent().indent()
+        #
         expected_src = self.preprocess_expected_src(expected_src)
         expected_ops = self.parse_ops(expected_src)
         try:
@@ -336,10 +343,10 @@ class OpMatcher(object):
             print e.msg
             print
             print "Got:"
-            print py.code.Source(self.src).deindent().indent()
+            print format(self.src)
             print
             print "Expected:"
-            print py.code.Source(expected_src).deindent().indent()
+            print format(expected_src)
             return False
         else:
             return True
