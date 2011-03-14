@@ -35,21 +35,27 @@ Windows, see the `windows document`_)
 You can translate the whole of PyPy's Python interpreter to low level C code,
 `CLI code`_, or `JVM code`_.
 
-1. Install dependencies.  You need (these are Debian package names,
-   adapt as needed):
+1. Install build-time dependencies.  On a Debian box these are::
 
-   * ``gcc``
-   * ``make``
-   * ``python-dev``
-   * ``python-ctypes`` if you are still using Python2.4
-   * ``libffi-dev``
+     [user@debian-box ~]$ sudo apt-get install \
+     gcc make python-dev libffi-dev pkg-config \
+     libz-dev libbz2-dev libncurses-dev libexpat1-dev libssl-dev libgc-dev python-sphinx
+
+   On a Fedora box these are::
+
+     [user@fedora-or-rh-box ~]$ sudo yum install \
+     gcc make python-devel libffi-devel pkg-config \
+     zlib-devel bzip2-devel ncurses-devel expat-devel openssl-devel gc-devel python-sphinx
+
+   The above command lines are split with continuation characters, giving the necessary dependencies first, then the optional ones.
+
    * ``pkg-config`` (to help us locate libffi files)
    * ``libz-dev`` (for the optional ``zlib`` module)
    * ``libbz2-dev`` (for the optional ``bz2`` module)
    * ``libncurses-dev`` (for the optional ``_minimal_curses`` module)
    * ``libexpat1-dev`` (for the optional ``pyexpat`` module)
    * ``libssl-dev`` (for the optional ``_ssl`` module)
-   * ``libgc-dev`` (Boehm: only when translating with `--opt=0, 1` or `size`)
+   * ``libgc-dev`` (for the Boehm garbage collector: only needed when translating with `--opt=0, 1` or `size`)
    * ``python-sphinx`` (for the optional documentation build)
 
 2. Translation is somewhat time-consuming (30 min to
