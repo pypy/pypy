@@ -11,55 +11,7 @@ nonsense, isn't it?  `more...`_
 .. toctree::
    :maxdepth: 2
 
-   .. The following stuff has not yet been categorized:
-
-   sandbox.txt
-   sprint-reports.txt
-   stackless.txt
-   statistic/index.txt
-   svn-help.txt
-   theory.txt
-   translation.txt
-   translation-aspects.txt
-   video-index.txt
-   windows.txt
-   discussion/GC-performance.txt
-   discussion/VM-integration.txt
-   discussion/chained_getattr.txt
-   discussion/cli-optimizations.txt
-   discussion/cmd-prompt-translation.txt
-   discussion/compiled-swamp.txt
-   discussion/ctypes_modules.txt
-   discussion/ctypes_todo.txt
-   discussion/distribution.txt
-   discussion/distribution-implementation.txt
-   discussion/distribution-newattempt.txt
-   discussion/distribution-roadmap.txt
-   discussion/emptying-the-malloc-zoo.txt
-   discussion/finalizer-order.txt
-   discussion/gc.txt
-   discussion/howtoimplementpickling.txt
-   discussion/improve-rpython.txt
-   discussion/outline-external-ootype.txt
-   discussion/oz-thread-api.txt
-   discussion/paper-wishlist.txt
-   discussion/parsing-ideas.txt
-   discussion/pypy_metaclasses_in_cl.txt
-   discussion/removing-stable-compiler.txt
-   discussion/security-ideas.txt
-   discussion/somepbc-refactoring-plan.txt
-   discussion/summer-of-pypy-pytest.txt
-   discussion/testing-zope.txt
-   discussion/thoughts_string_interning.txt
-   discussion/translation-swamp.txt
-   discussion/use_case_of_logic.txt
-
-
-
-   .. STUFF THAT'S BEEN DONE
-
-   .. This needs merging somehow:
-   docindex.txt
+   .. STUFF THAT'S BEEN THROUGH 1ST PASS CATEGORIZATION:
 
    .. The following stuff is high-value and (vaguely) true:
    getting-started.txt
@@ -77,6 +29,7 @@ nonsense, isn't it?  `more...`_
    dev_method.txt
    download.txt
    extending.txt
+   windows.txt
 
    extradoc.txt
      .. ^^ integrate this one level up: dcolish?
@@ -92,6 +45,7 @@ nonsense, isn't it?  `more...`_
    parser.txt
    rlib.txt
    rtyper.txt
+   translation.txt
    jit/_ref.txt
    jit/index.txt
    jit/overview.txt
@@ -108,6 +62,9 @@ nonsense, isn't it?  `more...`_
 
    maemo.txt
      .. ^^ obscure corner; not sure of status
+
+   stackless.txt
+     .. ^^ it still works; needs JIT integration; hasn't been maintained for years
 
    .. The following stuff is good material relating to unmaintained areas of the project:
       .. .Net stuff:
@@ -146,9 +103,64 @@ nonsense, isn't it?  `more...`_
 
    old_news.txt
 
+   sprint-reports.txt
+
    project-ideas.txt
 
    rffi.txt
+
+   sandbox.txt
+     .. ^^ it continues to work, but is unmaintained
+
+   statistic/index.txt
+
+   theory.txt
+     .. ^^ old ideas; we're not doing it this way any more
+
+   translation-aspects.txt
+     .. ^^ old and needs updating
+
+   .. This needs merging somehow:
+   docindex.txt
+
+   .. Needs merging/replacing with hg stuff:
+   svn-help.txt
+
+   .. The following discussions have not yet been categorized:
+
+   discussion/GC-performance.txt
+   discussion/VM-integration.txt
+   discussion/chained_getattr.txt
+   discussion/cli-optimizations.txt
+   discussion/cmd-prompt-translation.txt
+   discussion/compiled-swamp.txt
+   discussion/ctypes_modules.txt
+   discussion/ctypes_todo.txt
+   discussion/distribution.txt
+   discussion/distribution-implementation.txt
+   discussion/distribution-newattempt.txt
+   discussion/distribution-roadmap.txt
+   discussion/emptying-the-malloc-zoo.txt
+   discussion/finalizer-order.txt
+   discussion/gc.txt
+   discussion/howtoimplementpickling.txt
+   discussion/improve-rpython.txt
+   discussion/outline-external-ootype.txt
+   discussion/oz-thread-api.txt
+   discussion/paper-wishlist.txt
+   discussion/parsing-ideas.txt
+   discussion/pypy_metaclasses_in_cl.txt
+   discussion/removing-stable-compiler.txt
+   discussion/security-ideas.txt
+   discussion/somepbc-refactoring-plan.txt
+   discussion/summer-of-pypy-pytest.txt
+   discussion/testing-zope.txt
+   discussion/thoughts_string_interning.txt
+   discussion/translation-swamp.txt
+   discussion/use_case_of_logic.txt
+
+   .. STUFF THAT'S DIFFICULT TO CATEGORIZE
+   video-index.txt
 
 
 Getting into PyPy ... 
