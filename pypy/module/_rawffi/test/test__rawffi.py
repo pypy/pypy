@@ -214,10 +214,6 @@ class AppTestFfi:
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
 
-    def teardown_method(self, func):
-        from pypy.module._rawffi.callback import global_counter
-        global_counter.CallbackPtr_by_number.clear()
-
     def test_libload(self):
         import _rawffi
         _rawffi.CDLL(self.libc_name)
