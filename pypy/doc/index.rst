@@ -14,153 +14,153 @@ nonsense, isn't it?  `more...`_
    .. STUFF THAT'S BEEN THROUGH 1ST PASS CATEGORIZATION:
 
    .. The following stuff is high-value and (vaguely) true:
-   getting-started.txt
-   getting-started-python.txt
-   getting-started-dev.txt
-   faq.txt
-   architecture.txt
-   coding-guide.txt
-   cleanup-todo.txt
-   cpython_differences.txt
-   garbage_collection.txt
-   interpreter.txt
-   objspace.txt
+   getting-started.rst
+   getting-started-python.rst
+   getting-started-dev.rst
+   faq.rst
+   architecture.rst
+   coding-guide.rst
+   cleanup-todo.rst
+   cpython_differences.rst
+   garbage_collection.rst
+   interpreter.rst
+   objspace.rst
 
-   dev_method.txt
-   download.txt
-   extending.txt
-   windows.txt
+   dev_method.rst
+   download.rst
+   extending.rst
+   windows.rst
 
-   extradoc.txt
+   extradoc.rst
      .. ^^ integrate this one level up: dcolish?
 
-   glossary.txt
+   glossary.rst
 
-   contributor.txt
+   contributor.rst
 
    .. True, high-detail:
-   interpreter-optimizations.txt
-   configuration.txt
-   low-level-encapsulation.txt
-   parser.txt
-   rlib.txt
-   rtyper.txt
-   translation.txt
-   jit/_ref.txt
-   jit/index.txt
-   jit/overview.txt
-   jit/pyjitpl5.txt
+   interpreter-optimizations.rst
+   configuration.rst
+   low-level-encapsulation.rst
+   parser.rst
+   rlib.rst
+   rtyper.rst
+   translation.rst
+   jit/_ref.rst
+   jit/index.rst
+   jit/overview.rst
+   jit/pyjitpl5.rst
 
-   ctypes-implementation.txt
+   ctypes-implementation.rst
      .. ^^ needs attention
 
-   how-to-release.txt
+   how-to-release.rst
      .. ^^ needs attention
 
-   index-report.txt
+   index-report.rst
      .. ^^ of historic interest, and about EU fundraising
 
-   maemo.txt
+   maemo.rst
      .. ^^ obscure corner; not sure of status
 
-   stackless.txt
+   stackless.rst
      .. ^^ it still works; needs JIT integration; hasn't been maintained for years
 
    .. The following stuff is good material relating to unmaintained areas of the project:
       .. .Net stuff:
-   cli-backend.txt
-   clr-module.txt
-   carbonpython.txt
+   cli-backend.rst
+   clr-module.rst
+   carbonpython.rst
 
    .. Release notes:
-   release-0.6.txt
-   release-0.7.0.txt
-   release-0.8.0.txt
-   release-0.9.0.txt
-   release-0.99.0.txt
-   release-1.0.0.txt
-   release-1.1.0.txt
-   release-1.2.0.txt
-   release-1.3.0.txt
-   release-1.4.0.txt
-   release-1.4.0beta.txt
-   release-1.4.1.txt
+   release-0.6.rst
+   release-0.7.0.rst
+   release-0.8.0.rst
+   release-0.9.0.rst
+   release-0.99.0.rst
+   release-1.0.0.rst
+   release-1.1.0.rst
+   release-1.2.0.rst
+   release-1.3.0.rst
+   release-1.4.0.rst
+   release-1.4.0beta.rst
+   release-1.4.1.rst
 
 
    .. The following stuff is old (and crufty?), and needs further investigation:
-   buildtool.txt
-   distribution.txt
-   eventhistory.txt
+   buildtool.rst
+   distribution.rst
+   eventhistory.rst
      .. ^^ Incomplete,  superceded elsewhere
 
-   externaltools.txt
+   externaltools.rst
      .. ^^ Incomplete and wrong,  superceded elsewhere
 
-   geninterp.txt
+   geninterp.rst
      .. ^^ apparently dead
 
-   objspace-proxies.txt
+   objspace-proxies.rst
 
-   old_news.txt
+   old_news.rst
 
-   sprint-reports.txt
+   sprint-reports.rst
 
-   project-ideas.txt
+   project-ideas.rst
 
-   rffi.txt
+   rffi.rst
 
-   sandbox.txt
+   sandbox.rst
      .. ^^ it continues to work, but is unmaintained
 
-   statistic/index.txt
+   statistic/index.rst
 
-   theory.txt
+   theory.rst
      .. ^^ old ideas; we're not doing it this way any more
 
-   translation-aspects.txt
+   translation-aspects.rst
      .. ^^ old and needs updating
 
    .. This needs merging somehow:
-   docindex.txt
+   docindex.rst
 
    .. Needs merging/replacing with hg stuff:
-   svn-help.txt
+   svn-help.rst
 
    .. The following discussions have not yet been categorized:
 
-   discussion/GC-performance.txt
-   discussion/VM-integration.txt
-   discussion/chained_getattr.txt
-   discussion/cli-optimizations.txt
-   discussion/cmd-prompt-translation.txt
-   discussion/compiled-swamp.txt
-   discussion/ctypes_modules.txt
-   discussion/ctypes_todo.txt
-   discussion/distribution.txt
-   discussion/distribution-implementation.txt
-   discussion/distribution-newattempt.txt
-   discussion/distribution-roadmap.txt
-   discussion/emptying-the-malloc-zoo.txt
-   discussion/finalizer-order.txt
-   discussion/gc.txt
-   discussion/howtoimplementpickling.txt
-   discussion/improve-rpython.txt
-   discussion/outline-external-ootype.txt
-   discussion/oz-thread-api.txt
-   discussion/paper-wishlist.txt
-   discussion/parsing-ideas.txt
-   discussion/pypy_metaclasses_in_cl.txt
-   discussion/removing-stable-compiler.txt
-   discussion/security-ideas.txt
-   discussion/somepbc-refactoring-plan.txt
-   discussion/summer-of-pypy-pytest.txt
-   discussion/testing-zope.txt
-   discussion/thoughts_string_interning.txt
-   discussion/translation-swamp.txt
-   discussion/use_case_of_logic.txt
+   discussion/GC-performance.rst
+   discussion/VM-integration.rst
+   discussion/chained_getattr.rst
+   discussion/cli-optimizations.rst
+   discussion/cmd-prompt-translation.rst
+   discussion/compiled-swamp.rst
+   discussion/ctypes_modules.rst
+   discussion/ctypes_todo.rst
+   discussion/distribution.rst
+   discussion/distribution-implementation.rst
+   discussion/distribution-newattempt.rst
+   discussion/distribution-roadmap.rst
+   discussion/emptying-the-malloc-zoo.rst
+   discussion/finalizer-order.rst
+   discussion/gc.rst
+   discussion/howtoimplementpickling.rst
+   discussion/improve-rpython.rst
+   discussion/outline-external-ootype.rst
+   discussion/oz-thread-api.rst
+   discussion/paper-wishlist.rst
+   discussion/parsing-ideas.rst
+   discussion/pypy_metaclasses_in_cl.rst
+   discussion/removing-stable-compiler.rst
+   discussion/security-ideas.rst
+   discussion/somepbc-refactoring-plan.rst
+   discussion/summer-of-pypy-pytest.rst
+   discussion/testing-zope.rst
+   discussion/thoughts_string_interning.rst
+   discussion/translation-swamp.rst
+   discussion/use_case_of_logic.rst
 
    .. STUFF THAT'S DIFFICULT TO CATEGORIZE
-   video-index.txt
+   video-index.rst
 
 
 Getting into PyPy ... 
