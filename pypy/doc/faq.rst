@@ -416,7 +416,7 @@ all the functions and stuff used directly and indirectly by your
 .. _`RPython`: coding-guide.html#rpython
 .. _`getting-started`: getting-started.html
 
-.. include:: _ref.txt
+.. include:: _ref.rst
 
 ----------------------------------------------------------
 Why does PyPy draw a Mandelbrot fractal while translating?

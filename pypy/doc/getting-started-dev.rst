@@ -3,7 +3,7 @@ PyPy - Getting Started with the Translation Toolchain and Development Process
 ===============================================================================
 
 .. contents::
-.. sectnum::
+
 
 .. _`try out the translator`:
 
@@ -421,5 +421,5 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
 .. _`directory reference`: docindex.html#directory-reference
 
-.. include:: _ref.txt
+.. include:: _ref.rst
 

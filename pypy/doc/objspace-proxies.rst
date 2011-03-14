@@ -3,7 +3,7 @@ What PyPy can do for your objects
 =================================
 
 .. contents::
-.. sectnum::
+
 
 
 Thanks to the `Object Space`_ architecture, any feature that is
@@ -615,4 +615,4 @@ lists, dicts, exceptions, tracebacks and frames.
 .. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
            EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
-.. include:: _ref.txt
+.. include:: _ref.rst

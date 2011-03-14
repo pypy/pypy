@@ -3,7 +3,7 @@ PyPy - Coding Guide
 =====================================
 
 .. contents::
-.. sectnum::
+
 
 
 This document describes coding requirements and conventions for
@@ -1085,4 +1085,4 @@ the documentation issue::
 which will check that remote URLs are reachable.
 
 
-.. include:: _ref.txt
+.. include:: _ref.rst

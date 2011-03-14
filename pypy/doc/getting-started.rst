@@ -2,9 +2,6 @@
 PyPy - Getting Started 
 ==================================
 
-.. contents::
-.. sectnum::
-
 .. _howtopypy: 
 
 What is PyPy ?
@@ -120,4 +117,4 @@ more detailed information on specific features of the tracker.
 .. _bug reports:            https://codespeak.net/issue/pypy-dev/
 
 
-.. include:: _ref.txt
+.. include:: _ref.rst

@@ -3,7 +3,7 @@ Techniques used in PyPy
 ===================================
 
 .. contents::
-.. sectnum::
+
 
 .. _`abstract interpretation`: 
     

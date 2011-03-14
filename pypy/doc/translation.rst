@@ -3,7 +3,7 @@
 =====================
 
 .. contents::
-.. sectnum::
+
 
 This document describes the tool chain that we have developed to analyze
 and "compile" RPython_ programs (like PyPy itself) to various target
@@ -768,4 +768,4 @@ translation step to declare that it needs to be able to call each of a
 collection of functions (which may refer to each other in a mutually
 recursive fashion) and annotate and rtype them all at once.
 
-.. include:: _ref.txt
+.. include:: _ref.rst

@@ -3,7 +3,7 @@ Memory management and threading models as translation aspects -- solutions and c
 ==========================================================================================
 
 .. contents::
-.. sectnum::
+
 
 Introduction
 =============

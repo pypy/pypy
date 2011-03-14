@@ -4,7 +4,7 @@ PyPy - a Python_ implementation written in Python
 
 .. _Python: http://www.python.org/doc/2.5.2/
 
-.. sectnum::
+
 .. contents:: :depth: 1
 
 
@@ -310,5 +310,5 @@ Directory                      explanation/links
 .. _`graph viewer`: getting-started-dev.html#try-out-the-translator
 .. _`compatibility matrix`: image/compat-matrix.png
 
-.. include:: _ref.txt
+.. include:: _ref.rst
 

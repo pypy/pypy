@@ -619,4 +619,4 @@ scale automatically to larger programs.
 .. _`documentation of the greenlets`: http://codespeak.net/svn/greenlet/trunk/doc/greenlet.txt
 .. _`Stackless Transform`: translation.html#the-stackless-transform
 
-.. include:: _ref.txt
+.. include:: _ref.rst

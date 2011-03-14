@@ -3,7 +3,7 @@ Getting Started with PyPy's Python Interpreter
 ==============================================
 
 .. contents::
-.. sectnum::
+
 
 PyPy's Python interpreter is a very compliant Python
 interpreter implemented in Python.  When translated to C, it passes most of 
@@ -299,4 +299,4 @@ options do.
 .. _clr: clr-module.html
 .. _`CPythons core language regression tests`: http://codespeak.net:8099/summary?category=applevel&branch=%3Ctrunk%3E
 
-.. include:: _ref.txt
+.. include:: _ref.rst

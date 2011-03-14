@@ -3,7 +3,7 @@ PyPy - Goals and Architecture Overview
 ==================================================
 
 .. contents::
-.. sectnum::
+
 
 This document gives an overview of the goals and architecture of PyPy.
 See `getting started`_ for a practical introduction and starting points. 
@@ -260,5 +260,5 @@ index`_.  Of particular interest after reading this document might be:
 .. _`generate Just-In-Time Compilers`: jit/index.html
 .. _`JIT Generation in PyPy`: jit/index.html
 
-.. include:: _ref.txt
+.. include:: _ref.rst
 

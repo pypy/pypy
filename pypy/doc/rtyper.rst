@@ -2,7 +2,7 @@ The RPython Typer
 =================
 
 .. contents::
-.. sectnum::
+
 
 The RPython Typer lives in the directory `pypy/rpython/`_.
 
@@ -791,4 +791,4 @@ you have to set the ``type_system`` parameter to the string
         assert res == ~3
 
 .. _annotator: translation.html#the-annotation-pass
-.. include:: _ref.txt
+.. include:: _ref.rst
