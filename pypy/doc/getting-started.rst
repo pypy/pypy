@@ -33,7 +33,9 @@ wants to access the current development.
 
 .. _`downloading them from the download page`: download.html
 
-If you choose to use mercurial, you must issue the following command on your
+If you choose to use mercurial,
+first make sure you have ``subversion`` installed.
+You must issue the following command on your
 command line, DOS box, or terminal::
 
     hg clone http://bitbucket.org/pypy/pypy pypy

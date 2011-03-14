@@ -39,6 +39,7 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    adapt as needed):
 
    * ``gcc``
+   * ``make``
    * ``python-dev``
    * ``python-ctypes`` if you are still using Python2.4
    * ``libffi-dev``
@@ -49,6 +50,7 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    * ``libexpat1-dev`` (for the optional ``pyexpat`` module)
    * ``libssl-dev`` (for the optional ``_ssl`` module)
    * ``libgc-dev`` (Boehm: only when translating with `--opt=0, 1` or `size`)
+   * ``python-sphinx`` (for the optional documentation build)
 
 2. Translation is somewhat time-consuming (30 min to
    over one hour) and RAM-hungry.  If you have less than 1.5 GB of
@@ -68,8 +70,7 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want the included JIT
-   compiler.  (As of March 2010, the default level is ``--opt=2``, and
-   ``--opt=jit`` requires an Intel **32-bit** environment.)
+   compiler.  As of March 2011, Intel **32-bit** environment needs ``4GB``.
 
 .. _`optimization level`: config/opt.html
 

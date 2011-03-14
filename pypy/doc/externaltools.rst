@@ -16,6 +16,8 @@ slave to be sure we actually run all tests:
 
   - gcc
 
+  - make
+
   - Some libraries (these are Debian package names, adapt as needed):
 
     * ``python-dev``
