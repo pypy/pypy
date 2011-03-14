@@ -22,8 +22,12 @@ class TestPyPyCNew(BaseTestPyPyC):
             return x
         log = self.run(f1, [2117])
         assert log.result == 1083876708
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
+        # we get two loops: in the initial one "i" is only read and thus is
+        # not virtual, then "i" is written and thus we get a new loop where
+        # "i" is virtual. However, in this specific case the two loops happen
+        # to contain the very same operations
+        loop0, loop1 = log.loops_by_filename(self.filepath)
+        expected = """
             i9 = int_le(i7, i8)
             guard_true(i9, descr=...)
             i11 = int_add_ovf(i7, 1)
@@ -33,7 +37,9 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i13, i11, i8, descr=...)
-        """)
+        """
+        assert loop0.match(expected)
+        assert loop1.match(expected)
 
     def test_factorial(self):
         def fact(n):
