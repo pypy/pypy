@@ -1,7 +1,6 @@
 import unittest
 from ctypes import *
 import _ctypes_test
-from ctypes.test import xfail
 
 class Callbacks(unittest.TestCase):
     functype = CFUNCTYPE
