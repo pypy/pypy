@@ -3,7 +3,7 @@ PyPy - Bytecode Interpreter
 ===================================
 
 .. contents::
-.. sectnum::
+
 
 
 Introduction and Overview

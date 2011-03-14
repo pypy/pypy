@@ -3,7 +3,7 @@ PyPy - Coding Guide
 =====================================
 
 .. contents::
-.. sectnum::
+
 
 
 This document describes coding requirements and conventions for

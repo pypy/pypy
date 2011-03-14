@@ -3,7 +3,7 @@ PyPy - Goals and Architecture Overview
 ==================================================
 
 .. contents::
-.. sectnum::
+
 
 This document gives an overview of the goals and architecture of PyPy.
 See `getting started`_ for a practical introduction and starting points. 

@@ -3,7 +3,7 @@ PyPy - Getting Started with the Translation Toolchain and Development Process
 ===============================================================================
 
 .. contents::
-.. sectnum::
+
 
 .. _`try out the translator`:
 

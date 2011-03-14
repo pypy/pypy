@@ -3,7 +3,7 @@ What PyPy can do for your objects
 =================================
 
 .. contents::
-.. sectnum::
+
 
 
 Thanks to the `Object Space`_ architecture, any feature that is

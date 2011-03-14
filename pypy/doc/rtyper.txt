@@ -2,7 +2,7 @@ The RPython Typer
 =================
 
 .. contents::
-.. sectnum::
+
 
 The RPython Typer lives in the directory `pypy/rpython/`_.
 

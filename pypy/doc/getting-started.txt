@@ -2,9 +2,6 @@
 PyPy - Getting Started 
 ==================================
 
-.. contents::
-.. sectnum::
-
 .. _howtopypy: 
 
 What is PyPy ?

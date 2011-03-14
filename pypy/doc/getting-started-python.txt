@@ -3,7 +3,7 @@ Getting Started with PyPy's Python Interpreter
 ==============================================
 
 .. contents::
-.. sectnum::
+
 
 PyPy's Python interpreter is a very compliant Python
 interpreter implemented in Python.  When translated to C, it passes most of 
