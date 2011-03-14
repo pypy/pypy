@@ -1,6 +1,5 @@
 from ctypes import *
 import unittest
-from ctypes.test import xfail
 
 # IMPORTANT INFO:
 #
