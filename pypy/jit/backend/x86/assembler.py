@@ -649,8 +649,10 @@ class Assembler386(object):
                 else:
                     get_from_stack.append((floc, True))
 
-        remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs, X86_64_XMM_SCRATCH_REG)
+        remap_frame_layout(self,
+                           src_locs + xmm_src_locs,
+                           dst_locs + xmm_dst_locs,
+                           X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
 
         for i in range(len(get_from_stack)):
             loc, is_xmm = get_from_stack[i]
@@ -979,8 +981,10 @@ class Assembler386(object):
                     self.mc.MOV_sr(i*WORD, loc.value)
 
         # Handle register arguments
-        remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs, X86_64_XMM_SCRATCH_REG)
+        remap_frame_layout(self,
+                           src_locs + xmm_src_locs,
+                           dst_locs + xmm_dst_locs,
+                           X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
 
         self._regalloc.reserve_param(len(pass_on_stack))
         self.mc.CALL(x)
@@ -1953,7 +1957,7 @@ class Assembler386(object):
             # arglocs[2:] too, so they are saved on the stack above and
             # restored below.
             remap_frame_layout(self, arglocs[:2], [edi, esi],
-                               X86_64_SCRATCH_REG)
+                               X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
 
         # misaligned stack in the call, but it's ok because the write barrier
         # is not going to call anything more.  Also, this assumes that the
