@@ -262,6 +262,12 @@ class OpMatcher(object):
             self.alpha_map[v1] = exp_v2
         return self.alpha_map[v1] == exp_v2
 
+    def match_descr(self, descr, exp_descr):
+        if descr == exp_descr or exp_descr == '...':
+            return True
+        match = exp_descr is not None and re.match(exp_descr, descr)
+        self._assert(match, "descr mismatch")
+
     def _assert(self, cond, message):
         if not cond:
             raise InvalidMatch(message, frame=sys._getframe(1))
@@ -272,7 +278,8 @@ class OpMatcher(object):
         self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
         for arg, exp_arg in zip(op.args, exp_args):
             self._assert(self.match_var(arg, exp_arg), "variable mismatch")
-        self._assert(op.descr == exp_descr or exp_descr == '...', "descr mismatch")
+        self.match_descr(op.descr, exp_descr)
+        
 
     def _next_op(self, iter_ops, assert_raises=False):
         try:

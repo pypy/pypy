@@ -173,6 +173,7 @@ class TestOpMatcher(object):
         """
         assert self.match(loop, "setfield_gc(p0, 1, descr=<foobar>)")
         assert self.match(loop, "setfield_gc(p0, 1, descr=...)")
+        assert self.match(loop, "setfield_gc(p0, 1, descr=<.*bar>)")
         assert not self.match(loop, "setfield_gc(p0, 1)")
         assert not self.match(loop, "setfield_gc(p0, 1, descr=<zzz>)")
 
