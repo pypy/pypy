@@ -193,7 +193,7 @@ sysctlbyname = rffi.llexternal('sysctlbyname',
                                sandboxsafe=True)
 
 def get_darwin_sysctl_signed(sysctl_name):
-    sysctl_name_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
+    rval_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
     try:
         len_p = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
         try:
@@ -216,7 +216,7 @@ def get_darwin_sysctl_signed(sysctl_name):
         finally:
             lltype.free(len_p, flavor='raw')
     finally:
-        lltype.free(sysctl_name_p, flavor='raw')
+        lltype.free(rval_p, flavor='raw')
 
 
 def get_L2cache_darwin():
