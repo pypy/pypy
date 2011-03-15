@@ -375,7 +375,8 @@ class RangeListStrategy(ListStrategy):
         new = self.cast_to_void_star((self.unwrap(last), -skip, length))
         w_list.storage = new
 
-class AbstractUnwrappedStrategy(ListStrategy):
+class AbstractUnwrappedStrategy(object):
+    _mixin_ = True
 
     def wrap(self, unwrapped):
         raise NotImplementedError
@@ -577,7 +578,7 @@ class AbstractUnwrappedStrategy(ListStrategy):
     def reverse(self, w_list):
         self.cast_from_void_star(w_list.storage).reverse()
 
-class ObjectListStrategy(AbstractUnwrappedStrategy):
+class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def unwrap(self, w_obj):
         return w_obj
 
@@ -597,7 +598,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = self.cast_to_void_star(list_w)
 
-class IntegerListStrategy(AbstractUnwrappedStrategy):
+class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -615,7 +616,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy):
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(IntegerListStrategy)
 
-class StringListStrategy(AbstractUnwrappedStrategy):
+class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
