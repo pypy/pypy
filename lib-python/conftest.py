@@ -683,8 +683,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
         return status, stdout.read(mode='rU'), stderr.read(mode='rU')
 
     def getresult(self, regrtest): 
-        cmd = self.getinvocation(regrtest) 
-        exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd) 
+        cmd = self.getinvocation(regrtest)
+        tempdir = py.test.ensuretemp(self.fspath.basename)
+        oldcwd = tempdir.chdir()
+        exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd)
+        oldcwd.chdir()
         skipped = False
         timedout = test_stderr.rfind(26*"=" + "timedout" + 26*"=") != -1 
         if not timedout: 

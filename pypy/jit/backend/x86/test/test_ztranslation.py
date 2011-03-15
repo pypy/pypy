@@ -45,7 +45,7 @@ class TestTranslationX86(CCompiledMixin):
                               reds = ['total', 'frame', 'j'],
                               virtualizables = ['frame'])
         def f(i, j):
-            for param in unroll_parameters:
+            for param, _ in unroll_parameters:
                 defl = PARAMETERS[param]
                 jitdriver.set_param(param, defl)
             jitdriver.set_param("threshold", 3)
