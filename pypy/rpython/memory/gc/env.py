@@ -1,7 +1,6 @@
 """
 Utilities to get environ variables and platform-specific memory-related values.
 """
-from __future__ import with_statement
 import os, sys
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
@@ -193,8 +192,10 @@ sysctlbyname = rffi.llexternal('sysctlbyname',
                                sandboxsafe=True)
 
 def get_darwin_cache_size(cache_key):
-    with lltype.scoped_alloc(rffi.LONGLONGP.TO, 1) as cache_p:
-        with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as len_p:
+    cache_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
+    try:
+        len_p = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+        try:
             size = rffi.sizeof(rffi.LONGLONG)
             cache_p[0] = rffi.cast(rffi.LONGLONG, 0)
             len_p[0] = rffi.cast(rffi.SIZE_T, size)
@@ -211,6 +212,10 @@ def get_darwin_cache_size(cache_key):
                 if rffi.cast(rffi.LONGLONG, cache) != cache_p[0]:
                     cache = 0    # overflow!
             return cache
+        finally:
+            lltype.free(len_p, flavor='raw')
+    finally:
+        lltype.free(cache_p, flavor='raw')
 
 
 def get_L2cache_darwin():
