@@ -517,6 +517,30 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(p0, p1, p2, p3, p4, p5, p6, i46, i25, i39, i33, i27, i12, p13, i14, i15, p16, i17, i18, p19, p20, i21, i22, descr=<Loop0>)
         """)
 
+
+    def test_exception_inside_loop_1(self):
+        def main(n):
+            while n:
+                try:
+                    raise ValueError
+                except ValueError:
+                    pass
+                n -= 1
+            return n
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 0
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+        i5 = int_is_true(i3)
+        guard_true(i5, descr=<Guard3>)
+        --EXC-TICK--
+        i12 = int_sub_ovf(i3, 1)
+        guard_no_overflow(descr=<Guard5>)
+        --TICK--
+        jump(p0, p1, p2, i12, p4, descr=<Loop0>)
+        """)
+
     def test_reraise(self):
         def f(n):
             i = 0
