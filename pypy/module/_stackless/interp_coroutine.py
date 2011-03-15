@@ -55,8 +55,8 @@ W_CoroutineExit = _new_exception('CoroutineExit', W_SystemExit,
 
 # Should be moved to interp_stackless.py if it's ever implemented... Currently
 # used by pypy/lib/stackless.py.
-#W_TaskletExit = _new_exception('TaskletExit', W_SystemExit, 
-#            """Tasklet killed manually.""")
+W_TaskletExit = _new_exception('TaskletExit', W_SystemExit, 
+            """Tasklet killed manually.""")
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
@@ -384,14 +384,14 @@ class AppCoState(BaseCoState):
                       self.w_CoroutineExit)
         
         # Should be moved to interp_stackless.py if it's ever implemented...
-        #self.w_TaskletExit = space.gettypefor(W_TaskletExit)
-        #space.setitem(
-        #              space.exceptions_module.w_dict, 
-        #              space.new_interned_str('TaskletExit'), 
-        #              self.w_TaskletExit) 
-        #space.setitem(space.builtin.w_dict, 
-        #              space.new_interned_str('TaskletExit'), 
-        #              self.w_TaskletExit)  
+        self.w_TaskletExit = space.gettypefor(W_TaskletExit)
+        space.setitem(
+                      space.exceptions_module.w_dict, 
+                      space.new_interned_str('TaskletExit'), 
+                      self.w_TaskletExit) 
+        space.setitem(space.builtin.w_dict, 
+                      space.new_interned_str('TaskletExit'), 
+                      self.w_TaskletExit)  
         
     def post_install(self):
         self.current = self.main = AppCoroutine(self.space, state=self)
