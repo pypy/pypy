@@ -295,6 +295,28 @@ class TestPyPyCNew(BaseTestPyPyC):
             i16 = force_token()
         """)
 
+    def test_kwargs(self):
+        # this is not a very precise test, could be improved
+        def main(x):
+            def g(**args):
+                return len(args)
+            #
+            s = 0
+            d = {}
+            for i in range(x):
+                s += g(**d)       # ID: call
+                d[str(i)] = i
+                if i % 100 == 99:
+                    d = {}
+            return s
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 49500
+        loop, = log.loops_by_id('call')
+        ops = log.opnames(loop.ops_by_id('call'))
+        guards = [ops for ops in ops if ops.startswith('guard')]
+        assert len(guards) <= 5
+
     def test_reraise(self):
         def f(n):
             i = 0
