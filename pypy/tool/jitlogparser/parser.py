@@ -147,8 +147,9 @@ class Function(object):
     # factory method
     TraceForOpcode = TraceForOpcode
 
-    def __init__(self, chunks, path, storage):
+    def __init__(self, chunks, path, storage, inputargs):
         self.path = path
+        self.inputargs = inputargs
         self.chunks = chunks
         for chunk in self.chunks:
             if chunk.filename is not None:
@@ -160,7 +161,7 @@ class Function(object):
         self.storage = storage
 
     @classmethod
-    def from_operations(cls, operations, storage, limit=None):
+    def from_operations(cls, operations, storage, limit=None, inputargs=''):
         """ Slice given operation list into a chain of TraceForOpcode chunks.
         Also detect inlined functions and make them Function
         """
@@ -196,11 +197,11 @@ class Function(object):
         # wrap stack back up
         if not stack:
             # no ops whatsoever
-            return cls([], getpath(stack), storage)
+            return cls([], getpath(stack), storage, inputargs)
         while True:
             next = stack.pop()
             if not stack:
-                return cls(next, getpath(stack), storage)
+                return cls(next, getpath(stack), storage, inputargs)
             stack[-1].append(cls(next, getpath(stack), storage))
 
 
