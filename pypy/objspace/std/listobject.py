@@ -78,8 +78,8 @@ class W_ListObject(W_Object):
 
     def switch_to_object_strategy(self):
         list_w = self.getitems()
-        self.strategy = self.space.fromcache(ObjectListStrategy)
-        self.strategy.init_from_list_w(self, list_w)
+        strategy = self.strategy = self.space.fromcache(ObjectListStrategy)
+        strategy.init_from_list_w(self, list_w)
 
     def check_empty_strategy(self):
         if self.length() == 0:
@@ -416,10 +416,11 @@ class AbstractUnwrappedStrategy(object):
 
     def getslice(self, w_list, start, stop, step, length):
         if step == 1:
-            # XXX ineffecient cause items are wrapped and unwrapped again
-            #     later: W_ListObject constructor for unwrapped items
-            l = w_list.getitems()
-            return W_ListObject(self.space, l[start:stop])
+            l = self.cast_from_void_star(w_list.storage)
+            assert stop >= 0
+            sublist = l[start:stop]
+            storage = self.cast_to_void_star(sublist)
+            return W_ListObject.from_storage_and_strategy(self.space, storage, self)
         else:
             subitems_w = [None] * length
             for i in range(length):
@@ -597,6 +598,8 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
         w_list.storage = self.cast_to_void_star(list_w)
+
+    # XXX implement getitems without copying here
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
