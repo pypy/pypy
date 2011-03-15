@@ -317,6 +317,60 @@ class TestPyPyCNew(BaseTestPyPyC):
         guards = [ops for ops in ops if ops.startswith('guard')]
         assert len(guards) <= 5
 
+    def test_stararg_virtual(self):
+        def main(x):
+            def g(*args):
+                return len(args)
+            def h(a, b, c):
+                return c
+            #
+            s = 0
+            for i in range(x):
+                l = [i, x, 2]
+                s += g(*l)       # ID: g1
+                s += h(*l)       # ID: h1
+                s += g(i, x, 2)  # ID: g2
+                a = 0
+            for i in range(x):
+                l = [x, 2]
+                s += g(i, *l)    # ID: g3
+                s += h(i, *l)    # ID: h2
+                a = 0
+            return s
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 13000
+        loop0, = log.loops_by_id('g1')
+        assert loop0.match_by_id('g1', """
+            i20 = force_token()
+            setfield_gc(p4, i19, descr=<.*W_AbstractSeqIterObject.inst_index .*>)
+            i22 = int_add_ovf(i8, 3)
+            guard_no_overflow(descr=<Guard4>)
+        """)
+        assert loop0.match_by_id('h1', """
+            i20 = force_token()
+            i22 = int_add_ovf(i8, 2)
+            guard_no_overflow(descr=<Guard5>)
+        """)
+        assert loop0.match_by_id('g2', """
+            i27 = force_token()
+            i29 = int_add_ovf(i26, 3)
+            guard_no_overflow(descr=<Guard6>)
+        """)
+        #
+        loop1, = log.loops_by_id('g3')
+        assert loop1.match_by_id('g3', """
+            i21 = force_token()
+            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            i23 = int_add_ovf(i9, 3)
+            guard_no_overflow(descr=<Guard37>)
+        """)
+        assert loop1.match_by_id('h2', """
+            i25 = force_token()
+            i27 = int_add_ovf(i23, 2)
+            guard_no_overflow(descr=<Guard38>)
+        """)
+
     def test_reraise(self):
         def f(n):
             i = 0

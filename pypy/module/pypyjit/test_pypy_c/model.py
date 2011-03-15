@@ -347,6 +347,7 @@ class OpMatcher(object):
             print '@' * 40
             print "Loops don't match"
             print "================="
+            print e.args
             print e.msg
             print
             print "Got:"
