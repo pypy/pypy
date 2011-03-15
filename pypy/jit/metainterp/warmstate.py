@@ -227,6 +227,8 @@ class WarmEnterState(object):
         from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
 
         d = {}
+        if NonConstant(False):
+            value = 'blah' # not a constant ''
         if value is None:
             value = ALL_OPTS_NAMES
         for name in value.split(":"):

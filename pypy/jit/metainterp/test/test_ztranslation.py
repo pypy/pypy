@@ -128,9 +128,9 @@ class TranslationTest:
         assert res == main(40)
         res = rpython_ll_meta_interp(main, [40], CPUClass=self.CPUClass,
                                      type_system=self.type_system,
-                                     optimizer=OPTIMIZER_FULL,
+                                     enable_opts='',
                                      ProfilerClass=Profiler)
-        assert res == main(40)        
+        assert res == main(40)
 
 class TestTranslationLLtype(TranslationTest):
 

@@ -706,6 +706,7 @@ class AbstractResumeDataReader(object):
         # Note that this may be called recursively; that's why the
         # allocate() methods must fill in the cache as soon as they
         # have the object, before they fill its fields.
+        assert self.virtuals_cache is not None
         v = self.virtuals_cache[index]
         if not v:
             v = self.rd_virtuals[index].allocate(self, index)
