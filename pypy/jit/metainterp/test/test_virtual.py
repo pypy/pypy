@@ -843,6 +843,29 @@ class VirtualMiscTests:
         assert self.meta_interp(f, []) == 10
         self.check_loops(new_array=0)
 
+    def test_virtual_streq_bug(self):
+        mydriver = JitDriver(reds = ['i', 's', 'a'], greens = [])
+
+        class A(object):
+            def __init__(self, state):
+                self.state = state
+        
+        def f():
+            i = 0
+            s = 0
+            a = A("data")
+            while i < 10:
+                mydriver.jit_merge_point(i=i, a=a, s=s)
+                if i > 1:
+                    if a.state == 'data':
+                        a.state = 'escaped'
+                    else:
+                        s += 1
+                i += 1
+            return s
+
+        res = self.meta_interp(f, [], repeat=7)
+        assert res == f()
 
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class
