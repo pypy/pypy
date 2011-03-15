@@ -402,7 +402,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems
         elif isinstance(w_obj, W_ListObject):
-            t = w_obj.getitems()
+            t = w_obj.getitems()[:]
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
