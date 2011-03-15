@@ -371,7 +371,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_no_overflow(descr=<Guard38>)
         """)
 
-
     def test_stararg(self):
         def main(x):
             def g(*args):
@@ -397,6 +396,33 @@ class TestPyPyCNew(BaseTestPyPyC):
         ops = ops_g + ops_h
         assert 'new_with_vtable' not in ops
         assert 'call_may_force' not in ops
+
+    def test_virtual_instance(self):
+        def main(n):
+            class A(object):
+                pass
+            #
+            i = 0
+            while i < n:
+                a = A()
+                assert isinstance(a, A)
+                assert not isinstance(a, int)
+                a.x = 2
+                i = i + a.x
+            return i
+        #
+        log = self.run(main, [1000], threshold = 400)
+        assert log.result == 1000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, i6)
+            guard_true(i7, descr=<Guard3>)
+            i9 = int_add_ovf(i5, 2)
+            guard_no_overflow(descr=<Guard4>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i9, i6, descr=<Loop0>)
+        """)
+
 
     def test_reraise(self):
         def f(n):
