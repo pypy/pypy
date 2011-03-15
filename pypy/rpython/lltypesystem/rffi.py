@@ -682,6 +682,7 @@ def make_string_mappings(strtype):
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
     alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
