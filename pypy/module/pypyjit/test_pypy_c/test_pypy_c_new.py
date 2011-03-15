@@ -466,6 +466,26 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(p0, p1, p2, p3, p4, f10, p6, f7, f8, descr=<Loop0>)
         """)
 
+    def test_call_builtin_function(self):
+        def main(n):
+            i = 2
+            l = []
+            while i < n:
+                i += 1
+                l.append(i)    # ID: append
+                a = 0
+            return i, len(l)
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == (1000, 998)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('append', """
+            p14 = new_with_vtable(ConstClass(W_IntObject))
+            setfield_gc(p14, i12, descr=<SignedFieldDescr .*W_IntObject.inst_intval .*>)
+            call(ConstClass(ll_append__listPtr_objectPtr), p8, p14, descr=...)
+            guard_no_exception(descr=<Guard4>)
+        """)
+
 
     def test_reraise(self):
         def f(n):
