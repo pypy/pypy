@@ -447,6 +447,25 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=<Loop0>)
         """)
 
+    def test_mixed_type_loop(self):
+        def main(n):
+            i = 0.0
+            j = 2
+            while i < n:
+                i = j + i
+            return i
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 1000.0
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i9 = float_lt(f5, f7)
+            guard_true(i9, descr=<Guard3>)
+            f10 = float_add(f8, f5)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, f10, p6, f7, f8, descr=<Loop0>)
+        """)
+
 
     def test_reraise(self):
         def f(n):
