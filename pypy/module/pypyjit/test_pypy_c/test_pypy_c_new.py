@@ -371,6 +371,33 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_no_overflow(descr=<Guard38>)
         """)
 
+
+    def test_stararg(self):
+        def main(x):
+            def g(*args):
+                return args[-1]
+            def h(*args):
+                return len(args)
+            #
+            s = 0
+            l = []
+            i = 0
+            while i < x:
+                l.append(1)
+                s += g(*l)     # ID: g
+                i = h(*l)      # ID: h
+                a = 0
+            return s
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 1000
+        loop, = log.loops_by_id('g')
+        ops_g = log.opnames(loop.ops_by_id('g'))
+        ops_h = log.opnames(loop.ops_by_id('h'))
+        ops = ops_g + ops_h
+        assert 'new_with_vtable' not in ops
+        assert 'call_may_force' not in ops
+
     def test_reraise(self):
         def f(n):
             i = 0
