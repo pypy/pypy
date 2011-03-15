@@ -144,14 +144,11 @@ class RefcountState:
         # { w_container -> { w_containee -> None } }
         # the None entry manages references borrowed during a call to
         # generic_cpy_call()
-        self.borrowed_objects = {}
-        # { addr of containee -> None }
 
         # For tests
         self.non_heaptypes_w = []
 
     def _freeze_(self):
-        assert not self.borrowed_objects
         assert self.borrow_mapping == {None: {}}
         self.py_objects_r2w.clear() # is not valid anymore after translation
         return False
@@ -187,22 +184,19 @@ class RefcountState:
         """
         ref = make_ref(self.space, w_borrowed)
         obj_ptr = rffi.cast(ADDR, ref)
-        if obj_ptr not in self.borrowed_objects:
-            # borrowed_objects owns the reference
-            self.borrowed_objects[obj_ptr] = None
-        else:
-            Py_DecRef(self.space, ref) # already in borrowed list
 
         borrowees = self.borrow_mapping.setdefault(w_container, {})
-        borrowees[w_borrowed] = None
+        if w_borrowed in borrowees:
+            Py_DecRef(self.space, w_borrowed) # cancel incref from make_ref()
+        else:
+            borrowees[w_borrowed] = None
+
         return ref
 
     def reset_borrowed_references(self):
         "Used in tests"
-        while self.borrowed_objects:
-            addr, _ = self.borrowed_objects.popitem()
-            w_obj = self.py_objects_r2w[addr]
-            Py_DecRef(self.space, w_obj)
+        for w_container, w_borrowed in self.borrow_mapping.items():
+            Py_DecRef(self.space, w_borrowed)
         self.borrow_mapping = {None: {}}
 
     def delete_borrower(self, w_obj):
@@ -232,17 +226,10 @@ class RefcountState:
         ref = self.py_objects_w2r.get(w_obj, lltype.nullptr(PyObject.TO))
         if not ref:
             if DEBUG_REFCOUNT:
-                print >>sys.stderr, "Borrowed object is already gone:", \
-                      hex(containee)
+                print >>sys.stderr, "Borrowed object is already gone!"
             return
 
-        containee_ptr = rffi.cast(ADDR, ref)
-        try:
-            del self.borrowed_objects[containee_ptr]
-        except KeyError:
-            pass
-        else:
-            Py_DecRef(self.space, ref)
+        Py_DecRef(self.space, ref)
 
 class InvalidPointerException(Exception):
     pass
@@ -290,7 +277,6 @@ def track_reference(space, py_obj, w_obj, replace=False):
         if not replace:
             assert w_obj not in state.py_objects_w2r
         assert ptr not in state.py_objects_r2w
-        assert ptr not in state.borrowed_objects
     state.py_objects_w2r[w_obj] = py_obj
     if ptr: # init_typeobject() bootstraps with NULL references
         state.py_objects_r2w[ptr] = w_obj

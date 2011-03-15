@@ -39,7 +39,6 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
         assert module.test_borrowing() # the test should not leak
 
     def test_borrow_destroy(self):
-        skip("FIXME")
         module = self.import_extension('foo', [
             ("test_borrow_destroy", "METH_NOARGS",
              """
