@@ -58,3 +58,22 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
              """),
             ])
         assert module.test_borrow_destroy() == 42
+
+    def test_double_borrow(self):
+        module = self.import_extension('foo', [
+            ("run", "METH_NOARGS",
+             """
+                PyObject *t = PyTuple_New(1);
+                PyObject *s = PyRun_String("set()", Py_eval_input,
+                                           Py_None, Py_None);
+                PyObject *w = PyWeakref_NewRef(s, Py_None);
+                PyTuple_SetItem(t, 0, s);
+                PyTuple_GetItem(t, 0);
+                PyTuple_GetItem(t, 0);
+                Py_DECREF(t);
+                return w;
+             """),
+            ])
+        wr = module.run()
+        # check that the set() object was deallocated
+        assert wr() is None
