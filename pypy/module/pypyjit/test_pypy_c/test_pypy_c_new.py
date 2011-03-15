@@ -276,6 +276,24 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, p13, descr=<Loop0>)
         """)
 
+    def test_default_and_kw(self):
+        def main(n):
+            def f(i, j=1):
+                return i + j
+            #
+            i = 0
+            while i < n:
+                i = f(f(i), j=1) # ID: call
+                a = 0
+            return i
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 1000
+        loop, = log.loops_by_id('call')
+        assert loop.match_by_id('call', """
+            i14 = force_token()
+            i16 = force_token()
+        """)
 
     def test_reraise(self):
         def f(n):
