@@ -486,6 +486,36 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_no_exception(descr=<Guard4>)
         """)
 
+    def test_range_iter(self):
+        def main(n):
+            def g(n):
+                return range(n)
+            s = 0
+            for i in range(n):  # ID: for
+                tmp = g(n)
+                s += tmp[i]     # ID: getitem
+            return s
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 1000 * 999 / 2
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('getitem', opcode='BINARY_SUBSCR', expected_src="""
+            i43 = int_lt(i25, 0)
+            guard_false(i43, descr=<Guard9>)
+            i44 = int_ge(i25, i39)
+            guard_false(i44, descr=<Guard10>)
+            i45 = int_mul(i25, i33)
+        """)
+        loop.match_by_id('for', opcode='FOR_ITER', expected_src="""
+            i23 = int_ge(i11, i12)
+            guard_false(i23, descr=<Guard3>)
+            i24 = int_mul(i11, i14)
+            i25 = int_add(i15, i24)
+            i27 = int_add(i11, 1)
+            # even if it's a the end of the loop, the jump still belongs to
+            # the FOR_ITER opcode
+            jump(p0, p1, p2, p3, p4, p5, p6, i46, i25, i39, i33, i27, i12, p13, i14, i15, p16, i17, i18, p19, p20, i21, i22, descr=<Loop0>)
+        """)
 
     def test_reraise(self):
         def f(n):
