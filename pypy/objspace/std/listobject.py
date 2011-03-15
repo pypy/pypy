@@ -502,7 +502,7 @@ class AbstractUnwrappedStrategy(object):
             else:
                 assert delta==0   # start<0 is only possible with slicelength==0
         elif len2 != slicelength:  # No resize for extended slices
-            raise operationerrfmt(space.w_ValueError, "attempt to "
+            raise operationerrfmt(self.space.w_ValueError, "attempt to "
                   "assign sequence of size %d to extended slice of size %d",
                   len2, slicelength)
 

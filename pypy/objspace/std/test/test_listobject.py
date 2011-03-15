@@ -638,6 +638,9 @@ class AppTestW_ListObject(object):
         assert l == [0, 'b', 2]
         assert l is l0
 
+        l = [1,2,3]
+        raises(ValueError, "l[0:2:2] = [1,2,3,4]")
+
     def test_recursive_repr(self):
         l = []
         assert repr(l) == '[]'
