@@ -423,6 +423,30 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(p0, p1, p2, p3, p4, i9, i6, descr=<Loop0>)
         """)
 
+    def test_load_attr(self):
+        src = '''
+            class A(object):
+                pass
+            a = A()
+            a.x = 2
+            def main(n):
+                i = 0
+                while i < n:
+                    i = i + a.x
+                return i
+        '''
+        log = self.run(src, [1000], threshold=400)
+        assert log.result == 1000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i9 = int_lt(i5, i6)
+            guard_true(i9, descr=<Guard3>)
+            i10 = int_add_ovf(i5, i7)
+            guard_no_overflow(descr=<Guard4>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=<Loop0>)
+        """)
+
 
     def test_reraise(self):
         def f(n):
