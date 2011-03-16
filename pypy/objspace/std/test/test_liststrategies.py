@@ -191,3 +191,9 @@ class TestW_ListStrategies(TestW_ListObject):
             l.pop(-1)
 
         assert isinstance(l.strategy, EmptyListStrategy)
+
+    def test_range_setslice(self):
+        l = make_range_list(self.space, 1, 3, 5)
+        assert isinstance(l.strategy, RangeListStrategy)
+        l.setslice(0, 1, 3, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)

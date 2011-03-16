@@ -363,7 +363,7 @@ class RangeListStrategy(ListStrategy):
 
     def setslice(self, w_list, start, step, slicelength, sequence_w):
         self.switch_to_integer_strategy(w_list)
-        w_list.setslice(start, step, slicelength)
+        w_list.setslice(start, step, slicelength, sequence_w)
 
     def insert(self, w_list, index, w_item):
         self.switch_to_integer_strategy(w_list)
