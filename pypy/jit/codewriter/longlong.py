@@ -16,6 +16,7 @@ if sys.maxint > 2147483647:
 
     from pypy.rlib.objectmodel import compute_hash
 
+    is_64_bit = True
     supports_longlong = False
     r_float_storage = float
     FLOATSTORAGE = lltype.Float
@@ -32,6 +33,7 @@ else:
 
     from pypy.rlib import rarithmetic, longlong2float
 
+    is_64_bit = False
     supports_longlong = True
     r_float_storage = rarithmetic.r_longlong
     FLOATSTORAGE = lltype.SignedLongLong

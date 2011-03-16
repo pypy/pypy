@@ -25,7 +25,7 @@ from pypy.jit.codewriter import longlong
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
-from pypy.rlib.rtimer import c_read_timestamp
+from pypy.rlib.rtimer import read_timestamp
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -858,7 +858,7 @@ class Frame(object):
         return llmemory.cast_ptr_to_adr(opaque_frame)
 
     def op_read_timestamp(self, descr):
-        return c_read_timestamp()
+        return read_timestamp()
 
     def op_call_may_force(self, calldescr, func, *args):
         assert not self._forced

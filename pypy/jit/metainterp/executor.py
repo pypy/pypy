@@ -5,8 +5,8 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from pypy.rlib.rtimer import c_read_timestamp
+from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask, r_longlong
+from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
 from pypy.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
@@ -229,7 +229,13 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
     rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
 def do_read_timestamp(cpu, _):
-    return BoxFloat(c_read_timestamp())
+    x = read_timestamp()
+    if longlong.is_64_bit:
+        assert isinstance(x, int)         # 64-bit
+        return BoxInt(x)
+    else:
+        assert isinstance(x, r_longlong)  # 32-bit
+        return BoxFloat(x)
 
 # ____________________________________________________________
 
