@@ -586,3 +586,55 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, i14, i5, p6, descr=<Loop0>)
         """)
+
+    def test_chain_of_guards(self):
+        src = """
+        class A(object):
+            def method_x(self):
+                return 3
+
+        l = ["x", "y"]
+
+        def main(arg):
+            sum = 0
+            a = A()
+            i = 0
+            while i < 500:
+                name = l[arg]
+                sum += getattr(a, 'method_' + name)()
+                i += 1
+            return sum
+        """
+        log = self.run(src, [0], threshold=400)
+        assert log.result == 500*3
+        loops = log.loops_by_filename(self.filepath)
+        assert len(loops) == 1
+
+    def test_getattr_with_dynamic_attribute(self):
+        src = """
+        class A(object):
+            pass
+
+        l = ["x", "y"]
+
+        def main():
+            sum = 0
+            a = A()
+            a.a1 = 0
+            a.a2 = 0
+            a.a3 = 0
+            a.a4 = 0
+            a.a5 = 0 # workaround, because the first five attributes need a promotion
+            a.x = 1
+            a.y = 2
+            i = 0
+            while i < 500:
+                name = l[i % 2]
+                sum += getattr(a, name)
+                i += 1
+            return sum
+        """
+        log = self.run(src, [], threshold=400)
+        assert log.result == 250 + 250*2
+        loops = log.loops_by_filename(self.filepath)
+        assert len(loops) == 1
