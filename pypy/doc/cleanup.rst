@@ -43,6 +43,9 @@ Old documentation that needs review
 
    dot-net.rst
 
+   maemo.rst
+     .. ^^ obscure corner; not sure of status
+
 Old discussion notes needing categorization
 -------------------------------------------
 .. toctree::

@@ -62,9 +62,6 @@ nonsense, isn't it?  `more...`_
    index-report.rst
      .. ^^ of historic interest, and about EU fundraising
 
-   maemo.rst
-     .. ^^ obscure corner; not sure of status
-
    stackless.rst
      .. ^^ it still works; needs JIT integration; hasn't been maintained for years
 
