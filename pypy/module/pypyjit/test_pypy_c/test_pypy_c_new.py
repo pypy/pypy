@@ -721,11 +721,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_boolrewrite_invers(self):
-        for a, b, res, opt_applied in (('2000', '2000', 20001000, True),
-                                       ( '500',  '500', 15001500, True),
-                                       ( '300',  '600', 16001700, False),
-                                       (   'a',    'b', 16001700, False),
-                                       (   'a',    'a', 13001700, True)):
+        for a, b, res, opt_expected in (('2000', '2000', 20001000, True),
+                                        ( '500',  '500', 15001500, True),
+                                        ( '300',  '600', 16001700, False),
+                                        (   'a',    'b', 16001700, False),
+                                        (   'a',    'a', 13001700, True)):
             src = """
                 def main():
                     sa = 0
@@ -751,7 +751,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             ge_ops = log.opnames(loop.ops_by_id('ge'))
             assert le_ops.count('int_lt') == 1
             #
-            if opt_applied:
+            if opt_expected:
                 assert ge_ops.count('int_ge') == 0
             else:
                 # if this assert fails it means that the optimization was
@@ -759,3 +759,42 @@ class TestPyPyCNew(BaseTestPyPyC):
                 # optimization is valid, and either fix the code or fix the
                 # test :-)
                 assert ge_ops.count('int_ge') == 1
+
+    def test_boolrewrite_reflex(self):
+        for a, b, res, opt_expected in (('2000', '2000', 10001000, True),
+                                        ( '500',  '500', 15001500, True),
+                                        ( '300',  '600', 14001700, False),
+                                        (   'a',    'b', 14001700, False),
+                                        (   'a',    'a', 17001700, True)):
+
+            src = """
+                def main():
+                    sa = 0
+                    a = 300
+                    b = 600
+                    for i in range(1000):
+                        if i < %s:        # ID: lt
+                            sa += 1
+                        else:
+                            sa += 2
+                        if %s > i:        # ID: gt
+                            sa += 10000
+                        else:
+                            sa += 20000
+                    return sa
+            """ % (a, b)
+            log = self.run(src, [], threshold=400)
+            assert log.result == res
+            loop, = log.loops_by_filename(self.filepath)
+            le_ops = log.opnames(loop.ops_by_id('lt'))
+            gt_ops = log.opnames(loop.ops_by_id('gt'))
+            assert le_ops.count('int_lt') == 1
+            #
+            if opt_expected:
+                assert gt_ops.count('int_gt') == 0
+            else:
+                # if this assert fails it means that the optimization was
+                # applied even if we don't expect to. Check whether the
+                # optimization is valid, and either fix the code or fix the
+                # test :-)
+                assert gt_ops.count('int_gt') == 1
