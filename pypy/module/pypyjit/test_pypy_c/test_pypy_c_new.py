@@ -541,6 +541,27 @@ class TestPyPyCNew(BaseTestPyPyC):
         jump(p0, p1, p2, i12, p4, descr=<Loop0>)
         """)
 
+    def test_exception_inside_loop_2(self):
+        def main(n):
+            def g(n):
+                raise ValueError(n)  # ID: raise
+            def f(n):
+                g(n)
+            #
+            while n:
+                try:
+                    f(n)
+                except ValueError:
+                    pass
+                n -= 1
+            return n
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 0
+        loop, = log.loops_by_filename(self.filepath)
+        ops = log.opnames(loop.ops_by_id('raise'))
+        assert 'new' not in ops
+
     def test_reraise(self):
         def f(n):
             i = 0
