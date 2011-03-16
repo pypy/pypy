@@ -21,12 +21,18 @@ class OptAddition(Optimization):
                 func(self, op)
                 break
         else:
-            self.optimize_default(op)
+            #self.optimize_default(op)
+            self.emit_operation(op)
 
-    def _int_add(self, variable, constant, result):
-        return ResOperation(rop.INT_ADD, [variable, constant], result)
+    def _int_operation(self, variable, constant, result):
+        if constant < 0:
+            constant = ConstInt(-constant)
+            return ResOperation(rop.INT_SUB, [variable, constant], result)
+        else:
+            constant = ConstInt(constant)
+            return ResOperation(rop.INT_ADD, [variable, constant], result)
 
-    def _store_add(self, variable, constant, result):
+    def _process_add(self, variable, constant, result):
         try:
             root, stored_constant = self.args[variable]
             constant = constant + stored_constant
@@ -35,48 +41,56 @@ class OptAddition(Optimization):
 
         self.args[result] = root, constant
 
-        constant = ConstInt(constant)
-        new_op = self._int_add(root, constant, result)
-        print new_op
+        new_op = self._int_operation(root, constant, result)
         self.emit_operation(new_op)
 
     def optimize_INT_ADD(self, op):
         lv = self.getvalue(op.getarg(0))
         rv = self.getvalue(op.getarg(1))
-        print "lv = %s rv = %s" % (lv.box, rv.box)
         result = op.result
         if lv.is_constant() and rv.is_constant():
             self.emit_operation(op) # XXX: there's support for optimizing this elsewhere, right?
         elif lv.is_constant():
             constant = lv.box.getint()
-            self._store_add(op.getarg(1), constant, result)
+            self._process_add(op.getarg(1), constant, result)
         elif rv.is_constant():
             constant = rv.box.getint()
-            self._store_add(op.getarg(0), constant, result)
+            self._process_add(op.getarg(0), constant, result)
+        else:
+            self.emit_operation(op)
+
+    def optimize_INT_SUB(self, op):
+        lv = self.getvalue(op.getarg(0))
+        rv = self.getvalue(op.getarg(1))
+        result = op.result
+        if lv.is_constant() and rv.is_constant():
+            self.emit_operation(op) # XXX: there's support for optimizing this elsewhere, right?
+        elif lv.is_constant():
+            #constant = lv.box.getint()
+            #self._process_add(op.getarg(1), constant, result)
+            # TODO: implement
+            self.emit_operation(op)
+        elif rv.is_constant():
+            constant = rv.box.getint()
+            self._process_add(op.getarg(0), -constant, result)
         else:
             self.emit_operation(op)
 
     def optimize_default(self, op):
         for i in range(op.numargs()):
             arg = self.getvalue(op.getarg(i))
-            print 'type(%s) = %s' % (arg.box, type(arg))
             if arg.is_constant():
                 continue
 
             try:
                 variable = op.getarg(i)
                 root, constant = self.args[variable]
-                del self.args[variable] # TODO: mark as used instead of deleting
 
-                constant = ConstInt(constant)
-                new_op = self._int_add(root, constant, variable)
-                print new_op
+                new_op = self._int_operation(root, constant, variable)
                 self.emit_operation(new_op)
             except KeyError:
                 pass
-        print op
         self.emit_operation(op)
 
-    #def optimize_INT_SUB(self, op): pass
 
 optimize_ops = _findall(OptAddition, 'optimize_')

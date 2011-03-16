@@ -5508,7 +5508,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # can be raised by ll_str2unicode()
 
 class TestFoldIntAdds(OptimizeOptTest, LLtypeMixin):
-    def test_fold(self):
+    def test_fold_add(self):
         ops = """
         [i0]
         i1 = int_add(i0, 3)
@@ -5525,6 +5525,27 @@ class TestFoldIntAdds(OptimizeOptTest, LLtypeMixin):
         jump(i3)
         """
         self.optimize_loop(ops, expected)
+
+    def test_fold_sub(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 3)
+        i2 = int_sub(i1, 16)
+        i3 = int_add(i2, 9)
+        i4 = int_sub(i3, 29)
+        jump(i3)
+        """
+
+        expected = """
+        [i0]
+        i1 = int_add(i0, 3)
+        i2 = int_sub(i0, 13)
+        i3 = int_sub(i0, 4)
+        i4 = int_sub(i0, 33)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
 
 ##class TestOOtype(OptimizeOptTest, OOtypeMixin):
 
