@@ -1,25 +1,14 @@
 import time
 
-import py
-
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import rffi
-from pypy.tool.autopath import pypydir
 
-
-eci = rffi.ExternalCompilationInfo(
-    include_dirs = [str(py.path.local(pypydir).join('translator', 'c'))],
-    includes=["src/timer.h"],
-    separate_module_sources = [' '],
-)
-c_read_timestamp = rffi.llexternal(
-    'pypy_read_timestamp', [], rffi.LONGLONG,
-    compilation_info=eci, _nowrapper=True
-)
 
 def read_timestamp():
-    return c_read_timestamp()
+    # returns a longlong.  When running on top of python, build
+    # the result a bit arbitrarily.
+    return r_longlong(r_ulonglong(long(time.time() * 500000000)))
 
 
 class ReadTimestampEntry(ExtRegistryEntry):
