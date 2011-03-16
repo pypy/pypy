@@ -233,9 +233,9 @@ class EmptyListStrategy(ListStrategy):
         self.append(w_list, w_item)
 
     def extend(self, w_list, w_other):
-        #XXX items are wrapped and unwrapped again
-        w_list.strategy = w_other.strategy
-        w_list.strategy.init_from_list_w(w_list, w_other.getitems())
+        strategy = w_list.strategy = w_other.strategy
+        items = strategy.cast_from_void_star(w_other.storage)[:] # copy!
+        w_list.storage = strategy.cast_to_void_star(items)
 
     def reverse(self, w_list):
         pass

@@ -378,6 +378,14 @@ class AppTestW_ListObject(object):
         l.extend([10])
         assert l == range(11)
 
+        l = []
+        m = [1,2,3]
+        l.extend(m)
+        m[0] = 5
+        assert m == [5,2,3]
+        assert l == [1,2,3]
+
+
     def test_extend_tuple(self):
         l = l0 = [1]
         l.extend((2,))
