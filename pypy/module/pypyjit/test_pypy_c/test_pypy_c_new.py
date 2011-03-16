@@ -494,19 +494,20 @@ class TestPyPyCNew(BaseTestPyPyC):
             for i in range(n):  # ID: for
                 tmp = g(n)
                 s += tmp[i]     # ID: getitem
+                a = 0
             return s
         #
         log = self.run(main, [1000], threshold=400)
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
-        loop.match_by_id('getitem', opcode='BINARY_SUBSCR', expected_src="""
+        assert loop.match_by_id('getitem', opcode='BINARY_SUBSCR', expected_src="""
             i43 = int_lt(i25, 0)
             guard_false(i43, descr=<Guard9>)
             i44 = int_ge(i25, i39)
             guard_false(i44, descr=<Guard10>)
             i45 = int_mul(i25, i33)
         """)
-        loop.match_by_id('for', opcode='FOR_ITER', expected_src="""
+        assert loop.match_by_id('for', opcode='FOR_ITER', expected_src="""
             i23 = int_ge(i11, i12)
             guard_false(i23, descr=<Guard3>)
             i24 = int_mul(i11, i14)
