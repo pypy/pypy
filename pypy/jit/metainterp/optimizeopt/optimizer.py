@@ -171,6 +171,9 @@ oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 
 class Optimization(object):
     next_optimization = None
+
+    def __init__(self):
+        pass # make rpython happy
     
     def propagate_forward(self, op):
         raise NotImplementedError
@@ -216,6 +219,14 @@ class Optimization(object):
         op = ResOperation(opnum, args, result)
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
+    def has_pure_result(self, opnum, args, descr):
+        op = ResOperation(opnum, args, None)
+        key = self.optimizer.make_args_key(op)
+        op = self.optimizer.pure_operations.get(key, None)
+        if op is None:
+            return False
+        return op.getdescr() is descr
+
     def setup(self):
         pass
 
@@ -247,6 +258,8 @@ class Optimizer(Optimization):
         self.posponedop = None
         self.exception_might_have_happened = False
         self.newoperations = []
+        if loop is not None:
+            self.call_pure_results = loop.call_pure_results
 
         self.set_optimizations(optimizations)
 

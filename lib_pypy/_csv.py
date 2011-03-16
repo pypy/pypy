@@ -256,25 +256,33 @@ class Reader(object):
             while True:
                 if c in '\n\r':
                     # end of line - return [fields]
+                    if pos2 > pos:
+                        self._parse_add_char(line[pos:pos2])
+                        pos = pos2
                     self._parse_save_field()
                     self.state = self.EAT_CRNL
                 elif c == self.dialect.escapechar:
                     # possible escaped character
+                    pos2 -= 1
                     self.state = self.ESCAPED_CHAR
                 elif c == self.dialect.delimiter:
                     # save field - wait for new field
+                    if pos2 > pos:
+                        self._parse_add_char(line[pos:pos2])
+                        pos = pos2
                     self._parse_save_field()
                     self.state = self.START_FIELD
                 else:
                     # normal character - save in field
                     pos2 += 1
-                    c = line[pos2]
-                    continue
+                    if pos2 < len(line):
+                        c = line[pos2]
+                        continue
                 break
             if pos2 > pos:
                 self._parse_add_char(line[pos:pos2])
-                pos = pos2
-                
+                pos = pos2 - 1
+
         elif self.state == self.START_RECORD:
             if c in '\n\r':
                 self.state = self.EAT_CRNL

@@ -730,7 +730,12 @@ def add__List_List(space, w_list1, w_list2):
 
 
 def inplace_add__List_ANY(space, w_list1, w_iterable2):
-    list_extend__List_ANY(space, w_list1, w_iterable2)
+    try:
+        list_extend__List_ANY(space, w_list1, w_iterable2)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise
     return w_list1
 
 def inplace_add__List_List(space, w_list1, w_list2):

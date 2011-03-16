@@ -92,6 +92,8 @@ def freeze_refcnts(self):
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
 class LeakCheckingTest(object):
+    enable_leak_checking = True
+
     @staticmethod
     def cleanup_references(space):
         state = space.fromcache(RefcountState)
@@ -112,6 +114,10 @@ class LeakCheckingTest(object):
     def check_and_print_leaks(self):
         # check for sane refcnts
         import gc
+
+        if not self.enable_leak_checking:
+            leakfinder.stop_tracking_allocations(check=False)
+            return False
 
         leaking = False
         state = self.space.fromcache(RefcountState)

@@ -584,7 +584,7 @@ class PyFrame(eval.Frame):
         return pytraceback.offset2lineno(self.pycode, self.last_instr)
 
     def fget_f_builtins(self, space):
-        return self.get_builtin().getdict()
+        return self.get_builtin().getdict(space)
 
     def fget_f_back(self, space):
         return self.space.wrap(self.f_backref())

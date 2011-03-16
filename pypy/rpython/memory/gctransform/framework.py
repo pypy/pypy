@@ -46,7 +46,7 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
             return True
         return graphanalyze.GraphAnalyzer.analyze_external_call(self, op,
                                                                 seen)
-    def analyze_simple_operation(self, op):
+    def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
             return flags['flavor'] == 'gc' and not flags.get('nocollect', False)

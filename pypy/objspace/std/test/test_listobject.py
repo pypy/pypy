@@ -548,6 +548,15 @@ class AppTestW_ListObject(object):
         assert l is l0
         assert l == [1,2,3,4,5]
 
+    def test_iadd_subclass(self):
+        class Bar(object):
+            def __radd__(self, other):
+                return ('radd', self, other)
+        bar = Bar()
+        l1 = [1,2,3]
+        l1 += bar
+        assert l1 == ('radd', bar, [1,2,3])
+
     def test_imul(self):
         l = l0 = [4,3]
         l *= 2

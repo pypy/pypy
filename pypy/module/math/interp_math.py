@@ -1,7 +1,7 @@
 import math
 import sys
 
-from pypy.rlib import rarithmetic, unroll
+from pypy.rlib import rfloat, unroll
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
@@ -67,15 +67,15 @@ def copysign(space, w_x, w_y):
     # No exceptions possible.
     x = _get_double(space, w_x)
     y = _get_double(space, w_y)
-    return space.wrap(rarithmetic.copysign(x, y))
+    return space.wrap(rfloat.copysign(x, y))
 
 def isinf(space, w_x):
     """Return True if x is infinity."""
-    return space.wrap(rarithmetic.isinf(_get_double(space, w_x)))
+    return space.wrap(rfloat.isinf(_get_double(space, w_x)))
 
 def isnan(space, w_x):
     """Return True if x is not a number."""
-    return space.wrap(rarithmetic.isnan(_get_double(space, w_x)))
+    return space.wrap(rfloat.isnan(_get_double(space, w_x)))
 
 def pow(space, w_x, w_y):
     """pow(x,y)
@@ -334,19 +334,19 @@ def fsum(space, w_iterable):
             v = hi
         del partials[added:]
         if v != 0.0:
-            if rarithmetic.isinf(v) or rarithmetic.isnan(v):
-                if (not rarithmetic.isinf(original) and
-                    not rarithmetic.isnan(original)):
+            if rfloat.isinf(v) or rfloat.isnan(v):
+                if (not rfloat.isinf(original) and
+                    not rfloat.isnan(original)):
                     raise OperationError(space.w_OverflowError,
                                          space.wrap("intermediate overflow"))
-                if rarithmetic.isinf(original):
+                if rfloat.isinf(original):
                     inf_sum += original
                 special_sum += original
                 del partials[:]
             else:
                 partials.append(v)
     if special_sum != 0.0:
-        if rarithmetic.isnan(special_sum):
+        if rfloat.isnan(special_sum):
             raise OperationError(space.w_ValueError, space.wrap("-inf + inf"))
         return space.wrap(special_sum)
     hi = 0.0
@@ -390,23 +390,23 @@ def factorial(space, w_x):
 
 def log1p(space, w_x):
     """Find log(x + 1)."""
-    return math1(space, rarithmetic.log1p, w_x)
+    return math1(space, rfloat.log1p, w_x)
 
 def acosh(space, w_x):
     """Inverse hyperbolic cosine"""
-    return math1(space, rarithmetic.acosh, w_x)
+    return math1(space, rfloat.acosh, w_x)
 
 def asinh(space, w_x):
     """Inverse hyperbolic sine"""
-    return math1(space, rarithmetic.asinh, w_x)
+    return math1(space, rfloat.asinh, w_x)
 
 def atanh(space, w_x):
     """Inverse hyperbolic tangent"""
-    return math1(space, rarithmetic.atanh, w_x)
+    return math1(space, rfloat.atanh, w_x)
 
 def expm1(space, w_x):
     """exp(x) - 1"""
-    return math1(space, rarithmetic.expm1, w_x)
+    return math1(space, rfloat.expm1, w_x)
 
 def erf(space, w_x):
     """The error function"""
@@ -462,7 +462,7 @@ def _erfc_contfrac(x):
     return p / q * x * math.exp(-x2) / _sqrtpi
 
 def _erf(x):
-    if rarithmetic.isnan(x):
+    if rfloat.isnan(x):
         return x
     absx = abs(x)
     if absx < ERF_SERIES_CUTOFF:
@@ -472,7 +472,7 @@ def _erf(x):
         return 1. - cf if x > 0. else cf - 1.
 
 def _erfc(x):
-    if rarithmetic.isnan(x):
+    if rfloat.isnan(x):
         return x
     absx = abs(x)
     if absx < ERF_SERIES_CUTOFF:
@@ -483,7 +483,7 @@ def _erfc(x):
 
 def _sinpi(x):
     y = math.fmod(abs(x), 2.)
-    n = int(rarithmetic.round_away(2. * y))
+    n = int(rfloat.round_away(2. * y))
     if n == 0:
         r = math.sin(math.pi * y)
     elif n == 1:
@@ -496,7 +496,7 @@ def _sinpi(x):
         r = math.sin(math.pi * (y - 2.))
     else:
         raise AssertionError("should not reach")
-    return rarithmetic.copysign(1., x) * r
+    return rfloat.copysign(1., x) * r
 
 _lanczos_g = 6.024680040776729583740234375
 _lanczos_g_minus_half = 5.524680040776729583740234375
@@ -543,9 +543,9 @@ def _lanczos_sum(x):
     return num / den
 
 def _gamma(x):
-    if rarithmetic.isnan(x) or (rarithmetic.isinf(x) and x > 0.):
+    if rfloat.isnan(x) or (rfloat.isinf(x) and x > 0.):
         return x
-    if rarithmetic.isinf(x):
+    if rfloat.isinf(x):
         raise ValueError("math domain error")
     if x == 0.:
         raise ValueError("math domain error")
@@ -557,7 +557,7 @@ def _gamma(x):
     absx = abs(x)
     if absx < 1e-20:
         r = 1. / x
-        if rarithmetic.isinf(r):
+        if rfloat.isinf(r):
             raise OverflowError("math range error")
         return r
     if absx > 200.:
@@ -591,15 +591,15 @@ def _gamma(x):
             sqrtpow = math.pow(y, absx / 2. - .25)
             r *= sqrtpow
             r *= sqrtpow
-    if rarithmetic.isinf(r):
+    if rfloat.isinf(r):
         raise OverflowError("math range error")
     return r
 
 def _lgamma(x):
-    if rarithmetic.isnan(x):
+    if rfloat.isnan(x):
         return x
-    if rarithmetic.isinf(x):
-        return rarithmetic.INFINITY
+    if rfloat.isinf(x):
+        return rfloat.INFINITY
     if x == math.floor(x) and x <= 2.:
         if x <= 0.:
             raise ValueError("math range error")
@@ -614,6 +614,6 @@ def _lgamma(x):
         r = (math.log(math.pi) - math.log(abs(_sinpi(absx))) - math.log(absx) -
              (math.log(_lanczos_sum(absx)) - _lanczos_g +
               (absx - .5) * (math.log(absx + _lanczos_g - .5) - 1)))
-    if rarithmetic.isinf(r):
+    if rfloat.isinf(r):
         raise OverflowError("math domain error")
     return r

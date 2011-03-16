@@ -28,24 +28,24 @@ class W_Root(object):
     _settled_ = True
     user_overridden_class = False
 
-    def getdict(self):
+    def getdict(self, space):
         return None
 
     def getdictvalue(self, space, attr):
-        w_dict = self.getdict()
+        w_dict = self.getdict(space)
         if w_dict is not None:
             return space.finditem_str(w_dict, attr)
         return None
 
     def setdictvalue(self, space, attr, w_value):
-        w_dict = self.getdict()
+        w_dict = self.getdict(space)
         if w_dict is not None:
             space.setitem_str(w_dict, attr, w_value)
             return True
         return False
 
     def deldictvalue(self, space, w_name):
-        w_dict = self.getdict()
+        w_dict = self.getdict(space)
         if w_dict is not None:
             try:
                 space.delitem(w_dict, w_name)
@@ -510,7 +510,7 @@ class ObjSpace(object):
 
     def export_builtin_exceptions(self):
         """NOT_RPYTHON"""
-        w_dic = self.exceptions_module.getdict()
+        w_dic = self.exceptions_module.getdict(self)
         w_keys = self.call_method(w_dic, "keys")
         exc_types_w = {}
         for w_name in self.unpackiterable(w_keys):

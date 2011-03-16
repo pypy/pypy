@@ -712,7 +712,7 @@ class AbstractLLHelpers:
 
     def ll_float(ll_str):
         from pypy.rpython.annlowlevel import hlstr
-        from pypy.rlib.rarithmetic import rstring_to_float
+        from pypy.rlib.rfloat import rstring_to_float
         s = hlstr(ll_str)
         assert s is not None
 

@@ -199,6 +199,7 @@ def get(space, name):
     return space.getattr(w_module, space.wrap(name))
 
 def post_install(module):
+    "NOT_RPYTHON"
     makeStaticMethod(module, 'greenlet', 'getcurrent')
     space = module.space
     state = AppGreenlet._get_state(space)
@@ -206,10 +207,10 @@ def post_install(module):
     w_greenlet = get(space, 'greenlet')
     # HACK HACK HACK
     # make the typeobject mutable for a while
-    from pypy.objspace.std.typeobject import _HEAPTYPE, W_TypeObject
+    from pypy.objspace.std.typeobject import W_TypeObject
     assert isinstance(w_greenlet, W_TypeObject)
-    old_flags = w_greenlet.__flags__
-    w_greenlet.__flags__ |= _HEAPTYPE
+    old_flag = w_greenlet.flag_heaptype
+    w_greenlet.flag_heaptype = True
     space.appexec([w_greenlet,
                    state.w_GreenletExit,
                    state.w_GreenletError], """
@@ -217,7 +218,7 @@ def post_install(module):
         greenlet.GreenletExit = exit
         greenlet.error = error
     """)
-    w_greenlet.__flags__ = old_flags
+    w_greenlet.flag_heaptype = old_flag
 
 AppGreenlet.typedef = TypeDef("greenlet",
     __new__ = interp2app(AppGreenlet.descr_method__new__.im_func),

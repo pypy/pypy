@@ -1,4 +1,5 @@
 import py
+import sys
 import re
 import os.path
 from pypy.tool.jitlogparser.parser import SimpleParser, Function, TraceForOpcode
@@ -38,7 +39,7 @@ def find_ids(code):
 
 
 class Log(object):
-    def __init__(self, func, rawtraces):
+    def __init__(self, rawtraces):
         storage = LoopStorage()
         traces = [SimpleParser.parse_from_input(rawtrace) for rawtrace in rawtraces]
         traces = storage.reconnect_loops(traces)
@@ -99,12 +100,11 @@ class LoopWithIds(Function):
         # 1. compute the ids of self, i.e. the outer function
         id2opcodes = find_ids(self.code)
         all_my_opcodes = self.get_set_of_opcodes()
-        # XXX: for now, we just look for the first opcode in the id range
         for id, opcodes in id2opcodes.iteritems():
             if not opcodes:
                 continue
-            target_opcode = opcodes[0]
-            if target_opcode in all_my_opcodes:
+            target_opcodes = set(opcodes)
+            if all_my_opcodes.intersection(target_opcodes):
                 ids[id] = opcodes
         #
         # 2. compute the ids of all the inlined functions
@@ -133,12 +133,15 @@ class LoopWithIds(Function):
             for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                 yield op
 
-    def print_ops(self, id=None):
+    def format_ops(self, id=None, **kwds):
         if id is None:
             ops = self.allops()
         else:
-            ops = self.ops_by_id(id)
-        print '\n'.join(map(str, ops))
+            ops = self.ops_by_id(id, **kwds)
+        return '\n'.join(map(str, ops))
+
+    def print_ops(self, *args, **kwds):
+        print self.format_ops(*args, **kwds)
 
     def ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
@@ -152,21 +155,45 @@ class LoopWithIds(Function):
 
     def match(self, expected_src):
         ops = list(self.allops())
-        matcher = OpMatcher(ops)
+        matcher = OpMatcher(ops, src=self.format_ops())
         return matcher.match(expected_src)
 
-    def match_by_id(self, id, expected_src):
-        ops = list(self.ops_by_id(id))
-        matcher = OpMatcher(ops)
+    def match_by_id(self, id, expected_src, **kwds):
+        ops = list(self.ops_by_id(id, *kwds))
+        matcher = OpMatcher(ops, src=self.format_ops(id))
         return matcher.match(expected_src)
 
 class InvalidMatch(Exception):
-    pass
+
+    def __init__(self, message, frame):
+        Exception.__init__(self, message)
+        # copied and adapted from pytest's magic AssertionError
+        f = py.code.Frame(frame)
+        try:
+            source = f.code.fullsource
+            if source is not None:
+                try:
+                    source = source.getstatement(f.lineno)
+                except IndexError:
+                    source = None
+                else:
+                    source = str(source.deindent()).strip()
+        except py.error.ENOENT:
+            source = None
+        if source and source.startswith('self._assert('):
+            # transform self._assert(x, 'foo') into assert x, 'foo'
+            source = source.replace('self._assert(', 'assert ')
+            source = source[:-1] # remove the trailing ')'
+            self.msg = py.code._reinterpret(source, f, should_fail=True)
+        else:
+            self.msg = "<could not determine information>"
+
 
 class OpMatcher(object):
 
-    def __init__(self, ops):
+    def __init__(self, ops, src=None):
         self.ops = ops
+        self.src = src
         self.alpha_map = {}
 
     @classmethod
@@ -196,7 +223,9 @@ class OpMatcher(object):
         args = args[:-1]
         args = args.split(',')
         args = map(str.strip, args)
-        if args[-1].startswith('descr='):
+        if args == ['']:
+            args = []
+        if args and args[-1].startswith('descr='):
             descr = args.pop()
             descr = descr[len('descr='):]
         else:
@@ -210,13 +239,22 @@ class OpMatcher(object):
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
         ticker_check = """
-            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker1 = int_sub(ticker0, 1)
-            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
-            ticker_cond = int_lt(ticker1, 0)
-            guard_false(ticker_cond, descr=...)
+            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            ticker_cond0 = int_lt(ticker1, 0)
+            guard_false(ticker_cond0, descr=...)
         """
         src = src.replace('--TICK--', ticker_check)
+        #
+        # this is the ticker check generated in PyFrame.handle_operation_error
+        exc_ticker_check = """
+            ticker2 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            setfield_gc(_, _, descr=<GcPtrFieldDescr pypy.interpreter.pyframe.PyFrame.inst_w_f_trace .*>)
+            ticker_cond1 = int_lt(ticker2, 0)
+            guard_false(ticker_cond1, descr=...)
+        """
+        src = src.replace('--EXC-TICK--', exc_ticker_check)
         return src
 
     @classmethod
@@ -233,9 +271,15 @@ class OpMatcher(object):
             self.alpha_map[v1] = exp_v2
         return self.alpha_map[v1] == exp_v2
 
+    def match_descr(self, descr, exp_descr):
+        if descr == exp_descr or exp_descr == '...':
+            return True
+        match = exp_descr is not None and re.match(exp_descr, descr)
+        self._assert(match, "descr mismatch")
+
     def _assert(self, cond, message):
         if not cond:
-            raise InvalidMatch(message)
+            raise InvalidMatch(message, frame=sys._getframe(1))
 
     def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr)):
         self._assert(op.name == exp_opname, "operation mismatch")
@@ -243,7 +287,8 @@ class OpMatcher(object):
         self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
         for arg, exp_arg in zip(op.args, exp_args):
             self._assert(self.match_var(arg, exp_arg), "variable mismatch")
-        self._assert(op.descr == exp_descr or exp_descr == '...', "descr mismatch")
+        self.match_descr(op.descr, exp_descr)
+        
 
     def _next_op(self, iter_ops, assert_raises=False):
         try:
@@ -297,12 +342,28 @@ class OpMatcher(object):
         self._next_op(iter_ops, assert_raises=True)
 
     def match(self, expected_src):
+        def format(src):
+            if src is None:
+                return ''
+            return py.code.Source(src).deindent().indent()
+        #
         expected_src = self.preprocess_expected_src(expected_src)
         expected_ops = self.parse_ops(expected_src)
         try:
             self.match_loop(expected_ops)
-        except InvalidMatch:
+        except InvalidMatch, e:
             #raise # uncomment this and use py.test --pdb for better debugging
+            print '@' * 40
+            print "Loops don't match"
+            print "================="
+            print e.args
+            print e.msg
+            print
+            print "Got:"
+            print format(self.src)
+            print
+            print "Expected:"
+            print format(expected_src)
             return False
         else:
             return True

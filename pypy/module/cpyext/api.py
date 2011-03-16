@@ -331,6 +331,8 @@ SYMBOLS_C = [
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
+    
+    'PyOS_getsig', 'PyOS_setsig',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
 ]
@@ -886,6 +888,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "cobject.c",
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
+                               source_dir / "pysignals.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,
@@ -1005,7 +1008,7 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     # exception checking occurs in call_external_function.
     argnames = ', '.join(['a%d' % i for i in range(len(FT.ARGS))])
     source = py.code.Source("""
-        def call_external_function(funcptr, %(argnames)s):
+        def cpy_call_external(funcptr, %(argnames)s):
             # NB. it is essential that no exception checking occurs here!
             res = funcptr(%(argnames)s)
             return res
@@ -1013,12 +1016,10 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     miniglobals = {'__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
-    call_external_function = miniglobals['call_external_function']
+    call_external_function = miniglobals['cpy_call_external']
     call_external_function._dont_inline_ = True
     call_external_function._annspecialcase_ = 'specialize:ll'
     call_external_function._gctransformer_hint_close_stack_ = True
-    call_external_function = func_with_new_name(call_external_function,
-                                                'ccall_' + name)
     # don't inline, as a hack to guarantee that no GC pointer is alive
     # anywhere in call_external_function
 

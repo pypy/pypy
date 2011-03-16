@@ -1,6 +1,6 @@
 import py, os, sys
 from pypy.tool.udir import udir
-from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
+from pypy.rlib.jit import JitDriver, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.rlib.jit import hint
 from pypy.jit.metainterp.jitprof import Profiler
@@ -45,7 +45,7 @@ class TestTranslationX86(CCompiledMixin):
                               reds = ['total', 'frame', 'j'],
                               virtualizables = ['frame'])
         def f(i, j):
-            for param in unroll_parameters:
+            for param, _ in unroll_parameters:
                 defl = PARAMETERS[param]
                 jitdriver.set_param(param, defl)
             jitdriver.set_param("threshold", 3)
@@ -99,10 +99,10 @@ class TestTranslationX86(CCompiledMixin):
         class Thing(object):
             def __init__(self, val):
                 self.val = val
-        
+
         class Frame(object):
             _virtualizable2_ = ['thing']
-        
+
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
                            get_printable_location = lambda codeno: str(codeno))

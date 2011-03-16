@@ -46,9 +46,6 @@ class StackLoc(AssemblerLocation):
         # One of INT, REF, FLOAT
         self.type = type
 
-    def frame_size(self):
-        return self.width // WORD
-
     def __repr__(self):
         return '%d(%%ebp)' % (self.value,)
 
@@ -491,7 +488,9 @@ class LocationCodeBuilder(object):
     MOVSX16 = _binaryop('MOVSX16')
     MOV32 = _binaryop('MOV32')
     MOVSX32 = _binaryop('MOVSX32')
-    XCHG = _binaryop('XCHG')
+    # Avoid XCHG because it always implies atomic semantics, which is
+    # slower and does not pair well for dispatch.
+    #XCHG = _binaryop('XCHG')
 
     PUSH = _unaryop('PUSH')
     POP = _unaryop('POP')

@@ -7,8 +7,7 @@ from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import (PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL,
-                           OPTIMIZER_NO_UNROLL)
+from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp import history
@@ -224,21 +223,20 @@ class WarmEnterState(object):
     def set_param_inlining(self, value):
         self.inlining = value
 
-    def set_param_optimizer(self, optimizer):
-        if optimizer == OPTIMIZER_SIMPLE:
-            from pypy.jit.metainterp import simple_optimize
-            self.optimize_loop = simple_optimize.optimize_loop
-            self.optimize_bridge = simple_optimize.optimize_bridge
-        elif optimizer == OPTIMIZER_NO_UNROLL:
-            from pypy.jit.metainterp import nounroll_optimize
-            self.optimize_loop = nounroll_optimize.optimize_loop
-            self.optimize_bridge = nounroll_optimize.optimize_bridge
-        elif optimizer == OPTIMIZER_FULL:
-            from pypy.jit.metainterp import optimize
-            self.optimize_loop = optimize.optimize_loop
-            self.optimize_bridge = optimize.optimize_bridge
-        else:
-            raise ValueError("unknown optimizer")
+    def set_param_enable_opts(self, value):
+        from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
+
+        d = {}
+        if NonConstant(False):
+            value = 'blah' # not a constant ''
+        if value is None:
+            value = ALL_OPTS_NAMES
+        for name in value.split(":"):
+            if name:
+                if name not in ALL_OPTS_DICT:
+                    raise ValueError('Unknown optimization ' + name)
+                d[name] = None
+        self.enable_opts = d
 
     def set_param_loop_longevity(self, value):
         # note: it's a global parameter, not a per-jitdriver one
@@ -294,12 +292,6 @@ class WarmEnterState(object):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
-            if NonConstant(False):
-                # make sure we always see the saner optimizer from an
-                # annotation point of view, otherwise we get lots of
-                # blocked ops
-                self.set_param_optimizer(OPTIMIZER_FULL)
-
             if vinfo is not None:
                 virtualizable = args[num_green_args + index_of_virtualizable]
                 virtualizable = vinfo.cast_to_vtype(virtualizable)

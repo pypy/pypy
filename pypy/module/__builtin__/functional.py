@@ -11,7 +11,6 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
 from inspect import getsource, getfile
-from pypy.rlib.jit import unroll_safe
 from pypy.rlib.rbigint import rbigint
 
 
@@ -137,7 +136,6 @@ def range_with_longs(space, w_start, w_stop, w_step):
     return space.newlist(res_w)
 
 
-@unroll_safe
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
     if implementation_of == "max":
@@ -147,13 +145,12 @@ def min_max(space, args, implementation_of):
 
     args_w = args.arguments_w
     if len(args_w) == 2 and not args.keywords:
-        # Unrollable case
-        w_max_item = None
-        for w_item in args_w:
-            if w_max_item is None or \
-                   space.is_true(compare(w_item, w_max_item)):
-                w_max_item = w_item
-        return w_max_item
+        # simple case, suitable for the JIT
+        w_arg0, w_arg1 = args_w
+        if space.is_true(compare(w_arg0, w_arg1)):
+            return w_arg0
+        else:
+            return w_arg1
     else:
         return min_max_loop(space, args, implementation_of)
 
