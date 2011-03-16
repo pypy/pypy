@@ -15,13 +15,15 @@ Getting into PyPy ...
 
 * `PyPy Blog`_: news and status info about PyPy 
 
-* `Documentation`_: extensive documentation and papers_ about PyPy.  
+* `Documentation`_: extensive documentation about PyPy.  
 
 * `Getting Started`_: Getting started and playing with PyPy. 
 
 * `Papers`_: Academic papers, talks, and related projects
 
 * `Videos`_: Videos of PyPy talks and presentations
+
+* `speed.pypy.org`_: Daily benchmarks of how fast PyPy is
 
 
 Mailing lists, bug tracker, IRC channel
@@ -66,6 +68,7 @@ on the `development mailing list`_.
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
 .. _`Release 1.4`: http://pypy.org/download.html
+.. _`speed.pypy.org`: http://speed.pypy.org
 
 Detailed Documentation
 ======================
