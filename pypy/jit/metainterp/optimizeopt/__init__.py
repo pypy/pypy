@@ -12,8 +12,8 @@ from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.unroll import unrolling_iterable
 
 ALL_OPTS = [
-            ('fold_intadd', OptAddition),
             ('intbounds', OptIntBounds),
+            ('fold_intadd', OptAddition),
             ('rewrite', OptRewrite),
             ('virtualize', OptVirtualize),
             ('string', OptString),

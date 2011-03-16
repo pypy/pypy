@@ -35,6 +35,11 @@ class OptAddition(Optimization):
 
         self.args[result] = root, constant
 
+        constant = ConstInt(constant)
+        new_op = self._int_add(root, constant, result)
+        print new_op
+        self.emit_operation(new_op)
+
     def optimize_INT_ADD(self, op):
         lv = self.getvalue(op.getarg(0))
         rv = self.getvalue(op.getarg(1))

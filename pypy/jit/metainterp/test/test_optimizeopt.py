@@ -5519,6 +5519,8 @@ class TestFoldIntAdds(OptimizeOptTest, LLtypeMixin):
 
         expected = """
         [i0]
+        i1 = int_add(i0, 3)
+        i2 = int_add(i0, 19)
         i3 = int_add(i0, 28)
         jump(i3)
         """
