@@ -31,9 +31,9 @@ import weakref
 from threading import _get_ident as thread_get_ident
 
 names = "sqlite3.dll libsqlite3.so.0 libsqlite3.so libsqlite3.dylib".split()
-for name in names: 
+for name in names:
     try:
-        sqlite = cdll.LoadLibrary(name) 
+        sqlite = cdll.LoadLibrary(name)
         break
     except OSError:
         continue
@@ -1032,6 +1032,8 @@ class Statement(object):
         self.statement = None
 
     def _get_description(self):
+        if self.kind == "DML":
+            return None
         desc = []
         for i in xrange(sqlite.sqlite3_column_count(self.statement)):
             name = sqlite.sqlite3_column_name(self.statement, i).split("[")[0].strip()
@@ -1140,7 +1142,7 @@ def _convert_params(con, nargs, params):
 
 def _convert_result(con, val):
     if val is None:
-        sqlite.sqlite3_result_null(con)        
+        sqlite.sqlite3_result_null(con)
     elif isinstance(val, (bool, int, long)):
         sqlite.sqlite3_result_int64(con, int(val))
     elif isinstance(val, str):
