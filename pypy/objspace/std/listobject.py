@@ -244,8 +244,8 @@ class RangeListStrategy(ListStrategy):
 
     def switch_to_integer_strategy(self, w_list):
         items = self.getitems(w_list, unwrapped=True)
-        w_list.strategy = self.space.fromcache(IntegerListStrategy)
-        w_list.storage = w_list.strategy.cast_to_void_star(items)
+        strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
+        w_list.storage = strategy.cast_to_void_star(items)
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -417,6 +417,7 @@ class AbstractUnwrappedStrategy(object):
     def getslice(self, w_list, start, stop, step, length):
         if step == 1:
             l = self.cast_from_void_star(w_list.storage)
+            assert start >= 0
             assert stop >= 0
             sublist = l[start:stop]
             storage = self.cast_to_void_star(sublist)
