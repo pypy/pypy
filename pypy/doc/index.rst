@@ -75,10 +75,12 @@ Detailed Documentation
 
 .. The following documentation is important and reasonably up-to-date:
 
+.. extradoc: should this be integrated one level up: dcolish?
+
+
 .. toctree::
    :maxdepth: 1
 
-   .. The following stuff is high-value and (vaguely) true:
    getting-started.rst
    getting-started-python.rst
    getting-started-dev.rst
@@ -96,13 +98,11 @@ Detailed Documentation
    extending.rst
 
    extradoc.rst
-     .. ^^ integrate this one level up: dcolish?
 
    glossary.rst
 
    contributor.rst
 
-   .. True, high-detail:
    interpreter-optimizations.rst
    configuration.rst
    low-level-encapsulation.rst
@@ -118,16 +118,12 @@ Detailed Documentation
    index-of-release-notes.rst
 
    ctypes-implementation.rst
-     .. ^^ needs attention
 
    how-to-release.rst
-     .. ^^ needs attention
 
    index-report.rst
-     .. ^^ of historic interest, and about EU fundraising
 
    stackless.rst
-     .. ^^ it still works; needs JIT integration; hasn't been maintained for years
 
    discussions.rst
 

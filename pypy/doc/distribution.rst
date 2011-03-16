@@ -1,3 +1,6 @@
+.. include:: crufty.rst
+
+     .. ^^ Incomplete,  superceded elsewhere
 
 ========================
 lib/distributed features

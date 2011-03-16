@@ -2,8 +2,14 @@
          Application-level Stackless features
 ==========================================================
 
+
+
 Introduction
 ================
+
+.. include:: crufty.rst
+
+   .. apparently this still works; needs JIT integration; hasn't been maintained for years
 
 PyPy can expose to its user language features similar to the ones
 present in `Stackless Python`_: **no recursion depth limit**, and the

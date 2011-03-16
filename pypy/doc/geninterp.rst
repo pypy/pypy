@@ -1,3 +1,7 @@
+.. include:: crufty.rst
+
+     .. ^^ apparently dead
+
 The Interpreter-Level backend
 -----------------------------
 

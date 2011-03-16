@@ -1,17 +1,21 @@
 Old documentation that needs review
 -----------------------------------
+
+.. The following stuff is old (and crufty?), and needs further investigation:
+
+.. doc-index: This needs merging somehow
+
+.. svn-help.rst: Needs merging/replacing with hg stuff:
+
+
 .. toctree::
 
-   .. The following stuff is old (and crufty?), and needs further investigation:
    buildtool.rst
    distribution.rst
-     .. ^^ Incomplete,  superceded elsewhere
 
    externaltools.rst
-     .. ^^ Incomplete and wrong,  superceded elsewhere
 
    geninterp.rst
-     .. ^^ apparently dead
 
    objspace-proxies.rst
 
@@ -22,29 +26,21 @@ Old documentation that needs review
    rffi.rst
 
    sandbox.rst
-     .. ^^ it continues to work, but is unmaintained
 
    statistic/index.rst
 
    theory.rst
-     .. ^^ old ideas; we're not doing it this way any more
 
    translation-aspects.rst
-     .. ^^ old and needs updating
 
-   .. This needs merging somehow:
    docindex.rst
 
-   .. Needs merging/replacing with hg stuff:
    svn-help.rst
 
    dot-net.rst
 
    maemo.rst
-     .. ^^ obscure corner; not sure of status
 
-   .. STUFF THAT'S DIFFICULT TO CATEGORIZE
-   video-index.rst
 
 
 

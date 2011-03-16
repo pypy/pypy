@@ -1,3 +1,5 @@
+.. include:: crufty.rst
+
 Making a PyPy Release
 =======================
 

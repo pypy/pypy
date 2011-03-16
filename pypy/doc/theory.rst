@@ -1,3 +1,7 @@
+.. include:: crufty.rst
+
+     .. ^^ old ideas; we're not doing it this way any more
+
 ===================================
 Techniques used in PyPy
 ===================================

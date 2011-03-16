@@ -1,3 +1,7 @@
+.. include:: crufty.rst
+
+     .. ^^ Incomplete and wrong,  superceded elsewhere
+
 External tools&programs needed by PyPy
 ======================================
 

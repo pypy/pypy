@@ -1,3 +1,4 @@
+.. include:: crufty.rst
 
 =============================
 PyPy's ctypes implementation 
