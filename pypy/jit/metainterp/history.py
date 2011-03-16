@@ -787,6 +787,7 @@ class TreeLoop(object):
     inputargs = None
     operations = None
     token = None
+    call_pure_results = None
 
     def __init__(self, name):
         self.name = name

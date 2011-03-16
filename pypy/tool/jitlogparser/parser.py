@@ -147,7 +147,7 @@ class Function(object):
     # factory method
     TraceForOpcode = TraceForOpcode
 
-    def __init__(self, chunks, path, storage, inputargs):
+    def __init__(self, chunks, path, storage, inputargs=''):
         self.path = path
         self.inputargs = inputargs
         self.chunks = chunks
@@ -177,7 +177,7 @@ class Function(object):
                 if bc.inline_level is not None and bc.inline_level + 1 != len(stack):
                     if bc.inline_level < len(stack):
                         last = stack.pop()
-                        stack[-1].append(cls(last, getpath(stack), storage, inputargs))
+                        stack[-1].append(cls(last, getpath(stack), storage))
                     else:
                         stack.append([])
             stack[-1].append(bc)

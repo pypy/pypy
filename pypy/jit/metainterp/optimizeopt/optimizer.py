@@ -258,6 +258,8 @@ class Optimizer(Optimization):
         self.posponedop = None
         self.exception_might_have_happened = False
         self.newoperations = []
+        if loop is not None:
+            self.call_pure_results = loop.call_pure_results
 
         self.set_optimizations(optimizations)
 

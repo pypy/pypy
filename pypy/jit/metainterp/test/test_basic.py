@@ -20,7 +20,6 @@ from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, **kwds):
     from pypy.jit.codewriter import support, codewriter
-    from pypy.jit.metainterp import simple_optimize
 
     class FakeJitCell:
         __compiled_merge_points = []
@@ -37,10 +36,6 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
             assert greenkey == []
             return self._cell
         _cell = FakeJitCell()
-
-        # pick the optimizer this way
-        optimize_loop = staticmethod(simple_optimize.optimize_loop)
-        optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
 
         trace_limit = sys.maxint
         enable_opts = ALL_OPTS_DICT

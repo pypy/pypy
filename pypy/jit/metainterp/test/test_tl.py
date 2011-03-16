@@ -86,7 +86,6 @@ class ToyLanguageTests:
     def test_tl_call(self, listops=True, policy=None):
         from pypy.jit.tl.tl import interp
         from pypy.jit.tl.tlopcode import compile
-        from pypy.jit.metainterp import simple_optimize
 
         code = compile('''
               PUSHARG
