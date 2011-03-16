@@ -33,7 +33,7 @@ from the download page`_ or by checking them out from the
 repository using mercurial.  We suggest using mercurial if one
 wants to access the current development.
 
-.. _`downloading them from the download page`: download.html
+.. _`downloading them from the download page`: http://pypy.org/download.html
 
 If you choose to use mercurial,
 first make sure you have ``subversion`` installed.

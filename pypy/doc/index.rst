@@ -29,7 +29,6 @@ nonsense, isn't it?  `more...`_
    objspace.rst
 
    dev_method.rst
-   download.rst
    extending.rst
 
    extradoc.rst
