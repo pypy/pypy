@@ -412,10 +412,12 @@ class AbstractUnwrappedStrategy(object):
         return len(self.cast_from_void_star(w_list.storage))
 
     def getitem(self, w_list, index):
+        l = self.cast_from_void_star(w_list.storage)
         try:
-            return self.wrap(self.cast_from_void_star(w_list.storage)[index])
+            r = l[index]
         except IndexError: # make RPython raise the exception
             raise
+        return self.wrap(r)
 
     def getitems(self, w_list):
         return [self.wrap(item) for item in self.cast_from_void_star(w_list.storage)]
