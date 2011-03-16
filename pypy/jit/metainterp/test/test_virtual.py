@@ -852,15 +852,46 @@ class VirtualMiscTests:
         
         def f():
             i = 0
-            s = 0
+            s = 10000
             a = A("data")
             while i < 10:
                 mydriver.jit_merge_point(i=i, a=a, s=s)
                 if i > 1:
                     if a.state == 'data':
                         a.state = 'escaped'
+                        s += 1000
                     else:
-                        s += 1
+                        s += 100
+                else:
+                    s += 10
+                i += 1
+            return s
+
+        res = self.meta_interp(f, [], repeat=7)
+        assert res == f()
+
+    def test_getfield_gc_pure_nobug(self):
+        mydriver = JitDriver(reds = ['i', 's', 'a'], greens = [])
+
+        class A(object):
+            _immutable_fields_ = ['foo']
+            def __init__(self, foo):
+                self.foo = foo
+
+        prebuilt42 = A(42)
+        prebuilt43 = A(43)
+
+        def f():
+            i = 0
+            s = 10000
+            a = prebuilt42
+            while i < 10:
+                mydriver.jit_merge_point(i=i, s=s, a=a)
+                if i > 1:
+                    s += a.foo
+                    a = prebuilt43
+                else:
+                    s += 10
                 i += 1
             return s
 

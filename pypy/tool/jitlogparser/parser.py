@@ -147,7 +147,7 @@ class Function(object):
     # factory method
     TraceForOpcode = TraceForOpcode
 
-    def __init__(self, chunks, path, storage, inputargs):
+    def __init__(self, chunks, path, storage, inputargs=''):
         self.path = path
         self.inputargs = inputargs
         self.chunks = chunks

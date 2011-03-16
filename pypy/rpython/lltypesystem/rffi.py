@@ -648,6 +648,7 @@ def make_string_mappings(strtype):
             data_start = cast_ptr_to_adr(llstrtype(data)) + \
                 offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
             return cast(TYPEP, data_start)
+    get_nonmovingbuffer._annenforceargs_ = [strtype]
 
     # (str, char*) -> None
     def free_nonmovingbuffer(data, buf):
@@ -666,6 +667,7 @@ def make_string_mappings(strtype):
         keepalive_until_here(data)
         if not followed_2nd_path:
             lltype.free(buf, flavor='raw')
+    free_nonmovingbuffer._annenforceargs_ = [strtype, None]
 
     # int -> (char*, str)
     def alloc_buffer(count):
@@ -680,6 +682,7 @@ def make_string_mappings(strtype):
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
     alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):

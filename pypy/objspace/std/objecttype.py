@@ -78,7 +78,20 @@ def descr__new__(space, w_type, __args__):
     return w_obj
 
 def descr__init__(space, w_obj, __args__):
-    pass
+    w_type = space.type(w_obj)
+    w_parent_new, _ = w_type.lookup_where('__new__')
+    w_parent_init, _ = w_type.lookup_where('__init__')
+    try:
+        __args__.fixedunpack(0)
+    except ValueError:
+        if w_parent_new is not space.w_object and w_parent_init is not space.w_object:
+            space.warn("object.__init__() takes no parameters", space.w_DeprecationWarning)
+        elif w_parent_new is space.w_object or w_parent_init is not space.w_object:
+            raise OperationError(space.w_TypeError,
+                space.wrap("object.__init__() takes no parameters")
+            )
+
+
 
 @gateway.unwrap_spec(proto=int)
 def descr__reduce__(space, w_obj, proto=0):
