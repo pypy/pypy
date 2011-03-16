@@ -121,6 +121,8 @@ Detailed Documentation
    stackless.rst
      .. ^^ it still works; needs JIT integration; hasn't been maintained for years
 
+   discussions.rst
+
 
 Indices and tables
 ==================
