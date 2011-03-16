@@ -32,7 +32,7 @@ def PyList_SetItem(space, w_list, index, w_item):
     Py_DecRef(space, w_item)
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    wrappeditems = w_list.wrappeditems
+    wrappeditems = w_list.getitems()
     if index < 0 or index >= len(wrappeditems):
         raise OperationError(space.w_IndexError, space.wrap(
             "list assignment index out of range"))
@@ -47,7 +47,7 @@ def PyList_GetItem(space, w_list, index):
     IndexError exception."""
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    wrappeditems = w_list.wrappeditems
+    wrappeditems = w_list.getitems()
     if index < 0 or index >= len(wrappeditems):
         raise OperationError(space.w_IndexError, space.wrap(
             "list index out of range"))
@@ -74,7 +74,7 @@ def PyList_GET_SIZE(space, w_list):
     """Macro form of PyList_Size() without error checking.
     """
     assert isinstance(w_list, W_ListObject)
-    return len(w_list.wrappeditems)
+    return len(w_list.getitems())
 
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
