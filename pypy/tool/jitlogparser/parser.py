@@ -177,7 +177,7 @@ class Function(object):
                 if bc.inline_level is not None and bc.inline_level + 1 != len(stack):
                     if bc.inline_level < len(stack):
                         last = stack.pop()
-                        stack[-1].append(cls(last, getpath(stack), storage))
+                        stack[-1].append(cls(last, getpath(stack), storage, inputargs))
                     else:
                         stack.append([])
             stack[-1].append(bc)
