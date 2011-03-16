@@ -697,3 +697,25 @@ class TestPyPyCNew(BaseTestPyPyC):
             i20 = int_is_true(i19)
             guard_false(i20, descr=<Guard8>)
         """)
+
+    def test_arraycopy_disappears(self):
+        def main(n):
+            i = 0
+            while i < n:
+                t = (1, 2, 3, i + 1)
+                t2 = t[:]
+                del t
+                i = t2[3]
+                del t2
+            return i
+        #
+        log = self.run(main, [500], threshold=400)
+        assert log.result == 500
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, i6)
+            guard_true(i7, descr=<Guard3>)
+            i9 = int_add(i5, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i9, i6, descr=<Loop0>)
+        """)
