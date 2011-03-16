@@ -21,7 +21,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr, MissingLiveness
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.jit.metainterp.optimizeutil import RetraceLoop
+from pypy.jit.metainterp.optimizeutil import RetraceLoop, args_dict_box, args_dict
 
 # ____________________________________________________________
 
@@ -1410,6 +1410,7 @@ class MetaInterp(object):
         self.free_frames_list = []
         self.last_exc_value_box = None
         self.retracing_loop_from = None
+        self.call_pure_results = args_dict_box()
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -2278,7 +2279,9 @@ class MetaInterp(object):
             return resbox_as_const
         # not all constants (so far): turn CALL into CALL_PURE, which might
         # be either removed later by optimizeopt or turned back into CALL.
-        newop = op.copy_and_change(rop.CALL_PURE, args=[resbox_as_const]+op.getarglist())
+        arg_consts = [a.constbox() for a in op.getarglist()]
+        self.call_pure_results[arg_consts] = resbox_as_const
+        newop = op.copy_and_change(rop.CALL_PURE, args=op.getarglist())
         self.history.operations[-1] = newop
         return resbox
 
