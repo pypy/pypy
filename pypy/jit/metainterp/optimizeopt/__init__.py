@@ -7,10 +7,13 @@ from pypy.jit.metainterp.optimizeopt.string import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
 from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
+from pypy.jit.metainterp.optimizeopt.fold_intadd import OptAddition
 from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.unroll import unrolling_iterable
 
-ALL_OPTS = [('intbounds', OptIntBounds),
+ALL_OPTS = [
+            ('fold_intadd', OptAddition),
+            ('intbounds', OptIntBounds),
             ('rewrite', OptRewrite),
             ('virtualize', OptVirtualize),
             ('string', OptString),
