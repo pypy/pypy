@@ -50,7 +50,6 @@ class ListTests(object):
         assert res == 2
 
     def test_make_list(self):
-        from pypy.jit.metainterp import simple_optimize
         myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
         def f(n):
             lst = None
