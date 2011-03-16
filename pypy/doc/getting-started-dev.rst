@@ -1,5 +1,5 @@
 ===============================================================================
-PyPy - Getting Started with the Translation Toolchain and Development Process
+Getting Started with the Translation Toolchain and Development Process
 ===============================================================================
 
 .. contents::

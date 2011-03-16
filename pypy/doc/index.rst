@@ -12,17 +12,18 @@ nonsense, isn't it?  `more...`_
 .. The following documentation is important and reasonably up-to-date:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    .. The following stuff is high-value and (vaguely) true:
    getting-started.rst
    getting-started-python.rst
    getting-started-dev.rst
+   windows.rst
    faq.rst
    architecture.rst
    coding-guide.rst
-   cleanup-todo.rst
    cpython_differences.rst
+   cleanup-todo.rst
    garbage_collection.rst
    interpreter.rst
    objspace.rst
@@ -30,7 +31,6 @@ nonsense, isn't it?  `more...`_
    dev_method.rst
    download.rst
    extending.rst
-   windows.rst
 
    extradoc.rst
      .. ^^ integrate this one level up: dcolish?

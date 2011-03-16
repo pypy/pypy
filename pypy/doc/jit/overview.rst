@@ -3,7 +3,6 @@
 ------------------------------------------------------------------------
 
 .. contents::
-.. sectnum::
 
 This is a non-technical introduction and motivation for PyPy's approach
 to Just-In-Time compiler generation.

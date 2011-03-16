@@ -2,6 +2,8 @@
 PyPyBuilder
 ============
 
+.. include:: crufty.rst
+
 What is this?
 =============
 

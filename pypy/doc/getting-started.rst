@@ -1,6 +1,8 @@
 ==================================
-PyPy - Getting Started 
+Getting Started 
 ==================================
+
+.. contents::
 
 .. _howtopypy: 
 

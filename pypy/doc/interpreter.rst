@@ -1,5 +1,5 @@
 ===================================
-PyPy - Bytecode Interpreter 
+Bytecode Interpreter 
 ===================================
 
 .. contents::

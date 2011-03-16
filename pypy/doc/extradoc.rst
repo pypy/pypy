@@ -1,5 +1,5 @@
 =================================================
-PyPy - papers, talks and related projects 
+Papers, talks and related projects 
 =================================================
 
 Papers

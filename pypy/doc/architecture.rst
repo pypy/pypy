@@ -1,5 +1,5 @@
 ==================================================
-PyPy - Goals and Architecture Overview 
+Goals and Architecture Overview 
 ==================================================
 
 .. contents::

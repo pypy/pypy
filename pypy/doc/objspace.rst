@@ -1,5 +1,5 @@
 ======================
-PyPy - Object Spaces
+Object Spaces
 ======================
 
 .. contents::
