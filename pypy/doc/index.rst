@@ -19,6 +19,11 @@ Getting into PyPy ...
 
 * `Getting Started`_: Getting started and playing with PyPy. 
 
+* `Papers`_: Academic papers, talks, and related projects
+
+* `Videos`_: Videos of PyPy talks and presentations
+
+
 Mailing lists, bug tracker, IRC channel
 =============================================
 
@@ -58,9 +63,9 @@ on the `development mailing list`_.
 .. _`FAQ`: faq.html
 .. _`Documentation`: docindex.html 
 .. _`Getting Started`: getting-started.html
-.. _papers: extradoc.html
+.. _`Papers`: extradoc.html
+.. _`Videos`: video-index.html
 .. _`Release 1.4`: http://pypy.org/download.html
-
 
 Detailed Documentation
 ======================
