@@ -7,7 +7,7 @@ from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
-from pypy.rlib.objectmodel import instantiate
+from pypy.rlib.objectmodel import instantiate, specialize
 from pypy.rlib.listsort import TimSort
 from pypy.rlib import rerased
 from pypy.interpreter.argument import Signature
@@ -243,7 +243,7 @@ class EmptyListStrategy(ListStrategy):
 class RangeListStrategy(ListStrategy):
 
     def switch_to_integer_strategy(self, w_list):
-        items = self.getitems(w_list, unwrapped=True)
+        items = self._getitem_range(w_list, False)
         strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
         w_list.storage = strategy.cast_to_void_star(items)
 
@@ -276,7 +276,11 @@ class RangeListStrategy(ListStrategy):
             raise IndexError
         return self.wrap(start + i * step)
 
-    def getitems(self, w_list, unwrapped=False):
+    def getitems(self, w_list):
+        return self._getitem_range(w_list, True)
+
+    @specialize.arg(2)
+    def _getitem_range(self, w_list, wrap_items):
         l = self.cast_from_void_star(w_list.storage)
         start = l[0]
         step = l[1]
@@ -286,10 +290,10 @@ class RangeListStrategy(ListStrategy):
         i = start
         n = 0
         while n < length:
-            if unwrapped:
-                r[n] = i
-            else:
+            if wrap_items:
                 r[n] = self.wrap(i)
+            else:
+                r[n] = i
             i += step
             n += 1
 
@@ -492,7 +496,7 @@ class AbstractUnwrappedStrategy(object):
                 delta = -delta
                 newsize = oldsize + delta
                 # XXX support this in rlist!
-                items += [None] * delta
+                items += [self._none_value] * delta
                 lim = start+len2
                 i = newsize - 1
                 while i >= lim:
@@ -581,6 +585,8 @@ class AbstractUnwrappedStrategy(object):
         self.cast_from_void_star(w_list.storage).reverse()
 
 class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = None
+
     def unwrap(self, w_obj):
         return w_obj
 
@@ -603,6 +609,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     # XXX implement getitems without copying here
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = 0
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -621,6 +628,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return w_list.strategy is self.space.fromcache(IntegerListStrategy)
 
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = None
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
