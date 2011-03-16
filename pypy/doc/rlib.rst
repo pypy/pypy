@@ -14,8 +14,8 @@ are not RPython). Most of these modules are somewhat rough still and are likely
 to change at some point.  Usually it is useful to look at the tests in
 `pypy/rlib/test`_ to get an impression of how to use a module.
 
-.. _`pypy/rlib`: ../../pypy/rlib
-.. _`pypy/rlib/test`: ../../pypy/rlib/test
+.. _`pypy/rlib`: ../../../../pypy/rlib
+.. _`pypy/rlib/test`: ../../../../pypy/rlib/test
 
 ``listsort``
 ============
@@ -29,7 +29,7 @@ argument, which will be sorted in place when the ``sort`` method of the
 be sorted using the ``listsort`` module in one program, otherwise the annotator
 will be confused.
 
-.. _listsort: ../../pypy/rlib/listsort.py
+.. _listsort: ../../../../pypy/rlib/listsort.py
 
 ``nonconst``
 ============
@@ -41,7 +41,7 @@ class. The constructor of ``NonConst`` takes an arbitrary value. The instance of
 ``NonConst`` will behave during annotation like that value, but no constant
 folding will happen.
 
-.. _nonconst: ../../pypy/rlib/nonconst.py
+.. _nonconst: ../../../../pypy/rlib/nonconst.py
 .. _`flow object space`: objspace.html#the-flow-object-space
 .. _`annotator`: translation.html#the-annotation-pass
 
@@ -95,7 +95,7 @@ more useful ones are:
     won't be allocated but represented by *tagged pointers**, that is pointers
     that have the lowest bit set.
 
-.. _objectmodel: ../../pypy/rlib/objectmodel.py
+.. _objectmodel: ../../../../pypy/rlib/objectmodel.py
 
 
 ``rarithmetic``
@@ -105,7 +105,7 @@ The rarithmetic_ module contains functionality to handle the small differences
 in the behaviour of arithmetic code in regular Python and RPython code. Most of
 them are already described in the `coding guide`_
 
-.. _rarithmetic: ../../pypy/rlib/rarithmetic.py
+.. _rarithmetic: ../../../../pypy/rlib/rarithmetic.py
 .. _`coding guide`: coding-guide.html
 
 
@@ -122,7 +122,7 @@ special methods of ``rbigint`` that would normally start and end with "__" have
 these underscores left out for better readability (so ``a.add(b)`` can be used
 to add two rbigint instances).
 
-.. _rbigint: ../../pypy/rlib/rbigint.py
+.. _rbigint: ../../../../pypy/rlib/rbigint.py
 
 
 ``rrandom``
@@ -133,7 +133,7 @@ number generator. It contains one class ``Random`` which most importantly has a
 ``random`` method which returns a pseudo-random floating point number between
 0.0 and 1.0.
 
-.. _rrandom: ../../pypy/rlib/rrandom.py
+.. _rrandom: ../../../../pypy/rlib/rrandom.py
 
 ``rsocket``
 ===========
@@ -145,7 +145,7 @@ objects: depending on the address family they are tuples, or strings, and
 so on, which is not suitable for RPython.  Instead, ``rsocket`` contains
 a hierarchy of Address classes, in a typical static-OO-programming style.
 
-.. _rsocket: ../../pypy/rlib/rsocket.py
+.. _rsocket: ../../../../pypy/rlib/rsocket.py
 
 
 ``rstack``
@@ -210,7 +210,7 @@ The following example would print the numbers from 1 to 7 in order::
 
     f()
 
-.. _rstack: ../../pypy/rlib/rstack.py
+.. _rstack: ../../../../pypy/rlib/rstack.py
 
 
 ``streamio``
@@ -220,7 +220,7 @@ The streamio_ contains an RPython stream I/O implementation (which was started
 by Guido van Rossum as `sio.py`_ in the CPython sandbox as a prototype for the
 upcoming new file implementation in Python 3000).
 
-.. _streamio: ../../pypy/rlib/streamio.py
+.. _streamio: ../../../../pypy/rlib/streamio.py
 .. _`sio.py`: http://svn.python.org/view/sandbox/trunk/sio/sio.py
 
 ``unroll``
@@ -230,7 +230,7 @@ The unroll_ module most importantly contains the function ``unrolling_iterable``
 which wraps an iterator. Looping over the iterator in RPython code will not
 produce a loop in the resulting flow graph but will unroll the loop instead.
 
-.. _unroll: ../../pypy/rlib/unroll.py
+.. _unroll: ../../../../pypy/rlib/unroll.py
 
 ``parsing``
 ===========
@@ -359,7 +359,7 @@ name of the token and ``additional_info`` which is the matched source.
 of the nonterminal and ``children`` which is a list of the children attributes.
 
 
-.. _`pypy.rlib.parsing.tree`: ../../pypy/rlib/parsing/tree.py
+.. _`pypy.rlib.parsing.tree`: ../../../../pypy/rlib/parsing/tree.py
 
 Visitors
 ++++++++
@@ -531,5 +531,5 @@ looks like this:
 
 
 .. _`Prolog interpreter`: http://codespeak.net/svn/pypy/lang/prolog/
-.. _parsing: ../../pypy/rlib/parsing/
+.. _parsing: ../../../../pypy/rlib/parsing/
 .. _`json format`: http://www.json.org

@@ -410,11 +410,11 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 .. _mixedmodule.py:          http://codespeak.net/svn/pypy/trunk/pypy/interpreter/mixedmodule.py
 .. _typedef.py:             http://codespeak.net/svn/pypy/trunk/pypy/interpreter/typedef.py
 .. _Standard object space:  objspace.html#the-standard-object-space
-.. _objspace.py:            ../../pypy/objspace/std/objspace.py
-.. _thunk:                  ../../pypy/objspace/thunk.py
-.. _trace:                  ../../pypy/objspace/trace.py
-.. _flow:                   ../../pypy/objspace/flow/
-.. _translator.py:          ../../pypy/translator/translator.py
+.. _objspace.py:            ../../../../pypy/objspace/std/objspace.py
+.. _thunk:                  ../../../../pypy/objspace/thunk.py
+.. _trace:                  ../../../../pypy/objspace/trace.py
+.. _flow:                   ../../../../pypy/objspace/flow/
+.. _translator.py:          ../../../../pypy/translator/translator.py
 .. _mailing lists:          index.html
 .. _documentation:          docindex.html 
 .. _unit tests:             coding-guide.html#test-design

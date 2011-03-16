@@ -107,7 +107,7 @@ The following figure gives a simplified overview (`PDF color version`_):
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`interactive interface`: getting-started-dev.html#try-out-the-translator
-.. _`translatorshell.py`: ../../pypy/bin/translatorshell.py
+.. _`translatorshell.py`: ../../../../pypy/bin/translatorshell.py
 
 .. _`flow model`:
 .. _`control flow graphs`: 
@@ -274,7 +274,7 @@ the types and their attributes in some detail:
     should not attempt to actually mutate such Constants.
 
 .. _`document describing object spaces`: objspace.html
-.. _`pypy.objspace.flow.model`: ../objspace/flow/model.py
+.. _`pypy.objspace.flow.model`: ../../../../pypy/objspace/flow/model.py
 
 
 .. _Annotator:

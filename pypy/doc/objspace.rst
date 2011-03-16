@@ -341,7 +341,7 @@ So in summary: wrapping integers as instances is the simple path, while
 using plain integers instead is the complex path, not the other way
 around.
 
-.. _StdObjSpace: ../objspace/std/
+.. _StdObjSpace: ../../../../pypy/objspace/std/
 
 
 Object types
@@ -394,10 +394,10 @@ other implementations of strings use the same ``typedef`` from
 For other examples of multiple implementations of the same Python type,
 see `Standard Interpreter Optimizations`_.
 
-.. _`listtype.py`: ../objspace/std/listtype.py
-.. _`stringtype.py`: ../objspace/std/stringtype.py
-.. _`tupletype.py`: ../objspace/std/tupletype.py
-.. _`tupleobject.py`: ../objspace/std/tupleobject.py
+.. _`listtype.py`: ../../../../pypy/objspace/std/listtype.py
+.. _`stringtype.py`: ../../../../pypy/objspace/std/stringtype.py
+.. _`tupletype.py`: ../../../../pypy/objspace/std/tupletype.py
+.. _`tupleobject.py`: ../../../../pypy/objspace/std/tupleobject.py
 
 .. _`Standard Interpreter Optimizations`: interpreter-optimizations.html
 
@@ -412,7 +412,7 @@ see the comment at the start of the source__.  However, multimethods
 alone are not enough for the Standard Object Space: the complete picture
 spans several levels in order to emulate the exact Python semantics.
 
-.. __: ../objspace/std/multimethod.py
+.. __: ../../../../pypy/objspace/std/multimethod.py
 
 Consider the example of the ``space.getitem(w_a, w_b)`` operation,
 corresponding to the application-level syntax ``a[b]``.  The Standard
@@ -600,7 +600,7 @@ result.  During these calls the FlowObjSpace will record a basic block::
     v3 = add(v2, Constant(2))
 
 
-.. _FlowObjSpace: ../objspace/flow/
+.. _FlowObjSpace: ../../../../pypy/objspace/flow/
 
 
 The Flow model

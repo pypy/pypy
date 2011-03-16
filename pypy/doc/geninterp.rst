@@ -42,7 +42,7 @@ methods in the `object space`_ interface.
 Example
 +++++++
 
-.. _implementation: ../../pypy/translator/geninterplevel.py
+.. _implementation: ../../../../pypy/translator/geninterplevel.py
 
 Let's try a little example. You might want to look at the flowgraph that it
 produces. Here, we directly run the Python translation and look at the

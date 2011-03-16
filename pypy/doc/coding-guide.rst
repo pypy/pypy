@@ -354,7 +354,7 @@ translation we get longs in case of overflow, and after translation we get a
 silent wrap-around.  Whenever we need more control, we use the following
 helpers (which live the `pypy/rlib/rarithmetic.py`_):
 
-.. _`pypy/rlib/rarithmetic.py`: ../../pypy/rlib/rarithmetic.py
+.. _`pypy/rlib/rarithmetic.py`: ../../../../pypy/rlib/rarithmetic.py
 
 
 **ovfcheck()**

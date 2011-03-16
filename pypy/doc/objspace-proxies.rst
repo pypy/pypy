@@ -607,9 +607,9 @@ be proxied this way are user created classes & functions,
 lists, dicts, exceptions, tracebacks and frames.
 
 .. _`standard object space`: objspace.html#the-standard-object-space
-.. _`proxy_helpers.py`: ../../pypy/objspace/std/proxy_helpers.py
-.. _`proxyobject.py`: ../../pypy/objspace/std/proxyobject.py
-.. _`transparent.py`: ../../pypy/objspace/std/transparent.py
+.. _`proxy_helpers.py`: ../../../../pypy/objspace/std/proxy_helpers.py
+.. _`proxyobject.py`: ../../../../pypy/objspace/std/proxyobject.py
+.. _`transparent.py`: ../../../../pypy/objspace/std/transparent.py
 .. _`tputil.py`: ../../lib_pypy/tputil.py
 
 .. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
