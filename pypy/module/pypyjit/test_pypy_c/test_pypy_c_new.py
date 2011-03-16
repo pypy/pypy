@@ -578,3 +578,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(f, [100000])
         assert log.result == 100000
         loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i4, i5)
+            guard_true(i7, descr=<Guard3>)
+            --EXC-TICK--
+            i14 = int_add(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i14, i5, p6, descr=<Loop0>)
+        """)
