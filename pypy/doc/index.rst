@@ -123,6 +123,11 @@ Detailed Documentation
 
    discussions.rst
 
+   cleanup.rst
+
+   sprint-reports.rst
+
+   eventhistory.rst
 
 Indices and tables
 ==================

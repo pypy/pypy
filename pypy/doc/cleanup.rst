@@ -5,7 +5,6 @@ Old documentation that needs review
    .. The following stuff is old (and crufty?), and needs further investigation:
    buildtool.rst
    distribution.rst
-   eventhistory.rst
      .. ^^ Incomplete,  superceded elsewhere
 
    externaltools.rst
@@ -17,8 +16,6 @@ Old documentation that needs review
    objspace-proxies.rst
 
    old_news.rst
-
-   sprint-reports.rst
 
    project-ideas.rst
 
