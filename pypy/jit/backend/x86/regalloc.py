@@ -1158,13 +1158,26 @@ class RegAlloc(object):
 
     def consider_read_timestamp(self, op):
         tmpbox_high = TempBox()
-        tmpbox_low = TempBox()
         self.rm.force_allocate_reg(tmpbox_high, selected_reg=eax)
-        self.rm.force_allocate_reg(tmpbox_low, selected_reg=edx)
-        result_loc = self.xrm.force_allocate_reg(op.result)
-        self.Perform(op, [], result_loc)
+        if longlong.is_64_bit:
+            # on 64-bit, use rax as temporary register and returns the
+            # result in rdx
+            result_loc = self.rm.force_allocate_reg(op.result,
+                                                    selected_reg=edx)
+            self.Perform(op, [], result_loc)
+        else:
+            # on 32-bit, use both eax and edx as temporary registers,
+            # use a temporary xmm register, and returns the result in
+            # another xmm register.
+            tmpbox_low = TempBox()
+            self.rm.force_allocate_reg(tmpbox_low, selected_reg=edx)
+            xmmtmpbox = TempBox()
+            xmmtmploc = self.xrm.force_allocate_reg(xmmtmpbox)
+            result_loc = self.xrm.force_allocate_reg(op.result)
+            self.Perform(op, [xmmtmploc], result_loc)
+            self.xrm.possibly_free_var(xmmtmpbox)
+            self.rm.possibly_free_var(tmpbox_low)
         self.rm.possibly_free_var(tmpbox_high)
-        self.rm.possibly_free_var(tmpbox_low)
 
     def consider_jump(self, op):
         assembler = self.assembler

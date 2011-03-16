@@ -1364,13 +1364,15 @@ class Assembler386(object):
             assert 0, itemsize
 
     def genop_read_timestamp(self, op, arglocs, resloc):
-        # XXX cheat
-        addr1 = self.fail_boxes_int.get_addr_for_num(0)
-        addr2 = self.fail_boxes_int.get_addr_for_num(1)
         self.mc.RDTSC()
-        self.mc.MOV(heap(addr1), eax)
-        self.mc.MOV(heap(addr2), edx)
-        self.mc.MOVSD(resloc, heap(addr1))
+        if longlong.is_64_bit:
+            self.mc.SHL_ri(edx.value, 32)
+            self.mc.OR_rr(edx.value, eax.value)
+        else:
+            loc1, = arglocs
+            self.mc.MOVD_xr(loc1.value, edx.value)
+            self.mc.MOVD_xr(resloc.value, eax.value)
+            self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
 
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
