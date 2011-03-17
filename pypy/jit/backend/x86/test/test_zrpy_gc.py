@@ -5,7 +5,7 @@ however, is the correct handling of GC, i.e. if objects are freed as
 soon as possible (at least in a simple case).
 """
 
-import weakref, random
+import weakref, random, sys
 import py
 from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
@@ -19,7 +19,6 @@ from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
 from pypy.jit.backend.x86.arch import IS_X86_64
 from pypy.config.translationoption import DEFL_GC
-import py.test
 
 class X(object):
     def __init__(self, x=0):
@@ -129,6 +128,8 @@ def test_compile_boehm():
 
 class TestCompileFramework(object):
     # Test suite using (so far) the minimark GC.
+    EXTRA_PARAMS = {}
+
     def setup_class(cls):
         funcs = []
         name_to_func = {}
@@ -178,7 +179,8 @@ class TestCompileFramework(object):
         try:
             GcLLDescr_framework.DEBUG = True
             cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
-                                   gcrootfinder="asmgcc", jit=True)
+                                   gcrootfinder="asmgcc", jit=True,
+                                   **cls.EXTRA_PARAMS)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
@@ -576,3 +578,12 @@ class TestCompileFramework(object):
 
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
+
+
+class TestCompressPtr(TestCompileFramework):
+    EXTRA_PARAMS = {'compressptr': True}
+
+    def setup_class(cls):
+        if sys.maxint == 2147483647:
+            py.test.skip("for 64-bit only")
+        TestCompileFramework.setup_class.im_func(cls)
