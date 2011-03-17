@@ -830,23 +830,10 @@ class TestPyPyCNew(BaseTestPyPyC):
         test only checks that we get the expected result, not that any
         optimization has been applied.
         """
-
-        def opval(i, op, a):
-            if eval('%d %s %d' % (i, op, a)): return 1
-            return 2
-
         ops = ('<', '>', '<=', '>=', '==', '!=')        
         for op1 in ops:
             for op2 in ops:
                 for a,b in ((500, 500), (300, 600)):
-                    res = 0
-                    res += opval(a-1, op1, a) * (a)
-                    res += opval(  a, op1, a) 
-                    res += opval(a+1, op1, a) * (1000 - a - 1)
-                    res += opval(b-1, op2, b) * 10000 * (b)
-                    res += opval(  b, op2, b) * 10000 
-                    res += opval(b+1, op2, b) * 10000 * (1000 - b - 1)
-
                     src = """
                         def main():
                             sa = 0
@@ -861,10 +848,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, op2, b)
-                    log = self.run(src, threshold=400)
-                    assert log.result == res
-                    # check that the JIT actually ran
-                    assert len(log.loops_by_filename(self.filepath)) > 0
+                    self.run_and_check(src, threshold=400)
 
                     src = """
                         def main():
@@ -882,10 +866,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 i += 0.25
                             return sa
                     """ % (op1, float(a)/4.0, op2, float(b)/4.0)
-                    log = self.run(src, threshold=400)
-                    assert log.result == res
-                    # check that the JIT actually ran
-                    assert len(log.loops_by_filename(self.filepath)) > 0
+                    self.run_and_check(src, threshold=400)
 
 
     def test_boolrewrite_allcases_reflex(self):
@@ -899,23 +880,10 @@ class TestPyPyCNew(BaseTestPyPyC):
         test only checks that we get the expected result, not that any
         optimization has been applied.
         """
-
-        def opval(i, op, a):
-            if eval('%d %s %d' % (i, op, a)): return 1
-            return 2
-
         ops = ('<', '>', '<=', '>=', '==', '!=')        
         for op1 in ops:
             for op2 in ops:
                 for a,b in ((500, 500), (300, 600)):
-                    res = 0
-                    res += opval(a-1, op1, a) * (a)
-                    res += opval(  a, op1, a) 
-                    res += opval(a+1, op1, a) * (1000 - a - 1)
-                    res += opval(b, op2, b-1) * 10000 * (b)
-                    res += opval(b, op2,   b) * 10000
-                    res += opval(b, op2, b+1) * 10000 * (1000 - b - 1)
-
                     src = """
                         def main():
                             sa = 0
@@ -930,11 +898,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, b, op2)
-                    log = self.run(src)
-                    log = self.run(src, threshold=400)
-                    assert log.result == res
-                    # check that the JIT actually ran
-                    assert len(log.loops_by_filename(self.filepath)) > 0
+                    self.run_and_check(src, threshold=400)
 
                     src = """
                         def main():
@@ -952,8 +916,4 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 i += 0.25
                             return sa
                     """ % (op1, float(a)/4.0, float(b)/4.0, op2)
-                    log = self.run(src, threshold=400)
-                    assert log.result == res
-                    # check that the JIT actually ran
-                    assert len(log.loops_by_filename(self.filepath)) > 0
-
+                    self.run_and_check(src, threshold=400)
