@@ -139,6 +139,7 @@ class BasePosix(Platform):
             ('CFLAGS', cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
             ('LDFLAGS', linkflags),
+            ('LDFLAGS_LINK', list(self.link_flags)),
             ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
@@ -165,7 +166,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
+                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
 
         return m
 

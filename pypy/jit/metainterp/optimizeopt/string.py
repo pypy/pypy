@@ -652,7 +652,7 @@ class OptString(optimizer.Optimization):
         if not self.enabled:
             self.emit_operation(op)
             return
-            
+
         opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:

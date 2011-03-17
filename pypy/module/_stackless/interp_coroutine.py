@@ -373,6 +373,11 @@ class AppCoState(BaseCoState):
         self.w_tempval = space.w_None
         self.space = space
 
+        # XXX Workaround: for now we need to instantiate these classes
+        # explicitly for translation to work
+        W_CoroutineExit(space)
+        W_TaskletExit(space)
+
         # Exporting new exception to space
         self.w_CoroutineExit = space.gettypefor(W_CoroutineExit)
         space.setitem(

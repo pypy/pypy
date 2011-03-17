@@ -47,7 +47,7 @@ def unspecialize_value(value):
     elif isinstance(value, float):
         return longlong.getfloatstorage(value)
     else:
-        return intmask(value)
+        return lltype.cast_primitive(lltype.Signed, value)
 
 @specialize.arg(0)
 def unwrap(TYPE, box):
@@ -227,6 +227,8 @@ class WarmEnterState(object):
         from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
 
         d = {}
+        if NonConstant(False):
+            value = 'blah' # not a constant ''
         if value is None:
             value = ALL_OPTS_NAMES
         for name in value.split(":"):

@@ -135,10 +135,16 @@ class AppTestAST:
 
     def test_abstract_ast_types(self):
         ast = self.ast
-        raises(TypeError, ast.expr)
-        raises(TypeError, ast.AST)
-        raises(TypeError, type, "X", (ast.AST,), {})
-        raises(TypeError, type, "Y", (ast.expr,), {})
+        ast.expr()
+        ast.AST()
+        class X(ast.AST):
+            pass
+        X()
+        class Y(ast.expr):
+            pass
+        Y()
+        exc = raises(TypeError, ast.AST, 2)
+        assert exc.value.args[0] == "_ast.AST constructor takes 0 positional arguments"
 
     def test_constructor(self):
         ast = self.ast
@@ -165,7 +171,7 @@ class AppTestAST:
         assert fr.col_offset == 1
         exc = raises(TypeError, ast.Module, 1, 2).value
         msg = str(exc)
-        assert msg == "Module constructor takes 0 or 1 positional arguments"
+        assert msg == "Module constructor takes either 0 or 1 positional argument"
         ast.Module(nothing=23)
 
     def test_future(self):

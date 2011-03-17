@@ -158,8 +158,8 @@ class LoopWithIds(Function):
         matcher = OpMatcher(ops, src=self.format_ops())
         return matcher.match(expected_src)
 
-    def match_by_id(self, id, expected_src):
-        ops = list(self.ops_by_id(id))
+    def match_by_id(self, id, expected_src, **kwds):
+        ops = list(self.ops_by_id(id, **kwds))
         matcher = OpMatcher(ops, src=self.format_ops(id))
         return matcher.match(expected_src)
 
@@ -242,10 +242,19 @@ class OpMatcher(object):
             ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker1 = int_sub(ticker0, 1)
             setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
-            ticker_cond = int_lt(ticker1, 0)
-            guard_false(ticker_cond, descr=...)
+            ticker_cond0 = int_lt(ticker1, 0)
+            guard_false(ticker_cond0, descr=...)
         """
         src = src.replace('--TICK--', ticker_check)
+        #
+        # this is the ticker check generated in PyFrame.handle_operation_error
+        exc_ticker_check = """
+            ticker2 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            setfield_gc(_, _, descr=<GcPtrFieldDescr pypy.interpreter.pyframe.PyFrame.inst_w_f_trace .*>)
+            ticker_cond1 = int_lt(ticker2, 0)
+            guard_false(ticker_cond1, descr=...)
+        """
+        src = src.replace('--EXC-TICK--', exc_ticker_check)
         return src
 
     @classmethod
@@ -347,6 +356,7 @@ class OpMatcher(object):
             print '@' * 40
             print "Loops don't match"
             print "================="
+            print e.args
             print e.msg
             print
             print "Got:"

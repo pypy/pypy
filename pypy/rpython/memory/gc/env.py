@@ -1,7 +1,6 @@
 """
 Utilities to get environ variables and platform-specific memory-related values.
 """
-from __future__ import with_statement
 import os, sys
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
@@ -100,8 +99,9 @@ if sys.platform == 'linux2':
     def get_total_memory():
         return get_total_memory_linux2('/proc/meminfo')
 
-#elif sys.platform == 'darwin':
-#    ...
+elif sys.platform == 'darwin':
+    def get_total_memory():
+        return get_darwin_sysctl_signed('hw.memsize')
 
 else:
     def get_total_memory():
@@ -192,25 +192,31 @@ sysctlbyname = rffi.llexternal('sysctlbyname',
                                rffi.INT,
                                sandboxsafe=True)
 
-def get_darwin_cache_size(cache_key):
-    with lltype.scoped_alloc(rffi.LONGLONGP.TO, 1) as cache_p:
-        with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as len_p:
+def get_darwin_sysctl_signed(sysctl_name):
+    rval_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
+    try:
+        len_p = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+        try:
             size = rffi.sizeof(rffi.LONGLONG)
-            cache_p[0] = rffi.cast(rffi.LONGLONG, 0)
+            rval_p[0] = rffi.cast(rffi.LONGLONG, 0)
             len_p[0] = rffi.cast(rffi.SIZE_T, size)
             # XXX a hack for llhelper not being robust-enough
-            result = sysctlbyname(cache_key,
-                                  rffi.cast(rffi.VOIDP, cache_p),
+            result = sysctlbyname(sysctl_name,
+                                  rffi.cast(rffi.VOIDP, rval_p),
                                   len_p,
                                   lltype.nullptr(rffi.VOIDP.TO),
                                   rffi.cast(rffi.SIZE_T, 0))
-            cache = 0
+            rval = 0
             if (rffi.cast(lltype.Signed, result) == 0 and
                 rffi.cast(lltype.Signed, len_p[0]) == size):
-                cache = rffi.cast(lltype.Signed, cache_p[0])
-                if rffi.cast(rffi.LONGLONG, cache) != cache_p[0]:
-                    cache = 0    # overflow!
-            return cache
+                rval = rffi.cast(lltype.Signed, rval_p[0])
+                if rffi.cast(rffi.LONGLONG, rval) != rval_p[0]:
+                    rval = 0    # overflow!
+            return rval
+        finally:
+            lltype.free(len_p, flavor='raw')
+    finally:
+        lltype.free(rval_p, flavor='raw')
 
 
 def get_L2cache_darwin():
@@ -218,8 +224,8 @@ def get_L2cache_darwin():
     on the machine we are running on.
     """
     debug_start("gc-hardware")
-    L2cache = get_darwin_cache_size("hw.l2cachesize")
-    L3cache = get_darwin_cache_size("hw.l3cachesize")
+    L2cache = get_darwin_sysctl_signed("hw.l2cachesize")
+    L3cache = get_darwin_sysctl_signed("hw.l3cachesize")
     debug_print("L2cache =", L2cache)
     debug_print("L3cache =", L3cache)
     debug_stop("gc-hardware")

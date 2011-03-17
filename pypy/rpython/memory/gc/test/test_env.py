@@ -15,6 +15,9 @@ def check_equal(x, y):
     assert x == y
     assert type(x) == type(y)
 
+def test_get_total_memory():
+    # total memory should be at least a megabyte
+    assert env.get_total_memory() > 1024*1024
 
 def test_read_from_env():
     saved = os.environ

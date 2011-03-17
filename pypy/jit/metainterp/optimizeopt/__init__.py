@@ -8,6 +8,7 @@ from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineSho
 from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
 from pypy.rlib.jit import PARAMETERS
+from pypy.rlib.unroll import unrolling_iterable
 
 ALL_OPTS = [('intbounds', OptIntBounds),
             ('rewrite', OptRewrite),
@@ -17,6 +18,7 @@ ALL_OPTS = [('intbounds', OptIntBounds),
             ('ffi', OptFfiCall),
             ('unroll', None)]
 # no direct instantiation of unroll
+unroll_all_opts = unrolling_iterable(ALL_OPTS)
 
 ALL_OPTS_DICT = dict.fromkeys([name for name, _ in ALL_OPTS])
 
@@ -29,7 +31,7 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
     """
     optimizations = []
     unroll = 'unroll' in enable_opts
-    for name, opt in ALL_OPTS:
+    for name, opt in unroll_all_opts:
         if name in enable_opts:
             if opt is not None:
                 o = opt()
@@ -61,3 +63,6 @@ def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
         pass
     optimize_loop_1(metainterp_sd, bridge, enable_opts,
                     inline_short_preamble, retraced)
+
+if __name__ == '__main__':
+    print ALL_OPTS_NAMES
