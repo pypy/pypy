@@ -534,6 +534,10 @@ class Member(Wrappable):
         Delete the value of the slot 'member' from the given 'obj'."""
         self = member
         self.typecheck(space, w_obj)
+        w_oldresult = w_obj.getslotvalue(self.index)
+        if w_oldresult is None:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap(self.name)) # XXX better message
         w_obj.setslotvalue(self.index, None)
 
 Member.typedef = TypeDef(

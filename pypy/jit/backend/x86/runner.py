@@ -149,12 +149,15 @@ class CPU386(AbstractX86CPU):
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi]
     FRAME_FIXED_SIZE = len(CALLEE_SAVE_REGISTERS) + 2
 
+    supports_longlong = True
+
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**31 - 1)
         super(CPU386, self).__init__(*args, **kwargs)
 
 class CPU386_NO_SSE2(CPU386):
     supports_floats = False
+    supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
     WORD = 8

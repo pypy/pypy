@@ -22,7 +22,7 @@ from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import W_ListObject
-from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.ropeobject import W_RopeObject
@@ -177,6 +177,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
+            if self.config.objspace.std.withsmalllong:
+                from pypy.objspace.std.smalllongobject import W_SmallLongObject
+                from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+                from pypy.rlib.rarithmetic import longlongmax
+                if (not isinstance(x, r_ulonglong)
+                    or x <= r_ulonglong(longlongmax)):
+                    return W_SmallLongObject(r_longlong(x))
             x = widen(x)
             if isinstance(x, int):
                 return self.newint(x)
@@ -207,6 +214,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # The following cases are even stranger.
         # Really really only for tests.
         if type(x) is long:
+            if self.config.objspace.std.withsmalllong:
+                from pypy.rlib.rarithmetic import r_longlong
+                try:
+                    rx = r_longlong(x)
+                except OverflowError:
+                    pass
+                else:
+                    from pypy.objspace.std.smalllongobject import \
+                                                   W_SmallLongObject
+                    return W_SmallLongObject(rx)
             return W_LongObject.fromlong(x)
         if isinstance(x, slice):
             return W_SliceObject(self.wrap(x.start),
@@ -269,10 +286,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return unpackcomplex(self, w_complex)
 
     def newlong(self, val): # val is an int
+        if self.config.objspace.std.withsmalllong:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            return W_SmallLongObject.fromint(val)
         return W_LongObject.fromint(self, val)
 
     def newlong_from_rbigint(self, val):
-        return W_LongObject(val)
+        return newlong(self, val)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)

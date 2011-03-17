@@ -173,17 +173,22 @@ def unpackcomplex(space, w_complex):
         return (w_complex.realval, w_complex.imagval)
     #
     # test for a '__complex__' method, and call it if found.
-    # A bit of a hack to support old-style classes: don't use
-    # space.lookup() (this is similar to CPython).
-    try:
-        w_method = space.getattr(w_complex, space.wrap('__complex__'))
-    except OperationError, e:
-        if not e.match(space, space.w_AttributeError):
-            raise
-        if isinstance(w_complex, W_ComplexObject):
-            return (w_complex.realval, w_complex.imagval)
+    # special case old-style instances, like CPython does.
+    w_z = None
+    if space.is_oldstyle_instance(w_complex):
+        try:
+            w_method = space.getattr(w_complex, space.wrap('__complex__'))
+        except OperationError, e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+        else:
+            w_z = space.call_function(w_method)
     else:
-        w_z = space.call_function(w_method)
+        w_method = space.lookup(w_complex, '__complex__')
+        if w_method is not None:
+            w_z = space.get_and_call_function(w_method, w_complex)
+    #
+    if w_z is not None:
         # __complex__() must return a complex object
         # (XXX should not use isinstance here)
         if not isinstance(w_z, W_ComplexObject):
@@ -192,7 +197,11 @@ def unpackcomplex(space, w_complex):
                                             " a complex number"))
         return (w_z.realval, w_z.imagval)
     #
-    # no '__complex__' method, so we assume it is a float.
+    # no '__complex__' method, so we assume it is a float,
+    # unless it is an instance of some subclass of complex.
+    if isinstance(w_complex, W_ComplexObject):
+        return (w_complex.realval, w_complex.imagval)
+    #
     # Check that it is not a string (on which space.float() would succeed).
     if (space.is_true(space.isinstance(w_complex, space.w_str)) or
         space.is_true(space.isinstance(w_complex, space.w_unicode))):

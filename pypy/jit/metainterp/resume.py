@@ -1007,17 +1007,16 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             return len(numb.nums)
         index = len(numb.nums) - 1
         virtualizable = self.decode_ref(numb.nums[index])
-        virtualizable = vinfo.cast_gcref_to_vtype(virtualizable)
         if self.resume_after_guard_not_forced == 1:
             # in the middle of handle_async_forcing()
-            assert virtualizable.vable_token
-            virtualizable.vable_token = vinfo.TOKEN_NONE
+            assert vinfo.gettoken(virtualizable)
+            vinfo.settoken(virtualizable, vinfo.TOKEN_NONE)
         else:
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
             # is and stays 0.  Note the call to reset_vable_token() in
             # warmstate.py.
-            assert not virtualizable.vable_token
+            assert not vinfo.gettoken(virtualizable)
         return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
 
     def load_value_of_type(self, TYPE, tagged):
@@ -1158,7 +1157,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def decode_float(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
-            return self.consts[num].getfloat()
+            return self.consts[num].getfloatstorage()
         else:
             assert tag == TAGBOX
             if num < 0:

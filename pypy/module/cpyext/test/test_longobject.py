@@ -12,9 +12,9 @@ class TestLongObject(BaseApiTest):
         assert isinstance(value, W_LongObject)
         assert space.unwrap(value) == 3
 
-        value = api.PyLong_FromLong(sys.maxint + 1)
+        value = api.PyLong_FromLong(sys.maxint)
         assert isinstance(value, W_LongObject)
-        assert space.unwrap(value) == sys.maxint + 1 # should obviously fail but doesnt
+        assert space.unwrap(value) == sys.maxint
 
     def test_aslong(self, space, api):
         w_value = api.PyLong_FromLong((sys.maxint - 1) / 2)

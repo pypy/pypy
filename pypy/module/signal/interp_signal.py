@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, exception_from_errno
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
@@ -35,6 +35,7 @@ eci = ExternalCompilationInfo(
     include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
     export_symbols = ['pypysig_poll', 'pypysig_default',
                       'pypysig_ignore', 'pypysig_setflag',
+                      'pypysig_reinstall',
                       'pypysig_set_wakeup_fd',
                       'pypysig_getaddr_occurred'],
 )
@@ -65,6 +66,7 @@ def external(name, args, result, **kwds):
 pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
 pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
 pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
+pypysig_reinstall = external('pypysig_reinstall', [rffi.INT], lltype.Void)
 pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd', [rffi.INT], rffi.INT)
 pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
@@ -150,7 +152,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         except KeyError:
             return    # no handler, ignore signal
         # re-install signal handler, for OSes that clear it
-        pypysig_setflag(n)
+        pypysig_reinstall(n)
         # invoke the app-level handler
         space = self.space
         ec = space.getexecutioncontext()
@@ -303,6 +305,10 @@ def itimer_retval(space, val):
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+def get_itimer_error(space):
+    mod = space.getbuiltinmodule("signal")
+    return space.getattr(mod, space.wrap("ItimerError"))
+
 @jit.dont_look_inside
 @unwrap_spec(ObjSpace, int, float, float)
 def setitimer(space, which, first, interval=0):
@@ -313,7 +319,10 @@ def setitimer(space, which, first, interval=0):
 
         with lltype.scoped_alloc(itimervalP.TO, 1) as old:
 
-            c_setitimer(which, new, old)
+            ret = c_setitimer(which, new, old)
+            if ret != 0:
+                raise exception_from_errno(space, get_itimer_error(space))
+
 
             return itimer_retval(space, old[0])
 

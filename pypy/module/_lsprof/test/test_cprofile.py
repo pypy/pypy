@@ -10,6 +10,10 @@ class AppTestCProfile(object):
         cls.space = space
         cls.w_file = space.wrap(__file__)
 
+    def test_repr(self):
+        import _lsprof
+        assert repr(_lsprof.Profiler) == "<type '_lsprof.Profiler'>"
+
     def test_direct(self):
         import _lsprof
         def getticks():
@@ -173,7 +177,7 @@ expected_output['print_stats'] = """\
         8    0.312    0.039    0.400    0.050 profilee.py:88(helper2)
         8    0.064    0.008    0.080    0.010 profilee.py:98(subhelper)
         4    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}
-        1    0.000    0.000    0.000    0.000 {.*disable.*}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
        12    0.000    0.000    0.012    0.001 {hasattr}
         8    0.000    0.000    0.000    0.000 {range}
         4    0.000    0.000    0.000    0.000 {sys.exc_info}

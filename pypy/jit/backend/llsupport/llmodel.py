@@ -7,7 +7,7 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, set_future_values,\
      BoxFloat
 from pypy.jit.metainterp import history
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
@@ -315,7 +315,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Float), items)
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
         fval = items[itemindex]
         # --- end of GC unsafe code ---
         return fval
@@ -348,7 +348,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Float), items)
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
         items[itemindex] = newvalue
         # --- end of GC unsafe code ---
 
@@ -410,7 +410,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        fval = rffi.cast(rffi.CArrayPtr(lltype.Float), fieldptr)[0]
+        fval = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)[0]
         # --- end of GC unsafe code ---
         return fval
 
@@ -452,7 +452,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        fieldptr = rffi.cast(rffi.CArrayPtr(lltype.Float), fieldptr)
+        fieldptr = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)
         fieldptr[0] = newvalue
         # --- end of GC unsafe code ---
 
@@ -509,9 +509,9 @@ class AbstractLLCPU(AbstractCPU):
         return calldescr.call_stub(func, args_i, args_r, args_f)
 
     def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, FloatCallDescr)
+        assert isinstance(calldescr, FloatCallDescr)  # or LongLongCallDescr
         if not we_are_translated():
-            calldescr.verify_types(args_i, args_r, args_f, history.FLOAT)
+            calldescr.verify_types(args_i, args_r, args_f, history.FLOAT + 'L')
         return calldescr.call_stub(func, args_i, args_r, args_f)
 
     def bh_call_v(self, func, calldescr, args_i, args_r, args_f):

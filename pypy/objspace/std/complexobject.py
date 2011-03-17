@@ -1,5 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std import newformat
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
@@ -62,7 +63,11 @@ class W_ComplexObject(W_Object):
             ir = (i1 * ratio - r1) / denom
         return W_ComplexObject(rr,ir)
 
-    def divmod(self, other):
+    def divmod(self, space, other):
+        space.warn(
+            "complex divmod(), // and % are deprecated",
+            space.w_DeprecationWarning
+        )
         w_div = self.div(other)
         div = math.floor(w_div.realval)
         w_mod = self.sub(
@@ -157,13 +162,13 @@ truediv__Complex_Complex = div__Complex_Complex
 
 def mod__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        return w_complex1.divmod(w_complex2)[1]
+        return w_complex1.divmod(space, w_complex2)[1]
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
 def divmod__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        div, mod = w_complex1.divmod(w_complex2)
+        div, mod = w_complex1.divmod(space, w_complex2)
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
     return space.newtuple([div, mod])
@@ -171,7 +176,7 @@ def divmod__Complex_Complex(space, w_complex1, w_complex2):
 def floordiv__Complex_Complex(space, w_complex1, w_complex2):
     # don't care about the slight slowdown you get from using divmod
     try:
-        return w_complex1.divmod(w_complex2)[0]
+        return w_complex1.divmod(space, w_complex2)[0]
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
@@ -203,11 +208,11 @@ def abs__Complex(space, w_complex):
         raise OperationError(space.w_OverflowError, space.wrap(str(e)))
 
 def eq__Complex_Complex(space, w_complex1, w_complex2):
-    return space.newbool((w_complex1.realval == w_complex2.realval) and 
+    return space.newbool((w_complex1.realval == w_complex2.realval) and
             (w_complex1.imagval == w_complex2.imagval))
 
 def ne__Complex_Complex(space, w_complex1, w_complex2):
-    return space.newbool((w_complex1.realval != w_complex2.realval) or 
+    return space.newbool((w_complex1.realval != w_complex2.realval) or
             (w_complex1.imagval != w_complex2.imagval))
 
 def eq__Complex_Long(space, w_complex1, w_long2):
@@ -271,16 +276,21 @@ def str_format(x):
 def repr__Complex(space, w_complex):
     if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:
         return space.wrap(repr_format(w_complex.imagval) + 'j')
-    sign = (copysign(1., w_complex.imagval) == 1.) and '+' or ''
+    sign = (copysign(1., w_complex.imagval) == 1. or
+            isnan(w_complex.imagval)) and '+' or ''
     return space.wrap('(' + repr_format(w_complex.realval)
                       + sign + repr_format(w_complex.imagval) + 'j)')
 
 def str__Complex(space, w_complex):
     if w_complex.realval == 0 and copysign(1., w_complex.realval) == 1.:
         return space.wrap(str_format(w_complex.imagval) + 'j')
-    sign = (copysign(1., w_complex.imagval) == 1.) and '+' or ''
+    sign = (copysign(1., w_complex.imagval) == 1. or
+            isnan(w_complex.imagval)) and '+' or ''
     return space.wrap('(' + str_format(w_complex.realval)
                       + sign + str_format(w_complex.imagval) + 'j)')
+
+def format__Complex_ANY(space, w_complex, w_format_spec):
+    return newformat.run_formatter(space, w_format_spec, "format_complex", w_complex)
 
 from pypy.objspace.std import complextype
 register_all(vars(), complextype)

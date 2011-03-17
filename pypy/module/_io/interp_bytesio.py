@@ -23,14 +23,14 @@ class W_BytesIO(W_BufferedIOBase):
         self.buf = None
 
     @unwrap_spec('self', ObjSpace, W_Root)
-    def descr_init(self, space, w_initvalue=None):
+    def descr_init(self, space, w_initial_bytes=None):
         # In case __init__ is called multiple times
         self.buf = []
         self.string_size = 0
         self.pos = 0
 
-        if not space.is_w(w_initvalue, space.w_None):
-            self.write_w(space, w_initvalue)
+        if not space.is_w(w_initial_bytes, space.w_None):
+            self.write_w(space, w_initial_bytes)
             self.pos = 0
 
     def _check_closed(self, space, message=None):
@@ -61,6 +61,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def readinto_w(self, space, w_buffer):
+        self._check_closed(space)
         rwbuffer = space.rwbuffer_w(w_buffer)
         size = rwbuffer.getlength()
 
@@ -188,6 +189,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     @unwrap_spec('self', ObjSpace)
     def getstate_w(self, space):
+        self._check_closed(space)
         w_content = space.wrap(buffer2string(self.buf, 0, self.string_size))
         return space.newtuple([
             w_content,
@@ -196,6 +198,14 @@ class W_BytesIO(W_BufferedIOBase):
 
     @unwrap_spec('self', ObjSpace, W_Root)
     def setstate_w(self, space, w_state):
+        self._check_closed(space)
+
+        if space.len_w(w_state) != 3:
+            raise operationerrfmt(space.w_TypeError,
+                "%s.__setstate__ argument should be 3-tuple, got %s",
+                space.type(self).getname(space),
+                space.type(w_state).getname(space)
+            )
         w_content, w_pos, w_dict = space.unpackiterable(w_state, 3)
         pos = space.int_w(w_pos)
         self.buf = []
@@ -228,4 +238,3 @@ W_BytesIO.typedef = TypeDef(
     __getstate__ = interp2app(W_BytesIO.getstate_w),
     __setstate__ = interp2app(W_BytesIO.setstate_w),
     )
-

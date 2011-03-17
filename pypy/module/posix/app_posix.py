@@ -66,7 +66,10 @@ class stat_result:
 
 if osname == 'posix':
     def _validate_fd(fd):
-        import fcntl
+        try:
+            import fcntl
+        except ImportError:
+            return
         try:
             fcntl.fcntl(fd, fcntl.F_GETFD)
         except IOError, e:
@@ -99,6 +102,20 @@ def tmpfile():
         f = f.file     # on NT, with the 2.4 stdlib of CPython,
                        # we get a _TemporaryFileWrapper for no good reason
     return f
+
+
+def tmpnam():
+    """Return an absolute pathname of a file that did not exist at the
+    time the call is made."""
+    import tempfile
+    return tempfile.mktemp()
+
+def tempnam(dir=None, prefix=None):
+    """Return an absolute pathname of a file that did not exist at the
+    time the call is made.  The directory and a prefix may be specified
+    as strings; they may be omitted or None if not needed."""
+    import tempfile
+    return tempfile.mktemp('', prefix or 'tmp', dir)
 
 
 # Implement popen() for platforms which have os.fork()

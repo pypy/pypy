@@ -148,7 +148,7 @@ class W_Variable(Wrappable):
 
         # allocate the data for the variable
         self.allocateData(self.environment.space)
-    
+
         # allocate the indicator for the variable
         self.indicator = lltype.malloc(rffi.CArrayPtr(roci.sb2).TO,
                                        self.allocatedElements,
@@ -1424,14 +1424,14 @@ def typeByValue(space, w_value, numElements):
         return VT_String, 1, numElements
 
     if space.is_true(space.isinstance(w_value, space.w_str)):
-        size = space.int_w(space.len(w_value))
+        size = space.len_w(w_value)
         if size > config.MAX_STRING_CHARS:
             return VT_LongString, size, numElements
         else:
             return VT_String, size, numElements
 
     if space.is_true(space.isinstance(w_value, space.w_unicode)):
-        size = space.int_w(space.len(w_value))
+        size = space.len_w(w_value)
         return VT_NationalCharString, size, numElements
 
     if space.is_true(space.isinstance(w_value, space.w_int)):

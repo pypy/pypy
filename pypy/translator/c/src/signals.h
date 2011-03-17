@@ -119,7 +119,12 @@ static void signal_setflag_handler(int signum)
 
     if (wakeup_fd != -1) 
       {
-        write(wakeup_fd, "\0", 1);
+#ifndef _WIN32
+        ssize_t res;
+#else
+        int res;
+#endif
+        res = write(wakeup_fd, "\0", 1);
         /* the return value is ignored here */
       }
 }
@@ -135,6 +140,21 @@ void pypysig_setflag(int signum)
     sigaction(signum, &context, NULL);
 #else
     signal(signum, signal_setflag_handler);
+#endif
+}
+
+void pypysig_reinstall(int signum)
+{
+#ifdef SA_RESTART
+    /* Assume sigaction was used.  We did not pass SA_RESETHAND to
+       sa_flags, so there is nothing to do here. */
+#else
+# ifdef SIGCHLD
+    /* To avoid infinite recursion, this signal remains
+       reset until explicitly re-instated.  (Copied from CPython) */
+    if (signum != SIGCHLD)
+# endif
+    pypysig_setflag(signum);
 #endif
 }
 

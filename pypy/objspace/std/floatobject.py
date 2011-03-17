@@ -10,11 +10,12 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
 from pypy.rlib.rarithmetic import (LONG_BIT, INFINITY, copysign,
-    formatd, DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
+    formatd, DTSF_ADD_DOT_0, DTSF_STR_PRECISION, NAN)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
+
 
 import math
 from pypy.objspace.std.intobject import W_IntObject
@@ -73,7 +74,7 @@ def int__Float(space, w_value):
 
 def long__Float(space, w_floatobj):
     try:
-        return W_LongObject.fromfloat(w_floatobj.floatval)
+        return W_LongObject.fromfloat(space, w_floatobj.floatval)
     except OverflowError:
         if isnan(w_floatobj.floatval):
             raise OperationError(
@@ -287,14 +288,14 @@ def _hash_float(space, v):
         except OverflowError:
             # Convert to long and use its hash.
             try:
-                w_lval = W_LongObject.fromfloat(v)
+                w_lval = W_LongObject.fromfloat(space, v)
             except OverflowError:
                 # can't convert to long int -- arbitrary
                 if v < 0:
                     return -271828
                 else:
                     return 314159
-            return space.int_w(hash__Long(space, w_lval))
+            return space.int_w(space.hash(w_lval))
 
     # The fractional part is non-zero, so we don't have to worry about
     # making this match the hash of some other type.
@@ -340,7 +341,7 @@ def div__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))
     return W_FloatObject(x / y)
 
 truediv__Float_Float = div__Float_Float
@@ -411,6 +412,48 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     x = w_float1.floatval
     y = w_float2.floatval
 
+    # Sort out special cases here instead of relying on pow()
+    if y == 0.0:
+        # x**0 is 1, even 0**0
+        return W_FloatObject(1.0)
+    if isnan(x):
+        # nan**y = nan, unless y == 0
+        return W_FloatObject(x)
+    if isnan(y):
+        # x**nan = nan, unless x == 1; x**nan = x
+        if x == 1.0:
+            return W_FloatObject(1.0)
+        else:
+            return W_FloatObject(y)
+    if isinf(y):
+        # x**inf is: 0.0 if abs(x) < 1; 1.0 if abs(x) == 1; inf if
+        # abs(x) > 1 (including case where x infinite)
+        #
+        # x**-inf is: inf if abs(x) < 1; 1.0 if abs(x) == 1; 0.0 if
+        # abs(x) > 1 (including case where v infinite)
+        x = abs(x)
+        if x == 1.0:
+            return W_FloatObject(1.0)
+        elif (y > 0.0) == (x > 1.0):
+            return W_FloatObject(INFINITY)
+        else:
+            return W_FloatObject(0.0)
+    if isinf(x):
+        # (+-inf)**w is: inf for w positive, 0 for w negative; in oth
+        # cases, we need to add the appropriate sign if w is an odd
+        # integer.
+        y_is_odd = math.fmod(abs(y), 2.0) == 1.0
+        if y > 0.0:
+            if y_is_odd:
+                return W_FloatObject(x)
+            else:
+                return W_FloatObject(abs(x))
+        else:
+            if y_is_odd:
+                return W_FloatObject(copysign(0.0, x))
+            else:
+                return W_FloatObject(0.0)
+
     if x == 0.0:
         if y < 0.0:
             if isinf(y):
@@ -424,6 +467,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
     # -           pipermail/python-bugs-list/2003-March/016795.html
     if x < 0.0:
+        if isnan(y):
+            return W_FloatObject(NAN)
         if math.floor(y) != y:
             raise OperationError(space.w_ValueError,
                                  space.wrap("negative number cannot be "
@@ -485,7 +530,7 @@ def float_as_integer_ratio__Float(space, w_float):
             break
         float_part *= 2.0
         exp -= 1
-    w_num = W_LongObject.fromfloat(float_part)
+    w_num = W_LongObject.fromfloat(space, float_part)
     w_den = space.newlong(1)
     w_exp = space.newlong(abs(exp))
     w_exp = space.lshift(w_den, w_exp)

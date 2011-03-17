@@ -959,3 +959,18 @@ class AppTestItertools27:
         assert type(A('', 0)) is A
         class A(itertools.combinations_with_replacement): pass
         assert type(A('', 0)) is A
+
+    def test_copy_pickle(self):
+        import itertools, copy, pickle, sys
+        for value in [42, -sys.maxint*99]:
+            for step in [1, sys.maxint*42, 5.5]:
+                expected = [value, value+step, value+2*step]
+                c = itertools.count(value, step)
+                assert list(itertools.islice(c, 3)) == expected
+                c = itertools.count(value, step)
+                c1 = copy.copy(c)
+                assert list(itertools.islice(c1, 3)) == expected
+                c2 = copy.deepcopy(c)
+                assert list(itertools.islice(c2, 3)) == expected
+                c3 = pickle.loads(pickle.dumps(c))
+                assert list(itertools.islice(c3, 3)) == expected

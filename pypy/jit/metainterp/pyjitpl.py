@@ -20,7 +20,7 @@ from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr, MissingLiveness
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.metainterp.optimizeutil import RetraceLoop
 
 # ____________________________________________________________
@@ -1163,7 +1163,7 @@ class MIFrame(object):
                     src_r += 1
                     if box.type == history.REF:
                         break
-            elif kind == history.FLOAT:
+            elif kind == history.FLOAT or kind == 'L':    # long long
                 while True:
                     box = argboxes[src_f]
                     src_f += 1
@@ -1473,7 +1473,7 @@ class MetaInterp(object):
             elif result_type == history.REF:
                 raise sd.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
             elif result_type == history.FLOAT:
-                raise sd.DoneWithThisFrameFloat(resultbox.getfloat())
+                raise sd.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
                 assert False
 
@@ -1929,7 +1929,8 @@ class MetaInterp(object):
         try:
             target_loop_token = compile.compile_new_bridge(self,
                                                            [loop_token],
-                                                           self.resumekey)
+                                                           self.resumekey,
+                                                           True)
         except RetraceLoop:
             assert False
         assert target_loop_token is not None
@@ -2150,7 +2151,7 @@ class MetaInterp(object):
             # warmstate.py.
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-            assert not virtualizable.vable_token
+            assert not vinfo.gettoken(virtualizable)
             # fill the virtualizable with the local boxes
             self.synchronize_virtualizable()
         #

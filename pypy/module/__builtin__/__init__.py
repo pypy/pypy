@@ -36,7 +36,6 @@ class Module(MixedModule):
 
         'bin'           : 'app_operation.bin',
 
-        '__filestub'    : 'app_file_stub.file',
     }
 
     interpleveldefs = {

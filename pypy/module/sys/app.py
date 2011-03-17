@@ -4,9 +4,17 @@ The 'sys' module.
 """
 
 from _structseq import structseqtype, structseqfield
+import sys
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
+
+    # Flush stdout as well, both files may refer to the same file
+    try:
+        sys.stdout.flush()
+    except:
+        pass
+
     try:
         from traceback import print_exception
         print_exception(exctype, value, traceback)

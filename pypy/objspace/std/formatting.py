@@ -7,6 +7,7 @@ from pypy.rlib.rarithmetic import (
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.objspace.std.unicodetype import unicode_from_object
 
 class BaseStringFormatter(object):
     def __init__(self, space, values_w, w_valuedict):
@@ -430,6 +431,8 @@ def make_formatter_subclass(do_unicode):
             else:
                 if not got_unicode:
                     w_value = space.call_function(space.w_unicode, w_value)
+                else:
+                    w_value = unicode_from_object(space, w_value)
                 s = space.unicode_w(w_value)
             self.std_wp(s)
 
@@ -548,5 +551,3 @@ def format_num_helper_generator(fmt, digits):
 int_num_helper = format_num_helper_generator('%d', '0123456789')
 oct_num_helper = format_num_helper_generator('%o', '01234567')
 hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef')
-
-

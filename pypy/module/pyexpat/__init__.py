@@ -14,6 +14,10 @@ class Module(MixedModule):
         'ParserCreate':  'interp_pyexpat.ParserCreate',
         'XMLParserType': 'interp_pyexpat.W_XMLParserType',
         'ErrorString':   'interp_pyexpat.ErrorString',
+
+        '__version__':   'space.wrap("85819")',
+        'EXPAT_VERSION': 'interp_pyexpat.get_expat_version(space)',
+        'version_info':  'interp_pyexpat.get_expat_version_info(space)',
         }
 
     for name in ['XML_PARAM_ENTITY_PARSING_NEVER',

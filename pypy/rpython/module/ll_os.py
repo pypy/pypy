@@ -795,6 +795,30 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], (float, float, float),
                       "ll_os.ll_getloadavg", llimpl=getloadavg_llimpl)
 
+    @registering_if(os, 'makedev')
+    def register_os_makedev(self):
+        c_makedev = self.llexternal('makedev', [rffi.INT, rffi.INT], rffi.INT)
+        def makedev_llimpl(maj, min):
+            return c_makedev(maj, min)
+        return extdef([int, int], int,
+                      "ll_os.ll_makedev", llimpl=makedev_llimpl)
+
+    @registering_if(os, 'major')
+    def register_os_major(self):
+        c_major = self.llexternal('major', [rffi.INT], rffi.INT)
+        def major_llimpl(dev):
+            return c_major(dev)
+        return extdef([int], int,
+                      "ll_os.ll_major", llimpl=major_llimpl)
+
+    @registering_if(os, 'minor')
+    def register_os_minor(self):
+        c_minor = self.llexternal('minor', [rffi.INT], rffi.INT)
+        def minor_llimpl(dev):
+            return c_minor(dev)
+        return extdef([int], int,
+                      "ll_os.ll_minor", llimpl=minor_llimpl)
+
 # ------------------------------- os.read -------------------------------
 
     @registering(os.read)
@@ -1507,14 +1531,17 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'fork')
     def register_os_fork(self):
+        from pypy.module.thread import ll_thread
         eci = self.gcc_profiling_bug_workaround('pid_t _noprof_fork(void)',
                                                 'return fork();')
         os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,
                                   compilation_info = eci,
-                                  threadsafe = False)
+                                  _nowrapper = True)
 
         def fork_llimpl():
+            opaqueaddr = ll_thread.gc_thread_before_fork()
             childpid = rffi.cast(lltype.Signed, os_fork())
+            ll_thread.gc_thread_after_fork(childpid, opaqueaddr)
             if childpid == -1:
                 raise OSError(rposix.get_errno(), "os_fork failed")
             return rffi.cast(lltype.Signed, childpid)

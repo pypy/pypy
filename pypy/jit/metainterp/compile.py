@@ -15,7 +15,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.resume import NUMBERING
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 
 def giveup():
     from pypy.jit.metainterp.pyjitpl import SwitchToBlackhole
@@ -528,7 +528,7 @@ class ResumeGuardCountersRef(AbstractResumeGuardCounters):
 class ResumeGuardCountersFloat(AbstractResumeGuardCounters):
     def __init__(self):
         self.counters = [0] * 5
-        self.values = [0.0] * 5
+        self.values = [longlong.ZEROF] * 5
     see_float = func_with_new_name(_see, 'see_float')
 
 
@@ -566,7 +566,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         pass
 
 
-def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
+def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -587,8 +587,9 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
         inline_short_preamble = True
     try:
         target_loop_token = state.optimize_bridge(metainterp_sd,
-                                                  old_loop_tokens,
-                                                  new_loop, inline_short_preamble)
+                                                  old_loop_tokens, new_loop,
+                                                  inline_short_preamble,
+                                                  retraced)
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop

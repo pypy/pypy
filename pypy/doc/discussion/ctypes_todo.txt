@@ -3,7 +3,7 @@ Few ctypes-related todo points:
 * Write down missing parts and port all tests, eventually adding
   additional tests.
 
-  - for unions and structs, late assignement of _fields_ is somewhat buggy.
+  - for unions and structs, late assignment of _fields_ is somewhat buggy.
     Tests about behavior of getattr working properly on instances
     are missing or not comprehensive. Some tests are skipped because I didn't
     understand the details.
@@ -15,7 +15,7 @@ Few ctypes-related todo points:
   - there are features, which we don't support like buffer() and
     array() protocols.
 
-  - are the _CData_value return lifetime/gc sematics correct?
+  - are the _CData_value return lifetime/gc semantics correct?
 
   - for some ABIs we will need completely filled ffitypes to do the
     right thing for passing structures by value, we are now passing enough

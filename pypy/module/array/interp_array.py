@@ -33,7 +33,7 @@ def w_array(space, w_cls, typecode, w_args=None):
         if w_args.keywords: # XXX this might be forbidden fishing
             msg = 'array.array() does not take keyword arguments'
             raise OperationError(space.w_TypeError, space.wrap(msg))
-        
+
     for tc in unroll_typecodes:
         if typecode == tc:
             a = space.allocate_instance(types[tc].w_class, w_cls)
@@ -253,7 +253,7 @@ def make_array(mytype):
             space = self.space
             oldlen = self.len
             try:
-                new = space.int_w(space.len(w_seq))
+                new = space.len_w(w_seq)
                 self.setlen(self.len + new)
             except OperationError:
                 pass
@@ -534,7 +534,7 @@ def make_array(mytype):
         cbuf = self.charbuf()
         s = ''.join([cbuf[i] for i in xrange(self.len * mytype.bytes)])
         return self.space.wrap(s)
-##         
+##
 ##         s = ''
 ##         i = 0
 ##         while i < self.len * mytype.bytes:

@@ -17,7 +17,7 @@ class TestSequence(BaseApiTest):
         w_set = space.wrap(set((1, 2, 3, 4)))
         w_seq = api.PySequence_Fast(w_set, "message")
         assert space.type(w_seq) is space.w_tuple
-        assert space.int_w(space.len(w_seq)) == 4
+        assert space.len_w(w_seq) == 4
 
         w_seq = api.PySequence_Tuple(w_set)
         assert space.type(w_seq) is space.w_tuple
@@ -52,7 +52,7 @@ class TestSequence(BaseApiTest):
         assert exc.value.match(space, space.w_TypeError)
         assert space.str_w(exc.value.get_w_value(space)) == "message"
         rffi.free_charp(message)
-    
+
     def test_get_slice(self, space, api):
         w_t = space.wrap([1, 2, 3, 4, 5])
         assert space.unwrap(api.PySequence_GetSlice(w_t, 2, 4)) == [3, 4]
@@ -105,4 +105,3 @@ class TestSequence(BaseApiTest):
 
         self.raises(space, api, IndexError, api.PySequence_DelItem,
                     w_l, 3)
-

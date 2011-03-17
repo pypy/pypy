@@ -185,7 +185,7 @@ representation.
     >>> p
     <* struct point { x=5, y=0 }>
 
-``malloc()`` allocates a structure from the heap, initalizes it to 0
+``malloc()`` allocates a structure from the heap, initializes it to 0
 (currently), and returns a pointer to it.  The point of all this is to work with
 a very limited, easily controllable set of types, and define implementations of
 types like list in this elementary world.  The ``malloc()`` function is a kind
@@ -619,7 +619,7 @@ Each subclass of ``BuiltinADTTypes`` defines a bunch of type
 parameters by creating some class level placeholder in the form of
 ``PARAMNAME_T``; then it fills up the ``_GENERIC_METHODS`` attribute
 by defining the signature of each of the ADT methods using those
-placeholders in the appropriace places. As an example, here is an
+placeholders in the appropriate places. As an example, here is an
 extract of *ootypesystem*'s List type::
 
     class List(BuiltinADTType):
@@ -719,7 +719,7 @@ Exception handling:
         that have several low-level equivalents depending on whether they
         should check for an IndexError or not.  Calling
         has_implicit_exception() also has a side-effect: the rtyper
-        records that this exception is being taken care of explicitely.
+        records that this exception is being taken care of explicitly.
 
     ``hop.exception_is_here()``
         To be called with no argument just before a llop is generated.  It

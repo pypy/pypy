@@ -112,7 +112,7 @@ def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
     space.timer.start_name("importhook", modulename)
-    if not modulename and level < 0: 
+    if not modulename and level < 0:
         raise OperationError(
             space.w_ValueError,
             space.wrap("Empty module name"))
@@ -291,7 +291,8 @@ def find_in_meta_path(space, w_modulename, w_path):
         if space.is_true(w_loader):
             return w_loader
 
-def find_in_path_hooks(space, w_modulename, w_pathitem):
+def _getimporter(space, w_pathitem):
+    # the function 'imp._getimporter' is a pypy-only extension
     w_path_importer_cache = space.sys.get("path_importer_cache")
     w_importer = space.finditem(w_path_importer_cache, w_pathitem)
     if w_importer is None:
@@ -305,10 +306,21 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
             else:
                 break
         if w_importer is None:
-            w_importer = space.wrap(W_NullImporter(space))
+            try:
+                w_importer = space.call_function(
+                    space.gettypefor(W_NullImporter), w_pathitem
+                )
+            except OperationError, e:
+                if e.match(space, space.w_ImportError):
+                    return None
+                raise
         if space.is_true(w_importer):
             space.setitem(w_path_importer_cache, w_pathitem, w_importer)
-    if space.is_true(w_importer):
+    return w_importer
+
+def find_in_path_hooks(space, w_modulename, w_pathitem):
+    w_importer = _getimporter(space, w_pathitem)
+    if w_importer is not None and space.is_true(w_importer):
         w_loader = space.call_method(w_importer, "find_module", w_modulename)
         if space.is_true(w_loader):
             return w_loader
@@ -822,7 +834,7 @@ def check_compiled_module(space, pycfilename, expected_mtime):
 
 def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """
-    
+
     w_marshal = space.getbuiltinmodule('marshal')
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
     pycode = space.interpclass_w(w_code)
@@ -909,4 +921,3 @@ def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
             os.unlink(cpathname)
         except OSError:
             pass
-

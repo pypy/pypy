@@ -26,6 +26,7 @@ class Module(MixedModule):
 
     appleveldefs = {
         'default_int_handler': 'app_signal.default_int_handler',
+        'ItimerError': 'app_signal.ItimerError',
     }
 
     def buildloaders(cls):

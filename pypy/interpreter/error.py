@@ -1,6 +1,6 @@
 import os, sys
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import we_are_translated
 from errno import EINTR
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
@@ -360,7 +360,8 @@ else:
                                           space.wrap(msg))
         return OperationError(exc, w_error)
 
-def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError'): 
+def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
+                  w_exception_class=None): 
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):
@@ -375,7 +376,10 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError'):
         msg = os.strerror(errno)
     except ValueError:
         msg = 'error %d' % errno
-    exc = getattr(space, exception_name)
+    if w_exception_class is None:
+        exc = getattr(space, exception_name)
+    else:
+        exc = w_exception_class
     if w_filename is not None:
         w_error = space.call_function(exc, space.wrap(errno),
                                       space.wrap(msg), w_filename)
@@ -385,12 +389,22 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError'):
     return OperationError(exc, w_error)
 wrap_oserror2._annspecialcase_ = 'specialize:arg(3)'
 
-def wrap_oserror(space, e, filename=None, exception_name='w_OSError'):
+def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
+                 w_exception_class=None):
     if filename is not None:
         return wrap_oserror2(space, e, space.wrap(filename),
-                             exception_name=exception_name)
+                             exception_name=exception_name,
+                             w_exception_class=w_exception_class)
     else:
         return wrap_oserror2(space, e, None,
-                             exception_name=exception_name)
+                             exception_name=exception_name,
+                             w_exception_class=w_exception_class)
 wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
+def exception_from_errno(space, w_type):
+    from pypy.rlib.rposix import get_errno
+
+    errno = get_errno()
+    msg = os.strerror(errno)
+    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
+    return OperationError(w_type, w_error)

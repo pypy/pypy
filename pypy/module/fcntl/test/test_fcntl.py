@@ -196,3 +196,11 @@ class AppTestFcntl:
         import fcntl
         f = open(self.tmp, "w")
         fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_large_flag(self):
+        import fcntl, sys
+        if sys.maxint == 2147483647:
+            assert fcntl.DN_MULTISHOT == -2147483648
+        else:
+            assert fcntl.DN_MULTISHOT == 2147483648
+        fcntl.fcntl(0, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT)

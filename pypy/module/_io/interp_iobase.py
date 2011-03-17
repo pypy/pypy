@@ -126,12 +126,13 @@ class W_IOBase(Wrappable):
     @unwrap_spec('self', ObjSpace)
     def next_w(self, space):
         w_line = space.call_method(self, "readline")
-        if space.int_w(space.len(w_line)) == 0:
+        if space.len_w(w_line) == 0:
             raise OperationError(space.w_StopIteration, space.w_None)
         return w_line
 
     @unwrap_spec('self', ObjSpace)
     def isatty_w(self, space):
+        self._check_closed(space)
         return space.w_False
 
     @unwrap_spec('self', ObjSpace)
@@ -170,7 +171,7 @@ class W_IOBase(Wrappable):
                         space.w_IOError,
                         "peek() should have returned a bytes object, "
                         "not '%s'", space.type(w_readahead).getname(space, '?'))
-                length = space.int_w(space.len(w_readahead))
+                length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
                     buf = space.str_w(w_readahead)
@@ -219,7 +220,7 @@ class W_IOBase(Wrappable):
         length = 0
         while True:
             w_line = space.call_method(self, "readline")
-            line_length = space.int_w(space.len(w_line))
+            line_length = space.len_w(w_line)
             if line_length == 0: # done
                 break
 
@@ -270,7 +271,7 @@ W_IOBase.typedef = TypeDef(
     readline = interp2app(W_IOBase.readline_w),
     readlines = interp2app(W_IOBase.readlines_w),
     writelines = interp2app(W_IOBase.writelines_w),
-    )
+)
 
 class W_RawIOBase(W_IOBase):
     # ________________________________________________________________
@@ -311,5 +312,4 @@ W_RawIOBase.typedef = TypeDef(
 
     read = interp2app(W_RawIOBase.read_w),
     readall = interp2app(W_RawIOBase.readall_w),
-    )
-
+)

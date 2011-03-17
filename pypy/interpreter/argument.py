@@ -147,8 +147,19 @@ class Arguments(object):
 
     def _combine_starargs_wrapped(self, w_stararg):
         # unpack the * arguments 
-        self.arguments_w = (self.arguments_w +
-                            self.space.fixedview(w_stararg))
+        space = self.space
+        try:
+            args_w = space.fixedview(w_stararg)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                w_type = space.type(w_stararg)
+                typename = w_type.getname(space)
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("argument after * must be "
+                               "a sequence, not %s" % (typename,)))
+            raise
+        self.arguments_w = self.arguments_w + args_w
 
     def _combine_starstarargs_wrapped(self, w_starstararg):
         # unpack the ** arguments
@@ -163,7 +174,7 @@ class Arguments(object):
             except OperationError, e:
                 if e.match(space, space.w_AttributeError):
                     w_type = space.type(w_starstararg)
-                    typename = w_type.getname(space, '?')
+                    typename = w_type.getname(space)
                     raise OperationError(
                         space.w_TypeError,
                         space.wrap("argument after ** must be "
@@ -185,10 +196,15 @@ class Arguments(object):
             try:
                 key = space.str_w(w_key)
             except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("keywords must be strings"))
+                if e.match(space, space.w_TypeError):
+                    raise OperationError(
+                        space.w_TypeError,
+                        space.wrap("keywords must be strings"))
+                if e.match(space, space.w_UnicodeEncodeError):
+                    raise OperationError(
+                        space.w_TypeError,
+                        space.wrap("keyword cannot be encoded to ascii"))
+                raise
             if self.keywords and key in self.keywords:
                 raise operationerrfmt(self.space.w_TypeError,
                                       "got multiple values "

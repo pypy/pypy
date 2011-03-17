@@ -160,7 +160,7 @@ time to come.
 
 
 
-Funding partners and organisations
+Funding partners and organizations
 =====================================================
     
 PyPy development and activities happen as an open source project  

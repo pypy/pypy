@@ -390,18 +390,6 @@ class TestX86(LLtypeBackendTest):
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
 
-    def test_call_with_const_floats(self):
-        def func(f1, f2):
-            return f1 + f2
-
-        FUNC = self.FuncType([lltype.Float, lltype.Float], lltype.Float)
-        FPTR = self.Ptr(FUNC)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
-        func_ptr = llhelper(FPTR, func)
-        funcbox = self.get_funcbox(self.cpu, func_ptr)
-        res = self.execute_operation(rop.CALL, [funcbox, ConstFloat(1.5), ConstFloat(2.5)], 'float', descr=calldescr)
-        assert res.value == 4.0
-
 
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):

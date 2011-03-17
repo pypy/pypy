@@ -20,14 +20,18 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.jit.metainterp import resoperation, executor
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
+from pypy.jit.codewriter import longlong
 
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
 
 import py
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer('runner')
 py.log.setconsumer('runner', ansi_log)
+
+IS_32_BIT = r_ulonglong is not r_uint
 
 
 def _from_opaque(opq):
@@ -297,7 +301,7 @@ def compile_start_int_var(loop):
     return compile_start_ref_var(loop, lltype.Signed)
 
 def compile_start_float_var(loop):
-    return compile_start_ref_var(loop, lltype.Float)
+    return compile_start_ref_var(loop, longlong.FLOATSTORAGE)
 
 def compile_start_ref_var(loop, TYPE):
     loop = _from_opaque(loop)
@@ -336,7 +340,7 @@ def compile_add_int_const(loop, value):
     compile_add_ref_const(loop, value, lltype.Signed)
 
 def compile_add_float_const(loop, value):
-    compile_add_ref_const(loop, value, lltype.Float)
+    compile_add_ref_const(loop, value, longlong.FLOATSTORAGE)
 
 def compile_add_ref_const(loop, value, TYPE):
     loop = _from_opaque(loop)
@@ -349,7 +353,7 @@ def compile_add_int_result(loop):
     return compile_add_ref_result(loop, lltype.Signed)
 
 def compile_add_float_result(loop):
-    return compile_add_ref_result(loop, lltype.Float)
+    return compile_add_ref_result(loop, longlong.FLOATSTORAGE)
 
 def compile_add_ref_result(loop, TYPE):
     loop = _from_opaque(loop)
@@ -482,8 +486,8 @@ class Frame(object):
                         x = self.as_ptr(result)
                     elif RESTYPE is ootype.Object:
                         x = self.as_object(result)
-                    elif RESTYPE is lltype.Float:
-                        x = self.as_float(result)
+                    elif RESTYPE is longlong.FLOATSTORAGE:
+                        x = self.as_floatstorage(result)
                     else:
                         raise Exception("op.result.concretetype is %r"
                                         % (RESTYPE,))
@@ -546,8 +550,8 @@ class Frame(object):
     def as_object(self, x):
         return ootype.cast_to_object(x)
 
-    def as_float(self, x):
-        return cast_to_float(x)
+    def as_floatstorage(self, x):
+        return cast_to_floatstorage(x)
 
     def log_progress(self):
         count = sum(_stats.exec_counters.values())
@@ -819,7 +823,7 @@ class Frame(object):
             elif T == llmemory.GCREF:
                 args_in_order.append('r')
                 _call_args_r.append(x)
-            elif T is lltype.Float:
+            elif T is longlong.FLOATSTORAGE:
                 args_in_order.append('f')
                 _call_args_f.append(x)
             else:
@@ -847,9 +851,6 @@ class Frame(object):
 
     def op_cast_ptr_to_int(self, descr, ptr):
         return cast_to_int(ptr)
-
-    def op_uint_xor(self, descr, arg1, arg2):
-        return arg1 ^ arg2
 
     def op_force_token(self, descr):
         opaque_frame = _to_opaque(self)
@@ -885,7 +886,7 @@ class Frame(object):
                     set_future_value_int(i, args[i])
                 elif isinstance(TYPE, lltype.Ptr):
                     set_future_value_ref(i, args[i])
-                elif TYPE is lltype.Float:
+                elif TYPE is longlong.FLOATSTORAGE:
                     set_future_value_float(i, args[i])
                 else:
                     raise Exception("Nonsense type %s" % TYPE)
@@ -1071,14 +1072,24 @@ def cast_to_ptr(x):
 def cast_from_ptr(TYPE, x):
     return lltype.cast_opaque_ptr(TYPE, x)
 
-def cast_to_float(x):      # not really a cast, just a type check
-    assert isinstance(x, float)
-    return x
+def cast_to_floatstorage(x):
+    if isinstance(x, float):
+        return longlong.getfloatstorage(x)      # common case
+    if IS_32_BIT:
+        assert longlong.supports_longlong
+        if isinstance(x, r_longlong):
+            return x
+        if isinstance(x, r_ulonglong):
+            return rffi.cast(lltype.SignedLongLong, x)
+    raise TypeError(type(x))
 
-def cast_from_float(TYPE, x):   # not really a cast, just a type check
-    assert TYPE is lltype.Float
-    assert isinstance(x, float)
-    return x
+def cast_from_floatstorage(TYPE, x):
+    assert isinstance(x, longlong.r_float_storage)
+    if TYPE is lltype.Float:
+        return longlong.getrealfloat(x)
+    if longlong.is_longlong(TYPE):
+        return rffi.cast(TYPE, x)
+    raise TypeError(TYPE)
 
 
 def new_frame(is_oo, cpu):
@@ -1106,6 +1117,7 @@ def set_future_value_int(index, value):
     set_future_value_ref(index, value)
 
 def set_future_value_float(index, value):
+    assert isinstance(value, longlong.r_float_storage)
     set_future_value_ref(index, value)
 
 def set_future_value_ref(index, value):
@@ -1144,7 +1156,7 @@ def frame_float_getvalue(frame, num):
     frame = _from_opaque(frame)
     assert num >= 0
     x = frame.fail_args[num]
-    assert lltype.typeOf(x) is lltype.Float
+    assert lltype.typeOf(x) is longlong.FLOATSTORAGE
     return x
 
 def frame_ptr_getvalue(frame, num):
@@ -1282,11 +1294,11 @@ def do_getarrayitem_raw_int(array, index):
 
 def do_getarrayitem_gc_float(array, index):
     array = array._obj.container
-    return cast_to_float(array.getitem(index))
+    return cast_to_floatstorage(array.getitem(index))
 
 def do_getarrayitem_raw_float(array, index):
     array = array.adr.ptr._obj
-    return cast_to_float(array.getitem(index))
+    return cast_to_floatstorage(array.getitem(index))
 
 def do_getarrayitem_gc_ptr(array, index):
     array = array._obj.container
@@ -1301,7 +1313,7 @@ def do_getfield_gc_int(struct, fieldnum):
     return cast_to_int(_getfield_gc(struct, fieldnum))
 
 def do_getfield_gc_float(struct, fieldnum):
-    return cast_to_float(_getfield_gc(struct, fieldnum))
+    return cast_to_floatstorage(_getfield_gc(struct, fieldnum))
 
 def do_getfield_gc_ptr(struct, fieldnum):
     return cast_to_ptr(_getfield_gc(struct, fieldnum))
@@ -1315,7 +1327,7 @@ def do_getfield_raw_int(struct, fieldnum):
     return cast_to_int(_getfield_raw(struct, fieldnum))
 
 def do_getfield_raw_float(struct, fieldnum):
-    return cast_to_float(_getfield_raw(struct, fieldnum))
+    return cast_to_floatstorage(_getfield_raw(struct, fieldnum))
 
 def do_getfield_raw_ptr(struct, fieldnum):
     return cast_to_ptr(_getfield_raw(struct, fieldnum))
@@ -1345,13 +1357,13 @@ def do_setarrayitem_raw_int(array, index, newvalue):
 def do_setarrayitem_gc_float(array, index, newvalue):
     array = array._obj.container
     ITEMTYPE = lltype.typeOf(array).OF
-    newvalue = cast_from_float(ITEMTYPE, newvalue)
+    newvalue = cast_from_floatstorage(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
 def do_setarrayitem_raw_float(array, index, newvalue):
     array = array.adr.ptr
     ITEMTYPE = lltype.typeOf(array).TO.OF
-    newvalue = cast_from_int(ITEMTYPE, newvalue)
+    newvalue = cast_from_floatstorage(ITEMTYPE, newvalue)
     array._obj.setitem(index, newvalue)
 
 def do_setarrayitem_gc_ptr(array, index, newvalue):
@@ -1371,7 +1383,7 @@ def do_setfield_gc_float(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_float(FIELDTYPE, newvalue)
+    newvalue = cast_from_floatstorage(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
 def do_setfield_gc_ptr(struct, fieldnum, newvalue):
@@ -1392,7 +1404,7 @@ def do_setfield_raw_float(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_float(FIELDTYPE, newvalue)
+    newvalue = cast_from_floatstorage(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
 def do_setfield_raw_ptr(struct, fieldnum, newvalue):
@@ -1449,6 +1461,7 @@ def do_call_pushfloat(x):
 kind2TYPE = {
     'i': lltype.Signed,
     'f': lltype.Float,
+    'L': lltype.SignedLongLong,
     'v': lltype.Void,
     }
 
@@ -1489,7 +1502,7 @@ def do_call_int(f):
 
 def do_call_float(f):
     x = _do_call_common(f)
-    return cast_to_float(x)
+    return cast_to_floatstorage(x)
 
 def do_call_ptr(f):
     x = _do_call_common(f)
@@ -1518,12 +1531,12 @@ def cast_call_args(ARGS, args_i, args_r, args_f, args_in_order=None):
                     assert n == 'r'
                 x = argsiter_r.next()
                 x = cast_from_ptr(TYPE, x)
-            elif TYPE is lltype.Float:
+            elif TYPE is lltype.Float or longlong.is_longlong(TYPE):
                 if args_in_order is not None:
                     n = orderiter.next()
                     assert n == 'f'
                 x = argsiter_f.next()
-                x = cast_from_float(TYPE, x)
+                x = cast_from_floatstorage(TYPE, x)
             else:
                 if args_in_order is not None:
                     n = orderiter.next()
@@ -1627,6 +1640,13 @@ _TO_OPAQUE[OOFrame] = OOFRAME.TO
 s_CompiledLoop = annmodel.SomePtr(COMPILEDLOOP)
 s_Frame = annmodel.SomePtr(FRAME)
 
+if longlong.FLOATSTORAGE is lltype.Float:
+    s_FloatStorage = annmodel.SomeFloat()
+elif longlong.FLOATSTORAGE is lltype.SignedLongLong:
+    s_FloatStorage = annmodel.SomeInteger(knowntype=longlong.r_float_storage)
+else:
+    assert 0
+
 setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ref_var, annmodel.SomeInteger())
@@ -1655,7 +1675,7 @@ setannotation(set_future_value_float, annmodel.s_None)
 setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))
-setannotation(frame_float_getvalue, annmodel.SomeFloat())
+setannotation(frame_float_getvalue, s_FloatStorage)
 setannotation(frame_get_value_count, annmodel.SomeInteger())
 setannotation(frame_clear_latest_values, annmodel.s_None)
 
@@ -1671,15 +1691,15 @@ setannotation(do_unicodelen, annmodel.SomeInteger())
 setannotation(do_unicodegetitem, annmodel.SomeInteger())
 setannotation(do_getarrayitem_gc_int, annmodel.SomeInteger())
 setannotation(do_getarrayitem_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
-setannotation(do_getarrayitem_gc_float, annmodel.SomeFloat())
+setannotation(do_getarrayitem_gc_float, s_FloatStorage)
 setannotation(do_getarrayitem_raw_int, annmodel.SomeInteger())
-setannotation(do_getarrayitem_raw_float, annmodel.SomeFloat())
+setannotation(do_getarrayitem_raw_float, s_FloatStorage)
 setannotation(do_getfield_gc_int, annmodel.SomeInteger())
 setannotation(do_getfield_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
-setannotation(do_getfield_gc_float, annmodel.SomeFloat())
+setannotation(do_getfield_gc_float, s_FloatStorage)
 setannotation(do_getfield_raw_int, annmodel.SomeInteger())
 setannotation(do_getfield_raw_ptr, annmodel.SomePtr(llmemory.GCREF))
-setannotation(do_getfield_raw_float, annmodel.SomeFloat())
+setannotation(do_getfield_raw_float, s_FloatStorage)
 setannotation(do_new, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_new_array, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_setarrayitem_gc_int, annmodel.s_None)
@@ -1701,5 +1721,5 @@ setannotation(do_call_pushint, annmodel.s_None)
 setannotation(do_call_pushptr, annmodel.s_None)
 setannotation(do_call_int, annmodel.SomeInteger())
 setannotation(do_call_ptr, annmodel.SomePtr(llmemory.GCREF))
-setannotation(do_call_float, annmodel.SomeFloat())
+setannotation(do_call_float, s_FloatStorage)
 setannotation(do_call_void, annmodel.s_None)

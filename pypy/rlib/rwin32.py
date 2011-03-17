@@ -5,6 +5,7 @@ Common types, functions from core win32 libraries, such as kernel32
 from pypy.rpython.tool import rffi_platform
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import CompilationError
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import jit
@@ -145,7 +146,7 @@ if WIN32:
                 [cfile], ExternalCompilationInfo(),
                 outputfilename = "dosmaperr",
                 standalone=True)
-        except WindowsError:
+        except (CompilationError, WindowsError):
             # Fallback for the mingw32 compiler
             errors = {
                 2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,

@@ -476,6 +476,12 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False)
     assert isinstance(w_sub, W_UnicodeObject)
     self = w_self._value
     sub = w_sub._value
+
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
+    if space.is_w(w_end, space.w_None):
+        w_end = space.len(w_self)
+
     if upper_bound:
         start = slicetype.adapt_bound(space, len(self), w_start)
         end = slicetype.adapt_bound(space, len(self), w_end)
@@ -921,9 +927,11 @@ def unicode_format__Unicode(space, w_unicode, __args__):
 def format__Unicode_ANY(space, w_unicode, w_format_spec):
     if not space.isinstance_w(w_format_spec, space.w_unicode):
         w_format_spec = space.call_function(space.w_unicode, w_format_spec)
+    from pypy.objspace.std.unicodetype import unicode_from_object
+    w_unicode = unicode_from_object(space, w_unicode)
     spec = space.unicode_w(w_format_spec)
     formatter = newformat.unicode_formatter(space, spec)
-    return formatter.format_string(w_unicode._value)
+    return formatter.format_string(space.unicode_w(w_unicode))
 
 
 import unicodetype

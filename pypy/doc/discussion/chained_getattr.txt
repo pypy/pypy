@@ -25,7 +25,7 @@ random example:
        
     now for the LOAD_CHAINED_GLOBAL bytecode implementation:
 
-        Module dicts have a special implemnetation, providing: 
+        Module dicts have a special implementation, providing: 
 
         - an extra "fastlookup" rpython-dict serving as a cache for
           LOAD_CHAINED_GLOBAL places within the modules: 
