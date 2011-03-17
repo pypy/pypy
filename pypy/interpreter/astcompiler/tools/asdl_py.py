@@ -454,6 +454,9 @@ class AppExposeVisitor(ASDLVisitor):
                                   (field.type,), 2)
                     self.emit("w_self.%s = obj.to_simple_int(space)" %
                               (field.name,), 2)
+                    self.emit("# need to save the original object too", 2)
+                    self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
+                              % (field.name,), 2)
                 else:
                     config = (field.name, field.type, repr(field.opt))
                     self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
