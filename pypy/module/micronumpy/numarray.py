@@ -78,10 +78,18 @@ def compute(bytecode, input):
             bytecode_pos -= 1
     return result
 
+JITCODES = {}
     
 class BaseArray(Wrappable):
     def force(self):
         bytecode, stack = self.compile()
+        try:
+            bytecode = JITCODES[bytecode]
+        except KeyError:
+            JITCODES[bytecode] = bytecode
+        # the point of above hacks is to intern the bytecode string
+        # otherwise we have to compile new assembler each time, which sucks
+        # (we still have to compile new bytecode, but too bad)
         return compute(bytecode, stack)
     force.unwrap_spec = ['self']
 
