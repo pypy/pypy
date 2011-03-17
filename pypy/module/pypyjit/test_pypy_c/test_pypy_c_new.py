@@ -917,3 +917,32 @@ class TestPyPyCNew(BaseTestPyPyC):
                             return sa
                     """ % (op1, float(a)/4.0, float(b)/4.0, op2)
                     self.run_and_check(src, threshold=400)
+
+    def test_boolrewrite_ptr(self):
+        # XXX this test is way too imprecise in what it is actually testing
+        # it should count the number of guards instead
+        compares = ('a == b', 'b == a', 'a != b', 'b != a', 'a == c', 'c != b')
+        for e1 in compares:
+            for e2 in compares:
+                src = """
+                    class tst(object):
+                        pass
+                    def main():
+                        a = tst()
+                        b = tst()
+                        c = tst()
+                        sa = 0
+                        for i in range(1000):
+                            if %s:
+                                sa += 1
+                            else:
+                                sa += 2
+                            if %s:
+                                sa += 10000
+                            else:
+                                sa += 20000
+                            if i > 750:
+                                a = b
+                        return sa
+                """ % (e1, e2)
+                self.run_and_check(src, threshold=400)
