@@ -64,7 +64,7 @@ class TestTranslationX86(CCompiledMixin):
                 k = myabs(j)
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
-            return total * 10
+            return chr(total % 253)
         #
         from pypy.rpython.lltypesystem import lltype, rffi
         from pypy.rlib.libffi import types, CDLL, ArgChain
@@ -84,10 +84,12 @@ class TestTranslationX86(CCompiledMixin):
                 argchain.arg(x)
                 res = func.call(argchain, rffi.DOUBLE)
                 i -= 1
-            return int(res)
+            return res
         #
         def main(i, j):
-            return f(i, j) + libffi_stuff(i, j)
+            a_char = f(i, j)
+            a_float = libffi_stuff(i, j)
+            return ord(a_char) * 10 + int(a_float)
         expected = main(40, -49)
         res = self.meta_interp(main, [40, -49])
         assert res == expected

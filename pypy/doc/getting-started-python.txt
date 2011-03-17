@@ -38,7 +38,7 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
 1. Install dependencies.  You need (these are Debian package names,
    adapt as needed):
 
-   * ``gcc``
+   * ``gcc`` and ``make``
    * ``python-dev``
    * ``python-ctypes`` if you are still using Python2.4
    * ``libffi-dev``

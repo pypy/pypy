@@ -489,8 +489,19 @@ class WarmRunnerDesc(object):
          jd._PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
         (jd._PORTAL_FUNCTYPE,
          jd._PTR_PORTAL_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, RESTYPE)
+        #
+        if jd.result_type == 'v':
+            ASMRESTYPE = lltype.Void
+        elif jd.result_type == history.INT:
+            ASMRESTYPE = lltype.Signed
+        elif jd.result_type == history.REF:
+            ASMRESTYPE = llmemory.GCREF
+        elif jd.result_type == history.FLOAT:
+            ASMRESTYPE = lltype.Float
+        else:
+            assert False
         (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
-            [lltype.Signed, llmemory.GCREF], RESTYPE)
+            [lltype.Signed, llmemory.GCREF], ASMRESTYPE)
 
     def rewrite_can_enter_jits(self):
         sublists = {}
@@ -671,7 +682,7 @@ class WarmRunnerDesc(object):
                         raise Exception, value
 
         def handle_jitexception(e):
-            # XXX the bulk of this function is a copy-paste from above :-(
+            # XXX the bulk of this function is mostly a copy-paste from above
             try:
                 raise e
             except self.ContinueRunningNormally, e:
@@ -680,19 +691,22 @@ class WarmRunnerDesc(object):
                     x = getattr(e, attrname)[count]
                     x = specialize_value(ARGTYPE, x)
                     args = args + (x,)
-                return ll_portal_runner(*args)
+                result = ll_portal_runner(*args)
+                if result_kind != 'void':
+                    result = unspecialize_value(result)
+                return result
             except self.DoneWithThisFrameVoid:
                 assert result_kind == 'void'
                 return
             except self.DoneWithThisFrameInt, e:
                 assert result_kind == 'int'
-                return specialize_value(RESULT, e.result)
+                return e.result
             except self.DoneWithThisFrameRef, e:
                 assert result_kind == 'ref'
-                return specialize_value(RESULT, e.result)
+                return e.result
             except self.DoneWithThisFrameFloat, e:
                 assert result_kind == 'float'
-                return specialize_value(RESULT, e.result)
+                return e.result
             except self.ExitFrameWithExceptionRef, e:
                 value = ts.cast_to_baseclass(e.value)
                 if not we_are_translated():
@@ -736,17 +750,16 @@ class WarmRunnerDesc(object):
 
         def handle_jitexception_from_blackhole(bhcaller, e):
             result = handle_jitexception(e)
-            #
-            if result_kind != 'void':
-                result = unspecialize_value(result)
-                if result_kind == 'int':
-                    bhcaller._setup_return_value_i(result)
-                elif result_kind == 'ref':
-                    bhcaller._setup_return_value_r(result)
-                elif result_kind == 'float':
-                    bhcaller._setup_return_value_f(result)
-                else:
-                    assert False
+            if result_kind == 'void':
+                pass
+            elif result_kind == 'int':
+                bhcaller._setup_return_value_i(result)
+            elif result_kind == 'ref':
+                bhcaller._setup_return_value_r(result)
+            elif result_kind == 'float':
+                bhcaller._setup_return_value_f(result)
+            else:
+                assert False
         jd.handle_jitexc_from_bh = handle_jitexception_from_blackhole
 
         # ____________________________________________________________
