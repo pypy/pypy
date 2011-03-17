@@ -2,7 +2,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib import jit
 
@@ -150,17 +150,18 @@ class SingleDimArray(BaseArray):
         return self
 
 def descr_new_numarray(space, w_type, w_size_or_iterable):
-    if space.isinstance_w(w_size_or_iterable, space.w_int):
-        arr = SingleDimArray(space.int_w(w_size_or_iterable))
-    else:
-        l = space.listview(w_size_or_iterable)
-        arr = SingleDimArray(len(l))
-        i = 0
-        for w_elem in l:
-            arr.storage[i] = space.float_w(space.float(w_elem))
-            i += 1
+    l = space.listview(w_size_or_iterable)
+    arr = SingleDimArray(len(l))
+    i = 0
+    for w_elem in l:
+        arr.storage[i] = space.float_w(space.float(w_elem))
+        i += 1
     return space.wrap(arr)
 descr_new_numarray.unwrap_spec = [ObjSpace, W_Root, W_Root]
+
+@unwrap_spec(ObjSpace, int)
+def zeros(space, size):
+    return space.wrap(SingleDimArray(size))
 
 SingleDimArray.typedef = TypeDef(
     'numarray',

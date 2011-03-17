@@ -7,8 +7,8 @@ class AppTestNumpyLike(object):
         cls.space = gettestobjspace(usemodules=('micronumpy',))
 
     def test_init(self):
-        from numpy import array
-        a = array(15)
+        from numpy import array, zeros
+        a = zeros(15)
         assert a[10] == 0.0
         a[13] = 5.3
         assert a[13] == 5.3

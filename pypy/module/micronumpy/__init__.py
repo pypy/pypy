@@ -7,6 +7,7 @@ class Module(MixedModule):
     
     interpleveldefs = {
         'array': 'numarray.SingleDimArray',
+        'zeros': 'numarray.zeros',
     }
 
     appleveldefs = {}
