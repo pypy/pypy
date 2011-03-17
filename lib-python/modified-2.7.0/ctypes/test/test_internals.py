@@ -2,7 +2,6 @@
 import unittest
 from ctypes import *
 from sys import getrefcount as grc
-from ctypes.test import xfail
 
 # XXX This test must be reviewed for correctness!!!
 
