@@ -752,7 +752,7 @@ class WarmRunnerDesc(object):
             result = handle_jitexception(e)
             if result_kind == 'void':
                 pass
-            if result_kind == 'int':
+            elif result_kind == 'int':
                 bhcaller._setup_return_value_i(result)
             elif result_kind == 'ref':
                 bhcaller._setup_return_value_r(result)
