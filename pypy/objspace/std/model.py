@@ -25,8 +25,6 @@ option_to_typename = {
                         "ropeobject.W_RopeIterObject"],
     "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
                         "ropeunicodeobject.W_RopeUnicodeIterObject"],
-    "withrangelist"  : ["rangeobject.W_RangeListObject",
-                        "rangeobject.W_RangeIterObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
                     "proxyobject.W_TransparentDict"],
 }
@@ -90,7 +88,6 @@ class StdTypeModel:
         from pypy.objspace.std import iterobject
         from pypy.objspace.std import unicodeobject
         from pypy.objspace.std import dictproxyobject
-        from pypy.objspace.std import rangeobject
         from pypy.objspace.std import proxyobject
         from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
@@ -251,11 +248,6 @@ class StdTypeModel:
                                        strbufobject.delegate_buf2str),
                 (unicodeobject.W_UnicodeObject,
                                        strbufobject.delegate_buf2unicode)
-                ]
-        if config.objspace.std.withrangelist:
-            self.typeorder[rangeobject.W_RangeListObject] += [
-                (listobject.W_ListObject,
-                                       rangeobject.delegate_range2list),
                 ]
         if config.objspace.std.withsmalltuple:
             self.typeorder[smalltupleobject.W_SmallTupleObject] += [

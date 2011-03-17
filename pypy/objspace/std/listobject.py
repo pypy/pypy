@@ -69,7 +69,7 @@ class W_ListObject(W_Object):
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        return "%s(%s, %s)" % (w_self.__class__.__name__, w_self.strategy, w_self.storage._content)
+        return "%s(%s, %s)" % (w_self.__class__.__name__, w_self.strategy, w_self.storage._x)
 
     def unwrap(w_list, space):
         # for tests only!
