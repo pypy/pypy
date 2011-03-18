@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib import jit
 
-TP = lltype.GcArray(lltype.Float)
+TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
 numpy_driver = jit.JitDriver(greens = ['bytecode_pos', 'bytecode'],
                              reds = ['result_size', 'i', 'frame',
@@ -121,7 +121,9 @@ BaseArray.typedef = TypeDef(
 class SingleDimArray(BaseArray):
     def __init__(self, size):
         self.size = size
-        self.storage = lltype.malloc(TP, size, zero=True)
+        self.storage = lltype.malloc(TP, size, zero=True,
+                                     flavor='raw', track_allocation=False)
+        # XXX find out why test_jit explodes with trackign of allocations
 
     def compile(self):
         return "l", [self]
@@ -148,6 +150,9 @@ class SingleDimArray(BaseArray):
 
     def force(self):
         return self
+
+    def __del__(self):
+        lltype.free(self.storage, flavor='raw')
 
 def descr_new_numarray(space, w_type, w_size_or_iterable):
     l = space.listview(w_size_or_iterable)
