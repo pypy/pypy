@@ -663,7 +663,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             p22 = new_with_vtable(19511408)
             p24 = new_array(1, descr=<GcPtrArrayDescr>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
-            p27 = new(descr=<SizeDescr 24>)
+            p27 = new(descr=<SizeDescr .*>)
             p29 = new_array(0, descr=<GcPtrArrayDescr>)
             setfield_gc(p27, p29, descr=<GcPtrFieldDescr list.items .*>)
             setfield_gc(p26, p27, descr=<.* .*W_ListObject.inst_wrappeditems .*>)
