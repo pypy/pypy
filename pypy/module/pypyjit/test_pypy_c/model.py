@@ -274,8 +274,7 @@ class OpMatcher(object):
     def match_descr(self, descr, exp_descr):
         if descr == exp_descr or exp_descr == '...':
             return True
-        match = exp_descr is not None and re.match(exp_descr, descr)
-        self._assert(match, "descr mismatch")
+        self._assert(exp_descr is not None and re.match(exp_descr, descr), "descr mismatch")
 
     def _assert(self, cond, message):
         if not cond:
