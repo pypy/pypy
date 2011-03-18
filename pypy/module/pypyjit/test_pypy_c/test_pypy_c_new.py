@@ -980,6 +980,9 @@ class TestPyPyCNew(BaseTestPyPyC):
             intimg = array('i', (0,)) * (640 * 480)
             l, i = 0, 640
             while i < 640 * 480:
+                assert len(img) == 3*350*480
+                assert len(intimg) == 640*480
+                assert i >= 0
                 l = l + img[i]
                 intimg[i] = (intimg[i-640] + l)
                 i += 1
@@ -989,25 +992,21 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 73574560
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i15 = int_lt(i8, 307200)
-            guard_true(i15, descr=<Guard3>)
-            i16 = int_lt(i8, i10)
-            guard_true(i16, descr=<Guard4>)
-            i18 = getarrayitem_raw(i11, i8, descr=<.*ArrayNoLengthDescr>)
-            i19 = int_add_ovf(i9, i18)
+            i13 = int_lt(i8, 307200)
+            guard_true(i13, descr=<Guard3>)
+        # the bound check guard on img has been killed (thanks to the 1st and 2nd asserts)
+            i14 = getarrayitem_raw(i10, i8, descr=<.*ArrayNoLengthDescr>)
+            i15 = int_add_ovf(i9, i14)
+            guard_no_overflow(descr=<Guard4>)
+            i17 = int_sub(i8, 640)
+        # the bound check guard on intimg has been killed (thanks to the 3rd assert)
+            i18 = getarrayitem_raw(i11, i17, descr=<.*ArrayNoLengthDescr>)
+            i19 = int_add_ovf(i18, i15)
             guard_no_overflow(descr=<Guard5>)
-            i21 = int_sub(i8, 640)
-            i22 = int_lt(i21, i12)
-            guard_true(i22, descr=<Guard6>)
-            i23 = getarrayitem_raw(i13, i21, descr=<.*ArrayNoLengthDescr>)
-            i24 = int_add_ovf(i23, i19)
-            guard_no_overflow(descr=<Guard7>)
-            i25 = int_lt(i8, i12)
-            guard_true(i25, descr=<Guard8>)
-            # on 64bit, there is a guard checking that i24 actually fits into 32bit
+        # on 64bit, there is a guard checking that i19 actually fits into 32bit
             ...
-            setarrayitem_raw(i13, i8, _, descr=<.*ArrayNoLengthDescr>)
-            i33 = int_add(i8, 1)
+            setarrayitem_raw(i11, i8, _, descr=<.*ArrayNoLengthDescr>)
+            i28 = int_add(i8, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, p7, i33, i19, i10, i11, i12, i13, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, p6, p7, i28, i15, i10, i11, descr=<Loop0>)
         """)
