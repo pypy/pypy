@@ -243,7 +243,7 @@ class EmptyListStrategy(ListStrategy):
 class RangeListStrategy(ListStrategy):
 
     def switch_to_integer_strategy(self, w_list):
-        items = self._getitem_range(w_list, False)
+        items = self._getitems_range(w_list, False)
         strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
         w_list.storage = strategy.cast_to_void_star(items)
 
@@ -277,10 +277,10 @@ class RangeListStrategy(ListStrategy):
         return self.wrap(start + i * step)
 
     def getitems(self, w_list):
-        return self._getitem_range(w_list, True)
+        return self._getitems_range(w_list, True)
 
     @specialize.arg(2)
-    def _getitem_range(self, w_list, wrap_items):
+    def _getitems_range(self, w_list, wrap_items):
         l = self.cast_from_void_star(w_list.storage)
         start = l[0]
         step = l[1]
@@ -375,10 +375,10 @@ class RangeListStrategy(ListStrategy):
 
     def reverse(self, w_list):
         v = self.cast_from_void_star(w_list.storage)
-        last = w_list.getitem(-1) #XXX wrapped
+        w_last = w_list.getitem(-1) #XXX wrapped
         length = v[2]
         skip = v[1]
-        new = self.cast_to_void_star((self.unwrap(last), -skip, length))
+        new = self.cast_to_void_star((self.unwrap(w_last), -skip, length))
         w_list.storage = new
 
 class AbstractUnwrappedStrategy(object):
