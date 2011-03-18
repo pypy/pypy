@@ -980,7 +980,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             while i < 640 * 480:
                 assert len(img) == 3*350*480
                 assert len(intimg) == 640*480
-                assert i >= 0
                 l = l + img[i]
                 intimg[i] = (intimg[i-640] + l)
                 i += 1
@@ -992,12 +991,12 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i13 = int_lt(i8, 307200)
             guard_true(i13, descr=<Guard3>)
-        # the bound check guard on img has been killed (thanks to the 1st and 2nd asserts)
+        # the bound check guard on img has been killed (thanks to the asserts)
             i14 = getarrayitem_raw(i10, i8, descr=<.*ArrayNoLengthDescr>)
             i15 = int_add_ovf(i9, i14)
             guard_no_overflow(descr=<Guard4>)
             i17 = int_sub(i8, 640)
-        # the bound check guard on intimg has been killed (thanks to the 3rd assert)
+        # the bound check guard on intimg has been killed (thanks to the asserts)
             i18 = getarrayitem_raw(i11, i17, descr=<.*ArrayNoLengthDescr>)
             i19 = int_add_ovf(i18, i15)
             guard_no_overflow(descr=<Guard5>)
