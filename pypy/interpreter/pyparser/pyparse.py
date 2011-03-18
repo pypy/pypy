@@ -119,11 +119,11 @@ class PythonParser(parser.Parser):
                 try:
                     textsrc = recode_to_utf8(self.space, textsrc, enc)
                 except OperationError, e:
+                    space = self.space
                     # if the codec is not found, LookupError is raised.  we
                     # check using 'is_w' not to mask potential IndexError or
                     # KeyError
-                    space = self.space
-                    if e.match(space, space.w_LookupError):
+                    if space.is_w(e.w_type, space.w_LookupError):
                         raise error.SyntaxError("Unknown encoding: %s" % enc,
                                                 filename=compile_info.filename)
                     # Transform unicode errors into SyntaxError
