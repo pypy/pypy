@@ -139,19 +139,29 @@ class PythonParser(parser.Parser):
             self.grammar = pygram.python_grammar_no_print
         else:
             self.grammar = pygram.python_grammar
+        source_lines = textsrc.splitlines(True)
+
+        if textsrc and textsrc[-1] == "\n":
+            compile_info.flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+
+        if enc is not None:
+            compile_info.encoding = enc
+
+        return self.build_tree(source_lines, compile_info)
+
+    def build_tree(self, source_lines, compile_info):
+        """Builds the parse tree from a list of source lines"""
 
         # The tokenizer is very picky about how it wants its input.
-        source_lines = textsrc.splitlines(True)
         if source_lines and not source_lines[-1].endswith("\n"):
             source_lines[-1] += '\n'
-        if textsrc and textsrc[-1] == "\n":
-            flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
 
         self.prepare(_targets[compile_info.mode])
         tp = 0
         try:
             try:
-                tokens = pytokenizer.generate_tokens(source_lines, flags)
+                tokens = pytokenizer.generate_tokens(source_lines,
+                                                     compile_info.flags)
                 for tp, value, lineno, column, line in tokens:
                     if self.add_token(tp, value, lineno, column, line):
                         break
@@ -176,6 +186,4 @@ class PythonParser(parser.Parser):
         finally:
             # Avoid hanging onto the tree.
             self.root = None
-        if enc is not None:
-            compile_info.encoding = enc
         return tree
