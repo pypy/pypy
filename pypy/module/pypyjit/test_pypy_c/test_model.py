@@ -51,9 +51,7 @@ class BaseTestPyPyC(object):
                                 env=env,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
-        pipe.wait()
-        stderr = pipe.stderr.read()
-        stdout = pipe.stdout.read()
+        stdout, stderr = pipe.communicate()
         assert not stderr
         #
         # parse the JIT log
