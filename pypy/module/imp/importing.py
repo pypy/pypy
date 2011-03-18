@@ -158,7 +158,8 @@ def importhook(space, name, w_globals=None,
                 w_mod = check_sys_modules(space, w(rel_modulename))
 
                 if (w_mod is None or
-                    not space.is_w(w_mod, space.w_None)):
+                    not space.is_w(w_mod, space.w_None) or
+                    level > 0):
 
                     # if no level was set, ignore import errors, and
                     # fall back to absolute import at the end of the
