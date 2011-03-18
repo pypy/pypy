@@ -960,7 +960,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [])
         assert log.result == 19507200
         loop, = log.loops_by_filename(self.filepath)
-        import pdb;pdb.set_trace()
         assert loop.match("""
             i12 = int_lt(i7, 307200)
             guard_true(i12, descr=<Guard3>)
@@ -972,4 +971,43 @@ class TestPyPyCNew(BaseTestPyPyC):
             i18 = int_add(i7, 1)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, i18, i16, i9, i10, descr=<Loop0>)
+        """)
+
+    def test_array_intimg(self):
+        def main():
+            from array import array
+            img = array('i', range(3)) * (350 * 480)
+            intimg = array('i', (0,)) * (640 * 480)
+            l, i = 0, 640
+            while i < 640 * 480:
+                l = l + img[i]
+                intimg[i] = (intimg[i-640] + l)
+                i += 1
+            return intimg[i - 1]
+        #
+        log = self.run(main, [])
+        assert log.result == 73574560
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i15 = int_lt(i8, 307200)
+            guard_true(i15, descr=<Guard3>)
+            i16 = int_lt(i8, i10)
+            guard_true(i16, descr=<Guard4>)
+            i18 = getarrayitem_raw(i11, i8, descr=<INTArrayNoLengthDescr>)
+            i19 = int_add_ovf(i9, i18)
+            guard_no_overflow(descr=<Guard5>)
+            i21 = int_sub(i8, 640)
+            i22 = int_lt(i21, i12)
+            guard_true(i22, descr=<Guard6>)
+            i23 = getarrayitem_raw(i13, i21, descr=<INTArrayNoLengthDescr>)
+            i24 = int_add_ovf(i23, i19)
+            guard_no_overflow(descr=<Guard7>)
+            i25 = int_lt(i8, i12)
+            guard_true(i25, descr=<Guard8>)
+            # on 64bit, there is a guard checking that i24 actually fits into 32bit
+            ...
+            setarrayitem_raw(i13, i8, i30, descr=<INTArrayNoLengthDescr>)
+            i33 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, p7, i33, i19, i10, i11, i12, i13, descr=<Loop0>)
         """)
