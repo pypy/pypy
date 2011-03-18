@@ -964,7 +964,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i12 = int_lt(i7, 307200)
             guard_true(i12, descr=<Guard3>)
-            # XXX: this is suboptimal, we could avoid this extra guard because i9==307200
             i13 = int_lt(i7, i9)
             guard_true(i13, descr=<Guard4>)
             i15 = getarrayitem_raw(i10, i7, descr=<INTArrayNoLengthDescr>)
