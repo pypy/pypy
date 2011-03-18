@@ -946,3 +946,31 @@ class TestPyPyCNew(BaseTestPyPyC):
                         return sa
                 """ % (e1, e2)
                 self.run_and_check(src, threshold=400)
+
+    def test_array_sum(self):
+        def main():
+            from array import array
+            img = array("i", range(128) * 5) * 480
+            l, i = 0, 0
+            while i < 640 * 480:
+                l += img[i]
+                i += 1
+            return l
+        #
+        log = self.run(main, [])
+        assert log.result == 19507200
+        loop, = log.loops_by_filename(self.filepath)
+        import pdb;pdb.set_trace()
+        assert loop.match("""
+            i12 = int_lt(i7, 307200)
+            guard_true(i12, descr=<Guard3>)
+            # XXX: this is suboptimal, we could avoid this extra guard because i9==307200
+            i13 = int_lt(i7, i9)
+            guard_true(i13, descr=<Guard4>)
+            i15 = getarrayitem_raw(i10, i7, descr=<INTArrayNoLengthDescr>)
+            i16 = int_add_ovf(i8, i15)
+            guard_no_overflow(descr=<Guard5>)
+            i18 = int_add(i7, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, i18, i16, i9, i10, descr=<Loop0>)
+        """)
