@@ -12,6 +12,7 @@ _recode_to_utf8 = gateway.applevel(r'''
 def recode_to_utf8(space, text, encoding):
     return space.str_w(_recode_to_utf8(space, space.wrap(text),
                                           space.wrap(encoding)))
+
 def _normalize_encoding(encoding):
     """returns normalized name for <encoding>
 
@@ -33,17 +34,25 @@ def _normalize_encoding(encoding):
             return 'iso-8859-1'
     return encoding
 
-def _check_for_encoding(s):
-    eol = s.find('\n')
+def _check_for_encoding(s1, s2):
+    eol = s1.find('\n')
     if eol < 0:
-        return _check_line_for_encoding(s)
-    enc = _check_line_for_encoding(s[:eol])
+        enc = _check_line_for_encoding(s1)
+    else:
+        enc = _check_line_for_encoding(s1[:eol])
     if enc:
         return enc
-    eol2 = s.find('\n', eol + 1)
-    if eol2 < 0:
-        return _check_line_for_encoding(s[eol + 1:])
-    return _check_line_for_encoding(s[eol + 1:eol2])
+    if eol:
+        if s2:
+            s = s1 + s2
+        else:
+            s = s1
+        eol2 = s.find('\n', eol + 1)
+        if eol2 < 0:
+            return _check_line_for_encoding(s[eol + 1:])
+        return _check_line_for_encoding(s[eol + 1:eol2])
+    elif s2:
+        return _check_line_for_encoding(s2)
 
 
 def _check_line_for_encoding(line):
@@ -86,11 +95,53 @@ _targets = {
 'exec' : pygram.syms.file_input,
 }
 
+class Stream(object):
+    "Pseudo-file object used by PythonParser.parse_file"
+    def readline(self):
+        raise NotImplementedError
+    def recode_to_utf8(self, text, encoding):
+        raise NotImplementedError
+
 class PythonParser(parser.Parser):
 
     def __init__(self, space, grammar=pygram.python_grammar):
         parser.Parser.__init__(self, grammar)
         self.space = space
+
+    def _detect_encoding(self, text1, text2, compile_info):
+        "Detect source encoding from the beginning of the file"
+        if text1.startswith("\xEF\xBB\xBF"):
+            text1 = text1[3:]
+            compile_info.encoding = 'utf-8'
+            # If an encoding is explicitly given check that it is utf-8.
+            decl_enc = _check_for_encoding(text1, text2)
+            if decl_enc and decl_enc != "utf-8":
+                raise error.SyntaxError("UTF-8 BOM with non-utf8 coding cookie",
+                                        filename=compile_info.filename)
+        elif compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
+            compile_info.encoding = 'utf-8'
+            if _check_for_encoding(text1, text2) is not None:
+                raise error.SyntaxError("coding declaration in unicode string",
+                                        filename=compile_info.filename)
+        else:
+            compile_info.encoding = _normalize_encoding(
+                _check_for_encoding(text1, text2))
+        return text1
+
+    def _decode_error(self, e, compile_info):
+        space = self.space
+        # if the codec is not found, LookupError is raised.  we
+        # check using 'is_w' not to mask potential IndexError or
+        # KeyError
+        if space.is_w(e.w_type, space.w_LookupError):
+            return error.SyntaxError(
+                "Unknown encoding: %s" % compile_info.encoding,
+                filename=compile_info.filename)
+        # Transform unicode errors into SyntaxError
+        if e.match(space, space.w_UnicodeDecodeError):
+            e.normalize_exception(space)
+            w_message = space.str(e.get_w_value(space))
+            return error.SyntaxError(space.str_w(w_message))
 
     def parse_source(self, textsrc, compile_info):
         """Main entry point for parsing Python source.
@@ -98,63 +149,90 @@ class PythonParser(parser.Parser):
         Everything from decoding the source to tokenizing to building the parse
         tree is handled here.
         """
-        # Detect source encoding.
-        enc = None
-        if textsrc.startswith("\xEF\xBB\xBF"):
-            textsrc = textsrc[3:]
-            enc = 'utf-8'
-            # If an encoding is explicitly given check that it is utf-8.
-            decl_enc = _check_for_encoding(textsrc)
-            if decl_enc and decl_enc != "utf-8":
-                raise error.SyntaxError("UTF-8 BOM with non-utf8 coding cookie",
-                                        filename=compile_info.filename)
-        elif compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
-            enc = 'utf-8'
-            if _check_for_encoding(textsrc) is not None:
-                raise error.SyntaxError("coding declaration in unicode string",
-                                        filename=compile_info.filename)
-        else:
-            enc = _normalize_encoding(_check_for_encoding(textsrc))
-            if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
-                try:
-                    textsrc = recode_to_utf8(self.space, textsrc, enc)
-                except OperationError, e:
-                    space = self.space
-                    # if the codec is not found, LookupError is raised.  we
-                    # check using 'is_w' not to mask potential IndexError or
-                    # KeyError
-                    if space.is_w(e.w_type, space.w_LookupError):
-                        raise error.SyntaxError("Unknown encoding: %s" % enc,
-                                                filename=compile_info.filename)
-                    # Transform unicode errors into SyntaxError
-                    if e.match(space, space.w_UnicodeDecodeError):
-                        e.normalize_exception(space)
-                        w_message = space.str(e.get_w_value(space))
-                        raise error.SyntaxError(space.str_w(w_message))
+        textsrc = self._detect_encoding(textsrc, None, compile_info)
+
+        enc = compile_info.encoding
+        if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
+            try:
+                textsrc = recode_to_utf8(self.space, textsrc, enc)
+            except OperationError, e:
+                operror = self._decode_error(e, compile_info)
+                if operror:
+                    raise operror
+                else:
                     raise
 
-        flags = compile_info.flags
-
-        if flags & consts.CO_FUTURE_PRINT_FUNCTION:
-            self.grammar = pygram.python_grammar_no_print
-        else:
-            self.grammar = pygram.python_grammar
         source_lines = textsrc.splitlines(True)
 
-        if textsrc and textsrc[-1] == "\n":
-            compile_info.flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+        return self.build_tree(source_lines, compile_info)
 
-        if enc is not None:
-            compile_info.encoding = enc
+    def parse_file(self, stream, compile_info):
+        assert isinstance(stream, Stream)
+
+        firstline = stream.readline()
+        secondline = None
+        if firstline:
+            secondline = stream.readline()
+            if secondline:
+                firstline = self._detect_encoding(
+                    firstline, secondline, compile_info)
+            else:
+                firstline = self._detect_encoding(
+                    firstline, '', compile_info)
+
+        enc = compile_info.encoding
+        if enc in ('utf-8', 'iso-8859-1'):
+            enc = None # No need to recode
+
+        source_lines = []
+
+        if enc is None:
+            if firstline:
+                source_lines.append(firstline)
+            if secondline:
+                source_lines.append(secondline)
+            while True:
+                line = stream.readline()
+                if not line:
+                    break
+                source_lines.append(line)
+        else:
+            try:
+                if firstline:
+                    source_lines.append(stream.recode_to_utf8(firstline, enc))
+                if secondline:
+                    source_lines.append(stream.recode_to_utf8(secondline, enc))
+
+                while True:
+                    line = stream.readline()
+                    if not line:
+                        break
+                    source_lines.append(stream.recode_to_utf8(line, enc))
+            except OperationError, e:
+                operror = self._decode_error(e, compile_info)
+                if operror:
+                    raise operror
+                else:
+                    raise
 
         return self.build_tree(source_lines, compile_info)
 
     def build_tree(self, source_lines, compile_info):
         """Builds the parse tree from a list of source lines"""
 
-        # The tokenizer is very picky about how it wants its input.
-        if source_lines and not source_lines[-1].endswith("\n"):
-            source_lines[-1] += '\n'
+        if compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
+            self.grammar = pygram.python_grammar_no_print
+        else:
+            self.grammar = pygram.python_grammar
+
+        if source_lines and source_lines[-1]:
+            last_line = source_lines[-1]
+            if last_line:
+                if last_line[-1] == "\n":
+                    compile_info.flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+                else:
+                    # The tokenizer is very picky about how it wants its input.
+                    source_lines[-1] += '\n'
 
         self.prepare(_targets[compile_info.mode])
         tp = 0

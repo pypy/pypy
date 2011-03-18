@@ -61,8 +61,13 @@ stuff = "nothing"
         assert exc.msg == "Unknown encoding: not-here"
         input = u"# coding: ascii\n\xe2".encode('utf-8')
         exc = py.test.raises(SyntaxError, self.parse, input).value
-        assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
-                           "in position 16: ordinal not in range(128)")
+        if isinstance(self, TestPythonFileParser):
+            # incremental decoder works line by line
+            assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
+                               "in position 0: ordinal not in range(128)")
+        else:
+            assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
+                               "in position 16: ordinal not in range(128)")
 
     def test_syntax_error(self):
         parse = self.parse
@@ -144,3 +149,31 @@ pass"""
         self.parse('0b1101')
         self.parse('0b0l')
         py.test.raises(SyntaxError, self.parse, "0b112")
+
+class TestPythonFileParser(TestPythonParser):
+    def parse(self, source, mode="exec", info=None):
+        if info is None:
+            info = pyparse.CompileInfo("<test>", mode)
+
+        space = self.space
+
+        from pypy.interpreter.error import OperationError
+        import StringIO
+
+        class IOStream(pyparse.Stream):
+            def __init__(self, source):
+                self.stream = StringIO.StringIO(source)
+            def readline(self):
+                return self.stream.readline()
+            def recode_to_utf8(self, line, encoding):
+                try:
+                    if encoding is None or encoding in ('utf-8', 'iso-8859-1'):
+                        return line
+                    return line.decode(encoding).encode('utf-8')
+                except LookupError, e:
+                    raise OperationError(space.w_LookupError,
+                                         space.wrap(e.message))
+                except UnicodeDecodeError, e:
+                    raise SyntaxError(str(e)) # The one from pyparser.error!
+
+        return self.parser.parse_file(IOStream(source), info)
