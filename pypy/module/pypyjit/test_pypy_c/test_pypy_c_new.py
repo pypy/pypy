@@ -952,7 +952,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             from array import array
             img = array("i", range(128) * 5) * 480
             l, i = 0, 0
-            while i < 640 * 480:
+            while i < len(img):
                 l += img[i]
                 i += 1
             return l
@@ -961,13 +961,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 19507200
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i12 = int_lt(i7, 307200)
-            guard_true(i12, descr=<Guard3>)
             i13 = int_lt(i7, i9)
-            guard_true(i13, descr=<Guard4>)
+            guard_true(i13, descr=<Guard3>)
             i15 = getarrayitem_raw(i10, i7, descr=<.*ArrayNoLengthDescr>)
             i16 = int_add_ovf(i8, i15)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=<Guard4>)
             i18 = int_add(i7, 1)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, i18, i16, i9, i10, descr=<Loop0>)
