@@ -845,7 +845,8 @@ class RegisterOs(BaseLazyRegistering):
         def os_read_oofakeimpl(fd, count):
             return OOSupport.to_rstr(os.read(fd, count))
 
-        return extdef([int, int], str, "ll_os.ll_os_read",
+        return extdef([int, int], SomeString(can_be_None=True),
+                      "ll_os.ll_os_read",
                       llimpl=os_read_llimpl, oofakeimpl=os_read_oofakeimpl)
 
     @registering(os.write)
@@ -943,7 +944,9 @@ class RegisterOs(BaseLazyRegistering):
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
             if res < 0:
-                raise OSError(rposix.get_errno(), "os_lseek failed")
+                # Note: for consistency we raise OSError, but CPython
+                # raises IOError here
+                raise OSError(rposix.get_errno(), "os_ftruncate failed")
 
         return extdef([int, r_longlong], s_None,
                       llimpl = ftruncate_llimpl,

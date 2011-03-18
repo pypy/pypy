@@ -5,10 +5,10 @@ Implementation of the interpreter-level default import logic.
 import sys, os, stat
 
 from pypy.interpreter.module import Module
-from pypy.interpreter.gateway import Arguments, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.rlib import streamio, jit, rposix
 from pypy.rlib.streamio import StreamErrors
@@ -108,6 +108,7 @@ def check_sys_modules(space, w_modulename):
 def check_sys_modules_w(space, modulename):
     return space.finditem_str(space.sys.get('modules'), modulename)
 
+@unwrap_spec(name=str, level=int)
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
@@ -157,7 +158,8 @@ def importhook(space, name, w_globals=None,
                 w_mod = check_sys_modules(space, w(rel_modulename))
 
                 if (w_mod is None or
-                    not space.is_w(w_mod, space.w_None)):
+                    not space.is_w(w_mod, space.w_None) or
+                    level > 0):
 
                     # if no level was set, ignore import errors, and
                     # fall back to absolute import at the end of the
@@ -186,8 +188,6 @@ def importhook(space, name, w_globals=None,
         space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
     space.timer.stop_name("importhook", modulename)
     return w_mod
-#
-importhook.unwrap_spec = [ObjSpace, str, W_Root, W_Root, W_Root, int]
 
 @jit.dont_look_inside
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):
@@ -291,7 +291,8 @@ def find_in_meta_path(space, w_modulename, w_path):
         if space.is_true(w_loader):
             return w_loader
 
-def find_in_path_hooks(space, w_modulename, w_pathitem):
+def _getimporter(space, w_pathitem):
+    # the function 'imp._getimporter' is a pypy-only extension
     w_path_importer_cache = space.sys.get("path_importer_cache")
     w_importer = space.finditem(w_path_importer_cache, w_pathitem)
     if w_importer is None:
@@ -311,11 +312,15 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
                 )
             except OperationError, e:
                 if e.match(space, space.w_ImportError):
-                    return
+                    return None
                 raise
         if space.is_true(w_importer):
             space.setitem(w_path_importer_cache, w_pathitem, w_importer)
-    if space.is_true(w_importer):
+    return w_importer
+
+def find_in_path_hooks(space, w_modulename, w_pathitem):
+    w_importer = _getimporter(space, w_pathitem)
+    if w_importer is not None and space.is_true(w_importer):
         w_loader = space.call_method(w_importer, "find_module", w_modulename)
         if space.is_true(w_loader):
             return w_loader
@@ -325,7 +330,7 @@ class W_NullImporter(Wrappable):
     def __init__(self, space):
         pass
 
-    @unwrap_spec('self', ObjSpace, str)
+    @unwrap_spec(path=str)
     def descr_init(self, space, path):
         if not path:
             raise OperationError(space.w_ImportError, space.wrap(
@@ -341,7 +346,6 @@ class W_NullImporter(Wrappable):
                 raise OperationError(space.w_ImportError, space.wrap(
                     "existing directory"))
 
-    @unwrap_spec('self', ObjSpace, Arguments)
     def find_module_w(self, space, __args__):
         return space.wrap(None)
 

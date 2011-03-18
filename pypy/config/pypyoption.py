@@ -27,12 +27,13 @@ default_modules.update(dict.fromkeys(
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["_socket", "unicodedata", "mmap", "fcntl",
+    ["_socket", "unicodedata", "mmap", "fcntl", "_locale",
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect", "binascii", "_multiprocessing", '_warnings', 'micronumpy']
+     "_bisect", "binascii", "_multiprocessing", '_warnings',
+     "_collections", , 'micronumpy']
 ))
 
 translation_modules = default_modules.copy()
@@ -79,8 +80,7 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
-    "_ffi": [("translation.jit_ffi", True)],
-    }
+}
 
 module_import_dependencies = {
     # no _rawffi if importing pypy.rlib.clibffi raises ImportError
@@ -351,7 +351,7 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(builtinshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
-        config.objspace.std.suggest(newshortcut=True)        
+        config.objspace.std.suggest(newshortcut=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 

@@ -56,3 +56,9 @@ def get_long_info(space):
     ]
     w_long_info = app.wget(space, "long_info")
     return space.call_function(w_long_info, space.newtuple(info_w))
+
+def get_float_repr_style(space):
+    if rfloat.USE_SHORT_FLOAT_REPR:
+        return space.wrap("short")
+    else:
+        return space.wrap("legacy")

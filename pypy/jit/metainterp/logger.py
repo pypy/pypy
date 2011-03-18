@@ -67,7 +67,7 @@ class Logger(object):
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)
         elif isinstance(arg, ConstFloat):
-            return str(arg.value)
+            return str(arg.getfloat())
         elif isinstance(arg, BoxFloat):
             return 'f' + str(mv)
         elif arg is None:

@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.rarithmetic import ovfcheck
 
@@ -12,6 +12,7 @@ def _value2char(value):
         return chr((ord('a')-10) + value)
 _value2char._always_inline_ = True
 
+@unwrap_spec(data='bufferstr')
 def hexlify(space, data):
     '''Hexadecimal representation of binary data.
 This function is also available as "hexlify()".'''
@@ -24,7 +25,6 @@ This function is also available as "hexlify()".'''
         res.append(_value2char(ord(c) >> 4))
         res.append(_value2char(ord(c) & 0xf))
     return space.wrap(res.build())
-hexlify.unwrap_spec = [ObjSpace, 'bufferstr']
 
 # ____________________________________________________________
 
@@ -42,6 +42,7 @@ def _char2value(space, c):
                          space.wrap('Non-hexadecimal digit found'))
 _char2value._always_inline_ = True
 
+@unwrap_spec(hexstr='bufferstr')
 def unhexlify(space, hexstr):
     '''Binary data of hexadecimal representation.
 hexstr must contain an even number of hex digits (upper or lower case).
@@ -55,4 +56,3 @@ This function is also available as "unhexlify()".'''
         b = _char2value(space, hexstr[i+1])
         res.append(chr((a << 4) | b))
     return space.wrap(res.build())
-unhexlify.unwrap_spec = [ObjSpace, 'bufferstr']

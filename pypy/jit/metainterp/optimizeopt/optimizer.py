@@ -69,7 +69,9 @@ class OptValue(object):
         pass
 
     def make_virtual_info(self, modifier, fieldnums):
-        raise NotImplementedError # should not be called on this level
+        #raise NotImplementedError # should not be called on this level
+        assert fieldnums is None
+        return modifier.make_not_virtual(self)
 
     def is_constant(self):
         return self.level == LEVEL_CONSTANT
@@ -162,13 +164,16 @@ class ConstantValue(OptValue):
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
-CVAL_ZERO_FLOAT = ConstantValue(ConstFloat(0.0))
+CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
 CVAL_UNINITIALIZED_ZERO = ConstantValue(CONST_0)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 
 class Optimization(object):
     next_optimization = None
+
+    def __init__(self):
+        pass # make rpython happy
     
     def propagate_forward(self, op):
         raise NotImplementedError
@@ -214,6 +219,14 @@ class Optimization(object):
         op = ResOperation(opnum, args, result)
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
+    def has_pure_result(self, opnum, args, descr):
+        op = ResOperation(opnum, args, None)
+        key = self.optimizer.make_args_key(op)
+        op = self.optimizer.pure_operations.get(key, None)
+        if op is None:
+            return False
+        return op.getdescr() is descr
+
     def setup(self):
         pass
 
@@ -245,6 +258,8 @@ class Optimizer(Optimization):
         self.posponedop = None
         self.exception_might_have_happened = False
         self.newoperations = []
+        if loop is not None:
+            self.call_pure_results = loop.call_pure_results
 
         self.set_optimizations(optimizations)
 

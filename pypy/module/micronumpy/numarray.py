@@ -1,4 +1,3 @@
-
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import TypeDef
@@ -16,9 +15,9 @@ numpy_driver = jit.JitDriver(greens = ['bytecode_pos', 'bytecode'],
 class ComputationFrame(object):
     _virtualizable2_ = ['valuestackdepth', 'valuestack[*]', 'local_pos',
                         'locals[*]']
-    
+
     def __init__(self, input):
-        self = jit.hint(self, access_directly=True, fresh_virtualizable=True) 
+        self = jit.hint(self, access_directly=True, fresh_virtualizable=True)
         self.valuestackdepth = 0
         self.valuestack = [0.0] * len(input)
         self.locals = input[:]
@@ -79,7 +78,7 @@ def compute(bytecode, input):
     return result
 
 JITCODES = {}
-    
+
 class BaseArray(Wrappable):
     def force(self):
         bytecode, stack = self.compile()
@@ -91,11 +90,9 @@ class BaseArray(Wrappable):
         # otherwise we have to compile new assembler each time, which sucks
         # (we still have to compile new bytecode, but too bad)
         return compute(bytecode, stack)
-    force.unwrap_spec = ['self']
 
     def descr_add(self, space, w_other):
         return space.wrap(Add(self, w_other))
-    descr_add.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def compile(self):
         raise NotImplementedError("abstract base class")
@@ -128,6 +125,7 @@ class SingleDimArray(BaseArray):
     def compile(self):
         return "l", [self]
 
+    @unwrap_spec(item=int)
     def descr_getitem(self, space, item):
         if item < 0:
             raise operationerrfmt(space.w_TypeError,
@@ -136,8 +134,8 @@ class SingleDimArray(BaseArray):
             raise operationerrfmt(space.w_TypeError,
               '%d above array size', item)
         return space.wrap(self.storage[item])
-    descr_getitem.unwrap_spec = ['self', ObjSpace, int]
 
+    @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
         if item < 0:
             raise operationerrfmt(space.w_TypeError,
@@ -146,7 +144,6 @@ class SingleDimArray(BaseArray):
             raise operationerrfmt(space.w_TypeError,
               '%d above array size', item)
         self.storage[item] = value
-    descr_setitem.unwrap_spec = ['self', ObjSpace, int, float]
 
     def force(self):
         return self

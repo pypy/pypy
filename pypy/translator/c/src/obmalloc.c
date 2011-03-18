@@ -1,6 +1,8 @@
 
 #ifdef WITH_PYMALLOC
 
+#include <string.h>
+
 /* An object allocator for Python.
 
    Here is an introduction to the layers of the Python memory architecture,

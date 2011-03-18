@@ -2,7 +2,8 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rlib.rarithmetic import ovfcheck, rstring_to_float, INFINITY, NAN
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rfloat import rstring_to_float, INFINITY, NAN
 from pypy.rlib.rbigint import rbigint, parse_digit_string
 from pypy.interpreter.error import OperationError
 import math

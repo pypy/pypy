@@ -486,7 +486,6 @@ _oplist = [
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
-                             # CALL_PURE(result, func, arg_1,..,arg_n)
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 

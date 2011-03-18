@@ -538,11 +538,18 @@ class __extend__(pyframe.PyFrame):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
 
+    @jit.unroll_safe
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs == 0:
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
+            frame = self
+            ec = self.space.getexecutioncontext()
+            while frame:
+                if frame.last_exception is not None:
+                    operror = ec._convert_exc(frame.last_exception)
+                    break
+                frame = frame.f_backref()
+            else:
                 raise OperationError(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
             # re-raise, no new traceback obj will be attached
@@ -754,6 +761,7 @@ class __extend__(pyframe.PyFrame):
     def cmp_is_not(self, w_1, w_2):
         return self.space.not_(self.space.is_(w_1, w_2))
 
+    @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
         if self.space.is_true(self.space.isinstance(w_2, self.space.w_tuple)):
             for w_t in self.space.fixedview(w_2):
@@ -1407,6 +1415,8 @@ app = gateway.applevel(r'''
     def print_item_to(x, stream):
         if file_softspace(stream, False):
            stream.write(" ")
+        if isinstance(x, unicode) and getattr(stream, "encoding", None) is not None:
+            x = x.encode(stream.encoding, getattr(stream, "errors", None) or "strict")
         stream.write(str(x))
 
         # add a softspace unless we just printed a string which ends in a '\t'
@@ -1513,10 +1523,7 @@ app = gateway.applevel(r'''
         if not isinstance(globals, dict):
             if not hasattr(globals, '__getitem__'):
                 raise TypeError("exec: arg 2 must be a dictionary or None")
-        try:
-            globals['__builtins__']
-        except KeyError:
-            globals['__builtins__'] = builtin
+        globals.setdefault('__builtins__', builtin)
         if not isinstance(locals, dict):
             if not hasattr(locals, '__getitem__'):
                 raise TypeError("exec: arg 3 must be a dictionary or None")

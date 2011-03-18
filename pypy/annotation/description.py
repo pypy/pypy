@@ -665,6 +665,21 @@ class ClassDesc(Desc):
         else:
             # call to multiple classes: specialization not supported
             classdefs = [desc.getuniqueclassdef() for desc in descs]
+            # If some of the classes have an __init__ and others not, then
+            # we complain, even though in theory it could work if all the
+            # __init__s take no argument.  But it's messy to implement, so
+            # let's just say it is not RPython and you have to add an empty
+            # __init__ to your base class.
+            has_init = False
+            for desc in descs:
+                s_init = desc.s_read_attribute('__init__')
+                has_init |= isinstance(s_init, SomePBC)
+            basedesc = ClassDesc.getcommonbase(descs)
+            s_init = basedesc.s_read_attribute('__init__')
+            parent_has_init = isinstance(s_init, SomePBC)
+            if has_init and not parent_has_init:
+                raise Exception("some subclasses among %r declare __init__(),"
+                                " but not the common parent class" % (descs,))
         # make a PBC of MethodDescs, one for the __init__ of each class
         initdescs = []
         for desc, classdef in zip(descs, classdefs):
@@ -686,6 +701,23 @@ class ClassDesc(Desc):
             MethodDesc.consider_call_site(bookkeeper, initfamily, initdescs,
                                           args, s_None)
     consider_call_site = staticmethod(consider_call_site)
+
+    def getallbases(self):
+        desc = self
+        while desc is not None:
+            yield desc
+            desc = desc.basedesc
+
+    def getcommonbase(descs):
+        commondesc = descs[0]
+        for desc in descs[1:]:
+            allbases = set(commondesc.getallbases())
+            while desc not in allbases:
+                assert desc is not None, "no common base for %r" % (descs,)
+                desc = desc.basedesc
+            commondesc = desc
+        return commondesc
+    getcommonbase = staticmethod(getcommonbase)
 
     def rowkey(self):
         return self

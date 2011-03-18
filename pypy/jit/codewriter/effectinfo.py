@@ -71,7 +71,7 @@ class EffectInfo(object):
     OS_LLONG_UGT                = 90
     OS_LLONG_UGE                = 91
     OS_LLONG_URSHIFT            = 92
-    OS_LLONG_FROM_TWO_INTS      = 93
+    OS_LLONG_FROM_UINT          = 93
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,
@@ -169,7 +169,7 @@ def consider_array(ARRAY):
 # ____________________________________________________________
 
 class VirtualizableAnalyzer(BoolGraphAnalyzer):
-    def analyze_simple_operation(self, op):
+    def analyze_simple_operation(self, op, graphinfo):
         return op.opname in ('jit_force_virtualizable',
                              'jit_force_virtual')
 

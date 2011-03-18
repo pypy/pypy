@@ -8,9 +8,10 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
-from pypy.rlib.rarithmetic import (LONG_BIT, INFINITY, copysign,
-    formatd, DTSF_ADD_DOT_0, DTSF_STR_PRECISION, NAN)
+from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
+from pypy.rlib.rfloat import (
+    isinf, isnan, INFINITY, NAN, copysign, formatd,
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat
@@ -25,7 +26,7 @@ class W_FloatObject(W_Object):
        it is assumed that the constructor takes a real Python float as
        an argument"""
     from pypy.objspace.std.floattype import float_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['floatval']
 
     def __init__(w_self, floatval):
         w_self.floatval = floatval
@@ -295,7 +296,7 @@ def _hash_float(space, v):
                     return -271828
                 else:
                     return 314159
-            return space.int_w(hash__Long(space, w_lval))
+            return space.int_w(space.hash(w_lval))
 
     # The fractional part is non-zero, so we don't have to worry about
     # making this match the hash of some other type.

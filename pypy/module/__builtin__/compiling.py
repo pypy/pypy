@@ -3,11 +3,11 @@ Implementation of the interpreter-level compile/eval builtins.
 """
 
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
 
+@unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
     """Compile the source string (a Python module, statement or expression)
 into a code object that can be executed by the exec statement or eval().
@@ -61,8 +61,6 @@ in addition to any features explicitly specified.
     else:
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
     return space.wrap(code)
-#
-compile.unwrap_spec = [ObjSpace,W_Root,str,str,int,int]
 
 
 def eval(space, w_code, w_globals=None, w_locals=None):

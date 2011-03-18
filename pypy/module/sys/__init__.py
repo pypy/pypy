@@ -63,7 +63,7 @@ class Module(MixedModule):
         'version'               : 'version.get_version(space)',
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
         'subversion'            : 'version.get_subversion_info(space)',
-        '_mercurial'            : 'version.wrap_mercurial_info(space)',
+        '_mercurial'            : 'version.get_repo_info(space)',
         'hexversion'            : 'version.get_hexversion(space)',
 
         'displayhook'           : 'hook.displayhook', 
@@ -79,6 +79,7 @@ class Module(MixedModule):
 
         'float_info'            : 'system.get_float_info(space)',
         'long_info'             : 'system.get_long_info(space)',
+        'float_repr_style'      : 'system.get_float_repr_style(space)'
         }
 
     if sys.platform == 'win32':

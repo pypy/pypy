@@ -1,7 +1,7 @@
 """ MiniMark GC.
 
 Environment variables can be used to fine-tune the following parameters:
-    
+
  PYPY_GC_NURSERY        The nursery size.  Defaults to half the size of
                         the L2 cache.  Try values like '1.2MB'.  Small values
                         (like 1 or 1KB) are useful for debugging.
@@ -108,11 +108,12 @@ GCFLAG_FINALIZATION_ORDERING = first_gcflag << 4
 GCFLAG_HAS_CARDS    = first_gcflag << 5
 GCFLAG_CARDS_SET    = first_gcflag << 6     # <- at least one card bit is set
 
+TID_MASK            = (first_gcflag << 7) - 1
+
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                               ('forw', llmemory.Address))
 FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
-
 
 # ____________________________________________________________
 
@@ -820,9 +821,13 @@ class MiniMarkGC(MovingGCBase):
         that can never be set on a young object -- except if tid == -42.
         """
         assert self.is_in_nursery(obj)
-        result = (self.header(obj).tid & GCFLAG_FINALIZATION_ORDERING != 0)
+        tid = self.header(obj).tid
+        result = (tid & GCFLAG_FINALIZATION_ORDERING != 0)
         if result:
-            ll_assert(self.header(obj).tid == -42, "bogus header for young obj")
+            ll_assert(tid == -42, "bogus header for young obj")
+        else:
+            ll_assert(bool(tid), "bogus header (1)")
+            ll_assert(tid & ~TID_MASK == 0, "bogus header (2)")
         return result
 
     def get_forwarding_address(self, obj):

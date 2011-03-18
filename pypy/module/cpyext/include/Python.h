@@ -118,6 +118,7 @@ typedef long Py_ssize_t;
 #include "datetime.h"
 #include "pystate.h"
 #include "fileobject.h"
+#include "pysignals.h"
 
 // XXX This shouldn't be included here
 #include "structmember.h"

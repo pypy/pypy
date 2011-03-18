@@ -30,7 +30,7 @@ rsyncdirs = ['.', '../pypy/']
 def pytest_addoption(parser):
     group = parser.getgroup("complicance testing options") 
     group.addoption('-T', '--timeout', action="store", type="string", 
-       default="100", dest="timeout", 
+       default="1000", dest="timeout", 
        help="fail a test module after the given timeout. "
             "specify in seconds or 'NUMmp' aka Mega-Pystones")
     group.addoption('--pypy', action="store", type="string",
@@ -39,11 +39,8 @@ def pytest_addoption(parser):
     group.addoption('--filter', action="store", type="string", default=None,
                     dest="unittest_filter",  help="Similar to -k, XXX")
 
-option = py.test.config.option 
-
-def gettimeout(): 
+def gettimeout(timeout): 
     from test import pystone
-    timeout = option.timeout.lower()
     if timeout.endswith('mp'): 
         megapystone = float(timeout[:-2])
         t, stone = pystone.Proc0(10000)
@@ -195,7 +192,7 @@ testmap = [
     RegrTest('test_dbm.py'),
     RegrTest('test_decimal.py'),
     RegrTest('test_decorators.py', core=True),
-    RegrTest('test_deque.py', core=True),
+    RegrTest('test_deque.py', core=True, usemodules='_collections'),
     RegrTest('test_descr.py', core=True, usemodules='_weakref'),
     RegrTest('test_descrtut.py', core=True),
     RegrTest('test_dict.py', core=True),
@@ -340,7 +337,7 @@ testmap = [
     RegrTest('test_peepholer.py'),
     RegrTest('test_pep247.py'),
     RegrTest('test_pep263.py'),
-    RegrTest('test_pep277.py', skip=only_win32),
+    RegrTest('test_pep277.py'),
     RegrTest('test_pep292.py'),
     RegrTest('test_pickle.py', core=True),
     RegrTest('test_pickletools.py', core=False),
@@ -498,8 +495,8 @@ testmap = [
     RegrTest('test_coding.py'),
     RegrTest('test_complex_args.py'),
     RegrTest('test_contextlib.py', usemodules="thread"),
-    RegrTest('test_ctypes.py', usemodules="_rawffi"),
-    RegrTest('test_defaultdict.py'),
+    RegrTest('test_ctypes.py', usemodules="_rawffi thread"),
+    RegrTest('test_defaultdict.py', usemodules='_collections'),
     RegrTest('test_email_renamed.py'),
     RegrTest('test_exception_variations.py'),
     RegrTest('test_float.py'),
@@ -519,8 +516,8 @@ testmap = [
     RegrTest('test_with.py'),
     RegrTest('test_wsgiref.py'),
     RegrTest('test_xdrlib.py'),
-    RegrTest('test_xml_etree.py', skip="unsupported ext module"),
-    RegrTest('test_xml_etree_c.py', skip="unsupported ext module"),
+    RegrTest('test_xml_etree.py'),
+    RegrTest('test_xml_etree_c.py'),
     RegrTest('test_zipfile64.py'),
 ]
 
@@ -536,43 +533,22 @@ def check_testmap_complete():
     assert not missing, "non-listed tests:\n%s" % ('\n'.join(missing),)
 check_testmap_complete()
 
-class RegrDirectory(py.test.collect.Directory): 
-    """ The central hub for gathering CPython's compliance tests
-        Basically we work off the above 'testmap' 
-        which describes for all test modules their specific 
-        type.  XXX If you find errors in the classification 
-        please correct them! 
-    """ 
-    def get(self, name, cache={}): 
-        if not cache: 
-            for x in testmap: 
-                cache[x.basename] = x
-        return cache.get(name, None)
-        
-    def collect(self): 
-        we_are_in_modified = self.fspath == modregrtestdir
-        l = []
-        for x in self.fspath.listdir():
-            name = x.basename
-            regrtest = self.get(name)
-            if regrtest is not None:
-                if bool(we_are_in_modified) ^ regrtest.ismodified():
-                    continue
-                #if option.extracttests:  
-                #    l.append(InterceptedRunModule(name, self, regrtest))
-                #else:
-                l.append(RunFileExternal(name, parent=self, regrtest=regrtest))
-        return l 
+def pytest_configure(config):
+    config._basename2spec = cache = {}
+    for x in testmap: 
+        cache[x.basename] = x
 
-def pytest_collect_directory(parent, path):
-    # use RegrDirectory collector for both modified and unmodified tests
-    if path in (modregrtestdir, regrtestdir):
-        return RegrDirectory(path, parent)
-
-def pytest_ignore_collect(path):
-    # ignore all files - only RegrDirectory generates tests in lib-python
-    if path.check(file=1):
-        return True
+def pytest_collect_file(path, parent, __multicall__):
+    # don't collect files except through this hook
+    # implemented by clearing the list of to-be-called
+    # remaining hook methods
+    __multicall__.methods[:] = []
+    regrtest = parent.config._basename2spec.get(path.basename, None)
+    if regrtest is None:
+        return
+    if path.dirpath() not in (modregrtestdir, regrtestdir):
+        return
+    return RunFileExternal(path.basename, parent=parent, regrtest=regrtest)
 
 class RunFileExternal(py.test.collect.File):
     def __init__(self, name, parent, regrtest): 
@@ -589,7 +565,7 @@ class RunFileExternal(py.test.collect.File):
 
 #
 # testmethod: 
-# invoking in a seprate process: py.py TESTFILE
+# invoking in a separate process: py.py TESTFILE
 #
 import os
 import time
@@ -615,8 +591,8 @@ class ReallyRunFileExternal(py.test.collect.Item):
                                    'run-script', 'regrverbose.py')
         
         regrrun = str(regr_script)
-        
-        TIMEOUT = gettimeout()
+        option = self.config.option
+        TIMEOUT = gettimeout(option.timeout.lower())
         if option.pypy:
             execpath = py.path.local(option.pypy)
             if not execpath.check():
@@ -696,6 +672,8 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 cmd += ' --pdb'
             if self.config.option.capture == 'no':
                 status = os.system(cmd)
+                stdout.write('')
+                stderr.write('')
             else:
                 status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
             if os.WIFEXITED(status):
@@ -705,8 +683,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
         return status, stdout.read(mode='rU'), stderr.read(mode='rU')
 
     def getresult(self, regrtest): 
-        cmd = self.getinvocation(regrtest) 
-        exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd) 
+        cmd = self.getinvocation(regrtest)
+        tempdir = py.test.ensuretemp(self.fspath.basename)
+        oldcwd = tempdir.chdir()
+        exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd)
+        oldcwd.chdir()
         skipped = False
         timedout = test_stderr.rfind(26*"=" + "timedout" + 26*"=") != -1 
         if not timedout: 
@@ -714,8 +695,10 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
         outcome = 'OK'
-        if not exit_status: 
-            if 'FAIL' in test_stdout or re.search('[^:]ERROR', test_stderr):
+        if not exit_status:
+            # match "FAIL" but not e.g. "FAILURE", which is in the output of a
+            # test in test_zipimport_support.py
+            if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
                 outcome = 'FAIL'
                 exit_status = 2  
         elif timedout: 

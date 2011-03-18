@@ -4,10 +4,11 @@ from pypy.rlib.rarithmetic import r_longlong, intmask
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link
 from pypy.translator.unsimplify import varoftype
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.codewriter.jtransform import Transformer, NotSupported
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.test.test_jtransform import const
+from pypy.jit.codewriter import longlong
 
 
 class FakeRTyper:
@@ -26,6 +27,12 @@ class FakeCPU:
     supports_longlong = True
     def __init__(self):
         self.rtyper = FakeRTyper()
+
+
+def test_functions():
+    xll = longlong.getfloatstorage(3.5)
+    assert longlong.getrealfloat(xll) == 3.5
+    assert isinstance(longlong.gethash(xll), int)
 
 
 class TestLongLong:
@@ -57,42 +64,6 @@ class TestLongLong:
         assert list(op1.args[4]) == [v for v in vlist
                                      if is_llf(v.concretetype)]
         assert op1.result == v_result
-
-    def test_remove_longlong_constant(self):
-        c1 = Constant(r_longlong(-123), lltype.SignedLongLong)
-        c2 = Constant(r_longlong(-124), lltype.SignedLongLong)
-        c3 = Constant(r_longlong(0x987654321), lltype.SignedLongLong)
-        v1 = varoftype(lltype.SignedLongLong)
-        v2 = varoftype(lltype.Bool)
-        block = Block([v1])
-        block.operations = [SpaceOperation('foo', [c1, v1, c3], v2)]
-        block.exitswitch = v2
-        block.closeblock(Link([c2], block, exitcase=False),
-                         Link([c1], block, exitcase=True))
-        tr = Transformer()
-        tr.remove_longlong_constants(block)
-        assert len(block.operations) == 4
-        assert block.operations[0].opname == 'cast_int_to_longlong'
-        assert block.operations[0].args[0].value == -123
-        assert block.operations[0].args[0].concretetype == lltype.Signed
-        v3 = block.operations[0].result
-        assert block.operations[1].opname == 'two_ints_to_longlong'
-        assert block.operations[1].args[0].value == intmask(0x87654321)
-        assert block.operations[1].args[0].concretetype == lltype.Signed
-        assert block.operations[1].args[1].value == 0x9
-        assert block.operations[1].args[1].concretetype == lltype.Signed
-        v4 = block.operations[1].result
-        assert block.operations[2].opname == 'foo'
-        assert block.operations[2].args[0] is v3
-        assert block.operations[2].args[1] is v1
-        assert block.operations[2].args[2] is v4
-        assert block.operations[2].result is v2
-        assert block.operations[3].opname == 'cast_int_to_longlong'
-        assert block.operations[3].args[0].value == -124
-        assert block.operations[3].args[0].concretetype == lltype.Signed
-        v5 = block.operations[3].result
-        assert block.exits[0].args[0] is v5
-        assert block.exits[1].args[0] is v3
 
     def test_is_true(self):
         for opname, T in [('llong_is_true', lltype.SignedLongLong),
@@ -212,9 +183,30 @@ class TestLongLong:
     def test_casts(self):
         self.do_check('cast_int_to_longlong', EffectInfo.OS_LLONG_FROM_INT,
                       [lltype.Signed], lltype.SignedLongLong)
+        self.do_check('cast_uint_to_longlong', EffectInfo.OS_LLONG_FROM_UINT,
+                      [lltype.Unsigned], lltype.SignedLongLong)
         self.do_check('truncate_longlong_to_int', EffectInfo.OS_LLONG_TO_INT,
                       [lltype.SignedLongLong], lltype.Signed)
         self.do_check('cast_float_to_longlong', EffectInfo.OS_LLONG_FROM_FLOAT,
                       [lltype.Float], lltype.SignedLongLong)
         self.do_check('cast_longlong_to_float', EffectInfo.OS_LLONG_TO_FLOAT,
                       [lltype.SignedLongLong], lltype.Float)
+        for T1 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+            for T2 in [lltype.Signed, lltype.Unsigned]:
+                self.do_check('cast_primitive', EffectInfo.OS_LLONG_TO_INT,
+                              [T1], T2)
+
+    def test_constants(self):
+        for TYPE in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+            v_x = varoftype(TYPE)
+            vlist = [v_x, const(rffi.cast(TYPE, 7))]
+            v_result = varoftype(TYPE)
+            op = SpaceOperation('llong_add', vlist, v_result)
+            tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+            op1 = tr.rewrite_operation(op)
+            #
+            assert op1.opname == 'residual_call_irf_f'
+            assert list(op1.args[2]) == []
+            assert list(op1.args[3]) == []
+            assert list(op1.args[4]) == vlist
+            assert op1.result == v_result

@@ -30,6 +30,8 @@ class AbstractVirtualValue(optimizer.OptValue):
         return self.box
 
     def make_virtual_info(self, modifier, fieldnums):
+        if fieldnums is None:
+            return self._make_virtual(modifier)
         vinfo = self._cached_vinfo
         if vinfo is not None and vinfo.equals(fieldnums):
             return vinfo
@@ -95,11 +97,18 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
+        if self._fields is None:
+            nfields = 0
+        else:
+            nfields = len(self._fields)
         if (_cached_sorted_fields is not None and
-            len(self._fields) == len(_cached_sorted_fields)):
+            nfields == len(_cached_sorted_fields)):
             lst = self._cached_sorted_fields
         else:
-            lst = self._fields.keys()
+            if self._fields is None:
+                lst = []
+            else:
+                lst = self._fields.keys()
             sort_descrs(lst)
             cache = get_fielddescrlist_cache(self.optimizer.cpu)
             result = cache.get(lst, None)

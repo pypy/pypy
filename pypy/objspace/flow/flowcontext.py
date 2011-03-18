@@ -148,14 +148,14 @@ class BlockRecorder(Recorder):
 
 
 class Replayer(Recorder):
-    
+
     def __init__(self, block, booloutcome, nextreplayer):
         self.crnt_block = block
         self.listtoreplay = block.operations
         self.booloutcome = booloutcome
         self.nextreplayer = nextreplayer
         self.index = 0
-        
+
     def append(self, operation):
         operation.result = self.listtoreplay[self.index].result
         assert operation == self.listtoreplay[self.index], (
@@ -188,9 +188,9 @@ class FlowExecutionContext(ExecutionContext):
                  name=None):
         ExecutionContext.__init__(self, space)
         self.code = code
-        
+
         self.w_globals = w_globals = space.wrap(globals)
-        
+
         self.crnt_offset = -1
         self.crnt_frame = None
         if closure is None:
@@ -373,8 +373,7 @@ class FlowExecutionContext(ExecutionContext):
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
 
-    def sys_exc_info(self):
-        operr = ExecutionContext.sys_exc_info(self)
+    def _convert_exc(self, operr):
         if isinstance(operr, operation.ImplicitOperationError):
             # re-raising an implicit operation makes it an explicit one
             w_value = operr.get_w_value(self.space)

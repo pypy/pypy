@@ -1,6 +1,8 @@
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.basestringtype import basestring_typedef
+from pypy.objspace.std.register_all import register_all
+
 
 from sys import maxint
 from pypy.rlib.objectmodel import specialize
@@ -270,6 +272,21 @@ str_encode     = SMM('encode', 3, defaults=(None, None),
                          ' well as any other name registered'
                          ' with\ncodecs.register_error that is able to handle'
                          ' UnicodeEncodeErrors.')
+
+str_formatter_parser           = SMM('_formatter_parser', 1)
+str_formatter_field_name_split = SMM('_formatter_field_name_split', 1)
+
+def str_formatter_parser__ANY(space, w_str):
+    from pypy.objspace.std.newformat import str_template_formatter
+    tformat = str_template_formatter(space, space.str_w(w_str))
+    return tformat.formatter_parser()
+
+def str_formatter_field_name_split__ANY(space, w_str):
+    from pypy.objspace.std.newformat import str_template_formatter
+    tformat = str_template_formatter(space, space.str_w(w_str))
+    return tformat.formatter_field_name_split()
+
+register_all(vars(), globals())
 
 # ____________________________________________________________
 

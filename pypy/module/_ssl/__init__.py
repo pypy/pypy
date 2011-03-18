@@ -1,13 +1,15 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
+    """Implementation module for SSL socket operations.
+    See the socket module for documentation."""
+
     interpleveldefs = {
         'sslwrap': 'interp_ssl.sslwrap',
+        'SSLError': 'interp_ssl.get_error(space)',
     }
 
     appleveldefs = {
-        '__doc__': 'app_ssl.__doc__',
-        'SSLError': 'app_ssl.SSLError',
     }
 
     @classmethod

@@ -48,6 +48,14 @@ class TestNanos:
         assert p2.abspath(base) == base
         assert p2.abspath('x') == os.path.join(os.getcwd(), 'x')
 
+    def test_abspath_uses_normpath(self):
+        p1 = os.path
+        p2 = self.getnanos().path
+        base = str(udir)
+        assert p2.abspath(p1.join(base, '.')) == base
+        assert p2.abspath(p1.join(base, '.', '.', '.')) == base
+        assert p2.abspath(p1.join(base, 'foo', '..')) == base
+
     def test_isfile(self):
         p2 = self.getnanos().path
         udir.join('test_isfile').write('\n')

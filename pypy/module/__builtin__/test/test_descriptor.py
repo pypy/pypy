@@ -328,6 +328,19 @@ class AppTestBuiltinApp:
         X().x
         assert l
 
+        class P(property):
+            def __init__(self, awesome):
+                property.__init__(self, x)
+                self.awesome = awesome
+
+        l[:] = []
+        class X(object):
+            x = P(awesome=True)
+
+        X().x
+        assert l
+        assert X.x.awesome
+
     def test_property_decorator(self):
         class X(object):
             @property

@@ -11,8 +11,8 @@ from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.backend.x86.jump import remap_frame_layout
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.backend.x86.jump import remap_frame_layout_mixed
+from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
@@ -71,13 +71,16 @@ class X86XMMRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
-        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        x = c.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
         return ConstFloatLoc(adr)
 
     def convert_to_imm_16bytes_align(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
-        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
-        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[1] = 0.0
+        x = c.getfloatstorage()
+        y = longlong.ZEROF
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
     def after_call(self, v):
@@ -107,6 +110,12 @@ class X86FrameManager(FrameManager):
             return StackLoc(i, get_ebp_ofs(i+1), 2, box_type)
         else:
             return StackLoc(i, get_ebp_ofs(i), 1, box_type)
+    @staticmethod
+    def frame_size(box_type):
+        if IS_X86_32 and box_type == FLOAT:
+            return 2
+        else:
+            return 1
 
 class RegAlloc(object):
 
@@ -221,7 +230,7 @@ class RegAlloc(object):
                              selected_reg=None, need_lower_byte=False):
         if var.type == FLOAT:
             if isinstance(var, ConstFloat):
-                return FloatImmedLoc(var.getfloat())
+                return FloatImmedLoc(var.getfloatstorage())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
                                                  selected_reg, need_lower_byte)
         else:
@@ -680,11 +689,10 @@ class RegAlloc(object):
 
     def _maybe_consider_llong_lt(self, op):
         # XXX just a special case for now
-        from pypy.rlib.longlong2float import longlong2float
         box = op.getarg(2)
         if not isinstance(box, ConstFloat):
             return False
-        if not (box.value == longlong2float(r_longlong(0))):
+        if box.getlonglong() != 0:
             return False
         # "x < 0"
         box = op.getarg(1)
@@ -703,8 +711,7 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(op.getarg(1))
 
     def _loc_of_const_longlong(self, value64):
-        from pypy.rlib.longlong2float import longlong2float
-        c = ConstFloat(longlong2float(value64))
+        c = ConstFloat(value64)
         return self.xrm.convert_to_imm(c)
 
     def _consider_llong_from_int(self, op):
@@ -715,47 +722,18 @@ class RegAlloc(object):
             loc1 = self._loc_of_const_longlong(r_longlong(box.value))
             loc2 = None    # unused
         else:
-            # requires the argument to be in eax, and trash edx.
-            loc1 = self.rm.make_sure_var_in_reg(box, selected_reg=eax)
-            tmpvar = TempBox()
-            self.rm.force_allocate_reg(tmpvar, [box], selected_reg=edx)
-            self.rm.possibly_free_var(tmpvar)
+            loc1 = self.rm.make_sure_var_in_reg(box)
             tmpxvar = TempBox()
             loc2 = self.xrm.force_allocate_reg(tmpxvar, [op.result])
             self.xrm.possibly_free_var(tmpxvar)
         self.PerformLLong(op, [loc1, loc2], loc0)
         self.rm.possibly_free_var(box)
 
-    def _consider_llong_from_two_ints(self, op):
+    def _consider_llong_from_uint(self, op):
         assert IS_X86_32
-        box1 = op.getarg(1)
-        box2 = op.getarg(2)
         loc0 = self.xrm.force_allocate_reg(op.result)
-        #
-        if isinstance(box1, ConstInt) and isinstance(box2, ConstInt):
-            # all-constant arguments: load the result value in a single step
-            value64 = r_longlong(box2.value) << 32
-            value64 |= r_longlong(r_uint(box1.value))
-            loc1 = self._loc_of_const_longlong(value64)
-            loc2 = None    # unused
-            loc3 = None    # unused
-        #
-        else:
-            tmpxvar = TempBox()
-            loc3 = self.xrm.force_allocate_reg(tmpxvar, [op.result])
-            self.xrm.possibly_free_var(tmpxvar)
-            #
-            if isinstance(box1, ConstInt):
-                loc1 = self._loc_of_const_longlong(r_longlong(box1.value))
-            else:
-                loc1 = self.rm.make_sure_var_in_reg(box1)
-            #
-            if isinstance(box2, ConstInt):
-                loc2 = self._loc_of_const_longlong(r_longlong(box2.value))
-            else:
-                loc2 = self.rm.make_sure_var_in_reg(box2, [box1])
-        #
-        self.PerformLLong(op, [loc1, loc2, loc3], loc0)
+        loc1 = self.rm.make_sure_var_in_reg(op.getarg(1))
+        self.PerformLLong(op, [loc1], loc0)
         self.rm.possibly_free_vars_for_op(op)
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
@@ -805,8 +783,8 @@ class RegAlloc(object):
                     return self._consider_llong_to_int(op)
                 if oopspecindex == EffectInfo.OS_LLONG_FROM_INT:
                     return self._consider_llong_from_int(op)
-                if oopspecindex == EffectInfo.OS_LLONG_FROM_TWO_INTS:
-                    return self._consider_llong_from_two_ints(op)
+                if oopspecindex == EffectInfo.OS_LLONG_FROM_UINT:
+                    return self._consider_llong_from_uint(op)
                 if (oopspecindex == EffectInfo.OS_LLONG_EQ or
                     oopspecindex == EffectInfo.OS_LLONG_NE):
                     return self._consider_llong_eq_ne_xx(op)
@@ -1227,16 +1205,17 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
-        dst_locations = [loc for loc in nonfloatlocs if loc is not None]
-        remap_frame_layout(assembler, src_locations, dst_locations, tmploc)
+        dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
         # Part about floats
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
                          if op.getarg(i).type == FLOAT]
-        dst_locations = [loc for loc in floatlocs if loc is not None]
-        remap_frame_layout(assembler, src_locations, dst_locations, xmmtmp)
+        dst_locations2 = [loc for loc in floatlocs if loc is not None]
+        remap_frame_layout_mixed(assembler,
+                                 src_locations1, dst_locations1, tmploc,
+                                 src_locations2, dst_locations2, xmmtmp)
         self.rm.possibly_free_var(box)
         self.xrm.possibly_free_var(box1)
         self.possibly_free_vars_for_op(op)

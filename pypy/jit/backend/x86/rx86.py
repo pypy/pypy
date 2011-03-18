@@ -455,12 +455,12 @@ class AbstractX86CodeBuilder(object):
     CMP_mi8 = insn(rex_w, '\x83', orbyte(7<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     CMP_mi32 = insn(rex_w, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
     CMP_mi = select_8_or_32_bit_immed(CMP_mi8, CMP_mi32)
-
     CMP_mr = insn(rex_w, '\x39', register(2, 8), mem_reg_plus_const(1))
 
     CMP_ji8 = insn(rex_w, '\x83', '\x3D', immediate(1), immediate(2, 'b'))
     CMP_ji32 = insn(rex_w, '\x81', '\x3D', immediate(1), immediate(2))
     CMP_ji = select_8_or_32_bit_immed(CMP_ji8, CMP_ji32)
+    CMP_jr = insn(rex_w, '\x39', register(2, 8), '\x05', immediate(1))
 
     CMP32_mi = insn(rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
 
@@ -516,8 +516,8 @@ class AbstractX86CodeBuilder(object):
 
     # XXX: Only here for testing purposes..."as" happens the encode the
     # registers in the opposite order that we would otherwise do in a
-    # register-register exchange
-    XCHG_rr = insn(rex_w, '\x87', register(1), register(2,8), '\xC0')
+    # register-register exchange.
+    #XCHG_rr = insn(rex_w, '\x87', register(1), register(2,8), '\xC0')
 
     JMP_l = insn('\xE9', relative(1))
     JMP_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
@@ -551,7 +551,8 @@ class AbstractX86CodeBuilder(object):
 
     MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
-    PMOVMSKB_rx = xmminsn('\x66', rex_nw, '\x0F\xD7', register(1, 8), register(2), '\xC0')
+
+    PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
 
     # ------------------------------------------------------------
 
@@ -579,6 +580,8 @@ def invert_condition(cond_num):
 
 class X86_32_CodeBuilder(AbstractX86CodeBuilder):
     WORD = 4
+
+    PMOVMSKB_rx = xmminsn('\x66', rex_nw, '\x0F\xD7', register(1, 8), register(2), '\xC0')
 
 class X86_64_CodeBuilder(AbstractX86CodeBuilder):
     WORD = 8
@@ -661,7 +664,7 @@ define_modrm_modes('MOVAPD_x*', ['\x66', rex_nw, '\x0F\x28', register(1,8)],
 define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)],
                    regtype='XMM')
 
-define_modrm_modes('XCHG_r*', [rex_w, '\x87', register(1, 8)])
+#define_modrm_modes('XCHG_r*', [rex_w, '\x87', register(1, 8)])
 
 define_modrm_modes('ADDSD_x*', ['\xF2', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
 define_modrm_modes('ADDPD_x*', ['\x66', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')

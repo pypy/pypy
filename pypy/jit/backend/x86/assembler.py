@@ -38,6 +38,7 @@ from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.metainterp.history import ConstInt, BoxInt
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.codewriter import longlong
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -71,7 +72,8 @@ class Assembler386(object):
         self.malloc_unicode_func_addr = 0
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
-        self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
+        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
+                                             failargs_limit)
         self.fail_ebp = 0
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
@@ -696,11 +698,9 @@ class Assembler386(object):
             else:
                 target = tmp
             if inputargs[i].type == REF:
-                # This uses XCHG to put zeroes in fail_boxes_ptr after
-                # reading them
-                self.mc.XOR(target, target)
                 adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                self.mc.XCHG(target, heap(adr))
+                self.mc.MOV(target, heap(adr))
+                self.mc.MOV(heap(adr), imm0)
             else:
                 adr = self.fail_boxes_int.get_addr_for_num(i)
                 self.mc.MOV(target, heap(adr))
@@ -1157,37 +1157,24 @@ class Assembler386(object):
             not_implemented("llong_to_int: %s" % (loc,))
 
     def genop_llong_from_int(self, op, arglocs, resloc):
-        loc = arglocs[0]
-        if isinstance(loc, ConstFloatLoc):
-            self.mc.MOVSD(resloc, loc)
-        else:
-            assert loc is eax
-            assert isinstance(resloc, RegLoc)
-            loc2 = arglocs[1]
-            assert isinstance(loc2, RegLoc)
-            self.mc.CDQ()       # eax -> eax:edx
-            self.mc.MOVD_xr(resloc.value, eax.value)
-            self.mc.MOVD_xr(loc2.value, edx.value)
-            self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
-
-    def genop_llong_from_two_ints(self, op, arglocs, resloc):
-        assert isinstance(resloc, RegLoc)
-        loc1, loc2, loc3 = arglocs
-        #
+        loc1, loc2 = arglocs
         if isinstance(loc1, ConstFloatLoc):
+            assert loc2 is None
             self.mc.MOVSD(resloc, loc1)
         else:
             assert isinstance(loc1, RegLoc)
+            assert isinstance(loc2, RegLoc)
+            assert isinstance(resloc, RegLoc)
+            self.mc.MOVD_xr(loc2.value, loc1.value)
+            self.mc.PSRAD_xi(loc2.value, 31)    # -> 0 or -1
             self.mc.MOVD_xr(resloc.value, loc1.value)
-        #
-        if loc2 is not None:
-            assert isinstance(loc3, RegLoc)
-            if isinstance(loc2, ConstFloatLoc):
-                self.mc.MOVSD(loc3, loc2)
-            else:
-                assert isinstance(loc2, RegLoc)
-                self.mc.MOVD_xr(loc3.value, loc2.value)
-            self.mc.PUNPCKLDQ_xx(resloc.value, loc3.value)
+            self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
+
+    def genop_llong_from_uint(self, op, arglocs, resloc):
+        loc1, = arglocs
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(loc1, RegLoc)
+        self.mc.MOVD_xr(resloc.value, loc1.value)
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
@@ -1833,11 +1820,13 @@ class Assembler386(object):
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
             # a float or a long long return
-            from pypy.jit.backend.llsupport.descr import LongLongCallDescr
-            if isinstance(op.getdescr(), LongLongCallDescr):
+            if op.getdescr().get_return_type() == 'L':
                 self.mc.MOV_br(resloc.value, eax.value)      # long long
                 self.mc.MOV_br(resloc.value + 4, edx.value)
-                # XXX should ideally not move the result on the stack
+                # XXX should ideally not move the result on the stack,
+                #     but it's a mess to load eax/edx into a xmm register
+                #     and this way is simpler also because the result loc
+                #     can just be always a stack location
             else:
                 self.mc.FSTP_b(resloc.value)   # float return
         elif size == WORD:
@@ -1936,8 +1925,8 @@ class Assembler386(object):
                     self.mc.MOV(eax, heap(adr))
                 elif kind == REF:
                     adr = self.fail_boxes_ptr.get_addr_for_num(0)
-                    self.mc.XOR_rr(eax.value, eax.value)
-                    self.mc.XCHG(eax, heap(adr))
+                    self.mc.MOV(eax, heap(adr))
+                    self.mc.MOV(heap(adr), imm0)
                 else:
                     raise AssertionError(kind)
         #

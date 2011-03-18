@@ -2,7 +2,7 @@
 Implementation of interpreter-level 'sys' routines.
 """
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
 from pypy.rlib.runicode import MAXUNICODE
 from pypy.rlib import jit
 import sys
@@ -64,11 +64,11 @@ def getrecursionlimit(space):
     """
     return space.wrap(space.sys.recursionlimit)
 
+@unwrap_spec(interval=int)
 def setcheckinterval(space, interval):
     """Tell the Python interpreter to check for asynchronous events every
     n instructions.  This also affects how often thread switches occur."""
     space.actionflag.setcheckinterval(interval)
-setcheckinterval.unwrap_spec = [ObjSpace, int]
 
 def getcheckinterval(space):
     """Return the current check interval; see setcheckinterval()."""

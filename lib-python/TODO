@@ -11,19 +11,29 @@ Probably easy tasks
 - (unicode|bytearray).(index|find) should accept None as indices (see
   test_unicode.py)
 
-- Fix fcntl.fcntl(fd, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT) on 32bit platform.
-
-- in test_os.py, fix posix.setregid(-1, -1), posix.setreuid(-1, -1).  This
-  proably requires to use the git_t typedef instead of rffi.INT.
-
-- missing posix.(confstr|pathconf|fpathconf)(_names)? (see 
+- missing posix.confstr and posix.confstr_names
 
 - remove code duplication: bit_length() and _count_bits() in rlib/rbigint.py,
   objspace/std/longobject.py and objspace/std/longtype.py.
 
-- Add missing methods to bytearray (see test_bytes.py).  Also ideally refactor
-  stringobject.py and unicodeobject.py to allow more code reuse between these
-  (now) three types.
+- missing module pyexpat.errors
+
+- support for PYTHONIOENCODING, this needs a way to update file.encoding
+
+- implement format__Complex_ANY() in pypy/objspace/std/complexobject.py
+
+- Code like this does not work, for two reasons::
+
+  \
+  from __future__ import (with_statement,
+                          unicode_literals)
+  assert type("") is unicode
+
+- Code like::
+
+  assert(x is not None, "error message")
+
+  should emit a SyntaxWarning when compiled (the tuple is always true)
 
 
 Medium tasks
@@ -32,22 +42,17 @@ Medium tasks
 - Ast objects should be picklable, see in pypy/module/_ast/test/test_ast.py:
   test_pickle()
 
-- add 'unicode' in ObjSpace.MethodTable + probably a default implementation that
-  falls back to space.str(). (WHY?)
-
 - socket module has a couple of changes (including AF_TIPC packet range)
 
-- module/unicodedata/generate_unicodedb.py should parse LineBreaks.txt
-  see http://svn.python.org/view?view=rev&revision=79494
+- (test_lib2to3) When a "for" loop runs a generator function, if the loop is
+  exited before the end, the "finally" clause of the generator is not called
+  until the next gc collection.  In our case, in lib2to3/pytree.py,
+  WildcardPattern.match_seq() does not exhaust the generate_matches() generator,
+  and stderr is not restored.
 
 
 Longer tasks
 ------------
-
-- many features are missing from the _ssl module
-
-- "Shorter float representation" (see pypy/translator/c/test/test_dtoa.py) to
-  format/parse floats.  Enable this with a translation option.
 
 - Fix usage of __cmp__ in subclasses::
 
@@ -63,10 +68,6 @@ Longer tasks
       class B(object): __slots__ = ('b', 'a')
       a = A()
       a.__class__ = B
-
-- Remove "unbound builtin methods": some code in pprint.py, _threading_local.py
-  relies on comparisons like "str.__init__ is object.__init__", or
-  "type(x).__repr__ is dict.__repr__"
 
 - Show a ResourceWarning when a file/socket is not explicitely closed, like
   CPython did for 3.2: http://svn.python.org/view?view=rev&revision=85920
@@ -90,4 +91,20 @@ as the various skips added to the test suite.
 
   * In test_codecs, commented out various items in `all_unicode_encodings`.
 
+- Error messages about ill-formed calls (like "argument after ** must be a
+  mapping") don't always show the function name.  That's hard to fix for
+  the case of errors raised when the Argument object is created (as opposed
+  to when parsing for a given target function, which occurs later).
 
+  * Some "..." were added to doctests in test_extcall.py
+
+- CPython's builtin methods are both functions and unbound methods (for
+  example, `str.upper is dict(str.__dict__)['upper']`). This is not the case
+  in pypy, and assertions like `object.__str__ is object.__str__` are False
+  with pypy.  Use the `==` operator instead.
+
+  * pprint.py, _threading_local.py
+
+- When importing a nested module fails, the ImportError message mentions the
+  name of the package up to the component that could not be imported (CPython
+  prefers to display the names starting with the failing part).

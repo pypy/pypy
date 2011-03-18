@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments, Signature
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.error import OperationError
@@ -17,6 +17,8 @@ class W_SessionPool(Wrappable):
     def __init__(self):
         self.environment = None
 
+    @unwrap_spec(min=int, max=int, increment=int,
+                 threaded=bool, getmode=int, events=bool, homogeneous=bool)
     def descr_new(space, w_subtype,
                   w_user, w_password, w_dsn,
                   min, max, increment,
@@ -105,11 +107,6 @@ class W_SessionPool(Wrappable):
             dsn_buf.clear()
 
         return space.wrap(self)
-    descr_new.unwrap_spec = [ObjSpace, W_Root,
-                             W_Root, W_Root, W_Root,
-                             int, int, int,
-                             W_Root,
-                             bool, int, bool, bool]
 
     def checkConnected(self, space):
         if not self.handle:
@@ -136,15 +133,12 @@ class W_SessionPool(Wrappable):
                             __args__.keywords + ["pool"],
                             __args__.keywords_w + [space.wrap(self)])
         return space.call_args(self.w_connectionType, newargs)
-    acquire.unwrap_spec = ['self', ObjSpace, Arguments]
 
     def release(self, space, w_connection):
         self._release(space, w_connection, roci.OCI_DEFAULT)
-    release.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def drop(self, space, w_connection):
         self._release(space, w_connection, roci.OCI_SESSRLS_DROPSESS)
-    drop.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def _release(self, space, w_connection, mode):
         from pypy.module.oracle.interp_connect import W_Connection
@@ -178,7 +172,7 @@ class W_SessionPool(Wrappable):
         connection.handle = lltype.nullptr(roci.OCISvcCtx.TO)
 
 def computedProperty(oci_attr_code, oci_value_type):
-    def fget(space, self):
+    def fget(self, space):
         self.checkConnected(space)
 
         valueptr = lltype.malloc(rffi.CArrayPtr(oci_value_type).TO,

@@ -471,7 +471,7 @@ class AppTestUnicodeString:
         # surrogates not supported
         raises(UnicodeError, unicode, '+3ADYAA-', 'utf-7')
 
-        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd'
+        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd\ufffd'
 
     def test_codecs_utf8(self):
         assert u''.encode('utf-8') == ''
@@ -523,6 +523,9 @@ class AppTestUnicodeString:
 
         # Error handling (truncated escape sequence)
         raises(UnicodeError, "\\".decode, "unicode-escape")
+
+        raises(UnicodeError, "\xc2".decode, "utf-8")
+        assert '\xe1\x80'.decode('utf-8', 'replace') == u"\ufffd"
 
     def test_repr_bug(self):
         assert (repr(u'\U00090418\u027d\U000582b9\u54c3\U000fcb6e') == 
@@ -809,6 +812,14 @@ class AppTestUnicodeString:
 
         assert unicode(A()) == u'bar'
 
+    def test_format_unicode_subclass(self):
+        class U(unicode):
+            def __unicode__(self):
+                return u'__unicode__ overridden'
+        u = U(u'xxx')
+        assert repr("%s" % u) == "u'__unicode__ overridden'"
+        assert repr("{}".format(u)) == "'__unicode__ overridden'"
+
     def test_replace_with_buffer(self):
         assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'
         assert u'abc'.replace(buffer('b'), u'e') == u'aec'
@@ -822,3 +833,5 @@ class AppTestUnicodeString:
         b = unicode(a)
         assert type(b) is unicode
         assert b == u'hello \u1234'
+
+        assert u'%s' % S(u'mar\xe7') == u'mar\xe7'

@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
@@ -53,11 +53,11 @@ class W_BaseConnection(Wrappable):
     def close(self):
         self.do_close()
 
-    def closed_get(space, self):
+    def closed_get(self, space):
         return space.newbool(not self.is_valid())
-    def readable_get(space, self):
+    def readable_get(self, space):
         return space.newbool(bool(self.flags & READABLE))
-    def writable_get(space, self):
+    def writable_get(self, space):
         return space.newbool(bool(self.flags & WRITABLE))
 
     def _check_readable(self, space):
@@ -69,7 +69,7 @@ class W_BaseConnection(Wrappable):
             raise OperationError(space.w_IOError,
                                  space.wrap("connection is read-only"))
 
-    @unwrap_spec('self', ObjSpace, 'bufferstr', 'index', 'index')
+    @unwrap_spec(buffer='bufferstr', offset='index', size='index')
     def send_bytes(self, space, buffer, offset=0, size=PY_SSIZE_T_MIN):
         length = len(buffer)
         self._check_writable(space)
@@ -91,7 +91,7 @@ class W_BaseConnection(Wrappable):
 
         self.do_send_string(space, buffer, offset, size)
 
-    @unwrap_spec('self', ObjSpace, 'index')
+    @unwrap_spec(maxlength='index')
     def recv_bytes(self, space, maxlength=PY_SSIZE_T_MAX):
         self._check_readable(space)
         if maxlength < 0:
@@ -110,7 +110,7 @@ class W_BaseConnection(Wrappable):
             if newbuf:
                 rffi.free_charp(newbuf)
 
-    @unwrap_spec('self', ObjSpace, W_Root, 'index')
+    @unwrap_spec(offset='index')
     def recv_bytes_into(self, space, w_buffer, offset=0):
         rwbuffer = space.rwbuffer_w(w_buffer)
         length = rwbuffer.getlength()
@@ -129,7 +129,6 @@ class W_BaseConnection(Wrappable):
 
         return space.wrap(res)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def send(self, space, w_obj):
         self._check_writable(space)
 
@@ -144,7 +143,6 @@ class W_BaseConnection(Wrappable):
         buffer = space.bufferstr_w(w_pickled)
         self.do_send_string(space, buffer, 0, len(buffer))
 
-    @unwrap_spec('self', ObjSpace)
     def recv(self, space):
         self._check_readable(space)
 
@@ -168,7 +166,6 @@ class W_BaseConnection(Wrappable):
 
         return w_unpickled
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def poll(self, space, w_timeout=0.0):
         self._check_readable(space)
         if space.is_w(w_timeout, space.w_None):
@@ -232,7 +229,7 @@ class W_FileConnection(W_BaseConnection):
         W_BaseConnection.__init__(self, flags)
         self.fd = fd
 
-    @unwrap_spec(ObjSpace, W_Root, int, bool, bool)
+    @unwrap_spec(fd=int, readable=bool, writable=bool)
     def descr_new_file(space, w_subtype, fd, readable=True, writable=True):
         flags = (readable and READABLE) | (writable and WRITABLE)
 
@@ -240,7 +237,6 @@ class W_FileConnection(W_BaseConnection):
         W_FileConnection.__init__(self, fd, flags)
         return space.wrap(self)
 
-    @unwrap_spec('self', ObjSpace)
     def fileno(self, space):
         return space.wrap(self.fd)
 
@@ -350,7 +346,7 @@ class W_PipeConnection(W_BaseConnection):
         W_BaseConnection.__init__(self, flags)
         self.handle = handle
 
-    @unwrap_spec(ObjSpace, W_Root, W_Root, bool, bool)
+    @unwrap_spec(readable=bool, writable=bool)
     def descr_new_pipe(space, w_subtype, w_handle, readable=True, writable=True):
         from pypy.module._multiprocessing.interp_win32 import handle_w
         handle = handle_w(space, w_handle)
@@ -369,7 +365,6 @@ class W_PipeConnection(W_BaseConnection):
     def is_valid(self):
         return self.handle != self.INVALID_HANDLE_VALUE
 
-    @unwrap_spec('self', ObjSpace)
     def fileno(self, space):
         return w_handle(space, self.handle)
 
