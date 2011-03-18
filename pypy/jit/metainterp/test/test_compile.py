@@ -60,6 +60,7 @@ class FakeMetaInterpStaticData(object):
         pass
 
 class FakeMetaInterp:
+    call_pure_results = {}
     class jitdriver_sd:
         warmstate = FakeState()
 

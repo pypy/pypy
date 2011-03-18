@@ -1146,6 +1146,40 @@ class RecursiveTests:
             res = self.meta_interp(main, [], inline=True, trace_limit=tlimit)
             assert ''.join(res.chars) == 'ABCDEFGHIabcdefghijJ' * 5
 
+    def test_handle_jitexception_in_portal_returns_void(self):
+        # a test for _handle_jitexception_in_portal in blackhole.py
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 'str'],
+                           get_printable_location = lambda codeno: str(codeno))
+        def do_can_enter_jit(codeno, i, str):
+            i = (i+1)-1    # some operations
+            driver.can_enter_jit(codeno=codeno, i=i, str=str)
+        def intermediate(codeno, i, str):
+            if i == 9:
+                do_can_enter_jit(codeno, i, str)
+        def portal(codeno, str):
+            i = value.initial
+            while i < 10:
+                intermediate(codeno, i, str)
+                driver.jit_merge_point(codeno=codeno, i=i, str=str)
+                i += 1
+                if codeno == 64 and i == 10:
+                    portal(96, str)
+                str += chr(codeno+i)
+        class Value:
+            initial = -1
+        value = Value()
+        def main():
+            value.initial = 0
+            portal(64, '')
+            portal(64, '')
+            portal(64, '')
+            portal(64, '')
+            portal(64, '')
+        main()
+        for tlimit in [95, 90, 102]:
+            print 'tlimit =', tlimit
+            self.meta_interp(main, [], inline=True, trace_limit=tlimit)
+
     def test_no_duplicates_bug(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i'],
                            get_printable_location = lambda codeno: str(codeno))

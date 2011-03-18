@@ -39,7 +39,10 @@ def show_loop(metainterp_sd, loop=None, error=None):
 
 def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
-    return TreeLoop(name_prefix + name)
+    loop = TreeLoop(name_prefix + name)
+    loop.call_pure_results = metainterp.call_pure_results
+    return loop
+
 
 def make_loop_token(nb_args, jitdriver_sd):
     loop_token = LoopToken()

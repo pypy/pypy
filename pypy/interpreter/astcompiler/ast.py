@@ -3590,6 +3590,8 @@ def AugAssign_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(operator, w_new_value)
         w_self.op = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4824,6 +4826,8 @@ def BoolOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(boolop, w_new_value)
         w_self.op = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4911,6 +4915,8 @@ def BinOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(operator, w_new_value)
         w_self.op = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4980,6 +4986,8 @@ def UnaryOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(unaryop, w_new_value)
         w_self.op = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6028,6 +6036,8 @@ def Attribute_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6118,6 +6128,8 @@ def Subscript_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6187,6 +6199,8 @@ def Name_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6252,6 +6266,8 @@ def List_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6318,6 +6334,8 @@ def Tuple_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise

@@ -494,19 +494,20 @@ class TestPyPyCNew(BaseTestPyPyC):
             for i in range(n):  # ID: for
                 tmp = g(n)
                 s += tmp[i]     # ID: getitem
+                a = 0
             return s
         #
         log = self.run(main, [1000], threshold=400)
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
-        loop.match_by_id('getitem', opcode='BINARY_SUBSCR', expected_src="""
+        assert loop.match_by_id('getitem', opcode='BINARY_SUBSCR', expected_src="""
             i43 = int_lt(i25, 0)
             guard_false(i43, descr=<Guard9>)
             i44 = int_ge(i25, i39)
             guard_false(i44, descr=<Guard10>)
             i45 = int_mul(i25, i33)
         """)
-        loop.match_by_id('for', opcode='FOR_ITER', expected_src="""
+        assert loop.match_by_id('for', opcode='FOR_ITER', expected_src="""
             i23 = int_ge(i11, i12)
             guard_false(i23, descr=<Guard3>)
             i24 = int_mul(i11, i14)
@@ -541,6 +542,27 @@ class TestPyPyCNew(BaseTestPyPyC):
         jump(p0, p1, p2, i12, p4, descr=<Loop0>)
         """)
 
+    def test_exception_inside_loop_2(self):
+        def main(n):
+            def g(n):
+                raise ValueError(n)  # ID: raise
+            def f(n):
+                g(n)
+            #
+            while n:
+                try:
+                    f(n)
+                except ValueError:
+                    pass
+                n -= 1
+            return n
+        #
+        log = self.run(main, [1000], threshold=400)
+        assert log.result == 0
+        loop, = log.loops_by_filename(self.filepath)
+        ops = log.opnames(loop.ops_by_id('raise'))
+        assert 'new' not in ops
+
     def test_reraise(self):
         def f(n):
             i = 0
@@ -557,3 +579,370 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(f, [100000])
         assert log.result == 100000
         loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i4, i5)
+            guard_true(i7, descr=<Guard3>)
+            --EXC-TICK--
+            i14 = int_add(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i14, i5, p6, descr=<Loop0>)
+        """)
+
+    def test_chain_of_guards(self):
+        src = """
+        class A(object):
+            def method_x(self):
+                return 3
+
+        l = ["x", "y"]
+
+        def main(arg):
+            sum = 0
+            a = A()
+            i = 0
+            while i < 500:
+                name = l[arg]
+                sum += getattr(a, 'method_' + name)()
+                i += 1
+            return sum
+        """
+        log = self.run(src, [0], threshold=400)
+        assert log.result == 500*3
+        loops = log.loops_by_filename(self.filepath)
+        assert len(loops) == 1
+
+    def test_getattr_with_dynamic_attribute(self):
+        src = """
+        class A(object):
+            pass
+
+        l = ["x", "y"]
+
+        def main():
+            sum = 0
+            a = A()
+            a.a1 = 0
+            a.a2 = 0
+            a.a3 = 0
+            a.a4 = 0
+            a.a5 = 0 # workaround, because the first five attributes need a promotion
+            a.x = 1
+            a.y = 2
+            i = 0
+            while i < 500:
+                name = l[i % 2]
+                sum += getattr(a, name)
+                i += 1
+            return sum
+        """
+        log = self.run(src, [], threshold=400)
+        assert log.result == 250 + 250*2
+        loops = log.loops_by_filename(self.filepath)
+        assert len(loops) == 1
+
+    def test_blockstack_virtualizable(self):
+        def main(n):
+            from pypyjit import residual_call
+            i = 0
+            while i < n:
+                try:
+                    residual_call(len, [])   # ID: call
+                except:
+                    pass
+                i += 1
+            return i
+        #
+        log = self.run(main, [500], threshold=400)
+        assert log.result == 500
+        loop, = log.loops_by_id('call')
+        assert loop.match_by_id('call', opcode='CALL_FUNCTION', expected_src="""
+            # make sure that the "block" is not allocated
+            ...
+            i20 = force_token()
+            setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
+            p22 = new_with_vtable(19511408)
+            p24 = new_array(1, descr=<GcPtrArrayDescr>)
+            p26 = new_with_vtable(ConstClass(W_ListObject))
+            p27 = new(descr=<SizeDescr 24>)
+            p29 = new_array(0, descr=<GcPtrArrayDescr>)
+            setfield_gc(p27, p29, descr=<GcPtrFieldDescr list.items .*>)
+            setfield_gc(p26, p27, descr=<.* .*W_ListObject.inst_wrappeditems .*>)
+            setarrayitem_gc(p24, 0, p26, descr=<GcPtrArrayDescr>)
+            setfield_gc(p22, p24, descr=<GcPtrFieldDescr .*Arguments.inst_arguments_w .*>)
+            p32 = call_may_force(11376960, p18, p22, descr=<GcPtrCallDescr>)
+            ...
+        """)
+
+    def test_import_in_function(self):
+        def main(n):
+            i = 0
+            while i < n:
+                from sys import version  # ID: import
+                i += 1
+            return i
+        #
+        log = self.run(main, [500], threshold=400)
+        assert log.result == 500
+        loop, = log.loops_by_id('import')
+        assert loop.match_by_id('import', """
+            p14 = call(ConstClass(ll_split_chr__GcStruct_listLlT_rpy_stringPtr_Char), p8, 46, descr=<GcPtrCallDescr>)
+            guard_no_exception(descr=<Guard4>)
+            guard_nonnull(p14, descr=<Guard5>)
+            i15 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
+            i16 = int_is_true(i15)
+            guard_true(i16, descr=<Guard6>)
+            p18 = call(ConstClass(ll_pop_default__dum_nocheckConst_listPtr), p14, descr=<GcPtrCallDescr>)
+            guard_no_exception(descr=<Guard7>)
+            i19 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
+            i20 = int_is_true(i19)
+            guard_false(i20, descr=<Guard8>)
+        """)
+
+    def test_arraycopy_disappears(self):
+        def main(n):
+            i = 0
+            while i < n:
+                t = (1, 2, 3, i + 1)
+                t2 = t[:]
+                del t
+                i = t2[3]
+                del t2
+            return i
+        #
+        log = self.run(main, [500], threshold=400)
+        assert log.result == 500
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, i6)
+            guard_true(i7, descr=<Guard3>)
+            i9 = int_add(i5, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i9, i6, descr=<Loop0>)
+        """)
+
+    def test_boolrewrite_inverse(self):
+        """
+        Test for this case::
+            guard(i < x)
+            ...
+            guard(i >= y)
+
+        where x and y can be either constants or variables. There are cases in
+        which the second guard is proven to be always true.
+        """
+        
+        for a, b, res, opt_expected in (('2000', '2000', 20001000, True),
+                                        ( '500',  '500', 15001500, True),
+                                        ( '300',  '600', 16001700, False),
+                                        (   'a',    'b', 16001700, False),
+                                        (   'a',    'a', 13001700, True)):
+            src = """
+                def main():
+                    sa = 0
+                    a = 300
+                    b = 600
+                    for i in range(1000):
+                        if i < %s:         # ID: lt
+                            sa += 1
+                        else:
+                            sa += 2
+                        #
+                        if i >= %s:        # ID: ge
+                            sa += 10000
+                        else:
+                            sa += 20000
+                    return sa
+            """ % (a, b)
+            #
+            log = self.run(src, [], threshold=400)
+            assert log.result == res
+            loop, = log.loops_by_filename(self.filepath)
+            le_ops = log.opnames(loop.ops_by_id('lt'))
+            ge_ops = log.opnames(loop.ops_by_id('ge'))
+            assert le_ops.count('int_lt') == 1
+            #
+            if opt_expected:
+                assert ge_ops.count('int_ge') == 0
+            else:
+                # if this assert fails it means that the optimization was
+                # applied even if we don't expect to. Check whether the
+                # optimization is valid, and either fix the code or fix the
+                # test :-)
+                assert ge_ops.count('int_ge') == 1
+
+    def test_boolrewrite_reflex(self):
+        """
+        Test for this case::
+            guard(i < x)
+            ...
+            guard(y > i)
+
+        where x and y can be either constants or variables. There are cases in
+        which the second guard is proven to be always true.
+        """
+        for a, b, res, opt_expected in (('2000', '2000', 10001000, True),
+                                        ( '500',  '500', 15001500, True),
+                                        ( '300',  '600', 14001700, False),
+                                        (   'a',    'b', 14001700, False),
+                                        (   'a',    'a', 17001700, True)):
+
+            src = """
+                def main():
+                    sa = 0
+                    a = 300
+                    b = 600
+                    for i in range(1000):
+                        if i < %s:        # ID: lt
+                            sa += 1
+                        else:
+                            sa += 2
+                        if %s > i:        # ID: gt
+                            sa += 10000
+                        else:
+                            sa += 20000
+                    return sa
+            """ % (a, b)
+            log = self.run(src, [], threshold=400)
+            assert log.result == res
+            loop, = log.loops_by_filename(self.filepath)
+            le_ops = log.opnames(loop.ops_by_id('lt'))
+            gt_ops = log.opnames(loop.ops_by_id('gt'))
+            assert le_ops.count('int_lt') == 1
+            #
+            if opt_expected:
+                assert gt_ops.count('int_gt') == 0
+            else:
+                # if this assert fails it means that the optimization was
+                # applied even if we don't expect to. Check whether the
+                # optimization is valid, and either fix the code or fix the
+                # test :-)
+                assert gt_ops.count('int_gt') == 1
+
+
+    def test_boolrewrite_allcases_inverse(self):
+        """
+        Test for this case::
+            guard(i < x)
+            ...
+            guard(i > y)
+
+        with all possible combination of binary comparison operators.  This
+        test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        ops = ('<', '>', '<=', '>=', '==', '!=')        
+        for op1 in ops:
+            for op2 in ops:
+                for a,b in ((500, 500), (300, 600)):
+                    src = """
+                        def main():
+                            sa = 0
+                            for i in range(1000):
+                                if i %s %d:
+                                    sa += 1
+                                else:
+                                    sa += 2
+                                if i %s %d:
+                                    sa += 10000
+                                else:
+                                    sa += 20000
+                            return sa
+                    """ % (op1, a, op2, b)
+                    self.run_and_check(src, threshold=400)
+
+                    src = """
+                        def main():
+                            sa = 0
+                            i = 0.0
+                            while i < 250.0:
+                                if i %s %f:
+                                    sa += 1
+                                else:
+                                    sa += 2
+                                if i %s %f:
+                                    sa += 10000
+                                else:
+                                    sa += 20000
+                                i += 0.25
+                            return sa
+                    """ % (op1, float(a)/4.0, op2, float(b)/4.0)
+                    self.run_and_check(src, threshold=400)
+
+
+    def test_boolrewrite_allcases_reflex(self):
+        """
+        Test for this case::
+            guard(i < x)
+            ...
+            guard(x > i)
+
+        with all possible combination of binary comparison operators.  This
+        test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        ops = ('<', '>', '<=', '>=', '==', '!=')        
+        for op1 in ops:
+            for op2 in ops:
+                for a,b in ((500, 500), (300, 600)):
+                    src = """
+                        def main():
+                            sa = 0
+                            for i in range(1000):
+                                if i %s %d:
+                                    sa += 1
+                                else:
+                                    sa += 2
+                                if %d %s i:
+                                    sa += 10000
+                                else:
+                                    sa += 20000
+                            return sa
+                    """ % (op1, a, b, op2)
+                    self.run_and_check(src, threshold=400)
+
+                    src = """
+                        def main():
+                            sa = 0
+                            i = 0.0
+                            while i < 250.0:
+                                if i %s %f:
+                                    sa += 1
+                                else:
+                                    sa += 2
+                                if %f %s i:
+                                    sa += 10000
+                                else:
+                                    sa += 20000
+                                i += 0.25
+                            return sa
+                    """ % (op1, float(a)/4.0, float(b)/4.0, op2)
+                    self.run_and_check(src, threshold=400)
+
+    def test_boolrewrite_ptr(self):
+        # XXX this test is way too imprecise in what it is actually testing
+        # it should count the number of guards instead
+        compares = ('a == b', 'b == a', 'a != b', 'b != a', 'a == c', 'c != b')
+        for e1 in compares:
+            for e2 in compares:
+                src = """
+                    class tst(object):
+                        pass
+                    def main():
+                        a = tst()
+                        b = tst()
+                        c = tst()
+                        sa = 0
+                        for i in range(1000):
+                            if %s:
+                                sa += 1
+                            else:
+                                sa += 2
+                            if %s:
+                                sa += 10000
+                            else:
+                                sa += 20000
+                            if i > 750:
+                                a = b
+                        return sa
+                """ % (e1, e2)
+                self.run_and_check(src, threshold=400)

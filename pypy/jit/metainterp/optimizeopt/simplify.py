@@ -5,7 +5,7 @@ from pypy.jit.metainterp.optimizeutil import _findall
 
 class OptSimplify(Optimization):
     def optimize_CALL_PURE(self, op):
-        args = op.getarglist()[1:]
+        args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          op.getdescr()))
 

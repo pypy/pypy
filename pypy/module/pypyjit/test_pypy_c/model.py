@@ -159,7 +159,7 @@ class LoopWithIds(Function):
         return matcher.match(expected_src)
 
     def match_by_id(self, id, expected_src, **kwds):
-        ops = list(self.ops_by_id(id, *kwds))
+        ops = list(self.ops_by_id(id, **kwds))
         matcher = OpMatcher(ops, src=self.format_ops(id))
         return matcher.match(expected_src)
 
