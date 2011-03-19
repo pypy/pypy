@@ -37,7 +37,8 @@ class MultipleJitDriversTests:
         assert res == loop2(4, 40)
         # we expect only one int_sub, corresponding to the single
         # compiled instance of loop1()
-        self.check_loops(int_sub=1)
+        # XXX: OptAddition turns + (-1) into - 1
+        self.check_loops(int_sub=2)
         # the following numbers are not really expectations of the test
         # itself, but just the numbers that we got after looking carefully
         # at the generated machine code
@@ -97,8 +98,8 @@ class MultipleJitDriversTests:
         #
         res = self.meta_interp(loop2, [4, 40], repeat=7, inline=True)
         assert res == loop2(4, 40)
-        # we expect no int_sub, but a residual call
-        self.check_loops(int_sub=0, call=1)
+        # one int_sub, a residual call, and no int_add
+        self.check_loops(int_add=1, int_sub=1, call=1)
 
     def test_multiple_jits_trace_too_long(self):
         myjitdriver1 = JitDriver(greens=["n"], reds=["i", "box"])
