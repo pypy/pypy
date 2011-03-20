@@ -534,7 +534,7 @@ class BaseBackendTest(Runner):
         func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
         funcbox = ConstInt(heaptracker.adr2int(func_adr))
         calldescr = self.cpu.calldescrof_dynamic([types.uchar], types.sint)
-        res = self.execute_operation(rop.CALL,
+        res = self.execute_operation(rop.CALL_RELEASE_GIL,
                                      [funcbox, BoxInt(ord('A'))],
                                      'int',
                                      descr=calldescr)

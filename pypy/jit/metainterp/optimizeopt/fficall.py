@@ -73,7 +73,7 @@ class OptFfiCall(Optimization):
 
     def setup(self):
         self.funcinfo = None
-        self.logger = self.optimizer.metainterp_sd.logger_noopt
+        self.logger = self.optimizer.metainterp_sd.logger_ops
 
     def propagate_begin_forward(self):
         debug_start('jit-log-ffiopt')
@@ -188,7 +188,7 @@ class OptFfiCall(Optimization):
         for push_op in funcinfo.opargs:
             argval = self.getvalue(push_op.getarg(2))
             arglist.append(argval.force_box())
-        newop = ResOperation(rop.CALL_MAY_FORCE, arglist, op.result,
+        newop = ResOperation(rop.CALL_RELEASE_GIL, arglist, op.result,
                              descr=funcinfo.descr)
         self.commit_optimization()
         ops = []

@@ -161,6 +161,7 @@ class OptHeap(Optimization):
         assert opnum != rop.CALL_PURE
         if (opnum == rop.CALL or
             opnum == rop.CALL_MAY_FORCE or
+            opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):
             if opnum == rop.CALL_ASSEMBLER:
                 effectinfo = None
@@ -235,7 +236,7 @@ class OptHeap(Optimization):
             opnum = prevop.getopnum()
             lastop_args = lastop.getarglist()
             if ((prevop.is_comparison() or opnum == rop.CALL_MAY_FORCE
-                 or prevop.is_ovf())
+                 or opnum == rop.CALL_RELEASE_GIL or prevop.is_ovf())
                 and prevop.result not in lastop_args):
                 newoperations[-2] = lastop
                 newoperations[-1] = prevop
