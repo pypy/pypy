@@ -2,20 +2,19 @@
 # -*- coding: utf-8 -*-
 
 from pypy.conftest import gettestobjspace
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root
-from pypy.interpreter import argument
+from pypy.interpreter.function import Defaults
 import py
 import sys
 
 class FakeFunc(object):
-
     def __init__(self, space, name):
         self.space = space
         self.name = name
-        self.defs_w = []
+        self.defs = Defaults([])
 
-class TestBuiltinCode: 
+class TestBuiltinCode:
     def test_signature(self):
         def c(space, w_x, w_y, hello_w):
             pass
@@ -87,7 +86,7 @@ class TestBuiltinCode:
         w_result = code.funcrun(FakeFunc(self.space, "c"), args)
         assert self.space.eq_w(w_result, w(1020))
 
-class TestGateway: 
+class TestGateway:
 
     def test_app2interp(self):
         w = self.space.wrap
@@ -102,7 +101,7 @@ class TestGateway:
             return a+b
         g3 = gateway.app2interp_temp(noapp_g3, gateway.applevel_temp)
         assert self.space.eq_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
-        
+
     def test_app2interp2(self):
         """same but using transformed code"""
         w = self.space.wrap
@@ -129,28 +128,28 @@ class TestGateway:
         def g3(space, w_a, w_b):
             return space.add(w_a, w_b)
         app_g3 = gateway.interp2app_temp(g3)
-        w_app_g3 = space.wrap(app_g3) 
+        w_app_g3 = space.wrap(app_g3)
         assert self.space.eq_w(
-            space.call(w_app_g3, 
+            space.call(w_app_g3,
                        space.newtuple([w('foo'), w('bar')]),
                        space.newdict()),
             w('foobar'))
         assert self.space.eq_w(
             space.call_function(w_app_g3, w('foo'), w('bar')),
             w('foobar'))
-        
+
     def test_interp2app_unwrap_spec(self):
         space = self.space
         w = space.wrap
         def g3(space, w_a, w_b):
-            return space.add(w_a, w_b)        
+            return space.add(w_a, w_b)
         app_g3 = gateway.interp2app_temp(g3,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       gateway.W_Root,
                                                       gateway.W_Root])
-        w_app_g3 = space.wrap(app_g3) 
+        w_app_g3 = space.wrap(app_g3)
         assert self.space.eq_w(
-            space.call(w_app_g3, 
+            space.call(w_app_g3,
                        space.newtuple([w('foo'), w('bar')]),
                        space.newdict()),
             w('foobar'))
@@ -188,7 +187,7 @@ class TestGateway:
         app_A = gateway.interp2app(A.f)
         app_B = gateway.interp2app(B.f)
         assert app_A is not app_B
-        
+
     def test_interp2app_unwrap_spec_nonnegint(self):
         space = self.space
         w = space.wrap
@@ -256,13 +255,13 @@ class TestGateway:
         space = self.space
         w = space.wrap
         def g3_args_w(space, args_w):
-            return space.add(args_w[0], args_w[1])        
+            return space.add(args_w[0], args_w[1])
         app_g3_args_w = gateway.interp2app_temp(g3_args_w,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       'args_w'])
-        w_app_g3_args_w = space.wrap(app_g3_args_w) 
+        w_app_g3_args_w = space.wrap(app_g3_args_w)
         assert self.space.eq_w(
-            space.call(w_app_g3_args_w, 
+            space.call(w_app_g3_args_w,
                        space.newtuple([w('foo'), w('bar')]),
                        space.newdict()),
             w('foobar'))
@@ -276,13 +275,13 @@ class TestGateway:
         def g3_ss(space, s0, s1):
             if s1 is None:
                 return space.wrap(42)
-            return space.wrap(s0+s1)       
+            return space.wrap(s0+s1)
         app_g3_ss = gateway.interp2app_temp(g3_ss,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       str, 'str_or_None'])
-        w_app_g3_ss = space.wrap(app_g3_ss) 
+        w_app_g3_ss = space.wrap(app_g3_ss)
         assert self.space.eq_w(
-            space.call(w_app_g3_ss, 
+            space.call(w_app_g3_ss,
                        space.newtuple([w('foo'), w('bar')]),
                        space.newdict()),
             w('foobar'))
@@ -299,13 +298,13 @@ class TestGateway:
         space = self.space
         w = space.wrap
         def g3_if(space, i0, f1):
-            return space.wrap(i0+f1)       
+            return space.wrap(i0+f1)
         app_g3_if = gateway.interp2app_temp(g3_if,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       int,float])
-        w_app_g3_if = space.wrap(app_g3_if) 
+        w_app_g3_if = space.wrap(app_g3_if)
         assert self.space.eq_w(
-            space.call(w_app_g3_if, 
+            space.call(w_app_g3_if,
                        space.newtuple([w(1), w(1.0)]),
                        space.newdict()),
             w(2.0))
@@ -324,7 +323,7 @@ class TestGateway:
         w_app_g3_ll = space.wrap(app_g3_ll)
         w_big = w(gateway.r_longlong(10**10))
         assert space.eq_w(
-            space.call(w_app_g3_ll, 
+            space.call(w_app_g3_ll,
                        space.newtuple([w_big]),
                        space.newdict()),
             w(gateway.r_longlong(3 * 10**10)))
@@ -381,7 +380,7 @@ class TestGateway:
         app_g3_idx = gateway.interp2app_temp(g3_idx,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       'index'])
-        w_app_g3_idx = space.wrap(app_g3_idx) 
+        w_app_g3_idx = space.wrap(app_g3_idx)
         assert space.eq_w(
             space.call_function(w_app_g3_idx, w(123)),
             w(124))
@@ -404,7 +403,7 @@ class TestGateway:
                                                       int])
         w_app_g3_i = space.wrap(app_g3_i)
         assert space.eq_w(space.call_function(w_app_g3_i,w(1)),w(1))
-        assert space.eq_w(space.call_function(w_app_g3_i,w(1L)),w(1))        
+        assert space.eq_w(space.call_function(w_app_g3_i,w(1L)),w(1))
         raises(gateway.OperationError,space.call_function,w_app_g3_i,w(sys.maxint*2))
         raises(gateway.OperationError,space.call_function,w_app_g3_i,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_i,w("foo"))
@@ -418,14 +417,14 @@ class TestGateway:
         raises(gateway.OperationError,space.call_function,w_app_g3_s,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_s,w(1))
         raises(gateway.OperationError,space.call_function,w_app_g3_s,w(1.0))
-        
+
         app_g3_f = gateway.interp2app_temp(g3_id,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       float])
         w_app_g3_f = space.wrap(app_g3_f)
         assert space.eq_w(space.call_function(w_app_g3_f,w(1.0)),w(1.0))
         assert space.eq_w(space.call_function(w_app_g3_f,w(1)),w(1.0))
-        assert space.eq_w(space.call_function(w_app_g3_f,w(1L)),w(1.0))        
+        assert space.eq_w(space.call_function(w_app_g3_f,w(1L)),w(1.0))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w("foo"))
 
@@ -540,8 +539,8 @@ class TestGateway:
             called.append(w_func)
             return fastcall_2(space, w_func, w_a, w_b)
 
-        w_app_f.code.fastcall_2 = witness_fastcall_2    
-    
+        w_app_f.code.fastcall_2 = witness_fastcall_2
+
         w_res = space.appexec([w_app_f, w_3], """(f, x):
         class A(object):
            m = f # not a builtin function, so works as method
@@ -552,8 +551,8 @@ class TestGateway:
         """)
 
         assert space.is_true(w_res)
-        assert called == [w_app_f, w_app_f]       
-        
+        assert called == [w_app_f, w_app_f]
+
     def test_plain(self):
         space = self.space
 
@@ -569,7 +568,7 @@ class TestGateway:
 
         w_res = space.call_args(w_g, args)
         assert space.is_true(space.eq(w_res, space.wrap(('g', -1, 0))))
-        
+
         w_self = space.wrap('self')
 
         args0 = argument.Arguments(space, [space.wrap(0)])
@@ -607,12 +606,12 @@ class AppTestPyTestMark:
 
 
 class TestPassThroughArguments:
-    
+
     def test_pass_trough_arguments0(self):
         space = self.space
 
         called = []
-        
+
         def f(space, __args__):
             called.append(__args__)
             a_w, _ = __args__.unpack()
@@ -626,7 +625,7 @@ class TestPassThroughArguments:
 
         w_res = space.call_args(w_f, args)
         assert space.is_true(space.eq(w_res, space.wrap(('f', 7))))
-        
+
         # white-box check for opt
         assert called[0] is args
 
@@ -634,7 +633,7 @@ class TestPassThroughArguments:
         space = self.space
 
         called = []
-        
+
         def g(space, w_self, __args__):
             called.append(__args__)
             a_w, _ = __args__.unpack()
@@ -668,7 +667,7 @@ class TestPassThroughArguments:
         w_res = space.call_args(w_g, args)
         assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 0))))
         # no opt in this case
-        assert len(called) == 2      
+        assert len(called) == 2
         assert called[0] == 'funcrun'
         called = []
 
@@ -677,15 +676,15 @@ class TestPassThroughArguments:
         w_res = space.call_function(w_g, w_self)
         assert space.is_true(space.eq(w_res, space.wrap(('g', 'self'))))
         assert len(called) == 1
-        assert isinstance(called[0], argument.Arguments)        
+        assert isinstance(called[0], argument.Arguments)
         called = []
-        
+
         w_res = space.appexec([w_g], """(g):
         return g('self', 11)
         """)
         assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 11))))
         assert len(called) == 1
-        assert isinstance(called[0], argument.Arguments)                
+        assert isinstance(called[0], argument.Arguments)
         called = []
 
         w_res = space.appexec([w_g], """(g):
@@ -736,7 +735,7 @@ class AppTestKeywordsToBuiltinSanity(object):
         clash = dict.__new__.func_code.co_varnames[0]
 
         dict(**{clash: 33})
-        dict.__new__(dict, **{clash: 33})        
+        dict.__new__(dict, **{clash: 33})
 
     def test_dict_init(self):
         d = {}
@@ -750,5 +749,5 @@ class AppTestKeywordsToBuiltinSanity(object):
         clash = dict.update.func_code.co_varnames[0]
 
         d.update(**{clash: 33})
-        dict.update(d, **{clash: 33})        
-        
+        dict.update(d, **{clash: 33})
+

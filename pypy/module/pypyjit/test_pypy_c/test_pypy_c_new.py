@@ -730,7 +730,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         where x and y can be either constants or variables. There are cases in
         which the second guard is proven to be always true.
         """
-        
+
         for a, b, res, opt_expected in (('2000', '2000', 20001000, True),
                                         ( '500',  '500', 15001500, True),
                                         ( '300',  '600', 16001700, False),
@@ -830,7 +830,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         test only checks that we get the expected result, not that any
         optimization has been applied.
         """
-        ops = ('<', '>', '<=', '>=', '==', '!=')        
+        ops = ('<', '>', '<=', '>=', '==', '!=')
         for op1 in ops:
             for op2 in ops:
                 for a,b in ((500, 500), (300, 600)):
@@ -880,7 +880,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         test only checks that we get the expected result, not that any
         optimization has been applied.
         """
-        ops = ('<', '>', '<=', '>=', '==', '!=')        
+        ops = ('<', '>', '<=', '>=', '==', '!=')
         for op1 in ops:
             for op2 in ops:
                 for a,b in ((500, 500), (300, 600)):
@@ -1007,4 +1007,34 @@ class TestPyPyCNew(BaseTestPyPyC):
             i28 = int_add(i8, 1)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, i28, i15, i10, i11, descr=<Loop0>)
+        """)
+
+    def test_func_defaults(self):
+        def main(n):
+            i = 1
+            while i < n:
+                i += len(xrange(i)) / i
+            return i
+
+        log = self.run(main, [10000])
+        assert log.result == 10000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i5, i6)
+            guard_true(i10, descr=<Guard3>)
+            # This can be improved if the JIT realized the lookup of i5 produces
+            # a constant and thus can be removed entirely
+            i12 = int_sub(i5, 1)
+            i13 = uint_floordiv(i12, i7)
+            i15 = int_add(i13, 1)
+            i17 = int_lt(i15, 0)
+            guard_false(i17, descr=<Guard4>)
+            i18 = int_floordiv(i15, i5)
+            i19 = int_xor(i15, i5)
+            i20 = int_mod(i15, i5)
+            i21 = int_is_true(i20)
+            i22 = int_add_ovf(i5, i18)
+            guard_no_overflow(descr=<Guard5>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i22, i6, i7, p8, p9, descr=<Loop0>)
         """)
