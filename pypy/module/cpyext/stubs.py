@@ -3072,12 +3072,6 @@ def PyRun_AnyFileExFlags(space, fp, filename, closeit, flags):
     "???" as the filename."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=-1)
-def PyRun_SimpleString(space, command):
-    """This is a simplified interface to PyRun_SimpleStringFlags() below,
-    leaving the PyCompilerFlags* argument set to NULL."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, PyCompilerFlags], rffi.INT_real, error=-1)
 def PyRun_SimpleStringFlags(space, command, flags):
     """Executes the Python source code from command in the __main__ module
