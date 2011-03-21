@@ -95,13 +95,26 @@ def get_total_memory_linux2(filename):
     return result
 
 
+def get_total_memory_darwin(result):
+    debug_start("gc-hardware")
+    if result <= 0:
+        debug_print("get_total_memory() failed")
+        result = addressable_size
+    else:
+        debug_print("memtotal = ", result)
+        if result > addressable_size:
+            result = addressable_size
+    debug_stop("gc-hardware")
+    return result
+
+
 if sys.platform == 'linux2':
     def get_total_memory():
         return get_total_memory_linux2('/proc/meminfo')
 
 elif sys.platform == 'darwin':
     def get_total_memory():
-        return get_darwin_sysctl_signed('hw.memsize')
+        return get_total_memory_darwin(get_darwin_sysctl_signed('hw.memsize'))
 
 else:
     def get_total_memory():
