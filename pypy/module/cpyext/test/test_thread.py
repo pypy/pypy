@@ -26,13 +26,15 @@ class TestPyThread(BaseApiTest):
 
     def test_acquire_lock(self, space, api):
         assert hasattr(api, 'PyThread_acquire_lock')
-        lock = allocate_ll_lock()
+        lock = api.PyThread_allocate_lock()
         assert api.PyThread_acquire_lock(lock, 1) == 1
         assert api.PyThread_acquire_lock(lock, 0) == 0
+        api.PyThread_free_lock(lock)
 
     def test_release_lock(self, space, api):
         assert hasattr(api, 'PyThread_acquire_lock')
-        lock = allocate_ll_lock()
+        lock = api.PyThread_allocate_lock()
         api.PyThread_acquire_lock(lock, 1)
         api.PyThread_release_lock(lock)
         assert api.PyThread_acquire_lock(lock, 0) == 1
+        api.PyThread_free_lock(lock)
