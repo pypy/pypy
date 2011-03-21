@@ -42,7 +42,7 @@ def _check_for_encoding(s1, s2):
         enc = _check_line_for_encoding(s1[:eol])
     if enc:
         return enc
-    if eol:
+    if eol >= 0:
         if s2:
             s = s1 + s2
         else:
