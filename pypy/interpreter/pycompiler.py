@@ -140,11 +140,11 @@ class PythonAstCompiler(PyCodeCompiler):
     def _compile_to_ast(self, source, info):
         space = self.space
         try:
-            f_flags, future_info = future.get_futures(self.future_flags, source)
-            info.last_future_import = future_info
-            info.flags |= f_flags
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info)
+            f_flags, future_info = future.get_futures(self.future_flags, mod)
+            info.last_future_import = future_info
+            info.flags |= f_flags
         except parseerror.IndentationError, e:
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))

@@ -161,6 +161,22 @@ pass"""
         self.parse('0b0l')
         py.test.raises(SyntaxError, self.parse, "0b112")
 
+    def test_future_import(self):
+        def parse_with_info(source):
+            info = pyparse.CompileInfo("<test>", "exec", 0)
+            self.parse(source, info=info)
+            return info.flags
+        source = 'from __future__ import print_function'
+        assert parse_with_info(source) == consts.CO_FUTURE_PRINT_FUNCTION
+        source = 'from __future__ import print_function, with_statement'
+        assert parse_with_info(source) == (consts.CO_FUTURE_PRINT_FUNCTION |
+                                           consts.CO_FUTURE_WITH_STATEMENT)
+        source = 'from __future__ import (print_function,\nwith_statement)'
+        assert parse_with_info(source) == (consts.CO_FUTURE_PRINT_FUNCTION |
+                                           consts.CO_FUTURE_WITH_STATEMENT)
+        source = 'from __future__ import *'
+        assert parse_with_info(source) == 0
+
 class TestPythonFileParser(TestPythonParser):
     def parse(self, source, mode="exec", info=None):
         if info is None:

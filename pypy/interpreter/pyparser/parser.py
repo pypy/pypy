@@ -182,3 +182,4 @@ class Parser(object):
             self.stack[-1][2].children.append(node)
         else:
             self.root = node
+        return node

@@ -217,11 +217,50 @@ class PythonParser(parser.Parser):
 
         return self.build_tree(source_lines, compile_info)
 
+    def parse_future_import(self, node):
+        if node.type != self.grammar.symbol_ids['import_from']:
+            return
+        children = node.children
+        # from __future__ import ..., must have at least 4 children
+        if len(children) < 4:
+            return
+        if children[0].value != 'from':
+            return
+        if len(children[1].children) != 1:
+            return
+        if children[1].children[0].value != '__future__':
+            return
+
+        child = children[3]
+        # child can be a star, a parenthesis or import_as_names
+        if child.type == pygram.tokens.STAR:
+            return
+        if child.type == pygram.tokens.LPAR:
+            child = children[4]
+
+        for i in range(0, len(child.children), 2):
+            c = child.children[i]
+            if (len(c.children) >= 1 and
+                c.children[0].type == pygram.tokens.NAME):
+                name = c.children[0].value
+
+            if name == 'print_function':
+                self.compile_info.flags |= consts.CO_FUTURE_PRINT_FUNCTION
+            elif name == 'with_statement':
+                self.compile_info.flags |= consts.CO_FUTURE_WITH_STATEMENT
+            elif name == 'unicode_literals':
+                self.compile_info.flags |= consts.CO_FUTURE_UNICODE_LITERALS
+
     def classify(self, token_type, value, *args):
         if self.compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
             if token_type == self.grammar.KEYWORD_TOKEN and value == 'print':
                 return self.grammar.token_ids[pygram.tokens.NAME]
         return parser.Parser.classify(self, token_type, value, *args)
+
+    def pop(self):
+        node = parser.Parser.pop(self)
+        self.parse_future_import(node)
+        return node
 
     def build_tree(self, source_lines, compile_info):
         """Builds the parse tree from a list of source lines"""
