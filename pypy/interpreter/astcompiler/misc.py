@@ -27,33 +27,6 @@ def syntax_warning(space, msg, fn, lineno, offset):
     _emit_syntax_warning(space, w_msg, w_filename, w_lineno, w_offset)
 
 
-def parse_future(tree):
-    future_lineno = 0
-    future_column = 0
-    have_docstring = False
-    if isinstance(tree, ast.Module):
-        body = tree.body
-    elif isinstance(tree, ast.Interactive):
-        body = tree.body
-    else:
-        return 0, 0
-    for stmt in body:
-        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Str):
-            if have_docstring:
-                break
-            else:
-                have_docstring = True
-        elif isinstance(stmt, ast.ImportFrom):
-            if stmt.module == "__future__":
-                future_lineno = stmt.lineno
-                future_column = stmt.col_offset
-            else:
-                break
-        else:
-            break
-    return future_lineno, future_column
-
-
 class ForbiddenNameAssignment(Exception):
 
     def __init__(self, name, node):
