@@ -30,6 +30,12 @@ class Defaults(object):
     def getitems(self):
         return jit.hint(self, promote=True).items
 
+    def getitem(self, idx):
+        return self.getitems()[idx]
+
+    def getlen(self):
+        return len(self.getitems())
+
 class Function(Wrappable):
     """A function is a code object captured with some environment:
     an object space, a dictionary of globals, default arguments,
@@ -142,7 +148,7 @@ class Function(Wrappable):
             return self._flat_pycall(code, nargs, frame)
         elif fast_natural_arity & Code.FLATPYCALL:
             natural_arity = fast_natural_arity & 0xff
-            if natural_arity > nargs >= natural_arity - len(self.defs.getitems()):
+            if natural_arity > nargs >= natural_arity - self.defs.getlen():
                 assert isinstance(code, PyCode)
                 return self._flat_pycall_defaults(code, nargs, frame,
                                                   natural_arity - nargs)
@@ -175,12 +181,12 @@ class Function(Wrappable):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.fastlocals_w[i] = w_arg
 
-        defs_w = self.defs.getitems()
-        ndefs = len(defs_w)
+        defs = self.defs
+        ndefs = defs.getlen()
         start = ndefs - defs_to_load
         i = nargs
         for j in xrange(start, ndefs):
-            new_frame.fastlocals_w[i] = defs_w[j]
+            new_frame.fastlocals_w[i] = defs.getitem(j)
             i += 1
         return new_frame.run()
 
