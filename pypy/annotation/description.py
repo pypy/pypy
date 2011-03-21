@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
 from pypy.interpreter.argument import ArgErr
+from pypy.interpreter.function import Defaults
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
@@ -15,7 +16,7 @@ class CallFamily(object):
     overridden = False
     normalized = False
     modified   = True
-    
+
     def __init__(self, desc):
         self.descs = { desc: True }
         self.calltables = {}  # see calltable_lookup_row()
@@ -172,7 +173,7 @@ class NoStandardGraph(Exception):
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
     overridden = False
-    
+
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, signature=None, defaults=None,
                  specializer=None):
@@ -230,7 +231,7 @@ class FunctionDesc(Desc):
                     return '_'.join(map(nameof, thing))
                 else:
                     return str(thing)[:30]
-                
+
             if key is not None and alt_name is None:
                 postfix = valid_identifier(nameof(key))
                 alt_name = "%s__%s"%(self.name, postfix)
@@ -250,7 +251,7 @@ class FunctionDesc(Desc):
             for x in defaults:
                 defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
-            inputcells = args.match_signature(signature, defs_s)
+            inputcells = args.match_signature(signature, Defaults(defs_s))
         except ArgErr, e:
             raise TypeError, "signature mismatch: %s" % e.getmsg(self.name)
         return inputcells
@@ -291,7 +292,7 @@ class FunctionDesc(Desc):
 
     def bind_under(self, classdef, name):
         # XXX static methods
-        return self.bookkeeper.getmethoddesc(self, 
+        return self.bookkeeper.getmethoddesc(self,
                                              classdef,   # originclassdef,
                                              None,       # selfclassdef
                                              name)
@@ -574,7 +575,7 @@ class ClassDesc(Desc):
         while name not in cdesc.classdict:
             cdesc = cdesc.basedesc
             if cdesc is None:
-                return None 
+                return None
         else:
             return cdesc
 
@@ -750,7 +751,7 @@ class ClassDesc(Desc):
 class MethodDesc(Desc):
     knowntype = types.MethodType
 
-    def __init__(self, bookkeeper, funcdesc, originclassdef, 
+    def __init__(self, bookkeeper, funcdesc, originclassdef,
                  selfclassdef, name, flags={}):
         super(MethodDesc, self).__init__(bookkeeper)
         self.funcdesc = funcdesc
@@ -803,7 +804,7 @@ class MethodDesc(Desc):
         # FunctionDescs, not MethodDescs.  The present method returns the
         # FunctionDesc to use as a key in that family.
         return self.funcdesc
-    
+
     def simplify_desc_set(descs):
         # Some hacking needed to make contains() happy on SomePBC: if the
         # set of MethodDescs contains some "redundant" ones, i.e. ones that
@@ -894,7 +895,7 @@ class FrozenDesc(Desc):
             return s_ImpossibleValue
         else:
             return self.bookkeeper.immutablevalue(value)
-    
+
     def create_new_attribute(self, name, value):
         try:
             self.read_attribute(name)
@@ -946,7 +947,7 @@ class MethodOfFrozenDesc(Desc):
         s_self = SomePBC([self.frozendesc])
         args = args.prepend(s_self)
         return self.funcdesc.pycall(schedule, args, s_previous_result)
-    
+
     def consider_call_site(bookkeeper, family, descs, args, s_result):
         shape = rawshape(args, nextra=1)    # account for the extra 'self'
         funcdescs = [mofdesc.funcdesc for mofdesc in descs]
