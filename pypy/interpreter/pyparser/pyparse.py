@@ -217,13 +217,14 @@ class PythonParser(parser.Parser):
 
         return self.build_tree(source_lines, compile_info)
 
+    def classify(self, token_type, value, *args):
+        if self.compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
+            if token_type == self.grammar.KEYWORD_TOKEN and value == 'print':
+                return self.grammar.token_ids[pygram.tokens.NAME]
+        return parser.Parser.classify(self, token_type, value, *args)
+
     def build_tree(self, source_lines, compile_info):
         """Builds the parse tree from a list of source lines"""
-
-        if compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
-            self.grammar = pygram.python_grammar_no_print
-        else:
-            self.grammar = pygram.python_grammar
 
         if source_lines and source_lines[-1]:
             last_line = source_lines[-1]
@@ -235,6 +236,7 @@ class PythonParser(parser.Parser):
                     source_lines[-1] += '\n'
 
         self.prepare(_targets[compile_info.mode])
+        self.compile_info = compile_info
         tp = 0
         try:
             try:
@@ -264,4 +266,5 @@ class PythonParser(parser.Parser):
         finally:
             # Avoid hanging onto the tree.
             self.root = None
+            self.compile_info = None
         return tree
