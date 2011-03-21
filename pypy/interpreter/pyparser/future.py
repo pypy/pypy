@@ -3,12 +3,13 @@ from pypy.tool import stdlib___future__ as future
 
 def get_futures(future_flags, tree):
     flags = 0
+    pos = (-1, 0)
 
     if not isinstance(tree, (ast.Module, ast.Interactive)):
-        return flags, (0, 0)
+        return flags, pos
 
     if not tree.body:
-        return flags, (0, 0)
+        return flags, pos
 
     found_docstring = False
 
@@ -22,12 +23,13 @@ def get_futures(future_flags, tree):
                     flags |= future_flags.compiler_features[name]
                 except KeyError:
                     pass
+                pos = elem.lineno, elem.col_offset
         elif isinstance(elem, ast.Expr):
             if found_docstring:
                 break
             if isinstance(elem.value, ast.Str):
                 found_docstring = True
-    return flags, (elem.lineno, elem.col_offset)
+    return flags, pos
 
 class FutureFlags(object):
 

@@ -226,7 +226,7 @@ class PythonParser(parser.Parser):
             return
         if children[0].value != 'from':
             return
-        if len(children[1].children) != 1:
+        if not children[1].children or len(children[1].children) != 1:
             return
         if children[1].children[0].value != '__future__':
             return
