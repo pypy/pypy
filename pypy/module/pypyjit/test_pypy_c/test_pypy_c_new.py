@@ -500,24 +500,24 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [1000], threshold=400)
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match_by_id('getitem', opcode='BINARY_SUBSCR', expected_src="""
-            i43 = int_lt(i25, 0)
-            guard_false(i43, descr=<Guard9>)
-            i44 = int_ge(i25, i39)
-            guard_false(i44, descr=<Guard10>)
-            i45 = int_mul(i25, i33)
+        assert loop.match("""
+            i16 = int_ge(i11, i12)
+            guard_false(i16, descr=<Guard3>)
+            i17 = int_mul(i11, i14)
+            i18 = int_add(i15, i17)
+            i20 = int_add(i11, 1)
+            i21 = force_token()
+            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            i23 = int_lt(i18, 0)
+            guard_false(i23, descr=<Guard4>)
+            i25 = int_ge(i18, i9)
+            guard_false(i25, descr=<Guard5>)
+            i26 = int_mul(i18, i10)
+            i27 = int_add_ovf(i7, i26)
+            guard_no_overflow(descr=<Guard6>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, i27, i18, i9, i10, i20, i12, p13, i14, i15, descr=<Loop0>)
         """)
-        assert loop.match_by_id('for', opcode='FOR_ITER', expected_src="""
-            i23 = int_ge(i11, i12)
-            guard_false(i23, descr=<Guard3>)
-            i24 = int_mul(i11, i14)
-            i25 = int_add(i15, i24)
-            i27 = int_add(i11, 1)
-            # even if it's a the end of the loop, the jump still belongs to
-            # the FOR_ITER opcode
-            jump(p0, p1, p2, p3, p4, p5, p6, i46, i25, i39, i33, i27, i12, p13, i14, i15, p16, i17, i18, p19, p20, i21, i22, descr=<Loop0>)
-        """)
-
 
     def test_exception_inside_loop_1(self):
         def main(n):
