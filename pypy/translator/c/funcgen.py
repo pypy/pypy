@@ -299,7 +299,6 @@ class FunctionCodeGenerator(object):
 
     def gen_link(self, link):
         "Generate the code to jump across the given Link."
-        is_alive = {}
         assignments = []
         for a1, a2 in zip(link.args, link.target.inputargs):
             a2type, a2typename = self.illtypes[a2]
@@ -808,7 +807,6 @@ class FunctionCodeGenerator(object):
         from pypy.rpython.lltypesystem.rstr import STR
         msg = op.args[0]
         assert msg.concretetype == Ptr(STR)
-        argv = []
         if isinstance(msg, Constant):
             msg = c_string_constant(''.join(msg.value.chars))
         else:

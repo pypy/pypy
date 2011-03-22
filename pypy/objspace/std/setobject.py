@@ -5,6 +5,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
+from pypy.interpreter.function import Defaults
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 
@@ -14,7 +15,7 @@ class W_BaseSetObject(W_Object):
     # make sure that Base is used for Set and Frozenset in multimethod
     # declarations
     @classmethod
-    def is_implementation_for(cls, typedef): 
+    def is_implementation_for(cls, typedef):
         if typedef is frozensettypedef or typedef is settypedef:
             assert cls is W_BaseSetObject
             return True
@@ -619,7 +620,7 @@ cmp__Frozenset_settypedef = cmp__Set_settypedef
 cmp__Frozenset_frozensettypedef = cmp__Set_settypedef
 
 init_signature = Signature(['some_iterable'], None, None)
-init_defaults = [None]
+init_defaults = Defaults([None])
 def init__Set(space, w_set, __args__):
     w_iterable, = __args__.parse_obj(
             None, 'set',
@@ -641,7 +642,7 @@ app = gateway.applevel("""
                 del currently_in_repr[set_id]
             except:
                 pass
-""", filename=__file__) 
+""", filename=__file__)
 
 setrepr = app.interphook("setrepr")
 

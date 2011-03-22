@@ -115,7 +115,6 @@ FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                               ('forw', llmemory.Address))
 FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
 
-
 # ____________________________________________________________
 
 class MiniMarkGC(MovingGCBase):

@@ -29,6 +29,10 @@ class BaseTestPyPyC(object):
         # write the snippet
         arglist = ', '.join(map(repr, args))
         with self.filepath.open("w") as f:
+            # we don't want to see the small bridges created
+            # by the checkinterval reaching the limit
+            f.write("import sys\n")
+            f.write("sys.setcheckinterval(10000000)\n")
             f.write(str(src) + "\n")
             f.write("print %s(%s)\n" % (funcname, arglist))
         #
@@ -47,9 +51,7 @@ class BaseTestPyPyC(object):
                                 env=env,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
-        pipe.wait()
-        stderr = pipe.stderr.read()
-        stdout = pipe.stdout.read()
+        stdout, stderr = pipe.communicate()
         assert not stderr
         #
         # parse the JIT log
@@ -58,6 +60,13 @@ class BaseTestPyPyC(object):
         log = Log(rawtraces)
         log.result = eval(stdout)
         return log
+
+    def run_and_check(self, src, args=[], **jitopts):
+        log1 = self.run(src, args, threshold=-1)  # without the JIT
+        log2 = self.run(src, args, **jitopts)     # with the JIT
+        assert log1.result == log2.result
+        # check that the JIT actually ran
+        assert len(log2.loops_by_filename(self.filepath)) > 0
 
 
 class TestLog(object):
@@ -94,7 +103,7 @@ class TestOpMatcher(object):
     def match(self, src1, src2):
         from pypy.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
-        matcher = OpMatcher(loop.operations)
+        matcher = OpMatcher(loop.operations, src=src1)
         return matcher.match(src2)
 
     def test_match_var(self):
@@ -169,6 +178,7 @@ class TestOpMatcher(object):
         """
         assert self.match(loop, "setfield_gc(p0, 1, descr=<foobar>)")
         assert self.match(loop, "setfield_gc(p0, 1, descr=...)")
+        assert self.match(loop, "setfield_gc(p0, 1, descr=<.*bar>)")
         assert not self.match(loop, "setfield_gc(p0, 1)")
         assert not self.match(loop, "setfield_gc(p0, 1, descr=<zzz>)")
 
@@ -365,9 +375,9 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             # signal checking stuff
-            i10 = getfield_raw(37212896, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            i10 = getfield_raw(37212896, descr=<.* pypysig_long_struct.c_value .*>)
             i12 = int_sub(i10, 1)
-            setfield_raw(37212896, i12, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+            setfield_raw(37212896, i12, descr=<.* pypysig_long_struct.c_value .*>)
             i14 = int_lt(i12, 0)
             guard_false(i14, descr=...)
             jump(p0, p1, p2, p3, i8, descr=...)

@@ -5,7 +5,7 @@ from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
                                                         BaseTest)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
@@ -14,6 +14,7 @@ from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp.test.test_optimizebasic import equaloplists
+from pypy.jit.metainterp.optimizeutil import args_dict
 
 class Fake(object):
     failargs_limit = 1000
@@ -161,7 +162,8 @@ class BaseTestOptimizeOpt(BaseTest):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def optimize_loop(self, ops, optops, expected_preamble=None):
+    def optimize_loop(self, ops, optops, expected_preamble=None,
+                      call_pure_results=None):
         loop = self.parse(ops)
         if optops != "crash!":
             expected = self.parse(optops)
@@ -171,6 +173,10 @@ class BaseTestOptimizeOpt(BaseTest):
             expected_preamble = self.parse(expected_preamble)
         #
         self.loop = loop
+        loop.call_pure_results = args_dict()
+        if call_pure_results is not None:
+            for k, v in call_pure_results.items():
+                loop.call_pure_results[list(k)] = v
         loop.preamble = TreeLoop('preamble')
         loop.preamble.inputargs = loop.inputargs
         loop.preamble.token = LoopToken()
@@ -188,7 +194,7 @@ class BaseTestOptimizeOpt(BaseTest):
             def clone_if_mutable(self):
                 return self
         loop.preamble.start_resumedescr = FakeDescr()
-        optimize_loop_1(metainterp_sd, loop)
+        optimize_loop_1(metainterp_sd, loop, ALL_OPTS_DICT)
         #
 
         print
@@ -2893,7 +2899,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(42, p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -2911,7 +2917,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(42, p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=plaincalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -2931,12 +2937,14 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # the result of the call, recorded as the first arg), or turned into
         # a regular CALL.
         # XXX can this test be improved with unrolling?
+        arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
+        call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i3 = call_pure(42, 123456, 4, 5, 6, descr=plaincalldescr)
-        i4 = call_pure(43, 123456, 4, i0, 6, descr=plaincalldescr)
+        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, i3, i4)
         '''
         preamble = '''
@@ -2953,7 +2961,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, i4)
         '''
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble, call_pure_results)
 
     # ----------
 
@@ -5127,6 +5135,23 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         [p0, i0]
         i1 = strgetitem(p0, i0)
         jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_strlen_positive(self):
+        ops = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_ge(i0, 0)
+        guard_true(i1) []
+        i2 = int_gt(i0, -1)
+        guard_true(i2) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = strlen(p0)
+        jump(p0)
         """
         self.optimize_loop(ops, expected)
 

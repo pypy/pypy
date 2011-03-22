@@ -349,16 +349,10 @@ class AppExposeVisitor(ASDLVisitor):
             setter = "%s_set_%s" % (name, field.name)
             config = (field.name, getter, setter, name)
             self.emit("%s=typedef.GetSetProperty(%s, %s, cls=%s)," % config, 1)
-        # CPython lets you create instances of "abstract" AST nodes
-        # like ast.expr or even ast.AST.  This doesn't seem to useful
-        # and would be a pain to implement safely, so we don't allow
-        # it.
-        if concrete:
-            self.emit("__new__=interp2app(get_AST_new(%s))," % (name,), 1)
-            if needs_init:
-                self.emit("__init__=interp2app(%s_init)," % (name,), 1)
+        self.emit("__new__=interp2app(get_AST_new(%s))," % (name,), 1)
+        if needs_init:
+            self.emit("__init__=interp2app(%s_init)," % (name,), 1)
         self.emit(")")
-        self.emit("%s.typedef.acceptable_as_base_class = False" % (name,))
         self.emit("")
 
     def make_init(self, name, fields):
@@ -376,8 +370,9 @@ class AppExposeVisitor(ASDLVisitor):
         arity = len(fields)
         if arity:
             self.emit("if len(args_w) != %i:" % (arity,), 2)
-            self.emit("w_err = space.wrap(\"%s constructor takes 0 or %i " \
-                          "positional arguments\")" % (name, arity), 3)
+            plural = arity > 1 and "s" or ""
+            self.emit("w_err = space.wrap(\"%s constructor takes either 0 or %i " \
+                          "positional argument%s\")" % (name, arity, plural), 3)
             self.emit("raise OperationError(space.w_TypeError, w_err)", 3)
             self.emit("i = 0", 2)
             self.emit("for field in _%s_field_unroller:" % (name,), 2)
@@ -459,6 +454,9 @@ class AppExposeVisitor(ASDLVisitor):
                                   (field.type,), 2)
                     self.emit("w_self.%s = obj.to_simple_int(space)" %
                               (field.name,), 2)
+                    self.emit("# need to save the original object too", 2)
+                    self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
+                              % (field.name,), 2)
                 else:
                     config = (field.name, field.type, repr(field.opt))
                     self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
@@ -609,6 +607,13 @@ def get_AST_new(node_class):
         return space.wrap(node)
     return func_with_new_name(generic_AST_new, "new_%s" % node_class.__name__)
 
+def AST_init(space, w_self, __args__):
+    args_w, kwargs_w = __args__.unpack()
+    if args_w and len(args_w) != 0:
+        w_err = space.wrap("_ast.AST constructor takes 0 positional arguments")
+        raise OperationError(space.w_TypeError, w_err)
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
 
 AST.typedef = typedef.TypeDef("AST",
     _fields=_FieldsWrapper([]),
@@ -618,8 +623,9 @@ AST.typedef = typedef.TypeDef("AST",
     __setstate__=interp2app(AST.setstate_w),
     __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
                                       typedef.descr_set_dict, cls=AST),
+    __new__=interp2app(get_AST_new(AST)),
+    __init__=interp2app(AST_init),
 )
-AST.typedef.acceptable_as_base_class = False
 
 
 def missing_field(space, state, required, host):

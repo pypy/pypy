@@ -288,6 +288,7 @@ class W_PyCTypeObject(W_TypeObject):
         W_TypeObject.__init__(self, space, extension_name,
             bases_w or [space.w_object], dict_w)
         self.flag_cpytype = True
+        self.flag_heaptype = False
 
 @bootstrap_function
 def init_typeobject(space):

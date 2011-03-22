@@ -5,7 +5,6 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.jit import JitDriver, hint, dont_look_inside
-from pypy.rlib.jit import OPTIMIZER_SIMPLE, OPTIMIZER_FULL
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
@@ -374,7 +373,7 @@ class ExplicitVirtualizableTests:
             promote_virtualizable(xy2, 'inst_l2')                
             return xy2.inst_l2[0]
         expected = f(20)
-        res = self.meta_interp(f, [20], optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(f, [20], enable_opts='')
         assert res == expected
         self.check_loops(getfield_gc=3, setfield_gc=0,
                          arraylen_gc=1, getarrayitem_gc=1, setarrayitem_gc=1)
@@ -1369,8 +1368,7 @@ class ImplicitVirtualizableTests:
             frame = Frame(n)
             return f("c-l", frame)
         print main(100)
-        res = self.meta_interp(main, [100], inline=True,
-                                            optimizer=OPTIMIZER_FULL)
+        res = self.meta_interp(main, [100], inline=True, enable_opts='')
 
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

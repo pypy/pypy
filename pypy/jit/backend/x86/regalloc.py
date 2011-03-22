@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.backend.x86.jump import remap_frame_layout
+from pypy.jit.backend.x86.jump import remap_frame_layout_mixed
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
@@ -110,6 +110,12 @@ class X86FrameManager(FrameManager):
             return StackLoc(i, get_ebp_ofs(i+1), 2, box_type)
         else:
             return StackLoc(i, get_ebp_ofs(i), 1, box_type)
+    @staticmethod
+    def frame_size(box_type):
+        if IS_X86_32 and box_type == FLOAT:
+            return 2
+        else:
+            return 1
 
 class RegAlloc(object):
 
@@ -1195,16 +1201,17 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs())
+        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
-        dst_locations = [loc for loc in nonfloatlocs if loc is not None]
-        remap_frame_layout(assembler, src_locations, dst_locations, tmploc)
+        dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
         # Part about floats
-        src_locations = [self.loc(op.getarg(i)) for i in range(op.numargs())
+        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
                          if op.getarg(i).type == FLOAT]
-        dst_locations = [loc for loc in floatlocs if loc is not None]
-        remap_frame_layout(assembler, src_locations, dst_locations, xmmtmp)
+        dst_locations2 = [loc for loc in floatlocs if loc is not None]
+        remap_frame_layout_mixed(assembler,
+                                 src_locations1, dst_locations1, tmploc,
+                                 src_locations2, dst_locations2, xmmtmp)
         self.rm.possibly_free_var(box)
         self.xrm.possibly_free_var(box1)
         self.possibly_free_vars_for_op(op)

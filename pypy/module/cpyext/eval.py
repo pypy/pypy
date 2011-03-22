@@ -84,6 +84,15 @@ def run_string(space, source, filename, start, w_globals, w_locals):
     w_code = compiling.compile(space, w_source, filename, mode)
     return compiling.eval(space, w_code, w_globals, w_locals)
 
+@cpython_api([CONST_STRING], rffi.INT_real, error=-1)
+def PyRun_SimpleString(space, command):
+    """This is a simplified interface to PyRun_SimpleStringFlags() below,
+    leaving the PyCompilerFlags* argument set to NULL."""
+    command = rffi.charp2str(command)
+    run_string(space, command, "<string>", Py_file_input,
+               space.w_None, space.w_None)
+    return 0
+
 @cpython_api([CONST_STRING, rffi.INT_real,PyObject, PyObject], PyObject)
 def PyRun_String(space, source, start, w_globals, w_locals):
     """This is a simplified interface to PyRun_StringFlags() below, leaving

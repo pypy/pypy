@@ -26,16 +26,24 @@ class FrameManager(object):
         res = self.get(box)
         if res is not None:
             return res
+        size = self.frame_size(box.type)
+        self.frame_depth += ((-self.frame_depth) & (size-1))
+        # ^^^ frame_depth is rounded up to a multiple of 'size', assuming
+        # that 'size' is a power of two.  The reason for doing so is to
+        # avoid obscure issues in jump.py with stack locations that try
+        # to move from position (6,7) to position (7,8).
         newloc = self.frame_pos(self.frame_depth, box.type)
         self.frame_bindings[box] = newloc
-        # Objects returned by frame_pos must support frame_size()
-        self.frame_depth += newloc.frame_size()
+        self.frame_depth += size
         return newloc
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
     def frame_pos(loc, type):
         raise NotImplementedError("Purely abstract")
+    @staticmethod
+    def frame_size(type):
+        return 1
 
 class RegisterManager(object):
     """ Class that keeps track of register allocations
