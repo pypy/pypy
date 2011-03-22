@@ -229,6 +229,12 @@ to find a ``PREFIX`` from which the directories
     ../../..
     etc.
 
+If the executable fails to find suitable libraries, it will report
+``debug: WARNING: library path not found, using compiled-in sys.path``
+and then attempt to continue normally.  If the default path is usable,
+most code will be fine.  However, the ``sys.prefix`` will be unset
+and some existing libraries assume that this is never the case.
+
 In order to use ``distutils`` or ``setuptools`` a directory ``PREFIX/site-packages`` needs to be created. Here's an example session setting up and using ``easy_install``::
 
     $ cd PREFIX
