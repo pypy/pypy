@@ -370,7 +370,6 @@ class RangeListStrategy(ListStrategy):
         w_list.setslice(start, step, slicelength, sequence_w)
 
     def insert(self, w_list, index, w_item):
-        assert index >= 0
         self.switch_to_integer_strategy(w_list)
         w_list.insert(index, w_item)
 
@@ -457,7 +456,6 @@ class AbstractUnwrappedStrategy(object):
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
-        assert index >= 0
         l = self.cast_from_void_star(w_list.lstorage)
 
         if self.is_correct_type(w_item):
@@ -900,6 +898,7 @@ def get_positive_index(where, length):
             where = 0
     elif where > length:
         where = length
+    assert where >= 0
     return where
 
 def list_append__List_ANY(space, w_list, w_any):
