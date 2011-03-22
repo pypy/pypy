@@ -11,8 +11,10 @@ class AppTestSSL:
         import _ssl
     
     def test_sslerror(self):
-        import _ssl
+        import _ssl, _socket
         assert issubclass(_ssl.SSLError, Exception)
+        assert issubclass(_ssl.SSLError, IOError)
+        assert issubclass(_ssl.SSLError, _socket.error)
 
     def test_constants(self):
         import _ssl
@@ -69,6 +71,16 @@ class AppTestSSL:
             assert exc.value.errno == 2 # Cannot find file (=not a socket)
         else:
             assert exc.value.errno == 32 # Broken pipe
+
+    def test_async_closed(self):
+        import _ssl, _socket
+        s = _socket.socket()
+        s.settimeout(3)
+        ss = _ssl.sslwrap(s, 0)
+        s.close()
+        exc = raises(_ssl.SSLError, ss.write, "data")
+        assert exc.value.message == "Underlying socket has been closed."
+
 
 class AppTestConnectedSSL:
     def setup_class(cls):

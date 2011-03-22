@@ -408,18 +408,20 @@ class AppTestPartialEvaluation:
 
     def test_errors(self):
         import codecs
-        assert (
-            codecs.replace_errors(UnicodeEncodeError("ascii", u"\u3042", 0, 1, "ouch"))) == (
-            (u"?", 1)
-        )
-        assert (
-            codecs.replace_errors(UnicodeDecodeError("ascii", "\xff", 0, 1, "ouch"))) == (
-            (u"\ufffd", 1)
-        )
-        assert (
-            codecs.replace_errors(UnicodeTranslateError(u"\u3042", 0, 1, "ouch"))) == (
-            (u"\ufffd", 1)
-        )
+        assert codecs.replace_errors(UnicodeEncodeError(
+            "ascii", u"\u3042", 0, 1, "ouch")) == (u"?", 1)
+        assert codecs.replace_errors(UnicodeDecodeError(
+            "ascii", "\xff", 0, 1, "ouch")) == (u"\ufffd", 1)
+        assert codecs.replace_errors(UnicodeTranslateError(
+            u"\u3042", 0, 1, "ouch")) == (u"\ufffd", 1)
+
+        assert codecs.replace_errors(UnicodeEncodeError(
+            "ascii", u"\u3042\u3042", 0, 2, "ouch")) == (u"??", 2)
+        assert codecs.replace_errors(UnicodeDecodeError(
+            "ascii", "\xff\xff", 0, 2, "ouch")) == (u"\ufffd", 2)
+        assert codecs.replace_errors(UnicodeTranslateError(
+            u"\u3042\u3042", 0, 2, "ouch")) == (u"\ufffd\ufffd", 2)
+
         class BadStartUnicodeEncodeError(UnicodeEncodeError):
             def __init__(self):
                 UnicodeEncodeError.__init__(self, "ascii", u"", 0, 1, "bad")

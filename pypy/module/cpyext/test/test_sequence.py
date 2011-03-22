@@ -17,7 +17,7 @@ class TestSequence(BaseApiTest):
         w_set = space.wrap(set((1, 2, 3, 4)))
         w_seq = api.PySequence_Fast(w_set, "message")
         assert space.type(w_seq) is space.w_tuple
-        assert space.int_w(space.len(w_seq)) == 4
+        assert space.len_w(w_seq) == 4
 
         w_seq = api.PySequence_Tuple(w_set)
         assert space.type(w_seq) is space.w_tuple
@@ -52,7 +52,7 @@ class TestSequence(BaseApiTest):
         assert exc.value.match(space, space.w_TypeError)
         assert space.str_w(exc.value.get_w_value(space)) == "message"
         rffi.free_charp(message)
-    
+
     def test_get_slice(self, space, api):
         w_t = space.wrap([1, 2, 3, 4, 5])
         assert space.unwrap(api.PySequence_GetSlice(w_t, 2, 4)) == [3, 4]
@@ -78,3 +78,30 @@ class TestSequence(BaseApiTest):
         assert api.PySequence_Contains(space.w_None, space.wrap(2)) == -1
         assert api.PyErr_Occurred()
         api.PyErr_Clear()
+
+    def test_setitem(self, space, api):
+        w_value = space.wrap(42)
+
+        l = api.PyList_New(1)
+        result = api.PySequence_SetItem(l, 0, w_value)
+        assert result != -1
+        assert space.eq_w(space.getitem(l, space.wrap(0)), w_value)
+
+        self.raises(space, api, IndexError, api.PySequence_SetItem,
+                    l, 3, w_value)
+
+        self.raises(space, api, TypeError, api.PySequence_SetItem,
+                    api.PyTuple_New(1), 0, w_value)
+
+        self.raises(space, api, TypeError, api.PySequence_SetItem,
+                    space.newdict(), 0, w_value)
+
+    def test_delitem(self, space, api):
+        w_l = space.wrap([1, 2, 3, 4])
+
+        result = api.PySequence_DelItem(w_l, 2)
+        assert result == 0
+        assert space.eq_w(w_l, space.wrap([1, 2, 4]))
+
+        self.raises(space, api, IndexError, api.PySequence_DelItem,
+                    w_l, 3)

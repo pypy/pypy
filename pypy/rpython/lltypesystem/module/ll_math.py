@@ -8,14 +8,16 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.tool.autopath import pypydir
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.rarithmetic import isinf, isnan, INFINITY, NAN
+from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
 if sys.platform == "win32":
     eci = ExternalCompilationInfo()
     # Some math functions are C99 and not defined by the Microsoft compiler
-    srcdir = py.path.local(pypydir).join('translator', 'c', 'src')
+    cdir = py.path.local(pypydir).join('translator', 'c')
     math_eci = ExternalCompilationInfo(
-        separate_module_files=[srcdir.join('math.c')],
+        include_dirs = [cdir],
+        includes = ['src/ll_math.h'],
+        separate_module_files=[cdir.join('src', 'll_math.c')],
         export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
                         '_pypy_math_atanh',
                         '_pypy_math_expm1', '_pypy_math_log1p',

@@ -10,6 +10,7 @@ from pypy.rlib import rarithmetic
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.debug import have_debug_prints, ll_assert
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.jit.metainterp.optimizeutil import InvalidLoop
 
 # Logic to encode the chain of frames and the state of the boxes at a
 # guard operation, and to decode it again.  This is a bit advanced,
@@ -427,12 +428,24 @@ class AbstractVirtualInfo(object):
     #    raise NotImplementedError
     def equals(self, fieldnums):
         return tagged_list_eq(self.fieldnums, fieldnums)
+
     def set_content(self, fieldnums):
         self.fieldnums = fieldnums
 
     def debug_prints(self):
         raise NotImplementedError
 
+    def generalization_of(self, other):
+        raise NotImplementedError
+
+    def generate_guards(self, other, box, cpu, extra_guards):
+        if self.generalization_of(other):
+            return
+        self._generate_guards(other, box, cpu, extra_guards)
+
+    def _generate_guards(self, other, box, cpu, extra_guards):
+        raise InvalidLoop
+        
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
@@ -452,6 +465,26 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(self.fielddescrs[i]),
                         str(untag(self.fieldnums[i])))
 
+    def generalization_of(self, other):
+        if not self._generalization_of(other):
+            return False
+        assert len(self.fielddescrs) == len(self.fieldstate)
+        assert len(other.fielddescrs) == len(other.fieldstate)
+        if len(self.fielddescrs) != len(other.fielddescrs):
+            return False
+        
+        for i in range(len(self.fielddescrs)):
+            if other.fielddescrs[i] is not self.fielddescrs[i]:
+                return False
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
+                return False
+
+        return True
+
+    def _generalization_of(self, other):
+        raise NotImplementedError
+
+
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -467,6 +500,14 @@ class VirtualInfo(AbstractVirtualStructInfo):
         debug_print("\tvirtualinfo", self.known_class.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
 
+    def _generalization_of(self, other):        
+        if not isinstance(other, VirtualInfo):
+            return False
+        if not self.known_class.same_constant(other.known_class):
+            return False
+        return True
+        
+
 class VStructInfo(AbstractVirtualStructInfo):
     def __init__(self, typedescr, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -481,6 +522,14 @@ class VStructInfo(AbstractVirtualStructInfo):
     def debug_prints(self):
         debug_print("\tvstructinfo", self.typedescr.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
+
+    def _generalization_of(self, other):        
+        if not isinstance(other, VStructInfo):
+            return False
+        if self.typedescr is not other.typedescr:
+            return False
+        return True
+        
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
@@ -512,6 +561,16 @@ class VArrayInfo(AbstractVirtualInfo):
         debug_print("\tvarrayinfo", self.arraydescr)
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
+
+    def generalization_of(self, other):
+        if self.arraydescr is not other.arraydescr:
+            return False
+        if len(self.fieldstate) != len(other.fieldstate):
+            return False
+        for i in range(len(self.fieldstate)):
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
+                return False
+        return True
 
 
 class VStrPlainInfo(AbstractVirtualInfo):
@@ -647,6 +706,7 @@ class AbstractResumeDataReader(object):
         # Note that this may be called recursively; that's why the
         # allocate() methods must fill in the cache as soon as they
         # have the object, before they fill its fields.
+        assert self.virtuals_cache is not None
         v = self.virtuals_cache[index]
         if not v:
             v = self.rd_virtuals[index].allocate(self, index)
@@ -1007,17 +1067,16 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             return len(numb.nums)
         index = len(numb.nums) - 1
         virtualizable = self.decode_ref(numb.nums[index])
-        virtualizable = vinfo.cast_gcref_to_vtype(virtualizable)
         if self.resume_after_guard_not_forced == 1:
             # in the middle of handle_async_forcing()
-            assert virtualizable.vable_token
-            virtualizable.vable_token = vinfo.TOKEN_NONE
+            assert vinfo.gettoken(virtualizable)
+            vinfo.settoken(virtualizable, vinfo.TOKEN_NONE)
         else:
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
             # is and stays 0.  Note the call to reset_vable_token() in
             # warmstate.py.
-            assert not virtualizable.vable_token
+            assert not vinfo.gettoken(virtualizable)
         return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
 
     def load_value_of_type(self, TYPE, tagged):
@@ -1158,7 +1217,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def decode_float(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
-            return self.consts[num].getfloat()
+            return self.consts[num].getfloatstorage()
         else:
             assert tag == TAGBOX
             if num < 0:

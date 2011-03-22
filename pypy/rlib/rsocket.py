@@ -1,3 +1,4 @@
+from __future__ import with_statement
 """
 An RPython implementation of sockets based on rffi.
 Note that the interface has to be slightly different - this is not
@@ -838,9 +839,6 @@ class RSocket(object):
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
         
-    def fileno(self):
-        return self.fd
-
     def getpeername(self):
         """Return the address of the remote endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -1047,21 +1045,21 @@ class RSocket(object):
         self.settimeout(timeout)
 
     def setsockopt(self, level, option, value):
-        res = _c.socketsetsockopt(self.fd, level, option, value, len(value))
-        if res < 0:
-            raise self.error_handler()
+        with rffi.scoped_str2charp(value) as buf:
+            res = _c.socketsetsockopt(self.fd, level, option,
+                                      rffi.cast(rffi.VOIDP, buf),
+                                      len(value))
+            if res < 0:
+                raise self.error_handler()
 
     def setsockopt_int(self, level, option, value):
-        flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-        try:
+        with lltype.scoped_alloc(rffi.INTP.TO, 1) as flag_p:
             flag_p[0] = rffi.cast(rffi.INT, value)
             res = _c.socketsetsockopt(self.fd, level, option,
                                       rffi.cast(rffi.VOIDP, flag_p),
                                       rffi.sizeof(rffi.INT))
-        finally:
-            lltype.free(flag_p, flavor='raw')
-        if res < 0:
-            raise self.error_handler()
+            if res < 0:
+                raise self.error_handler()
 
     def settimeout(self, timeout):
         """Set the timeout of the socket. A timeout < 0 means that

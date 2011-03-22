@@ -1,4 +1,2 @@
 80037 greenlet
-80037 lib_pypy/pyrepl
-80282 lib_pypy/sqlite3
-80037 testrunner
+80409 lib_pypy/pyrepl

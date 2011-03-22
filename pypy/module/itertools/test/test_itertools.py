@@ -1,6 +1,7 @@
 import py
 from pypy.conftest import gettestobjspace
 
+
 class AppTestItertools: 
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['itertools'])
@@ -26,6 +27,14 @@ class AppTestItertools:
         assert repr(it) == 'count(123)'
         it.next()
         assert repr(it) == 'count(124)'
+        it = itertools.count(12.1, 1.0)
+        assert repr(it) == 'count(12.1, 1.0)'
+
+    def test_count_invalid(self):
+        import itertools
+
+        raises(TypeError, itertools.count, None)
+        raises(TypeError, itertools.count, 'a')
 
     def test_repeat(self):
         import itertools
@@ -368,6 +377,8 @@ class AppTestItertools:
         for x in [1, 5, 9]:
             assert it.next() == x
         raises(StopIteration, it.next)
+
+        assert list(itertools.starmap(operator.add, [iter((40,2))])) == [42]
 
     def test_starmap_wrongargs(self):
         import itertools
@@ -725,8 +736,14 @@ class AppTestItertools26:
         m = ['a', 'b']
 
         prodlist = product(l, m)
-        assert list(prodlist) == [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+        res = [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+        assert list(prodlist) == res
+        assert list(product()) == [()]
         assert list(product([])) == []
+        assert list(product(iter(l), iter(m))) == res
+
+        prodlist = product(iter(l), iter(m))
+        assert list(prodlist) == [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
 
     def test_product_repeat(self):
         from itertools import product
@@ -757,6 +774,9 @@ class AppTestItertools26:
         prodlist = product(l, m)
         assert list(prodlist) == [(1, 'a'), (1, 'b')]
 
+        assert list(product([], [1, 2, 3])) == []
+        assert list(product([1, 2, 3], [])) == []
+
     def test_product_toomany_args(self):
         from itertools import product
         l = [1, 2]
@@ -771,6 +791,34 @@ class AppTestItertools26:
 
     def test_permutations(self):
         from itertools import permutations
+        assert list(permutations('AB')) == [('A', 'B'), ('B', 'A')]
+        assert list(permutations('ABCD', 2)) == [
+            ('A', 'B'),
+            ('A', 'C'),
+            ('A', 'D'),
+            ('B', 'A'),
+            ('B', 'C'),
+            ('B', 'D'),
+            ('C', 'A'),
+            ('C', 'B'),
+            ('C', 'D'),
+            ('D', 'A'),
+            ('D', 'B'),
+            ('D', 'C'),
+            ]
+        assert list(permutations(range(3))) == [
+            (0, 1, 2),
+            (0, 2, 1),
+            (1, 0, 2),
+            (1, 2, 0),
+            (2, 0, 1),
+            (2, 1, 0),
+            ]
+        assert list(permutations([])) == [()]
+        assert list(permutations([], 0)) == [()]
+        assert list(permutations([], 1)) == []
+        assert list(permutations(range(3), 4)) == []
+        #
         perm = list(permutations([1, 2, 3, 4]))
         assert perm == [(1, 2, 3, 4), (1, 2, 4, 3), (1, 3, 2, 4), (1, 3, 4, 2),
                         (1, 4, 2, 3), (1, 4, 3, 2), (2, 1, 3, 4), (2, 1, 4, 3),
@@ -835,6 +883,15 @@ class AppTestItertools27:
         raises(TypeError, combinations_with_replacement, None)
         raises(ValueError, combinations_with_replacement, "abc", -2)
         assert list(combinations_with_replacement("ABC", 2)) == [("A", "A"), ("A", 'B'), ("A", "C"), ("B", "B"), ("B", "C"), ("C", "C")]
+
+    def test_combinations_with_replacement_shortcases(self):
+        from itertools import combinations_with_replacement
+        assert list(combinations_with_replacement([-12], 2)) == [(-12, -12)]
+        assert list(combinations_with_replacement("AB", 3)) == [
+            ("A", "A", "A"), ("A", "A", "B"),
+            ("A", "B", "B"), ("B", "B", "B")]
+        assert list(combinations_with_replacement([], 2)) == []
+        assert list(combinations_with_replacement([], 0)) == [()]
 
     def test_izip_longest3(self):
         import itertools
@@ -902,3 +959,18 @@ class AppTestItertools27:
         assert type(A('', 0)) is A
         class A(itertools.combinations_with_replacement): pass
         assert type(A('', 0)) is A
+
+    def test_copy_pickle(self):
+        import itertools, copy, pickle, sys
+        for value in [42, -sys.maxint*99]:
+            for step in [1, sys.maxint*42, 5.5]:
+                expected = [value, value+step, value+2*step]
+                c = itertools.count(value, step)
+                assert list(itertools.islice(c, 3)) == expected
+                c = itertools.count(value, step)
+                c1 = copy.copy(c)
+                assert list(itertools.islice(c1, 3)) == expected
+                c2 = copy.deepcopy(c)
+                assert list(itertools.islice(c2, 3)) == expected
+                c3 = pickle.loads(pickle.dumps(c))
+                assert list(itertools.islice(c3, 3)) == expected

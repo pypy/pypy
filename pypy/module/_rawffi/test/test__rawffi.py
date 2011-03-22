@@ -5,7 +5,6 @@ from pypy.translator.platform import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
 from pypy.module._rawffi.tracker import Tracker
-from pypy.translator.platform import platform
 
 import os, sys, py
 
@@ -211,12 +210,9 @@ class AppTestFfi:
             cls.w_libm_name = space.wrap('libm.so')
             if sys.platform == "darwin":
                 cls.w_libm_name = space.wrap('libm.dylib')
+        cls.w_platform = space.wrap(platform.name)
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
-
-    def teardown_method(self, func):
-        from pypy.module._rawffi.callback import global_counter
-        global_counter.CallbackPtr_by_number.clear()
 
     def test_libload(self):
         import _rawffi
@@ -494,9 +490,10 @@ class AppTestFfi:
 
     def test_invalid_bitfields(self):
         import _rawffi
-        raises(ValueError, _rawffi.Structure, [('A', 'c', 1)])
+        raises(TypeError, _rawffi.Structure, [('A', 'c', 1)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', 129)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', -1)])
+        raises(ValueError, _rawffi.Structure, [('A', 'I', 0)])
 
     def test_packed_structure(self):
         import _rawffi
@@ -610,7 +607,7 @@ class AppTestFfi:
         a3.free()
         a4.free()
         ll_to_sort.free()
-        del cb
+        cb.free()
 
     def test_another_callback(self):
         import _rawffi
@@ -624,7 +621,7 @@ class AppTestFfi:
         res = runcallback(a1)
         assert res[0] == 1<<42
         a1.free()
-        del cb
+        cb.free()
 
     def test_void_returning_callback(self):
         import _rawffi
@@ -640,7 +637,7 @@ class AppTestFfi:
         assert res is None
         assert called == [True]
         a1.free()
-        del cb
+        cb.free()
 
     def test_another_callback_in_stackless(self):
         try:
@@ -667,7 +664,7 @@ class AppTestFfi:
         res = runcallback(a1)
         assert res[0] == 1<<42
         a1.free()
-        del cb
+        cb.free()
 
     def test_raising_callback(self):
         import _rawffi, sys
@@ -685,7 +682,7 @@ class AppTestFfi:
             a1 = cb.byptr()
             res = runcallback(a1)
             a1.free()
-            del cb
+            cb.free()
             val = err.getvalue()
             assert 'ZeroDivisionError' in val
             assert 'callback' in val
@@ -908,8 +905,8 @@ class AppTestFfi:
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
 
     def test_stackcheck(self):
-        if not self.iswin32:
-            skip("win32 specific")
+        if self.platform != "msvc":
+            skip("win32 msvc specific")
 
         # Even if the call corresponds to the specified signature,
         # the STDCALL calling convention may detect some errors
@@ -969,6 +966,7 @@ class AppTestFfi:
         res = op_x_y(x_y, a1)
         a1.free()
         x_y.free()
+        cb.free()
 
         assert res[0] == 420
 

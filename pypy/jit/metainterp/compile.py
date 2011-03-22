@@ -15,7 +15,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.resume import NUMBERING
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 
 def giveup():
     from pypy.jit.metainterp.pyjitpl import SwitchToBlackhole
@@ -39,7 +39,10 @@ def show_loop(metainterp_sd, loop=None, error=None):
 
 def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
-    return TreeLoop(name_prefix + name)
+    loop = TreeLoop(name_prefix + name)
+    loop.call_pure_results = metainterp.call_pure_results
+    return loop
+
 
 def make_loop_token(nb_args, jitdriver_sd):
     loop_token = LoopToken()
@@ -80,11 +83,13 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, greenkey, start, start_resumedescr):
+def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
+                     start_resumedescr, full_preamble_needed=True):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
-    full_preamble_needed=True
+    from pypy.jit.metainterp.optimize import optimize_loop
+
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.inputargs = history.inputargs
@@ -105,8 +110,8 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start, start_resumed
     loop.preamble.start_resumedescr = start_resumedescr
 
     try:
-        old_loop_token = jitdriver_sd.warmstate.optimize_loop(
-            metainterp_sd, old_loop_tokens, loop)
+        old_loop_token = optimize_loop(metainterp_sd, old_loop_tokens, loop,
+                                       jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
         return None
     if old_loop_token is not None:
@@ -117,7 +122,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start, start_resumed
         send_loop_to_backend(metainterp_sd, loop, "loop")
         record_loop_or_bridge(metainterp_sd, loop)
         token = loop.preamble.token
-        if full_preamble_needed or not loop.preamble.token.short_preamble:
+        if full_preamble_needed:
             send_loop_to_backend(metainterp_sd, loop.preamble, "entry bridge")
             insert_loop_token(old_loop_tokens, loop.preamble.token)
             jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
@@ -528,7 +533,7 @@ class ResumeGuardCountersRef(AbstractResumeGuardCounters):
 class ResumeGuardCountersFloat(AbstractResumeGuardCounters):
     def __init__(self):
         self.counters = [0] * 5
-        self.values = [0.0] * 5
+        self.values = [longlong.ZEROF] * 5
     see_float = func_with_new_name(_see, 'see_float')
 
 
@@ -566,10 +571,12 @@ class ResumeFromInterpDescr(ResumeDescr):
         pass
 
 
-def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
+def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
+    from pypy.jit.metainterp.optimize import optimize_bridge
+    
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
     #
@@ -586,9 +593,9 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey):
     else:
         inline_short_preamble = True
     try:
-        target_loop_token = state.optimize_bridge(metainterp_sd,
-                                                  old_loop_tokens,
-                                                  new_loop, inline_short_preamble)
+        target_loop_token = optimize_bridge(metainterp_sd, old_loop_tokens,
+                                            new_loop, state.enable_opts,
+                                            inline_short_preamble, retraced)
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop

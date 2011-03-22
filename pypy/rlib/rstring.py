@@ -111,11 +111,13 @@ string_repeat._annspecialcase_ = 'specialize:argtype(0)'
 
 class SomeStringBuilder(SomeObject):
     def method_append(self, s_str):
-        assert isinstance(s_str, (SomeString, SomeChar))
+        if s_str != s_None:
+            assert isinstance(s_str, (SomeString, SomeChar))
         return s_None
 
     def method_append_slice(self, s_str, s_start, s_end):
-        assert isinstance(s_str, SomeString)
+        if s_str != s_None:
+            assert isinstance(s_str, SomeString)
         assert isinstance(s_start, SomeInteger)
         assert isinstance(s_end, SomeInteger)
         return s_None
@@ -136,11 +138,13 @@ class SomeStringBuilder(SomeObject):
 
 class SomeUnicodeBuilder(SomeObject):
     def method_append(self, s_str):
-        assert isinstance(s_str, (SomeUnicodeCodePoint, SomeUnicodeString))
+        if s_str != s_None:
+            assert isinstance(s_str, (SomeUnicodeCodePoint, SomeUnicodeString))
         return s_None
 
     def method_append_slice(self, s_str, s_start, s_end):
-        assert isinstance(s_str, SomeUnicodeString)
+        if s_str != s_None:
+            assert isinstance(s_str, SomeUnicodeString)
         assert isinstance(s_start, SomeInteger)
         assert isinstance(s_end, SomeInteger)
         return s_None

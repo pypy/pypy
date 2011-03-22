@@ -112,9 +112,8 @@ class TestNumber(BaseCTypesTestChecker):
 
     def test_sizes(self):
         for t in signed_types + unsigned_types + float_types:
-            if t._type_ == 'g':
-                # typecode not supported by "struct"
-                continue 
+            if t is c_longdouble:   # no support for 'g' in the struct module
+                continue
             size = struct.calcsize(t._type_)
             # sizeof of the type...
             assert sizeof(t) == size
@@ -123,6 +122,8 @@ class TestNumber(BaseCTypesTestChecker):
 
     def test_alignments(self):
         for t in signed_types + unsigned_types + float_types:
+            if t is c_longdouble:   # no support for 'g' in the struct module
+                continue
             code = t._type_ # the typecode
             if code == 'g':
                 # typecode not supported by "struct"
@@ -158,9 +159,10 @@ class TestNumber(BaseCTypesTestChecker):
     def test_float_from_address(self):
         from _rawffi import Array
         for t in float_types:
-            a = Array(t._type_)(1)
-            a[0] = 3.14
-            v = t.from_address(a.buffer)
+            if t is c_longdouble:   # no support for 'g' in the array module
+                continue
+            a = array(t._type_, [3.14])
+            v = t.from_address(a.buffer_info()[0])
             assert v.value == a[0]
             assert type(v) is t
             a[0] = 2.3456e17

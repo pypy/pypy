@@ -1,6 +1,5 @@
 import sys
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
-    Arguments
+from pypy.interpreter.baseobjspace import Wrappable, Arguments
 from pypy.interpreter.error import OperationError, wrap_oserror, \
     operationerrfmt
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
@@ -22,7 +21,6 @@ class W_FFIType(Wrappable):
         if self.is_struct():
             assert w_datashape is not None
 
-    @unwrap_spec('self', ObjSpace)
     def str(self, space):
         return space.wrap(self.__str__())
 
@@ -376,7 +374,7 @@ class W_CDLL(Wrappable):
             raise operationerrfmt(space.w_OSError, '%s: %s', self.name,
                                   e.msg or 'unspecified error')
 
-    @unwrap_spec('self', ObjSpace, str, W_Root, W_Root)
+    @unwrap_spec(name=str)
     def getfunc(self, space, name, w_argtypes, w_restype):
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
                                                                    w_argtypes,
@@ -399,8 +397,7 @@ class W_CDLL(Wrappable):
                                   "No symbol %s found in library %s", name, self.name)
         return space.wrap(address_as_uint)
 
-
-@unwrap_spec(ObjSpace, W_Root, 'str_or_None')
+@unwrap_spec(name=str)
 def descr_new_cdll(space, w_type, name):
     return space.wrap(W_CDLL(space, name))
 

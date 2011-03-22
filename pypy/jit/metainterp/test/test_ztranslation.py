@@ -1,7 +1,7 @@
 import py
 from pypy.jit.metainterp.warmspot import rpython_ll_meta_interp, ll_meta_interp
 from pypy.jit.backend.llgraph import runner
-from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
+from pypy.rlib.jit import JitDriver, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -29,6 +29,12 @@ class TranslationTest:
             def __init__(self, i):
                 self.i = i
 
+        class OtherFrame(object):
+            _virtualizable2_ = ['i']
+
+            def __init__(self, i):
+                self.i = i
+
         class JitCellCache:
             entry = None
         jitcellcache = JitCellCache()
@@ -45,8 +51,7 @@ class TranslationTest:
                               set_jitcell_at=set_jitcell_at,
                               get_printable_location=get_printable_location)
         def f(i):
-            for param in unroll_parameters:
-                defl = PARAMETERS[param]
+            for param, defl in unroll_parameters:
                 jitdriver.set_param(param, defl)
             jitdriver.set_param("threshold", 3)
             jitdriver.set_param("trace_eagerness", 2)
@@ -61,18 +66,20 @@ class TranslationTest:
                 frame.i -= 1
             return total * 10
         #
-        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 'x', 's'])
+        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 's', 'f'],
+                                 virtualizables = ['f'])
         def f2(g, m, x):
             s = ""
+            f = OtherFrame(x)
             while m > 0:
-                myjitdriver2.can_enter_jit(g=g, m=m, x=x, s=s)
-                myjitdriver2.jit_merge_point(g=g, m=m, x=x, s=s)
+                myjitdriver2.can_enter_jit(g=g, m=m, f=f, s=s)
+                myjitdriver2.jit_merge_point(g=g, m=m, f=f, s=s)
                 s += 'xy'
                 if s[:2] == 'yz':
                     return -666
                 m -= 1
-                x += 3
-            return x
+                f.i += 3
+            return f.i
         #
         def main(i, j):
             return f(i) - f2(i+j, i, j)
@@ -82,7 +89,6 @@ class TranslationTest:
         res = rpython_ll_meta_interp(main, [40, 5],
                                      CPUClass=self.CPUClass,
                                      type_system=self.type_system,
-                                     optimizer=OPTIMIZER_FULL,
                                      ProfilerClass=Profiler)
         assert res == main(40, 5)
 
@@ -122,11 +128,9 @@ class TranslationTest:
         assert res == main(40)
         res = rpython_ll_meta_interp(main, [40], CPUClass=self.CPUClass,
                                      type_system=self.type_system,
-                                     optimizer=OPTIMIZER_FULL,
+                                     enable_opts='',
                                      ProfilerClass=Profiler)
         assert res == main(40)
-
-
 
 class TestTranslationLLtype(TranslationTest):
 

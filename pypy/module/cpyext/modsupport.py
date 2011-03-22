@@ -33,7 +33,6 @@ def PyImport_AddModule(space, name):
 
 # This is actually the Py_InitModule4 function,
 # renamed to refuse modules built against CPython headers.
-# The implementation of Py_InitModule4 is in include/modsupport.inl
 @cpython_api([CONST_STRING, lltype.Ptr(PyMethodDef), CONST_STRING,
               PyObject, rffi.INT_real], PyObject)
 def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
@@ -114,7 +113,7 @@ def PyModule_Check(space, w_obj):
 def PyModule_GetDict(space, w_mod):
     if PyModule_Check(space, w_mod):
         assert isinstance(w_mod, Module)
-        w_dict = w_mod.getdict()
+        w_dict = w_mod.getdict(space)
         return borrow_from(w_mod, w_dict)
     else:
         PyErr_BadInternalCall(space)

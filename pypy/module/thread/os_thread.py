@@ -5,8 +5,7 @@ Thread support based on OS-level threads.
 from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
+from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped, Arguments
 from pypy.rlib.objectmodel import free_non_gc_object
 
 # Here are the steps performed to start a new thread:
@@ -76,13 +75,21 @@ class Bootstrapper(object):
                 raise wrap_thread_error(space, "can't allocate bootstrap lock")
 
     @staticmethod
-    def reinit(space):
+    def reinit():
         bootstrapper.lock = None
+        bootstrapper.nbthreads = 0
+        bootstrapper.w_callable = None
+        bootstrapper.args = None
+
+    def _freeze_(self):
+        self.reinit()
+        return False
 
     def bootstrap():
         # Note that when this runs, we already hold the GIL.  This is ensured
         # by rffi's callback mecanism: we are a callback for the
         # c_thread_start() external function.
+        thread.gc_thread_start()
         space = bootstrapper.space
         w_callable = bootstrapper.w_callable
         args = bootstrapper.args
@@ -142,7 +149,7 @@ def setup_threads(space):
 def reinit_threads(space):
     "Called in the child process after a fork()"
     space.threadlocals.reinit_threads(space)
-    bootstrapper.reinit(space)
+    bootstrapper.reinit()
 
     # Clean the threading module after a fork()
     w_modules = space.sys.get('modules')
@@ -194,6 +201,7 @@ A thread's identity may be reused for another thread after it exits."""
     ident = thread.get_ident()
     return space.wrap(ident)
 
+@unwrap_spec(size=int)
 def stack_size(space, size=0):
     """stack_size([size]) -> size
 
@@ -224,7 +232,6 @@ the suggested approach in the absence of more specific information)."""
     if error == -2:
         raise wrap_thread_error(space, "setting stack size not supported")
     return space.wrap(old_size)
-stack_size.unwrap_spec = [ObjSpace, int]
 
 def _count(space):
     """_count() -> integer
@@ -237,3 +244,7 @@ This function is meant for internal and specialized purposes only.
 In most applications `threading.enumerate()` should be used instead."""
     return space.wrap(bootstrapper.nbthreads)
 
+def exit(space):
+    """This is synonymous to ``raise SystemExit''.  It will cause the current
+thread to exit silently unless the exception is caught."""
+    raise OperationError(space.w_SystemExit, space.w_None)

@@ -665,10 +665,12 @@ PyObject_CallMethodObjArgs(PyObject *callable, PyObject *name, ...)
 	return tmp;
 }
 
-int
-PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
+/* returns -1 in case of error, 0 if a new key was added, 1 if the key
+   was already there (and replaced) */
+static int
+_PyModule_AddObject_NoConsumeRef(PyObject *m, const char *name, PyObject *o)
 {
-	PyObject *dict;
+	PyObject *dict, *prev;
 	if (!PyModule_Check(m)) {
 		PyErr_SetString(PyExc_TypeError,
 			    "PyModule_AddObject() needs module as first arg");
@@ -688,32 +690,47 @@ PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
 			     PyModule_GetName(m));
 		return -1;
 	}
+	prev = PyDict_GetItemString(dict, name);
 	if (PyDict_SetItemString(dict, name, o))
 		return -1;
-	Py_DECREF(o);
-	return 0;
+	return prev != NULL;
+}
+
+int
+PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
+{
+	int result = _PyModule_AddObject_NoConsumeRef(m, name, o);
+	/* XXX WORKAROUND for a common misusage of PyModule_AddObject:
+	   for the common case of adding a new key, we don't consume a
+	   reference, but instead just leak it away.  The issue is that
+	   people generally don't realize that this function consumes a
+	   reference, because on CPython the reference is still stored
+	   on the dictionary. */
+	if (result != 0)
+		Py_DECREF(o);
+	return result < 0 ? -1 : 0;
 }
 
 int 
 PyModule_AddIntConstant(PyObject *m, const char *name, long value)
 {
+	int result;
 	PyObject *o = PyInt_FromLong(value);
 	if (!o)
 		return -1;
-	if (PyModule_AddObject(m, name, o) == 0)
-		return 0;
+	result = _PyModule_AddObject_NoConsumeRef(m, name, o);
 	Py_DECREF(o);
-	return -1;
+	return result < 0 ? -1 : 0;
 }
 
 int 
 PyModule_AddStringConstant(PyObject *m, const char *name, const char *value)
 {
+	int result;
 	PyObject *o = PyString_FromString(value);
 	if (!o)
 		return -1;
-	if (PyModule_AddObject(m, name, o) == 0)
-		return 0;
+	result = _PyModule_AddObject_NoConsumeRef(m, name, o);
 	Py_DECREF(o);
-	return -1;
+	return result < 0 ? -1 : 0;
 }

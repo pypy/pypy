@@ -1,4 +1,5 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
+from pypy.jit.metainterp.optimizeopt.virtualize import AbstractVirtualValue
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
@@ -104,12 +105,14 @@ class Inliner(object):
             newop.result = newop.result.clonebox()
             self.argmap[old_result] = newop.result
 
-        descr = newop.getdescr()
-        if isinstance(descr, ResumeGuardDescr):
-            descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
+        self.inline_descr_inplace(newop.getdescr())
 
         return newop
-    
+
+    def inline_descr_inplace(self, descr):
+        if isinstance(descr, ResumeGuardDescr):
+            descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
+            
     def inline_arg(self, arg):
         if arg is None:
             return None
@@ -125,6 +128,112 @@ class Inliner(object):
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
 
+class VirtualState(object):
+    def __init__(self, state):
+        self.state = state
+
+    def generalization_of(self, other):
+        assert len(self.state) == len(other.state)
+        for i in range(len(self.state)):
+            if not self.state[i].generalization_of(other.state[i]):
+                return False
+        return True
+
+    def generate_guards(self, other, args, cpu, extra_guards):        
+        assert len(self.state) == len(other.state) == len(args)
+        for i in range(len(self.state)):
+            self.state[i].generate_guards(other.state[i], args[i],
+                                          cpu, extra_guards)
+
+class VirtualStateAdder(resume.ResumeDataVirtualAdder):
+    def __init__(self, optimizer):
+        self.fieldboxes = {}
+        self.optimizer = optimizer
+        self.info = {}
+
+    def register_virtual_fields(self, keybox, fieldboxes):
+        self.fieldboxes[keybox] = fieldboxes
+        
+    def already_seen_virtual(self, keybox):
+        return keybox in self.fieldboxes
+
+    def getvalue(self, box):
+        return self.optimizer.getvalue(box)
+
+    def state(self, box):
+        value = self.getvalue(box)
+        box = value.get_key_box()
+        try:
+            info = self.info[box]
+        except KeyError:
+            if value.is_virtual():
+                self.info[box] = info = value.make_virtual_info(self, None)
+                flds = self.fieldboxes[box]
+                info.fieldstate = [self.state(b) for b in flds]
+            else:
+                self.info[box] = info = self.make_not_virtual(value)
+        return info
+
+    def get_virtual_state(self, jump_args):
+        for box in jump_args:
+            value = self.getvalue(box)
+            value.get_args_for_fail(self)
+        return VirtualState([self.state(box) for box in jump_args])
+
+
+    def make_not_virtual(self, value):
+        return NotVirtualInfo(value)
+
+class NotVirtualInfo(resume.AbstractVirtualInfo):
+    def __init__(self, value):
+        self.known_class = value.known_class
+        self.level = value.level
+        if value.intbound is None:
+            self.intbound = IntBound(MININT, MAXINT)
+        else:
+            self.intbound = value.intbound.clone()
+        if value.is_constant():
+            self.constbox = value.box
+        else:
+            self.constbox = None
+
+    def generalization_of(self, other):
+        # XXX This will always retrace instead of forcing anything which
+        # might be what we want sometimes?
+        if not isinstance(other, NotVirtualInfo):
+            return False
+        if other.level < self.level:
+            return False
+        if self.level == LEVEL_CONSTANT:
+            if not self.constbox.same_constant(other.constbox):
+                return False
+        elif self.level == LEVEL_KNOWNCLASS:
+            if self.known_class != other.known_class: # FIXME: use issubclass?
+                return False
+        return self.intbound.contains_bound(other.intbound)
+
+    def _generate_guards(self, other, box, cpu, extra_guards):
+        if not isinstance(other, NotVirtualInfo):
+            raise InvalidLoop
+        if self.level == LEVEL_KNOWNCLASS and \
+           box.nonnull() and \
+           self.known_class.same_constant(cpu.ts.cls_of_box(box)):
+            # Note: This is only a hint on what the class of box was
+            # during the trace. There are actually no guarentees that this
+            # box realy comes from a trace. The hint is used here to choose
+            # between either eimtting a guard_class and jumping to an
+            # excisting compiled loop or retracing the loop. Both
+            # alternatives will always generate correct behaviour, but
+            # performace will differ.
+            op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+            extra_guards.append(op)
+            return
+        # Remaining cases are probably not interesting
+        raise InvalidLoop
+        if self.level == LEVEL_CONSTANT:
+            import pdb; pdb.set_trace()
+            raise NotImplementedError
+        
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
@@ -151,11 +260,14 @@ class UnrollOptimizer(Optimization):
 
         if jumpop:
             assert jumpop.getdescr() is loop.token
+            jump_args = jumpop.getarglist()
+            jumpop.initarglist([])
+            #virtual_state = [self.getvalue(a).is_virtual() for a in jump_args]
+            modifier = VirtualStateAdder(self.optimizer)
+            virtual_state = modifier.get_virtual_state(jump_args)
+
             loop.preamble.operations = self.optimizer.newoperations
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
-
-            jump_args = jumpop.getarglist()
-            jumpop.initarglist([])            
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
@@ -204,12 +316,16 @@ class UnrollOptimizer(Optimization):
                 short_loop.inputargs = newargs
                 ops = [inliner.inline_op(op) for op in short_loop.operations]
                 short_loop.operations = ops
+                descr = start_resumedescr.clone_if_mutable()
+                inliner.inline_descr_inplace(descr)
+                short_loop.start_resumedescr = descr
 
                 assert isinstance(loop.preamble.token, LoopToken)
                 if loop.preamble.token.short_preamble:
                     loop.preamble.token.short_preamble.append(short_loop)
                 else:
                     loop.preamble.token.short_preamble = [short_loop]
+                short_loop.virtual_state = virtual_state
 
                 # Forget the values to allow them to be freed
                 for box in short_loop.inputargs:
@@ -218,7 +334,6 @@ class UnrollOptimizer(Optimization):
                     if op.result:
                         op.result.forget_value()
                 
-
     def inline(self, loop_operations, loop_args, jump_args):
         self.inliner = inliner = Inliner(loop_args, jump_args)
            
@@ -506,6 +621,11 @@ class BoxMap(object):
         return self.map[loopbox]
 
 class OptInlineShortPreamble(Optimization):
+    def __init__(self, retraced):
+        self.retraced = retraced
+        self.inliner = None
+        
+    
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return self
     
@@ -520,9 +640,28 @@ class OptInlineShortPreamble(Optimization):
             # handle and the inlining fails unexpectedly belwo.
             short = descr.short_preamble
             if short:
+                args = op.getarglist()
+                modifier = VirtualStateAdder(self.optimizer)
+                virtual_state = modifier.get_virtual_state(args)
                 for sh in short:
-                    if self.inline(sh.operations, sh.inputargs,
-                                   op.getarglist(), dryrun=True):
+                    ok = False
+                    extra_guards = []
+                    if sh.virtual_state.generalization_of(virtual_state):
+                        ok = True
+                    else:
+                        try:
+                            cpu = self.optimizer.cpu
+                            sh.virtual_state.generate_guards(virtual_state,
+                                                             args, cpu,
+                                                             extra_guards)
+                            
+                            ok = True
+                        except InvalidLoop:
+                            pass
+                    if ok:
+                        # FIXME: Do we still need the dry run
+                        #if self.inline(sh.operations, sh.inputargs,
+                        #               op.getarglist(), dryrun=True):
                         try:
                             self.inline(sh.operations, sh.inputargs,
                                         op.getarglist())
@@ -530,15 +669,40 @@ class OptInlineShortPreamble(Optimization):
                             debug_print("Inlining failed unexpectedly",
                                         "jumping to preamble instead")
                             self.emit_operation(op)
+                        else:
+                            jumpop = self.optimizer.newoperations.pop()
+                            assert jumpop.getopnum() == rop.JUMP
+                            for guard in extra_guards:
+                                descr = sh.start_resumedescr.clone_if_mutable()
+                                self.inliner.inline_descr_inplace(descr)
+                                guard.setdescr(descr)
+                                self.emit_operation(guard)
+                            self.optimizer.newoperations.append(jumpop)
                         return
-                    
-                raise RetraceLoop
+                retraced_count = len(short)
+                if descr.failed_states:
+                    retraced_count += len(descr.failed_states)
+                limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
+                if not self.retraced and retraced_count<limit:
+                    if not descr.failed_states:
+                        raise RetraceLoop
+                    for failed in descr.failed_states:
+                        if failed.generalization_of(virtual_state):
+                            # Retracing once more will most likely fail again
+                            break
+                    else:
+                        raise RetraceLoop
+                else:
+                    if not descr.failed_states:
+                        descr.failed_states=[virtual_state]
+                    else:
+                        descr.failed_states.append(virtual_state)
         self.emit_operation(op)
                 
         
         
     def inline(self, loop_operations, loop_args, jump_args, dryrun=False):
-        inliner = Inliner(loop_args, jump_args)
+        self.inliner = inliner = Inliner(loop_args, jump_args)
 
         for op in loop_operations:
             newop = inliner.inline_op(op)
@@ -551,7 +715,7 @@ class OptInlineShortPreamble(Optimization):
         
         return True
 
-    def inline_arg(self, arg):
-        if isinstance(arg, Const):
-            return arg
-        return self.argmap[arg]
+    #def inline_arg(self, arg):
+    #    if isinstance(arg, Const):
+    #        return arg
+    #    return self.argmap[arg]

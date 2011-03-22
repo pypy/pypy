@@ -281,13 +281,7 @@ def getsitepackages():
     will find its `site-packages` subdirectory depending on the system
     environment, and will return a list of full paths.
     """
-    # pypy specific logic
-    if hasattr(sys, 'pypy_version_info') and hasattr(sys, 'prefix'):
-        from distutils.sysconfig import get_python_lib
-        sitedir = get_python_lib(standard_lib=False)
-        return [sitedir]
-
-    # cpython logic
+    is_pypy = '__pypy__' in sys.builtin_module_names
     sitepackages = []
     seen = set()
 
@@ -298,6 +292,10 @@ def getsitepackages():
 
         if sys.platform in ('os2emx', 'riscos'):
             sitepackages.append(os.path.join(prefix, "Lib", "site-packages"))
+        elif is_pypy:
+            from distutils.sysconfig import get_python_lib
+            sitedir = get_python_lib(standard_lib=False, prefix=prefix)
+            sitepackages.append(sitedir)
         elif os.sep == '/':
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python" + sys.version[:3],

@@ -1,8 +1,8 @@
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
     make_weakref_descr)
-from pypy.interpreter.gateway import interp2app, Arguments, unwrap_spec
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
 
@@ -15,7 +15,6 @@ def convert_size(space, w_size):
         return space.int_w(w_size)
 
 # May be called with any object
-@unwrap_spec(ObjSpace, W_Root)
 def check_readable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'readable')):
         raise OperationError(
@@ -23,7 +22,6 @@ def check_readable_w(space, w_obj):
             space.wrap("file or stream is not readable"))
 
 # May be called with any object
-@unwrap_spec(ObjSpace, W_Root)
 def check_writable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'writable')):
         raise OperationError(
@@ -31,7 +29,6 @@ def check_writable_w(space, w_obj):
             space.wrap("file or stream is not writable"))
 
 # May be called with any object
-@unwrap_spec(ObjSpace, W_Root)
 def check_seekable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'seekable')):
         raise OperationError(
@@ -47,7 +44,7 @@ class W_IOBase(Wrappable):
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
 
-    def getdict(self):
+    def getdict(self, space):
         return self.w_dict
 
     def _closed(self, space):
@@ -86,10 +83,9 @@ class W_IOBase(Wrappable):
             raise OperationError(
                 space.w_ValueError, space.wrap(message))
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         return space.newbool(self.__IOBase_closed)
 
-    @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         if self._CLOSED():
             return
@@ -98,57 +94,47 @@ class W_IOBase(Wrappable):
         finally:
             self.__IOBase_closed = True
 
-    @unwrap_spec('self', ObjSpace)
     def flush_w(self, space):
         if self._CLOSED():
             raise OperationError(
                 space.w_ValueError,
                 space.wrap("I/O operation on closed file"))
 
-    @unwrap_spec('self', ObjSpace)
     def tell_w(self, space):
         return space.call_method(self, "seek", space.wrap(0), space.wrap(1))
 
-    @unwrap_spec('self', ObjSpace)
     def enter_w(self, space):
         self._check_closed(space)
         return space.wrap(self)
 
-    @unwrap_spec('self', ObjSpace, Arguments)
     def exit_w(self, space, __args__):
         space.call_method(self, "close")
 
-    @unwrap_spec('self', ObjSpace)
     def iter_w(self, space):
         self._check_closed(space)
         return space.wrap(self)
 
-    @unwrap_spec('self', ObjSpace)
     def next_w(self, space):
         w_line = space.call_method(self, "readline")
-        if space.int_w(space.len(w_line)) == 0:
+        if space.len_w(w_line) == 0:
             raise OperationError(space.w_StopIteration, space.w_None)
         return w_line
 
-    @unwrap_spec('self', ObjSpace)
     def isatty_w(self, space):
+        self._check_closed(space)
         return space.w_False
 
-    @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         return space.w_False
 
-    @unwrap_spec('self', ObjSpace)
     def writable_w(self, space):
         return space.w_False
 
-    @unwrap_spec('self', ObjSpace)
     def seekable_w(self, space):
         return space.w_False
 
     # ______________________________________________________________
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def readline_w(self, space, w_limit=None):
         # For backwards compatibility, a (slowish) readline().
         limit = convert_size(space, w_limit)
@@ -170,7 +156,7 @@ class W_IOBase(Wrappable):
                         space.w_IOError,
                         "peek() should have returned a bytes object, "
                         "not '%s'", space.type(w_readahead).getname(space, '?'))
-                length = space.int_w(space.len(w_readahead))
+                length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
                     buf = space.str_w(w_readahead)
@@ -208,7 +194,6 @@ class W_IOBase(Wrappable):
 
         return space.wrap(builder.build())
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def readlines_w(self, space, w_hint=None):
         hint = convert_size(space, w_hint)
 
@@ -219,7 +204,7 @@ class W_IOBase(Wrappable):
         length = 0
         while True:
             w_line = space.call_method(self, "readline")
-            line_length = space.int_w(space.len(w_line))
+            line_length = space.len_w(w_line)
             if line_length == 0: # done
                 break
 
@@ -231,7 +216,6 @@ class W_IOBase(Wrappable):
 
         return space.newlist(lines_w)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def writelines_w(self, space, w_lines):
         self._check_closed(space)
 
@@ -270,13 +254,12 @@ W_IOBase.typedef = TypeDef(
     readline = interp2app(W_IOBase.readline_w),
     readlines = interp2app(W_IOBase.readlines_w),
     writelines = interp2app(W_IOBase.writelines_w),
-    )
+)
 
 class W_RawIOBase(W_IOBase):
     # ________________________________________________________________
     # Abstract read methods, based on readinto()
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         size = convert_size(space, w_size)
         if size < 0:
@@ -289,7 +272,6 @@ class W_RawIOBase(W_IOBase):
         space.delslice(w_buffer, w_length, space.len(w_buffer))
         return space.str(w_buffer)
 
-    @unwrap_spec('self', ObjSpace)
     def readall_w(self, space):
         builder = StringBuilder()
         while True:
@@ -311,5 +293,4 @@ W_RawIOBase.typedef = TypeDef(
 
     read = interp2app(W_RawIOBase.read_w),
     readall = interp2app(W_RawIOBase.readall_w),
-    )
-
+)

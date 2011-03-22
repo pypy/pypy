@@ -9,6 +9,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         "file": "interp_file.W_File",
+        "set_file_encoding": "interp_file.set_file_encoding",
     }
 
     def __init__(self, space, *args):

@@ -10,12 +10,8 @@ from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from pypy.rlib.jit import hint, purefunction_promote, we_are_jitted
-from pypy.rlib.jit import dont_look_inside, purefunction
+from pypy.rlib.jit import purefunction, dont_look_inside
 from pypy.rlib.rarithmetic import intmask, r_uint
-
-from copy_reg import _HEAPTYPE
-_CPYTYPE = 1 # used for non-heap types defined in C
-_ABSTRACT = 1 << 20
 
 # from compiler/misc.py
 
@@ -80,7 +76,9 @@ class W_TypeObject(W_Object):
     # other changes to the type (e.g. the name) leave it unchanged
     _version_tag = None
 
-    _immutable_fields_ = ["__flags__",
+    _immutable_fields_ = ["flag_heaptype",
+                          "flag_cpytype",
+                          #  flag_abstract is not immutable
                           'needsdel',
                           'weakrefable',
                           'hasdict',
@@ -98,6 +96,7 @@ class W_TypeObject(W_Object):
     # of the __new__ is an instance of the type
     w_bltin_new = None
 
+    @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):
         w_self.space = space
@@ -110,7 +109,9 @@ class W_TypeObject(W_Object):
         w_self.weakrefable = False
         w_self.w_doc = space.w_None
         w_self.weak_subclasses = []
-        w_self.__flags__ = 0           # or _HEAPTYPE or _CPYTYPE
+        w_self.flag_heaptype = False
+        w_self.flag_cpytype = False
+        w_self.flag_abstract = False
         w_self.instancetypedef = overridetypedef
 
         if overridetypedef is not None:
@@ -355,10 +356,9 @@ class W_TypeObject(W_Object):
             del w_self.lazyloaders
         return False
 
-    def getdict(w_self): # returning a dict-proxy!
+    def getdict(w_self, space): # returning a dict-proxy!
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
-        space = w_self.space
         newdic = space.newdict(from_strdict_shared=w_self.dict_w)
         return W_DictProxyObject(newdic)
 
@@ -369,19 +369,16 @@ class W_TypeObject(W_Object):
         raise UnwrapError(w_self)
 
     def is_heaptype(w_self):
-        return w_self.__flags__ & _HEAPTYPE
+        return w_self.flag_heaptype
 
     def is_cpytype(w_self):
-        return w_self.__flags__ & _CPYTYPE
+        return w_self.flag_cpytype
 
     def is_abstract(w_self):
-        return w_self.__flags__ & _ABSTRACT
+        return w_self.flag_abstract
 
     def set_abstract(w_self, abstract):
-        if abstract:
-            w_self.__flags__ |= _ABSTRACT
-        else:
-            w_self.__flags__ &= ~_ABSTRACT
+        w_self.flag_abstract = bool(abstract)
 
     def issubtype(w_self, w_type):
         w_self = hint(w_self, promote=True)
@@ -407,6 +404,18 @@ class W_TypeObject(W_Object):
                                                space.w_str))):
                 return w_self.dict_w['__module__']
             return space.wrap('__builtin__')
+
+    def get_module_type_name(w_self):
+        space = w_self.space
+        w_mod = w_self.get_module()
+        if not space.is_true(space.isinstance(w_mod, space.w_str)):
+            mod = '__builtin__'
+        else:
+            mod = space.str_w(w_mod)
+        if mod !='__builtin__':
+            return '%s.%s' % (mod, w_self.name)
+        else:
+            return w_self.name
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
@@ -622,11 +631,12 @@ def setup_user_defined_type(w_self):
         w_self.bases_w = [w_self.space.w_object]
     w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
     w_self.instancetypedef = w_bestbase.instancetypedef
-    w_self.__flags__ = _HEAPTYPE
+    w_self.flag_heaptype = True
     for w_base in w_self.bases_w:
         if not isinstance(w_base, W_TypeObject):
             continue
-        w_self.__flags__ |= w_base.__flags__
+        w_self.flag_cpytype |= w_base.flag_cpytype
+        w_self.flag_abstract |= w_base.flag_abstract
 
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
     create_all_slots(w_self, hasoldstylebase)

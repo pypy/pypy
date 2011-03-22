@@ -1,7 +1,6 @@
 import unittest
 import ctypes
 import gc
-from ctypes.test import xfail
 
 MyCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)
 OtherCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_ulonglong)
@@ -91,6 +90,7 @@ class AnotherLeak(unittest.TestCase):
             return a * b * 2
         f = proto(func)
 
+        gc.collect()
         a = sys.getrefcount(ctypes.c_int)
         f(1, 2)
         self.assertEqual(sys.getrefcount(ctypes.c_int), a)

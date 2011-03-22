@@ -5,7 +5,7 @@ from pypy.jit.metainterp.history import getkind
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
-from pypy.jit.codewriter import support, heaptracker
+from pypy.jit.codewriter import support, heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
@@ -199,7 +199,6 @@ class Transformer(object):
 
     rewrite_op_cast_pointer = rewrite_op_same_as
     rewrite_op_cast_opaque_ptr = rewrite_op_same_as   # rlib.rerased
-    def rewrite_op_cast_primitive(self, op): pass
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
@@ -424,6 +423,15 @@ class Transformer(object):
     rewrite_op_int_mod_zer     = _do_builtin_call
     rewrite_op_int_lshift_ovf  = _do_builtin_call
     rewrite_op_int_abs         = _do_builtin_call
+    rewrite_op_llong_abs          = _do_builtin_call
+    rewrite_op_llong_floordiv     = _do_builtin_call
+    rewrite_op_llong_floordiv_zer = _do_builtin_call
+    rewrite_op_llong_mod          = _do_builtin_call
+    rewrite_op_llong_mod_zer      = _do_builtin_call
+    rewrite_op_ullong_floordiv     = _do_builtin_call
+    rewrite_op_ullong_floordiv_zer = _do_builtin_call
+    rewrite_op_ullong_mod          = _do_builtin_call
+    rewrite_op_ullong_mod_zer      = _do_builtin_call
     rewrite_op_gc_identityhash = _do_builtin_call
     rewrite_op_gc_id           = _do_builtin_call
 
@@ -779,6 +787,114 @@ class Transformer(object):
         return result
 
     # ----------
+    # Long longs, for 32-bit only.  Supported operations are left unmodified,
+    # and unsupported ones are turned into a call to a function from
+    # jit.codewriter.support.
+
+    for _op, _oopspec in [('llong_invert',  'INVERT'),
+                          ('ullong_invert', 'INVERT'),
+                          ('llong_lt',      'LT'),
+                          ('llong_le',      'LE'),
+                          ('llong_eq',      'EQ'),
+                          ('llong_ne',      'NE'),
+                          ('llong_gt',      'GT'),
+                          ('llong_ge',      'GE'),
+                          ('ullong_lt',     'ULT'),
+                          ('ullong_le',     'ULE'),
+                          ('ullong_eq',     'EQ'),
+                          ('ullong_ne',     'NE'),
+                          ('ullong_gt',     'UGT'),
+                          ('ullong_ge',     'UGE'),
+                          ('llong_add',     'ADD'),
+                          ('llong_sub',     'SUB'),
+                          ('llong_mul',     'MUL'),
+                          ('llong_and',     'AND'),
+                          ('llong_or',      'OR'),
+                          ('llong_xor',     'XOR'),
+                          ('ullong_add',    'ADD'),
+                          ('ullong_sub',    'SUB'),
+                          ('ullong_mul',    'MUL'),
+                          ('ullong_and',    'AND'),
+                          ('ullong_or',     'OR'),
+                          ('ullong_xor',    'XOR'),
+                          ('llong_lshift',  'LSHIFT'),
+                          ('llong_rshift',  'RSHIFT'),
+                          ('ullong_lshift', 'LSHIFT'),
+                          ('ullong_rshift', 'URSHIFT'),
+                          ('cast_int_to_longlong',     'FROM_INT'),
+                          ('truncate_longlong_to_int', 'TO_INT'),
+                          ('cast_float_to_longlong',   'FROM_FLOAT'),
+                          ('cast_longlong_to_float',   'TO_FLOAT'),
+                          ('cast_uint_to_longlong',    'FROM_UINT'),
+                          ]:
+        exec py.code.Source('''
+            def rewrite_op_%s(self, op):
+                args = op.args
+                op1 = self.prepare_builtin_call(op, "llong_%s", args)
+                op2 = self._handle_oopspec_call(op1, args,
+                                                EffectInfo.OS_LLONG_%s,
+                                                EffectInfo.EF_PURE)
+                if %r == "TO_INT":
+                    assert op2.result.concretetype == lltype.Signed
+                return op2
+        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+
+    def _normalize(self, oplist):
+        if isinstance(oplist, SpaceOperation):
+            return [oplist]
+        else:
+            assert type(oplist) is list
+            return oplist
+
+    def rewrite_op_llong_neg(self, op):
+        v = varoftype(lltype.SignedLongLong)
+        op0 = SpaceOperation('cast_int_to_longlong',
+                             [Constant(0, lltype.Signed)],
+                             v)
+        args = [v, op.args[0]]
+        op1 = SpaceOperation('llong_sub', args, op.result)
+        return (self._normalize(self.rewrite_operation(op0)) +
+                self._normalize(self.rewrite_operation(op1)))
+
+    def rewrite_op_llong_is_true(self, op):
+        v = varoftype(lltype.SignedLongLong)
+        op0 = SpaceOperation('cast_int_to_longlong',
+                             [Constant(0, lltype.Signed)],
+                             v)
+        args = [op.args[0], v]
+        op1 = SpaceOperation('llong_ne', args, op.result)
+        return (self._normalize(self.rewrite_operation(op0)) +
+                self._normalize(self.rewrite_operation(op1)))
+
+    rewrite_op_ullong_is_true = rewrite_op_llong_is_true
+
+    def rewrite_op_cast_primitive(self, op):
+        fromll = longlong.is_longlong(op.args[0].concretetype)
+        toll   = longlong.is_longlong(op.result.concretetype)
+        if fromll != toll:
+            args = op.args
+            if fromll:
+                opname = 'truncate_longlong_to_int'
+                RESULT = lltype.Signed
+            else:
+                from pypy.rpython.lltypesystem import rffi
+                if rffi.cast(op.args[0].concretetype, -1) < 0:
+                    opname = 'cast_int_to_longlong'
+                else:
+                    opname = 'cast_uint_to_longlong'
+                RESULT = lltype.SignedLongLong
+            v = varoftype(RESULT)
+            op1 = SpaceOperation(opname, args, v)
+            op2 = self.rewrite_operation(op1)
+            #
+            # force a renaming to put the correct result in place, even though
+            # it might be slightly mistyped (e.g. Signed versus Unsigned)
+            assert op2.result is v
+            op2.result = op.result
+            #
+            return op2
+
+    # ----------
     # Renames, from the _old opname to the _new one.
     # The new operation is optionally further processed by rewrite_operation().
     for _old, _new in [('bool_not', 'int_is_zero'),
@@ -1107,9 +1223,11 @@ class Transformer(object):
     # Strings and Unicodes.
 
     def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
-        if extraeffect:
-            calldescr.get_extra_info().extraeffect = extraeffect
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
+                                                  extraeffect)
+        if extraeffect is not None:
+            assert (type(calldescr) is str      # for tests
+                    or calldescr.get_extra_info().extraeffect == extraeffect)
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
@@ -1125,7 +1243,7 @@ class Transformer(object):
         return op1
 
     def _register_extra_helper(self, oopspecindex, oopspec_name,
-                               argtypes, resulttype):
+                               argtypes, resulttype, effectinfo):
         # a bit hackish
         if self.callcontrol.callinfocollection.has_oopspec(oopspecindex):
             return
@@ -1135,7 +1253,8 @@ class Transformer(object):
         op = SpaceOperation('pseudo_call_cannot_raise',
                             [c_func] + [varoftype(T) for T in argtypes],
                             varoftype(resulttype))
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
+                                                  effectinfo)
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
@@ -1194,11 +1313,15 @@ class Transformer(object):
                 if args[0].concretetype.TO == rstr.UNICODE:
                     otherindex += EffectInfo._OS_offset_uni
                 self._register_extra_helper(otherindex, othername,
-                                            argtypes, resulttype)
+                                            argtypes, resulttype,
+                                            EffectInfo.EF_PURE)
         #
-        return self._handle_oopspec_call(op, args, dict[oopspec_name])
+        return self._handle_oopspec_call(op, args, dict[oopspec_name],
+                                         EffectInfo.EF_PURE)
 
     def _handle_str2unicode_call(self, op, oopspec_name, args):
+        # ll_str2unicode is not EF_PURE, because it can raise
+        # UnicodeDecodeError...
         return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE)
 
     # ----------

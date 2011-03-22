@@ -1,5 +1,5 @@
 import py
-from pypy.interpreter.astcompiler import codegen, astbuilder, symtable
+from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
@@ -18,6 +18,7 @@ def generate_function_code(expr, space):
     info = pyparse.CompileInfo("<test>", 'exec')
     cst = p.parse_source(expr, info)
     ast = astbuilder.ast_from_node(space, cst, info)
+    function_ast = optimize.optimize_ast(space, ast.body[0], info)
     function_ast = ast.body[0]
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
@@ -69,6 +70,9 @@ class TestCompiler:
 
     st = simple_test
 
+    def error_test(self, source, exc_type):
+        py.test.raises(exc_type, self.simple_test, source, None, None)
+
     def test_long_jump(self):
         func = """def f(x):
     y = 0
@@ -97,11 +101,13 @@ class TestCompiler:
         self.simple_test(stmt, "type(x)", int)
 
     def test_tuple_assign(self):
+        yield self.error_test, "() = 1", SyntaxError
         yield self.simple_test, "x,= 1,", "x", 1
         yield self.simple_test, "x,y = 1,2", "x,y", (1, 2)
         yield self.simple_test, "x,y,z = 1,2,3", "x,y,z", (1, 2, 3)
         yield self.simple_test, "x,y,z,t = 1,2,3,4", "x,y,z,t", (1, 2, 3, 4)
         yield self.simple_test, "x,y,x,t = 1,2,3,4", "x,y,t", (3, 2, 4)
+        yield self.simple_test, "[] = []", "1", 1
         yield self.simple_test, "[x]= 1,", "x", 1
         yield self.simple_test, "[x,y] = [1,2]", "x,y", (1, 2)
         yield self.simple_test, "[x,y,z] = 1,2,3", "x,y,z", (1, 2, 3)
@@ -786,11 +792,7 @@ class AppTestCompiler:
          """ in {}
 
 class TestOptimizations:
-
-    def test_elim_jump_to_return(self):
-        source = """def f():
-        return true_value if cond else false_value
-        """
+    def count_instructions(self, source):
         code, blocks = generate_function_code(source, self.space)
         instrs = []
         for block in blocks:
@@ -799,6 +801,65 @@ class TestOptimizations:
         counts = {}
         for instr in instrs:
             counts[instr.opcode] = counts.get(instr.opcode, 0) + 1
+        return counts
+
+    def test_elim_jump_to_return(self):
+        source = """def f():
+        return true_value if cond else false_value
+        """
+        counts = self.count_instructions(source)
         assert ops.JUMP_FORWARD not in counts
         assert ops.JUMP_ABSOLUTE not in counts
         assert counts[ops.RETURN_VALUE] == 2
+
+    def test_const_fold_subscr(self):
+        source = """def f():
+        return (0, 1)[0]
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
+
+        source = """def f():
+        return (0, 1)[:2]
+        """
+        # Just checking this doesn't crash out
+        self.count_instructions(source)
+
+    def test_remove_dead_code(self):
+        source = """def f(x):
+            return 5
+            x += 1
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
+
+    def test_remove_dead_jump_after_return(self):
+        source = """def f(x, y, z):
+            if x:
+                return y
+            else:
+                return z
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_FAST: 3,
+                          ops.POP_JUMP_IF_FALSE: 1,
+                          ops.RETURN_VALUE: 2}
+
+    def test_remove_dead_yield(self):
+        source = """def f(x):
+            return
+            yield 6
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
+        #
+        space = self.space
+        w_generator = space.appexec([], """():
+            d = {}
+            exec '''def f(x):
+                return
+                yield 6
+            ''' in d
+            return d['f'](5)
+        """)
+        assert 'generator' in space.str_w(space.repr(w_generator))

@@ -1,7 +1,7 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int
 from pypy.rlib import rposix
@@ -244,6 +244,7 @@ def _get_error_msg():
     return os.strerror(errno)
 
 if sys.platform != 'win32':
+    @unwrap_spec(secs=float)
     def sleep(space, secs):
         pytime.sleep(secs)
 else:
@@ -263,6 +264,7 @@ else:
                 pytime.sleep(0.001)
                 raise wrap_oserror(space,
                                    OSError(EINTR, "sleep() interrupted"))
+    @unwrap_spec(secs=float)
     def sleep(space, secs):
         # as decreed by Guido, only the main thread can be
         # interrupted.
@@ -273,7 +275,6 @@ else:
             _simple_sleep(space, MAX, interruptible)
             secs -= MAX
         _simple_sleep(space, secs, interruptible)
-sleep.unwrap_spec = [ObjSpace, float]
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
@@ -429,7 +430,6 @@ def ctime(space, w_seconds=None):
             space.wrap("unconvertible time"))
 
     return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
-ctime.unwrap_spec = [ObjSpace, W_Root]
 
 # by now w_tup is an optional argument (and not *args)
 # because of the ext. compiler bugs in handling such arguments (*args, **kwds)
@@ -446,7 +446,6 @@ def asctime(space, w_tup=None):
             space.wrap("unconvertible time"))
     
     return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
-asctime.unwrap_spec = [ObjSpace, W_Root]
 
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -467,7 +466,6 @@ def gmtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p)
-gmtime.unwrap_spec = [ObjSpace, W_Root]
 
 def localtime(space, w_seconds=None):
     """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -485,7 +483,6 @@ def localtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p)
-localtime.unwrap_spec = [ObjSpace, W_Root]
 
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number
@@ -499,7 +496,6 @@ def mktime(space, w_tup):
             space.wrap("mktime argument out of range"))
 
     return space.wrap(float(tt))
-mktime.unwrap_spec = [ObjSpace, W_Root]
 
 if _POSIX:
     def tzset(space):
@@ -519,8 +515,8 @@ if _POSIX:
 
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
-    tzset.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(format=str)
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
 
@@ -586,4 +582,3 @@ def strftime(space, format, w_tup=None):
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i
-strftime.unwrap_spec = [ObjSpace, str, W_Root]

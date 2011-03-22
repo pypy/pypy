@@ -22,7 +22,9 @@ def waitfor(space, w_condition, delay=1):
 
 def timeout_killer(pid, delay):
     def kill():
-        time.sleep(delay)
+        for x in range(delay * 10):
+            time.sleep(0.1)
+            os.kill(pid, 0)
         os.kill(pid, 9)
         print "process %s killed!" % (pid,)
     thread.start_new_thread(kill, ())

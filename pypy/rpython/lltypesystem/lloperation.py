@@ -265,8 +265,8 @@ LL_OPERATIONS = {
     'uint_ge':              LLOp(canfold=True),
     'uint_and':             LLOp(canfold=True),
     'uint_or':              LLOp(canfold=True),
-    'uint_lshift':          LLOp(canfold=True),
-    'uint_rshift':          LLOp(canfold=True),
+    'uint_lshift':          LLOp(canfold=True),  # args (r_uint, int)
+    'uint_rshift':          LLOp(canfold=True),  # args (r_uint, int)
     'uint_xor':             LLOp(canfold=True),
 
     'float_is_true':        LLOp(canfold=True),  # it really means "x != 0.0"
@@ -288,9 +288,7 @@ LL_OPERATIONS = {
 
     'llong_is_true':        LLOp(canfold=True),
     'llong_neg':            LLOp(canfold=True),
-    'llong_neg_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
     'llong_abs':            LLOp(canfold=True),
-    'llong_abs_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
     'llong_invert':         LLOp(canfold=True),
 
     'llong_add':            LLOp(canfold=True),
@@ -308,8 +306,8 @@ LL_OPERATIONS = {
     'llong_ge':             LLOp(canfold=True),
     'llong_and':            LLOp(canfold=True),
     'llong_or':             LLOp(canfold=True),
-    'llong_lshift':         LLOp(canfold=True),
-    'llong_rshift':         LLOp(canfold=True),
+    'llong_lshift':         LLOp(canfold=True),  # args (r_longlong, int)
+    'llong_rshift':         LLOp(canfold=True),  # args (r_longlong, int)
     'llong_xor':            LLOp(canfold=True),
 
     'ullong_is_true':       LLOp(canfold=True),
@@ -330,8 +328,8 @@ LL_OPERATIONS = {
     'ullong_ge':            LLOp(canfold=True),
     'ullong_and':           LLOp(canfold=True),
     'ullong_or':            LLOp(canfold=True),
-    'ullong_lshift':        LLOp(canfold=True),
-    'ullong_rshift':        LLOp(canfold=True),
+    'ullong_lshift':        LLOp(canfold=True),  # args (r_ulonglong, int)
+    'ullong_rshift':        LLOp(canfold=True),  # args (r_ulonglong, int)
     'ullong_xor':           LLOp(canfold=True),
 
     'cast_primitive':       LLOp(canfold=True),
@@ -467,7 +465,10 @@ LL_OPERATIONS = {
                                  # ^^^ but canunwindgc=False, as it is
                                  # allocating non-GC structures only
     'gc_thread_run'       : LLOp(),
+    'gc_thread_start'     : LLOp(),
     'gc_thread_die'       : LLOp(),
+    'gc_thread_before_fork':LLOp(),   # returns an opaque address
+    'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
     'gc_assume_young_pointers': LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canunwindgc=True),

@@ -1,6 +1,8 @@
+import os
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp.jitexc import JitException
 
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
 
@@ -9,6 +11,9 @@ class CachedArrayItems(object):
         self.fixed_index_items = {}
         self.var_index_item = None
         self.var_index_indexvalue = None
+
+class BogusPureField(JitException):
+    pass
 
 
 class OptHeap(Optimization):
@@ -299,6 +304,12 @@ class OptHeap(Optimization):
         d[value] = fieldvalue
 
     def optimize_SETFIELD_GC(self, op):
+        if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],
+                                op.getdescr()):
+            os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
+                     (op.getdescr().repr_of_descr()))
+            raise BogusPureField
+        #
         value = self.getvalue(op.getarg(0))
         fieldvalue = self.getvalue(op.getarg(1))
         cached_fieldvalue = self.read_cached_field(op.getdescr(), value)

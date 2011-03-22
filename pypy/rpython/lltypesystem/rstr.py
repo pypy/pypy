@@ -515,7 +515,6 @@ class LLHelpers(AbstractLLHelpers):
         return count
 
     @classmethod
-    @purefunction
     def ll_find(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -529,11 +528,10 @@ class LLHelpers(AbstractLLHelpers):
             return start
         elif m == 1:
             return cls.ll_find_char(s1, s2.chars[0], start, end)
-        
+
         return cls.ll_search(s1, s2, start, end, FAST_FIND)
 
     @classmethod
-    @purefunction
     def ll_rfind(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -547,11 +545,10 @@ class LLHelpers(AbstractLLHelpers):
             return end
         elif m == 1:
             return cls.ll_rfind_char(s1, s2.chars[0], start, end)
-        
+
         return cls.ll_search(s1, s2, start, end, FAST_RFIND)
 
     @classmethod
-    @purefunction
     def ll_count(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -565,7 +562,7 @@ class LLHelpers(AbstractLLHelpers):
             return end - start + 1
         elif m == 1:
             return cls.ll_count_char(s1, s2.chars[0], start, end)
-            
+
         res = cls.ll_search(s1, s2, start, end, FAST_COUNT)
         # For a few cases ll_search can return -1 to indicate an "impossible"
         # condition for a string match, count just returns 0 in these cases.

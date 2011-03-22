@@ -4,7 +4,7 @@
 # Publication 180-1, Secure Hash Standard,  1995 April 17
 # http://www.itl.nist.gov/div897/pubs/fip180-1.htm
 from __future__ import absolute_import
-from .. import _sha as pysha
+from lib_pypy import _sha as pysha
 
 class TestSHA: 
     def check(self, data, digest):

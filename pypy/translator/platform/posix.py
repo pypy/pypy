@@ -1,10 +1,9 @@
+"""Base support for POSIX-like platforms."""
 
-""" Base class for all posixish platforms
-"""
+import py, os
 
-from pypy.translator.platform import Platform, log, _run_subprocess
 from pypy.tool import autopath
-import py, os, sys
+from pypy.translator.platform import Platform, log, _run_subprocess
 
 class BasePosix(Platform):
     exe_ext = ''
@@ -21,13 +20,13 @@ class BasePosix(Platform):
         self.cc = cc
 
     def _libs(self, libraries):
-        return ['-l%s' % (lib,) for lib in libraries]
+        return ['-l%s' % lib for lib in libraries]
 
     def _libdirs(self, library_dirs):
-        return ['-L%s' % (ldir,) for ldir in library_dirs]
+        return ['-L%s' % ldir for ldir in library_dirs]
 
     def _includedirs(self, include_dirs):
-        return ['-I%s' % (idir,) for idir in include_dirs]
+        return ['-I%s' % idir for idir in include_dirs]
 
     def _linkfiles(self, link_files):
         return list(link_files)
@@ -140,6 +139,7 @@ class BasePosix(Platform):
             ('CFLAGS', cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
             ('LDFLAGS', linkflags),
+            ('LDFLAGS_LINK', list(self.link_flags)),
             ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
@@ -166,7 +166,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
+                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
 
         return m
 

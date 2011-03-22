@@ -1,8 +1,7 @@
 from __future__ import with_statement
 from pypy.interpreter.typedef import (
-    TypeDef, GetSetProperty, generic_new_descr)
-from pypy.interpreter.gateway import interp2app, unwrap_spec, Arguments
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+    TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -33,23 +32,18 @@ class W_BufferedIOBase(W_IOBase):
         space.warn("max_buffer_size is deprecated",
                    space.w_DeprecationWarning)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._unsupportedoperation(space, "read")
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read1_w(self, space, w_size):
         self._unsupportedoperation(space, "read1")
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._unsupportedoperation(space, "write")
 
-    @unwrap_spec('self', ObjSpace)
     def detach_w(self, space):
         self._unsupportedoperation(space, "detach")
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def readinto_w(self, space, w_buffer):
         rwbuffer = space.rwbuffer_w(w_buffer)
         length = rwbuffer.getlength()
@@ -70,7 +64,7 @@ W_BufferedIOBase.typedef = TypeDef(
     write = interp2app(W_BufferedIOBase.write_w),
     detach = interp2app(W_BufferedIOBase.detach_w),
     readinto = interp2app(W_BufferedIOBase.readinto_w),
-    )
+)
 
 class RawBuffer(RWBuffer):
     def __init__(self, buf, start, length):
@@ -156,47 +150,43 @@ class BufferedMixin:
         self.abs_pos = pos
         return pos
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("closed"))
 
-    def name_get_w(space, self):
+    def name_get_w(self, space):
         return space.getattr(self.w_raw, space.wrap("name"))
 
-    def mode_get_w(space, self):
+    def mode_get_w(self, space):
         return space.getattr(self.w_raw, space.wrap("mode"))
 
-    @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_raw, "readable")
 
-    @unwrap_spec('self', ObjSpace)
     def writable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_raw, "writable")
 
-    @unwrap_spec('self', ObjSpace)
     def seekable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_raw, "seekable")
 
-    @unwrap_spec('self', ObjSpace)
     def isatty_w(self, space):
         return space.call_method(self.w_raw, "isatty")
 
-    @unwrap_spec('self', ObjSpace)
     def repr_w(self, space):
         typename = space.type(self).getname(space, '?')
+        module = space.str_w(space.type(self).get_module())
         try:
             w_name = space.getattr(self, space.wrap("name"))
         except OperationError, e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            return space.wrap("<%s>" % (typename,))
+            return space.wrap("<%s.%s>" % (module, typename,))
         else:
-            w_repr = space.repr(w_name)
-            return space.wrap("<%s name=%s>" % (typename, space.str_w(w_repr)))
+            name_repr = space.str_w(space.repr(w_name))
+            return space.wrap("<%s.%s name=%s>" % (module, typename, name_repr))
 
     # ______________________________________________
 
@@ -214,13 +204,12 @@ class BufferedMixin:
             return self.raw_pos - self.pos
         return 0
 
-    @unwrap_spec('self', ObjSpace)
     def tell_w(self, space):
         self._check_init(space)
         pos = self._raw_tell(space) - self._raw_offset()
         return space.wrap(pos)
 
-    @unwrap_spec('self', ObjSpace, r_longlong, int)
+    @unwrap_spec(pos=r_longlong, whence=int)
     def seek_w(self, space, pos, whence=0):
         self._check_init(space)
         if whence not in (0, 1, 2):
@@ -272,7 +261,6 @@ class BufferedMixin:
     def _closed(self, space):
         return space.is_true(space.getattr(self.w_raw, space.wrap("closed")))
 
-    @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         self._check_init(space)
         with self.lock:
@@ -282,7 +270,6 @@ class BufferedMixin:
         with self.lock:
             space.call_method(self.w_raw, "close")
 
-    @unwrap_spec('self', ObjSpace)
     def simple_flush_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_raw, "flush")
@@ -346,7 +333,6 @@ class BufferedMixin:
             l.append(self.buffer[i])
         return self._write(space, ''.join(l))
 
-    @unwrap_spec('self', ObjSpace)
     def detach_w(self, space):
         self._check_init(space)
         space.call_method(self, "flush")
@@ -355,12 +341,10 @@ class BufferedMixin:
         self.state = STATE_DETACHED
         return w_raw
 
-    @unwrap_spec('self', ObjSpace)
     def fileno_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_raw, "fileno")
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def truncate_w(self, space, w_size=None):
         self._check_init(space)
         with self.lock:
@@ -380,7 +364,6 @@ class BufferedMixin:
     # ________________________________________________________________
     # Read methods
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_init(space)
         self._check_closed(space, "read of closed file")
@@ -400,7 +383,7 @@ class BufferedMixin:
                 "read length must be positive or -1"))
         return space.wrap(res)
 
-    @unwrap_spec('self', ObjSpace, int)
+    @unwrap_spec(size=int)
     def peek_w(self, space, size=0):
         self._check_init(space)
         with self.lock:
@@ -427,7 +410,7 @@ class BufferedMixin:
             data = ''.join(self.buffer[:size])
             return space.wrap(data)
 
-    @unwrap_spec('self', ObjSpace, int)
+    @unwrap_spec(size=int)
     def read1_w(self, space, size):
         self._check_init(space)
         self._check_closed(space, "read of closed file")
@@ -608,11 +591,10 @@ class BufferedMixin:
         if self.readable and self.read_end != -1 and self.read_end < new_pos:
             self.read_end = self.pos
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_data):
         self._check_init(space)
         self._check_closed(space, "write to closed file")
-        data = space.str_w(w_data)
+        data = space.bufferstr_w(w_data)
         size = len(data)
 
         with self.lock:
@@ -721,7 +703,6 @@ class BufferedMixin:
             self.raw_pos = 0
         return space.wrap(written)
 
-    @unwrap_spec('self', ObjSpace)
     def flush_w(self, space):
         self._check_init(space)
         self._check_closed(space, "flush of closed file")
@@ -735,7 +716,7 @@ class BufferedMixin:
 
 
 class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec('self', ObjSpace, W_Root, int)
+    @unwrap_spec(buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
         check_readable_w(space, w_raw)
@@ -749,13 +730,15 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedReader.typedef = TypeDef(
-    '_io.BufferedReader', W_BufferedIOBase.typedef,
+    'BufferedReader', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedReader),
     __init__  = interp2app(W_BufferedReader.descr_init),
+    __module__ = "_io",
 
     read = interp2app(W_BufferedReader.read_w),
     peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
+    raw = interp_attrproperty_w("w_raw", cls=W_BufferedReader),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedReader.repr_w),
@@ -773,10 +756,10 @@ W_BufferedReader.typedef = TypeDef(
     closed = GetSetProperty(W_BufferedReader.closed_get_w),
     name = GetSetProperty(W_BufferedReader.name_get_w),
     mode = GetSetProperty(W_BufferedReader.mode_get_w),
-    )
+)
 
 class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec('self', ObjSpace, W_Root, int, int)
+    @unwrap_spec(buffer_size=int, max_buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
                    max_buffer_size=-234):
         if max_buffer_size != -234:
@@ -794,12 +777,14 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedWriter.typedef = TypeDef(
-    '_io.BufferedWriter', W_BufferedIOBase.typedef,
+    'BufferedWriter', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedWriter),
     __init__  = interp2app(W_BufferedWriter.descr_init),
+    __module__ = "_io",
 
     write = interp2app(W_BufferedWriter.write_w),
     flush = interp2app(W_BufferedWriter.flush_w),
+    raw = interp_attrproperty_w("w_raw", cls=W_BufferedWriter),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedWriter.repr_w),
@@ -816,7 +801,7 @@ W_BufferedWriter.typedef = TypeDef(
     closed = GetSetProperty(W_BufferedWriter.closed_get_w),
     name = GetSetProperty(W_BufferedWriter.name_get_w),
     mode = GetSetProperty(W_BufferedWriter.mode_get_w),
-    )
+)
 
 def _forward_call(space, w_obj, method, __args__):
     w_meth = self.getattr(w_obj, self.wrap(method))
@@ -824,7 +809,6 @@ def _forward_call(space, w_obj, method, __args__):
 
 def make_forwarding_method(method, writer=False, reader=False):
     @func_renamer(method + '_w')
-    @unwrap_spec('self', ObjSpace, Arguments)
     def method_w(self, space, __args__):
         if writer:
             w_meth = space.getattr(self.w_writer, space.wrap(method))
@@ -839,7 +823,7 @@ class W_BufferedRWPair(W_BufferedIOBase):
     w_reader = None
     w_writer = None
 
-    @unwrap_spec('self', ObjSpace, W_Root, W_Root, int, int)
+    @unwrap_spec(buffer_size=int, max_buffer_size=int)
     def descr_init(self, space, w_reader, w_writer,
                    buffer_size=DEFAULT_BUFFER_SIZE, max_buffer_size=-234):
         if max_buffer_size != -234:
@@ -874,13 +858,12 @@ class W_BufferedRWPair(W_BufferedIOBase):
         locals()[method + '_w'] = make_forwarding_method(
             method, writer=True, reader=True)
 
-    @unwrap_spec('self', ObjSpace)
     def isatty_w(self, space):
         if space.is_true(space.call_method(self.w_writer, "isatty")):
             return space.w_True
         return space.call_method(self.w_reader, "isatty")
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         return space.getattr(self.w_writer, space.wrap("closed"))
 
 methods = dict((method, interp2app(getattr(W_BufferedRWPair, method + '_w')))
@@ -895,10 +878,10 @@ W_BufferedRWPair.typedef = TypeDef(
     __init__  = interp2app(W_BufferedRWPair.descr_init),
     closed = GetSetProperty(W_BufferedRWPair.closed_get_w),
     **methods
-    )
+)
 
 class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec('self', ObjSpace, W_Root, int, int)
+    @unwrap_spec(buffer_size=int, max_buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
                    max_buffer_size = -234):
         if max_buffer_size != -234:
@@ -921,9 +904,10 @@ class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedRandom.typedef = TypeDef(
-    '_io.BufferedRandom', W_BufferedIOBase.typedef,
+    'BufferedRandom', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRandom),
     __init__ = interp2app(W_BufferedRandom.descr_init),
+    __module__ = "_io",
 
     read = interp2app(W_BufferedRandom.read_w),
     peek = interp2app(W_BufferedRandom.peek_w),
@@ -931,6 +915,7 @@ W_BufferedRandom.typedef = TypeDef(
 
     write = interp2app(W_BufferedRandom.write_w),
     flush = interp2app(W_BufferedRandom.flush_w),
+    raw = interp_attrproperty_w("w_raw", cls=W_BufferedRandom),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedRandom.repr_w),
@@ -947,5 +932,4 @@ W_BufferedRandom.typedef = TypeDef(
     closed = GetSetProperty(W_BufferedRandom.closed_get_w),
     name = GetSetProperty(W_BufferedRandom.name_get_w),
     mode = GetSetProperty(W_BufferedRandom.mode_get_w),
-    )
-
+)

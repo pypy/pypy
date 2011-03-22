@@ -124,6 +124,19 @@ class BaseTestException(BaseRtypingTest):
         res = self.interpret(f, [11])
         assert res == 11
 
+    def test_pop_inside_try(self):
+        class MyException(Exception):
+            pass
+        def f(n):
+            lst = []
+            lst.append(n)
+            try:
+                return lst.pop()
+            except MyException:
+                return -1
+        res = self.interpret(f, [42])
+        assert res == 42
+
 
 class TestLLtype(BaseTestException, LLRtypeMixin):
     def test_cannot_raise_ll_exception(self):

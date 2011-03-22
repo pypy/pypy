@@ -49,6 +49,8 @@ def setup_directory_structure(space):
              absolute   = "from __future__ import absolute_import\nimport string",
              relative_b = "from __future__ import absolute_import\nfrom . import string",
              relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
+             relative_f = "from .imp import get_magic",
+             relative_g = "import imp; from .imp import get_magic",
              )
     setuppkg("pkg.pkg1", 
              a          = '',
@@ -189,6 +191,13 @@ class AppTestImport:
     def test_import_keywords(self):
         __import__(name='sys', level=0)
 
+    def test_import_by_filename(self):
+        import pkg.a
+        filename = pkg.a.__file__
+        assert filename.endswith('.py')
+        exc = raises(ImportError, __import__, filename[:-3])
+        assert exc.value.message == "Import by filename is not supported."
+
     def test_import_badcase(self):
         def missing(name):
             try:
@@ -269,7 +278,7 @@ class AppTestImport:
     def test_import_relative_partial_success(self):
         def imp():
             import pkg_r.inpkg
-        raises(ImportError,imp)
+        raises(ImportError, imp)
 
     def test_import_builtin_inpackage(self):
         def imp():
@@ -346,6 +355,18 @@ class AppTestImport:
     def test_future_relative_import_without_from_name(self):
         from pkg import relative_b
         assert relative_b.string.inpackage == 1
+
+    def test_no_relative_import(self):
+        def imp():
+            from pkg import relative_f
+        exc = raises(ImportError, imp)
+        assert exc.value.message == "No module named pkg.imp"
+
+    def test_no_relative_import_bug(self):
+        def imp():
+            from pkg import relative_g
+        exc = raises(ImportError, imp)
+        assert exc.value.message == "No module named pkg.imp"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
@@ -722,6 +743,7 @@ class TestPycStuff:
     def test_write_compiled_module(self):
         space = self.space
         pathname = _testfilesource()
+        os.chmod(pathname, 0777)
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
             w_ret = importing.parse_source_module(space,
@@ -733,10 +755,12 @@ class TestPycStuff:
         assert type(pycode) is pypy.interpreter.pycode.PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
+        mode = 0777
         mtime = 12345
         importing.write_compiled_module(space,
                                         pycode,
                                         cpathname,
+                                        mode,
                                         mtime)
 
         # check
@@ -745,6 +769,9 @@ class TestPycStuff:
                                               mtime)
         assert ret is not None
         ret.close()
+
+        # Check that the executable bit was removed
+        assert os.stat(cpathname).st_mode & 0111 == 0
 
         # read compiled module
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -954,6 +981,50 @@ class AppTestImportHooks(object):
         finally:
             sys.meta_path.pop()
             sys.path_hooks.pop()
+
+
+class AppTestPyPyExtension(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['imp', 'zipimport'])
+        cls.w_udir = cls.space.wrap(str(udir))
+
+    def test_run_compiled_module(self):
+        # XXX minimal test only
+        import imp, new
+        module = new.module('foobar')
+        raises(IOError, imp._run_compiled_module,
+               'foobar', 'this_file_does_not_exist', None, module)
+
+    def test_getimporter(self):
+        import imp, os
+        # an existing directory
+        importer = imp._getimporter(self.udir)
+        assert importer is None
+        # an existing file
+        path = os.path.join(self.udir, 'test_getimporter')
+        open(path, 'w').close()
+        importer = imp._getimporter(path)
+        assert isinstance(importer, imp.NullImporter)
+        # a non-existing path
+        path = os.path.join(self.udir, 'does_not_exist_at_all')
+        importer = imp._getimporter(path)
+        assert isinstance(importer, imp.NullImporter)
+        # a mostly-empty zip file
+        path = os.path.join(self.udir, 'test_getimporter.zip')
+        f = open(path, 'wb')
+        f.write('PK\x03\x04\n\x00\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00'
+                '\x00\x00\x00\x00\x00\x00\x00\x05\x00\x15\x00emptyUT\t\x00'
+                '\x03wyYMwyYMUx\x04\x00\xf4\x01d\x00PK\x01\x02\x17\x03\n\x00'
+                '\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+                '\x00\x00\x00\x05\x00\r\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+                '\xa4\x81\x00\x00\x00\x00emptyUT\x05\x00\x03wyYMUx\x00\x00PK'
+                '\x05\x06\x00\x00\x00\x00\x01\x00\x01\x00@\x00\x00\x008\x00'
+                '\x00\x00\x00\x00')
+        f.close()
+        importer = imp._getimporter(path)
+        import zipimport
+        assert isinstance(importer, zipimport.zipimporter)
+
 
 class AppTestNoPycFile(object):
     spaceconfig = {

@@ -1,10 +1,7 @@
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
-from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi
 from pypy.module.mmap.interp_mmap import W_MMap
 
-@unwrap_spec(ObjSpace, W_Root)
 def address_of_buffer(space, w_obj):
     if space.config.objspace.usemodules.mmap:
         mmap = space.interp_w(W_MMap, w_obj)

@@ -227,6 +227,14 @@ def op_int_or(x, y):
     assert isinstance(y, int)
     return x | y
 
+def op_int_xor(x, y):
+    # used in computing hashes
+    if isinstance(x, AddressAsInt): x = llmemory.cast_adr_to_int(x.adr)
+    if isinstance(y, AddressAsInt): y = llmemory.cast_adr_to_int(y.adr)
+    assert isinstance(x, int)
+    assert isinstance(y, int)
+    return x ^ y
+
 def op_int_mul(x, y):
     assert isinstance(x, (int, llmemory.AddressOffset))
     assert isinstance(y, (int, llmemory.AddressOffset))
@@ -270,6 +278,36 @@ def op_llong_mod(x, y):
     if x^y < 0 and x%y != 0:
         r -= y
     return r
+
+def op_uint_lshift(x, y):
+    assert isinstance(x, r_uint)
+    assert isinstance(y, int)
+    return r_uint(x << y)
+
+def op_uint_rshift(x, y):
+    assert isinstance(x, r_uint)
+    assert isinstance(y, int)
+    return r_uint(x >> y)
+
+def op_llong_lshift(x, y):
+    assert isinstance(x, r_longlong_arg)
+    assert isinstance(y, int)
+    return r_longlong_result(x << y)
+
+def op_llong_rshift(x, y):
+    assert isinstance(x, r_longlong_arg)
+    assert isinstance(y, int)
+    return r_longlong_result(x >> y)
+
+def op_ullong_lshift(x, y):
+    assert isinstance(x, r_ulonglong)
+    assert isinstance(y, int)
+    return r_ulonglong(x << y)
+
+def op_ullong_rshift(x, y):
+    assert isinstance(x, r_ulonglong)
+    assert isinstance(y, int)
+    return r_ulonglong(x >> y)
 
 def op_same_as(x):
     return x

@@ -20,8 +20,8 @@ from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr, MissingLiveness
-from pypy.jit.codewriter import heaptracker
-from pypy.jit.metainterp.optimizeutil import RetraceLoop
+from pypy.jit.codewriter import heaptracker, longlong
+from pypy.jit.metainterp.optimizeutil import RetraceLoop, args_dict_box, args_dict
 
 # ____________________________________________________________
 
@@ -834,7 +834,7 @@ class MIFrame(object):
                                jcposition, redboxes):
         resumedescr = compile.ResumeAtPositionDescr()
         self.capture_resumedata(resumedescr, orgpc)
-        
+
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
@@ -852,7 +852,7 @@ class MIFrame(object):
             "found a loop_header for a JitDriver that does not match "
             "the following jit_merge_point's")
         self.metainterp.seen_loop_header_for_jdindex = -1
-        
+
         #
         if not self.metainterp.in_recursion:
             assert jitdriver_sd is self.metainterp.jitdriver_sd
@@ -1163,7 +1163,7 @@ class MIFrame(object):
                     src_r += 1
                     if box.type == history.REF:
                         break
-            elif kind == history.FLOAT:
+            elif kind == history.FLOAT or kind == 'L':    # long long
                 while True:
                     box = argboxes[src_f]
                     src_f += 1
@@ -1275,11 +1275,6 @@ class MetaInterpStaticData(object):
         self._addr2name_keys = [key for key, value in list_of_addr2name]
         self._addr2name_values = [value for key, value in list_of_addr2name]
 
-    def setup_jitdrivers_sd(self, optimizer):
-        if optimizer is not None:
-            for jd in self.jitdrivers_sd:
-                jd.warmstate.set_param_optimizer(optimizer)
-
     def finish_setup(self, codewriter, optimizer=None):
         from pypy.jit.metainterp.blackhole import BlackholeInterpBuilder
         self.blackholeinterpbuilder = BlackholeInterpBuilder(codewriter, self)
@@ -1293,7 +1288,6 @@ class MetaInterpStaticData(object):
         self.jitdrivers_sd = codewriter.callcontrol.jitdrivers_sd
         self.virtualref_info = codewriter.callcontrol.virtualref_info
         self.callinfocollection = codewriter.callcontrol.callinfocollection
-        self.setup_jitdrivers_sd(optimizer)
         #
         # store this information for fastpath of call_assembler
         # (only the paths that can actually be taken)
@@ -1416,6 +1410,7 @@ class MetaInterp(object):
         self.free_frames_list = []
         self.last_exc_value_box = None
         self.retracing_loop_from = None
+        self.call_pure_results = args_dict_box()
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1423,10 +1418,13 @@ class MetaInterp(object):
         f.setup_call(boxes)
         raise ChangeFrame
 
+    def is_main_jitcode(self, jitcode):
+        return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
+
     def newframe(self, jitcode, greenkey=None):
         if jitcode.is_portal:
             self.in_recursion += 1
-        if greenkey is not None:
+        if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (greenkey, len(self.history.operations)))
         if len(self.free_frames_list) > 0:
@@ -1439,9 +1437,10 @@ class MetaInterp(object):
 
     def popframe(self):
         frame = self.framestack.pop()
-        if frame.jitcode.is_portal:
+        jitcode = frame.jitcode
+        if jitcode.is_portal:
             self.in_recursion -= 1
-        if frame.greenkey is not None:
+        if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (None, len(self.history.operations)))
         # we save the freed MIFrames to avoid needing to re-create new
@@ -1473,7 +1472,7 @@ class MetaInterp(object):
             elif result_type == history.REF:
                 raise sd.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
             elif result_type == history.FLOAT:
-                raise sd.DoneWithThisFrameFloat(resultbox.getfloat())
+                raise sd.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
                 assert False
 
@@ -1632,6 +1631,7 @@ class MetaInterp(object):
         warmrunnerstate = self.jitdriver_sd.warmstate
         if len(self.history.operations) > warmrunnerstate.trace_limit:
             greenkey_of_huge_function = self.find_biggest_function()
+            self.staticdata.stats.record_aborted(greenkey_of_huge_function)
             self.portal_trace_positions = None
             if greenkey_of_huge_function is not None:
                 warmrunnerstate.disable_noninlinable_function(
@@ -1719,7 +1719,7 @@ class MetaInterp(object):
             dont_change_position = True
         else:
             dont_change_position = False
-        try:            
+        try:
             self.prepare_resume_from_failure(key.guard_opnum, dont_change_position)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(ABORT_BRIDGE)
@@ -1913,7 +1913,8 @@ class MetaInterp(object):
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, [], greenkey, start, start_resumedescr)
+        loop_token = compile.compile_new_loop(self, [], greenkey, start,
+                                              start_resumedescr, False)
         self.history.operations.pop()     # remove the JUMP
         if loop_token is None:
             return
@@ -1923,13 +1924,14 @@ class MetaInterp(object):
 
         self.history.inputargs = original_inputargs
         self.history.operations = self.history.operations[:start]
-        live_arg_boxes = bridge_arg_boxes
-        
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
+
+        self.history.record(rop.JUMP, bridge_arg_boxes[num_green_args:], None)
         try:
             target_loop_token = compile.compile_new_bridge(self,
-                                                           [loop_token],
-                                                           self.resumekey)
+                                                           #[loop_token],
+                                                           old_loop_tokens,
+                                                           self.resumekey,
+                                                           True)
         except RetraceLoop:
             assert False
         assert target_loop_token is not None
@@ -2150,7 +2152,7 @@ class MetaInterp(object):
             # warmstate.py.
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-            assert not virtualizable.vable_token
+            assert not vinfo.gettoken(virtualizable)
             # fill the virtualizable with the local boxes
             self.synchronize_virtualizable()
         #
@@ -2277,7 +2279,9 @@ class MetaInterp(object):
             return resbox_as_const
         # not all constants (so far): turn CALL into CALL_PURE, which might
         # be either removed later by optimizeopt or turned back into CALL.
-        newop = op.copy_and_change(rop.CALL_PURE, args=[resbox_as_const]+op.getarglist())
+        arg_consts = [a.constbox() for a in op.getarglist()]
+        self.call_pure_results[arg_consts] = resbox_as_const
+        newop = op.copy_and_change(rop.CALL_PURE, args=op.getarglist())
         self.history.operations[-1] = newop
         return resbox
 

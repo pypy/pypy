@@ -853,17 +853,17 @@ class BaseTestRclass(BaseRtypingTest):
                accessor.fields == {"ov" : ""} # for ootype
 
     def test_immutable_subclass_1(self):
+        from pypy.rpython.rclass import ImmutableConflictError
         from pypy.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_ = True
         class B(A):
             pass
         def f():
+            A()
             B().v = 123
             return B()
-        t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
-        assert B_TYPE._hints["immutable"]    # inherited from A
+        py.test.raises(ImmutableConflictError, self.gengraph, f, [])
 
     def test_immutable_subclass_2(self):
         from pypy.jit.metainterp.typesystem import deref
@@ -872,6 +872,7 @@ class BaseTestRclass(BaseRtypingTest):
         class B(A):
             _immutable_ = True
         def f():
+            A()
             B().v = 123
             return B()
         t, typer, graph = self.gengraph(f, [])

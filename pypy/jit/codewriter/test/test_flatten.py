@@ -718,7 +718,7 @@ class TestFlatten:
             return ((r_uint(n) - 123) >> 1) <= r_uint(456)
         self.encoding_test(f, [200], """
             int_sub %i0, $123L -> %i1
-            uint_rshift %i1, $1L -> %i2
+            uint_rshift %i1, $1 -> %i2
             uint_le %i2, $456L -> %i3
             int_return %i3
         """, transform=True)

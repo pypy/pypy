@@ -609,20 +609,24 @@ class AppTestTypeObject:
             __slots__ = ('x',)
         a = A()
         raises(AttributeError, getattr, a, 'x')
+        raises(AttributeError, delattr, a, 'x')
         a.x = 1
         assert a.x == 1
         assert A.__dict__['x'].__get__(a) == 1
         del a.x
         raises(AttributeError, getattr, a, 'x')
+        raises(AttributeError, delattr, a, 'x')
         class B(A):
             pass
         b = B()
         raises(AttributeError, getattr, b, 'x')
+        raises(AttributeError, delattr, b, 'x')
         b.x = 1
         assert b.x == 1
         assert A.__dict__['x'].__get__(b) == 1
         del b.x
         raises(AttributeError, getattr, b, 'x')
+        raises(AttributeError, delattr, b, 'x')
         class Z(object):
             pass
         z = Z()

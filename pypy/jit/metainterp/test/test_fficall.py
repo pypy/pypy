@@ -59,7 +59,7 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
                 n += 1
             return res
         #
-        res = self.meta_interp(f, [0], jit_ffi=True, backendopt=True)
+        res = self.meta_interp(f, [0], backendopt=True)
         return res
 
     def test_byval_result(self):

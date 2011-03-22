@@ -45,6 +45,8 @@ class TestPartial(unittest.TestCase):
         # attributes should not be writable
         if not isinstance(self.thetype, type):
             return
+        if not test_support.check_impl_detail():
+            return
         self.assertRaises(TypeError, setattr, p, 'func', map)
         self.assertRaises(TypeError, setattr, p, 'args', (1, 2))
         self.assertRaises(TypeError, setattr, p, 'keywords', dict(a=1, b=2))

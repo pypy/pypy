@@ -90,7 +90,7 @@ class FakeBuiltinCallControl:
         self.callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'builtin'
-    def getcalldescr(self, op, oopspecindex=None):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
         assert oopspecindex is not None    # in this test
         EI = effectinfo.EffectInfo
         if oopspecindex != EI.OS_ARRAYCOPY:
@@ -116,6 +116,10 @@ class FakeBuiltinCallControl:
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
             assert argtypes[1] == op.result.concretetype
+            if oopspecindex == EI.OS_STR2UNICODE:
+                assert extraeffect == None    # not pure, can raise!
+            else:
+                assert extraeffect == EI.EF_PURE
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False

@@ -1,6 +1,7 @@
 import os
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.unsimplify import split_block, call_final_function
+from pypy.translator.unsimplify import call_initial_function
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
 from pypy.rlib.objectmodel import we_are_translated
@@ -69,7 +70,26 @@ def test_split_block_exceptions():
         assert result == 1
         result = interp.eval_graph(graph, [2])
         assert result == 2
-    
+
+def test_call_initial_function():
+    tmpfile = str(udir.join('test_call_initial_function'))
+    for type_system in ['lltype', 'ootype']:
+        def f(x):
+            return x * 6
+        def hello_world():
+            if we_are_translated():
+                fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0)
+                os.close(fd)
+        graph, t = translate(f, [int], type_system)
+        call_initial_function(t, hello_world)
+        #
+        if os.path.exists(tmpfile):
+            os.unlink(tmpfile)
+        interp = LLInterpreter(t.rtyper)
+        result = interp.eval_graph(graph, [7])
+        assert result == 42
+        assert os.path.isfile(tmpfile)
+
 def test_call_final_function():
     tmpfile = str(udir.join('test_call_final_function'))
     for type_system in ['lltype', 'ootype']:

@@ -11,7 +11,7 @@ class AppTest_ComposableCoroutine:
         space = gettestobjspace(usemodules=('_stackless',))
         cls.space = space
 
-        cls.w_generator = space.appexec([], """():
+        cls.w_generator_ = space.appexec([], """():
             import _stackless
 
             generators_costate = _stackless.usercostate()
@@ -55,7 +55,7 @@ class AppTest_ComposableCoroutine:
 
             generator.Yield = Yield
             generator._costate = generators_costate
-            return generator
+            return (generator,)
         """)
 
     def test_simple_costate(self):
@@ -72,7 +72,7 @@ class AppTest_ComposableCoroutine:
         assert result == [co]
 
     def test_generator(self):
-        generator = self.generator
+        generator, = self.generator_
 
         def squares(n):
             for i in range(n):
@@ -95,7 +95,7 @@ class AppTest_ComposableCoroutine:
         """
 
         import _stackless
-        generator = self.generator
+        generator, = self.generator_
 
         # you can see how it fails if we don't have two different costates
         # by setting compute_costate to generator._costate instead

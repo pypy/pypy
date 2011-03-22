@@ -108,3 +108,6 @@ def args_hash(args):
 
 def args_dict():
     return r_dict(args_eq, args_hash)
+
+def args_dict_box():
+    return r_dict(args_eq, args_hash)

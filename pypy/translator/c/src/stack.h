@@ -17,7 +17,6 @@ void LL_stack_unwind(void);
 char LL_stack_too_big_slowpath(long);    /* returns 0 (ok) or 1 (too big) */
 
 /* some macros referenced from pypy.rlib.rstack */
-#define OP_STACK_CURRENT(r)  r = (long)&r
 #define LL_stack_get_start() ((long)_LLstacktoobig_stack_start)
 #define LL_stack_get_length() MAX_STACK_SIZE
 #define LL_stack_get_start_adr() ((long)&_LLstacktoobig_stack_start)  /* JIT */

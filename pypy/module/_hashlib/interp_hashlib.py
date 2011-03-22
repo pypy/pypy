@@ -3,53 +3,64 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
-from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import ropenssl
 from pypy.rlib.rstring import StringBuilder
+from pypy.module.thread.os_lock import Lock
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
 class W_Hash(Wrappable):
+    ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
+
     def __init__(self, space, name):
         self.name = name
-        self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
+
+        # Allocate a lock for each HASH object.
+        # An optimization would be to not release the GIL on small requests,
+        # and use a custom lock only when needed.
+        self.lock = Lock(space)
 
         digest = ropenssl.EVP_get_digestbyname(name)
         if not digest:
             raise OperationError(space.w_ValueError,
                                  space.wrap("unknown hash function"))
-        ropenssl.EVP_DigestInit(self.ctx, digest)
+        ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
+        ropenssl.EVP_DigestInit(ctx, digest)
+        self.ctx = ctx
 
     def __del__(self):
-        lltype.free(self.ctx, flavor='raw')
+        # self.lock.free()
+        if self.ctx:
+            ropenssl.EVP_MD_CTX_cleanup(self.ctx)
+            lltype.free(self.ctx, flavor='raw')
 
-    @unwrap_spec('self', ObjSpace)
     def descr_repr(self, space):
         addrstring = self.getaddrstring(space)
         return space.wrap("<%s HASH object at 0x%s>" % (
             self.name, addrstring))
 
-    @unwrap_spec('self', ObjSpace, 'bufferstr')
+    @unwrap_spec(string='bufferstr')
     def update(self, space, string):
         with rffi.scoped_nonmovingbuffer(string) as buf:
-            ropenssl.EVP_DigestUpdate(self.ctx, buf, len(string))
+            with self.lock:
+                # XXX try to not release the GIL for small requests
+                ropenssl.EVP_DigestUpdate(self.ctx, buf, len(string))
 
-    @unwrap_spec('self', ObjSpace)
     def copy(self, space):
         "Return a copy of the hash object."
         w_hash = W_Hash(space, self.name)
-        ropenssl.EVP_MD_CTX_copy(w_hash.ctx, self.ctx)
+        with self.lock:
+            ropenssl.EVP_MD_CTX_copy(w_hash.ctx, self.ctx)
         return w_hash
 
-    @unwrap_spec('self', ObjSpace)
     def digest(self, space):
         "Return the digest value as a string of binary data."
         digest = self._digest(space)
         return space.wrap(digest)
 
-    @unwrap_spec('self', ObjSpace)
     def hexdigest(self, space):
         "Return the digest value as a string of hexadecimal digits."
         digest = self._digest(space)
@@ -60,10 +71,10 @@ class W_Hash(Wrappable):
             result.append(hexdigits[ ord(c)       & 0xf])
         return space.wrap(result.build())
 
-    def get_digest_size(space, self):
+    def get_digest_size(self, space):
         return space.wrap(self._digest_size())
 
-    def get_block_size(space, self):
+    def get_block_size(self, space):
         return space.wrap(self._block_size())
 
     def _digest(self, space):
@@ -121,7 +132,7 @@ W_Hash.typedef = TypeDef(
     block_size=GetSetProperty(W_Hash.get_block_size),
     )
 
-@unwrap_spec(ObjSpace, str, 'bufferstr')
+@unwrap_spec(name=str, string='bufferstr')
 def new(space, name, string=''):
     w_hash = W_Hash(space, name)
     w_hash.update(space, string)
@@ -130,7 +141,7 @@ def new(space, name, string=''):
 # shortcut functions
 def make_new_hash(name, funcname):
     @func_renamer(funcname)
-    @unwrap_spec(ObjSpace, 'bufferstr')
+    @unwrap_spec(string='bufferstr')
     def new_hash(space, string=''):
         return new(space, name, string)
     return new_hash

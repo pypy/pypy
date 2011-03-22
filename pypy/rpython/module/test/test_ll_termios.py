@@ -26,17 +26,22 @@ class ExpectTestLLTermios(object):
         from pypy.translator.c.test.test_genc import compile
         from pypy.rpython.module import ll_termios
         from pypy.rlib import rtermios
+        import os, errno
         import termios
-        def runs_tcgetattr():
+        def runs_tcgetattr(fd):
             try:
-                rtermios.tcgetattr(338)
-            except termios.error, e:
-                return 2
-            return 3
+                rtermios.tcgetattr(fd)
+            except OSError, e:
+                return e.errno
+            return 0
 
-        fn = compile(runs_tcgetattr, [], backendopt=False)
-        res = fn()
-        assert res == 2
+        fn = compile(runs_tcgetattr, [int], backendopt=False)
+        fd = os.open('.', 0)
+        try:
+            res = fn(fd)
+            assert res == errno.ENOTTY
+        finally:
+            os.close(fd)
 
     def test_tcsetattr(self):
         # a test, which doesn't even check anything.

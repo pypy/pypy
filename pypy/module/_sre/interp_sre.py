@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.pairtype import extendabletype
@@ -16,9 +16,9 @@ from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rsre import rsre_core
 from pypy.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
 
+@unwrap_spec(char_ord=int, flags=int)
 def w_getlower(space, char_ord, flags):
     return space.wrap(getlower(char_ord, flags))
-w_getlower.unwrap_spec = [ObjSpace, int, int]
 
 def w_getcodesize(space):
     return space.wrap(CODESIZE)
@@ -130,16 +130,17 @@ class W_SRE_Pattern(Wrappable):
         else:
             return self.space.w_None
 
+    @unwrap_spec(pos=int, endpos=int)
     def match_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
         return self.getmatch(ctx, matchcontext(self.space, ctx))
-    match_w.unwrap_spec = ['self', W_Root, int, int]
 
+    @unwrap_spec(pos=int, endpos=int)
     def search_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
         return self.getmatch(ctx, searchcontext(self.space, ctx))
-    search_w.unwrap_spec = ['self', W_Root, int, int]
 
+    @unwrap_spec(pos=int, endpos=int)
     def findall_w(self, w_string, pos=0, endpos=sys.maxint):
         space = self.space
         matchlist_w = []
@@ -164,16 +165,16 @@ class W_SRE_Pattern(Wrappable):
             no_progress = (ctx.match_start == ctx.match_end)
             ctx.reset(ctx.match_end + no_progress)
         return space.newlist(matchlist_w)
-    findall_w.unwrap_spec = ['self', W_Root, int, int]
 
+    @unwrap_spec(pos=int, endpos=int)
     def finditer_w(self, w_string, pos=0, endpos=sys.maxint):
         # this also works as the implementation of the undocumented
         # scanner() method.
         ctx = self.make_ctx(w_string, pos, endpos)
         scanner = W_SRE_Scanner(self, ctx)
         return self.space.wrap(scanner)
-    finditer_w.unwrap_spec = ['self', W_Root, int, int]
 
+    @unwrap_spec(maxsplit=int)
     def split_w(self, w_string, maxsplit=0):
         space = self.space
         splitlist = []
@@ -201,18 +202,17 @@ class W_SRE_Pattern(Wrappable):
             ctx.reset(last)
         splitlist.append(slice_w(space, ctx, last, ctx.end, space.w_None))
         return space.newlist(splitlist)
-    split_w.unwrap_spec = ['self', W_Root, int]
 
+    @unwrap_spec(count=int)
     def sub_w(self, w_repl, w_string, count=0):
         w_item, n = self.subx(w_repl, w_string, count)
         return w_item
-    sub_w.unwrap_spec = ['self', W_Root, W_Root, int]
 
+    @unwrap_spec(count=int)
     def subn_w(self, w_repl, w_string, count=0):
         w_item, n = self.subx(w_repl, w_string, count)
         space = self.space
         return space.newtuple([w_item, space.wrap(n)])
-    subn_w.unwrap_spec = ['self', W_Root, W_Root, int]
 
     def subx(self, w_ptemplate, w_string, count):
         space = self.space
@@ -287,9 +287,10 @@ class W_SRE_Pattern(Wrappable):
         return w_item, n
 
 
+@unwrap_spec(flags=int, groups=int)
 def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
               groups=0, w_groupindex=None, w_indexgroup=None):
-    n = space.int_w(space.len(w_code))
+    n = space.len_w(w_code)
     code = [intmask(space.uint_w(space.getitem(w_code, space.wrap(i))))
             for i in range(n)]
     #
@@ -303,8 +304,6 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     srepat.w_groupindex = w_groupindex
     srepat.w_indexgroup = w_indexgroup
     return w_srepat
-SRE_Pattern__new__.unwrap_spec = [ObjSpace, W_Root, W_Root, int, W_Root,
-                                  int, W_Root, W_Root]
 
 
 W_SRE_Pattern.typedef = TypeDef(
@@ -359,7 +358,6 @@ class W_SRE_Match(Wrappable):
                 start, end = self.do_span(args_w[i])
                 results[i] = slice_w(space, ctx, start, end, space.w_None)
             return space.newtuple(results)
-    group_w.unwrap_spec = ['self', 'args_w']
 
     def groups_w(self, w_default=None):
         fmarks = self.flatten_marks()
@@ -433,7 +431,7 @@ class W_SRE_Match(Wrappable):
             return mark.gid // 2 + 1
         return -1
 
-    def fget_lastgroup(space, self):
+    def fget_lastgroup(self, space):
         lastindex = self._last_index()
         if lastindex < 0:
             return space.w_None
@@ -443,19 +441,19 @@ class W_SRE_Match(Wrappable):
             return space.w_None
         return w_result
 
-    def fget_lastindex(space, self):
+    def fget_lastindex(self, space):
         lastindex = self._last_index()
         if lastindex >= 0:
             return space.wrap(lastindex)
         return space.w_None
 
-    def fget_pos(space, self):
+    def fget_pos(self, space):
         return space.wrap(self.ctx.original_pos)
 
-    def fget_endpos(space, self):
+    def fget_endpos(self, space):
         return space.wrap(self.ctx.end)
 
-    def fget_regs(space, self):
+    def fget_regs(self, space):
         space = self.space
         fmarks = self.flatten_marks()
         num_groups = self.srepat.num_groups
@@ -468,7 +466,7 @@ class W_SRE_Match(Wrappable):
                                               space.wrap(fmarks[i*2+1])])
         return space.newtuple(result_w)
 
-    def fget_string(space, self):
+    def fget_string(self, space):
         return self.ctx._w_string(space)
 
 
@@ -542,9 +540,9 @@ class W_SRE_Scanner(Wrappable):
 
 W_SRE_Scanner.typedef = TypeDef(
     'SRE_Scanner',
-    __iter__ = interp2app(W_SRE_Scanner.iter_w,   unwrap_spec=['self']),
-    next     = interp2app(W_SRE_Scanner.next_w,   unwrap_spec=['self']),
-    match    = interp2app(W_SRE_Scanner.match_w,  unwrap_spec=['self']),
-    search   = interp2app(W_SRE_Scanner.search_w, unwrap_spec=['self']),
+    __iter__ = interp2app(W_SRE_Scanner.iter_w),
+    next     = interp2app(W_SRE_Scanner.next_w),
+    match    = interp2app(W_SRE_Scanner.match_w),
+    search   = interp2app(W_SRE_Scanner.search_w),
     pattern  = interp_attrproperty('srepat', W_SRE_Scanner),
 )

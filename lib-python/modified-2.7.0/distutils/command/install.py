@@ -20,7 +20,6 @@ from distutils.util import get_platform
 from distutils.errors import DistutilsOptionError
 from site import USER_BASE
 from site import USER_SITE
-from test.test_support import check_impl_detail
 
 
 if sys.version < "2.2":

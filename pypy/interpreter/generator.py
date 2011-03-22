@@ -15,7 +15,7 @@ class GeneratorIterator(Wrappable):
         self.running = False
 
     def descr__repr__(self, space):
-        code_name = self.frame.pycode.co_name
+        code_name = self.pycode.co_name
         addrstring = self.getaddrstring(space)
         return space.wrap("<generator object %s at 0x%s>" %
                           (code_name, addrstring))
@@ -55,7 +55,7 @@ return next yielded value or raise StopIteration."""
         frame = self.frame
         if frame is None:
             # xxx a bit ad-hoc, but we don't want to go inside
-            # execute_generator_frame() if the frame is actually finished
+            # execute_frame() if the frame is actually finished
             if operr is None:
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
@@ -72,7 +72,7 @@ return next yielded value or raise StopIteration."""
         self.running = True
         try:
             try:
-                w_result = frame.execute_generator_frame(w_arg, operr)
+                w_result = frame.execute_frame(w_arg, operr)
             except OperationError:
                 # errors finish a frame
                 self.frame = None
@@ -127,17 +127,17 @@ return next yielded value or raise StopIteration."""
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
 
-    def descr_gi_frame(space, self):
+    def descr_gi_frame(self, space):
         if self.frame is not None and not self.frame.frame_finished_execution:
             return self.frame
         else:
             return space.w_None
 
-    def descr_gi_code(space, self):
+    def descr_gi_code(self, space):
         return self.pycode
 
-    def descr__name__(space, self):
-        code_name = self.frame.pycode.co_name
+    def descr__name__(self, space):
+        code_name = self.pycode.co_name
         return space.wrap(code_name)
 
     def descr__del__(self):        

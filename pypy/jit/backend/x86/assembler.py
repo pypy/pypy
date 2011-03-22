@@ -37,6 +37,8 @@ from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.metainterp.history import ConstInt, BoxInt
+from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.codewriter import longlong
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -70,7 +72,8 @@ class Assembler386(object):
         self.malloc_unicode_func_addr = 0
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
-        self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
+        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
+                                             failargs_limit)
         self.fail_ebp = 0
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
@@ -695,11 +698,9 @@ class Assembler386(object):
             else:
                 target = tmp
             if inputargs[i].type == REF:
-                # This uses XCHG to put zeroes in fail_boxes_ptr after
-                # reading them
-                self.mc.XOR(target, target)
                 adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                self.mc.XCHG(target, heap(adr))
+                self.mc.MOV(target, heap(adr))
+                self.mc.MOV(heap(adr), imm0)
             else:
                 adr = self.fail_boxes_int.get_addr_for_num(i)
                 self.mc.MOV(target, heap(adr))
@@ -768,6 +769,11 @@ class Assembler386(object):
 
     def regalloc_perform_discard(self, op, arglocs):
         genop_discard_list[op.getopnum()](self, op, arglocs)
+
+    def regalloc_perform_llong(self, op, arglocs, resloc):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        genop_llong_list[oopspecindex](self, op, arglocs, resloc)
 
     def regalloc_perform_with_guard(self, op, guard_op, faillocs,
                                     arglocs, resloc, current_depths):
@@ -1114,6 +1120,75 @@ class Assembler386(object):
     def genop_uint_floordiv(self, op, arglocs, resloc):
         self.mc.XOR_rr(edx.value, edx.value)
         self.mc.DIV_r(ecx.value)
+
+    genop_llong_add = _binaryop("PADDQ", True)
+    genop_llong_sub = _binaryop("PSUBQ")
+    genop_llong_and = _binaryop("PAND",  True)
+    genop_llong_or  = _binaryop("POR",   True)
+    genop_llong_xor = _binaryop("PXOR",  True)
+
+    def genop_llong_to_int(self, op, arglocs, resloc):
+        loc = arglocs[0]
+        assert isinstance(resloc, RegLoc)
+        if isinstance(loc, RegLoc):
+            self.mc.MOVD_rx(resloc.value, loc.value)
+        elif isinstance(loc, StackLoc):
+            self.mc.MOV_rb(resloc.value, loc.value)
+        else:
+            not_implemented("llong_to_int: %s" % (loc,))
+
+    def genop_llong_from_int(self, op, arglocs, resloc):
+        loc1, loc2 = arglocs
+        if isinstance(loc1, ConstFloatLoc):
+            assert loc2 is None
+            self.mc.MOVSD(resloc, loc1)
+        else:
+            assert isinstance(loc1, RegLoc)
+            assert isinstance(loc2, RegLoc)
+            assert isinstance(resloc, RegLoc)
+            self.mc.MOVD_xr(loc2.value, loc1.value)
+            self.mc.PSRAD_xi(loc2.value, 31)    # -> 0 or -1
+            self.mc.MOVD_xr(resloc.value, loc1.value)
+            self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
+
+    def genop_llong_from_uint(self, op, arglocs, resloc):
+        loc1, = arglocs
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(loc1, RegLoc)
+        self.mc.MOVD_xr(resloc.value, loc1.value)
+
+    def genop_llong_eq(self, op, arglocs, resloc):
+        loc1, loc2, locxtmp = arglocs
+        self.mc.MOVSD(locxtmp, loc1)
+        self.mc.PCMPEQD(locxtmp, loc2)
+        self.mc.PMOVMSKB_rx(resloc.value, locxtmp.value)
+        # Now the lower 8 bits of resloc contain 0x00, 0x0F, 0xF0 or 0xFF
+        # depending on the result of the comparison of each of the two
+        # double-words of loc1 and loc2.  The higher 8 bits contain random
+        # results.  We want to map 0xFF to 1, and 0x00, 0x0F and 0xF0 to 0.
+        self.mc.CMP8_ri(resloc.value | rx86.BYTE_REG_FLAG, -1)
+        self.mc.SBB_rr(resloc.value, resloc.value)
+        self.mc.ADD_ri(resloc.value, 1)
+
+    def genop_llong_ne(self, op, arglocs, resloc):
+        loc1, loc2, locxtmp = arglocs
+        self.mc.MOVSD(locxtmp, loc1)
+        self.mc.PCMPEQD(locxtmp, loc2)
+        self.mc.PMOVMSKB_rx(resloc.value, locxtmp.value)
+        # Now the lower 8 bits of resloc contain 0x00, 0x0F, 0xF0 or 0xFF
+        # depending on the result of the comparison of each of the two
+        # double-words of loc1 and loc2.  The higher 8 bits contain random
+        # results.  We want to map 0xFF to 0, and 0x00, 0x0F and 0xF0 to 1.
+        self.mc.CMP8_ri(resloc.value | rx86.BYTE_REG_FLAG, -1)
+        self.mc.SBB_rr(resloc.value, resloc.value)
+        self.mc.NEG_r(resloc.value)
+
+    def genop_llong_lt(self, op, arglocs, resloc):
+        # XXX just a special case for now: "x < 0"
+        loc1, = arglocs
+        self.mc.PMOVMSKB_rx(resloc.value, loc1.value)
+        self.mc.SHR_ri(resloc.value, 7)
+        self.mc.AND_ri(resloc.value, 1)
 
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax
@@ -1725,7 +1800,16 @@ class Assembler386(object):
         self._emit_call(x, arglocs, 3, tmp=tmp)
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
-            self.mc.FSTP_b(resloc.value)   # float return
+            # a float or a long long return
+            if op.getdescr().get_return_type() == 'L':
+                self.mc.MOV_br(resloc.value, eax.value)      # long long
+                self.mc.MOV_br(resloc.value + 4, edx.value)
+                # XXX should ideally not move the result on the stack,
+                #     but it's a mess to load eax/edx into a xmm register
+                #     and this way is simpler also because the result loc
+                #     can just be always a stack location
+            else:
+                self.mc.FSTP_b(resloc.value)   # float return
         elif size == WORD:
             assert resloc is eax or resloc is xmm0    # a full word
         elif size == 0:
@@ -1822,8 +1906,8 @@ class Assembler386(object):
                     self.mc.MOV(eax, heap(adr))
                 elif kind == REF:
                     adr = self.fail_boxes_ptr.get_addr_for_num(0)
-                    self.mc.XOR_rr(eax.value, eax.value)
-                    self.mc.XCHG(eax, heap(adr))
+                    self.mc.MOV(eax, heap(adr))
+                    self.mc.MOV(heap(adr), imm0)
                 else:
                     raise AssertionError(kind)
         #
@@ -1959,6 +2043,7 @@ class Assembler386(object):
         
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
+genop_llong_list = {}
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():
@@ -1970,6 +2055,10 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_guard_'):]
         num = getattr(rop, opname.upper())
         genop_guard_list[num] = value
+    elif name.startswith('genop_llong_'):
+        opname = name[len('genop_llong_'):]
+        num = getattr(EffectInfo, 'OS_LLONG_' + opname.upper())
+        genop_llong_list[num] = value
     elif name.startswith('genop_'):
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())

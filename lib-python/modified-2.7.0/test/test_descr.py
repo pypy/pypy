@@ -1740,7 +1740,7 @@ order (MRO) for bases """
                 raise MyException
 
         for name, runner, meth_impl, ok, env in specials:
-            if name == '__length_hint__':
+            if name == '__length_hint__' or name == '__sizeof__':
                 if not test_support.check_impl_detail():
                     continue
 
@@ -1983,7 +1983,9 @@ order (MRO) for bases """
         except TypeError, msg:
             self.assertTrue(str(msg).find("weak reference") >= 0)
         else:
-            self.fail("weakref.ref(no) should be illegal")
+            if test_support.check_impl_detail(pypy=False):
+                self.fail("weakref.ref(no) should be illegal")
+            #else: pypy supports taking weakrefs to some more objects
         class Weak(object):
             __slots__ = ['foo', '__weakref__']
         yes = Weak()

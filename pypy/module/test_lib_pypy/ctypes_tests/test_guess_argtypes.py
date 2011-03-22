@@ -14,6 +14,8 @@ def test_wrap_args():
     def guess(value):
         cobj, ctype = CFuncPtr._conv_param(None, value)
         return ctype
+        ## cobj = CFuncPtr._conv_param(None, value)
+        ## return type(cobj)
 
     assert guess(13) == c_int
     assert guess(0) == c_int

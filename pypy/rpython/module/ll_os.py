@@ -171,6 +171,10 @@ class CConfig:
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
 
+        GID_T = platform.SimpleType('gid_t',rffi.INT)
+        #TODO right now is used only in getgroups, may need to update other
+        #functions like setgid
+
     SEEK_SET = platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = platform.DefinedConstantInteger('SEEK_END')
@@ -674,6 +678,27 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_getegid(self):
         return self.extdef_for_os_function_returning_int('getegid')
 
+    @registering_if(os, 'getgroups')
+    def register_os_getgroups(self):
+        GP = rffi.CArrayPtr(self.GID_T)
+        c_getgroups = self.llexternal('getgroups', [rffi.INT, GP], rffi.INT)
+
+        def getgroups_llimpl():
+            n = c_getgroups(0, lltype.nullptr(GP.TO))
+            if n >= 0:
+                groups = lltype.malloc(GP.TO, n, flavor='raw')
+                try:
+                    n = c_getgroups(n, groups)
+                    result = [groups[i] for i in range(n)]
+                finally:
+                    lltype.free(groups, flavor='raw')
+                if n >= 0:
+                    return result
+            raise OSError(rposix.get_errno(), "os_getgroups failed")
+
+        return extdef([], [self.GID_T], llimpl=getgroups_llimpl,
+                      export_name="ll_os.ll_getgroups")
+
     @registering_if(os, 'getpgrp')
     def register_os_getpgrp(self):
         name = 'getpgrp'
@@ -770,6 +795,30 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], (float, float, float),
                       "ll_os.ll_getloadavg", llimpl=getloadavg_llimpl)
 
+    @registering_if(os, 'makedev')
+    def register_os_makedev(self):
+        c_makedev = self.llexternal('makedev', [rffi.INT, rffi.INT], rffi.INT)
+        def makedev_llimpl(maj, min):
+            return c_makedev(maj, min)
+        return extdef([int, int], int,
+                      "ll_os.ll_makedev", llimpl=makedev_llimpl)
+
+    @registering_if(os, 'major')
+    def register_os_major(self):
+        c_major = self.llexternal('major', [rffi.INT], rffi.INT)
+        def major_llimpl(dev):
+            return c_major(dev)
+        return extdef([int], int,
+                      "ll_os.ll_major", llimpl=major_llimpl)
+
+    @registering_if(os, 'minor')
+    def register_os_minor(self):
+        c_minor = self.llexternal('minor', [rffi.INT], rffi.INT)
+        def minor_llimpl(dev):
+            return c_minor(dev)
+        return extdef([int], int,
+                      "ll_os.ll_minor", llimpl=minor_llimpl)
+
 # ------------------------------- os.read -------------------------------
 
     @registering(os.read)
@@ -796,7 +845,8 @@ class RegisterOs(BaseLazyRegistering):
         def os_read_oofakeimpl(fd, count):
             return OOSupport.to_rstr(os.read(fd, count))
 
-        return extdef([int, int], str, "ll_os.ll_os_read",
+        return extdef([int, int], SomeString(can_be_None=True),
+                      "ll_os.ll_os_read",
                       llimpl=os_read_llimpl, oofakeimpl=os_read_oofakeimpl)
 
     @registering(os.write)
@@ -894,7 +944,9 @@ class RegisterOs(BaseLazyRegistering):
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
             if res < 0:
-                raise OSError(rposix.get_errno(), "os_lseek failed")
+                # Note: for consistency we raise OSError, but CPython
+                # raises IOError here
+                raise OSError(rposix.get_errno(), "os_ftruncate failed")
 
         return extdef([int, r_longlong], s_None,
                       llimpl = ftruncate_llimpl,
@@ -1482,14 +1534,17 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'fork')
     def register_os_fork(self):
+        from pypy.module.thread import ll_thread
         eci = self.gcc_profiling_bug_workaround('pid_t _noprof_fork(void)',
                                                 'return fork();')
         os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,
                                   compilation_info = eci,
-                                  threadsafe = False)
+                                  _nowrapper = True)
 
         def fork_llimpl():
+            opaqueaddr = ll_thread.gc_thread_before_fork()
             childpid = rffi.cast(lltype.Signed, os_fork())
+            ll_thread.gc_thread_after_fork(childpid, opaqueaddr)
             if childpid == -1:
                 raise OSError(rposix.get_errno(), "os_fork failed")
             return rffi.cast(lltype.Signed, childpid)

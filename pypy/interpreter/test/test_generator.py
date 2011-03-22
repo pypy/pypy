@@ -27,6 +27,7 @@ class AppTestGenerator:
         assert not g.gi_running
         assert g.gi_frame is None
         assert g.gi_code is f.func_code
+        assert g.__name__ == 'f'
 
     def test_generator3(self):
         def f():
@@ -261,4 +262,8 @@ res = f()
     def test_repr(self):
         def myFunc():
             yield 1
-        assert repr(myFunc()).startswith("<generator object myFunc at 0x")
+        g = myFunc()
+        r = repr(g)
+        assert r.startswith("<generator object myFunc at 0x")
+        assert list(g) == [1]
+        assert repr(g) == r
