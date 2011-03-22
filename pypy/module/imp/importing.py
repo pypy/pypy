@@ -775,14 +775,16 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
         if space.config.objspace.usepycfiles and write_pyc:
             write_compiled_module(space, code_w, cpathname, mode, mtime)
 
-    update_code_filenames(space, code_w, pathname, code_w.co_filename)
+    update_code_filenames(space, code_w, pathname)
     exec_code_module(space, w_mod, code_w)
 
     return w_mod
 
-def update_code_filenames(space, code_w, pathname, oldname):
+def update_code_filenames(space, code_w, pathname, oldname=None):
     assert isinstance(code_w, PyCode)
-    if code_w.co_filename != oldname:
+    if oldname is None:
+        oldname = code_w.co_filename
+    elif code_w.co_filename != oldname:
         return
 
     code_w.co_filename = pathname
