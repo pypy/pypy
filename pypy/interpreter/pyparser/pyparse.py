@@ -220,7 +220,9 @@ class PythonParser(parser.Parser):
                 break
 
         enc = compile_info.encoding
-        if enc in ('utf-8', 'iso-8859-1'):
+        if enc is None:
+            pass
+        elif enc in ('utf-8', 'iso-8859-1'):
             enc = None # No need to recode
         stream.set_encoding(enc)
 
