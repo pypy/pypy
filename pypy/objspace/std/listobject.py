@@ -86,6 +86,8 @@ class W_ListObject(W_Object):
             self.strategy = self.space.fromcache(EmptyListStrategy)
             self.strategy.init_from_list_w(self, [])
 
+    def copy_into(self, other):
+        self.strategy.copy_into(self, other)
     # ___________________________________________________
 
     def append(w_list, w_item):
@@ -233,9 +235,7 @@ class EmptyListStrategy(ListStrategy):
         self.append(w_list, w_item)
 
     def extend(self, w_list, w_other):
-        strategy = w_list.strategy = w_other.strategy
-        items = strategy.cast_from_void_star(w_other.lstorage)[:] # copy!
-        w_list.lstorage = strategy.cast_to_void_star(items)
+        w_other.copy_into(w_list)
 
     def reverse(self, w_list):
         pass
@@ -259,6 +259,10 @@ class RangeListStrategy(ListStrategy):
     cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("range")
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
+
+    def copy_into(self, w_list, w_other):
+        w_other.strategy = self
+        w_other.lstorage = w_list.lstorage
 
     def length(self, w_list):
         return self.cast_from_void_star(w_list.lstorage)[2]
@@ -407,6 +411,11 @@ class AbstractUnwrappedStrategy(object):
     def init_from_list_w(self, w_list, list_w):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.cast_to_void_star(l)
+
+    def copy_into(self, w_list, w_other):
+        w_other.strategy = self
+        items = self.cast_from_void_star(w_list.lstorage)[:]
+        w_other.lstorage = self.cast_to_void_star(items)
 
     def length(self, w_list):
         return len(self.cast_from_void_star(w_list.lstorage))
