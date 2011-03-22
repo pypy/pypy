@@ -10,6 +10,7 @@ from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
+from pypy.interpreter.pycode import PyCode
 from pypy.rlib import streamio, jit, rposix
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.rarithmetic import intmask
@@ -774,9 +775,21 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
         if space.config.objspace.usepycfiles and write_pyc:
             write_compiled_module(space, code_w, cpathname, mode, mtime)
 
+    update_code_filenames(space, code_w, pathname, code_w.co_filename)
     exec_code_module(space, w_mod, code_w)
 
     return w_mod
+
+def update_code_filenames(space, code_w, pathname, oldname):
+    assert isinstance(code_w, PyCode)
+    if code_w.co_filename != oldname:
+        return
+
+    code_w.co_filename = pathname
+    constants = code_w.co_consts_w
+    for const in constants:
+        if const is not None and isinstance(const, PyCode):
+            update_code_filenames(space, const, pathname, oldname)
 
 def _get_long(s):
     a = ord(s[0])
