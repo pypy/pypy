@@ -5515,9 +5515,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
-
-
-
 ##class TestOOtype(OptimizeOptTest, OOtypeMixin):
 
 ##    def test_instanceof(self):
