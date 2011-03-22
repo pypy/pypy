@@ -250,7 +250,6 @@ class W_DataShape(Wrappable):
     def get_basic_ffi_type(self):
         raise NotImplementedError
 
-    @unwrap_spec('self', ObjSpace)
     def descr_get_ffi_type(self, space):
         # XXX: this assumes that you have the _ffi module enabled. In the long
         # term, probably we will move the code for build structures and arrays
