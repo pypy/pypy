@@ -91,19 +91,22 @@ class AppTestDistributed(object):
 class AppTestDistributedTasklets(object):
     spaceconfig = {"objspace.std.withtproxy": True,
                    "objspace.usemodules._stackless": True}
+    reclimit = sys.getrecursionlimit()
+
     def setup_class(cls):
+        import py.test
+        py.test.importorskip('greenlet')
         #cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
         #    "usemodules":("_stackless",)})
         cls.w_test_env_ = cls.space.appexec([], """():
         from distributed import test_env
         return (test_env,)
         """)
-        cls.reclimit = sys.getrecursionlimit()
         sys.setrecursionlimit(100000)
 
     def teardown_class(cls):
         sys.setrecursionlimit(cls.reclimit)
-    
+
     def test_remote_protocol_call(self):
         def f(x, y):
             return x + y

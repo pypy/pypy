@@ -1,12 +1,15 @@
 """
 testing coroutines at interprepter level
 """
-
+import py
 import os
 from pypy import conftest; conftest.translation_test_so_skip_if_appdirect()
 from pypy.rlib.rcoroutine import make_coroutine_classes
 from pypy.translator.c.test.test_stackless import StacklessTest
 from pypy.translator.c import gc
+
+def setup_module(mod):
+    py.test.importorskip('greenlet')
 
 d = make_coroutine_classes(object)
 syncstate = d['syncstate']
