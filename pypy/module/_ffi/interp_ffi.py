@@ -212,7 +212,6 @@ class W_FuncPtr(Wrappable):
         floatval = libffi.longlong2float(llval)
         argchain.arg_longlong(floatval)
 
-    @unwrap_spec('self', ObjSpace, 'args_w')
     def call(self, space, args_w):
         self = jit.hint(self, promote=True)
         argchain = self.build_argchain(space, args_w)
@@ -322,7 +321,6 @@ class W_FuncPtr(Wrappable):
         else:
             assert False
 
-    @unwrap_spec('self', ObjSpace)
     def getaddr(self, space):
         """
         Return the physical address in memory of the function
@@ -340,7 +338,7 @@ def unpack_argtypes(space, w_argtypes, w_restype):
     restype = unwrap_ffitype(space, w_restype, allow_void=True)
     return argtypes_w, argtypes, w_restype, restype
 
-@unwrap_spec(ObjSpace, W_Root, r_uint, str, W_Root, W_Root)
+@unwrap_spec(addr=r_uint, name=str)
 def descr_fromaddr(space, w_cls, addr, name, w_argtypes, w_restype):
     argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
                                                                w_argtypes,
@@ -387,7 +385,7 @@ class W_CDLL(Wrappable):
             
         return W_FuncPtr(func, argtypes_w, w_restype)
 
-    @unwrap_spec('self', ObjSpace, str)
+    @unwrap_spec(name=str)
     def getaddressindll(self, space, name):
         try:
             address_as_uint = rffi.cast(lltype.Unsigned,
@@ -397,7 +395,7 @@ class W_CDLL(Wrappable):
                                   "No symbol %s found in library %s", name, self.name)
         return space.wrap(address_as_uint)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='str_or_None')
 def descr_new_cdll(space, w_type, name):
     return space.wrap(W_CDLL(space, name))
 
