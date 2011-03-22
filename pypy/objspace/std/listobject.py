@@ -370,6 +370,7 @@ class RangeListStrategy(ListStrategy):
         w_list.setslice(start, step, slicelength, sequence_w)
 
     def insert(self, w_list, index, w_item):
+        assert index >= 0
         self.switch_to_integer_strategy(w_list)
         w_list.insert(index, w_item)
 
