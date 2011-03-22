@@ -169,7 +169,7 @@ def recursively_flatten(space, lst):
             lst[i:i+1] = [tag] + vars
 
 def recursively_unflatten(space, lst):
-    for i in range(len(lst)-1, -1, -1):
+    for i in xrange(len(lst)-1, -1, -1):
         item = lst[i]
         if item in UNPICKLE_TAGS:
             unrollerclass, argcount = UNPICKLE_TAGS[item]

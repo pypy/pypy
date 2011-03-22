@@ -1,5 +1,7 @@
+"""Support for FreeBSD."""
 
-import py, os
+import os
+
 from pypy.translator.platform import posix
 
 def get_env(key, default):
@@ -10,7 +12,6 @@ def get_env(key, default):
 
 def get_env_vector(key, default):
     string = get_env(key, default)
-    print key, string, default
     # XXX: handle quotes
     return string.split()
 
@@ -42,10 +43,10 @@ class Freebsd(posix.BasePosix):
         res_lib_dirs.append(os.path.join(get_env("LOCALBASE", "/usr/local"), "lib"))
         return res_lib_dirs
 
-    def include_dirs_for_libffi(self):
+    def _include_dirs_for_libffi(self):
         return [os.path.join(get_env("LOCALBASE", "/usr/local"), "include")]
 
-    def library_dirs_for_libffi(self):
+    def _library_dirs_for_libffi(self):
         return [os.path.join(get_env("LOCALBASE", "/usr/local"), "lib")]
 
 class Freebsd_64(Freebsd):

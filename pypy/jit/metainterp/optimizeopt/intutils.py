@@ -42,6 +42,9 @@ class IntBound(object):
         self.has_lower = False
         self.has_upper = False
 
+    def bounded(self):
+        return self.has_lower and self.has_upper
+
     def known_lt(self, other):
         if self.has_upper and other.has_lower and self.upper < other.lower:
             return True
@@ -76,7 +79,7 @@ class IntBound(object):
         return r
     
     def add(self, offset):
-        res = self.copy()
+        res = self.clone()
         try:
             res.lower = ovfcheck(res.lower + offset)
         except OverflowError:
@@ -91,7 +94,7 @@ class IntBound(object):
         return self.mul_bound(IntBound(value, value))
     
     def add_bound(self, other):
-        res = self.copy()
+        res = self.clone()
         if other.has_upper:
             try:
                 res.upper = ovfcheck(res.upper + other.upper)
@@ -109,7 +112,7 @@ class IntBound(object):
         return res
 
     def sub_bound(self, other):
-        res = self.copy()
+        res = self.clone()
         if other.has_lower:
             try:
                 res.upper = ovfcheck(res.upper - other.lower)
@@ -192,6 +195,19 @@ class IntBound(object):
         if self.has_upper and val > self.upper:
             return False
         return True
+
+    def contains_bound(self, other):
+        if other.has_lower:
+            if not self.contains(other.lower):
+                return False
+        elif self.has_lower:
+            return False
+        if other.has_upper:
+            if not self.contains(other.upper):
+                return False
+        elif self.has_upper:
+            return False
+        return True
         
     def __repr__(self):
         if self.has_lower:
@@ -204,7 +220,7 @@ class IntBound(object):
             u = 'Inf'
         return '%s <= x <= %s' % (l, u)
 
-    def copy(self):
+    def clone(self):
         res = IntBound(self.lower, self.upper)
         res.has_lower = self.has_lower
         res.has_upper = self.has_upper

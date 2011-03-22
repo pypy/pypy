@@ -243,6 +243,21 @@ class TestObjSpace:
         w_res = space.call_obj_args(w_a, w_9, Arguments(space, []))        
         assert w_res is w_9
 
+    def test_compare_by_iteration(self):
+        import operator
+        space = self.space
+        for op in ['eq', 'ne', 'lt', 'le', 'gt', 'ge']:
+            comparer = getattr(operator, op)
+            for x in [[], [0], [0, 1], [0, 1, 2]]:
+                for y in [[], [-1], [0], [1], [-1, 0],
+                          [0, 0], [0, 1], [0, 2],
+                          [0, 1, 1], [0, 1, 2], [0, 1, 3]]:
+                        w_res = space.compare_by_iteration(space.wrap(x),
+                                                           space.wrap(y), op)
+                        if comparer(x, y):
+                            assert w_res is space.w_True
+                        else:
+                            assert w_res is space.w_False
 
 class TestModuleMinimal: 
     def test_sys_exists(self):

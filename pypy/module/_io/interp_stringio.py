@@ -2,7 +2,6 @@ from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.module._io.interp_textio import W_TextIOBase, W_IncrementalNewlineDecoder
 from pypy.module._io.interp_iobase import convert_size
 
@@ -13,7 +12,6 @@ class W_StringIO(W_TextIOBase):
         self.buf = []
         self.pos = 0
 
-    @unwrap_spec('self', ObjSpace, W_Root, W_Root)
     def descr_init(self, space, w_initvalue=None, w_newline="\n"):
         # In case __init__ is called multiple times
         self.buf = []
@@ -53,7 +51,6 @@ class W_StringIO(W_TextIOBase):
             self.write_w(space, w_initvalue)
             self.pos = 0
 
-    @unwrap_spec('self', ObjSpace)
     def descr_getstate(self, space):
         w_initialval = self.getvalue_w(space)
         w_dict = space.call_method(self.w_dict, "copy")
@@ -65,7 +62,6 @@ class W_StringIO(W_TextIOBase):
             w_initialval, w_readnl, space.wrap(self.pos), w_dict
         ])
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def descr_setstate(self, space, w_state):
         self._check_closed(space)
 
@@ -129,7 +125,6 @@ class W_StringIO(W_TextIOBase):
             self.buf[self.pos + i] = string[i]
         self.pos += length
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def write_w(self, space, w_obj):
         if not space.isinstance_w(w_obj, space.w_unicode):
             raise operationerrfmt(space.w_TypeError,
@@ -158,7 +153,6 @@ class W_StringIO(W_TextIOBase):
             self.write(string)
         return space.wrap(orig_size)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
@@ -174,7 +168,7 @@ class W_StringIO(W_TextIOBase):
         self.pos = end
         return space.wrap(u''.join(self.buf[start:end]))
 
-    @unwrap_spec('self', ObjSpace, int)
+    @unwrap_spec(limit=int)
     def readline_w(self, space, limit=-1):
         self._check_closed(space)
 
@@ -202,7 +196,7 @@ class W_StringIO(W_TextIOBase):
         self.pos = endpos
         return space.wrap(u"".join(self.buf[start:endpos]))
 
-    @unwrap_spec('self', ObjSpace, int, int)
+    @unwrap_spec(pos=int, mode=int)
     def seek_w(self, space, pos, mode=0):
         self._check_closed(space)
 
@@ -229,7 +223,6 @@ class W_StringIO(W_TextIOBase):
         self.pos = pos
         return space.wrap(pos)
 
-    @unwrap_spec('self', ObjSpace, W_Root)
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
         if space.is_w(w_size, space.w_None):
@@ -247,34 +240,29 @@ class W_StringIO(W_TextIOBase):
 
         return space.wrap(size)
 
-    @unwrap_spec('self', ObjSpace)
     def getvalue_w(self, space):
         self._check_closed(space)
         return space.wrap(u''.join(self.buf))
 
-    @unwrap_spec('self', ObjSpace)
     def readable_w(self, space):
         return space.w_True
 
-    @unwrap_spec('self', ObjSpace)
     def writable_w(self, space):
         return space.w_True
 
-    @unwrap_spec('self', ObjSpace)
     def seekable_w(self, space):
         return space.w_True
 
-    @unwrap_spec('self', ObjSpace)
     def close_w(self, space):
         self.buf = None
 
-    def closed_get_w(space, self):
+    def closed_get_w(self, space):
         return space.wrap(self.buf is None)
 
-    def line_buffering_get_w(space, self):
+    def line_buffering_get_w(self, space):
         return space.w_False
 
-    def newlines_get_w(space, self):
+    def newlines_get_w(self, space):
         if self.w_decoder is None:
             return space.w_None
         return space.getattr(self.w_decoder, space.wrap("newlines"))

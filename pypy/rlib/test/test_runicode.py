@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import py
 import sys, random
 from pypy.rlib import runicode
@@ -132,6 +134,11 @@ class TestDecoding(UnicodeTests):
     def test_single_chars_utf8(self):
         for s in ["\xd7\x90", "\xd6\x96", "\xeb\x96\x95", "\xf0\x90\x91\x93"]:
             self.checkdecode(s, "utf-8")
+
+    def test_utf8_surrogate(self):
+        # A surrogate should not be valid utf-8, but python 2.x accepts them.
+        # This test will raise an error with python 3.x
+        self.checkdecode(u"\ud800", "utf-8")
 
     def test_utf8_errors(self):
         for s in [# unexpected end of data
@@ -287,6 +294,30 @@ class TestDecoding(UnicodeTests):
     def test_utf7_bugs(self):
         u = u'A\u2262\u0391.'
         assert runicode.unicode_encode_utf_7(u, len(u), None) == 'A+ImIDkQ.'
+
+    def test_utf7_tofrom_utf8_bug(self):
+        def _assert_decu7(input, expected):
+            assert runicode.str_decode_utf_7(input, len(input), None) == (expected, len(input))
+
+        _assert_decu7('+-', u'+')
+        _assert_decu7('+-+-', u'++')
+        _assert_decu7('+-+AOQ-', u'+\xe4')
+        _assert_decu7('+AOQ-', u'\xe4')
+        _assert_decu7('+AOQ-', u'\xe4')
+        _assert_decu7('+AOQ- ', u'\xe4 ')
+        _assert_decu7(' +AOQ-', u' \xe4')
+        _assert_decu7(' +AOQ- ', u' \xe4 ')
+        _assert_decu7('+AOQ-+AOQ-', u'\xe4\xe4')
+
+        s_utf7 = 'Die M+AOQ-nner +AOQ-rgen sich!'
+        s_utf8 = u'Die Männer ärgen sich!'
+        s_utf8_esc = u'Die M\xe4nner \xe4rgen sich!'
+
+        _assert_decu7(s_utf7, s_utf8_esc)
+        _assert_decu7(s_utf7, s_utf8)
+
+        assert runicode.unicode_encode_utf_7(s_utf8_esc, len(s_utf8_esc), None) == s_utf7
+        assert runicode.unicode_encode_utf_7(s_utf8,     len(s_utf8_esc), None) == s_utf7
 
     def test_utf7_partial(self):
         s = u"a+-b".encode('utf-7')

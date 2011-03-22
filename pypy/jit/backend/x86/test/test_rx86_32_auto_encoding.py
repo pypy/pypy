@@ -216,6 +216,8 @@ class TestRx86_32(object):
             m = modes[0]
             lst = tests[m]()
             random.shuffle(lst)
+            if methname == 'PSRAD_xi' and m == 'i':
+                lst = [x for x in lst if 0 <= x <= 31]
             result = []
             for v in lst:
                 result += self.make_all_tests(methname, modes[1:], args+[v])

@@ -74,7 +74,7 @@ def CALL_LIKELY_BUILTIN(f, oparg, next_instr):
     if w_value is None:
         builtins = f.get_builtin()
         assert isinstance(builtins, Module)
-        w_builtin_dict = builtins.getdict()
+        w_builtin_dict = builtins.getdict(f.space)
         assert isinstance(w_builtin_dict, W_DictMultiObject)
         w_value = w_builtin_dict.get_builtin_indexed(num)
     if w_value is None:

@@ -106,8 +106,7 @@ def thunk(w_callable, __args__):
     """thunk(f, *args, **kwds) -> an object that behaves like the
     result of the call f(*args, **kwds).  The call is performed lazily."""
     return W_Thunk(w_callable, __args__)
-app_thunk = gateway.interp2app(thunk, unwrap_spec=[baseobjspace.W_Root,
-                                                   argument.Arguments])
+app_thunk = gateway.interp2app(thunk)
 
 def is_thunk(space, w_obj):
     """Check if an object is a thunk that has not been computed yet."""

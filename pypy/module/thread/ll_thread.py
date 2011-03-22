@@ -111,7 +111,7 @@ class Lock(object):
             c_thread_releaselock(self._lock)
 
     def __del__(self):
-        lltype.free(self._lock, flavor='raw', track_allocation=False)
+        free_ll_lock(self._lock)
 
 # ____________________________________________________________
 #
@@ -137,6 +137,9 @@ def allocate_ll_lock():
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
     return ll_lock
+
+def free_ll_lock(ll_lock):
+    lltype.free(ll_lock, flavor='raw', track_allocation=False)
 
 def acquire_NOAUTO(ll_lock, flag):
     flag = rffi.cast(rffi.INT, int(flag))

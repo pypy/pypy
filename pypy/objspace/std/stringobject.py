@@ -21,7 +21,7 @@ from pypy.objspace.std.formatting import mod_format
 
 class W_StringObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['_value']
 
     def __init__(w_self, str):
         w_self._value = str
@@ -338,6 +338,9 @@ def str_join__String_ANY(space, w_self, w_list):
             space.is_w(space.type(w_s), space.w_unicode)):
             return w_s
 
+    return _str_join_many_items(space, w_self, list_w, size)
+
+def _str_join_many_items(space, w_self, list_w, size):
     self = w_self._value
     reslen = len(self) * (size - 1)
     for i in range(size):

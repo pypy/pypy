@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from .. import struct 
+from lib_pypy import struct 
 
 def test_simple():
     morezeros = '\x00' * (struct.calcsize('l')-4)

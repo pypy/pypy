@@ -1,3 +1,4 @@
+import weakref
 from pypy.rlib import jit, objectmodel, debug
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -92,6 +93,10 @@ class AbstractAttribute(object):
         return index
 
     def _index(self, selector):
+        while isinstance(self, PlainAttribute):
+            if selector == self.selector:
+                return self.position
+            self = self.back
         return -1
 
     def copy(self, obj):
@@ -215,15 +220,15 @@ class NoDictTerminator(Terminator):
 class DevolvedDictTerminator(Terminator):
     def _read_terminator(self, obj, selector):
         if selector[1] == DICT:
-            w_dict = obj.getdict()
             space = self.space
+            w_dict = obj.getdict(space)
             return space.finditem_str(w_dict, selector[0])
         return Terminator._read_terminator(self, obj, selector)
 
     def _write_terminator(self, obj, selector, w_value):
         if selector[1] == DICT:
-            w_dict = obj.getdict()
             space = self.space
+            w_dict = obj.getdict(space)
             space.setitem_str(w_dict, selector[0], w_value)
             return True
         return Terminator._write_terminator(self, obj, selector, w_value)
@@ -231,8 +236,8 @@ class DevolvedDictTerminator(Terminator):
     def delete(self, obj, selector):
         from pypy.interpreter.error import OperationError
         if selector[1] == DICT:
-            w_dict = obj.getdict()
             space = self.space
+            w_dict = obj.getdict(space)
             try:
                 space.delitem(w_dict, space.wrap(selector[0]))
             except OperationError, ex:
@@ -271,11 +276,6 @@ class PlainAttribute(AbstractAttribute):
         if new_obj is not None:
             self._copy_attr(obj, new_obj)
         return new_obj
-
-    def _index(self, selector):
-        if selector == self.selector:
-            return self.position
-        return self.back._index(selector)
 
     def copy(self, obj):
         new_obj = self.back.copy(obj)
@@ -375,12 +375,12 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         self._become(new_obj)
         return True
 
-    def getdict(self):
+    def getdict(self, space):
         w_dict = self._get_mapdict_map().read(self, ("dict", SPECIAL))
         if w_dict is not None:
             assert isinstance(w_dict, W_DictMultiObject)
             return w_dict
-        w_dict = MapDictImplementation(self.space, self)
+        w_dict = MapDictImplementation(space, self)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag
         return w_dict
@@ -388,7 +388,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
     def setdict(self, space, w_dict):
         from pypy.interpreter.typedef import check_new_dictionary
         w_dict = check_new_dictionary(space, w_dict)
-        w_olddict = self.getdict()
+        w_olddict = self.getdict(space)
         assert isinstance(w_dict, W_DictMultiObject)
         if w_olddict.r_dict_content is None:
             w_olddict._as_rdict()
@@ -506,6 +506,9 @@ def memo_get_subclass_of_correct_size(space, supercls):
 memo_get_subclass_of_correct_size._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
+erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
+erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
+
 def _make_subclass_size_n(supercls, n, use_erased=True):
     from pypy.rlib import unroll
     rangen = unroll.unrolling_iterable(range(n))
@@ -535,19 +538,22 @@ def _make_subclass_size_n(supercls, n, use_erased=True):
         def _mapdict_get_storage_list(self):
             erased = getattr(self, "_value%s" % nmin1)
             if use_erased:
-                return rerased.unerase_fixedsizelist(erased, W_Root)
+                return unerase_list(erased)
             else:
                 assert isinstance(erased, ExtraAttributes)
                 return erased.storage
 
         def _mapdict_read_storage(self, index):
-            for i in rangenmin1:
-                if index == i:
-                    return getattr(self, "_value%s" % i)
+            assert index >= 0
+            if index < nmin1:
+                for i in rangenmin1:
+                    if index == i:
+                        erased = getattr(self, "_value%s" % i)
+                        return unerase_item(erased)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[index - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
-            return unerase(erased, W_Root)
+            return unerase_item(erased)
 
         def _mapdict_write_storage(self, index, value):
             for i in rangenmin1:
@@ -557,7 +563,7 @@ def _make_subclass_size_n(supercls, n, use_erased=True):
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[index - nmin1] = value
                 return
-            erased = erase(value)
+            erased = erase_item(value)
             setattr(self, "_value%s" % nmin1, erased)
 
         def _mapdict_storage_length(self):
@@ -577,21 +583,21 @@ def _make_subclass_size_n(supercls, n, use_erased=True):
             has_storage_list = self._has_storage_list()
             if len_storage < n:
                 assert not has_storage_list
-                erased = erase(None)
+                erased = erase_item(None)
             elif len_storage == n:
                 assert not has_storage_list
-                erased = erase(storage[nmin1])
+                erased = erase_item(storage[nmin1])
             elif not has_storage_list:
                 # storage is longer than self.map.length() only due to
                 # overallocation
-                erased = erase(storage[nmin1])
+                erased = erase_item(storage[nmin1])
                 # in theory, we should be ultra-paranoid and check all entries,
                 # but checking just one should catch most problems anyway:
                 assert storage[n] is None
             else:
                 storage_list = storage[nmin1:]
                 if use_erased:
-                    erased = rerased.erase_fixedsizelist(storage_list, W_Root)
+                    erased = erase_list(storage_list)
                 else:
                     erased = ExtraAttributes(storage_list)
             setattr(self, "_value%s" % nmin1, erased)
@@ -680,7 +686,7 @@ class MapDictImplementation(W_DictMultiObject):
 
 def materialize_r_dict(space, obj, w_d):
     map = obj._get_mapdict_map()
-    assert obj.getdict() is w_d
+    assert obj.getdict(space) is w_d
     new_obj = map.materialize_r_dict(space, obj, w_d)
     _become(obj, new_obj)
 
@@ -709,7 +715,6 @@ class MapDictIteratorImplementation(IteratorImplementation):
 # Magic caching
 
 class CacheEntry(object):
-    map = None
     version_tag = None
     index = 0
     w_method = None # for callmethod
@@ -720,8 +725,11 @@ class CacheEntry(object):
         map = w_obj._get_mapdict_map()
         return self.is_valid_for_map(map)
 
+    @jit.dont_look_inside
     def is_valid_for_map(self, map):
-        if map is self.map:
+        # note that 'map' can be None here
+        mymap = self.map_wref()
+        if mymap is not None and mymap is map:
             version_tag = map.terminator.w_cls.version_tag()
             if version_tag is self.version_tag:
                 # everything matches, it's incredibly fast
@@ -730,22 +738,23 @@ class CacheEntry(object):
                 return True
         return False
 
+_invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
+_invalid_cache_entry_map.terminator = None
 INVALID_CACHE_ENTRY = CacheEntry()
-INVALID_CACHE_ENTRY.map = objectmodel.instantiate(AbstractAttribute)
-                             # different from any real map ^^^
-INVALID_CACHE_ENTRY.map.terminator = None
-
+INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
+                                 # different from any real map ^^^
 
 def init_mapdict_cache(pycode):
     num_entries = len(pycode.co_names_w)
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
+@jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, index, w_method=None):
     entry = pycode._mapdict_caches[nameindex]
     if entry is INVALID_CACHE_ENTRY:
         entry = CacheEntry()
         pycode._mapdict_caches[nameindex] = entry
-    entry.map = map
+    entry.map_wref = weakref.ref(map)
     entry.version_tag = version_tag
     entry.index = index
     entry.w_method = w_method

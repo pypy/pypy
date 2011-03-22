@@ -11,7 +11,7 @@ from pypy.rlib.rbigint import rbigint, SHIFT
 class W_LongObject(W_Object):
     """This is a wrapper of rbigint."""
     from pypy.objspace.std.longtype import long_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['num']
 
     def __init__(w_self, l):
         w_self.num = l # instance of rbigint

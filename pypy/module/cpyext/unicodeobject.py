@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import llmemory
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
@@ -7,6 +8,7 @@ from pypy.module.cpyext.api import (
     CONST_WSTRING)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import PyObject, from_ref, make_typedescr
+from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.objspace.std import unicodeobject, unicodetype
 from pypy.rlib import runicode
@@ -188,8 +190,8 @@ def PyUnicode_SetDefaultEncoding(space, encoding):
     return 0
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
-def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
-    """Encode a Unicode object and return the result as Python string object.
+def PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors):
+    """Encode a Unicode object and return the result as Python object.
     encoding and errors have the same meaning as the parameters of the same name
     in the Unicode encode() method. The codec to be used is looked up using
     the Python codec registry. Return NULL if an exception was raised by the
@@ -203,6 +205,19 @@ def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
     if llerrors:
         errors = rffi.charp2str(llerrors)
     return unicodetype.encode_object(space, w_unicode, encoding, errors)
+
+@cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
+def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
+    """Encode a Unicode object and return the result as Python string object.
+    encoding and errors have the same meaning as the parameters of the same name
+    in the Unicode encode() method. The codec to be used is looked up using
+    the Python codec registry. Return NULL if an exception was raised by the
+    codec."""
+    w_str = PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors)
+    if not PyString_Check(space, w_str):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "encoder did not return a string object"))
+    return w_str
 
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsUnicodeEscapeString(space, w_unicode):
@@ -360,10 +375,7 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
 
     If byteorder is NULL, the codec starts in native order mode.
 
-    Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    Return NULL if an exception was raised by the codec."""
 
     string = rffi.charpsize2str(s, size)
 
@@ -399,13 +411,23 @@ def PyUnicode_AsASCIIString(space, w_unicode):
     """Encode a Unicode object using ASCII and return the result as Python string
     object.  Error handling is "strict".  Return NULL if an exception was raised
     by the codec."""
-    try:
-        return space.call_method(w_unicode, 'encode', space.wrap('ascii')) #space.w_None for errors?
-    except OperationError, e:
-        if e.match(space, space.w_UnicodeEncodeError):
-            return None
-        else:
-            raise
+    return space.call_method(w_unicode, 'encode', space.wrap('ascii')) #space.w_None for errors?
+
+@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
+def PyUnicode_DecodeASCII(space, s, size, errors):
+    """Create a Unicode object by decoding size bytes of the ASCII encoded string
+    s.  Return NULL if an exception was raised by the codec."""
+    w_s = space.wrap(rffi.charpsize2str(s, size))
+    return space.call_method(w_s, 'decode', space.wrap('ascii'))
+
+@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
+def PyUnicode_EncodeASCII(space, s, size, errors):
+    """Encode the Py_UNICODE buffer of the given size using ASCII and return a
+    Python string object.  Return NULL if an exception was raised by the codec.
+    """
+
+    w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
+    return space.call_method(w_s, 'encode', space.wrap('ascii'))
 
 if sys.platform == 'win32':
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
@@ -439,3 +461,10 @@ def PyUnicode_Compare(space, w_left, w_right):
     """Compare two strings and return -1, 0, 1 for less than, equal, and greater
     than, respectively."""
     return space.int_w(space.cmp(w_left, w_right))
+
+@cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
+def Py_UNICODE_COPY(space, target, source, length):
+    """Roughly equivalent to memcpy() only the base size is Py_UNICODE
+    copies sizeof(Py_UNICODE) * length bytes from source to target"""
+    for i in range(0, length):
+        target[i] = source[i]

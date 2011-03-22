@@ -1,13 +1,14 @@
 
 import py
 from pypy.rpython.extfunc import BaseLazyRegistering, extdef, registering
-from pypy.rlib import rarithmetic
+from pypy.rlib import rfloat
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.autopath import pypydir
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
+from pypy.annotation.model import SomeString
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
@@ -21,7 +22,7 @@ class RegisterStrtod(BaseLazyRegistering):
     def __init__(self):
         self.configure(CConfig)
     
-    @registering(rarithmetic._formatd)
+    @registering(rfloat._formatd)
     def register_formatd(self):
         ll_strtod = self.llexternal('LL_strtod_formatd',
                                     [rffi.DOUBLE, rffi.CHAR, rffi.INT], rffi.CCHARP,
@@ -46,11 +47,11 @@ class RegisterStrtod(BaseLazyRegistering):
             res = ll_strtod(x, code, precision)
             s = rffi.charp2str(res)
 
-            if flags & rarithmetic.DTSF_ADD_DOT_0:
+            if flags & rfloat.DTSF_ADD_DOT_0:
                 s = ensure_decimal_point(s, precision)
 
             # Add sign when requested
-            if flags & rarithmetic.DTSF_SIGN and s[0] != '-':
+            if flags & rfloat.DTSF_SIGN and s[0] != '-':
                 s = '+' + s
 
             # Convert to upper case
@@ -60,13 +61,15 @@ class RegisterStrtod(BaseLazyRegistering):
             return s
 
         def oofakeimpl(x, code, precision, flags):
-            return ootype.oostring(rarithmetic.formatd(x, code, precision, flags), -1)
+            return ootype.oostring(rfloat.formatd(x, code, precision, flags), -1)
 
-        return extdef([float, lltype.Char, int, int], str, 'll_strtod.ll_strtod_formatd',
+        return extdef([float, lltype.Char, int, int],
+                      SomeString(can_be_None=True),
+                      'll_strtod.ll_strtod_formatd',
                       llimpl=llimpl, oofakeimpl=oofakeimpl,
                       sandboxsafe=True)
 
-    @registering(rarithmetic.parts_to_float)
+    @registering(rfloat.parts_to_float)
     def register_parts_to_float(self):
         ll_parts_to_float = self.llexternal('LL_strtod_parts_to_float',
                                             [rffi.CCHARP] * 4, rffi.DOUBLE,
@@ -80,10 +83,11 @@ class RegisterStrtod(BaseLazyRegistering):
             return res
 
         def oofakeimpl(sign, beforept, afterpt, exponent):
-            return rarithmetic.parts_to_float(sign._str, beforept._str,
-                                              afterpt._str, exponent._str)
+            return rfloat.parts_to_float(sign._str, beforept._str,
+                                         afterpt._str, exponent._str)
 
-        return extdef([str, str, str, str], float,
+        tp = SomeString(can_be_None=True)
+        return extdef([tp, tp, tp, tp], float,
                       'll_strtod.ll_strtod_parts_to_float', llimpl=llimpl,
                       oofakeimpl=oofakeimpl, sandboxsafe=True)
 

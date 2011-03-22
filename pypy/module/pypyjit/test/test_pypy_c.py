@@ -105,9 +105,9 @@ class PyPyCJITTests(object):
                 pass
 
             def check(args, expected):
-                print >> sys.stderr, 'trying:', args
+                #print >> sys.stderr, 'trying:', args
                 result = main(*args)
-                print >> sys.stderr, 'got:', repr(result)
+                #print >> sys.stderr, 'got:', repr(result)
                 assert result == expected
                 assert type(result) is type(expected)
         """ % threshold)
@@ -636,7 +636,6 @@ class PyPyCJITTests(object):
             ]
 
     def test_exception_inside_loop_1(self):
-        py.test.skip("exceptions: in-progress")
         self.run_source('''
             def main(n):
                 while n:
@@ -646,7 +645,7 @@ class PyPyCJITTests(object):
                         pass
                     n -= 1
                 return n
-        ''',
+        ''', 33,
                   ([30], 0))
 
         bytecode, = self.get_by_bytecode("SETUP_EXCEPT")
@@ -658,7 +657,6 @@ class PyPyCJITTests(object):
         assert not bytecode.get_opnames()
 
     def test_exception_inside_loop_2(self):
-        py.test.skip("exceptions: in-progress")
         self.run_source('''
             def g(n):
                 raise ValueError(n)
@@ -672,7 +670,7 @@ class PyPyCJITTests(object):
                         pass
                     n -= 1
                 return n
-        ''',
+        ''', 51,
                   ([30], 0))
 
         bytecode, = self.get_by_bytecode("RAISE_VARARGS")
@@ -1473,7 +1471,7 @@ class PyPyCJITTests(object):
 %s
                 i += 1
             return sa
-        ''' % code, 150, ([a1, b1], 2000 * res1),
+        ''' % code, 450, ([a1, b1], 2000 * res1),
                          ([a2, b2], 2000 * res2),
                          ([a3, b3], 2000 * res3),
                          count_debug_merge_point=False)
@@ -1488,7 +1486,7 @@ class PyPyCJITTests(object):
                 sa += a % b
                 i += 1
             return sa
-        ''', 11,  ([10, 20], 200 * (10 % 20)),
+        ''', 22,  ([10, 20], 200 * (10 % 20)),
                  ([-10, -20], 200 * (-10 % -20)),
                         count_debug_merge_point=False)
         assert self.jit_summary.tracing_no == 2

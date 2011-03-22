@@ -15,6 +15,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
 from pypy.rpython import extregistry
+from pypy.tool.error import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):
@@ -303,6 +304,7 @@ class __extend__(SomeList):
     def method_pop(lst, s_index=None):
         lst.listdef.resize()
         return lst.listdef.read_item()
+    method_pop.can_only_throw = [IndexError]
 
     def method_index(lst, s_value):
         getbookkeeper().count("list_index")
@@ -642,6 +644,16 @@ class __extend__(SomeInstance):
 
 
 class __extend__(SomeBuiltin):
+    def _can_only_throw(bltn, *args):
+        analyser_func = getattr(bltn.analyser, 'im_func', None)
+        can_only_throw = getattr(analyser_func, 'can_only_throw', None)
+        if can_only_throw is None or isinstance(can_only_throw, list):
+            return can_only_throw
+        if bltn.s_self is not None:
+            return can_only_throw(bltn.s_self, *args)
+        else:
+            return can_only_throw(*args)
+
     def simple_call(bltn, *args):
         if bltn.s_self is not None:
             return bltn.analyser(bltn.s_self, *args)
@@ -649,6 +661,7 @@ class __extend__(SomeBuiltin):
             if bltn.methodname:
                 getbookkeeper().count(bltn.methodname.replace('.', '_'), *args)
             return bltn.analyser(*args)
+    simple_call.can_only_throw = _can_only_throw
 
     def call(bltn, args, implicit_init=False):
         args_s, kwds = args.unpack()

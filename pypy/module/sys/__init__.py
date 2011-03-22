@@ -63,7 +63,7 @@ class Module(MixedModule):
         'version'               : 'version.get_version(space)',
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
         'subversion'            : 'version.get_subversion_info(space)',
-        '_mercurial'            : 'version.wrap_mercurial_info(space)',
+        '_mercurial'            : 'version.get_repo_info(space)',
         'hexversion'            : 'version.get_hexversion(space)',
 
         'displayhook'           : 'hook.displayhook', 
@@ -110,7 +110,7 @@ class Module(MixedModule):
             if _WIN:
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)
-                space.setattr(self, space.wrap("dllhandle"), w_handle)
+                space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
 
     def getmodule(self, name):
         space = self.space

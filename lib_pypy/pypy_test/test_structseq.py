@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 import py
-from .._structseq import structseqfield, structseqtype
+from lib_pypy._structseq import structseqfield, structseqtype
 
 
 class mydata:

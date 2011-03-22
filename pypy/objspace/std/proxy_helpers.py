@@ -28,9 +28,9 @@ def install_general_args_trampoline(type_, mm, is_local, op_name):
     function = func_with_new_name(function, mm.name)
     mm.register(function, type_)
 
-def install_w_args_trampoline(type_, mm, is_local, op_name):
+def install_args_w_trampoline(type_, mm, is_local, op_name):
     def function(space, w_transparent_list, *args_w):
-        args = Arguments(space, [space.wrap(op_name)] + list(args_w[:-1]), w_stararg=args_w[-1])
+        args = Arguments(space, [space.wrap(op_name)] + list(args_w[:-1]) + args_w[-1])
         return space.call_args(w_transparent_list.w_controller, args)
     
     function = func_with_new_name(function, mm.name)
@@ -42,8 +42,8 @@ def install_mm_trampoline(type_, mm, is_local):
     
     if ['__args__'] == mm.argnames_after:
         return install_general_args_trampoline(type_, mm, is_local, op_name)
-    if ['w_args'] == mm.argnames_after:
-        return install_w_args_trampoline(type_, mm, is_local, op_name)
+    if ['args_w'] == mm.argnames_after:
+        return install_args_w_trampoline(type_, mm, is_local, op_name)
     assert not mm.argnames_after
     # we search here for special-cased stuff
     def function(space, w_transparent_list, *args_w):

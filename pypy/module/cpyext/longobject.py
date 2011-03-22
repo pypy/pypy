@@ -151,7 +151,7 @@ def PyLong_FromString(space, str, pend, base):
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_long, w_str, w_base)
 
-@cpython_api([rffi.VOIDP_real], PyObject)
+@cpython_api([rffi.VOIDP], PyObject)
 def PyLong_FromVoidPtr(space, p):
     """Create a Python integer or long integer from the pointer p. The pointer value
     can be retrieved from the resulting value using PyLong_AsVoidPtr().
@@ -159,14 +159,14 @@ def PyLong_FromVoidPtr(space, p):
     If the integer is larger than LONG_MAX, a positive long integer is returned."""
     return space.wrap(rffi.cast(ADDR, p))
 
-@cpython_api([PyObject], rffi.VOIDP_real, error=lltype.nullptr(rffi.VOIDP_real.TO))
+@cpython_api([PyObject], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
 def PyLong_AsVoidPtr(space, w_long):
     """Convert a Python integer or long integer pylong to a C void pointer.
     If pylong cannot be converted, an OverflowError will be raised.  This
     is only assured to produce a usable void pointer for values created
     with PyLong_FromVoidPtr().
     For values outside 0..LONG_MAX, both signed and unsigned integers are accepted."""
-    return rffi.cast(rffi.VOIDP_real, space.uint_w(w_long))
+    return rffi.cast(rffi.VOIDP, space.uint_w(w_long))
 
 @cpython_api([PyObject], rffi.SIZE_T, error=-1)
 def _PyLong_NumBits(space, w_long):

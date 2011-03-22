@@ -111,7 +111,7 @@ class State:
             return None
         w_mod = PyImport_AddModule(self.space, name)
         assert isinstance(w_mod, Module)
-        w_mdict = w_mod.getdict()
+        w_mdict = w_mod.getdict(self.space)
         self.space.call_method(w_mdict, 'update', w_dict)
         return w_mod
 
@@ -124,6 +124,6 @@ class State:
             msg = "fixup_extension: module '%s' not loaded" % name
             raise OperationError(space.w_SystemError,
                                  space.wrap(msg))
-        w_dict = w_mod.getdict()
+        w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy

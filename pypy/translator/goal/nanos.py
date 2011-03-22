@@ -25,7 +25,7 @@ Please adjust the applevel code below, if you need to support
 more from os and os.path.
 """
 
-from pypy.interpreter.gateway import applevel, ObjSpace, W_Root, interp2app
+from pypy.interpreter.gateway import applevel, interp2app
 import os, py
 
 if os.name == 'posix':
@@ -268,7 +268,7 @@ else:
 def getenv(space, w_name):
     name = space.str_w(w_name)
     return space.wrap(os.environ.get(name))
-getenv_w = interp2app(getenv, unwrap_spec=[ObjSpace, W_Root])
+getenv_w = interp2app(getenv)
 
 def setup_nanos(space):
     w_os = space.wrap(app_os.buildmodule(space, 'os'))

@@ -5,7 +5,7 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rarithmetic import (
+from pypy.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
 
 import math
@@ -14,7 +14,7 @@ class W_ComplexObject(W_Object):
     """This is a reimplementation of the CPython "PyComplexObject"
     """
     from pypy.objspace.std.complextype import complex_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['realval', 'imagval']
 
     def __init__(w_self, realval=0.0, imgval=0.0):
         w_self.realval = float(realval)

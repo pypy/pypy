@@ -8,7 +8,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.tool.autopath import pypydir
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.rarithmetic import isinf, isnan, INFINITY, NAN
+from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
 if sys.platform == "win32":
     eci = ExternalCompilationInfo()

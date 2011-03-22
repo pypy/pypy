@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from .. import _collections as collections
+from lib_pypy import _collections as collections
 import py
 
 class TestDeque:

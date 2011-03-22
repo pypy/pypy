@@ -32,8 +32,9 @@ class Opcode(object):
 class CodeRepresentation(object):
     """ Representation of opcodes
     """
-    def __init__(self, opcodes, source):
+    def __init__(self, opcodes, co, source):
         self.opcodes = opcodes
+        self.co = co
         self.map = {}
         current_lineno = None
         for opcode in opcodes:
@@ -162,7 +163,7 @@ def disassemble(co, lasti=-1):
             opargstr = ''
         opcls = globals()[opname[op].replace('+', '_')]
         res.append(opcls(pos, lastline, oparg, opargstr))
-    return CodeRepresentation(res, source)
+    return CodeRepresentation(res, co, source)
 
 def disassemble_string(code, lasti=-1, varnames=None, names=None,
                        constants=None):

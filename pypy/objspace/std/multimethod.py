@@ -516,7 +516,7 @@ class CompressedArray(object):
         test = 1
         while True:
             self.ensure_length(test+len(array))
-            for i in range(len(array)):
+            for i in xrange(len(array)):
                 if not (array[i] == self.items[test+i] or
                         array[i] == self.null_value or
                         self.items[test+i] == self.null_value):

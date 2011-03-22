@@ -105,6 +105,7 @@ class StructOrUnionMeta(_CDataMeta):
         res = type.__new__(self, name, cls, typedict)
         if "_abstract_" in typedict:
             return res
+        cls = cls or (object,)
         if isinstance(cls[0], StructOrUnionMeta):
             cls[0]._make_final()
         if '_fields_' in typedict:
@@ -133,7 +134,7 @@ class StructOrUnionMeta(_CDataMeta):
     __setattr__ = struct_setattr
 
     def from_address(self, address):
-        instance = self.__new__(self)
+        instance = StructOrUnion.__new__(self)
         instance.__dict__['_buffer'] = self._ffistruct.fromaddress(address)
         return instance
 
@@ -155,7 +156,7 @@ class StructOrUnionMeta(_CDataMeta):
         return _CDataMeta.from_param(self, value)
 
     def _CData_output(self, resarray, base=None, index=-1):
-        res = self.__new__(self)
+        res = StructOrUnion.__new__(self)
         ffistruct = self._ffistruct.fromaddress(resarray.buffer)
         res.__dict__['_buffer'] = ffistruct
         res.__dict__['_base'] = base
@@ -163,7 +164,7 @@ class StructOrUnionMeta(_CDataMeta):
         return res
     
     def _CData_retval(self, resbuffer):
-        res = self.__new__(self)
+        res = StructOrUnion.__new__(self)
         res.__dict__['_buffer'] = resbuffer
         res.__dict__['_base'] = None
         res.__dict__['_index'] = -1

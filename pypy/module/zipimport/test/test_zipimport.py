@@ -34,6 +34,10 @@ class AppTestZipimport:
         return pyc
     make_pyc = classmethod(make_pyc)
     def make_class(cls):
+        # XXX: this is (mostly) wrong: .compile() compiles the code object
+        # using the host python compiler, but then in the tests we load it
+        # with py.py. It works (mostly by chance) because the two functions
+        # are very simple and the bytecodes are compatible enough.
         co = py.code.Source("""
         def get_name():
             return __name__
@@ -337,6 +341,25 @@ class AppTestZipimport:
         import sys
         import zipimport
         assert sys.path_hooks.count(zipimport.zipimporter) == 1
+
+    def test_co_filename(self):
+        self.writefile('mymodule.py', """
+def get_co_filename():
+    return get_co_filename.func_code.co_filename
+""")
+        import os
+        expected = self.zipfile + os.sep + 'mymodule.py'
+        #
+        import mymodule
+        co_filename = mymodule.get_co_filename()
+        assert co_filename == expected
+        #
+        import zipimport
+        z = zipimport.zipimporter(self.zipfile)
+        code = z.get_code('mymodule')
+        co_filename = code.co_filename
+        assert co_filename == expected
+
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED

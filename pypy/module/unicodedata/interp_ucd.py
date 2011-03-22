@@ -1,8 +1,7 @@
 """
 Implementation of the interpreter-level functions in the module unicodedata.
 """
-from pypy.interpreter.gateway import W_Root, ObjSpace, NoneNotWrapped
-from pypy.interpreter.gateway import  interp2app
+from pypy.interpreter.gateway import  interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -122,6 +121,7 @@ class UCD(Wrappable):
 
         self.version = unicodedb.version
 
+    @unwrap_spec(name=str)
     def _get_code(self, space, name):
         try:
             code = self._lookup(name.upper())
@@ -129,8 +129,8 @@ class UCD(Wrappable):
             msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
             raise OperationError(space.w_KeyError, msg)
         return space.wrap(code)
-    _get_code.unwrap_spec = ['self', ObjSpace, str]
 
+    @unwrap_spec(name=str)
     def lookup(self, space, name):
         try:
             code = self._lookup(name.upper())
@@ -138,7 +138,6 @@ class UCD(Wrappable):
             msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
             raise OperationError(space.w_KeyError, msg)
         return space.wrap(code_to_unichr(code))
-    lookup.unwrap_spec = ['self', ObjSpace, str]
 
     def name(self, space, w_unichr, w_default=NoneNotWrapped):
         code = unichr_to_code_w(space, w_unichr)
@@ -149,7 +148,6 @@ class UCD(Wrappable):
                 return w_default
             raise OperationError(space.w_ValueError, space.wrap('no such name'))
         return space.wrap(name)
-    name.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
 
     def decimal(self, space, w_unichr, w_default=NoneNotWrapped):
@@ -161,7 +159,6 @@ class UCD(Wrappable):
         if w_default is not None:
             return w_default
         raise OperationError(space.w_ValueError, space.wrap('not a decimal'))
-    decimal.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def digit(self, space, w_unichr, w_default=NoneNotWrapped):
         code = unichr_to_code_w(space, w_unichr)
@@ -172,7 +169,6 @@ class UCD(Wrappable):
         if w_default is not None:
             return w_default
         raise OperationError(space.w_ValueError, space.wrap('not a digit'))
-    digit.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def numeric(self, space, w_unichr, w_default=NoneNotWrapped):
         code = unichr_to_code_w(space, w_unichr)
@@ -184,39 +180,33 @@ class UCD(Wrappable):
             return w_default
         raise OperationError(space.w_ValueError,
                              space.wrap('not a numeric character'))
-    numeric.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def category(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         return space.wrap(self._category(code))
-    category.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def east_asian_width(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         return space.wrap(self._east_asian_width(code))
-    east_asian_width.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def bidirectional(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         return space.wrap(self._bidirectional(code))
-    bidirectional.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def combining(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         return space.wrap(self._combining(code))
-    combining.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def mirrored(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         # For no reason, unicodedata.mirrored() returns an int, not a bool
         return space.wrap(int(self._mirrored(code)))
-    mirrored.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def decomposition(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         return space.wrap(self._decomposition(code))
-    decomposition.unwrap_spec = ['self', ObjSpace, W_Root]
 
+    @unwrap_spec(form=str)
     def normalize(self, space, form, w_unistr):
         if not space.is_true(space.isinstance(w_unistr, space.w_unicode)):
             raise OperationError(space.w_TypeError, space.wrap('argument 2 must be unicode'))
@@ -349,16 +339,14 @@ class UCD(Wrappable):
         result[starter_pos] = current
 
         return space.wrap(u''.join([unichr(i) for i in result[:next_insert]]))
-    normalize.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
 
 methods = {}
-for methodname in UCD.__dict__:
-    method = getattr(UCD, methodname)
-    if not hasattr(method,'unwrap_spec'):
-        continue
-    assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
-    methods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
+for methodname in """
+        _get_code lookup name decimal digit numeric category east_asian_width
+        bidirectional combining mirrored decomposition normalize
+        """.split():
+    methods[methodname] = interp2app(getattr(UCD, methodname))
 
 
 UCD.typedef = TypeDef("unicodedata.UCD",

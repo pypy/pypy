@@ -1,8 +1,8 @@
 
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.rlib.debug import make_sure_not_resized
 
 class BaseNumArray(Wrappable):
@@ -16,6 +16,7 @@ class NumArray(BaseNumArray):
         self.storage = [0] * dim
         make_sure_not_resized(self.storage)
 
+    @unwrap_spec(index=int)
     def descr_getitem(self, index):
         space = self.space
         try:
@@ -23,8 +24,8 @@ class NumArray(BaseNumArray):
         except IndexError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("list index out of range"))
-    descr_getitem.unwrap_spec = ['self', int]
 
+    @unwrap_spec(index=int, value=int)
     def descr_setitem(self, index, value):
         space = self.space
         try:
@@ -33,11 +34,9 @@ class NumArray(BaseNumArray):
             raise OperationError(space.w_IndexError,
                                  space.wrap("list index out of range"))
         return space.w_None
-    descr_setitem.unwrap_spec = ['self', int, int]
 
     def descr_len(self):
         return self.space.wrap(len(self.storage))
-    descr_len.unwrap_spec = ['self']
 
 NumArray.typedef = TypeDef(
     'NumArray',
@@ -84,19 +83,17 @@ class MultiDimArray(BaseNumArray):
         indexes = self._unpack_indexes(space, w_index)
         pos = compute_pos(space, indexes, self.dim)
         return space.wrap(self.storage[pos])
-    descr_getitem.unwrap_spec = ['self', W_Root]
 
+    @unwrap_spec(value=int)
     def descr_setitem(self, w_index, value):
         space = self.space
         indexes = self._unpack_indexes(space, w_index)
         pos = compute_pos(space, indexes, self.dim)
         self.storage[pos] = value
         return space.w_None
-    descr_setitem.unwrap_spec = ['self', W_Root, int]
 
     def descr_len(self):
         return self.space.wrap(self.dim[0])
-    descr_len.unwrap_spec = ['self']
 
 MultiDimArray.typedef = TypeDef(
     'NumArray',
@@ -124,4 +121,3 @@ def zeros(space, w_dim, w_dtype):
         return space.wrap(NumArray(space, dim[0], dtype))
     else:
         return space.wrap(MultiDimArray(space, dim, dtype))
-zeros.unwrap_spec = [ObjSpace, W_Root, W_Root]

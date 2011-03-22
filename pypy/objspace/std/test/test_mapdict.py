@@ -52,6 +52,13 @@ def test_plain_attribute():
 
     assert aa.get_terminator() is aa.back.back
 
+def test_huge_chain():
+    current = Terminator(space, "cls")
+    for i in range(20000):
+        current = PlainAttribute((str(i), DICT), current)
+    assert current.index(("0", DICT)) == 0
+
+
 def test_search():
     aa = PlainAttribute(("b", DICT), PlainAttribute(("a", DICT), Terminator(None, None)))
     assert aa.search(DICT) is aa
@@ -224,8 +231,8 @@ def test_getdict():
     obj.setdictvalue(space, "a", 51)
     obj.setdictvalue(space, "b", 61)
     obj.setdictvalue(space, "c", 71)
-    assert obj.getdict() is obj.getdict()
-    assert obj.getdict().length() == 3
+    assert obj.getdict(space) is obj.getdict(space)
+    assert obj.getdict(space).length() == 3
 
 
 def test_materialize_r_dict():
@@ -283,7 +290,7 @@ from pypy.objspace.std.test.test_dictmultiobject import BaseTestRDictImplementat
 def get_impl(self):
     cls = Class()
     w_obj = cls.instantiate(self.fakespace)
-    return w_obj.getdict()
+    return w_obj.getdict(self.fakespace)
 class TestMapDictImplementation(BaseTestRDictImplementation):
     ImplementionClass = MapDictImplementation
     get_impl = get_impl
@@ -294,8 +301,8 @@ class TestDevolvedMapDictImplementation(BaseTestDevolvedDictImplementation):
 # ___________________________________________________________
 # tests that check the obj interface after the dict has devolved
 
-def devolve_dict(obj):
-    w_d = obj.getdict()
+def devolve_dict(space, obj):
+    w_d = obj.getdict(space)
     w_d._as_rdict()
 
 def test_get_setdictvalue_after_devolve():
@@ -311,7 +318,7 @@ def test_get_setdictvalue_after_devolve():
     obj.setdictvalue(space, "b", 6)
     obj.setdictvalue(space, "c", 7)
     obj.setdictvalue(space, "weakref", 42)
-    devolve_dict(obj)
+    devolve_dict(space, obj)
     assert obj.getdictvalue(space, "a") == 5
     assert obj.getdictvalue(space, "b") == 6
     assert obj.getdictvalue(space, "c") == 7
@@ -349,10 +356,10 @@ def test_setdict():
     obj.setdictvalue(space, "a", 5)
     obj.setdictvalue(space, "b", 6)
     obj.setdictvalue(space, "c", 7)
-    w_d = obj.getdict()
+    w_d = obj.getdict(space)
     obj2 = cls.instantiate()
     obj2.setdictvalue(space, "d", 8)
-    obj.setdict(space, obj2.getdict())
+    obj.setdict(space, obj2.getdict(space))
     assert obj.getdictvalue(space, "a") is None
     assert obj.getdictvalue(space, "b") is None
     assert obj.getdictvalue(space, "c") is None
@@ -387,7 +394,7 @@ def test_specialized_class(compressptr=False):
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
         if objectcls._nmin1 == 0 and not compressptr:
-            assert rerased.unerase(obj._value0, W_Root) is w1
+            assert unerase_item(obj._value0) is w1
         else:
             assert obj._value0 is w1
         assert obj.getdictvalue(space, "a") is w1
@@ -395,7 +402,7 @@ def test_specialized_class(compressptr=False):
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
         if objectcls._nmin1 == 0 and not compressptr:
-            assert rerased.unerase(obj._value0, W_Root) is w2
+            assert unerase_item(obj._value0) is w2
         else:
             assert obj._value0 is w2
         assert obj.getdictvalue(space, "a") == w2
@@ -416,7 +423,7 @@ def test_specialized_class(compressptr=False):
         res = obj.deldictvalue(space, "a")
         assert res
         if objectcls._nmin1 == 0 and not compressptr:
-            assert rerased.unerase(obj._value0, W_Root) is w4
+            assert unerase_item(obj._value0) is w4
         else:
             assert obj._value0 is w4
         assert obj.getdictvalue(space, "a") is None
@@ -884,6 +891,38 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 2, 1)
         res = self.check(f, 'm')
         assert res == (0, 2, 1)
+
+    def test_dont_keep_class_alive(self):
+        import weakref
+        import gc
+        def f():
+            class C(object):
+                def m(self):
+                    pass
+            r = weakref.ref(C)
+            # Trigger cache.
+            C().m()
+            del C
+            gc.collect(); gc.collect(); gc.collect()
+            assert r() is None
+            return 42
+        f()
+
+    def test_instance_keeps_class_alive(self):
+        import weakref
+        import gc
+        def f():
+            class C(object):
+                def m(self):
+                    return 42
+            r = weakref.ref(C)
+            c = C()
+            del C
+            gc.collect(); gc.collect(); gc.collect()
+            return c.m()
+        val = f()
+        assert val == 42
+        f() 
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):

@@ -38,7 +38,7 @@ else:
 
     getfloatstorage = longlong2float.float2longlong
     getrealfloat    = longlong2float.longlong2float
-    gethash         = lambda xll: xll - (xll >> 32)
+    gethash         = lambda xll: rarithmetic.intmask(xll - (xll >> 32))
     is_longlong     = lambda TYPE: (TYPE == lltype.SignedLongLong or
                                     TYPE == lltype.UnsignedLongLong)
 

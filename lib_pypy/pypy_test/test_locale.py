@@ -2,10 +2,10 @@ from __future__ import absolute_import
 import py
 import sys
 
-from ..ctypes_config_cache import rebuild
+from lib_pypy.ctypes_config_cache import rebuild
 rebuild.rebuild_one('locale.ctc.py')
 
-from .. import _locale
+from lib_pypy import _locale
 
 
 def setup_module(mod):

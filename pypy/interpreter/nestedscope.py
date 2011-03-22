@@ -67,7 +67,7 @@ class Cell(Wrappable):
         return "<%s(%s) at 0x%x>" % (self.__class__.__name__,
                                      content, uid(self))
 
-    def descr__cell_contents(space, self):
+    def descr__cell_contents(self, space):
         try:
             return self.get()
         except ValueError:
