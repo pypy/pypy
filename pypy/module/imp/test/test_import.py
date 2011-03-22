@@ -101,7 +101,7 @@ def setup_directory_structure(space):
                                          w_modname,
                                          w(importing.Module(space, w_modname)),
                                          filename,
-                                         stream.readall())
+                                         stream)
         finally:
             stream.close()
         if space.config.objspace.usepycfiles:
@@ -667,7 +667,7 @@ class TestPycStuff:
                                                  w_modulename,
                                                  w_mod,
                                                  pathname,
-                                                 stream.readall())
+                                                 stream)
         finally:
             stream.close()
         assert w_mod is w_ret
@@ -690,7 +690,7 @@ class TestPycStuff:
                                                  w_modulename,
                                                  w_mod,
                                                  pathname,
-                                                 stream.readall(),
+                                                 stream,
                                                  write_pyc=False)
         finally:
             stream.close()
@@ -709,7 +709,7 @@ class TestPycStuff:
                                                  w_modulename,
                                                  w_mod,
                                                  pathname,
-                                                 stream.readall())
+                                                 stream)
         except OperationError:
             # OperationError("Syntax Error")
             pass
@@ -730,7 +730,7 @@ class TestPycStuff:
                                                  w_modulename,
                                                  w_mod,
                                                  pathname,
-                                                 stream.readall())
+                                                 stream)
         except OperationError:
             # OperationError("NameError", "global name 'unknown_name' is not defined")
             pass

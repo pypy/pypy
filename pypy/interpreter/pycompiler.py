@@ -153,8 +153,32 @@ class PythonAstCompiler(PyCodeCompiler):
                                  e.wrap_info(space))
         return mod
 
+    def _compile_file_to_ast(self, stream, info):
+        space = self.space
+        try:
+            stream = pyparse.StdStream(space, stream)
+            parse_tree = self.parser.parse_file(stream, info)
+            stream.close()
+            mod = astbuilder.ast_from_node(space, parse_tree, info)
+            f_flags, future_info = future.get_futures(self.future_flags, mod)
+            info.last_future_import = future_info
+            info.flags |= f_flags
+        except parseerror.IndentationError, e:
+            raise OperationError(space.w_IndentationError,
+                                 e.wrap_info(space))
+        except parseerror.SyntaxError, e:
+            raise OperationError(space.w_SyntaxError,
+                                 e.wrap_info(space))
+        return mod
+
     def compile(self, source, filename, mode, flags, hidden_applevel=False):
         info = pyparse.CompileInfo(filename, mode, flags,
                                    hidden_applevel=hidden_applevel)
         mod = self._compile_to_ast(source, info)
+        return self._compile_ast(mod, info)
+
+    def compile_file(self, stream, filename, mode, flags, hidden_applevel=False):
+        info = pyparse.CompileInfo(filename, mode, flags,
+                                   hidden_applevel=hidden_applevel)
+        mod = self._compile_file_to_ast(stream, info)
         return self._compile_ast(mod, info)

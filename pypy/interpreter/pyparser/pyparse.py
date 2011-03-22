@@ -34,25 +34,19 @@ def _normalize_encoding(encoding):
             return 'iso-8859-1'
     return encoding
 
-def _check_for_encoding(s1, s2):
-    eol = s1.find('\n')
+def _check_for_encoding(s):
+    eol = s.find('\n')
     if eol < 0:
-        enc = _check_line_for_encoding(s1)
+        enc = _check_line_for_encoding(s)
     else:
-        enc = _check_line_for_encoding(s1[:eol])
+        enc = _check_line_for_encoding(s[:eol])
     if enc:
         return enc
     if eol >= 0:
-        if s2:
-            s = s1 + s2
-        else:
-            s = s1
         eol2 = s.find('\n', eol + 1)
         if eol2 < 0:
             return _check_line_for_encoding(s[eol + 1:])
         return _check_line_for_encoding(s[eol + 1:eol2])
-    elif s2:
-        return _check_line_for_encoding(s2)
 
 
 def _check_line_for_encoding(line):
@@ -97,10 +91,48 @@ _targets = {
 
 class Stream(object):
     "Pseudo-file object used by PythonParser.parse_file"
+
     def readline(self):
         raise NotImplementedError
-    def recode_to_utf8(self, text, encoding):
-        raise NotImplementedError
+
+    encoding = None
+    def set_encoding(self, encoding):
+        self.encoding = encoding
+
+    def close(self):
+        pass
+
+
+class StdStream(Stream):
+    def __init__(self, space, stream):
+        self.space = space
+        self.stream = stream
+        self.w_readline = None
+        self.w_file = None
+
+    def readline(self):
+        if not self.w_readline:
+            return self.stream.readline()
+        else:
+            w_line = self.space.call_function(self.w_readline)
+            return self.space.unicode_w(w_line).encode('utf-8')
+
+    def set_encoding(self, encoding):
+        self.encoding = encoding
+        self.w_readline = None
+        if encoding:
+            from pypy.module._codecs.interp_codecs import lookup_codec
+            from pypy.module._file import interp_file
+            space = self.space
+            w_codec_tuple = lookup_codec(space, encoding)
+            self.w_file = interp_file.from_stream(space, self.stream, 'r')
+            w_stream_reader = space.getitem(w_codec_tuple, space.wrap(2))
+            w_reader = space.call_function(w_stream_reader, self.w_file)
+            self.w_readline = space.getattr(w_reader, space.wrap('readline'))
+
+    def close(self):
+        if self.w_file:
+            self.w_file.detach()
 
 class PythonParser(parser.Parser):
 
@@ -108,25 +140,25 @@ class PythonParser(parser.Parser):
         parser.Parser.__init__(self, grammar)
         self.space = space
 
-    def _detect_encoding(self, text1, text2, compile_info):
+    def _detect_encoding(self, text, lineno, compile_info):
         "Detect source encoding from the beginning of the file"
-        if text1.startswith("\xEF\xBB\xBF"):
-            text1 = text1[3:]
+        if lineno == 1 and text.startswith("\xEF\xBB\xBF"):
+            text = text[3:]
             compile_info.encoding = 'utf-8'
             # If an encoding is explicitly given check that it is utf-8.
-            decl_enc = _check_for_encoding(text1, text2)
+            decl_enc = _check_for_encoding(text)
             if decl_enc and decl_enc != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with non-utf8 coding cookie",
                                         filename=compile_info.filename)
         elif compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
             compile_info.encoding = 'utf-8'
-            if _check_for_encoding(text1, text2) is not None:
+            if _check_for_encoding(text) is not None:
                 raise error.SyntaxError("coding declaration in unicode string",
                                         filename=compile_info.filename)
         else:
             compile_info.encoding = _normalize_encoding(
-                _check_for_encoding(text1, text2))
-        return text1
+                _check_for_encoding(text))
+        return text
 
     def _decode_error(self, e, compile_info):
         space = self.space
@@ -149,7 +181,7 @@ class PythonParser(parser.Parser):
         Everything from decoding the source to tokenizing to building the parse
         tree is handled here.
         """
-        textsrc = self._detect_encoding(textsrc, None, compile_info)
+        textsrc = self._detect_encoding(textsrc, 1, compile_info)
 
         enc = compile_info.encoding
         if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
@@ -169,51 +201,35 @@ class PythonParser(parser.Parser):
     def parse_file(self, stream, compile_info):
         assert isinstance(stream, Stream)
 
-        firstline = stream.readline()
-        secondline = None
-        if firstline:
-            secondline = stream.readline()
-            if secondline:
-                firstline = self._detect_encoding(
-                    firstline, secondline, compile_info)
-            else:
-                firstline = self._detect_encoding(
-                    firstline, '', compile_info)
+        source_lines = []
+
+        while len(source_lines) < 2:
+            line = stream.readline()
+            if not line:
+                break
+            line = self._detect_encoding(
+                line, 1, compile_info)
+            source_lines.append(line)
+            if compile_info.encoding is not None:
+                break
 
         enc = compile_info.encoding
         if enc in ('utf-8', 'iso-8859-1'):
             enc = None # No need to recode
+        stream.set_encoding(enc)
 
-        source_lines = []
-
-        if enc is None:
-            if firstline:
-                source_lines.append(firstline)
-            if secondline:
-                source_lines.append(secondline)
+        try:
             while True:
                 line = stream.readline()
                 if not line:
                     break
                 source_lines.append(line)
-        else:
-            try:
-                if firstline:
-                    source_lines.append(stream.recode_to_utf8(firstline, enc))
-                if secondline:
-                    source_lines.append(stream.recode_to_utf8(secondline, enc))
-
-                while True:
-                    line = stream.readline()
-                    if not line:
-                        break
-                    source_lines.append(stream.recode_to_utf8(line, enc))
-            except OperationError, e:
-                operror = self._decode_error(e, compile_info)
-                if operror:
-                    raise operror
-                else:
-                    raise
+        except OperationError, e:
+            operror = self._decode_error(e, compile_info)
+            if operror:
+                raise operror
+            else:
+                raise
 
         return self.build_tree(source_lines, compile_info)
 

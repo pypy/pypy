@@ -191,12 +191,12 @@ class TestPythonFileParser(TestPythonParser):
             def __init__(self, source):
                 self.stream = StringIO.StringIO(source)
             def readline(self):
-                return self.stream.readline()
-            def recode_to_utf8(self, line, encoding):
+                line = self.stream.readline()
+                if self.encoding is None:
+                    return line
+
                 try:
-                    if encoding is None or encoding in ('utf-8', 'iso-8859-1'):
-                        return line
-                    return line.decode(encoding).encode('utf-8')
+                    return line.decode(self.encoding).encode('utf-8')
                 except LookupError, e:
                     raise OperationError(space.w_LookupError,
                                          space.wrap(e.message))

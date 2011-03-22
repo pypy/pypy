@@ -472,7 +472,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
         try:
             if find_info.modtype == PY_SOURCE:
                 load_source_module(space, w_modulename, w_mod, find_info.filename,
-                                   find_info.stream.readall())
+                                   find_info.stream)
                 return w_mod
             elif find_info.modtype == PY_COMPILED:
                 magic = _r_long(find_info.stream)
@@ -732,6 +732,12 @@ def parse_source_module(space, pathname, source):
     pycode = ec.compiler.compile(source, pathname, 'exec', 0)
     return pycode
 
+def parse_source_file_module(space, pathname, stream):
+    """ Parse a source file and return the corresponding code object """
+    ec = space.getexecutioncontext()
+    pycode = ec.compiler.compile_file(stream, pathname, 'exec', 0)
+    return pycode
+
 def exec_code_module(space, w_mod, code_w):
     w_dict = space.getattr(w_mod, space.wrap('__dict__'))
     space.call_method(w_dict, 'setdefault',
@@ -741,7 +747,7 @@ def exec_code_module(space, w_mod, code_w):
 
 
 @jit.dont_look_inside
-def load_source_module(space, w_modulename, w_mod, pathname, source,
+def load_source_module(space, w_modulename, w_mod, pathname, source_stream,
                        write_pyc=True):
     """
     Load a source module from a given file and return its module
@@ -769,7 +775,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
             stream.close()
         space.setattr(w_mod, w('__file__'), w(cpathname))
     else:
-        code_w = parse_source_module(space, pathname, source)
+        code_w = parse_source_file_module(space, pathname, source_stream)
 
         if space.config.objspace.usepycfiles and write_pyc:
             write_compiled_module(space, code_w, cpathname, mode, mtime)

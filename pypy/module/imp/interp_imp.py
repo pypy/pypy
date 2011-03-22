@@ -99,8 +99,7 @@ def load_source(space, w_modulename, w_filename, w_file=None):
     w_mod = space.wrap(Module(space, w_modulename))
     importing._prepare_module(space, w_mod, filename, None)
 
-    importing.load_source_module(
-        space, w_modulename, w_mod, filename, stream.readall())
+    importing.load_source_module(space, w_modulename, w_mod, filename, stream)
     if space.is_w(w_file, space.w_None):
         stream.close()
     return w_mod

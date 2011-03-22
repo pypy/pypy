@@ -55,6 +55,19 @@ class W_File(W_AbstractStream):
         if stream.flushable():
             getopenstreams(self.space)[stream] = None
 
+    def detach(self):
+        stream = self.stream
+        if stream is not None:
+            self.newlines = self.stream.getnewlines()
+            self.stream = None
+            self.fd = -1
+            openstreams = getopenstreams(self.space)
+            try:
+                del openstreams[stream]
+            except KeyError:
+                pass
+        return stream
+
     def check_not_dir(self, fd):
         try:
             st = os.fstat(fd)
@@ -128,17 +141,8 @@ class W_File(W_AbstractStream):
         self.fdopenstream(stream, fd, mode)
 
     def direct_close(self):
-        space = self.space
-        stream = self.stream
+        stream = self.detach()
         if stream is not None:
-            self.newlines = self.stream.getnewlines()
-            self.stream = None
-            self.fd = -1
-            openstreams = getopenstreams(self.space)
-            try:
-                del openstreams[stream]
-            except KeyError:
-                pass
             stream.close()
 
     def direct_fileno(self):
@@ -458,6 +462,12 @@ def descr_file_fdopen(space, w_subtype, fd, mode='r', buffering=-1):
     file = space.allocate_instance(W_File, w_subtype)
     W_File.__init__(file, space)
     file.file_fdopen(fd, mode, buffering)
+    return space.wrap(file)
+
+def from_stream(space, stream, mode):
+    file = W_File(space)
+    fd = stream.try_to_find_file_descriptor()
+    file.fdopenstream(stream, fd, mode)
     return space.wrap(file)
 
 def descr_file_closed(space, file):
