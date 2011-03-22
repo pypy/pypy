@@ -30,13 +30,12 @@ def get_futures(future_flags, tree):
                 except KeyError:
                     pass
                 pos = elem.lineno, elem.col_offset
+            continue
         elif isinstance(elem, ast.Expr):
-            if found_docstring:
-                break
-            if isinstance(elem.value, ast.Str):
+            if not found_docstring and isinstance(elem.value, ast.Str):
                 found_docstring = True
-        else:
-            break
+                continue
+        break
     return flags, pos
 
 class FutureFlags(object):
