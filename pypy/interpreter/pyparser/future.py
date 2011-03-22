@@ -35,6 +35,8 @@ def get_futures(future_flags, tree):
                 break
             if isinstance(elem.value, ast.Str):
                 found_docstring = True
+        else:
+            break
     return flags, pos
 
 class FutureFlags(object):
