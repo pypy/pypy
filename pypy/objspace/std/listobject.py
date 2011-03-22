@@ -456,6 +456,7 @@ class AbstractUnwrappedStrategy(object):
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
+        assert index >= 0
         l = self.cast_from_void_star(w_list.lstorage)
 
         if self.is_correct_type(w_item):
