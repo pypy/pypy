@@ -1,6 +1,7 @@
 import weakref
 from pypy.rlib import jit, objectmodel, debug
 from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib import rerased
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
@@ -515,11 +516,9 @@ def _make_subclass_size_n(supercls, n, use_erased=True):
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     if use_erased:
-        from pypy.rlib import rerased
-        erase = rerased.erase
-        unerase = rerased.unerase
+        erase = erase_item
+        unerase = unerase_item
     else:
-        rerased = None    # don't use in that case
         erase = lambda x: x
         unerase = lambda x, t: x
     #
@@ -548,12 +547,11 @@ def _make_subclass_size_n(supercls, n, use_erased=True):
             if index < nmin1:
                 for i in rangenmin1:
                     if index == i:
-                        erased = getattr(self, "_value%s" % i)
-                        return unerase_item(erased)
+                        return getattr(self, "_value%s" % i)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[index - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
-            return unerase_item(erased)
+            return unerase(erased)
 
         def _mapdict_write_storage(self, index, value):
             for i in rangenmin1:
@@ -563,7 +561,7 @@ def _make_subclass_size_n(supercls, n, use_erased=True):
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[index - nmin1] = value
                 return
-            erased = erase_item(value)
+            erased = erase(value)
             setattr(self, "_value%s" % nmin1, erased)
 
         def _mapdict_storage_length(self):
@@ -583,14 +581,14 @@ def _make_subclass_size_n(supercls, n, use_erased=True):
             has_storage_list = self._has_storage_list()
             if len_storage < n:
                 assert not has_storage_list
-                erased = erase_item(None)
+                erased = erase(None)
             elif len_storage == n:
                 assert not has_storage_list
-                erased = erase_item(storage[nmin1])
+                erased = erase(storage[nmin1])
             elif not has_storage_list:
                 # storage is longer than self.map.length() only due to
                 # overallocation
-                erased = erase_item(storage[nmin1])
+                erased = erase(storage[nmin1])
                 # in theory, we should be ultra-paranoid and check all entries,
                 # but checking just one should catch most problems anyway:
                 assert storage[n] is None
