@@ -2,6 +2,8 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
+from pypy.interpreter.unicodehelper import PyUnicode_EncodeUTF8
+
 
 
 _recode_to_utf8 = gateway.applevel(r'''
@@ -115,7 +117,8 @@ class StdStream(Stream):
             return self.stream.readline()
         else:
             w_line = self.space.call_function(self.w_readline)
-            return self.space.unicode_w(w_line).encode('utf-8')
+            return PyUnicode_EncodeUTF8(self.space,
+                                        self.space.unicode_w(w_line))
 
     def set_encoding(self, encoding):
         self.encoding = encoding
@@ -132,12 +135,15 @@ class StdStream(Stream):
 
     def close(self):
         if self.w_file:
-            self.w_file.detach()
+            from pypy.module._file import interp_file
+            interp_file.detach_stream(self.space, self.w_file)
 
 class PythonParser(parser.Parser):
 
-    def __init__(self, space, grammar=pygram.python_grammar):
-        parser.Parser.__init__(self, grammar)
+    IMPORT_FROM = pygram.python_grammar.symbol_ids['import_from']
+
+    def __init__(self, space):
+        parser.Parser.__init__(self, pygram.python_grammar)
         self.space = space
 
     def _detect_encoding(self, text, lineno, compile_info):
@@ -234,7 +240,7 @@ class PythonParser(parser.Parser):
         return self.build_tree(source_lines, compile_info)
 
     def parse_future_import(self, node):
-        if node.type != self.grammar.symbol_ids['import_from']:
+        if node.type != self.IMPORT_FROM:
             return
         children = node.children
         # from __future__ import ..., must have at least 4 children
@@ -256,9 +262,11 @@ class PythonParser(parser.Parser):
 
         for i in range(0, len(child.children), 2):
             c = child.children[i]
-            if (len(c.children) >= 1 and
-                c.children[0].type == pygram.tokens.NAME):
-                name = c.children[0].value
+            if (len(c.children) == 0 or
+                c.children[0].type != pygram.tokens.NAME):
+                continue
+
+            name = c.children[0].value
 
             if name == 'print_function':
                 self.compile_info.flags |= consts.CO_FUTURE_PRINT_FUNCTION

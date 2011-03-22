@@ -5,19 +5,25 @@ def get_futures(future_flags, tree):
     flags = 0
     pos = (-1, 0)
 
-    if not isinstance(tree, (ast.Module, ast.Interactive)):
+    if isinstance(tree, ast.Module):
+        stmts = tree.body
+    elif isinstance(tree, ast.Interactive):
+        stmts = tree.body
+    else:
         return flags, pos
 
-    if not tree.body:
+    if stmts is None:
         return flags, pos
 
     found_docstring = False
 
-    for elem in tree.body:
+    for elem in stmts:
         if isinstance(elem, ast.ImportFrom):
             if elem.module != '__future__':
                 break
             for alias in elem.names:
+                if not isinstance(alias, ast.alias):
+                    continue
                 name = alias.name
                 try:
                     flags |= future_flags.compiler_features[name]

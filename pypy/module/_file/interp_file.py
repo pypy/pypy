@@ -470,6 +470,10 @@ def from_stream(space, stream, mode):
     file.fdopenstream(stream, fd, mode)
     return space.wrap(file)
 
+def detach_stream(space, w_file):
+    file = space.interp_w(W_File, w_file)
+    return file.detach()
+
 def descr_file_closed(space, file):
     return space.wrap(file.stream is None)
 
