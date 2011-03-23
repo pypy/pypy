@@ -174,6 +174,12 @@ class TestW_ListStrategies(TestW_ListObject):
         empty.extend(W_ListObject(self.space, []))
         assert isinstance(empty.strategy, EmptyListStrategy)
 
+    def test_extend_other_with_empty(self):
+        l = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        assert isinstance(l.strategy, IntegerListStrategy)
+        l.extend(W_ListObject(self.space, []))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
     def test_rangelist(self):
         l = make_range_list(self.space, 1,3,7)
         assert isinstance(l.strategy, RangeListStrategy)

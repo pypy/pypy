@@ -476,6 +476,8 @@ class AbstractUnwrappedStrategy(object):
         if self.list_is_correct_type(w_other):
             l += self.cast_from_void_star(w_other.lstorage)
             return
+        elif w_other.strategy is self.space.fromcache(EmptyListStrategy):
+            return
 
         #XXX unnecessary copy if w_other is ObjectList
         list_w = w_other.getitems()
