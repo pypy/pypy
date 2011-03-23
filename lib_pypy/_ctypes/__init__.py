@@ -4,7 +4,7 @@ from _ctypes.basics import _CData, sizeof, alignment, byref, addressof,\
 from _ctypes.primitive import _SimpleCData
 from _ctypes.pointer import _Pointer, _cast_addr
 from _ctypes.pointer import POINTER, pointer, _pointer_type_cache
-from _ctypes.function import CFuncPtr#, call_function
+from _ctypes.function import CFuncPtr, call_function
 from _ctypes.dll import dlopen
 from _ctypes.structure import Structure
 from _ctypes.array import Array
