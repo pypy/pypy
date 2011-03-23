@@ -440,7 +440,7 @@ class Func(AbstractFuncPtr):
 
     def _free_buffers(self, ll_result, ll_args):
         if ll_result:
-            self._free_buffer_maybe(ll_result, self.restype)
+            self._free_buffer_maybe(rffi.cast(rffi.VOIDP, ll_result), self.restype)
         for i in range(len(self.argtypes)):
             argtype = self.argtypes[i]
             self._free_buffer_maybe(ll_args[i], argtype)
