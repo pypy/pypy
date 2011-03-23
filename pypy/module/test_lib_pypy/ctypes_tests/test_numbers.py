@@ -157,7 +157,7 @@ class TestNumber(BaseCTypesTestChecker):
 
 
     def test_float_from_address(self):
-        from _rawffi import Array
+        from array import array
         for t in float_types:
             if t is c_longdouble:   # no support for 'g' in the array module
                 continue
@@ -168,7 +168,6 @@ class TestNumber(BaseCTypesTestChecker):
             a[0] = 2.3456e17
             assert v.value == a[0]
             assert type(v) is t
-            a.free()
 
     def test_char_from_address(self):
         from ctypes import c_char
