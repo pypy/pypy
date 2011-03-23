@@ -1751,12 +1751,6 @@ def PyInt_AsUnsignedLongLongMask(space, io):
     """
     raise NotImplementedError
 
-@cpython_api([], lltype.Signed, error=CANNOT_FAIL)
-def PyInt_GetMax(space):
-    """Return the system's idea of the largest integer it can handle (LONG_MAX,
-    as defined in the system header files)."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyInt_ClearFreeList(space):
     """Clear the integer free list. Return the number of items that could not
