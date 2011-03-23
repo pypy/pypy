@@ -598,7 +598,7 @@ class CFuncPtr(_CData):
         return retval
 
     def __nonzero__(self):
-        return bool(self._buffer[0])
+        return self._com_index is not None or bool(self._buffer[0])
 
     def __del__(self):
         if self._needs_free:
