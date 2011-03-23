@@ -10,7 +10,6 @@
 #  include "traceback.h"
 #  include "marshal.h"
 #  include "eval.h"
-#  include "timer.h"
 #else
 #  include <stdlib.h>
 #  include <assert.h>
@@ -39,6 +38,7 @@
 
 #include "src/instrument.h"
 #include "src/asm.h"
+#include "src/timer.h"
 
 
 /*** modules ***/

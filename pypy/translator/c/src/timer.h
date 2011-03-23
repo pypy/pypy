@@ -1,7 +1,7 @@
 #ifndef PYPY_TIMER_H
 #define PYPY_TIMER_H
 
-/* XXX Some overlap with the stuff in debug_print
+/* XXX Some overlap with the stuff in asm_gcc_x86
  */
 #define OP_LL_READ_TIMESTAMP(v) v = pypy_read_timestamp();
 
