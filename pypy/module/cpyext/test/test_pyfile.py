@@ -60,3 +60,13 @@ class TestFile(BaseApiTest):
     def test_file_setbufsize(self, space, api):
         api.PyFile_SetBufSize()
 
+    def test_file_writestring(self, space, api, capfd):
+        s = rffi.str2charp("test\n")
+        try:
+            api.PyFile_WriteString(s, space.sys.get("stdout"))
+        finally:
+            rffi.free_charp(s)
+        out, err = capfd.readouterr()
+        out = out.replace('\r\n', '\n')
+        assert out == "test\n"
+

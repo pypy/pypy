@@ -57,3 +57,12 @@ def PyFile_SetBufSize(space, w_file, n):
     """Available on systems with setvbuf() only.  This should only be called
     immediately after file object creation."""
     raise NotImplementedError
+
+@cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
+def PyFile_WriteString(space, s, w_p):
+    """Write string s to file object p.  Return 0 on success or -1 on
+    failure; the appropriate exception will be set."""
+    w_s = space.wrap(rffi.charp2str(s))
+    space.call_method(w_p, "write", w_s)
+    return 0
+
