@@ -4,7 +4,6 @@ Getting Started with the Translation Toolchain and Development Process
 
 .. contents::
 
-
 .. _`try out the translator`:
 
 Trying out the translator
