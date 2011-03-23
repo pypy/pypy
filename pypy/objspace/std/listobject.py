@@ -145,6 +145,9 @@ class ListStrategy(object):
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
+    def copy_into(self, w_list, w_other):
+        raise NotImplementedError
+
     def length(self, w_list):
         raise NotImplementedError
 
@@ -196,6 +199,9 @@ class EmptyListStrategy(ListStrategy):
     cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("empty")
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
+
+    def copy_into(self, w_list, w_other):
+        pass
 
     def length(self, w_list):
         return 0
