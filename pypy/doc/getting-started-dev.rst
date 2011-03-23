@@ -17,9 +17,7 @@ should):
 
   * Download and install Pygame_.
 
-  * Download and install `Dot Graphviz`_ (optional if you have an internet
-    connection: the flowgraph viewer then connects to
-    codespeak.net and lets it convert the flowgraph by a graphviz server).
+  * Download and install `Dot Graphviz`_ 
 
 To start the interactive translator shell do::
 
