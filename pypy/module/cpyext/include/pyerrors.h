@@ -15,6 +15,20 @@ PyObject *PyErr_NewException(char *name, PyObject *base, PyObject *dict);
 PyObject *PyErr_NewExceptionWithDoc(char *name, char *doc, PyObject *base, PyObject *dict);
 PyObject *PyErr_Format(PyObject *exception, const char *format, ...);
 
+/* These APIs aren't really part of the error implementation, but
+   often needed to format error messages; the native C lib APIs are
+   not available on all platforms, which is why we provide emulations
+   for those platforms in Python/mysnprintf.c,
+   WARNING:  The return value of snprintf varies across platforms; do
+   not rely on any particular behavior; eventually the C99 defn may
+   be reliable.
+*/
+#if defined(MS_WIN32) && !defined(HAVE_SNPRINTF)
+# define HAVE_SNPRINTF
+# define snprintf _snprintf
+# define vsnprintf _vsnprintf
+#endif
+
 #ifdef __cplusplus
 }
 #endif
