@@ -2,7 +2,7 @@ from pypy.module.cpyext.api import fopen, fclose, fwrite
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.tool.udir import udir
-import py
+import pytest
 
 class TestFile(BaseApiTest):
 
@@ -51,3 +51,12 @@ class TestFile(BaseApiTest):
         assert space.str_w(w_line) == "line3\n"
 
         space.call_method(w_file, "close")
+
+    @pytest.mark.xfail
+    def test_file_fromfile(self, space, api):
+        api.PyFile_Fromfile()
+
+    @pytest.mark.xfail
+    def test_file_setbufsize(self, space, api):
+        api.PyFile_SetBufSize()
+

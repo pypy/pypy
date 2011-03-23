@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CONST_STRING, build_type_checkers)
+    cpython_api, CONST_STRING, FILEP, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject)
 from pypy.interpreter.error import OperationError
@@ -44,3 +44,16 @@ def PyFile_FromString(space, filename, mode):
     w_filename = space.wrap(rffi.charp2str(filename))
     w_mode = space.wrap(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'file', w_filename, w_mode)
+
+@cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
+def PyFile_FromFile(space, fp, name, mode, close):
+    """Create a new PyFileObject from the already-open standard C file
+    pointer, fp.  The function close will be called when the file should be
+    closed.  Return NULL on failure."""
+    raise NotImplementedError
+
+@cpython_api([PyObject, rffi.INT_real], lltype.Void)
+def PyFile_SetBufSize(space, w_file, n):
+    """Available on systems with setvbuf() only.  This should only be called
+    immediately after file object creation."""
+    raise NotImplementedError
