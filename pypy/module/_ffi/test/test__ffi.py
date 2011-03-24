@@ -193,6 +193,7 @@ class AppTestFfi:
         assert intptr.deref_pointer() is types.sint
         assert str(intptr) == '<ffi type (pointer to sint)>'
         assert types.sint.deref_pointer() is None
+        raises(TypeError, "types.Pointer(42)")
 
     def test_typed_pointer_args(self):
         """

@@ -121,6 +121,7 @@ class app_types:
 app_types.__dict__ = build_ffi_types()
 
 def descr_new_pointer(space, w_cls, w_pointer_to):
+    w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
     name = '(pointer to %s)' % w_pointer_to.name
     return W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
 
