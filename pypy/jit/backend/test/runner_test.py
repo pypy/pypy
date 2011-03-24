@@ -1817,6 +1817,69 @@ class LLtypeBackendTest(BaseBackendTest):
         assert fail.identifier == 0
         assert self.cpu.get_latest_value_int(0) == ord('g')
 
+    def test_call_to_c_function_with_callback(self):
+        from pypy.rlib.libffi import CDLL, types, ArgChain, clibffi
+        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+        libc = CDLL(libc_name)
+        types_size_t = clibffi.cast_type_to_ffitype(rffi.SIZE_T)
+        c_qsort = libc.getpointer('qsort', [types.pointer, types_size_t,
+                                            types_size_t, types.pointer],
+                                  types.void)
+        class Glob(object):
+            pass
+        glob = Glob()
+        class X(object):
+            pass
+        #
+        def callback(p1, p2):
+            glob.lst.append(X())
+            return rffi.cast(rffi.INT, 1)
+        CALLBACK = lltype.Ptr(lltype.FuncType([lltype.Signed,
+                                               lltype.Signed], rffi.INT))
+        fn = llhelper(CALLBACK, callback)
+        S = lltype.Struct('S', ('x', rffi.INT), ('y', rffi.INT))
+        raw = lltype.malloc(S, flavor='raw')
+        argchain = ArgChain()
+        argchain = argchain.arg(rffi.cast(lltype.Signed, raw))
+        argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 2))
+        argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 4))
+        argchain = argchain.arg(rffi.cast(lltype.Signed, fn))
+        glob.lst = []
+        c_qsort.call(argchain, lltype.Void)
+        assert len(glob.lst) > 0
+        del glob.lst[:]
+
+        cpu = self.cpu
+        func_adr = llmemory.cast_ptr_to_adr(c_qsort.funcsym)
+        funcbox = ConstInt(heaptracker.adr2int(func_adr))
+        calldescr = cpu.calldescrof_dynamic([types.pointer, types_size_t,
+                                             types_size_t, types.pointer],
+                                            types.void)
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        i3 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i0, i1, i2, i3], None,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [], None, descr=BasicFailDescr(0))
+        ]
+        ops[1].setfailargs([])
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i0, i1, i2, i3], ops, looptoken)
+        self.cpu.set_future_value_int(0, rffi.cast(lltype.Signed, raw))
+        self.cpu.set_future_value_int(1, 2)
+        self.cpu.set_future_value_int(2, 4)
+        self.cpu.set_future_value_int(3, rffi.cast(lltype.Signed, fn))
+        assert glob.lst == []
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert len(glob.lst) > 0
+        lltype.free(raw, flavor='raw')
+
     # pure do_ / descr features
 
     def test_do_operations(self):
