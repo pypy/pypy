@@ -50,6 +50,9 @@ class _CDataMeta(type):
     def get_ffi_param(self, value):
         return self.from_param(value)._to_ffi_param()
 
+    def get_ffi_argtype(self):
+        return _shape_to_ffi_type(self._ffiargshape)
+
     def _CData_output(self, resbuffer, base=None, index=-1):
         #assert isinstance(resbuffer, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.
@@ -181,9 +184,9 @@ def is_struct_shape(shape):
             isinstance(shape[0], _rawffi.Structure) and
             shape[1] == 1)
 
-def shape_to_ffi_type(shape):
+def _shape_to_ffi_type(shape):
     try:
-        return shape_to_ffi_type.typemap[shape]
+        return _shape_to_ffi_type.typemap[shape]
     except KeyError:
         pass
     if is_struct_shape(shape):
@@ -192,7 +195,7 @@ def shape_to_ffi_type(shape):
     assert False, 'unknown shape %s' % (shape,)
 
 
-shape_to_ffi_type.typemap =  {
+_shape_to_ffi_type.typemap =  {
     'c' : _ffi.types.char,
     'b' : _ffi.types.sbyte,
     'B' : _ffi.types.ubyte,
