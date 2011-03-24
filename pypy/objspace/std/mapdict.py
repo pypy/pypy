@@ -636,7 +636,6 @@ class MapDictImplementation(W_DictMultiObject):
     def _clear_fields(self):
         self.w_obj = None
 
-    @jit.dont_look_inside
     def _as_rdict(self):
         self.initialize_as_rdict()
         space = self.space
