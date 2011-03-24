@@ -1647,6 +1647,7 @@ class GcRootTracker(object):
 
             print >> output, """\
             /* See description in asmgcroot.py */
+            .cfi_startproc
             movq\t%rdi, %rdx\t/* 1st argument, which is the callback */
             movq\t%rsi, %rcx\t/* 2nd argument, which is gcrootanchor */
             movq\t%rsp, %rax\t/* my frame top address */
@@ -1666,6 +1667,7 @@ class GcRootTracker(object):
             pushq\t%rcx\t\t\t/* self->prev = gcrootanchor */
             movq\t%rsp, 8(%rcx)\t/* gcrootanchor->next = self */
             movq\t%rsp, 0(%rax)\t\t\t/* next->prev = self */
+            .cfi_def_cfa_offset 80\t/* 9 pushes + the retaddr = 80 bytes */
 
             /* note: the Mac OS X 16 bytes aligment must be respected. */
             call\t*%rdx\t\t/* invoke the callback */
@@ -1687,6 +1689,7 @@ class GcRootTracker(object):
             /* the return value is the one of the 'call' above, */
             /* because %rax (and possibly %rdx) are unmodified  */
             ret
+            .cfi_endproc
             """
             _variant(elf64='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
                      darwin64='')
