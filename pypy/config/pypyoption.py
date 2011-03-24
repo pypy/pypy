@@ -159,6 +159,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--allworkingmodules",
                negation=True),
 
+    StrOption("extmodules",
+              "Comma-separated list of third-party builtin modules",
+              cmdline="--ext",
+              default=None),
+
     BoolOption("translationmodules",
           "use only those modules that are needed to run translate.py on pypy",
                default=False,

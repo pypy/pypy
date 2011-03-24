@@ -365,7 +365,11 @@ class ObjSpace(object):
 
     def setbuiltinmodule(self, importname):
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
-        fullname = "pypy.module.%s" % importname
+        if '.' in importname:
+            fullname = importname
+            importname = fullname.rsplit('.', 1)[1]
+        else:
+            fullname = "pypy.module.%s" % importname
 
         Module = __import__(fullname,
                             None, None, ["Module"]).Module
@@ -427,6 +431,11 @@ class ObjSpace(object):
         for name, value in self.config.objspace.usemodules:
             if value and name not in modules:
                 modules.append(name)
+
+        if self.config.objspace.extmodules:
+            for name in self.config.objspace.extmodules.split(','):
+                if name not in modules:
+                    modules.append(name)
 
         # a bit of custom logic: time2 or rctime take precedence over time
         # XXX this could probably be done as a "requires" in the config
