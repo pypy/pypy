@@ -287,11 +287,16 @@ class W_PyCTypeObject(W_TypeObject):
 
         W_TypeObject.__init__(self, space, extension_name,
             bases_w or [space.w_object], dict_w)
-        self.flag_cpytype = True
+        if not space.is_true(space.issubtype(self, space.w_type)):
+            self.flag_cpytype = True
         self.flag_heaptype = False
 
 @bootstrap_function
 def init_typeobject(space):
+    # Probably a hack
+    space.model.typeorder[W_PyCTypeObject] = [(W_PyCTypeObject, None),
+                                              (W_TypeObject, None)]
+
     make_typedescr(space.w_type.instancetypedef,
                    basestruct=PyTypeObject,
                    attach=type_attach,
@@ -554,7 +559,9 @@ def type_realize(space, py_obj):
 
     finish_type_1(space, py_type)
 
-    w_obj = space.allocate_instance(W_PyCTypeObject, space.w_type)
+    w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
+
+    w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
     w_obj.__init__(space, py_type)
     w_obj.ready()

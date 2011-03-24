@@ -644,6 +644,7 @@ void initfoo(void)
         return;
     if (PyType_Ready(&SimplePropertyType) < 0)
         return;
+    CustomType.ob_type = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
         return;
     m = Py_InitModule("foo", foo_functions);
