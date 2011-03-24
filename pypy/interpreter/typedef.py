@@ -103,6 +103,7 @@ def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
     except KeyError:
         subcls = _getusercls(config, cls, hasdict, wants_slots, needsdel,
                              weakrefable)
+        assert key not in _subclass_cache
         _subclass_cache[key] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
