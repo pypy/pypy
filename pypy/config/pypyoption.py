@@ -160,7 +160,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                negation=True),
 
     StrOption("extmodules",
-              "Comma-separated list of third-party extension modules",
+              "Comma-separated list of third-party builtin modules",
               cmdline="--ext",
               default=None),
 
