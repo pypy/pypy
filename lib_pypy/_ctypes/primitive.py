@@ -251,7 +251,7 @@ class SimpleType(_CDataMeta):
 
         # make pointer-types compatible with the _ffi fast path
         if result._is_pointer_like():
-            def _as_ffi_pointer_(self):
+            def _as_ffi_pointer_(self, ffitype):
                 return self._get_buffer_value()
             result._as_ffi_pointer_ = _as_ffi_pointer_
             

@@ -114,7 +114,7 @@ class _Pointer(_CData):
 
     contents = property(getcontents, setcontents)
 
-    def _as_ffi_pointer_(self):
+    def _as_ffi_pointer_(self, ffitype):
         return self._get_buffer_value()
 
 def _cast_addr(obj, _, tp):
