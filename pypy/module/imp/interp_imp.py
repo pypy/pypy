@@ -126,6 +126,11 @@ def load_compiled(space, w_modulename, filename, w_file=None):
     _run_compiled_module(space, w_modulename, filename, w_file, w_mod)
     return w_mod
 
+@unwrap_spec(filename=str)
+def load_dynamic(space, w_modulename, filename, w_file=None):
+    importing.load_c_extension(space, filename, space.str_w(w_modulename))
+    return importing.check_sys_modules(space, w_modulename)
+
 def new_module(space, w_name):
     return space.wrap(Module(space, w_name))
 
