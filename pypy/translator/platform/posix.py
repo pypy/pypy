@@ -113,11 +113,16 @@ class BasePosix(Platform):
         m.eci = eci
 
         def pypyrel(fpath):
-            rel = py.path.local(fpath).relto(pypypath)
+            lpath = py.path.local(fpath)
+            rel = lpath.relto(pypypath)
             if rel:
                 return os.path.join('$(PYPYDIR)', rel)
-            else:
-                return fpath
+            m_dir = m.makefile_dir
+            if m_dir == lpath:
+                return '.'
+            if m_dir.dirpath() == lpath:
+                return '..'
+            return fpath
 
         rel_cfiles = [m.pathrel(cfile) for cfile in cfiles]
         rel_ofiles = [rel_cfile[:-2]+'.o' for rel_cfile in rel_cfiles]
