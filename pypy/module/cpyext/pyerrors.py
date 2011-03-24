@@ -303,3 +303,11 @@ def PyErr_WriteUnraisable(space, w_where):
     operror = state.clear_exception()
     if operror:
         operror.write_unraisable(space, space.str_w(space.repr(w_where)))
+
+@cpython_api([], lltype.Void)
+def PyErr_SetInterrupt(space):
+    """This function simulates the effect of a SIGINT signal arriving --- the
+    next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
+    It may be called without holding the interpreter lock."""
+    space.check_signal_action.set_interrupt()
+

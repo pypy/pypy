@@ -745,13 +745,6 @@ def PyErr_WarnExplicit(space, category, message, filename, lineno, module, regis
     described there."""
     raise NotImplementedError
 
-@cpython_api([], lltype.Void)
-def PyErr_SetInterrupt(space):
-    """This function simulates the effect of a SIGINT signal arriving --- the
-    next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
-    It may be called without holding the interpreter lock."""
-    raise NotImplementedError
-
 @cpython_api([rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
 def PySignal_SetWakeupFd(space, fd):
     """This utility function specifies a file descriptor to which a '\0' byte will
