@@ -169,7 +169,8 @@ class AppTestFfi:
         class MyPointerWrapper(object):
             def __init__(self, value):
                 self.value = value
-            def _as_ffi_pointer_(self):
+            def _as_ffi_pointer_(self, ffitype):
+                assert ffitype is types.pointer
                 return self.value
         
         libfoo = CDLL(self.libfoo_name)
@@ -186,6 +187,31 @@ class AppTestFfi:
         assert get_dummy() == 123
         set_val_to_ptr(ptr2, 0)
 
+    def test_typed_pointer(self):
+        from _ffi import types
+        intptr = types.Pointer(types.sint) # create a typed pointer to sint
+        assert intptr.deref_pointer() is types.sint
+        assert str(intptr) == '<ffi type (pointer to sint)>'
+        assert types.sint.deref_pointer() is None
+
+    def test_typed_pointer_args(self):
+        """
+            extern int dummy; // defined in test_void_result 
+            DLLEXPORT int* get_dummy_ptr(); // defined in test_pointer_args
+            DLLEXPORT void set_val_to_ptr(int* ptr, int val); // ditto
+        """
+        from _ffi import CDLL, types
+
+        libfoo = CDLL(self.libfoo_name)
+        intptr = types.Pointer(types.sint)
+        get_dummy = libfoo.getfunc('get_dummy', [], types.sint)
+        get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], intptr)
+        set_val_to_ptr = libfoo.getfunc('set_val_to_ptr', [intptr, types.sint], types.void)
+        assert get_dummy() == 0
+        ptr = get_dummy_ptr()
+        set_val_to_ptr(ptr, 123)
+        assert get_dummy() == 123
+        set_val_to_ptr(ptr, 0)
 
     def test_huge_pointer_args(self):
         """

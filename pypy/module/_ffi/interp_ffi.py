@@ -14,17 +14,23 @@ from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 class W_FFIType(Wrappable):
-    def __init__(self, name, ffitype, w_datashape=None):
+    def __init__(self, name, ffitype, w_datashape=None, w_pointer_to=None):
         self.name = name
         self.ffitype = ffitype
         self.w_datashape = w_datashape
+        self.w_pointer_to = w_pointer_to
         if self.is_struct():
             assert w_datashape is not None
 
-    def str(self, space):
+    def descr_deref_pointer(self, space):
+        if self.w_pointer_to is None:
+            return space.w_None
+        return self.w_pointer_to
+
+    def repr(self, space):
         return space.wrap(self.__str__())
 
-    def __str__(self):
+    def __repr__(self):
         return "<ffi type %s>" % self.name
 
     def is_signed(self):
@@ -42,7 +48,7 @@ class W_FFIType(Wrappable):
                 self is app_types.ulonglong)
 
     def is_pointer(self):
-        return self is app_types.pointer
+        return self.ffitype is libffi.types.pointer
 
     def is_char(self):
         return self is app_types.char
@@ -68,7 +74,8 @@ class W_FFIType(Wrappable):
 
 W_FFIType.typedef = TypeDef(
     'FFIType',
-    __str__ = interp2app(W_FFIType.str),
+    __repr__ = interp2app(W_FFIType.repr),
+    deref_pointer = interp2app(W_FFIType.descr_deref_pointer),
     )
 
 
@@ -113,10 +120,15 @@ class app_types:
     pass
 app_types.__dict__ = build_ffi_types()
 
+def descr_new_pointer(space, w_cls, w_pointer_to):
+    name = '(pointer to %s)' % w_pointer_to.name
+    return W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
+
 class W_types(Wrappable):
     pass
 W_types.typedef = TypeDef(
     'types',
+    Pointer = interp2app(descr_new_pointer, as_classmethod=True),
     **app_types.__dict__)
 
 
@@ -164,7 +176,7 @@ class W_FuncPtr(Wrappable):
             elif w_argtype.is_signed():
                 argchain.arg(space.int_w(w_arg))
             elif w_argtype.is_pointer():
-                w_arg = self.convert_pointer_arg_maybe(space, w_arg)
+                w_arg = self.convert_pointer_arg_maybe(space, w_arg, w_argtype)
                 argchain.arg(intmask(space.uint_w(w_arg)))
             elif w_argtype.is_unsigned():
                 argchain.arg(intmask(space.uint_w(w_arg)))
@@ -187,13 +199,13 @@ class W_FuncPtr(Wrappable):
                 assert False, "Argument shape '%s' not supported" % w_argtype
         return argchain
 
-    def convert_pointer_arg_maybe(self, space, w_arg):
+    def convert_pointer_arg_maybe(self, space, w_arg, w_argtype):
         """
         Try to convert the argument by calling _as_ffi_pointer_()
         """
         meth = space.lookup(w_arg, '_as_ffi_pointer_') # this also promotes the type
         if meth:
-            return space.call_function(meth, w_arg)
+            return space.call_function(meth, w_arg, w_argtype)
         else:
             return w_arg
 
