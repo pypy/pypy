@@ -7,6 +7,7 @@ from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.rweakref import RWeakKeyDictionary
 from pypy.rpython.annlowlevel import llhelper
@@ -370,6 +371,15 @@ def Py_IncRef(space, obj):
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    assert isinstance(w_type, W_TypeObject)
+    if w_type.is_cpytype():
+        w_obj = space.allocate_instance(W_ObjectObject, w_type)
+        track_reference(space, obj, w_obj)
+        state = space.fromcache(RefcountState)
+        state.set_lifeline(w_obj, obj)
+    else:
+        assert False, "Please add more cases in _Py_NewReference()"
 
 def _Py_Dealloc(space, obj):
     from pypy.module.cpyext.api import generic_cpy_call_dont_decref
