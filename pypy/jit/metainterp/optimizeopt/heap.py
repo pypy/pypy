@@ -288,7 +288,8 @@ class OptHeap(Optimization):
         if len(newoperations) < 2:
             return
         lastop = newoperations[-1]
-        if lastop.getopnum() != rop.SETFIELD_GC:
+        if (lastop.getopnum() != rop.SETFIELD_GC and
+            lastop.getopnum() != rop.SETARRAYITEM_GC):
             return
         # - is_comparison() for cases like "int_eq/setfield_gc/guard_true"
         # - CALL_MAY_FORCE: "call_may_force/setfield_gc/guard_not_forced"
