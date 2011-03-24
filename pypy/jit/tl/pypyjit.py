@@ -99,7 +99,7 @@ def test_run_translation():
     from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
     from pypy.rpython.test.test_llinterp import get_interpreter
 
-    # first annotate, rtype, and backendoptimize PyPy
+    # first annotate and rtype
     try:
         interp, graph = get_interpreter(entry_point, [], backendopt=False,
                                         config=config,
