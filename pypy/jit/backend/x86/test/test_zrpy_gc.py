@@ -5,21 +5,16 @@ however, is the correct handling of GC, i.e. if objects are freed as
 soon as possible (at least in a simple case).
 """
 
-import weakref, random
+import weakref
 import py
 from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.jit import purefunction, unroll_safe
-from pypy.jit.backend.x86.runner import CPU386
-from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
-from pypy.jit.backend.x86.arch import IS_X86_64
 from pypy.config.translationoption import DEFL_GC
-import py.test
 
 class X(object):
     def __init__(self, x=0):
