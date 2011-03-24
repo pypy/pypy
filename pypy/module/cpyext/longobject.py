@@ -5,6 +5,7 @@ from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 from pypy.rlib.rbigint import rbigint
+from pypy.rlib.rarithmetic import intmask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -189,9 +190,9 @@ def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
 
     for i in range(0, n):
         if little_endian:
-            c = int(bytes[i])
+            c = intmask(bytes[i])
         else:
-            c = int(bytes[n - i - 1])
+            c = intmask(bytes[n - i - 1])
         if i == 0 and signed and c & 0x80:
             negative = True
         if negative:
