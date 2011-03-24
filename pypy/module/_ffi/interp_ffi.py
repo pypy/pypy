@@ -28,7 +28,7 @@ class W_FFIType(Wrappable):
         return self.w_pointer_to
 
     def repr(self, space):
-        return space.wrap(self.__str__())
+        return space.wrap(self.__repr__())
 
     def __repr__(self):
         return "<ffi type %s>" % self.name
