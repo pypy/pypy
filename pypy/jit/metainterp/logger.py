@@ -10,45 +10,59 @@ from pypy.jit.metainterp.history import Const, ConstInt, Box, \
 class Logger(object):
 
     def __init__(self, metainterp_sd, guard_number=False):
-        """
-        resoperation logger.  Note that you should call repr_of_op only
-        *after* the corresponding loop has been fully logged, else you might
-        get different results (in particular, variable numbers could be
-        different)
-        """
         self.metainterp_sd = metainterp_sd
-        self.ts = metainterp_sd.cpu.ts
         self.guard_number = guard_number
-        self.memo = {}
 
     def log_loop(self, inputargs, operations, number=0, type=None):
         if type is None:
             debug_start("jit-log-noopt-loop")
-            self._log_operations(inputargs, operations)
+            logops = self._log_operations(inputargs, operations)
             debug_stop("jit-log-noopt-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, ":", type,
                         "with", len(operations), "ops")
-            self._log_operations(inputargs, operations)
+            logops = self._log_operations(inputargs, operations)
             debug_stop("jit-log-opt-loop")
+        return logops
 
     def log_bridge(self, inputargs, operations, number=-1):
         if number == -1:
             debug_start("jit-log-noopt-bridge")
-            self._log_operations(inputargs, operations)
+            logops = self._log_operations(inputargs, operations)
             debug_stop("jit-log-noopt-bridge")
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard", number,
                         "with", len(operations), "ops")
-            self._log_operations(inputargs, operations)
+            logops = self._log_operations(inputargs, operations)
             debug_stop("jit-log-opt-bridge")
+        return logops
 
     def log_short_preamble(self, inputargs, operations):
         debug_start("jit-log-short-preamble")
-        self._log_operations(inputargs, operations)
-        debug_stop("jit-log-short-preamble")            
+        logops = self._log_operations(inputargs, operations)
+        debug_stop("jit-log-short-preamble")
+        return logops
+
+    def _log_operations(self, inputargs, operations):
+        if not have_debug_prints():
+            return None
+        logops = LogOperations(self.metainterp_sd, self.guard_number)
+        logops.log_operations(inputargs, operations)
+        return logops
+
+
+class LogOperations(object):
+    """
+    ResOperation logger.  Each instance contains a memo giving numbers
+    to boxes, and is typically used to log a single loop.
+    """
+    def __init__(self, metainterp_sd, guard_number):
+        self.metainterp_sd = metainterp_sd
+        self.ts = metainterp_sd.cpu.ts
+        self.guard_number = guard_number
+        self.memo = {}
 
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()
@@ -104,10 +118,7 @@ class Logger(object):
             fail_args = ''
         return res + op.getopname() + '(' + args + ')' + fail_args
 
-    def _log_operations(self, inputargs, operations):
-        self.memo = {}
-        if not have_debug_prints():
-            return
+    def log_operations(self, inputargs, operations):
         if inputargs is not None:
             args = ", ".join([self.repr_of_arg(arg) for arg in inputargs])
             debug_print('[' + args + ']')

@@ -73,7 +73,10 @@ class OptFfiCall(Optimization):
 
     def setup(self):
         self.funcinfo = None
-        self.logger = self.optimizer.metainterp_sd.logger_ops
+        if self.optimizer.loop is not None:
+            self.logops = self.optimizer.loop.logops
+        else:
+            self.logops = None
 
     def propagate_begin_forward(self):
         debug_start('jit-log-ffiopt')
@@ -100,8 +103,8 @@ class OptFfiCall(Optimization):
         #
         # we immediately set funcinfo to None to prevent recursion when
         # calling emit_op
-        if have_debug_prints():
-            debug_print('rollback: ' + msg + ': ', self.logger.repr_of_op(op))
+        if self.logops is not None:
+            debug_print('rollback: ' + msg + ': ', self.logops.repr_of_op(op))
         funcinfo = self.funcinfo
         self.funcinfo = None
         self.emit_operation(funcinfo.prepare_op)
@@ -198,8 +201,8 @@ class OptFfiCall(Optimization):
         return ops
 
     def propagate_forward(self, op):
-        if have_debug_prints():
-            debug_print(self.logger.repr_of_op(op))
+        if self.logops is not None:
+            debug_print(self.logops.repr_of_op(op))
         opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:
