@@ -144,3 +144,20 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
              """),
             ])
         assert module.from_string() == 0x1234
+
+    def test_frombytearray(self):
+        module = self.import_extension('foo', [
+            ("from_bytearray", "METH_VARARGS",
+             """
+                 int little_endian, is_signed;
+                 if (!PyArg_ParseTuple(args, "ii", &little_endian, &is_signed))
+                     return NULL;
+                 return _PyLong_FromByteArray("\x9A\xBC", 2,
+                                              little_endian, is_signed);
+             """),
+            ])
+        assert module.from_bytearray(True, False) == 0x9ABC
+        assert module.from_bytearray(True, True) == -0x6543
+        assert module.from_bytearray(False, False) == 0xBC9A
+        assert module.from_bytearray(False, True) == -0x4365
+

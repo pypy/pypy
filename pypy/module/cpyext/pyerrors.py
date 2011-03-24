@@ -75,6 +75,9 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     error indicator temporarily; use PyErr_Fetch() to save the current
     exception state."""
     state = space.fromcache(State)
+    if w_type is None:
+        state.clear_exception()
+        return
     state.set_exception(OperationError(w_type, w_value))
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
