@@ -1832,6 +1832,8 @@ class Assembler386(object):
         self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
         self.implement_guard(guard_token, 'L')
 
+    genop_guard_call_release_gil = genop_guard_call_may_force
+
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         faildescr = guard_op.getdescr()

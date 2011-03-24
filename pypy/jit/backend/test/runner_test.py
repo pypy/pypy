@@ -534,23 +534,6 @@ class BaseBackendTest(Runner):
                                          'int', descr=calldescr)
             assert res.value == func_ints(*args)
 
-    def test_call_to_c_function(self):
-        from pypy.rlib.libffi import CDLL, types, ArgChain
-        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
-        libc = CDLL(libc_name)
-        c_tolower = libc.getpointer('tolower', [types.uchar], types.sint)
-        argchain = ArgChain().arg(ord('A'))
-        assert c_tolower.call(argchain, rffi.INT) == ord('a')
-
-        func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
-        funcbox = ConstInt(heaptracker.adr2int(func_adr))
-        calldescr = self.cpu.calldescrof_dynamic([types.uchar], types.sint)
-        res = self.execute_operation(rop.CALL_RELEASE_GIL,
-                                     [funcbox, BoxInt(ord('A'))],
-                                     'int',
-                                     descr=calldescr)
-        assert res.value == ord('a')
-
     def test_call_with_const_floats(self):
         def func(f1, f2):
             return f1 + f2
@@ -1803,6 +1786,36 @@ class LLtypeBackendTest(BaseBackendTest):
         assert longlong.getrealfloat(x) == 42.5
         assert self.cpu.get_latest_value_int(2) == 10
         assert values == [1, 10]
+
+    def test_call_to_c_function(self):
+        from pypy.rlib.libffi import CDLL, types, ArgChain
+        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+        libc = CDLL(libc_name)
+        c_tolower = libc.getpointer('tolower', [types.uchar], types.sint)
+        argchain = ArgChain().arg(ord('A'))
+        assert c_tolower.call(argchain, rffi.INT) == ord('a')
+
+        cpu = self.cpu
+        func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
+        funcbox = ConstInt(heaptracker.adr2int(func_adr))
+        calldescr = cpu.calldescrof_dynamic([types.uchar], types.sint)
+        i1 = BoxInt()
+        i2 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1], i2,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [i2], None, descr=BasicFailDescr(0))
+        ]
+        ops[1].setfailargs([i1, i2])
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i1], ops, looptoken)
+        self.cpu.set_future_value_int(0, ord('G'))
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert self.cpu.get_latest_value_int(0) == ord('g')
 
     # pure do_ / descr features
 
