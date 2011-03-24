@@ -48,9 +48,13 @@ class Logger(object):
     def _log_operations(self, inputargs, operations):
         if not have_debug_prints():
             return None
-        logops = LogOperations(self.metainterp_sd, self.guard_number)
+        logops = self._make_log_operations()
         logops.log_operations(inputargs, operations)
         return logops
+
+    def _make_log_operations(self):
+        # hook for tests
+        return LogOperations(self.metainterp_sd, self.guard_number)
 
 
 class LogOperations(object):

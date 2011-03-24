@@ -36,11 +36,16 @@ class Logger(logger.Logger):
         return capturing(logger.Logger.log_loop, self,
                          loop.inputargs, loop.operations)
 
-    def repr_of_descr(self, descr):
-        for k, v in self.namespace.items():
-            if v == descr:
-                return k
-        return descr.repr_of_descr()
+    def _make_log_operations(self1):
+        class LogOperations(logger.LogOperations):
+            def repr_of_descr(self, descr):
+                for k, v in self1.namespace.items():
+                    if v == descr:
+                        return k
+                return descr.repr_of_descr()
+        logops = LogOperations(self1.metainterp_sd, self1.guard_number)
+        self1.logops = logops
+        return logops
 
 class TestLogger(object):
     ts = llhelper
@@ -188,4 +193,4 @@ class TestLogger(object):
         '''
         logger, loop, _ = self.reparse(inp)
         op = loop.operations[1]
-        assert logger.repr_of_op(op) == "i8 = int_add(i6, 3)"
+        assert logger.logops.repr_of_op(op) == "i8 = int_add(i6, 3)"
