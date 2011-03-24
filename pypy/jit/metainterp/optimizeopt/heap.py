@@ -220,11 +220,15 @@ class OptHeap(Optimization):
             self.optimizer.pendingfields = self.force_lazy_setfields_for_guard()
             return
         opnum = op.getopnum()
-        if (opnum == rop.SETFIELD_GC or
-            opnum == rop.SETFIELD_RAW or
-            opnum == rop.SETARRAYITEM_GC or
-            opnum == rop.SETARRAYITEM_RAW or
-            opnum == rop.DEBUG_MERGE_POINT):
+        if (opnum == rop.SETFIELD_GC or        # handled specially
+            opnum == rop.SETFIELD_RAW or       # no effect on GC struct/array
+            opnum == rop.SETARRAYITEM_GC or    # handled specially
+            opnum == rop.SETARRAYITEM_RAW or   # no effect on GC struct
+            opnum == rop.STRSETITEM or         # no effect on GC struct/array
+            opnum == rop.UNICODESETITEM or     # no effect on GC struct/array
+            opnum == rop.DEBUG_MERGE_POINT or  # no effect whatsoever
+            opnum == rop.COPYSTRCONTENT or     # no effect on GC struct/array
+            opnum == rop.COPYUNICODECONTENT):  # no effect on GC struct/array
             return
         assert opnum != rop.CALL_PURE
         if (opnum == rop.CALL or
@@ -257,10 +261,7 @@ class OptHeap(Optimization):
                     # ^^^ we only need to force this field; the other fields
                     # of virtualref_info and virtualizable_info are not gcptrs.
                 return
-            self.force_all_lazy_setfields()
-        elif op.is_final() or (not we_are_translated() and
-                               op.getopnum() < 0):   # escape() operations
-            self.force_all_lazy_setfields()
+        self.force_all_lazy_setfields()
         self.clean_caches()
 
 
@@ -287,7 +288,8 @@ class OptHeap(Optimization):
         if len(newoperations) < 2:
             return
         lastop = newoperations[-1]
-        if lastop.getopnum() != rop.SETFIELD_GC:
+        if (lastop.getopnum() != rop.SETFIELD_GC and
+            lastop.getopnum() != rop.SETARRAYITEM_GC):
             return
         # - is_comparison() for cases like "int_eq/setfield_gc/guard_true"
         # - CALL_MAY_FORCE: "call_may_force/setfield_gc/guard_not_forced"
@@ -303,12 +305,10 @@ class OptHeap(Optimization):
         newoperations[-1] = prevop
 
     def force_all_lazy_setfields(self):
-        if len(self._lazy_setfields) > 0:
-            for cf in self._lazy_setfields:
-                if not we_are_translated():
-                    assert cf in self.cached_fields.values()
-                cf.force_lazy_setfield(self)
-            del self._lazy_setfields[:]
+        for cf in self._lazy_setfields:
+            if not we_are_translated():
+                assert cf in self.cached_fields.values()
+            cf.force_lazy_setfield(self)
 
     def force_lazy_setfields_for_guard(self):
         pendingfields = []
