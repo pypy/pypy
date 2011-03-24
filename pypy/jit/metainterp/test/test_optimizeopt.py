@@ -2356,6 +2356,33 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_bug_5(self):
+        ops = """
+        [p0]
+        i0 = escape()
+        i2 = getfield_gc(p0, descr=valuedescr)
+        i4 = int_add(i2, 1)
+        setfield_gc(p0, i4, descr=valuedescr)
+        guard_true(i0) []
+        i6 = getfield_gc(p0, descr=valuedescr)
+        i8 = int_sub(i6, 1)
+        setfield_gc(p0, i8, descr=valuedescr)
+        escape()
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = escape()
+        i2 = getfield_gc(p0, descr=valuedescr)
+        i4 = int_add(i2, 1)
+        setfield_gc(p0, i4, descr=valuedescr)
+        guard_true(i0) []
+        setfield_gc(p0, i2, descr=valuedescr)
+        escape()
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_invalid_loop_1(self):
         ops = """
         [p1]
