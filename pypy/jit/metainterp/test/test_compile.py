@@ -41,7 +41,6 @@ class FakeLogger(object):
         return repr(op)
 
 class FakeState(object):
-    optimize_loop = staticmethod(nounroll_optimize.optimize_loop)
     enable_opts = ALL_OPTS_DICT.copy()
     enable_opts.pop('unroll')
 
