@@ -178,9 +178,9 @@ def _PyLong_Sign(space, w_long):
     assert isinstance(w_long, W_LongObject)
     return w_long.num.sign
 
-@cpython_api([CONST_STRING, rffi.SIZE_T, rffi.INT_real, rffi.INT_real], PyObject)
+UCHARP = rffi.CArrayPtr(rffi.UCHAR)
+@cpython_api([UCHARP, rffi.SIZE_T, rffi.INT_real, rffi.INT_real], PyObject)
 def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
-    s = rffi.charpsize2str(bytes, n)
     little_endian = rffi.cast(lltype.Signed, little_endian)
     signed = rffi.cast(lltype.Signed, signed)
 
@@ -189,9 +189,9 @@ def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
 
     for i in range(0, n):
         if little_endian:
-            c = ord(s[i])
+            c = int(bytes[i])
         else:
-            c = ord(s[n - i - 1])
+            c = int(bytes[n - i - 1])
         if i == 0 and signed and c & 0x80:
             negative = True
         if negative:
