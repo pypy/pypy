@@ -113,7 +113,7 @@ class WeakValueDictRepr(Repr):
     @jit.dont_look_inside
     def ll_get(self, d, llkey):
         hash = self.ll_keyhash(llkey)
-        i = rdict.ll_dict_lookup(d, llkey, hash)
+        i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
         #llop.debug_print(lltype.Void, i, 'get')
         valueref = d.entries[i].value
         if valueref:
@@ -132,7 +132,7 @@ class WeakValueDictRepr(Repr):
     def ll_set_nonnull(self, d, llkey, llvalue):
         hash = self.ll_keyhash(llkey)
         valueref = weakref_create(llvalue)    # GC effects here, before the rest
-        i = rdict.ll_dict_lookup(d, llkey, hash)
+        i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
         everused = d.entries.everused(i)
         d.entries[i].key = llkey
         d.entries[i].value = valueref
@@ -146,7 +146,7 @@ class WeakValueDictRepr(Repr):
     @jit.dont_look_inside
     def ll_set_null(self, d, llkey):
         hash = self.ll_keyhash(llkey)
-        i = rdict.ll_dict_lookup(d, llkey, hash)
+        i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
         if d.entries.everused(i):
             # If the entry was ever used, clean up its key and value.
             # We don't store a NULL value, but a dead weakref, because
