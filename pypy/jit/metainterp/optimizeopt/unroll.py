@@ -267,7 +267,7 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(jump_args)
 
             loop.preamble.operations = self.optimizer.newoperations
-            self.optimizer = self.optimizer.reconstruct_for_next_iteration()
+            self.optimizer = self.optimizer.reconstruct_for_next_iteration(jump_args)
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
             loop.inputargs = inputargs
@@ -626,8 +626,9 @@ class OptInlineShortPreamble(Optimization):
         self.inliner = None
         
     
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        return self
+    def reconstruct_for_next_iteration(self, surviving_boxes,
+                                       optimizer, valuemap):
+        return OptInlineShortPreamble(self.retraced)
     
     def propagate_forward(self, op):
         if op.getopnum() == rop.JUMP:

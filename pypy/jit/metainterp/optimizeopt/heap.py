@@ -120,7 +120,8 @@ class OptHeap(Optimization):
         # cached array items:  {descr: CachedArrayItems}
         self.cached_arrayitems = {}
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def reconstruct_for_next_iteration(self, surviving_boxes,
+                                       optimizer, valuemap):
         new = OptHeap()
 
         if True:

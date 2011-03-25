@@ -51,10 +51,15 @@ class OptValue(object):
             boxes.append(self.force_box())
             already_seen[self.get_key_box()] = None
 
-    def get_reconstructed(self, optimizer, valuemap):
+    def get_reconstructed(self, optimizer, valuemap, force_if_needed=True):
         if self in valuemap:
             return valuemap[self]
         new = self.reconstruct_for_next_iteration(optimizer)
+        if new is None:
+            if force_if_needed:
+                new = optimizer.OptValue(self.force_box())
+            else:
+                return None
         valuemap[self] = new
         self.reconstruct_childs(new, valuemap)
         return new
@@ -283,18 +288,19 @@ class Optimizer(Optimization):
         for o in self.optimizations:
             o.force_at_end_of_preamble()
 
-    def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
+    def reconstruct_for_next_iteration(self, surviving_boxes=None,
+                                       optimizer=None, valuemap=None):
         assert optimizer is None
         assert valuemap is None
+        if surviving_boxes is None:
+            surviving_boxes = []
         valuemap = {}
         new = Optimizer(self.metainterp_sd, self.loop)
-        optimizations = [o.reconstruct_for_next_iteration(new, valuemap) for o in
-                         self.optimizations]
+        optimizations = [o.reconstruct_for_next_iteration(surviving_boxes,
+                                                          new, valuemap)
+                         for o in self.optimizations]
         new.set_optimizations(optimizations)
 
-        new.values = {}
-        for box, value in self.values.items():
-            new.values[box] = value.get_reconstructed(new, valuemap)
         new.interned_refs = self.interned_refs
         new.bool_boxes = {}
         for value in new.bool_boxes.keys():
@@ -310,6 +316,14 @@ class Optimizer(Optimization):
         new.producer = self.producer
         assert self.posponedop is None
 
+        for box, value in self.values.items():
+            box = new.getinterned(box)
+            force = box in surviving_boxes
+            value = value.get_reconstructed(new, valuemap,
+                                            force_if_needed=force)
+            if value is not None:
+                new.values[box] = value
+            
         return new
 
     def turned_constant(self, value):

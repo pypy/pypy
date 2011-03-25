@@ -47,7 +47,7 @@ class AbstractVirtualValue(optimizer.OptValue):
         raise NotImplementedError("abstract base")
 
     def reconstruct_for_next_iteration(self, _optimizer):
-        return optimizer.OptValue(self.force_box())
+        return None
 
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
@@ -261,8 +261,9 @@ class VArrayValue(AbstractVirtualValue):
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        return self
+    def reconstruct_for_next_iteration(self, surviving_boxes,
+                                       optimizer, valuemap):
+        return OptVirtualize()
 
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer, known_class, box, source_op)
