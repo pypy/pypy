@@ -104,7 +104,7 @@ def build_ffi_types():
         W_FFIType('double',    libffi.types.double),
         W_FFIType('float',     libffi.types.float),
         W_FFIType('void',      libffi.types.void),
-        W_FFIType('pointer',   libffi.types.pointer),
+        W_FFIType('void_p',    libffi.types.pointer),
         #
         # missing types:
 

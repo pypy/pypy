@@ -148,9 +148,9 @@ class AppTestFfi:
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         get_dummy = libfoo.getfunc('get_dummy', [], types.sint)
-        get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], types.pointer)
+        get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], types.void_p)
         set_val_to_ptr = libfoo.getfunc('set_val_to_ptr',
-                                        [types.pointer, types.sint],
+                                        [types.void_p, types.sint],
                                         types.void)
         assert get_dummy() == 0
         ptr = get_dummy_ptr()
@@ -170,14 +170,14 @@ class AppTestFfi:
             def __init__(self, value):
                 self.value = value
             def _as_ffi_pointer_(self, ffitype):
-                assert ffitype is types.pointer
+                assert ffitype is types.void_p
                 return self.value
         
         libfoo = CDLL(self.libfoo_name)
         get_dummy = libfoo.getfunc('get_dummy', [], types.sint)
-        get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], types.pointer)
+        get_dummy_ptr = libfoo.getfunc('get_dummy_ptr', [], types.void_p)
         set_val_to_ptr = libfoo.getfunc('set_val_to_ptr',
-                                        [types.pointer, types.sint],
+                                        [types.void_p, types.sint],
                                         types.void)
         assert get_dummy() == 0
         ptr = get_dummy_ptr()
@@ -222,7 +222,7 @@ class AppTestFfi:
         import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
-        is_null_ptr = libfoo.getfunc('is_null_ptr', [types.pointer], types.ulong)
+        is_null_ptr = libfoo.getfunc('is_null_ptr', [types.void_p], types.ulong)
         assert not is_null_ptr(sys.maxint+1)
 
     def test_unsigned_long_args(self):
