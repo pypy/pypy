@@ -266,6 +266,8 @@ class BaseTestRint(BaseRtypingTest):
                 x = inttype(random.randint(-100000, 100000))
                 y = inttype(random.randint(-100000, 100000))
                 if not y: continue
+                if (i & 31) == 0:
+                    x = (x//y) * y      # case where x is exactly divisible by y
                 res = self.interpret(d, [x, y])
                 assert res == d(x, y)
 
@@ -276,6 +278,8 @@ class BaseTestRint(BaseRtypingTest):
                 x = inttype(random.randint(-100000, 100000))
                 y = inttype(random.randint(-100000, 100000))
                 if not y: continue
+                if (i & 31) == 0:
+                    x = (x//y) * y      # case where x is exactly divisible by y
                 res = self.interpret(m, [x, y])
                 assert res == m(x, y)
 

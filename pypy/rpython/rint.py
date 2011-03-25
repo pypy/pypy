@@ -239,23 +239,24 @@ def _rtype_template(hop, func, implicit_excs=[]):
             v_res = hop.genop(prefix + 'sub', [v_res, v_corr],
                               resulttype=repr)
         elif op == 'mod':
-            # return r + y*(((x^y)<0)&(r!=0));
-            v_xor = hop.genop(prefix + 'xor', vlist,
-                            resulttype=repr)
-            v_xor_le = hop.genop(prefix + 'lt', [v_xor, c_zero],
-                               resulttype=Bool)
-            v_xor_le = hop.llops.convertvar(v_xor_le, bool_repr, repr)
-            v_mod_ne = hop.genop(prefix + 'ne', [v_res, c_zero],
-                               resulttype=Bool)
-            v_mod_ne = hop.llops.convertvar(v_mod_ne, bool_repr, repr)
-            v_corr1 = hop.genop(prefix + 'and', [v_xor_le, v_mod_ne],
-                             resulttype=repr)
-            v_corr = hop.genop(prefix + 'mul', [v_corr1, vlist[1]],
-                             resulttype=repr)
-            v_res = hop.genop(prefix + 'add', [v_res, v_corr],
-                              resulttype=repr)
+            llfunc = globals()['ll_correct_' + prefix + 'mod']
+            v_res = hop.gendirectcall(llfunc, vlist[1], v_res)
     v_res = hop.llops.convertvar(v_res, repr, r_result)
     return v_res
+
+
+INT_BITS_1 = r_int.BITS - 1
+LLONG_BITS_1 = r_longlong.BITS - 1
+
+def ll_correct_int_mod(y, r):
+    if y < 0: u = -r
+    else:     u = r
+    return r + (y & (u >> INT_BITS_1))
+
+def ll_correct_llong_mod(y, r):
+    if y < 0: u = -r
+    else:     u = r
+    return r + (y & (u >> LLONG_BITS_1))
 
 
 #Helper functions for comparisons
