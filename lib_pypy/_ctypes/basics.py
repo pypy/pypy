@@ -51,6 +51,8 @@ class _CDataMeta(type):
         return self.from_param(value)._to_ffi_param()
 
     def get_ffi_argtype(self):
+        if self._ffiargtype:
+            return self._ffiargtype
         return _shape_to_ffi_type(self._ffiargshape)
 
     def _CData_output(self, resbuffer, base=None, index=-1):
@@ -106,6 +108,7 @@ class _CData(object):
     """
     __metaclass__ = _CDataMeta
     _objects = None
+    _ffiargtype = None
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
