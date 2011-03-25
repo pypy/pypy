@@ -1,3 +1,4 @@
+import _ffi
 import _rawffi
 import weakref
 import sys
@@ -140,6 +141,7 @@ class SimpleType(_CDataMeta):
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
+            result._ffiargtype = _ffi.types.Pointer(_ffi.types.char)
 
         elif tp == 'Z':
             # c_wchar_p
@@ -163,6 +165,7 @@ class SimpleType(_CDataMeta):
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
+            result._ffiargtype = _ffi.types.Pointer(_ffi.types.unichar)
 
         elif tp == 'P':
             # c_void_p
