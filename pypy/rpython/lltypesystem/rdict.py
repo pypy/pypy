@@ -10,8 +10,8 @@ from pypy.rpython import robject
 from pypy.rlib import objectmodel
 from pypy.rpython import rmodel
 
-HIGHEST_BIT = (1 << (LONG_BIT - 2))
-MASK = (1 << (LONG_BIT - 2)) - 1
+HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
+MASK = intmask(HIGHEST_BIT - 1)
 
 # ____________________________________________________________
 #
@@ -434,6 +434,10 @@ ll_dict_getitem.oopspec = 'dict.getitem(d, key)'
 def ll_dict_setitem(d, key, value):
     hash = d.keyhash(key)
     i = ll_dict_lookup(d, key, hash)
+    return _ll_dict_setitem_lookup_done(d, key, value, hash, i)
+ll_dict_setitem.oopspec = 'dict.setitem(d, key, value)'
+
+def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     valid = (i & HIGHEST_BIT) == 0
     i = i & MASK
     everused = d.entries.everused(i)
@@ -452,7 +456,6 @@ def ll_dict_setitem(d, key, value):
         d.num_pristine_entries -= 1
         if d.num_pristine_entries <= len(d.entries) / 3:
             ll_dict_resize(d)
-ll_dict_setitem.oopspec = 'dict.setitem(d, key, value)'
 
 def ll_dict_insertclean(d, key, value, hash):
     # Internal routine used by ll_dict_resize() to insert an item which is
@@ -722,12 +725,13 @@ def ll_get(dict, key, default):
 ll_get.oopspec = 'dict.get(dict, key, default)'
 
 def ll_setdefault(dict, key, default):
-    i = ll_dict_lookup(dict, key, dict.keyhash(key))
+    hash = dict.keyhash(key)
+    i = ll_dict_lookup(dict, key, hash)
     entries = dict.entries
     if not i & HIGHEST_BIT:
         return entries[i].value
     else:
-        ll_dict_setitem(dict, key, default)
+        _ll_dict_setitem_lookup_done(dict, key, default, hash, i)
         return default
 ll_setdefault.oopspec = 'dict.setdefault(dict, key, default)'
 
@@ -771,7 +775,10 @@ def ll_update(dic1, dic2):
     while i < d2len:
         if entries.valid(i):
             entry = entries[i]
-            ll_dict_setitem(dic1, entry.key, entry.value)
+            hash = entries.hash(i)
+            key = entry.key
+            j = ll_dict_lookup(dic1, key, hash)
+            _ll_dict_setitem_lookup_done(dic1, key, entry.value, hash, j)
         i += 1
 ll_update.oopspec = 'dict.update(dic1, dic2)'
 
