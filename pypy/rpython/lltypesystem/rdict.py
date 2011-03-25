@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
-from pypy.rlib import objectmodel
+from pypy.rlib import objectmodel, jit
 from pypy.rpython import rmodel
 
 HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
@@ -408,6 +408,10 @@ def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
+@jit.dont_look_inside
+def ll_get_value(d, i):
+    return d.entries[i].value
+
 def ll_keyhash_custom(d, key):
     DICT = lltype.typeOf(d).TO
     return hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
@@ -426,17 +430,16 @@ def ll_dict_is_true(d):
 def ll_dict_getitem(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
     if not i & HIGHEST_BIT:
-        return d.entries[i].value
+        return ll_get_value(d, i)
     else:
         raise KeyError
-ll_dict_getitem.oopspec = 'dict.getitem(d, key)'
 
 def ll_dict_setitem(d, key, value):
     hash = d.keyhash(key)
     i = ll_dict_lookup(d, key, hash)
     return _ll_dict_setitem_lookup_done(d, key, value, hash, i)
-ll_dict_setitem.oopspec = 'dict.setitem(d, key, value)'
 
+@jit.dont_look_inside
 def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     valid = (i & HIGHEST_BIT) == 0
     i = i & MASK
@@ -717,23 +720,19 @@ ll_dictnext_group = {'keys'  : _make_ll_dictnext('keys'),
 
 def ll_get(dict, key, default):
     i = ll_dict_lookup(dict, key, dict.keyhash(key))
-    entries = dict.entries
     if not i & HIGHEST_BIT:
-        return entries[i].value
+        return ll_get_value(dict, i)
     else:
         return default
-ll_get.oopspec = 'dict.get(dict, key, default)'
 
 def ll_setdefault(dict, key, default):
     hash = dict.keyhash(key)
     i = ll_dict_lookup(dict, key, hash)
-    entries = dict.entries
     if not i & HIGHEST_BIT:
-        return entries[i].value
+        return ll_get_value(dict, i)
     else:
         _ll_dict_setitem_lookup_done(dict, key, default, hash, i)
         return default
-ll_setdefault.oopspec = 'dict.setdefault(dict, key, default)'
 
 def ll_copy(dict):
     DICT = lltype.typeOf(dict).TO
@@ -829,7 +828,6 @@ ll_dict_items  = _make_ll_keys_values_items('items')
 def ll_contains(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
     return not i & HIGHEST_BIT
-ll_contains.oopspec = 'dict.contains(d, key)'
 
 POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Signed))
 global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
