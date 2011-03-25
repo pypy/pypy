@@ -207,10 +207,10 @@ shape_to_ffi_type.typemap =  {
     'Q' : _ffi.types.ulonglong,
     'f' : _ffi.types.float,
     'd' : _ffi.types.double,
-    's' : _ffi.types.pointer,
-    'P' : _ffi.types.pointer,
-    'z' : _ffi.types.pointer,
-    'O' : _ffi.types.pointer,
-    'Z' : _ffi.types.pointer,
+    's' : _ffi.types.void_p,
+    'P' : _ffi.types.void_p,
+    'z' : _ffi.types.void_p,
+    'O' : _ffi.types.void_p,
+    'Z' : _ffi.types.void_p,
     }
 
