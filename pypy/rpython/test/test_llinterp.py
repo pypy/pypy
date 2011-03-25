@@ -658,3 +658,25 @@ def test_scoped_allocator():
         assert x == -42
 
     res = interpret(f, [])
+
+def test_raising_llimpl():
+    from pypy.rpython.extfunc import register_external
+
+    def external():
+        pass
+    
+    def raising():
+        raise OSError(15, "abcd")
+    
+    ext = register_external(external, [], llimpl=raising, llfakeimpl=raising)
+    
+    def f():
+        # this is a useful llfakeimpl that raises an exception
+        try:
+            external()
+            return True
+        except OSError:
+            return False
+
+    res = interpret(f, [])
+    assert not res
