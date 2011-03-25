@@ -121,7 +121,7 @@ class _Pointer(_CData):
         # for now, we always allow types.pointer, else a lot of tests
         # break. We need to rethink how pointers are represented, though
         if my_ffitype.deref_pointer() != ffitype.deref_pointer() and \
-                ffitype is not _ffi.types.pointer:
+                ffitype is not _ffi.types.void_p:
             raise ArgumentError, "expected %s instance, got %s" % (type(self), ffitype)
         return self._get_buffer_value()
 
