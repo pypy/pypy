@@ -12,6 +12,8 @@ pypy/_cache
 pypy/doc/*.html
 pypy/doc/config/*.html
 pypy/doc/discussion/*.html
+pypy/module/cpyext/src/*.o
+pypy/module/cpyext/test/*.o
 pypy/module/test_lib_pypy/ctypes_tests/*.o
 pypy/translator/c/src/dtoa.o
 pypy/translator/goal/pypy-c
