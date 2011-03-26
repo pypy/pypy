@@ -5609,14 +5609,14 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         p1 = newstr(1)
         strsetitem(p1, 0, i1)
         p2 = newstr(1)
-        strsetitem(p1, 0, i2)
+        strsetitem(p2, 0, i2)
         i0 = call(0, p1, p2, descr=strequaldescr)
         escape(i0)
-        jump(i1)
+        jump(i1, i2)
         """
         preamble = """
         [i1, i2]
-        i0 = int_eq(i1, i2)     # ord('x')
+        i0 = int_eq(i1, i2)
         escape(i0)
         jump(i1, i2, i0)
         """
