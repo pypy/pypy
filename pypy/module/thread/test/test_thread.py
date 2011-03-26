@@ -225,7 +225,7 @@ class AppTestThread(GenericTestThread):
 
         def busy_wait():
             for x in range(1000):
-                pass
+                time.sleep(0.01)
 
         # This is normally called by app_main.py
         signal.signal(signal.SIGINT, signal.default_int_handler)

@@ -1126,7 +1126,7 @@ def appdef(source, applevel=ApplevelClass, filename=None):
     """
     if not isinstance(source, str):
         source = py.std.inspect.getsource(source).lstrip()
-        while source.startswith('@py.test.mark.'):
+        while source.startswith(('@py.test.mark.', '@pytest.mark.')):
             # these decorators are known to return the same function
             # object, we may ignore them
             assert '\n' in source

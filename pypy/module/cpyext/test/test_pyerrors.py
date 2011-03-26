@@ -96,6 +96,10 @@ class TestExceptions(BaseApiTest):
         out, err = capfd.readouterr()
         assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
 
+    def test_ExceptionInstance_Class(self, space, api):
+        instance = space.call_function(space.w_ValueError)
+        assert api.PyExceptionInstance_Class(instance) is space.w_ValueError
+
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)

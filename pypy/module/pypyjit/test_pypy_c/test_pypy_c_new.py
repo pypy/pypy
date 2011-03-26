@@ -1012,7 +1012,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         def main(n):
             i = 1
             while i < n:
-                i += len(xrange(i)) / i
+                i += len(xrange(i+1)) - i
             return i
 
         log = self.run(main, [10000])
@@ -1023,17 +1023,16 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_true(i10, descr=<Guard3>)
             # This can be improved if the JIT realized the lookup of i5 produces
             # a constant and thus can be removed entirely
-            i12 = int_sub(i5, 1)
-            i13 = uint_floordiv(i12, i7)
+            i120 = int_add(i5, 1)
+            i140 = int_lt(0, i120)
+            guard_true(i140, descr=<Guard4>)
+            i13 = uint_floordiv(i5, i7)
             i15 = int_add(i13, 1)
             i17 = int_lt(i15, 0)
-            guard_false(i17, descr=<Guard4>)
-            i18 = int_floordiv(i15, i5)
-            i19 = int_xor(i15, i5)
-            i20 = int_mod(i15, i5)
-            i21 = int_is_true(i20)
-            i22 = int_add_ovf(i5, i18)
-            guard_no_overflow(descr=<Guard5>)
+            guard_false(i17, descr=<Guard5>)
+            i20 = int_sub(i15, i5)
+            i21 = int_add_ovf(i5, i20)
+            guard_no_overflow(descr=<Guard6>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i22, i6, i7, p8, p9, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, descr=<Loop0>)
         """)

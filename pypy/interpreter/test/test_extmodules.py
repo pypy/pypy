@@ -1,4 +1,5 @@
 import sys
+import pytest
 
 from pypy.config.pypyoption import get_pypy_config
 from pypy.objspace.std import StdObjSpace
@@ -60,6 +61,7 @@ class AppTestExtModules(object):
     def teardown_class(cls):
         sys.path[:] = old_sys_path
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_import(self):
         import extmod
         assert extmod.__file__.endswith('extmod')

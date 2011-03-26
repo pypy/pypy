@@ -39,6 +39,10 @@ def PyErr_Clear(space):
     state = space.fromcache(State)
     state.clear_exception()
 
+@cpython_api([PyObject], PyObject)
+def PyExceptionInstance_Class(space, w_obj):
+    return space.type(w_obj)
+
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     """Retrieve the error indicator into three variables whose addresses are passed.
