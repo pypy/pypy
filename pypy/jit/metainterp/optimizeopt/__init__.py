@@ -26,6 +26,7 @@ ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
 PARAMETERS['enable_opts'] = ALL_OPTS_NAMES
 
 def optimize_loop_1(metainterp_sd, loop, enable_opts,
+                    inline_short_preamble=True, retrace=None):
     """Optimize loop.operations to remove internal overheadish operations.
     """
     optimizations = []
@@ -44,7 +45,7 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
         optimizations.append(OptSimplify())
 
     if inline_short_preamble:
-        optimizations = [OptInlineShortPreamble(retraced)] + optimizations
+        optimizations = [OptInlineShortPreamble(retrace)] + optimizations
 
     if unroll:
         optimize_unroll(metainterp_sd, loop, optimizations)
@@ -61,7 +62,7 @@ def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
     except KeyError:
         pass
     optimize_loop_1(metainterp_sd, bridge, enable_opts,
-                    inline_short_preamble, retraced)
+                    inline_short_preamble, retrace)
 
 if __name__ == '__main__':
     print ALL_OPTS_NAMES
