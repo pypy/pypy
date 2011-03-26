@@ -83,9 +83,9 @@ class IntOpAsslember(object):
     emit_op_int_and = gen_emit_op_ri('AND')
     emit_op_int_or = gen_emit_op_ri('ORR')
     emit_op_int_xor = gen_emit_op_ri('EOR')
-    emit_op_int_lshift = gen_emit_op_ri('LSL', imm_size=0x1F, allow_zero=False, commutative=False)
-    emit_op_int_rshift = gen_emit_op_ri('ASR', imm_size=0x1F, allow_zero=False, commutative=False)
-    emit_op_uint_rshift = gen_emit_op_ri('LSR', imm_size=0x1F, allow_zero=False, commutative=False)
+    emit_op_int_lshift = gen_emit_op_ri('LSL')
+    emit_op_int_rshift = gen_emit_op_ri('ASR')
+    emit_op_uint_rshift = gen_emit_op_ri('LSR')
 
     emit_op_int_lt = gen_emit_cmp_op(c.LT)
     emit_op_int_le = gen_emit_cmp_op(c.LE)

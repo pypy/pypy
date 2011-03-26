@@ -13,7 +13,7 @@ def gen_emit_op_unary_cmp(true_cond, false_cond):
         return fcond
     return f
 
-def gen_emit_op_ri(opname, imm_size=0xFF, commutative=True, allow_zero=True):
+def gen_emit_op_ri(opname):
     ri_op = getattr(AbstractARMv7Builder, '%s_ri' % opname)
     rr_op = getattr(AbstractARMv7Builder, '%s_rr' % opname)
     def f(self, op, arglocs, regalloc, fcond):
@@ -30,9 +30,15 @@ def gen_emit_op_by_helper_call(opname):
     helper = getattr(AbstractARMv7Builder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
-        self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
+        if op.result:
+            self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
+        else:
+            self.mc.PUSH([reg.value for reg in r.caller_resp])
         helper(self.mc, fcond)
-        self.mc.POP([reg.value for reg in r.caller_resp][1:])
+        if op.result:
+            self.mc.POP([reg.value for reg in r.caller_resp][1:])
+        else:
+            self.mc.POP([reg.value for reg in r.caller_resp])
         return fcond
     return f
 
