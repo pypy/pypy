@@ -5558,6 +5558,30 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected, preamble)
 
+    def test_str_equal_nonconst(self):
+        ops = """
+        [i1, i2]
+        p1 = newstr(1)
+        strsetitem(p1, 0, i1)
+        p2 = newstr(1)
+        strsetitem(p1, 0, i2)
+        i0 = call(0, p1, p2, descr=strequaldescr)
+        escape(i0)
+        jump(i1)
+        """
+        preamble = """
+        [i1, i2]
+        i0 = int_eq(i1, i2)     # ord('x')
+        escape(i0)
+        jump(i1, i2, i0)
+        """
+        expected = """
+        [i1, i2, i0]
+        escape(i0)
+        jump(i1, i2, i0)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected, preamble)
+
     def test_str_equal_chars2(self):
         ops = """
         [i1, i2]
