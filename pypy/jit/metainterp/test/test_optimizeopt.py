@@ -5089,7 +5089,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_strunicode_loop(ops, expected, expected)
 
-    def test_str_slice_len_surviving(self):
+    def test_str_slice_len_surviving1(self):
         ops = """
         [p1, i1, i2, i3]
         p2 = call(0, p1, i1, i2, descr=strslicedescr)
@@ -5102,6 +5102,32 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p1, i1, i2, i4)
         """
         self.optimize_strunicode_loop(ops, expected, expected)
+
+    def test_str_slice_len_surviving2(self):
+        ops = """
+        [p1, i1, i2, p2]
+        i5 = getfield_gc(p2, descr=valuedescr)
+        escape(i5)
+        p3 = call(0, p1, i1, i2, descr=strslicedescr)
+        i4 = strlen(p3)
+        setfield_gc(p2, i4, descr=valuedescr)
+        jump(p1, i1, i2, p2)
+        """
+        preamble = """
+        [p1, i1, i2, p2]
+        i5 = getfield_gc(p2, descr=valuedescr)
+        escape(i5)
+        i4 = int_sub(i2, i1)
+        setfield_gc(p2, i4, descr=valuedescr)
+        jump(p1, i1, i2, p2, i4)
+        """
+        expected = """
+        [p1, i1, i2, p2, i5]
+        escape(i5)
+        setfield_gc(p2, i5, descr=valuedescr)
+        jump(p1, i1, i2, p2, i5)
+        """
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_str_slice_1(self):
         ops = """
