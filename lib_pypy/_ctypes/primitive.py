@@ -1,3 +1,4 @@
+import _ffi
 import _rawffi
 import weakref
 import sys
@@ -140,6 +141,7 @@ class SimpleType(_CDataMeta):
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
+            result._ffiargtype = _ffi.types.Pointer(_ffi.types.char)
 
         elif tp == 'Z':
             # c_wchar_p
@@ -163,6 +165,7 @@ class SimpleType(_CDataMeta):
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
+            result._ffiargtype = _ffi.types.Pointer(_ffi.types.unichar)
 
         elif tp == 'P':
             # c_void_p
@@ -251,7 +254,7 @@ class SimpleType(_CDataMeta):
 
         # make pointer-types compatible with the _ffi fast path
         if result._is_pointer_like():
-            def _as_ffi_pointer_(self):
+            def _as_ffi_pointer_(self, ffitype):
                 return self._get_buffer_value()
             result._as_ffi_pointer_ = _as_ffi_pointer_
             

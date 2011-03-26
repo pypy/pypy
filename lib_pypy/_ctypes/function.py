@@ -2,7 +2,7 @@
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.primitive import SimpleType, _SimpleCData
 from _ctypes.basics import ArgumentError, keepalive_key
-from _ctypes.basics import shape_to_ffi_type, is_struct_shape
+from _ctypes.basics import is_struct_shape
 from _ctypes.builtin import set_errno, set_last_error
 import _rawffi
 import _ffi
@@ -210,8 +210,11 @@ class CFuncPtr(_CData):
         # Direct construction from raw address
         if isinstance(argument, (int, long)) and not argsl:
             self._set_address(argument)
-            argshapes, resshape = self._ffishapes(self._argtypes_, self._restype_)
-            self._ptr = self._getfuncptr_fromaddress(argshapes, resshape)
+            restype = self._restype_
+            if restype is None:
+                import ctypes
+                restype = ctypes.c_int
+            self._ptr = self._getfuncptr_fromaddress(self._argtypes_, restype)
             return
 
         
@@ -363,10 +366,10 @@ class CFuncPtr(_CData):
         #
         return self._build_result(self._restype_, result, newargs)
 
-    def _getfuncptr_fromaddress(self, argshapes, resshape):
+    def _getfuncptr_fromaddress(self, argtypes, restype):
         address = self._get_address()
-        ffiargs = [shape_to_ffi_type(shape) for shape in argshapes]
-        ffires = shape_to_ffi_type(resshape)
+        ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
+        ffires = restype.get_ffi_argtype()
         return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires)
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
@@ -375,10 +378,8 @@ class CFuncPtr(_CData):
         if restype is None or not isinstance(restype, _CDataMeta):
             import ctypes
             restype = ctypes.c_int
-        argshapes = [arg._ffiargshape for arg in argtypes]
-        resshape = restype._ffiargshape
         if self._buffer is not None:
-            ptr = self._getfuncptr_fromaddress(argshapes, resshape)
+            ptr = self._getfuncptr_fromaddress(argtypes, restype)
             if argtypes == self._argtypes_:
                 self._ptr = ptr
             return ptr
@@ -388,13 +389,15 @@ class CFuncPtr(_CData):
             if not thisarg:
                 raise ValueError("COM method call without VTable")
             ptr = thisarg[self._com_index - 0x1000]
+            argshapes = [arg._ffiargshape for arg in argtypes]
+            resshape = restype._ffiargshape
             return _rawffi.FuncPtr(ptr, argshapes, resshape, self._flags_)
         
         cdll = self.dll._handle
         try:
             #return cdll.ptr(self.name, argshapes, resshape, self._flags_)
-            ffi_argtypes = [shape_to_ffi_type(shape) for shape in argshapes]
-            ffi_restype = shape_to_ffi_type(resshape)
+            ffi_argtypes = [argtype.get_ffi_argtype() for argtype in argtypes]
+            ffi_restype = restype.get_ffi_argtype()
             self._ptr = cdll.getfunc(self.name, ffi_argtypes, ffi_restype)
             return self._ptr
         except AttributeError:

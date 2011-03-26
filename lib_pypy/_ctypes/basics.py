@@ -50,6 +50,11 @@ class _CDataMeta(type):
     def get_ffi_param(self, value):
         return self.from_param(value)._to_ffi_param()
 
+    def get_ffi_argtype(self):
+        if self._ffiargtype:
+            return self._ffiargtype
+        return _shape_to_ffi_type(self._ffiargshape)
+
     def _CData_output(self, resbuffer, base=None, index=-1):
         #assert isinstance(resbuffer, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.
@@ -103,6 +108,7 @@ class _CData(object):
     """
     __metaclass__ = _CDataMeta
     _objects = None
+    _ffiargtype = None
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
@@ -181,9 +187,9 @@ def is_struct_shape(shape):
             isinstance(shape[0], _rawffi.Structure) and
             shape[1] == 1)
 
-def shape_to_ffi_type(shape):
+def _shape_to_ffi_type(shape):
     try:
-        return shape_to_ffi_type.typemap[shape]
+        return _shape_to_ffi_type.typemap[shape]
     except KeyError:
         pass
     if is_struct_shape(shape):
@@ -192,7 +198,7 @@ def shape_to_ffi_type(shape):
     assert False, 'unknown shape %s' % (shape,)
 
 
-shape_to_ffi_type.typemap =  {
+_shape_to_ffi_type.typemap =  {
     'c' : _ffi.types.char,
     'b' : _ffi.types.sbyte,
     'B' : _ffi.types.ubyte,
@@ -207,10 +213,10 @@ shape_to_ffi_type.typemap =  {
     'Q' : _ffi.types.ulonglong,
     'f' : _ffi.types.float,
     'd' : _ffi.types.double,
-    's' : _ffi.types.pointer,
-    'P' : _ffi.types.pointer,
-    'z' : _ffi.types.pointer,
-    'O' : _ffi.types.pointer,
-    'Z' : _ffi.types.pointer,
+    's' : _ffi.types.void_p,
+    'P' : _ffi.types.void_p,
+    'z' : _ffi.types.void_p,
+    'O' : _ffi.types.void_p,
+    'Z' : _ffi.types.void_p,
     }
 
