@@ -57,7 +57,7 @@ class OptValue(object):
         new = self.reconstruct_for_next_iteration(optimizer)
         if new is None:
             if force_if_needed:
-                new = optimizer.OptValue(self.force_box())
+                new = OptValue(self.force_box())
             else:
                 return None
         valuemap[self] = new
@@ -241,7 +241,8 @@ class Optimization(object):
     def turned_constant(self, value):
         pass
 
-    def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
+    def reconstruct_for_next_iteration(self, surviving_boxes=None,
+                                       optimizer=None, valuemap=None):
         #return self.__class__()
         raise NotImplementedError
 
