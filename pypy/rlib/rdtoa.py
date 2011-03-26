@@ -11,20 +11,16 @@ cdir = py.path.local(pypydir) / 'translator' / 'c'
 include_dirs = [cdir]
 
 # set the word endianness based on the host's endianness
+# and the C double's endianness (which should be equal)
+if hasattr(float, '__getformat__'):
+    assert float.__getformat__('double') == 'IEEE, %s-endian' % sys.byteorder
 if sys.byteorder == 'little':
-    source_file = []
+    source_file = ['#define DOUBLE_IS_LITTLE_ENDIAN_IEEE754']
 elif sys.byteorder == 'big':
-    source_file = ['#define WORDS_BIGENDIAN']
+    source_file = ['#define WORDS_BIGENDIAN',
+                   '#define DOUBLE_IS_BIG_ENDIAN_IEEE754']
 else:
     raise AssertionError(sys.byteorder)
-
-# ...and the C double's endianness
-if float.__getformat__('double') == 'IEEE, little-endian':
-    source_file.append('#define DOUBLE_IS_LITTLE_ENDIAN_IEEE754')
-elif float.__getformat__('double') == 'IEEE, big-endian':
-    source_file.append('#define DOUBLE_IS_BIG_ENDIAN_IEEE754')
-else:
-    raise AssertionError(float.__getformat__())
 
 source_file.append('#include "src/dtoa.c"')
 source_file = '\n\n'.join(source_file)
