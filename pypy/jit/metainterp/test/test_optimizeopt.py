@@ -4978,7 +4978,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         copystrcontent(p2, p3, 0, i4, i5)
         jump(p2, p3)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_concat_vstr2_str(self):
         ops = """
@@ -5001,7 +5001,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         copystrcontent(p2, p3, 0, 2, i4)
         jump(i1, i0, p3)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_concat_str_vstr2(self):
         ops = """
@@ -5025,7 +5025,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i6 = int_add(i5, 1)      # will be killed by the backend
         jump(i1, i0, p3)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_concat_str_str_str(self):
         ops = """
@@ -5052,7 +5052,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         copystrcontent(p3, p5, 0, i12b, i3b)
         jump(p2, p3, p5)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_concat_str_cstr1(self):
         ops = """
@@ -5071,7 +5071,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i5 = int_add(i4, 1)      # will be killed by the backend
         jump(p3)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_concat_consts(self):
         ops = """
@@ -5082,18 +5082,12 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         escape(p3)
         jump()
         """
-        preamble = """
-        []
-        p3 = call(0, s"ab", s"cde", descr=strconcatdescr)
-        escape(p3)
-        jump()
-        """
         expected = """
         []
         escape(s"abcde")
         jump()
         """
-        self.optimize_strunicode_loop(ops, expected, preamble)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_slice_1(self):
         ops = """
@@ -5108,7 +5102,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         copystrcontent(p1, p2, i1, 0, i3)
         jump(p2, i1, i2)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_slice_2(self):
         ops = """
@@ -5122,7 +5116,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         copystrcontent(p1, p2, 0, 0, i2)
         jump(p2, i2)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_slice_3(self):
         ops = """
@@ -5140,7 +5134,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         copystrcontent(p1, p3, i6, 0, i5)
         jump(p3, i1, i2, i3, i4)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_slice_getitem1(self):
         ops = """
@@ -5158,7 +5152,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         escape(i4)
         jump(p1, i1, i2, i3)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_slice_plain(self):
         ops = """
@@ -5176,7 +5170,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         escape(i4)
         jump(i3, i4)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_slice_concat(self):
         ops = """
@@ -5197,7 +5191,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         copystrcontent(p2, p4, 0, i3, i4b)
         jump(p4, i1, i2, p2)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_strgetitem_small(self):
         ops = """
@@ -5214,7 +5208,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i1 = strgetitem(p0, i0)
         jump(p0, i0)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, expected)
 
     def test_strlen_positive(self):
         ops = """
