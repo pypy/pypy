@@ -127,12 +127,15 @@ class TestTypeDef:
                                checks[2], checks[3]))
         subclasses = {}
         for key, subcls in typedef._subclass_cache.items():
+            if key[0] is not space.config:
+                continue
             cls = key[1]
             subclasses.setdefault(cls, {})
-            subclasses[cls][subcls] = True
+            prevsubcls = subclasses[cls].setdefault(subcls.__name__, subcls)
+            assert subcls is prevsubcls
         for cls, set in subclasses.items():
             assert len(set) <= 6, "%s has %d subclasses:\n%r" % (
-                cls, len(set), [subcls.__name__ for subcls in set])
+                cls, len(set), list(set))
 
     def test_getsetproperty(self):
         class W_SomeType(Wrappable):

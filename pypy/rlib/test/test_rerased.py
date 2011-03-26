@@ -120,6 +120,28 @@ def test_prebuilt_erased():
     x = interpret(f, [])
     assert x == 16 + 42 + 1
 
+def test_prebuilt_erased_in_instance():
+    erase_empty, unerase_empty = new_erasing_pair("empty")
+    class FakeList(object):
+        pass
+
+    x1 = X()
+    x1.foobar = 42
+    l1 = FakeList()
+    l1.storage = eraseX(x1)
+    l2 = FakeList()
+    l2.storage = erase_empty(None)
+
+    def f():
+        #assert is_integer(e1)
+        #assert not is_integer(e2)
+        x1.foobar += 1
+        x2 = uneraseX(l1.storage).foobar + (unerase_empty(l2.storage) is None)
+        return x2
+    x = interpret(f, [])
+    assert x == 43 + True
+
+
 def test_overflow():
     def f(i):
         try:

@@ -52,6 +52,7 @@ syntax: regexp
 ^pypy/doc/discussion/.+\.html$
 ^include/.+\.h$
 ^include/.+\.inl$
+^pypy/doc/_build/.*$
 ^pypy/doc/config/.+\.html$
 ^pypy/doc/config/style\.css$
 ^pypy/doc/jit/.+\.html$

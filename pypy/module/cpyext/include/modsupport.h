@@ -38,7 +38,9 @@ int PyModule_AddStringConstant(PyObject *m, const char *name, const char *value)
 
 
 PyObject * Py_BuildValue(const char *, ...);
+PyObject * Py_VaBuildValue(const char *, va_list);
 PyObject * _Py_BuildValue_SizeT(const char *, ...);
+PyObject * _Py_VaBuildValue_SizeT(const char *, va_list);
 int _PyArg_NoKeywords(const char *funcname, PyObject *kw);
 
 int PyArg_UnpackTuple(PyObject *args, const char *name, Py_ssize_t min, Py_ssize_t max, ...);

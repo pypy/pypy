@@ -2,14 +2,12 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
     PyVarObject, Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite, build_type_checkers)
+    Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    track_reference, get_typedescr, RefcountState)
+    track_reference, get_typedescr, _Py_NewReference, RefcountState)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
-from pypy.module._file.interp_file import W_File
-from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.error import OperationError
 import pypy.module.__builtin__.operation as operation
@@ -185,26 +183,17 @@ def PyObject_DelItem(space, w_obj, w_key):
     return 0
 
 @cpython_api([PyObject, PyTypeObjectPtr], PyObject)
-def PyObject_Init(space, py_obj, type):
+def PyObject_Init(space, obj, type):
     """Initialize a newly-allocated object op with its type and initial
     reference.  Returns the initialized object.  If type indicates that the
     object participates in the cyclic garbage detector, it is added to the
     detector's set of observed objects. Other fields of the object are not
     affected."""
-    if not py_obj:
+    if not obj:
         PyErr_NoMemory(space)
-    py_obj.c_ob_type = type
-    py_obj.c_ob_refcnt = 1
-    w_type = from_ref(space, rffi.cast(PyObject, type))
-    assert isinstance(w_type, W_TypeObject)
-    if w_type.is_cpytype():
-        w_obj = space.allocate_instance(W_ObjectObject, w_type)
-        track_reference(space, py_obj, w_obj)
-        state = space.fromcache(RefcountState)
-        state.set_lifeline(w_obj, py_obj)
-    else:
-        assert False, "Please add more cases in PyObject_Init"
-    return py_obj
+    obj.c_ob_type = type
+    _Py_NewReference(space, obj)
+    return obj
 
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
 def PyObject_InitVar(space, py_obj, type, size):
@@ -429,40 +418,3 @@ def PyObject_Print(space, w_obj, fp, flags):
         rffi.free_nonmovingbuffer(data, buf)
     return 0
 
-PyFile_Check, PyFile_CheckExact = build_type_checkers("File", W_File)
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyFile_GetLine(space, w_obj, n):
-    """
-    Equivalent to p.readline([n]), this function reads one line from the
-    object p.  p may be a file object or any object with a readline()
-    method.  If n is 0, exactly one line is read, regardless of the length of
-    the line.  If n is greater than 0, no more than n bytes will be read
-    from the file; a partial line can be returned.  In both cases, an empty string
-    is returned if the end of the file is reached immediately.  If n is less than
-    0, however, one line is read regardless of length, but EOFError is
-    raised if the end of the file is reached immediately."""
-    try:
-        w_readline = space.getattr(w_obj, space.wrap('readline'))
-    except OperationError:
-        raise OperationError(
-            space.w_TypeError, space.wrap(
-            "argument must be a file, or have a readline() method."))
-
-    n = rffi.cast(lltype.Signed, n)
-    if space.is_true(space.gt(space.wrap(n), space.wrap(0))):
-        return space.call_function(w_readline, space.wrap(n))
-    elif space.is_true(space.lt(space.wrap(n), space.wrap(0))):
-        return space.call_function(w_readline)
-    else:
-        # XXX Raise EOFError as specified
-        return space.call_function(w_readline)
-@cpython_api([CONST_STRING, CONST_STRING], PyObject)
-def PyFile_FromString(space, filename, mode):
-    """
-    On success, return a new file object that is opened on the file given by
-    filename, with a file mode given by mode, where mode has the same
-    semantics as the standard C routine fopen().  On failure, return NULL."""
-    w_filename = space.wrap(rffi.charp2str(filename))
-    w_mode = space.wrap(rffi.charp2str(mode))
-    return space.call_method(space.builtin, 'file', w_filename, w_mode)

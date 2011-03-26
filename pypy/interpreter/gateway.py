@@ -13,7 +13,7 @@ from pypy.tool.compat import md5
 NoneNotWrapped = object()
 
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.interpreter.error import OperationError 
+from pypy.interpreter.error import OperationError
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, ClassMethod
 from pypy.interpreter.function import FunctionWithFixedCode
@@ -25,7 +25,7 @@ from pypy.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from pypy.rlib import rstackovf
 from pypy.rlib.objectmodel import we_are_translated
 
-# internal non-translatable parts: 
+# internal non-translatable parts:
 import py
 
 class SignatureBuilder(object):
@@ -78,13 +78,13 @@ class UnwrapSpecRecipe(object):
         dispatch = self.dispatch
         for el in unwrap_spec:
             dispatch(el, *extra)
-            
+
 class UnwrapSpecEmit(UnwrapSpecRecipe):
 
     def __init__(self):
         self.n = 0
         self.miniglobals = {}
-        
+
     def succ(self):
         n = self.n
         self.n += 1
@@ -94,7 +94,7 @@ class UnwrapSpecEmit(UnwrapSpecRecipe):
         name = obj.__name__
         self.miniglobals[name] = obj
         return name
-    
+
 #________________________________________________________________
 
 class UnwrapSpec_Check(UnwrapSpecRecipe):
@@ -147,7 +147,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
             "unwrapped %s argument %s of built-in function %r should "
             "not start with 'w_'" % (name, argname, self.func))
         app_sig.append(argname)
-        
+
     def visit__ObjSpace(self, el, app_sig):
         self.orig_arg()
 
@@ -173,7 +173,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
             (argname, self.func))
         assert app_sig.varargname is None,(
             "built-in function %r has conflicting rest args specs" % self.func)
-        app_sig.varargname = argname[:-2]    
+        app_sig.varargname = argname[:-2]
 
     def visit_w_args(self, el, app_sig):
         argname = self.orig_arg()
@@ -199,7 +199,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def scopenext(self):
         return "scope_w[%d]" % self.succ()
-    
+
     def visit_function(self, (func, cls)):
         self.run_args.append("%s(%s)" % (self.use(func),
                                          self.scopenext()))
@@ -207,7 +207,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_self(self, typ):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
                              (self.use(typ), self.scopenext()))
-        
+
     def visit__Wrappable(self, typ):
         self.run_args.append("space.interp_w(%s, %s)" % (self.use(typ),
                                                          self.scopenext()))
@@ -265,7 +265,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
                 "unexpected: same spec, different run_args")
             return activation_factory_cls
         except KeyError:
-            parts = []          
+            parts = []
             for el in unwrap_spec:
                 if isinstance(el, tuple):
                     parts.append(''.join([getattr(subel, '__name__', subel)
@@ -276,7 +276,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
             #print label
 
             d = {}
-            source = """if 1: 
+            source = """if 1:
                 def _run(self, space, scope_w):
                     return self.behavior(%s)
                 \n""" % (', '.join(self.run_args),)
@@ -326,7 +326,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.finger += 1
         if self.n > 4:
             raise FastFuncNotSupported
-        
+
     def nextarg(self):
         arg = "w%d" % self.succ()
         self.args.append(arg)
@@ -405,7 +405,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                     raise FastFuncNotSupported
             d = {}
             unwrap_info.miniglobals['func'] = func
-            source = """if 1: 
+            source = """if 1:
                 def fastfunc_%s_%d(%s):
                     return func(%s)
                 \n""" % (func.__name__, narg,
@@ -511,7 +511,7 @@ class BuiltinCode(eval.Code):
         # 'w_args' for rest arguments passed as wrapped tuple
         # str,int,float: unwrap argument as such type
         # (function, cls) use function to check/unwrap argument of type cls
-        
+
         # First extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
         argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
@@ -532,7 +532,7 @@ class BuiltinCode(eval.Code):
         else:
             assert descrmismatch is None, (
                 "descrmismatch without a self-type specified")
- 
+
 
         orig_sig = SignatureBuilder(func, argnames, varargname, kwargname)
         app_sig = SignatureBuilder(func)
@@ -594,7 +594,7 @@ class BuiltinCode(eval.Code):
         space = func.space
         activation = self.activation
         scope_w = args.parse_obj(w_obj, func.name, self.sig,
-                                 func.defs_w, self.minargs)
+                                 func.defs, self.minargs)
         try:
             w_result = activation._run(space, scope_w)
         except DescrMismatch:
@@ -615,10 +615,10 @@ class BuiltinCode(eval.Code):
             if not we_are_translated():
                 raise
             raise e
-        except KeyboardInterrupt: 
+        except KeyboardInterrupt:
             raise OperationError(space.w_KeyboardInterrupt,
-                                 space.w_None) 
-        except MemoryError: 
+                                 space.w_None)
+        except MemoryError:
             raise OperationError(space.w_MemoryError, space.w_None)
         except rstackovf.StackOverflow, e:
             rstackovf.check_stack_overflow()
@@ -668,7 +668,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
 class BuiltinCode0(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 0
-    
+
     def fastcall_0(self, space, w_func):
         try:
             w_result = self.fastfunc_0(space)
@@ -684,7 +684,7 @@ class BuiltinCode0(BuiltinCode):
 class BuiltinCode1(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 1
-    
+
     def fastcall_1(self, space, w_func, w1):
         try:
             w_result = self.fastfunc_1(space, w1)
@@ -702,7 +702,7 @@ class BuiltinCode1(BuiltinCode):
 class BuiltinCode2(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 2
-    
+
     def fastcall_2(self, space, w_func, w1, w2):
         try:
             w_result = self.fastfunc_2(space, w1, w2)
@@ -720,7 +720,7 @@ class BuiltinCode2(BuiltinCode):
 class BuiltinCode3(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 3
-    
+
     def fastcall_3(self, space, func, w1, w2, w3):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
@@ -738,7 +738,7 @@ class BuiltinCode3(BuiltinCode):
 class BuiltinCode4(BuiltinCode):
     _immutable_ = True
     fast_natural_arity = 4
-    
+
     def fastcall_4(self, space, func, w1, w2, w3, w4):
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
@@ -770,7 +770,7 @@ class interp2app(Wrappable):
     NOT_RPYTHON_ATTRIBUTES = ['_staticdefs']
 
     instancecache = {}
-    
+
     def __new__(cls, f, app_name=None, unwrap_spec = None,
                 descrmismatch=None, as_classmethod=False):
 
@@ -846,17 +846,17 @@ class GatewayCache(SpaceCache):
         return fn
 
 
-# 
-# the next gateways are to be used only for 
-# temporary/initialization purposes 
-     
-class interp2app_temp(interp2app): 
+#
+# the next gateways are to be used only for
+# temporary/initialization purposes
+
+class interp2app_temp(interp2app):
     "NOT_RPYTHON"
-    def getcache(self, space): 
+    def getcache(self, space):
         return self.__dict__.setdefault(space, GatewayCache(space))
 
 
-# and now for something completely different ... 
+# and now for something completely different ...
 #
 
 class ApplevelClass:
@@ -896,14 +896,14 @@ class ApplevelClass:
         from pypy.interpreter.module import Module
         return Module(space, space.wrap(name), self.getwdict(space))
 
-    def wget(self, space, name): 
-        w_globals = self.getwdict(space) 
+    def wget(self, space, name):
+        w_globals = self.getwdict(space)
         return space.getitem(w_globals, space.wrap(name))
 
     def interphook(self, name):
         "NOT_RPYTHON"
         def appcaller(space, *args_w):
-            if not isinstance(space, ObjSpace): 
+            if not isinstance(space, ObjSpace):
                 raise TypeError("first argument must be a space instance.")
             # redirect if the space handles this specially
             # XXX can this be factored a bit less flow space dependently?
@@ -932,7 +932,7 @@ class ApplevelClass:
                                                       args.arguments_w)
             return space.call_args(w_func, args)
         def get_function(space):
-            w_func = self.wget(space, name) 
+            w_func = self.wget(space, name)
             return space.unwrap(w_func)
         appcaller = func_with_new_name(appcaller, name)
         appcaller.get_function = get_function
@@ -1123,15 +1123,15 @@ def appdef(source, applevel=ApplevelClass, filename=None):
     myfunc = appdef('''myfunc(x, y):
                            return x+y
                     ''')
-    """ 
-    if not isinstance(source, str): 
+    """
+    if not isinstance(source, str):
         source = py.std.inspect.getsource(source).lstrip()
-        while source.startswith('@py.test.mark.'):
+        while source.startswith(('@py.test.mark.', '@pytest.mark.')):
             # these decorators are known to return the same function
             # object, we may ignore them
             assert '\n' in source
             source = source[source.find('\n') + 1:].lstrip()
-        assert source.startswith("def "), "can only transform functions" 
+        assert source.startswith("def "), "can only transform functions"
         source = source[4:]
     p = source.find('(')
     assert p >= 0

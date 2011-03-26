@@ -1,6 +1,5 @@
 from ctypes import *
 import unittest
-from ctypes.test import xfail
 
 # IMPORTANT INFO:
 #
@@ -49,7 +48,6 @@ class CharPointersTestCase(unittest.TestCase):
         func.restype = c_long
         func.argtypes = None
 
-    @xfail
     def test_paramflags(self):
         # function returns c_void_p result,
         # and has a required parameter named 'input'

@@ -81,7 +81,6 @@ def desugar_isinstance(graph):
             return
         for i in range(len(block.operations) - 1, -1, -1):
             op = block.operations[i]
-            insert = []
             if op.opname == "isinstance":
                 args = [constant_isinstance, op.args[0], op.args[1]]
                 new_op = SpaceOperation("simple_call", args, op.result)

@@ -110,7 +110,7 @@ class Module(MixedModule):
             if _WIN:
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)
-                space.setattr(self, space.wrap("dllhandle"), w_handle)
+                space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
 
     def getmodule(self, name):
         space = self.space

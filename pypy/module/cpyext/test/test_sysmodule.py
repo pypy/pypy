@@ -14,6 +14,21 @@ class AppTestSysModule(AppTestCpythonExtensionBase):
         assert module.get("excepthook")
         assert not module.get("spam_spam_spam")
 
+    def test_writestdout(self):
+        module = self.import_extension('foo', [
+            ("writestdout", "METH_NOARGS",
+             """
+                 PySys_WriteStdout("format: %d\\n", 42);
+                 Py_RETURN_NONE;
+             """)])
+        import sys, StringIO
+        sys.stdout = StringIO.StringIO()
+        try:
+            module.writestdout()
+            assert sys.stdout.getvalue() == "format: 42\n"
+        finally:
+            sys.stdout = sys.__stdout__
+
 class TestSysModule(BaseApiTest):
     def test_sysmodule(self, space, api):
         buf = rffi.str2charp("last_tb")

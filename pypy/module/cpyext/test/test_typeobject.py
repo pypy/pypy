@@ -245,6 +245,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
 
+    def test_custom_allocation(self):
+        foo = self.import_module("foo")
+        obj = foo.newCustom()
+        assert type(obj) is foo.Custom
+        assert type(foo.Custom) is foo.MetaType
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):

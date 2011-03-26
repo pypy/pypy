@@ -73,6 +73,13 @@ def get_AST_new(node_class):
         return space.wrap(node)
     return func_with_new_name(generic_AST_new, "new_%s" % node_class.__name__)
 
+def AST_init(space, w_self, __args__):
+    args_w, kwargs_w = __args__.unpack()
+    if args_w and len(args_w) != 0:
+        w_err = space.wrap("_ast.AST constructor takes 0 positional arguments")
+        raise OperationError(space.w_TypeError, w_err)
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
 
 AST.typedef = typedef.TypeDef("AST",
     _fields=_FieldsWrapper([]),
@@ -82,8 +89,9 @@ AST.typedef = typedef.TypeDef("AST",
     __setstate__=interp2app(AST.setstate_w),
     __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
                                       typedef.descr_set_dict, cls=AST),
+    __new__=interp2app(get_AST_new(AST)),
+    __init__=interp2app(AST_init),
 )
-AST.typedef.acceptable_as_base_class = False
 
 
 def missing_field(space, state, required, host):
@@ -2953,8 +2961,8 @@ mod.typedef = typedef.TypeDef("mod",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(mod)),
 )
-mod.typedef.acceptable_as_base_class = False
 
 def Module_get_body(space, w_self):
     if not w_self.initialization_state & 1:
@@ -2981,7 +2989,7 @@ def Module_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Module constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Module constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Module_field_unroller:
@@ -2998,7 +3006,6 @@ Module.typedef = typedef.TypeDef("Module",
     __new__=interp2app(get_AST_new(Module)),
     __init__=interp2app(Module_init),
 )
-Module.typedef.acceptable_as_base_class = False
 
 def Interactive_get_body(space, w_self):
     if not w_self.initialization_state & 1:
@@ -3025,7 +3032,7 @@ def Interactive_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Interactive constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Interactive constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Interactive_field_unroller:
@@ -3042,7 +3049,6 @@ Interactive.typedef = typedef.TypeDef("Interactive",
     __new__=interp2app(get_AST_new(Interactive)),
     __init__=interp2app(Interactive_init),
 )
-Interactive.typedef.acceptable_as_base_class = False
 
 def Expression_get_body(space, w_self):
     if w_self.w_dict is not None:
@@ -3071,7 +3077,7 @@ def Expression_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Expression constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Expression constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Expression_field_unroller:
@@ -3088,7 +3094,6 @@ Expression.typedef = typedef.TypeDef("Expression",
     __new__=interp2app(get_AST_new(Expression)),
     __init__=interp2app(Expression_init),
 )
-Expression.typedef.acceptable_as_base_class = False
 
 def Suite_get_body(space, w_self):
     if not w_self.initialization_state & 1:
@@ -3115,7 +3120,7 @@ def Suite_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Suite constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Suite constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Suite_field_unroller:
@@ -3132,7 +3137,6 @@ Suite.typedef = typedef.TypeDef("Suite",
     __new__=interp2app(get_AST_new(Suite)),
     __init__=interp2app(Suite_init),
 )
-Suite.typedef.acceptable_as_base_class = False
 
 def stmt_get_lineno(space, w_self):
     if w_self.w_dict is not None:
@@ -3182,8 +3186,8 @@ stmt.typedef = typedef.TypeDef("stmt",
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
     lineno=typedef.GetSetProperty(stmt_get_lineno, stmt_set_lineno, cls=stmt),
     col_offset=typedef.GetSetProperty(stmt_get_col_offset, stmt_set_col_offset, cls=stmt),
+    __new__=interp2app(get_AST_new(stmt)),
 )
-stmt.typedef.acceptable_as_base_class = False
 
 def FunctionDef_get_name(space, w_self):
     if w_self.w_dict is not None:
@@ -3271,7 +3275,7 @@ def FunctionDef_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
-            w_err = space.wrap("FunctionDef constructor takes 0 or 4 positional arguments")
+            w_err = space.wrap("FunctionDef constructor takes either 0 or 4 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _FunctionDef_field_unroller:
@@ -3291,7 +3295,6 @@ FunctionDef.typedef = typedef.TypeDef("FunctionDef",
     __new__=interp2app(get_AST_new(FunctionDef)),
     __init__=interp2app(FunctionDef_init),
 )
-FunctionDef.typedef.acceptable_as_base_class = False
 
 def ClassDef_get_name(space, w_self):
     if w_self.w_dict is not None:
@@ -3377,7 +3380,7 @@ def ClassDef_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
-            w_err = space.wrap("ClassDef constructor takes 0 or 4 positional arguments")
+            w_err = space.wrap("ClassDef constructor takes either 0 or 4 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _ClassDef_field_unroller:
@@ -3397,7 +3400,6 @@ ClassDef.typedef = typedef.TypeDef("ClassDef",
     __new__=interp2app(get_AST_new(ClassDef)),
     __init__=interp2app(ClassDef_init),
 )
-ClassDef.typedef.acceptable_as_base_class = False
 
 def Return_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -3426,7 +3428,7 @@ def Return_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Return constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Return constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Return_field_unroller:
@@ -3443,7 +3445,6 @@ Return.typedef = typedef.TypeDef("Return",
     __new__=interp2app(get_AST_new(Return)),
     __init__=interp2app(Return_init),
 )
-Return.typedef.acceptable_as_base_class = False
 
 def Delete_get_targets(space, w_self):
     if not w_self.initialization_state & 1:
@@ -3470,7 +3471,7 @@ def Delete_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Delete constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Delete constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Delete_field_unroller:
@@ -3487,7 +3488,6 @@ Delete.typedef = typedef.TypeDef("Delete",
     __new__=interp2app(get_AST_new(Delete)),
     __init__=interp2app(Delete_init),
 )
-Delete.typedef.acceptable_as_base_class = False
 
 def Assign_get_targets(space, w_self):
     if not w_self.initialization_state & 1:
@@ -3535,7 +3535,7 @@ def Assign_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("Assign constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("Assign constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Assign_field_unroller:
@@ -3553,7 +3553,6 @@ Assign.typedef = typedef.TypeDef("Assign",
     __new__=interp2app(get_AST_new(Assign)),
     __init__=interp2app(Assign_init),
 )
-Assign.typedef.acceptable_as_base_class = False
 
 def AugAssign_get_target(space, w_self):
     if w_self.w_dict is not None:
@@ -3591,6 +3590,8 @@ def AugAssign_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(operator, w_new_value)
         w_self.op = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3625,7 +3626,7 @@ def AugAssign_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("AugAssign constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("AugAssign constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _AugAssign_field_unroller:
@@ -3644,7 +3645,6 @@ AugAssign.typedef = typedef.TypeDef("AugAssign",
     __new__=interp2app(get_AST_new(AugAssign)),
     __init__=interp2app(AugAssign_init),
 )
-AugAssign.typedef.acceptable_as_base_class = False
 
 def Print_get_dest(space, w_self):
     if w_self.w_dict is not None:
@@ -3713,7 +3713,7 @@ def Print_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("Print constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("Print constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Print_field_unroller:
@@ -3732,7 +3732,6 @@ Print.typedef = typedef.TypeDef("Print",
     __new__=interp2app(get_AST_new(Print)),
     __init__=interp2app(Print_init),
 )
-Print.typedef.acceptable_as_base_class = False
 
 def For_get_target(space, w_self):
     if w_self.w_dict is not None:
@@ -3820,7 +3819,7 @@ def For_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
-            w_err = space.wrap("For constructor takes 0 or 4 positional arguments")
+            w_err = space.wrap("For constructor takes either 0 or 4 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _For_field_unroller:
@@ -3840,7 +3839,6 @@ For.typedef = typedef.TypeDef("For",
     __new__=interp2app(get_AST_new(For)),
     __init__=interp2app(For_init),
 )
-For.typedef.acceptable_as_base_class = False
 
 def While_get_test(space, w_self):
     if w_self.w_dict is not None:
@@ -3907,7 +3905,7 @@ def While_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("While constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("While constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _While_field_unroller:
@@ -3926,7 +3924,6 @@ While.typedef = typedef.TypeDef("While",
     __new__=interp2app(get_AST_new(While)),
     __init__=interp2app(While_init),
 )
-While.typedef.acceptable_as_base_class = False
 
 def If_get_test(space, w_self):
     if w_self.w_dict is not None:
@@ -3993,7 +3990,7 @@ def If_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("If constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("If constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _If_field_unroller:
@@ -4012,7 +4009,6 @@ If.typedef = typedef.TypeDef("If",
     __new__=interp2app(get_AST_new(If)),
     __init__=interp2app(If_init),
 )
-If.typedef.acceptable_as_base_class = False
 
 def With_get_context_expr(space, w_self):
     if w_self.w_dict is not None:
@@ -4081,7 +4077,7 @@ def With_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("With constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("With constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _With_field_unroller:
@@ -4100,7 +4096,6 @@ With.typedef = typedef.TypeDef("With",
     __new__=interp2app(get_AST_new(With)),
     __init__=interp2app(With_init),
 )
-With.typedef.acceptable_as_base_class = False
 
 def Raise_get_type(space, w_self):
     if w_self.w_dict is not None:
@@ -4171,7 +4166,7 @@ def Raise_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("Raise constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("Raise constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Raise_field_unroller:
@@ -4190,7 +4185,6 @@ Raise.typedef = typedef.TypeDef("Raise",
     __new__=interp2app(get_AST_new(Raise)),
     __init__=interp2app(Raise_init),
 )
-Raise.typedef.acceptable_as_base_class = False
 
 def TryExcept_get_body(space, w_self):
     if not w_self.initialization_state & 1:
@@ -4255,7 +4249,7 @@ def TryExcept_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("TryExcept constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("TryExcept constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _TryExcept_field_unroller:
@@ -4274,7 +4268,6 @@ TryExcept.typedef = typedef.TypeDef("TryExcept",
     __new__=interp2app(get_AST_new(TryExcept)),
     __init__=interp2app(TryExcept_init),
 )
-TryExcept.typedef.acceptable_as_base_class = False
 
 def TryFinally_get_body(space, w_self):
     if not w_self.initialization_state & 1:
@@ -4320,7 +4313,7 @@ def TryFinally_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("TryFinally constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("TryFinally constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _TryFinally_field_unroller:
@@ -4338,7 +4331,6 @@ TryFinally.typedef = typedef.TypeDef("TryFinally",
     __new__=interp2app(get_AST_new(TryFinally)),
     __init__=interp2app(TryFinally_init),
 )
-TryFinally.typedef.acceptable_as_base_class = False
 
 def Assert_get_test(space, w_self):
     if w_self.w_dict is not None:
@@ -4388,7 +4380,7 @@ def Assert_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("Assert constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("Assert constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Assert_field_unroller:
@@ -4406,7 +4398,6 @@ Assert.typedef = typedef.TypeDef("Assert",
     __new__=interp2app(get_AST_new(Assert)),
     __init__=interp2app(Assert_init),
 )
-Assert.typedef.acceptable_as_base_class = False
 
 def Import_get_names(space, w_self):
     if not w_self.initialization_state & 1:
@@ -4433,7 +4424,7 @@ def Import_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Import constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Import constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Import_field_unroller:
@@ -4450,7 +4441,6 @@ Import.typedef = typedef.TypeDef("Import",
     __new__=interp2app(get_AST_new(Import)),
     __init__=interp2app(Import_init),
 )
-Import.typedef.acceptable_as_base_class = False
 
 def ImportFrom_get_module(space, w_self):
     if w_self.w_dict is not None:
@@ -4522,7 +4512,7 @@ def ImportFrom_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("ImportFrom constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("ImportFrom constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _ImportFrom_field_unroller:
@@ -4541,7 +4531,6 @@ ImportFrom.typedef = typedef.TypeDef("ImportFrom",
     __new__=interp2app(get_AST_new(ImportFrom)),
     __init__=interp2app(ImportFrom_init),
 )
-ImportFrom.typedef.acceptable_as_base_class = False
 
 def Exec_get_body(space, w_self):
     if w_self.w_dict is not None:
@@ -4612,7 +4601,7 @@ def Exec_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("Exec constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("Exec constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Exec_field_unroller:
@@ -4631,7 +4620,6 @@ Exec.typedef = typedef.TypeDef("Exec",
     __new__=interp2app(get_AST_new(Exec)),
     __init__=interp2app(Exec_init),
 )
-Exec.typedef.acceptable_as_base_class = False
 
 def Global_get_names(space, w_self):
     if not w_self.initialization_state & 1:
@@ -4658,7 +4646,7 @@ def Global_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Global constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Global constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Global_field_unroller:
@@ -4675,7 +4663,6 @@ Global.typedef = typedef.TypeDef("Global",
     __new__=interp2app(get_AST_new(Global)),
     __init__=interp2app(Global_init),
 )
-Global.typedef.acceptable_as_base_class = False
 
 def Expr_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -4704,7 +4691,7 @@ def Expr_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Expr constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Expr constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Expr_field_unroller:
@@ -4721,7 +4708,6 @@ Expr.typedef = typedef.TypeDef("Expr",
     __new__=interp2app(get_AST_new(Expr)),
     __init__=interp2app(Expr_init),
 )
-Expr.typedef.acceptable_as_base_class = False
 
 def Pass_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Pass, w_self)
@@ -4739,7 +4725,6 @@ Pass.typedef = typedef.TypeDef("Pass",
     __new__=interp2app(get_AST_new(Pass)),
     __init__=interp2app(Pass_init),
 )
-Pass.typedef.acceptable_as_base_class = False
 
 def Break_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Break, w_self)
@@ -4757,7 +4742,6 @@ Break.typedef = typedef.TypeDef("Break",
     __new__=interp2app(get_AST_new(Break)),
     __init__=interp2app(Break_init),
 )
-Break.typedef.acceptable_as_base_class = False
 
 def Continue_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Continue, w_self)
@@ -4775,7 +4759,6 @@ Continue.typedef = typedef.TypeDef("Continue",
     __new__=interp2app(get_AST_new(Continue)),
     __init__=interp2app(Continue_init),
 )
-Continue.typedef.acceptable_as_base_class = False
 
 def expr_get_lineno(space, w_self):
     if w_self.w_dict is not None:
@@ -4825,8 +4808,8 @@ expr.typedef = typedef.TypeDef("expr",
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
     lineno=typedef.GetSetProperty(expr_get_lineno, expr_set_lineno, cls=expr),
     col_offset=typedef.GetSetProperty(expr_get_col_offset, expr_set_col_offset, cls=expr),
+    __new__=interp2app(get_AST_new(expr)),
 )
-expr.typedef.acceptable_as_base_class = False
 
 def BoolOp_get_op(space, w_self):
     if w_self.w_dict is not None:
@@ -4843,6 +4826,8 @@ def BoolOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(boolop, w_new_value)
         w_self.op = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4875,7 +4860,7 @@ def BoolOp_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("BoolOp constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("BoolOp constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _BoolOp_field_unroller:
@@ -4893,7 +4878,6 @@ BoolOp.typedef = typedef.TypeDef("BoolOp",
     __new__=interp2app(get_AST_new(BoolOp)),
     __init__=interp2app(BoolOp_init),
 )
-BoolOp.typedef.acceptable_as_base_class = False
 
 def BinOp_get_left(space, w_self):
     if w_self.w_dict is not None:
@@ -4931,6 +4915,8 @@ def BinOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(operator, w_new_value)
         w_self.op = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4965,7 +4951,7 @@ def BinOp_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("BinOp constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("BinOp constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _BinOp_field_unroller:
@@ -4984,7 +4970,6 @@ BinOp.typedef = typedef.TypeDef("BinOp",
     __new__=interp2app(get_AST_new(BinOp)),
     __init__=interp2app(BinOp_init),
 )
-BinOp.typedef.acceptable_as_base_class = False
 
 def UnaryOp_get_op(space, w_self):
     if w_self.w_dict is not None:
@@ -5001,6 +4986,8 @@ def UnaryOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(unaryop, w_new_value)
         w_self.op = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5035,7 +5022,7 @@ def UnaryOp_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("UnaryOp constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("UnaryOp constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _UnaryOp_field_unroller:
@@ -5053,7 +5040,6 @@ UnaryOp.typedef = typedef.TypeDef("UnaryOp",
     __new__=interp2app(get_AST_new(UnaryOp)),
     __init__=interp2app(UnaryOp_init),
 )
-UnaryOp.typedef.acceptable_as_base_class = False
 
 def Lambda_get_args(space, w_self):
     if w_self.w_dict is not None:
@@ -5103,7 +5089,7 @@ def Lambda_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("Lambda constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("Lambda constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Lambda_field_unroller:
@@ -5121,7 +5107,6 @@ Lambda.typedef = typedef.TypeDef("Lambda",
     __new__=interp2app(get_AST_new(Lambda)),
     __init__=interp2app(Lambda_init),
 )
-Lambda.typedef.acceptable_as_base_class = False
 
 def IfExp_get_test(space, w_self):
     if w_self.w_dict is not None:
@@ -5192,7 +5177,7 @@ def IfExp_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("IfExp constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("IfExp constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _IfExp_field_unroller:
@@ -5211,7 +5196,6 @@ IfExp.typedef = typedef.TypeDef("IfExp",
     __new__=interp2app(get_AST_new(IfExp)),
     __init__=interp2app(IfExp_init),
 )
-IfExp.typedef.acceptable_as_base_class = False
 
 def Dict_get_keys(space, w_self):
     if not w_self.initialization_state & 1:
@@ -5257,7 +5241,7 @@ def Dict_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("Dict constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("Dict constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Dict_field_unroller:
@@ -5275,7 +5259,6 @@ Dict.typedef = typedef.TypeDef("Dict",
     __new__=interp2app(get_AST_new(Dict)),
     __init__=interp2app(Dict_init),
 )
-Dict.typedef.acceptable_as_base_class = False
 
 def Set_get_elts(space, w_self):
     if not w_self.initialization_state & 1:
@@ -5302,7 +5285,7 @@ def Set_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Set constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Set constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Set_field_unroller:
@@ -5319,7 +5302,6 @@ Set.typedef = typedef.TypeDef("Set",
     __new__=interp2app(get_AST_new(Set)),
     __init__=interp2app(Set_init),
 )
-Set.typedef.acceptable_as_base_class = False
 
 def ListComp_get_elt(space, w_self):
     if w_self.w_dict is not None:
@@ -5367,7 +5349,7 @@ def ListComp_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("ListComp constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("ListComp constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _ListComp_field_unroller:
@@ -5385,7 +5367,6 @@ ListComp.typedef = typedef.TypeDef("ListComp",
     __new__=interp2app(get_AST_new(ListComp)),
     __init__=interp2app(ListComp_init),
 )
-ListComp.typedef.acceptable_as_base_class = False
 
 def SetComp_get_elt(space, w_self):
     if w_self.w_dict is not None:
@@ -5433,7 +5414,7 @@ def SetComp_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("SetComp constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("SetComp constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _SetComp_field_unroller:
@@ -5451,7 +5432,6 @@ SetComp.typedef = typedef.TypeDef("SetComp",
     __new__=interp2app(get_AST_new(SetComp)),
     __init__=interp2app(SetComp_init),
 )
-SetComp.typedef.acceptable_as_base_class = False
 
 def DictComp_get_key(space, w_self):
     if w_self.w_dict is not None:
@@ -5520,7 +5500,7 @@ def DictComp_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("DictComp constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("DictComp constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _DictComp_field_unroller:
@@ -5539,7 +5519,6 @@ DictComp.typedef = typedef.TypeDef("DictComp",
     __new__=interp2app(get_AST_new(DictComp)),
     __init__=interp2app(DictComp_init),
 )
-DictComp.typedef.acceptable_as_base_class = False
 
 def GeneratorExp_get_elt(space, w_self):
     if w_self.w_dict is not None:
@@ -5587,7 +5566,7 @@ def GeneratorExp_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("GeneratorExp constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("GeneratorExp constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _GeneratorExp_field_unroller:
@@ -5605,7 +5584,6 @@ GeneratorExp.typedef = typedef.TypeDef("GeneratorExp",
     __new__=interp2app(get_AST_new(GeneratorExp)),
     __init__=interp2app(GeneratorExp_init),
 )
-GeneratorExp.typedef.acceptable_as_base_class = False
 
 def Yield_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -5634,7 +5612,7 @@ def Yield_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Yield constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Yield constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Yield_field_unroller:
@@ -5651,7 +5629,6 @@ Yield.typedef = typedef.TypeDef("Yield",
     __new__=interp2app(get_AST_new(Yield)),
     __init__=interp2app(Yield_init),
 )
-Yield.typedef.acceptable_as_base_class = False
 
 def Compare_get_left(space, w_self):
     if w_self.w_dict is not None:
@@ -5718,7 +5695,7 @@ def Compare_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("Compare constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("Compare constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Compare_field_unroller:
@@ -5737,7 +5714,6 @@ Compare.typedef = typedef.TypeDef("Compare",
     __new__=interp2app(get_AST_new(Compare)),
     __init__=interp2app(Compare_init),
 )
-Compare.typedef.acceptable_as_base_class = False
 
 def Call_get_func(space, w_self):
     if w_self.w_dict is not None:
@@ -5846,7 +5822,7 @@ def Call_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 5:
-            w_err = space.wrap("Call constructor takes 0 or 5 positional arguments")
+            w_err = space.wrap("Call constructor takes either 0 or 5 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Call_field_unroller:
@@ -5867,7 +5843,6 @@ Call.typedef = typedef.TypeDef("Call",
     __new__=interp2app(get_AST_new(Call)),
     __init__=interp2app(Call_init),
 )
-Call.typedef.acceptable_as_base_class = False
 
 def Repr_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -5896,7 +5871,7 @@ def Repr_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Repr constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Repr constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Repr_field_unroller:
@@ -5913,7 +5888,6 @@ Repr.typedef = typedef.TypeDef("Repr",
     __new__=interp2app(get_AST_new(Repr)),
     __init__=interp2app(Repr_init),
 )
-Repr.typedef.acceptable_as_base_class = False
 
 def Num_get_n(space, w_self):
     if w_self.w_dict is not None:
@@ -5942,7 +5916,7 @@ def Num_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Num constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Num constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Num_field_unroller:
@@ -5959,7 +5933,6 @@ Num.typedef = typedef.TypeDef("Num",
     __new__=interp2app(get_AST_new(Num)),
     __init__=interp2app(Num_init),
 )
-Num.typedef.acceptable_as_base_class = False
 
 def Str_get_s(space, w_self):
     if w_self.w_dict is not None:
@@ -5988,7 +5961,7 @@ def Str_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Str constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Str constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Str_field_unroller:
@@ -6005,7 +5978,6 @@ Str.typedef = typedef.TypeDef("Str",
     __new__=interp2app(get_AST_new(Str)),
     __init__=interp2app(Str_init),
 )
-Str.typedef.acceptable_as_base_class = False
 
 def Attribute_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -6064,6 +6036,8 @@ def Attribute_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6077,7 +6051,7 @@ def Attribute_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("Attribute constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("Attribute constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Attribute_field_unroller:
@@ -6096,7 +6070,6 @@ Attribute.typedef = typedef.TypeDef("Attribute",
     __new__=interp2app(get_AST_new(Attribute)),
     __init__=interp2app(Attribute_init),
 )
-Attribute.typedef.acceptable_as_base_class = False
 
 def Subscript_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -6155,6 +6128,8 @@ def Subscript_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6168,7 +6143,7 @@ def Subscript_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("Subscript constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("Subscript constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Subscript_field_unroller:
@@ -6187,7 +6162,6 @@ Subscript.typedef = typedef.TypeDef("Subscript",
     __new__=interp2app(get_AST_new(Subscript)),
     __init__=interp2app(Subscript_init),
 )
-Subscript.typedef.acceptable_as_base_class = False
 
 def Name_get_id(space, w_self):
     if w_self.w_dict is not None:
@@ -6225,6 +6199,8 @@ def Name_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6238,7 +6214,7 @@ def Name_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("Name constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("Name constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Name_field_unroller:
@@ -6256,7 +6232,6 @@ Name.typedef = typedef.TypeDef("Name",
     __new__=interp2app(get_AST_new(Name)),
     __init__=interp2app(Name_init),
 )
-Name.typedef.acceptable_as_base_class = False
 
 def List_get_elts(space, w_self):
     if not w_self.initialization_state & 1:
@@ -6291,6 +6266,8 @@ def List_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6305,7 +6282,7 @@ def List_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("List constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("List constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _List_field_unroller:
@@ -6323,7 +6300,6 @@ List.typedef = typedef.TypeDef("List",
     __new__=interp2app(get_AST_new(List)),
     __init__=interp2app(List_init),
 )
-List.typedef.acceptable_as_base_class = False
 
 def Tuple_get_elts(space, w_self):
     if not w_self.initialization_state & 1:
@@ -6358,6 +6334,8 @@ def Tuple_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
+        # need to save the original object too
+        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6372,7 +6350,7 @@ def Tuple_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("Tuple constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("Tuple constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Tuple_field_unroller:
@@ -6390,7 +6368,6 @@ Tuple.typedef = typedef.TypeDef("Tuple",
     __new__=interp2app(get_AST_new(Tuple)),
     __init__=interp2app(Tuple_init),
 )
-Tuple.typedef.acceptable_as_base_class = False
 
 def Const_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -6419,7 +6396,7 @@ def Const_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Const constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Const constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Const_field_unroller:
@@ -6436,14 +6413,13 @@ Const.typedef = typedef.TypeDef("Const",
     __new__=interp2app(get_AST_new(Const)),
     __init__=interp2app(Const_init),
 )
-Const.typedef.acceptable_as_base_class = False
 
 expr_context.typedef = typedef.TypeDef("expr_context",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(expr_context)),
 )
-expr_context.typedef.acceptable_as_base_class = False
 
 _Load.typedef = typedef.TypeDef("Load",
     expr_context.typedef,
@@ -6451,7 +6427,6 @@ _Load.typedef = typedef.TypeDef("Load",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Load)),
 )
-_Load.typedef.acceptable_as_base_class = False
 
 _Store.typedef = typedef.TypeDef("Store",
     expr_context.typedef,
@@ -6459,7 +6434,6 @@ _Store.typedef = typedef.TypeDef("Store",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Store)),
 )
-_Store.typedef.acceptable_as_base_class = False
 
 _Del.typedef = typedef.TypeDef("Del",
     expr_context.typedef,
@@ -6467,7 +6441,6 @@ _Del.typedef = typedef.TypeDef("Del",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Del)),
 )
-_Del.typedef.acceptable_as_base_class = False
 
 _AugLoad.typedef = typedef.TypeDef("AugLoad",
     expr_context.typedef,
@@ -6475,7 +6448,6 @@ _AugLoad.typedef = typedef.TypeDef("AugLoad",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_AugLoad)),
 )
-_AugLoad.typedef.acceptable_as_base_class = False
 
 _AugStore.typedef = typedef.TypeDef("AugStore",
     expr_context.typedef,
@@ -6483,7 +6455,6 @@ _AugStore.typedef = typedef.TypeDef("AugStore",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_AugStore)),
 )
-_AugStore.typedef.acceptable_as_base_class = False
 
 _Param.typedef = typedef.TypeDef("Param",
     expr_context.typedef,
@@ -6491,14 +6462,13 @@ _Param.typedef = typedef.TypeDef("Param",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Param)),
 )
-_Param.typedef.acceptable_as_base_class = False
 
 slice.typedef = typedef.TypeDef("slice",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(slice)),
 )
-slice.typedef.acceptable_as_base_class = False
 
 def Ellipsis_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Ellipsis, w_self)
@@ -6516,7 +6486,6 @@ Ellipsis.typedef = typedef.TypeDef("Ellipsis",
     __new__=interp2app(get_AST_new(Ellipsis)),
     __init__=interp2app(Ellipsis_init),
 )
-Ellipsis.typedef.acceptable_as_base_class = False
 
 def Slice_get_lower(space, w_self):
     if w_self.w_dict is not None:
@@ -6587,7 +6556,7 @@ def Slice_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("Slice constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("Slice constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Slice_field_unroller:
@@ -6606,7 +6575,6 @@ Slice.typedef = typedef.TypeDef("Slice",
     __new__=interp2app(get_AST_new(Slice)),
     __init__=interp2app(Slice_init),
 )
-Slice.typedef.acceptable_as_base_class = False
 
 def ExtSlice_get_dims(space, w_self):
     if not w_self.initialization_state & 1:
@@ -6633,7 +6601,7 @@ def ExtSlice_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("ExtSlice constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("ExtSlice constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _ExtSlice_field_unroller:
@@ -6650,7 +6618,6 @@ ExtSlice.typedef = typedef.TypeDef("ExtSlice",
     __new__=interp2app(get_AST_new(ExtSlice)),
     __init__=interp2app(ExtSlice_init),
 )
-ExtSlice.typedef.acceptable_as_base_class = False
 
 def Index_get_value(space, w_self):
     if w_self.w_dict is not None:
@@ -6679,7 +6646,7 @@ def Index_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 1:
-            w_err = space.wrap("Index constructor takes 0 or 1 positional arguments")
+            w_err = space.wrap("Index constructor takes either 0 or 1 positional argument")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Index_field_unroller:
@@ -6696,14 +6663,13 @@ Index.typedef = typedef.TypeDef("Index",
     __new__=interp2app(get_AST_new(Index)),
     __init__=interp2app(Index_init),
 )
-Index.typedef.acceptable_as_base_class = False
 
 boolop.typedef = typedef.TypeDef("boolop",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(boolop)),
 )
-boolop.typedef.acceptable_as_base_class = False
 
 _And.typedef = typedef.TypeDef("And",
     boolop.typedef,
@@ -6711,7 +6677,6 @@ _And.typedef = typedef.TypeDef("And",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_And)),
 )
-_And.typedef.acceptable_as_base_class = False
 
 _Or.typedef = typedef.TypeDef("Or",
     boolop.typedef,
@@ -6719,14 +6684,13 @@ _Or.typedef = typedef.TypeDef("Or",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Or)),
 )
-_Or.typedef.acceptable_as_base_class = False
 
 operator.typedef = typedef.TypeDef("operator",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(operator)),
 )
-operator.typedef.acceptable_as_base_class = False
 
 _Add.typedef = typedef.TypeDef("Add",
     operator.typedef,
@@ -6734,7 +6698,6 @@ _Add.typedef = typedef.TypeDef("Add",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Add)),
 )
-_Add.typedef.acceptable_as_base_class = False
 
 _Sub.typedef = typedef.TypeDef("Sub",
     operator.typedef,
@@ -6742,7 +6705,6 @@ _Sub.typedef = typedef.TypeDef("Sub",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Sub)),
 )
-_Sub.typedef.acceptable_as_base_class = False
 
 _Mult.typedef = typedef.TypeDef("Mult",
     operator.typedef,
@@ -6750,7 +6712,6 @@ _Mult.typedef = typedef.TypeDef("Mult",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Mult)),
 )
-_Mult.typedef.acceptable_as_base_class = False
 
 _Div.typedef = typedef.TypeDef("Div",
     operator.typedef,
@@ -6758,7 +6719,6 @@ _Div.typedef = typedef.TypeDef("Div",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Div)),
 )
-_Div.typedef.acceptable_as_base_class = False
 
 _Mod.typedef = typedef.TypeDef("Mod",
     operator.typedef,
@@ -6766,7 +6726,6 @@ _Mod.typedef = typedef.TypeDef("Mod",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Mod)),
 )
-_Mod.typedef.acceptable_as_base_class = False
 
 _Pow.typedef = typedef.TypeDef("Pow",
     operator.typedef,
@@ -6774,7 +6733,6 @@ _Pow.typedef = typedef.TypeDef("Pow",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Pow)),
 )
-_Pow.typedef.acceptable_as_base_class = False
 
 _LShift.typedef = typedef.TypeDef("LShift",
     operator.typedef,
@@ -6782,7 +6740,6 @@ _LShift.typedef = typedef.TypeDef("LShift",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_LShift)),
 )
-_LShift.typedef.acceptable_as_base_class = False
 
 _RShift.typedef = typedef.TypeDef("RShift",
     operator.typedef,
@@ -6790,7 +6747,6 @@ _RShift.typedef = typedef.TypeDef("RShift",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_RShift)),
 )
-_RShift.typedef.acceptable_as_base_class = False
 
 _BitOr.typedef = typedef.TypeDef("BitOr",
     operator.typedef,
@@ -6798,7 +6754,6 @@ _BitOr.typedef = typedef.TypeDef("BitOr",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitOr)),
 )
-_BitOr.typedef.acceptable_as_base_class = False
 
 _BitXor.typedef = typedef.TypeDef("BitXor",
     operator.typedef,
@@ -6806,7 +6761,6 @@ _BitXor.typedef = typedef.TypeDef("BitXor",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitXor)),
 )
-_BitXor.typedef.acceptable_as_base_class = False
 
 _BitAnd.typedef = typedef.TypeDef("BitAnd",
     operator.typedef,
@@ -6814,7 +6768,6 @@ _BitAnd.typedef = typedef.TypeDef("BitAnd",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_BitAnd)),
 )
-_BitAnd.typedef.acceptable_as_base_class = False
 
 _FloorDiv.typedef = typedef.TypeDef("FloorDiv",
     operator.typedef,
@@ -6822,14 +6775,13 @@ _FloorDiv.typedef = typedef.TypeDef("FloorDiv",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_FloorDiv)),
 )
-_FloorDiv.typedef.acceptable_as_base_class = False
 
 unaryop.typedef = typedef.TypeDef("unaryop",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(unaryop)),
 )
-unaryop.typedef.acceptable_as_base_class = False
 
 _Invert.typedef = typedef.TypeDef("Invert",
     unaryop.typedef,
@@ -6837,7 +6789,6 @@ _Invert.typedef = typedef.TypeDef("Invert",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Invert)),
 )
-_Invert.typedef.acceptable_as_base_class = False
 
 _Not.typedef = typedef.TypeDef("Not",
     unaryop.typedef,
@@ -6845,7 +6796,6 @@ _Not.typedef = typedef.TypeDef("Not",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Not)),
 )
-_Not.typedef.acceptable_as_base_class = False
 
 _UAdd.typedef = typedef.TypeDef("UAdd",
     unaryop.typedef,
@@ -6853,7 +6803,6 @@ _UAdd.typedef = typedef.TypeDef("UAdd",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_UAdd)),
 )
-_UAdd.typedef.acceptable_as_base_class = False
 
 _USub.typedef = typedef.TypeDef("USub",
     unaryop.typedef,
@@ -6861,14 +6810,13 @@ _USub.typedef = typedef.TypeDef("USub",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_USub)),
 )
-_USub.typedef.acceptable_as_base_class = False
 
 cmpop.typedef = typedef.TypeDef("cmpop",
     AST.typedef,
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(cmpop)),
 )
-cmpop.typedef.acceptable_as_base_class = False
 
 _Eq.typedef = typedef.TypeDef("Eq",
     cmpop.typedef,
@@ -6876,7 +6824,6 @@ _Eq.typedef = typedef.TypeDef("Eq",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Eq)),
 )
-_Eq.typedef.acceptable_as_base_class = False
 
 _NotEq.typedef = typedef.TypeDef("NotEq",
     cmpop.typedef,
@@ -6884,7 +6831,6 @@ _NotEq.typedef = typedef.TypeDef("NotEq",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_NotEq)),
 )
-_NotEq.typedef.acceptable_as_base_class = False
 
 _Lt.typedef = typedef.TypeDef("Lt",
     cmpop.typedef,
@@ -6892,7 +6838,6 @@ _Lt.typedef = typedef.TypeDef("Lt",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Lt)),
 )
-_Lt.typedef.acceptable_as_base_class = False
 
 _LtE.typedef = typedef.TypeDef("LtE",
     cmpop.typedef,
@@ -6900,7 +6845,6 @@ _LtE.typedef = typedef.TypeDef("LtE",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_LtE)),
 )
-_LtE.typedef.acceptable_as_base_class = False
 
 _Gt.typedef = typedef.TypeDef("Gt",
     cmpop.typedef,
@@ -6908,7 +6852,6 @@ _Gt.typedef = typedef.TypeDef("Gt",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Gt)),
 )
-_Gt.typedef.acceptable_as_base_class = False
 
 _GtE.typedef = typedef.TypeDef("GtE",
     cmpop.typedef,
@@ -6916,7 +6859,6 @@ _GtE.typedef = typedef.TypeDef("GtE",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_GtE)),
 )
-_GtE.typedef.acceptable_as_base_class = False
 
 _Is.typedef = typedef.TypeDef("Is",
     cmpop.typedef,
@@ -6924,7 +6866,6 @@ _Is.typedef = typedef.TypeDef("Is",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_Is)),
 )
-_Is.typedef.acceptable_as_base_class = False
 
 _IsNot.typedef = typedef.TypeDef("IsNot",
     cmpop.typedef,
@@ -6932,7 +6873,6 @@ _IsNot.typedef = typedef.TypeDef("IsNot",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_IsNot)),
 )
-_IsNot.typedef.acceptable_as_base_class = False
 
 _In.typedef = typedef.TypeDef("In",
     cmpop.typedef,
@@ -6940,7 +6880,6 @@ _In.typedef = typedef.TypeDef("In",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_In)),
 )
-_In.typedef.acceptable_as_base_class = False
 
 _NotIn.typedef = typedef.TypeDef("NotIn",
     cmpop.typedef,
@@ -6948,7 +6887,6 @@ _NotIn.typedef = typedef.TypeDef("NotIn",
     _fields=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(_NotIn)),
 )
-_NotIn.typedef.acceptable_as_base_class = False
 
 def comprehension_get_target(space, w_self):
     if w_self.w_dict is not None:
@@ -7017,7 +6955,7 @@ def comprehension_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("comprehension constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("comprehension constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _comprehension_field_unroller:
@@ -7036,7 +6974,6 @@ comprehension.typedef = typedef.TypeDef("comprehension",
     __new__=interp2app(get_AST_new(comprehension)),
     __init__=interp2app(comprehension_init),
 )
-comprehension.typedef.acceptable_as_base_class = False
 
 def excepthandler_get_lineno(space, w_self):
     if w_self.w_dict is not None:
@@ -7086,8 +7023,8 @@ excepthandler.typedef = typedef.TypeDef("excepthandler",
     _attributes=_FieldsWrapper(['lineno', 'col_offset']),
     lineno=typedef.GetSetProperty(excepthandler_get_lineno, excepthandler_set_lineno, cls=excepthandler),
     col_offset=typedef.GetSetProperty(excepthandler_get_col_offset, excepthandler_set_col_offset, cls=excepthandler),
+    __new__=interp2app(get_AST_new(excepthandler)),
 )
-excepthandler.typedef.acceptable_as_base_class = False
 
 def ExceptHandler_get_type(space, w_self):
     if w_self.w_dict is not None:
@@ -7156,7 +7093,7 @@ def ExceptHandler_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 3:
-            w_err = space.wrap("ExceptHandler constructor takes 0 or 3 positional arguments")
+            w_err = space.wrap("ExceptHandler constructor takes either 0 or 3 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _ExceptHandler_field_unroller:
@@ -7175,7 +7112,6 @@ ExceptHandler.typedef = typedef.TypeDef("ExceptHandler",
     __new__=interp2app(get_AST_new(ExceptHandler)),
     __init__=interp2app(ExceptHandler_init),
 )
-ExceptHandler.typedef.acceptable_as_base_class = False
 
 def arguments_get_args(space, w_self):
     if not w_self.initialization_state & 1:
@@ -7269,7 +7205,7 @@ def arguments_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 4:
-            w_err = space.wrap("arguments constructor takes 0 or 4 positional arguments")
+            w_err = space.wrap("arguments constructor takes either 0 or 4 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _arguments_field_unroller:
@@ -7289,7 +7225,6 @@ arguments.typedef = typedef.TypeDef("arguments",
     __new__=interp2app(get_AST_new(arguments)),
     __init__=interp2app(arguments_init),
 )
-arguments.typedef.acceptable_as_base_class = False
 
 def keyword_get_arg(space, w_self):
     if w_self.w_dict is not None:
@@ -7339,7 +7274,7 @@ def keyword_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("keyword constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("keyword constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _keyword_field_unroller:
@@ -7357,7 +7292,6 @@ keyword.typedef = typedef.TypeDef("keyword",
     __new__=interp2app(get_AST_new(keyword)),
     __init__=interp2app(keyword_init),
 )
-keyword.typedef.acceptable_as_base_class = False
 
 def alias_get_name(space, w_self):
     if w_self.w_dict is not None:
@@ -7410,7 +7344,7 @@ def alias_init(space, w_self, __args__):
     args_w, kwargs_w = __args__.unpack()
     if args_w:
         if len(args_w) != 2:
-            w_err = space.wrap("alias constructor takes 0 or 2 positional arguments")
+            w_err = space.wrap("alias constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _alias_field_unroller:
@@ -7428,5 +7362,4 @@ alias.typedef = typedef.TypeDef("alias",
     __new__=interp2app(get_AST_new(alias)),
     __init__=interp2app(alias_init),
 )
-alias.typedef.acceptable_as_base_class = False
 

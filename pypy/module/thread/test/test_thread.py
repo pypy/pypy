@@ -214,3 +214,21 @@ class AppTestThread(GenericTestThread):
         assert res == 1024*1024
         res = thread.stack_size(0)
         assert res == 2*1024*1024
+
+    def test_interrupt_main(self):
+        import thread, time
+        import signal
+
+        def f():
+            time.sleep(0.5)
+            thread.interrupt_main()
+
+        def busy_wait():
+            for x in range(1000):
+                time.sleep(0.01)
+
+        # This is normally called by app_main.py
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+
+        thread.start_new_thread(f, ())
+        raises(KeyboardInterrupt, busy_wait)

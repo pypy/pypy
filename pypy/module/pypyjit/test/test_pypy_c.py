@@ -636,7 +636,6 @@ class PyPyCJITTests(object):
             ]
 
     def test_exception_inside_loop_1(self):
-        py.test.skip("exceptions: in-progress")
         self.run_source('''
             def main(n):
                 while n:
@@ -646,7 +645,7 @@ class PyPyCJITTests(object):
                         pass
                     n -= 1
                 return n
-        ''',
+        ''', 33,
                   ([30], 0))
 
         bytecode, = self.get_by_bytecode("SETUP_EXCEPT")
@@ -658,7 +657,6 @@ class PyPyCJITTests(object):
         assert not bytecode.get_opnames()
 
     def test_exception_inside_loop_2(self):
-        py.test.skip("exceptions: in-progress")
         self.run_source('''
             def g(n):
                 raise ValueError(n)
@@ -672,7 +670,7 @@ class PyPyCJITTests(object):
                         pass
                     n -= 1
                 return n
-        ''',
+        ''', 51,
                   ([30], 0))
 
         bytecode, = self.get_by_bytecode("RAISE_VARARGS")

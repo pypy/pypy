@@ -2,14 +2,13 @@ import sys, os
 import os.path
 import shutil
 
-from pypy.translator.translator import TranslationContext, graphof
+from pypy.translator.translator import TranslationContext
 from pypy.translator.tool.taskengine import SimpleTaskEngine
 from pypy.translator.goal import query
 from pypy.translator.goal.timing import Timer
 from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation import policy as annpolicy
-import optparse
 from pypy.tool.udir import udir
 from pypy.tool.debug_print import debug_start, debug_print, debug_stop
 from pypy.rlib.entrypoint import secondary_entrypoints
@@ -229,8 +228,7 @@ class TranslationDriver(SimpleTaskEngine):
         if backend != 'c' or sys.platform == 'win32':
             raise Exception("instrumentation requires the c backend"
                             " and unix for now")
-        from pypy.tool.udir import udir
-        
+
         datafile = udir.join('_instrument_counters')
         makeProfInstrument = lambda compiler: ProfInstrument(datafile, compiler)
 
@@ -518,7 +516,6 @@ class TranslationDriver(SimpleTaskEngine):
     def task_source_c(self):
         """ Create C source files from the generated database
         """
-        translator = self.translator
         cbuilder = self.cbuilder
         database = self.database
         if self._backend_extra_options.get('c_debug_defines', False):

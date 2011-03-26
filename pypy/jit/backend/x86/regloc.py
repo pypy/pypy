@@ -46,9 +46,6 @@ class StackLoc(AssemblerLocation):
         # One of INT, REF, FLOAT
         self.type = type
 
-    def frame_size(self):
-        return self.width // WORD
-
     def __repr__(self):
         return '%d(%%ebp)' % (self.value,)
 

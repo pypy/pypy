@@ -15,6 +15,18 @@ def check_equal(x, y):
     assert x == y
     assert type(x) == type(y)
 
+def test_get_total_memory_darwin():
+    # this only tests clipping
+    BIG = 2 * env.addressable_size
+    SMALL = env.addressable_size / 2
+    assert env.addressable_size == env.get_total_memory_darwin(0)
+    assert env.addressable_size == env.get_total_memory_darwin(-1)
+    assert env.addressable_size == env.get_total_memory_darwin(BIG)
+    assert SMALL == env.get_total_memory_darwin(SMALL)
+
+def test_get_total_memory():
+    # total memory should be at least a megabyte
+    assert env.get_total_memory() > 1024*1024
 
 def test_read_from_env():
     saved = os.environ

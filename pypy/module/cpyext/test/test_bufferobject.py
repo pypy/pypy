@@ -46,4 +46,5 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                  return PyBuffer_New(150);
              """),
             ])
-        module.buffer_new()
+        b = module.buffer_new()
+        raises(AttributeError, getattr, b, 'x')

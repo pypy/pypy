@@ -2,8 +2,9 @@ import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Signature
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.function import Defaults
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
@@ -67,7 +68,7 @@ class W_DictMultiObject(W_Object):
         assert self.r_dict_content is None
         self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
         return self.r_dict_content
-        
+
 
     def initialize_content(w_self, list_pairs_w):
         for w_k, w_v in list_pairs_w:
@@ -188,7 +189,7 @@ class W_DictMultiObject(W_Object):
 
     def impl_fallback_delitem(self, w_key):
         del self.r_dict_content[w_key]
-        
+
     def impl_fallback_length(self):
         return len(self.r_dict_content)
 
@@ -305,7 +306,7 @@ class StrDictImplementation(W_DictMultiObject):
     def __init__(self, space):
         self.space = space
         self.content = {}
-        
+
     def impl_setitem(self, w_key, w_value):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
@@ -326,7 +327,7 @@ class StrDictImplementation(W_DictMultiObject):
             raise KeyError
         else:
             self._as_rdict().impl_fallback_delitem(w_key)
-        
+
     def impl_length(self):
         return len(self.content)
 
@@ -605,7 +606,7 @@ def report():
 
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
-init_defaults = [None]
+init_defaults = Defaults([None])
 
 def update1(space, w_dict, w_data):
     if space.findattr(w_data, space.wrap("keys")) is None:
@@ -670,7 +671,7 @@ def delitem__DictMulti_ANY(space, w_dict, w_key):
         w_dict.delitem(w_key)
     except KeyError:
         space.raise_key_error(w_key)
-    
+
 def len__DictMulti(space, w_dict):
     return space.wrap(w_dict.length())
 
@@ -701,7 +702,7 @@ def eq__DictMulti_DictMulti(space, w_left, w_right):
     return space.w_True
 
 def characterize(space, w_a, w_b):
-    """ (similar to CPython) 
+    """ (similar to CPython)
     returns the smallest key in acontent for which b's value is different or absent and this value """
     w_smallest_diff_a_key = None
     w_its_value = None
@@ -735,10 +736,10 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
     w_rightdiff, w_rightval = characterize(space, w_right, w_left)
     if w_rightdiff is None:
         # w_leftdiff is not None, w_rightdiff is None
-        return space.w_True 
+        return space.w_True
     w_res = space.lt(w_leftdiff, w_rightdiff)
     if (not space.is_true(w_res) and
-        space.eq_w(w_leftdiff, w_rightdiff) and 
+        space.eq_w(w_leftdiff, w_rightdiff) and
         w_rightval is not None):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res

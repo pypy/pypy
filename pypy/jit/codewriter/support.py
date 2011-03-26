@@ -399,12 +399,7 @@ class LLtypeHelpers:
         return ll_rdict.ll_newdict(DICT)
     _ll_0_newdict.need_result_type = True
 
-    _ll_2_dict_getitem = ll_rdict.ll_dict_getitem
-    _ll_3_dict_setitem = ll_rdict.ll_dict_setitem
     _ll_2_dict_delitem = ll_rdict.ll_dict_delitem
-    _ll_3_dict_setdefault = ll_rdict.ll_setdefault
-    _ll_2_dict_contains = ll_rdict.ll_contains
-    _ll_3_dict_get = ll_rdict.ll_get
     _ll_1_dict_copy = ll_rdict.ll_copy
     _ll_1_dict_clear = ll_rdict.ll_clear
     _ll_2_dict_update = ll_rdict.ll_update

@@ -113,11 +113,16 @@ class BasePosix(Platform):
         m.eci = eci
 
         def pypyrel(fpath):
-            rel = py.path.local(fpath).relto(pypypath)
+            lpath = py.path.local(fpath)
+            rel = lpath.relto(pypypath)
             if rel:
                 return os.path.join('$(PYPYDIR)', rel)
-            else:
-                return fpath
+            m_dir = m.makefile_dir
+            if m_dir == lpath:
+                return '.'
+            if m_dir.dirpath() == lpath:
+                return '..'
+            return fpath
 
         rel_cfiles = [m.pathrel(cfile) for cfile in cfiles]
         rel_ofiles = [rel_cfile[:-2]+'.o' for rel_cfile in rel_cfiles]
@@ -139,6 +144,7 @@ class BasePosix(Platform):
             ('CFLAGS', cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
             ('LDFLAGS', linkflags),
+            ('LDFLAGS_LINK', list(self.link_flags)),
             ('LDFLAGSEXTRA', list(eci.link_extra)),
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
@@ -165,7 +171,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
+                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
 
         return m
 

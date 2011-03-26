@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, OPTIMIZER_FULL
+from pypy.rlib.jit import JitDriver
 from pypy.rlib.objectmodel import compute_hash
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
@@ -8,14 +8,15 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import history
 
 class LoopTest(object):
-    optimizer = OPTIMIZER_SIMPLE
+    enable_opts = ''
+    
     automatic_promotion_result = {
         'int_add' : 6, 'int_gt' : 1, 'guard_false' : 1, 'jump' : 1, 
         'guard_value' : 3
     }
 
     def meta_interp(self, f, args, policy=None):
-        return ll_meta_interp(f, args, optimizer=self.optimizer,
+        return ll_meta_interp(f, args, enable_opts=self.enable_opts,
                               policy=policy,
                               CPUClass=self.CPUClass,
                               type_system=self.type_system)
@@ -58,7 +59,7 @@ class LoopTest(object):
         res = self.meta_interp(f, [6, 13])
         assert res == f(6, 13)
         self.check_loop_count(1)
-        if self.optimizer == OPTIMIZER_FULL:
+        if self.enable_opts:
             self.check_loops(getfield_gc = 0, setfield_gc = 1)
 
     def test_loop_with_two_paths(self):
@@ -87,7 +88,7 @@ class LoopTest(object):
             return res * 2
         res = self.meta_interp(f, [6, 33], policy=StopAtXPolicy(l))
         assert res == f(6, 33)
-        if self.optimizer == OPTIMIZER_FULL:
+        if self.enable_opts:
             self.check_loop_count(3)
         else:
             self.check_loop_count(2)
@@ -105,7 +106,7 @@ class LoopTest(object):
                 pattern >>= 1
             return 42
         self.meta_interp(f, [0xF0F0F0])
-        if self.optimizer == OPTIMIZER_FULL:
+        if self.enable_opts:
             self.check_loop_count(3)
         else:
             self.check_loop_count(2)
@@ -595,7 +596,7 @@ class LoopTest(object):
         res = self.meta_interp(f, [100, 5], policy=StopAtXPolicy(externfn))
         assert res == expected
 
-        if self.optimizer == OPTIMIZER_FULL:
+        if self.enable_opts:
             self.check_loop_count(2)
             self.check_tree_loop_count(2)   # 1 loop, 1 bridge from interp
         else:
@@ -798,7 +799,6 @@ class LoopTest(object):
             return 0
 
         res = self.meta_interp(f, [200])
-
 
 class TestOOtype(LoopTest, OOJitMixin):
     pass
