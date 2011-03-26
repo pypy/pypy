@@ -6,9 +6,11 @@ class AppTestNumpyLike(object):
         cls.space = gettestobjspace(usemodules=('micronumpy',))
 
     def test_init(self):
-        from numpy import array, zeros
+        from numpy import zeros
         a = zeros(15)
+        # Check that storage was actually zero'd.
         assert a[10] == 0.0
+        # And check that changes stick.
         a[13] = 5.3
         assert a[13] == 5.3
 
@@ -25,7 +27,16 @@ class AppTestNumpyLike(object):
         for i in range(5):
             assert b[i] == i + i
 
-    def test_floatadd(self):
+    def test_add_other(self):
+        from numpy import array
+        a = array(range(5))
+        b = array(reversed(range(5)))
+        c = a + b
+        c = c.force()
+        for i in range(5):
+            assert c[i] == 4
+
+    def test_add_constant(self):
         from numpy import array
         a = array(range(5))
         b = a + 5
@@ -41,7 +52,7 @@ class AppTestNumpyLike(object):
         for i in range(5):
             assert b[i] == i * i
 
-    def test_floatmul(self):
+    def test_mul_constant(self):
         from numpy import array
         a = array(range(5))
         b = a * 5
