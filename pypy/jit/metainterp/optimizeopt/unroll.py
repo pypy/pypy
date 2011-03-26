@@ -267,9 +267,17 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(jump_args)
 
             loop.preamble.operations = self.optimizer.newoperations
+            preamble_optimizer = self.optimizer
             self.optimizer = self.optimizer.reconstruct_for_next_iteration(jump_args)
-            inputargs = self.inline(self.cloned_operations,
-                                    loop.inputargs, jump_args)
+            try:
+                inputargs = self.inline(self.cloned_operations,
+                                        loop.inputargs, jump_args)
+            except KeyError:
+                debug_print("Unrolling failed.")
+                loop.preamble.operations = None
+                jumpop.initarglist(jump_args)
+                preamble_optimizer.send_extra_operation(jumpop)
+                return
             loop.inputargs = inputargs
             jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
             jmp.setdescr(loop.token)

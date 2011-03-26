@@ -323,6 +323,20 @@ class StringTests:
         self.meta_interp(f, [6, 7])
         self.check_loops(newstr=0, newunicode=0)
 
+    def test_str_slice_len_surviving(self):
+        _str = self._str
+        longstring = _str("Unrolling Trouble")
+        mydriver = JitDriver(reds = ['i', 'a', 'sa'], greens = []) 
+        def f(a):
+            i = sa = a
+            while i < len(longstring):
+                mydriver.jit_merge_point(i=i, a=a, sa=sa)
+                assert a >= 0 and i >= 0
+                i = len(longstring[a:i+1])
+                sa += i
+            return sa
+        assert self.meta_interp(f, [0]) == f(0)
+
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"

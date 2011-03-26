@@ -199,7 +199,10 @@ class BaseTestOptimizeOpt(BaseTest):
 
         print
         print loop.preamble.inputargs
-        print '\n'.join([str(o) for o in loop.preamble.operations])
+        if loop.preamble.operations:
+            print '\n'.join([str(o) for o in loop.preamble.operations])
+        else:
+            print 'Failed!'
         print
         print loop.inputargs
         print '\n'.join([str(o) for o in loop.operations])
@@ -5101,7 +5104,8 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = int_sub(i2, i1)
         jump(p1, i1, i2, i4)
         """
-        self.optimize_strunicode_loop(ops, expected, expected)
+        #self.optimize_strunicode_loop(ops, expected, expected)
+        self.optimize_loop(ops, expected)
 
     def test_str_slice_len_surviving2(self):
         ops = """
@@ -5119,7 +5123,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         escape(i5)
         i4 = int_sub(i2, i1)
         setfield_gc(p2, i4, descr=valuedescr)
-        jump(p1, i1, i2, p2, i4)
+        jump(p1, i1, i2, p2)
         """
         expected = """
         [p1, i1, i2, p2, i5]
@@ -5127,7 +5131,8 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         setfield_gc(p2, i5, descr=valuedescr)
         jump(p1, i1, i2, p2, i5)
         """
-        self.optimize_strunicode_loop(ops, expected, preamble)
+        #self.optimize_strunicode_loop(ops, expected, preamble)
+        self.optimize_loop(ops, preamble)
 
     def test_str_slice_1(self):
         ops = """
