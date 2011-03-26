@@ -1,4 +1,3 @@
-
 import py
 from pypy.conftest import gettestobjspace
 
@@ -23,7 +22,8 @@ class AppTestNumpyLike(object):
         a = array(range(5))
         b = a + a
         b = b.force()
-        assert b[2] == 2 + 2
+        for i in range(5):
+            assert b[i] == i + i
 
     def test_floatadd(self):
         from numpy import array
@@ -33,6 +33,21 @@ class AppTestNumpyLike(object):
         for i in range(5):
             assert b[i] == i + 5
 
+    def test_mul(self):
+        from numpy import array
+        a = array(range(5))
+        b = a * a
+        b = b.force()
+        for i in range(5):
+            assert b[i] == i * i
+
+    def test_floatmul(self):
+        from numpy import array
+        a = array(range(5))
+        b = a * 5
+        b = b.force()
+        for i in range(5):
+            assert b[i] == i * 5
 
 class AppTestNumpy(object):
     def setup_class(cls):

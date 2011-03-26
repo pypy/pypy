@@ -117,6 +117,11 @@ def compute(code):
                 b = frame.popvalue()
                 a = frame.popvalue()
                 frame.pushvalue(a + b)
+            elif opcode == 'm':
+                # Multiply.
+                b = frame.popvalue()
+                a = frame.popvalue()
+                frame.pushvalue(a * b)
             else:
                 raise NotImplementedError(
                     "Can't handle bytecode instruction %s" % opcode)
@@ -139,45 +144,52 @@ class BaseArray(Wrappable):
 
     def descr_add(self, space, w_other):
         if isinstance(w_other, BaseArray):
-            return space.wrap(Add(self, w_other))
+            return space.wrap(BinOp('a', self, w_other))
         else:
-            return space.wrap(FloatAdd(self, space.float_w(w_other)))
+            return space.wrap(BinOp('a', self,
+                FloatWrapper(space.float_w(w_other))))
+
+    def descr_mul(self, space, w_other):
+        if isinstance(w_other, BaseArray):
+            return space.wrap(BinOp('m', self, w_other))
+        else:
+            return space.wrap(BinOp('m', self,
+                FloatWrapper(space.float_w(w_other))))
 
     def compile(self):
         raise NotImplementedError("abstract base class")
 
-class Add(BaseArray):
+class FloatWrapper(BaseArray):
     """
-    Intermediate class for adding arrays.
+    Intermediate class representing a float literal.
     """
 
-    def __init__(self, left, right):
+    def __init__(self, float_value):
+        self.float_value = float_value
+
+    def compile(self):
+        return Code('f', [], [self.float_value])
+
+class BinOp(BaseArray):
+    """
+    Intermediate class for performing binary operations.
+    """
+
+    def __init__(self, opcode, left, right):
+        self.opcode = opcode
         self.left = left
         self.right = right
 
     def compile(self):
         left_code = self.left.compile()
         right_code = self.right.compile()
-        return left_code.merge('a', right_code)
-
-class FloatAdd(BaseArray):
-    """
-    Intermediate class for adding an array and a float.
-    """
-
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
-    def compile(self):
-        left_code = self.left.compile()
-        right_code = Code('f', [], [self.right])
-        return left_code.merge('a', right_code)
+        return left_code.merge(self.opcode, right_code)
 
 BaseArray.typedef = TypeDef(
     'Operation',
     force = interp2app(BaseArray.force),
     __add__ = interp2app(BaseArray.descr_add),
+    __mul__ = interp2app(BaseArray.descr_mul),
 )
 
 class SingleDimArray(BaseArray):
@@ -236,5 +248,6 @@ SingleDimArray.typedef = TypeDef(
     __getitem__ = interp2app(SingleDimArray.descr_getitem),
     __setitem__ = interp2app(SingleDimArray.descr_setitem),
     __add__ = interp2app(BaseArray.descr_add),
+    __mul__ = interp2app(BaseArray.descr_mul),
     force = interp2app(SingleDimArray.force),
 )
