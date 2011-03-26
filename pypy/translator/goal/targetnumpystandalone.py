@@ -10,7 +10,7 @@ Bytecode should contain letters 'a' 'l' and 'f' so far and be correct
 """
 
 import time
-from pypy.module.micronumpy.numarray import SingleDimArray, compute
+from pypy.module.micronumpy.numarray import SingleDimArray, Code, compute
 from pypy.jit.codewriter.policy import JitPolicy
 
 def create_array(size):
@@ -43,8 +43,9 @@ def entry_point(argv):
         arrays.append(create_array(size))
     for i in range(no_floats):
         floats.append(float(i + 1))
+    code = Code(bytecode, arrays, floats)
     t0 = time.time()
-    compute(bytecode, arrays)
+    compute(code)
     print "bytecode:", bytecode, "size:", size
     print "took:", time.time() - t0
     return 0
