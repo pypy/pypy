@@ -116,7 +116,6 @@
 
 /* Begin PYPY hacks */
 /* #include "Python.h" */
-#define DOUBLE_IS_LITTLE_ENDIAN_IEEE754
 #define HAVE_UINT32_T
 #define HAVE_INT32_T
 #define HAVE_UINT64_T

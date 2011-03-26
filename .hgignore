@@ -17,7 +17,6 @@ syntax: regexp
 ^pypy/doc/.+\.html$
 ^pypy/doc/basicblock\.asc$
 ^pypy/doc/.+\.svninfo$
-^pypy/translator/c/src/dtoa.o$
 ^pypy/translator/c/src/libffi_msvc/.+\.obj$
 ^pypy/translator/c/src/libffi_msvc/.+\.dll$
 ^pypy/translator/c/src/libffi_msvc/.+\.lib$
