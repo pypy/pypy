@@ -571,3 +571,60 @@ class TestCompileFramework(object):
 
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
+
+    def define_compile_framework_close_stack(self):
+        from pypy.rlib.libffi import CDLL, types, ArgChain, clibffi
+        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+        from pypy.rpython.annlowlevel import llhelper
+        #
+        class Glob(object):
+            pass
+        glob = Glob()
+        class X(object):
+            pass
+        #
+        def callback(p1, p2):
+            for i in range(100):
+                glob.lst.append(X())
+            return rffi.cast(rffi.INT, 1)
+        CALLBACK = lltype.Ptr(lltype.FuncType([lltype.Signed,
+                                               lltype.Signed], rffi.INT))
+        #
+        @dont_look_inside
+        def alloc1():
+            return llmemory.raw_malloc(16)
+        @dont_look_inside
+        def free1(p):
+            llmemory.raw_free(p)
+        #
+        def f42(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            length = len(glob.lst)
+            raw = alloc1()
+            argchain = ArgChain()
+            fn = llhelper(CALLBACK, rffi._make_wrapper_for(CALLBACK, callback))
+            argchain = argchain.arg(rffi.cast(lltype.Signed, raw))
+            argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 2))
+            argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 8))
+            argchain = argchain.arg(rffi.cast(lltype.Signed, fn))
+            glob.c_qsort.call(argchain, lltype.Void)
+            free1(raw)
+            check(len(glob.lst) > length)
+            del glob.lst[:]
+            n -= 1
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        #
+        def before(n, x):
+            libc = CDLL(libc_name)
+            types_size_t = clibffi.cast_type_to_ffitype(rffi.SIZE_T)
+            c_qsort = libc.getpointer('qsort', [types.pointer, types_size_t,
+                                                types_size_t, types.pointer],
+                                      types.void)
+            glob.c_qsort = c_qsort
+            glob.lst = []
+            return (n, None, None, None, None, None, None,
+                    None, None, None, None, None)
+        #
+        return before, f42, None
+
+    def test_compile_framework_close_stack(self):
+        self.run('compile_framework_close_stack')
