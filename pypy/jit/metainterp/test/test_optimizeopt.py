@@ -5622,7 +5622,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         escape(u"xy")
         jump()
         """
-        self.optimize_strunicode_loop_extradescrs(ops, expected)
+        self.optimize_strunicode_loop_extradescrs(ops, expected, expected)
 
     def test_str2unicode_nonconstant(self):
         ops = """
@@ -5631,7 +5631,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         escape(p1)
         jump(p1)
         """
-        self.optimize_strunicode_loop_extradescrs(ops, ops)
+        self.optimize_strunicode_loop_extradescrs(ops, ops, ops)
         # more generally, supporting non-constant but virtual cases is
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
