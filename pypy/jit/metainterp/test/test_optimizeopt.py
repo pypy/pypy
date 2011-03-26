@@ -5089,6 +5089,20 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_strunicode_loop(ops, expected, expected)
 
+    def test_str_slice_len_surviving(self):
+        ops = """
+        [p1, i1, i2, i3]
+        p2 = call(0, p1, i1, i2, descr=strslicedescr)
+        i4 = strlen(p2)
+        jump(p1, i1, i2, i4)
+        """
+        expected = """
+        [p1, i1, i2, i3]
+        i4 = int_sub(i2, i1)
+        jump(p1, i1, i2, i4)
+        """
+        self.optimize_strunicode_loop(ops, expected, expected)
+
     def test_str_slice_1(self):
         ops = """
         [p1, i1, i2]
