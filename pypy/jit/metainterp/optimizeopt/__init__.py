@@ -35,10 +35,6 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
         if name in enable_opts:
             if opt is not None:
                 o = opt()
-                if unroll and name == 'string':
-                    o.enabled = False
-                # FIXME: Workaround to disable string optimisation
-                # during preamble but to keep it during the loop
                 optimizations.append(o)
 
     if 'rewrite' not in enable_opts or 'virtualize' not in enable_opts:

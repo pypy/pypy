@@ -4921,9 +4921,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
 
     # ----------
-    def optimize_strunicode_loop(self, ops, optops, preamble=None):
-        if not preamble:
-            preamble = ops # FIXME: Force proper testing of preamble
+    def optimize_strunicode_loop(self, ops, optops, preamble):
         # check with the arguments passed in
         self.optimize_loop(ops, optops, preamble)
         # check with replacing 'str' with 'unicode' everywhere
@@ -4943,7 +4941,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         [i0]
         jump(i0)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_newstr_2(self):
         ops = """
@@ -4959,7 +4957,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         [i0, i1]
         jump(i1, i0)
         """
-        self.optimize_strunicode_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_concat_1(self):
         ops = """
