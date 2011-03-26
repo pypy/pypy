@@ -285,7 +285,7 @@ class OpMatcher(object):
         self.match_var(op.res, exp_res)
         self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
         for arg, exp_arg in zip(op.args, exp_args):
-            self._assert(self.match_var(arg, exp_arg), "variable mismatch")
+            self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
         self.match_descr(op.descr, exp_descr)
         
 
