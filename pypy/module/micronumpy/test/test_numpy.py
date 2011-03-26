@@ -25,9 +25,17 @@ class AppTestNumpyLike(object):
         b = b.force()
         assert b[2] == 2 + 2
 
+    def test_floatadd(self):
+        from numpy import array
+        a = array(range(5))
+        b = a + 5
+        b = b.force()
+        for i in range(5):
+            assert b[i] == i + 5
+
+
 class AppTestNumpy(object):
     def setup_class(cls):
-        py.test.skip("skip")
         cls.space = gettestobjspace(usemodules=('micronumpy',))
     
     def test_zeroes(self):
@@ -67,7 +75,6 @@ class AppTestNumpy(object):
 
 class AppTestMultiDim(object):
     def setup_class(cls):
-        py.test.skip("skip")
         cls.space = gettestobjspace(usemodules=('micronumpy',))
 
     def test_multidim(self):
