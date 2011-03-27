@@ -85,7 +85,7 @@ def compile(f, gc, enable_opts='', **kwds):
     if kwds['jit']:
         apply_jit(t, enable_opts=enable_opts)
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
-    cbuilder.generate_source()
+    cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
     cbuilder.compile()
     return cbuilder
 
