@@ -517,8 +517,7 @@ class UnrollOptimizer(Optimization):
                     guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
                     self.short_operations.append(guard)
         else:
-            import pdb; pdb.set_trace()
-            
+            #import pdb; pdb.set_trace()
             self.short_operations = None
         
     def create_short_preamble(self, preamble, loop):
