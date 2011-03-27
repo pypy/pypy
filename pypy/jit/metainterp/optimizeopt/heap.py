@@ -172,7 +172,7 @@ class OptHeap(Optimization):
                 effectinfo = None
             else:
                 effectinfo = op.getdescr().get_extra_info()
-            if effectinfo is not None:
+            if effectinfo is not None and not effectinfo.has_random_effects():
                 # XXX we can get the wrong complexity here, if the lists
                 # XXX stored on effectinfo are large
                 for fielddescr in effectinfo.readonly_descrs_fields:
