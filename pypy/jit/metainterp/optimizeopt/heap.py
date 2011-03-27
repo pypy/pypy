@@ -90,12 +90,12 @@ class CachedField(object):
             fieldvalue  = optheap.getvalue(op.getarg(1))
             self.remember_field_value(structvalue, fieldvalue)
 
-    def get_reconstructed(self, optimizer, valuemap):
+    def get_cloned(self, optimizer, valuemap):
         assert self._lazy_setfield is None
         cf = CachedField()
         for structvalue, fieldvalue in self._cached_fields.iteritems():
-            structvalue2 = structvalue.get_reconstructed(optimizer, valuemap)
-            fieldvalue2  = fieldvalue .get_reconstructed(optimizer, valuemap)
+            structvalue2 = structvalue.get_cloned(optimizer, valuemap)
+            fieldvalue2  = fieldvalue .get_cloned(optimizer, valuemap)
             cf._cached_fields[structvalue2] = fieldvalue2
         return cf
 
@@ -129,7 +129,7 @@ class OptHeap(Optimization):
             assert 0   # was: new.lazy_setfields = self.lazy_setfields
         
         for descr, d in self.cached_fields.items():
-            new.cached_fields[descr] = d.get_cloneded(optimizer, valuemap)
+            new.cached_fields[descr] = d.get_cloned(optimizer, valuemap)
 
         new.cached_arrayitems = {}
         for descr, d in self.cached_arrayitems.items():

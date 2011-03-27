@@ -492,11 +492,12 @@ class UnrollOptimizer(Optimization):
         self.boxes_seen_in_short[box] = True
         op = self.optimizer.producer[box]
 
-        ok = False
+        ok = need_ovf_guard = False
         if op.is_always_pure():
             ok = True
         elif op.is_ovf() and op in self.optimizer.overflow_guarded:
             ok = True
+            need_ovf_guard = True
         elif op.has_no_side_effect():
             # FIXME: When are these safe to include? Allow getitems only
             # if they are still in the heap cache?
@@ -512,8 +513,9 @@ class UnrollOptimizer(Optimization):
                 self.produce_box_in_short_preamble(arg)
             if self.short_operations is not None:
                 self.short_operations.append(op)
-                guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-                self.short_operations.append(guard)
+                if need_ovf_guard:
+                    guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+                    self.short_operations.append(guard)
         else:
             import pdb; pdb.set_trace()
             
