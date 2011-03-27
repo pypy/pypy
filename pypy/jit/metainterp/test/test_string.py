@@ -337,6 +337,58 @@ class StringTests:
             return sa
         assert self.meta_interp(f, [0]) == f(0)
 
+    def test_virtual_strings_direct(self):
+        _str = self._str
+        fillers = _str("abcdefghijklmnopqrstuvwxyz")
+        data = _str("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+        mydriver = JitDriver(reds = ['line', 'noise', 'res'], greens = []) 
+        def f():
+            line = data
+            noise = fillers
+            ratio = len(line) // len(noise)
+            res = data[0:0]
+            while line and noise:
+                mydriver.jit_merge_point(line=line, noise=noise, res=res)
+                if len(line) // len(noise) > ratio:
+                    c, line = line[0], line[1:]
+                else:
+                    c, noise = noise[0], noise[1:]
+                res += c
+            return res + noise + line
+        s1 = self.meta_interp(f, [])
+        s2 = f()
+        for c1, c2 in zip(s1.chars, s2):
+            assert c1==c2
+
+    def test_virtual_strings_boxed(self):
+        _str = self._str
+        fillers = _str("abcdefghijklmnopqrstuvwxyz")
+        data = _str("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        class Str(object):
+            def __init__(self, value):
+                self.value = value
+        mydriver = JitDriver(reds = ['ratio', 'line', 'noise', 'res'],
+                             greens = []) 
+        def f():
+            line = Str(data)
+            noise = Str(fillers)
+            ratio = len(line.value) // len(noise.value)
+            res = Str(data[0:0])
+            while line.value and noise.value:
+                mydriver.jit_merge_point(line=line, noise=noise, res=res,
+                                         ratio=ratio)
+                if len(line.value) // len(noise.value) > ratio:
+                    c, line = line.value[0], Str(line.value[1:])
+                else:
+                    c, noise = noise.value[0], Str(noise.value[1:])
+                res = Str(res.value + c)
+            return res.value + noise.value + line.value
+        s1 = self.meta_interp(f, [])
+        s2 = f()
+        for c1, c2 in zip(s1.chars, s2):
+            assert c1==c2
+
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
