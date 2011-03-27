@@ -32,9 +32,16 @@ class OptValue(object):
     known_class = None
     intbound = None
 
-    def __init__(self, box):
+    def __init__(self, box, level=None, known_class=None, intbound=None):
         self.box = box
-        self.intbound = IntBound(MININT, MAXINT) #IntUnbounded()
+        if level is not None:
+            self.level = level
+        self.known_class = known_class
+        if intbound:
+            self.intbound = intbound
+        else:
+            self.intbound = IntBound(MININT, MAXINT) #IntUnbounded()
+
         if isinstance(box, Const):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
@@ -51,23 +58,27 @@ class OptValue(object):
             boxes.append(self.force_box())
             already_seen[self.get_key_box()] = None
 
-    def get_reconstructed(self, optimizer, valuemap, force_if_needed=True):
+    def get_cloned(self, optimizer, valuemap, force_if_needed=True):
         if self in valuemap:
             return valuemap[self]
-        new = self.reconstruct_for_next_iteration(optimizer)
+        new = self.clone_for_next_iteration(optimizer)
         if new is None:
             if force_if_needed:
                 new = OptValue(self.force_box())
             else:
                 return None
+        else:
+            assert new.__class__ is self.__class__
+            assert new.is_virtual() == self.is_virtual()            
         valuemap[self] = new
-        self.reconstruct_childs(new, valuemap)
+        self.clone_childs(new, valuemap)
         return new
 
-    def reconstruct_for_next_iteration(self, optimizer):
-        return self
+    def clone_for_next_iteration(self, optimizer):
+        return OptValue(self.box, self.level, self.known_class,
+                        self.intbound.clone())
 
-    def reconstruct_childs(self, new, valuemap):
+    def clone_childs(self, new, valuemap):
         pass
 
     def get_args_for_fail(self, modifier):
@@ -165,6 +176,9 @@ class OptValue(object):
 class ConstantValue(OptValue):
     def __init__(self, box):
         self.make_constant(box)
+
+    def clone_for_next_iteration(self, optimizer):
+        return self
 
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
@@ -305,13 +319,13 @@ class Optimizer(Optimization):
         new.interned_refs = self.interned_refs
         new.bool_boxes = {}
         for value in new.bool_boxes.keys():
-            new.bool_boxes[value.get_reconstructed(new, valuemap)] = None
+            new.bool_boxes[value.get_cloned(new, valuemap)] = None
 
         # FIXME: Move to rewrite.py
         new.loop_invariant_results = {}
         for key, value in self.loop_invariant_results.items():
             new.loop_invariant_results[key] = \
-                                 value.get_reconstructed(new, valuemap)
+                                 value.get_cloned(new, valuemap)
 
         new.pure_operations = self.pure_operations
         new.producer = self.producer
@@ -320,8 +334,8 @@ class Optimizer(Optimization):
         for box, value in self.values.items():
             box = new.getinterned(box)
             force = box in surviving_boxes
-            value = value.get_reconstructed(new, valuemap,
-                                            force_if_needed=force)
+            value = value.get_cloned(new, valuemap,
+                                     force_if_needed=force)
             if value is not None:
                 new.values[box] = value
             
