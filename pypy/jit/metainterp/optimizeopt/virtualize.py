@@ -132,18 +132,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            lst = self._get_field_descr_list()
-            for ofs in lst:
-                self._fields[ofs].enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
     def clone_for_next_iteration(self, optimizer):
         raise NotImplementedError
 
@@ -246,17 +234,6 @@ class VArrayValue(AbstractVirtualValue):
 
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
-
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            for itemvalue in self._items:
-                itemvalue.enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
 
     def clone_for_next_iteration(self, optimizer):
         new = VArrayValue(optimizer, self.arraydescr, len(self._items),

@@ -52,12 +52,6 @@ class OptValue(object):
     def get_key_box(self):
         return self.box
 
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key not in already_seen:
-            boxes.append(self.force_box())
-            already_seen[self.get_key_box()] = None
-
     def get_cloned(self, optimizer, valuemap, force_if_needed=True):
         if self in valuemap:
             return valuemap[self]

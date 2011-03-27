@@ -145,6 +145,16 @@ class VirtualState(object):
             self.state[i].generate_guards(other.state[i], args[i],
                                           cpu, extra_guards)
 
+    def make_inputargs(self, values):
+        assert len(values) == len(self.state)
+        inputargs = []
+        seen_inputargs = {}
+        for i in range(len(values)):
+            self.state[i].enum_forced_boxes(inputargs, seen_inputargs,
+                                            values[i])
+        return [a for a in inputargs if not isinstance(a, Const)]
+        
+
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def __init__(self, optimizer):
         self.fieldboxes = {}
@@ -233,6 +243,12 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
         if self.level == LEVEL_CONSTANT:
             import pdb; pdb.set_trace()
             raise NotImplementedError
+
+    def enum_forced_boxes(self, boxes, already_seen, value):
+        key = value.get_key_box()
+        if key not in already_seen:
+            boxes.append(value.force_box())
+            already_seen[value.get_key_box()] = None
         
 
 class UnrollOptimizer(Optimization):
@@ -271,7 +287,8 @@ class UnrollOptimizer(Optimization):
 
             try:
                 inputargs = self.inline(self.cloned_operations,
-                                        loop.inputargs, jump_args)
+                                        loop.inputargs, jump_args,
+                                        virtual_state)
             except KeyError:
                 debug_print("Unrolling failed.")
                 loop.preamble.operations = None
@@ -342,20 +359,15 @@ class UnrollOptimizer(Optimization):
                     if op.result:
                         op.result.forget_value()
                 
-    def inline(self, loop_operations, loop_args, jump_args):
+    def inline(self, loop_operations, loop_args, jump_args, virtual_state):
         self.inliner = inliner = Inliner(loop_args, jump_args)
-           
+
+        # FIXME: Move this to reconstruct
         for v in self.optimizer.values.values():
             v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
 
-        inputargs = []
-        seen_inputargs = {}
-        for arg in jump_args:
-            boxes = []
-            self.getvalue(arg).enum_forced_boxes(boxes, seen_inputargs)
-            for a in boxes:
-                if not isinstance(a, Const):
-                    inputargs.append(a)
+        values = [self.getvalue(arg) for arg in jump_args]
+        inputargs = virtual_state.make_inputargs(values)
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -364,7 +376,8 @@ class UnrollOptimizer(Optimization):
                 newop.initarglist(inputargs)
             newop = inliner.inline_op(newop, clone=False)
 
-            self.optimizer.first_optimization.propagate_forward(newop)
+            #self.optimizer.first_optimization.propagate_forward(newop)
+            self.optimizer.send_extra_operation(newop)
 
         # Remove jump to make sure forced code are placed before it
         newoperations = self.optimizer.newoperations

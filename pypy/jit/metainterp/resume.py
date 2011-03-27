@@ -445,6 +445,9 @@ class AbstractVirtualInfo(object):
 
     def _generate_guards(self, other, box, cpu, extra_guards):
         raise InvalidLoop
+
+    def enum_forced_boxes(self, boxes, already_seen, value):
+        raise NotImplementedError
         
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
@@ -483,6 +486,19 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
 
     def _generalization_of(self, other):
         raise NotImplementedError
+
+    def enum_forced_boxes(self, boxes, already_seen, value):
+        #FIXME: assert isinstance(value, AbstractVirtualStructValue)
+        key = value.get_key_box()
+        if key in already_seen:
+            return
+        already_seen[key] = None
+        if value.box is None:
+            for i in range(len(self.fielddescrs)):
+                v = value._fields[self.fielddescrs[i]]
+                self.fieldstate[i].enum_forced_boxes(boxes, already_seen, v)
+        else:
+            boxes.append(value.box)
 
 
 class VirtualInfo(AbstractVirtualStructInfo):
@@ -571,6 +587,21 @@ class VArrayInfo(AbstractVirtualInfo):
             if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
                 return False
         return True
+
+    def enum_forced_boxes(self, boxes, already_seen, value):
+        # FIXME: assert isinstance(value, VArrayValue)
+        key = value.get_key_box()
+        if key in already_seen:
+            return
+        already_seen[key] = None
+        if value.box is None:
+            for i in range(len(self.fieldstate)):
+                v = value._items[i]
+                self.fieldstate[i].enum_forced_boxes(boxes, already_seen, v)
+        else:
+            boxes.append(value.box)
+
+    
 
 
 class VStrPlainInfo(AbstractVirtualInfo):
