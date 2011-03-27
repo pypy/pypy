@@ -389,6 +389,23 @@ class StringTests:
         for c1, c2 in zip(s1.chars, s2):
             assert c1==c2
 
+    def test_string_in_virtual_state(self):
+        _str = self._str
+        s1 = _str("a")
+        s2 = _str("AA")
+        mydriver = JitDriver(reds = ['i', 'n', 'sa'], greens = [])
+        def f(n):
+            sa = s1
+            i = 0
+            while i < n:
+                mydriver.jit_merge_point(i=i, n=n, sa=sa)
+                if i&4 == 0:
+                    sa += s1
+                else:
+                    sa += s2
+                i += 1
+            return len(sa)
+        assert self.meta_interp(f, [16]) == f(16)
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"

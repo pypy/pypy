@@ -262,13 +262,13 @@ class UnrollOptimizer(Optimization):
             assert jumpop.getdescr() is loop.token
             jump_args = jumpop.getarglist()
             jumpop.initarglist([])
-            #virtual_state = [self.getvalue(a).is_virtual() for a in jump_args]
-            modifier = VirtualStateAdder(self.optimizer)
-            virtual_state = modifier.get_virtual_state(jump_args)
 
             loop.preamble.operations = self.optimizer.newoperations
             preamble_optimizer = self.optimizer
             self.optimizer = self.optimizer.reconstruct_for_next_iteration(jump_args)
+            modifier = VirtualStateAdder(self.optimizer)
+            virtual_state = modifier.get_virtual_state(jump_args)
+
             try:
                 inputargs = self.inline(self.cloned_operations,
                                         loop.inputargs, jump_args)
