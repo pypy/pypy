@@ -1716,11 +1716,12 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
-            dont_change_position = True
+            resume_at_position = True
         else:
-            dont_change_position = False
+            resume_at_position = False
         try:
-            self.prepare_resume_from_failure(key.guard_opnum, dont_change_position)
+            self.prepare_resume_from_failure(key.guard_opnum,
+                                             resume_at_position)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(ABORT_BRIDGE)
             self.interpret()
@@ -1824,10 +1825,10 @@ class MetaInterp(object):
         history.set_future_values(self.cpu, residual_args)
         return loop_token
 
-    def prepare_resume_from_failure(self, opnum, dont_change_position=False):
+    def prepare_resume_from_failure(self, opnum, resume_at_position=False):
         frame = self.framestack[-1]
         if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
-            if not dont_change_position:
+            if not resume_at_position:
                 frame.pc = frame.jitcode.follow_jump(frame.pc)
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping
             pass
@@ -1838,6 +1839,8 @@ class MetaInterp(object):
               opnum == rop.GUARD_NONNULL_CLASS):
             pass        # the pc is already set to the *start* of the opcode
         elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
+            if resume_at_position:
+                assert False, "FIXME: How do we handle exceptions here?"
             exception = self.cpu.grab_exc_value()
             if exception:
                 self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
@@ -1849,11 +1852,14 @@ class MetaInterp(object):
             except ChangeFrame:
                 pass
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            self.execute_raised(OverflowError(), constant=True)
-            try:
-                self.finishframe_exception()
-            except ChangeFrame:
-                pass
+            if resume_at_position:
+                self.clear_exception()
+            else:
+                self.execute_raised(OverflowError(), constant=True)
+                try:
+                    self.finishframe_exception()
+                except ChangeFrame:
+                    pass
         elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
             self.clear_exception()
         else:

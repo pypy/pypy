@@ -317,7 +317,7 @@ class ResumeGuardDescr(ResumeDescr):
         if self.must_compile(metainterp_sd, jitdriver_sd):
             return self._trace_and_compile_from_bridge(metainterp_sd,
                                                        jitdriver_sd)
-        else:
+        else:            
             from pypy.jit.metainterp.blackhole import resume_in_blackhole
             resume_in_blackhole(metainterp_sd, jitdriver_sd, self)
             assert 0, "unreachable"

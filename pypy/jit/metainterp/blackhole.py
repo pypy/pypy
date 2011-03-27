@@ -1243,13 +1243,13 @@ class BlackholeInterpreter(object):
             assert kind == 'v'
         return lltype.nullptr(rclass.OBJECTPTR.TO)
 
-    def _prepare_resume_from_failure(self, opnum, dont_change_position=False):
+    def _prepare_resume_from_failure(self, opnum, resume_at_position=False):
         from pypy.jit.metainterp.resoperation import rop
         #
         if opnum == rop.GUARD_TRUE:
             # Produced directly by some goto_if_not_xxx() opcode that did not
             # jump, but which must now jump.  The pc is just after the opcode.
-            if not dont_change_position:
+            if not resume_at_position:
                 self.position = self.jitcode.follow_jump(self.position)
         #
         elif opnum == rop.GUARD_FALSE:
@@ -1280,7 +1280,8 @@ class BlackholeInterpreter(object):
         elif opnum == rop.GUARD_NO_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
             # We get here because it did not used to overflow, but now it does.
-            return get_llexception(self.cpu, OverflowError())
+            if not resume_at_position:
+                return get_llexception(self.cpu, OverflowError())
         #
         elif opnum == rop.GUARD_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
@@ -1410,12 +1411,12 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
         resumedescr,
         all_virtuals)
     if isinstance(resumedescr, ResumeAtPositionDescr):
-        dont_change_position = True
+        resume_at_position = True
     else:
-        dont_change_position = False
+        resume_at_position = False
 
     current_exc = blackholeinterp._prepare_resume_from_failure(
-        resumedescr.guard_opnum, dont_change_position)
+        resumedescr.guard_opnum, resume_at_position)
         
     try:
         _run_forever(blackholeinterp, current_exc)

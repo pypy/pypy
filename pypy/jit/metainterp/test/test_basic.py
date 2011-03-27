@@ -460,9 +460,8 @@ class BasicTests:
                     res += ovfcheck(x1 * x1)
                 except OverflowError:
                     res += 1
-                #if y<n and (y>>2)&1==0:
                 y -= 1
-                if (y>>2)&1==0:
+                if y&4 == 0:
                     x1, x2 = x2, x1
             return res
         res = self.meta_interp(f, [6, sys.maxint, 32, 48])
