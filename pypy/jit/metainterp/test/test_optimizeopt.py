@@ -819,6 +819,52 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_compare_with_itself(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = int_lt(i0, i0)
+        guard_false(i1) []
+        i2 = int_le(i0, i0)
+        guard_true(i2) []
+        i3 = int_eq(i0, i0)
+        guard_true(i3) []
+        i4 = int_ne(i0, i0)
+        guard_false(i4) []
+        i5 = int_gt(i0, i0)
+        guard_false(i5) []
+        i6 = int_ge(i0, i0)
+        guard_true(i6) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_compare_with_itself_uint(self):
+        py.test.skip("implement me")
+        ops = """
+        []
+        i0 = escape()
+        i7 = uint_lt(i0, i0)
+        guard_false(i7) []
+        i8 = uint_le(i0, i0)
+        guard_true(i8) []
+        i9 = uint_gt(i0, i0)
+        guard_false(i9) []
+        i10 = uint_ge(i0, i0)
+        guard_true(i10) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
 
 

@@ -305,6 +305,14 @@ class StackCounter:
 stackcounter = StackCounter()
 stackcounter._freeze_()
 
+def llexternal_use_eci(compilation_info):
+    """Return a dummy function that, if called in a RPython program,
+    adds the given ExternalCompilationInfo to it."""
+    eci = ExternalCompilationInfo(post_include_bits=['#define PYPY_NO_OP()'])
+    eci = eci.merge(compilation_info)
+    return llexternal('PYPY_NO_OP', [], lltype.Void,
+                      compilation_info=eci, sandboxsafe=True, _nowrapper=True)
+
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
 # this makes passing opaque objects possible (they don't even pass
