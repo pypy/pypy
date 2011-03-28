@@ -14,6 +14,9 @@ from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 class W_FFIType(Wrappable):
+
+    _immutable_fields_ = ['name', 'ffitype', 'w_datashape', 'w_pointer_to']
+    
     def __init__(self, name, ffitype, w_datashape=None, w_pointer_to=None):
         self.name = name
         self.ffitype = ffitype
