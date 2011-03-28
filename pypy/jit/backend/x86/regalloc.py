@@ -126,6 +126,7 @@ class RegAlloc(object):
         self.translate_support_code = translate_support_code
         # to be read/used by the assembler too
         self.jump_target_descr = None
+        self.close_stack_struct = 0
 
     def _prepare(self, inputargs, operations):
         self.fm = X86FrameManager()
@@ -801,6 +802,11 @@ class RegAlloc(object):
         self._consider_call(op, guard_op)
 
     def consider_call_release_gil(self, op, guard_op):
+        # first force the registers like eax into the stack, because of
+        # the initial call to _close_stack()
+        self.rm.before_call()
+        self.xrm.before_call()
+        #
         assert guard_op is not None
         self._consider_call(op, guard_op)
 

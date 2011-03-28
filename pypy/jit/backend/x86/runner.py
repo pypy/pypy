@@ -113,10 +113,11 @@ class AbstractX86CPU(AbstractLLCPU):
                 LLInterpreter.current_interpreter = prev_interpreter
         return res
 
-    @staticmethod
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return CPU386.cast_adr_to_int(adr)
+    cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
+    cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
     all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
                                        flavor='raw', zero=True,
