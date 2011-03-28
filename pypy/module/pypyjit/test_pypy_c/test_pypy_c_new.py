@@ -1036,3 +1036,36 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, descr=<Loop0>)
         """)
+
+    def test_unpack_iterable_non_list_tuple(self):
+        def main(n):
+            import array
+
+            items = [array.array("i", [1])] * n
+            total = 0
+            for a, in items:
+                total += a
+            return total
+
+        log = self.run(main, [1000000])
+        assert log.result == 1000000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i16 = int_ge(i12, i13)
+            guard_false(i16, descr=<Guard3>)
+            p17 = getarrayitem_gc(p15, i12, descr=<GcPtrArrayDescr>)
+            i19 = int_add(i12, 1)
+            setfield_gc(p4, i19, descr=<SignedFieldDescr .*W_AbstractSeqIterObject.inst_index .*>)
+            guard_nonnull_class(p17, 146982464, descr=<Guard4>)
+            i21 = getfield_gc(p17, descr=<SignedFieldDescr .*W_ArrayTypei.inst_len .*>)
+            i23 = int_lt(0, i21)
+            guard_true(i23, descr=<Guard5>)
+            i24 = getfield_gc(p17, descr=<NonGcPtrFieldDescr .*W_ArrayTypei.inst_buffer .*>)
+            i25 = getarrayitem_raw(i24, 0, descr=<SignedArrayNoLengthDescr>)
+            i27 = int_lt(1, i21)
+            guard_false(i27, descr=<Guard6>)
+            i28 = int_add_ovf(i10, i25)
+            guard_no_overflow(descr=<Guard7>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
+        """)

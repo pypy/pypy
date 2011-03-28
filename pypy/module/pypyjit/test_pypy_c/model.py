@@ -260,7 +260,7 @@ class OpMatcher(object):
     @classmethod
     def is_const(cls, v1):
         return isinstance(v1, str) and v1.startswith('ConstClass(')
-    
+
     def match_var(self, v1, exp_v2):
         assert v1 != '_'
         if exp_v2 == '_':
@@ -287,7 +287,7 @@ class OpMatcher(object):
         for arg, exp_arg in zip(op.args, exp_args):
             self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
         self.match_descr(op.descr, exp_descr)
-        
+
 
     def _next_op(self, iter_ops, assert_raises=False):
         try:
