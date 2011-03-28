@@ -286,13 +286,28 @@ class Assembler386(object):
         new.prev = asmgcroot.gcrootanchor
         asmgcroot.gcrootanchor.next = new
         next.prev = new
-        # XXX and now release the GIL
+        # and now release the GIL
+        before = rffi.aroundstate.before
+        # Store a flag (by abuse in new+2*WORD) that tells if we must
+        # call the "after" function or not.  The issue is that the
+        # before/after fields can be set at a random point during the
+        # execution, and we should not call the "after" function if we
+        # did not call the "before" function.  It works by assuming that
+        # before/after start out being None/None, and are later set (once
+        # only) to some pair of functions.
+        css[2] = int(bool(before))
+        if before:
+            before()
 
     @staticmethod
     def _reopen_stack(css):
+        # first reacquire the GIL
+        if css[2]:
+            after = rffi.aroundstate.after
+            assert after
+            after()
         # similar to trackgcroot.py:pypy_asm_stackwalk, second part
         from pypy.rpython.memory.gctransform import asmgcroot
-        # XXX first reacquire the GIL
         old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
         prev = old.prev
         next = old.next
