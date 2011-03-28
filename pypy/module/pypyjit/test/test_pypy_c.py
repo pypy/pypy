@@ -1346,7 +1346,7 @@ class PyPyCJITTests(object):
         last_ops = [op.getopname() for op in call_function[-5:]]
         assert last_ops == ['force_token',
                             'setfield_gc',
-                            'call_may_force',
+                            'call_release_gil',
                             'guard_not_forced',
                             'guard_no_exception']
         call = call_function[-3]
