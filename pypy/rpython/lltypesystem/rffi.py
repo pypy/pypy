@@ -311,7 +311,8 @@ def llexternal_use_eci(compilation_info):
     eci = ExternalCompilationInfo(post_include_bits=['#define PYPY_NO_OP()'])
     eci = eci.merge(compilation_info)
     return llexternal('PYPY_NO_OP', [], lltype.Void,
-                      compilation_info=eci, sandboxsafe=True, _nowrapper=True)
+                      compilation_info=eci, sandboxsafe=True, _nowrapper=True,
+                      _callable=lambda: None)
 
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
