@@ -86,6 +86,9 @@ class W_ListObject(W_Object):
             self.strategy = self.space.fromcache(EmptyListStrategy)
             self.strategy.init_from_list_w(self, [])
 
+    def clone(self):
+        return self.strategy.clone(self)
+
     def copy_into(self, other):
         self.strategy.copy_into(self, other)
     # ___________________________________________________
@@ -147,6 +150,9 @@ class ListStrategy(object):
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
+    def clone(self, w_list):
+        raise NotImplementedError
+
     def copy_into(self, w_list, w_other):
         raise NotImplementedError
 
@@ -204,6 +210,9 @@ class EmptyListStrategy(ListStrategy):
     cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("empty")
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
+
+    def clone(self, w_list):
+        return W_ListObject.from_storage_and_strategy(self.space, w_list.lstorage, self)
 
     def copy_into(self, w_list, w_other):
         pass
@@ -274,6 +283,10 @@ class RangeListStrategy(ListStrategy):
     cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("range")
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
+
+    def clone(self, w_list):
+        storage = w_list.lstorage # lstorage is tuple, no need to clone
+        w_clone = W_ListObject.from_storage_and_strategy(self.space, storage, self)
 
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
@@ -428,6 +441,12 @@ class AbstractUnwrappedStrategy(object):
     def init_from_list_w(self, w_list, list_w):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.cast_to_void_star(l)
+
+    def clone(self, w_list):
+        l = self.cast_from_void_star(w_list.lstorage)
+        storage = self.cast_to_void_star(l[:])
+        w_clone = W_ListObject.from_storage_and_strategy(self.space, storage, self)
+        return w_clone
 
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
@@ -761,7 +780,9 @@ def iter__List(space, w_list):
     return iterobject.W_FastListIterObject(w_list)
 
 def add__List_List(space, w_list1, w_list2):
-    return W_ListObject(space, w_list1.getitems() + w_list2.getitems())
+    w_clone = w_list1.clone()
+    w_clone.extend(w_list2)
+    return w_clone
 
 
 def inplace_add__List_ANY(space, w_list1, w_iterable2):

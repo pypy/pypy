@@ -244,3 +244,18 @@ class TestW_ListStrategies(TestW_ListObject):
         l2.append(self.space.wrap("four"))
         assert l2 == l1.getitems()
 
+    def test_clone(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        clone = l1.clone()
+        assert isinstance(clone.strategy, IntegerListStrategy)
+        clone.append(self.space.wrap(7))
+        assert not self.space.eq_w(l1, clone)
+
+    def test_add_does_not_use_getitems(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l1.getitems = None
+        l2 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l2.getitems = None
+        l3 = self.space.add(l1, l2)
+        l4 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        assert self.space.eq_w(l3, l4)
