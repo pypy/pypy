@@ -239,10 +239,6 @@ class UnrollOptimizer(Optimization):
     def inline(self, loop_operations, loop_args, jump_args, virtual_state):
         self.inliner = inliner = Inliner(loop_args, jump_args)
 
-        # FIXME: Move this to reconstruct
-        for v in self.optimizer.values.values():
-            v.last_guard_index = -1 # FIXME: Are there any more indexes stored?
-
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values)
 
