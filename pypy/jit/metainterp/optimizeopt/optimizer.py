@@ -265,7 +265,6 @@ class Optimizer(Optimization):
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
-        self.loop_invariant_results = {}
         self.pure_operations = args_dict()
         self.producer = {}
         self.pendingfields = []
@@ -310,16 +309,10 @@ class Optimizer(Optimization):
                          for o in self.optimizations]
         new.set_optimizations(optimizations)
 
-        new.interned_refs = self.interned_refs
-        new.bool_boxes = {}
+        new.interned_refs = self.interned_refs # Constants
+        new.bool_boxes = {} # Flags values as bools
         for value in new.bool_boxes.keys():
             new.bool_boxes[value.get_cloned(new, valuemap)] = None
-
-        # FIXME: Move to rewrite.py
-        new.loop_invariant_results = {}
-        for key, value in self.loop_invariant_results.items():
-            new.loop_invariant_results[key] = \
-                                 value.get_cloned(new, valuemap)
 
         new.pure_operations = self.pure_operations
         new.producer = self.producer

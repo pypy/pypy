@@ -12,10 +12,16 @@ class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
        This includes already executed operations and constants.
     """
+    def __init__(self):
+        self.loop_invariant_results = {}
 
     def reconstruct_for_next_iteration(self, surviving_boxes,
                                        optimizer, valuemap):
-        return OptRewrite()
+        new = OptRewrite()
+        for key, value in self.loop_invariant_results.items():
+            new.loop_invariant_results[key] = \
+                                 value.get_cloned(new, valuemap)
+        return new
     
     def propagate_forward(self, op):
         args = self.optimizer.make_args_key(op)
@@ -292,7 +298,7 @@ class OptRewrite(Optimization):
         # expects a compile-time constant
         assert isinstance(arg, Const)
         key = make_hashable_int(arg.getint())
-        resvalue = self.optimizer.loop_invariant_results.get(key, None)
+        resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)
             return
@@ -301,7 +307,7 @@ class OptRewrite(Optimization):
         op = op.copy_and_change(rop.CALL)
         self.emit_operation(op)
         resvalue = self.getvalue(op.result)
-        self.optimizer.loop_invariant_results[key] = resvalue
+        self.loop_invariant_results[key] = resvalue
     
     def _optimize_nullness(self, op, box, expect_nonnull):
         value = self.getvalue(box)
