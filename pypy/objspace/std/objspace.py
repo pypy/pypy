@@ -387,8 +387,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems[:]
-        elif isinstance(w_obj, W_ListObject): # XXX enable fast path again
-            t = w_obj.getitems()
+        elif isinstance(w_obj, W_ListObject):
+            t = w_obj.getitems_copy()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
@@ -402,6 +402,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems
         elif isinstance(w_obj, W_ListObject):
+            # XXX this can copy twice
             t = w_obj.getitems()[:]
         else:
             if unroll:

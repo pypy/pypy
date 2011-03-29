@@ -105,6 +105,8 @@ class W_ListObject(W_Object):
     def getitems(self):
         return self.strategy.getitems(self)
 
+    def getitems_copy(self):
+        return self.strategy.getitems_copy(self)
     # ___________________________________________________
 
     def inplace_mul(self, times):
@@ -158,6 +160,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def getitems(self, w_list):
+        raise NotImplementedError
+
+    def getitems_copy(self, w_list):
         raise NotImplementedError
 
     def append(self, w_list, w_item):
@@ -214,6 +219,9 @@ class EmptyListStrategy(ListStrategy):
 
     def getitems(self, w_list):
         # cache result XXX
+        return []
+
+    def getitems_copy(self, w_list):
         return []
 
     def append(self, w_list, w_item):
@@ -289,6 +297,8 @@ class RangeListStrategy(ListStrategy):
 
     def getitems(self, w_list):
         return self._getitems_range(w_list, True)
+
+    getitems_copy = getitems
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
@@ -435,8 +445,10 @@ class AbstractUnwrappedStrategy(object):
             raise
         return self.wrap(r)
 
-    def getitems(self, w_list):
+    def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.cast_from_void_star(w_list.lstorage)]
+
+    getitems = getitems_copy
 
     def getslice(self, w_list, start, stop, step, length):
         if step == 1:
@@ -630,7 +642,8 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.lstorage = self.cast_to_void_star(list_w)
 
-    # XXX implement getitems without copying here
+    def getitems(self, w_list):
+        return self.cast_from_void_star(w_list.lstorage)
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0
@@ -1047,7 +1060,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         # The list is temporarily made empty, so that mutations performed
         # by comparison functions can't affect the slice of memory we're
         # sorting (allowing mutations during sorting is an IndexError or
-        # core-dump factory, since wrappeditems may change).
+        # core-dump factory, since the storage may change).
         w_list.__init__(space, [])
 
         # wrap each item in a KeyContainer if needed

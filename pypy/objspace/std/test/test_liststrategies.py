@@ -232,3 +232,15 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, RangeListStrategy)
         l.setslice(0, 1, 3, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
+
+    def test_get_items_copy(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l2 = l1.getitems()
+        l2.append(self.space.wrap(4))
+        assert not l2 == l1.getitems()
+
+        l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap("two"), self.space.wrap(3)])
+        l2 = l1.getitems()
+        l2.append(self.space.wrap("four"))
+        assert l2 == l1.getitems()
+
