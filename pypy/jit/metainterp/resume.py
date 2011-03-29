@@ -434,20 +434,6 @@ class AbstractVirtualInfo(object):
 
     def debug_prints(self):
         raise NotImplementedError
-
-    def generalization_of(self, other):
-        raise NotImplementedError
-
-    def generate_guards(self, other, box, cpu, extra_guards):
-        if self.generalization_of(other):
-            return
-        self._generate_guards(other, box, cpu, extra_guards)
-
-    def _generate_guards(self, other, box, cpu, extra_guards):
-        raise InvalidLoop
-
-    def enum_forced_boxes(self, boxes, already_seen, value):
-        raise NotImplementedError
         
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
@@ -468,39 +454,6 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(self.fielddescrs[i]),
                         str(untag(self.fieldnums[i])))
 
-    def generalization_of(self, other):
-        if not self._generalization_of(other):
-            return False
-        assert len(self.fielddescrs) == len(self.fieldstate)
-        assert len(other.fielddescrs) == len(other.fieldstate)
-        if len(self.fielddescrs) != len(other.fielddescrs):
-            return False
-        
-        for i in range(len(self.fielddescrs)):
-            if other.fielddescrs[i] is not self.fielddescrs[i]:
-                return False
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
-                return False
-
-        return True
-
-    def _generalization_of(self, other):
-        raise NotImplementedError
-
-    def enum_forced_boxes(self, boxes, already_seen, value):
-        #FIXME: assert isinstance(value, AbstractVirtualStructValue)
-        key = value.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if value.box is None:
-            for i in range(len(self.fielddescrs)):
-                v = value._fields[self.fielddescrs[i]]
-                self.fieldstate[i].enum_forced_boxes(boxes, already_seen, v)
-        else:
-            boxes.append(value.box)
-
-
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -516,13 +469,6 @@ class VirtualInfo(AbstractVirtualStructInfo):
         debug_print("\tvirtualinfo", self.known_class.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
 
-    def _generalization_of(self, other):        
-        if not isinstance(other, VirtualInfo):
-            return False
-        if not self.known_class.same_constant(other.known_class):
-            return False
-        return True
-        
 
 class VStructInfo(AbstractVirtualStructInfo):
     def __init__(self, typedescr, fielddescrs):
@@ -538,14 +484,6 @@ class VStructInfo(AbstractVirtualStructInfo):
     def debug_prints(self):
         debug_print("\tvstructinfo", self.typedescr.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
-
-    def _generalization_of(self, other):        
-        if not isinstance(other, VStructInfo):
-            return False
-        if self.typedescr is not other.typedescr:
-            return False
-        return True
-        
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
@@ -577,32 +515,6 @@ class VArrayInfo(AbstractVirtualInfo):
         debug_print("\tvarrayinfo", self.arraydescr)
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
-
-    def generalization_of(self, other):
-        if self.arraydescr is not other.arraydescr:
-            return False
-        if len(self.fieldstate) != len(other.fieldstate):
-            return False
-        for i in range(len(self.fieldstate)):
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
-                return False
-        return True
-
-    def enum_forced_boxes(self, boxes, already_seen, value):
-        # FIXME: assert isinstance(value, VArrayValue)
-        key = value.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if value.box is None:
-            for i in range(len(self.fieldstate)):
-                v = value._items[i]
-                self.fieldstate[i].enum_forced_boxes(boxes, already_seen, v)
-        else:
-            boxes.append(value.box)
-
-    
-
 
 class VStrPlainInfo(AbstractVirtualInfo):
     """Stands for the string made out of the characters of all fieldnums."""
