@@ -717,9 +717,12 @@ namespace pypy.runtime
             return s.Substring(start, count);
         }
 
-        public static string[] ll_split_chr(string s, char ch)
+        public static string[] ll_split_chr(string s, char ch, int max)
         {
-            return s.Split(ch);
+            if (max < 0)
+                return s.Split(ch);
+            else
+                return s.Split(new Char[] {ch}, max + 1);
         }
 
         public static bool ll_contains(string s, char ch)
