@@ -5150,8 +5150,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = int_sub(i2, i1)
         jump(p1, i1, i2, i4)
         """
-        #self.optimize_strunicode_loop(ops, expected, expected)
-        self.optimize_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_str_slice_len_surviving2(self):
         ops = """

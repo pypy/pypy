@@ -152,7 +152,7 @@ class VirtualState(object):
         for i in range(len(values)):
             self.state[i].enum_forced_boxes(inputargs, seen_inputargs,
                                             values[i])
-        return [a for a in inputargs if not isinstance(a, Const)]
+        return inputargs
         
 
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
@@ -245,6 +245,8 @@ class NotVirtualInfo(resume.AbstractVirtualInfo):
             raise NotImplementedError
 
     def enum_forced_boxes(self, boxes, already_seen, value):
+        if self.level == LEVEL_CONSTANT:
+            return
         key = value.get_key_box()
         if key not in already_seen:
             boxes.append(value.force_box())
@@ -372,9 +374,10 @@ class UnrollOptimizer(Optimization):
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
         for newop in loop_operations:
-            if newop.getopnum() == rop.JUMP:
-                newop.initarglist(inputargs)
             newop = inliner.inline_op(newop, clone=False)
+            if newop.getopnum() == rop.JUMP:
+                values = [self.getvalue(arg) for arg in newop.getarglist()]
+                newop.initarglist(virtual_state.make_inputargs(values))
 
             #self.optimizer.first_optimization.propagate_forward(newop)
             self.optimizer.send_extra_operation(newop)
