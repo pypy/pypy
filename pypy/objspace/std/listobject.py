@@ -213,6 +213,7 @@ class EmptyListStrategy(ListStrategy):
         return W_ListObject(self.space, [])
 
     def getitems(self, w_list):
+        # cache result XXX
         return []
 
     def append(self, w_list, w_item):
@@ -479,10 +480,12 @@ class AbstractUnwrappedStrategy(object):
         elif w_other.strategy is self.space.fromcache(EmptyListStrategy):
             return
 
-        #XXX unnecessary copy if w_other is ObjectList
         list_w = w_other.getitems()
-        w_other = W_ListObject(self.space, list_w)
-        w_other.switch_to_object_strategy()
+        strategy = self.space.fromcache(ObjectListStrategy)
+        storage = strategy.cast_to_void_star(list_w)
+        # NB: w_other shares its storage with the original w_other.  the new
+        # w_other does not survive long, so this is not a problem
+        w_other = W_ListObject.from_storage_and_strategy(self.space, storage, strategy)
 
         w_list.switch_to_object_strategy()
         w_list.extend(w_other)
