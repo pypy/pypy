@@ -7,7 +7,7 @@ from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 
-class AbstractVirtualStateInfo(object):
+class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def generalization_of(self, other):
         raise NotImplementedError
 
