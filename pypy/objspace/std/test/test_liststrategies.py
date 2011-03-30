@@ -111,23 +111,61 @@ class TestW_ListStrategies(TestW_ListObject):
     def test_setslice(self):
         l = W_ListObject(self.space, [])
         assert isinstance(l.strategy, EmptyListStrategy)
-        l.setslice(0, 1, 2, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l.setslice(0, 1, 2, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)]))
         assert isinstance(l.strategy, IntegerListStrategy)
 
         l = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
-        l.setslice(0, 1, 2, [self.space.wrap(4), self.space.wrap(5), self.space.wrap(6)])
+        l.setslice(0, 1, 2, W_ListObject(self.space, [self.space.wrap(4), self.space.wrap(5), self.space.wrap(6)]))
         assert isinstance(l.strategy, IntegerListStrategy)
 
         l = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap('b'), self.space.wrap(3)])
         assert isinstance(l.strategy, ObjectListStrategy)
-        l.setslice(0, 1, 2, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l.setslice(0, 1, 2, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)]))
         assert isinstance(l.strategy, ObjectListStrategy)
 
         l = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
-        l.setslice(0, 1, 2, [self.space.wrap('a'), self.space.wrap('b'), self.space.wrap('c')])
+        l.setslice(0, 1, 2, W_ListObject(self.space, [self.space.wrap('a'), self.space.wrap('b'), self.space.wrap('c')]))
         assert isinstance(l.strategy, ObjectListStrategy)
+
+    def test_setslice_List(self):
+
+        def wrapitems(items):
+            items_w = []
+            for i in items:
+                items_w.append(self.space.wrap(i))
+            return items_w
+
+        def keep_other_strategy(w_list, start, step, length, w_other):
+            other_strategy = w_other.strategy
+            w_list.setslice(start, step, length, w_other)
+            assert w_other.strategy is other_strategy
+
+        l = W_ListObject(self.space, wrapitems([1,2,3,4,5]))
+        other = W_ListObject(self.space, wrapitems(["a", "b", "c"]))
+        keep_other_strategy(l, 0, 2, other.length(), other)
+        assert l.strategy is self.space.fromcache(ObjectListStrategy)
+
+        l = W_ListObject(self.space, wrapitems([1,2,3,4,5]))
+        other = W_ListObject(self.space, wrapitems([6, 6, 6]))
+        keep_other_strategy(l, 0, 2, other.length(), other)
+        assert l.strategy is self.space.fromcache(IntegerListStrategy)
+
+        l = W_ListObject(self.space, wrapitems(["a","b","c","d","e"]))
+        other = W_ListObject(self.space, wrapitems(["a", "b", "c"]))
+        keep_other_strategy(l, 0, 2, other.length(), other)
+        assert l.strategy is self.space.fromcache(StringListStrategy)
+
+        l = W_ListObject(self.space, wrapitems(["a",3,"c",4,"e"]))
+        other = W_ListObject(self.space, wrapitems(["a", "b", "c"]))
+        keep_other_strategy(l, 0, 2, other.length(), other)
+        assert l.strategy is self.space.fromcache(ObjectListStrategy)
+
+        l = W_ListObject(self.space, wrapitems(["a",3,"c",4,"e"]))
+        other = W_ListObject(self.space, [])
+        keep_other_strategy(l, 0, 1, l.length(), other)
+        assert l.strategy is self.space.fromcache(EmptyListStrategy)
 
     def test_extend(self):
         l = W_ListObject(self.space, [])
@@ -230,7 +268,7 @@ class TestW_ListStrategies(TestW_ListObject):
     def test_range_setslice(self):
         l = make_range_list(self.space, 1, 3, 5)
         assert isinstance(l.strategy, RangeListStrategy)
-        l.setslice(0, 1, 3, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l.setslice(0, 1, 3, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)]))
         assert isinstance(l.strategy, IntegerListStrategy)
 
     def test_get_items_copy(self):

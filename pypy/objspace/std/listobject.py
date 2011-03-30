@@ -89,6 +89,15 @@ class W_ListObject(W_Object):
     def clone(self):
         return self.strategy.clone(self)
 
+    def _temporarily_as_objects(self):
+        if self.strategy is self.space.fromcache(ObjectListStrategy):
+            return self
+        list_w = self.getitems()
+        strategy = self.space.fromcache(ObjectListStrategy)
+        storage = strategy.cast_to_void_star(list_w)
+        w_objectlist = W_ListObject.from_storage_and_strategy(self.space, storage, strategy)
+        return w_objectlist
+
     def copy_into(self, other):
         self.strategy.copy_into(self, other)
     # ___________________________________________________
@@ -251,8 +260,10 @@ class EmptyListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_item):
         raise IndexError
 
-    def setslice(self, w_list, start, step, slicelength, sequence_w):
-        w_list.__init__(self.space, sequence_w)
+    def setslice(self, w_list, start, step, slicelength, w_other):
+        #XXX now we have wrapping/unwrapping here!
+        #XXX BUT: shouldn't we use from_strage_and_strategy here anyway?
+        w_list.__init__(self.space, w_other.getitems())
 
     def insert(self, w_list, index, w_item):
         assert index == 0
@@ -510,7 +521,7 @@ class AbstractUnwrappedStrategy(object):
             return
         elif w_other.strategy is self.space.fromcache(EmptyListStrategy):
             return
-
+        #XXX use _temporarily_as_objects here
         list_w = w_other.getitems()
         strategy = self.space.fromcache(ObjectListStrategy)
         storage = strategy.cast_to_void_star(list_w)
@@ -531,20 +542,23 @@ class AbstractUnwrappedStrategy(object):
         w_list.switch_to_object_strategy()
         w_list.setitem(index, w_item)
 
-    def setslice(self, w_list, start, step, slicelength, sequence_w):
+    def setslice(self, w_list, start, step, slicelength, w_other):
         #XXX inefficient
         assert slicelength >= 0
         items = self.cast_from_void_star(w_list.lstorage)
 
-        if (self is not self.space.fromcache(ObjectListStrategy) and
-                not self.list_is_correct_type(W_ListObject(self.space, sequence_w)) and
-                len(sequence_w) != 0):
+        if self is self.space.fromcache(ObjectListStrategy):
+            w_other = w_other._temporarily_as_objects()
+        elif (not self.list_is_correct_type(w_other) and
+               w_other.length() != 0):
             w_list.switch_to_object_strategy()
-            w_list.setslice(start, step, slicelength, sequence_w)
+            w_other_as_object = w_other._temporarily_as_objects()
+            assert w_other_as_object.strategy is self.space.fromcache(ObjectListStrategy)
+            w_list.setslice(start, step, slicelength, w_other_as_object)
             return
 
         oldsize = len(items)
-        len2 = len(sequence_w)
+        len2 = w_other.length()
         if step == 1:  # Support list resizing for non-extended slices
             delta = slicelength - len2
             if delta < 0:
@@ -566,7 +580,13 @@ class AbstractUnwrappedStrategy(object):
                   "assign sequence of size %d to extended slice of size %d",
                   len2, slicelength)
 
-        if sequence_w is items:
+        if w_other.strategy is self.space.fromcache(EmptyListStrategy):
+            other_items = []
+        else:
+            # at this point both w_list and w_other have the same type, so
+            # self.cast_from_void_star is valid for both of them
+            other_items = self.cast_from_void_star(w_other.lstorage)
+        if other_items is items:
             if step > 0:
                 # Always copy starting from the right to avoid
                 # having to make a shallow copy in the case where
@@ -574,17 +594,21 @@ class AbstractUnwrappedStrategy(object):
                 i = len2 - 1
                 start += i*step
                 while i >= 0:
-                    items[start] = self.unwrap(sequence_w[i])
+                    items[start] = other_items[i]
                     start -= step
                     i -= 1
                 return
             else:
                 # Make a shallow copy to more easily handle the reversal case
                 # XXX why is this needed ???
-                sequence_w = list(sequence_w)
+                w_list.reverse()
+                return
+                #other_items = list(other_items)
         for i in range(len2):
-            items[start] = self.unwrap(sequence_w[i])
+            items[start] = other_items[i]
             start += step
+
+        w_list.check_empty_strategy()
 
     def deleteitem(self, w_list, index):
         l = self.cast_from_void_star(w_list.lstorage)
@@ -755,11 +779,17 @@ def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
     return w_list.getslice(start, stop, 1, stop - start)
 
+def setslice__List_ANY_ANY_List(space, w_list, w_start, w_stop, w_other):
+    length = w_list.length()
+    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+    w_list.setslice(start, 1, stop-start, w_other)
+
 def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_iterable):
     length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
     sequence_w = space.listview(w_iterable)
-    w_list.setslice(start, 1, stop-start, sequence_w)
+    w_other = W_ListObject(space, sequence_w)
+    w_list.setslice(start, 1, stop-start, w_other)
 
 def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = w_list.length()
@@ -896,11 +926,17 @@ def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
                              space.wrap("list index out of range"))
     return space.w_None
 
+def setitem__List_Slice_List(space, w_list, w_slice, w_other):
+    oldsize = w_list.length()
+    start, stop, step, slicelength = w_slice.indices4(space, oldsize)
+    w_list.setslice(start, step, slicelength, w_other)
+
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
     oldsize = w_list.length()
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
     sequence_w = space.listview(w_iterable)
-    w_list.setslice(start, step, slicelength, sequence_w)
+    w_other = W_ListObject(space, sequence_w)
+    w_list.setslice(start, step, slicelength, w_other)
 
 app = gateway.applevel("""
     def listrepr(currently_in_repr, l):

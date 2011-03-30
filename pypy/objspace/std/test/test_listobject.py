@@ -657,6 +657,7 @@ class AppTestW_ListObject(object):
 
         l = [1,2,3]
         raises(ValueError, "l[0:2:2] = [1,2,3,4]")
+        raises(ValueError, "l[::2] = []")
 
     def test_recursive_repr(self):
         l = []
