@@ -1,3 +1,4 @@
+from pypy.jit.backend.arm.helper.assembler import saved_registers
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
@@ -206,10 +207,9 @@ class AssemblerARM(ResOpAssembler):
 
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = ARMv7Builder()
-        mc.PUSH([reg.value for reg in r.caller_resp] + [r.ip.value])
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-        mc.BL(addr)
-        mc.POP([reg.value for reg in r.caller_resp]+[r.ip.value])
+        with saved_registers(mc, r.caller_resp + [r.ip]):
+            addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
+            mc.BL(addr)
         assert self._exit_code_addr != 0
         mc.B(self._exit_code_addr)
         return mc.materialize(self.cpu.asmmemmgr, [],
@@ -218,14 +218,13 @@ class AssemblerARM(ResOpAssembler):
         mc = ARMv7Builder()
         decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
 
-        mc.PUSH([reg.value for reg in r.all_regs])     # registers r0 .. r10
-        mc.MOV_rr(r.r0.value, r.ip.value) # move mem block address, to r0 to pass as
-        mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
-        mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
+        with saved_registers(mc, r.all_regs):
+            mc.MOV_rr(r.r0.value, r.ip.value) # move mem block address, to r0 to pass as
+            mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
+            mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
 
-        mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
-        mc.MOV_rr(r.ip.value, r.r0.value)
-        mc.POP([reg.value for reg in r.all_regs])
+            mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
+            mc.MOV_rr(r.ip.value, r.r0.value)
         mc.MOV_rr(r.r0.value, r.ip.value)
         self.gen_func_epilog(mc=mc)
         return mc.materialize(self.cpu.asmmemmgr, [],

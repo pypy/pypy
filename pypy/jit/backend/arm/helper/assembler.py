@@ -32,14 +32,11 @@ def gen_emit_op_by_helper_call(opname):
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
         if op.result:
-            self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
+            regs = r.caller_resp[1:]
         else:
-            self.mc.PUSH([reg.value for reg in r.caller_resp])
-        helper(self.mc, fcond)
-        if op.result:
-            self.mc.POP([reg.value for reg in r.caller_resp][1:])
-        else:
-            self.mc.POP([reg.value for reg in r.caller_resp])
+            regs = r.caller_resp
+        with saved_registers(self.mc, regs):
+            helper(self.mc, fcond)
         return fcond
     return f
 
