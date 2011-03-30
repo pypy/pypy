@@ -381,6 +381,9 @@ for _name, _ret in [
 
 def _setup():
     global _old_raw_input
+    if _old_raw_input is not None:
+        return # don't run _setup twice
+    
     try:
         f_in = sys.stdin.fileno()
         f_out = sys.stdout.fileno()
@@ -401,4 +404,5 @@ def _setup():
         _old_raw_input = __builtin__.raw_input
         __builtin__.raw_input = _wrapper.raw_input
 
+_old_raw_input = None
 _setup()
