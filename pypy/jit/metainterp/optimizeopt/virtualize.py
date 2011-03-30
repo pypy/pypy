@@ -286,7 +286,6 @@ class OptVirtualize(optimizer.Optimization):
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         c_cls = vrefinfo.jit_virtual_ref_const_class
         descr_virtual_token = vrefinfo.descr_virtual_token
-        descr_virtualref_index = vrefinfo.descr_virtualref_index
         #
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
@@ -296,7 +295,6 @@ class OptVirtualize(optimizer.Optimization):
         tokenbox = BoxInt()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
-        vrefvalue.setfield(descr_virtualref_index, self.getvalue(indexbox))
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         # Set the 'forced' field of the virtual_ref.

@@ -3112,7 +3112,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i0, descr=virtualtokendescr)
-        setfield_gc(p2, 5, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, -3, descr=virtualtokendescr)
@@ -3145,7 +3144,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 3, descr=virtualrefindexdescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -3185,7 +3183,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 2, descr=virtualrefindexdescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -3252,7 +3249,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         #self.loop.inputargs[0].value = self.nodeobjvalue
         #self.check_expanded_fail_descr('''p2, p1
         #    p0.refdescr = p2
-        #    where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3, virtualrefindexdescr=2
+        #    where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3
         #    where p1 is a node_vtable, nextdescr=p1b
         #    where p1b is a node_vtable, valuedescr=i1
         #    ''', rop.GUARD_NO_EXCEPTION)
@@ -3273,7 +3270,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 7, descr=virtualrefindexdescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3299,7 +3295,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 23, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, -3, descr=virtualtokendescr)
