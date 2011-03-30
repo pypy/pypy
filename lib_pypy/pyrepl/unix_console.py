@@ -27,7 +27,10 @@ from pyrepl.fancy_termios import tcgetattr, tcsetattr
 from pyrepl.console import Console, Event
 from pyrepl import unix_eventqueue
 
-_error = (termios.error, curses.error)
+class InvalidTerminal(RuntimeError):
+    pass
+
+_error = (termios.error, curses.error, InvalidTerminal)
 
 # there are arguments for changing this to "refresh"
 SIGWINCH_EVENT = 'repaint'
@@ -38,7 +41,7 @@ TIOCGWINSZ = getattr(termios, "TIOCGWINSZ", None)
 def _my_getstr(cap, optional=0):
     r = curses.tigetstr(cap)
     if not optional and r is None:
-        raise RuntimeError, \
+        raise InvalidTerminal, \
               "terminal doesn't have the required '%s' capability"%cap
     return r
 
