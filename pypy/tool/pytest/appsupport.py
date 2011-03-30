@@ -176,10 +176,7 @@ def build_pytest_assertion(space):
     w_BuiltinAssertionError = space.getitem(space.builtin.w_dict, 
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
-    w_init = space.wrap(gateway.interp2app_temp(my_init,
-                                                unwrap_spec=[gateway.ObjSpace,
-                                                             gateway.W_Root,
-                                                             gateway.Arguments]))
+    w_init = space.wrap(gateway.interp2app_temp(my_init))
     w_dict = space.newdict()
     space.setitem(w_dict, space.wrap('__init__'), w_init)
     return space.call_function(w_metaclass,
@@ -247,11 +244,7 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
     raise OperationError(space.w_AssertionError,
                          space.wrap("DID NOT RAISE"))
 
-app_raises = gateway.interp2app_temp(pypyraises,
-                                     unwrap_spec=[gateway.ObjSpace,
-                                                  gateway.W_Root,
-                                                  gateway.W_Root,
-                                                  gateway.Arguments])
+app_raises = gateway.interp2app_temp(pypyraises)
 
 def pypyskip(space, w_message): 
     """skip a test at app-level. """ 

@@ -1,5 +1,5 @@
 import math
-from pypy.rlib.rarithmetic import isinf
+from pypy.rlib.rfloat import isinf
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 

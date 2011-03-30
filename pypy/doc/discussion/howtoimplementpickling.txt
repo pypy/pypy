@@ -39,7 +39,7 @@ If we had a dynamic backend that supports direct creation
 of the program and its state (example: a Forth backend),
 I would see it as a valid solution, since it is
 relocatable. It is of course a possible fall-back to write
-sucn a backend of we fail otherwise.
+such a backend of we fail otherwise.
 
 There are some simple steps and some more difficult ones.
 Let's start with the simple.
@@ -94,7 +94,7 @@ after unpickling with the right type pointer. For details, see
 the prickelpit.c file in the Stackless distribution.
 
 As a conclusion, pickling of tasklets is an addition to Stackless,
-but not meand to be an extension to Python. The need to support
+but not meant to be an extension to Python. The need to support
 pickling of certain objects should not change the interface.
 It is better to decouple this and to use surrogate types for
 pickling which cannot collide with future additions to Python.
@@ -145,7 +145,7 @@ to go without extra information.
 SLP switching strategies
 ........................
 
-SLP has undergone several rewrites. The first implemenation was aiming
+SLP has undergone several rewrites. The first implementation was aiming
 at complete collaboration. A new frame's execution was deferred until
 all the preparational C function calls had left the C stack. There
 was no extra state to be saved.
@@ -195,13 +195,13 @@ Analogies between SLP and PyPy
 
 Right now, PyPy saves C state of functions in tiny activation records:
 the alive variables of a block, together with the entry point of
-the function tnat was left.
+the function that was left.
 This is an improvement over storing raw stack slices, but the pattern
 is similar: The C stack state gets restored when we switch.
 
 In this sense, it was the astonishing resume when Richard and I discussed
 this last week: PyPy essentially does a variant of Hard switching! At least it
-does a compromize that does not really help with pickling.
+does a compromise that does not really help with pickling.
 
 On the other hand, this approach is half the way. It turns out to
 be an improvement over SLP not to have to avoid recursions in the
@@ -240,7 +240,7 @@ If we want to re-activate this chain of activation records, what do
 we really need to restore before we can do the function call?
 
 - the argument decoding is done, already, and the fact that we could have done
-  the function call shows, that no exception occured. We can ignore the rest
+  the function call shows, that no exception occurred. We can ignore the rest
   of this activation record and do the housekeeping.
   
 - the frame is prepared, and arguments are stored in it. The operation
@@ -268,7 +268,7 @@ C stack can be avoided, and we can jump back to the previous caller, directly.
 A rough sketch of the necessary analysis:
 
 for every block in an RPython function that can reach unwind:
-Analyse control flow. It should be immediately leading to
+Analyze control flow. It should be immediately leading to
 the return block with only one output variable. All other alive variables
 should have ended their liveness in this block.
 

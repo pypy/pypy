@@ -1,6 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.error import OperationError, exception_from_errno
 from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
 from pypy.interpreter.gateway import unwrap_spec
@@ -35,6 +34,7 @@ eci = ExternalCompilationInfo(
     include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
     export_symbols = ['pypysig_poll', 'pypysig_default',
                       'pypysig_ignore', 'pypysig_setflag',
+                      'pypysig_reinstall',
                       'pypysig_set_wakeup_fd',
                       'pypysig_getaddr_occurred'],
 )
@@ -60,11 +60,13 @@ for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
 
 def external(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           sandboxsafe=True, **kwds)
 
 pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
 pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
 pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
+pypysig_reinstall = external('pypysig_reinstall', [rffi.INT], lltype.Void)
 pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd', [rffi.INT], rffi.INT)
 pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
@@ -150,7 +152,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         except KeyError:
             return    # no handler, ignore signal
         # re-install signal handler, for OSes that clear it
-        pypysig_setflag(n)
+        pypysig_reinstall(n)
         # invoke the app-level handler
         space = self.space
         ec = space.getexecutioncontext()
@@ -190,6 +192,7 @@ class ReissueSignalAction(AsyncAction):
             self.fire_after_thread_switch()
 
 
+@unwrap_spec(signum=int)
 def getsignal(space, signum):
     """
     getsignal(sig) -> action
@@ -205,18 +208,26 @@ def getsignal(space, signum):
     if signum in action.handlers_w:
         return action.handlers_w[signum]
     return space.wrap(SIG_DFL)
-getsignal.unwrap_spec = [ObjSpace, int]
+
+def default_int_handler(space, w_signum, w_frame):
+    """
+    default_int_handler(...)
+
+    The default handler for SIGINT installed by Python.
+    It raises KeyboardInterrupt.
+    """
+    raise OperationError(space.w_KeyboardInterrupt,
+                         space.w_None)
 
 @jit.dont_look_inside
+@unwrap_spec(timeout=int)
 def alarm(space, timeout):
     return space.wrap(c_alarm(timeout))
-alarm.unwrap_spec = [ObjSpace, int]
 
 @jit.dont_look_inside
 def pause(space):
     c_pause()
     return space.w_None
-pause.unwrap_spec = [ObjSpace]
 
 def check_signum(space, signum):
     if signum < 1 or signum >= NSIG:
@@ -224,6 +235,7 @@ def check_signum(space, signum):
                              space.wrap("signal number out of range"))
 
 @jit.dont_look_inside
+@unwrap_spec(signum=int)
 def signal(space, signum, w_handler):
     """
     signal(sig, action) -> action
@@ -260,8 +272,8 @@ def signal(space, signum, w_handler):
         pypysig_setflag(signum)
         action.handlers_w[signum] = w_handler
     return old_handler
-signal.unwrap_spec = [ObjSpace, int, W_Root]
 
+@unwrap_spec(fd=int)
 def set_wakeup_fd(space, fd):
     """Sets the fd to be written to (with '\0') when a signal
     comes in.  Returns the old fd.  A library can use this to
@@ -278,32 +290,40 @@ def set_wakeup_fd(space, fd):
                 space.wrap("set_wakeup_fd only works in main thread"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
-set_wakeup_fd.unwrap_spec = [ObjSpace, int]
 
+@unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
     check_signum(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
         errno = rposix.get_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))
-siginterrupt.unwrap_spec = [ObjSpace, int, int]
 
 
 #__________________________________________________________
 
 def timeval_from_double(d, timeval):
-    timeval.c_tv_sec = int(d)
-    timeval.c_tv_usec = int((d - int(d)) * 1000000)
+    rffi.setintfield(timeval, 'c_tv_sec', int(d))
+    rffi.setintfield(timeval, 'c_tv_usec', int((d - int(d)) * 1000000))
 
 def double_from_timeval(tv):
-    return tv.c_tv_sec + (tv.c_tv_usec / 1000000.0)
+    return rffi.getintfield(tv, 'c_tv_sec') + (
+        rffi.getintfield(tv, 'c_tv_usec') / 1000000.0)
 
 def itimer_retval(space, val):
     w_value = space.wrap(double_from_timeval(val.c_it_value))
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+class Cache:
+    def __init__(self, space):
+        self.w_itimererror = space.new_exception_class("signal.ItimerError",
+                                                       space.w_IOError)
+
+def get_itimer_error(space):
+    return space.fromcache(Cache).w_itimererror
+
 @jit.dont_look_inside
-@unwrap_spec(ObjSpace, int, float, float)
+@unwrap_spec(which=int, first=float, interval=float)
 def setitimer(space, which, first, interval=0):
     with lltype.scoped_alloc(itimervalP.TO, 1) as new:
 
@@ -312,12 +332,15 @@ def setitimer(space, which, first, interval=0):
 
         with lltype.scoped_alloc(itimervalP.TO, 1) as old:
 
-            c_setitimer(which, new, old)
+            ret = c_setitimer(which, new, old)
+            if ret != 0:
+                raise exception_from_errno(space, get_itimer_error(space))
+
 
             return itimer_retval(space, old[0])
 
 @jit.dont_look_inside
-@unwrap_spec(ObjSpace, int)
+@unwrap_spec(which=int)
 def getitimer(space, which):
     with lltype.scoped_alloc(itimervalP.TO, 1) as old:
 

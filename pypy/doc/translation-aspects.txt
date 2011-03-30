@@ -105,7 +105,7 @@ classes that were built before the translation started. These are called
 converted to the low level model. One of the problems with doing this is that
 the standard hash implementation of Python is to take the id of an object, which
 
-is just the memory address. If the RPython program explicitely captures the
+is just the memory address. If the RPython program explicitly captures the
 hash of a PBC by storing it (for example in the implementation of a data
 structure) then the stored hash value will not match the value of the object's
 address after translation.
@@ -128,7 +128,7 @@ Cached functions with PBC arguments
 
 As explained in [DLT]_ the annotated code can contain
 functions from a finite set of PBCs to something else. The set itself has to be
-finite but its content does not need to be provided explictly but is discovered
+finite but its content does not need to be provided explicitly but is discovered
 as the annotation of the input argument by the annotator itself. This kind of
 function is translated by recording the input-result relationship by calling
 the function concretely at annotation time, and adding a field to the PBCs in
@@ -179,7 +179,7 @@ backend (which is the most complete backend right now). One of them uses the
 existing Boehm-Demers-Weiser garbage collector [BOEHM]_. For every memory
 allocating operation in a low level flow graph the C backend introduces a call
 to a function of the boehm collector which returns a suitable amount of memory.
-Since the C backend has a lot of information avaiable about the data structure
+Since the C backend has a lot of information available about the data structure
 being allocated it can choose the memory allocation function out of the Boehm
 API that fits best. For example, for objects that do not contain references to
 other objects (e.g. strings) there is a special allocation function which
@@ -219,7 +219,7 @@ counting memory management schemes in general. CPython solves this problem by
 having special code that handles circular garbage which PyPy lacks at the
 moment. This problem has to be addressed in the future to make the reference
 counting scheme a viable garbage collector. Since reference counting is quite
-succesfully used by CPython it will be interesting to see how far it can be
+successfully used by CPython it will be interesting to see how far it can be
 optimized for PyPy.
 
 Simple escape analysis to remove memory allocation
@@ -237,7 +237,7 @@ the graph. Reads from elements of the structure are removed and just replaced
 by one of the variables, writes by assignments to same.
 
 Since quite a lot of objects are allocated in small helper functions, this
-simple approach which does not track objects accross function boundaries only
+simple approach which does not track objects across function boundaries only
 works well in the presence of function inlining.
 
 A general garbage collection framework
@@ -303,11 +303,11 @@ the same time. The global interpreter lock is released around calls to blocking 
 functions. This approach has a number of advantages: it gives very little
 runtime penalty for single-threaded applications, makes many of the common uses
 for threading possible, and it is relatively easy to implement and maintain. It has
-the disadvantage that multiple threads cannot be distributed accross multiple
-proccessors. 
+the disadvantage that multiple threads cannot be distributed across multiple
+processors. 
 
 To make this threading-model usable for I/O-bound applications, the global
-intepreter lock should be released around blocking external function calls
+interpreter lock should be released around blocking external function calls
 (which is also what CPython does). This has been partially implemented.
 
 
@@ -382,7 +382,7 @@ useful abstractions can be implemented, like:
 
 An important property of the changes in all the generated C functions is
 that they are written in a way that does only minimally degrade their performance in
-the non-exceptional case.  Most optimisations performed by C compilers,
+the non-exceptional case.  Most optimizations performed by C compilers,
 like register allocation, continue to work...
 
 The following picture shows a graph function together with the modifications
@@ -420,13 +420,13 @@ barriers as function calls and rely on inlining to make them more efficient.
 We may also spend some time on improving the existing reference counting
 implementation by removing unnecessary incref-decref pairs and identifying
 trustworthy references. A bigger task would
-be to add support for detecing circular references.
+be to add support for detecting circular references.
 
 
 Threading model
 ---------------
 
-One of the interesting possibities that stackless offers is to implement *green
+One of the interesting possibilities that stackless offers is to implement *green
 threading*. This would involve writing a scheduler and some preemption logic. 
 
 We should also investigate other threading models based on operating system

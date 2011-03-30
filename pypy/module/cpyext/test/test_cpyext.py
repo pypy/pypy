@@ -46,8 +46,8 @@ class AppTestApi:
 
     def test_dllhandle(self):
         import sys
-        if sys.version_info < (2, 6):
-            skip("Python >= 2.6 only")
+        if sys.platform != "win32" or sys.version_info < (2, 6):
+            skip("Windows Python >= 2.6 only")
         assert sys.dllhandle
         assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
         import ctypes # slow

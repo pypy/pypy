@@ -1,10 +1,10 @@
 from __future__ import absolute_import
 # XXX very minimal test
 
-from ..ctypes_config_cache import rebuild
+from lib_pypy.ctypes_config_cache import rebuild
 rebuild.rebuild_one('syslog.ctc.py')
 
-from .. import syslog
+from lib_pypy import syslog
 
 
 def test_syslog():

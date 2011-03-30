@@ -27,7 +27,7 @@ XxxDesc classes
 
 To be declared in module pypy.annotator.desc, with a mapping
 annotator.bookkeeper.descs = {<python object>: <XxxDesc instance>}
-accessed with bookkeepeer.getdesc(<python object>).
+accessed with bookkeeper.getdesc(<python object>).
 
 Maybe later the module should be moved out of pypy.annotation but for now I
 suppose that it's the best place.

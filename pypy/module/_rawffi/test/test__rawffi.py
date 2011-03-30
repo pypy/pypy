@@ -5,7 +5,6 @@ from pypy.translator.platform import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
 from pypy.module._rawffi.tracker import Tracker
-from pypy.translator.platform import platform
 
 import os, sys, py
 
@@ -211,6 +210,7 @@ class AppTestFfi:
             cls.w_libm_name = space.wrap('libm.so')
             if sys.platform == "darwin":
                 cls.w_libm_name = space.wrap('libm.dylib')
+        cls.w_platform = space.wrap(platform.name)
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
 
@@ -494,9 +494,10 @@ class AppTestFfi:
 
     def test_invalid_bitfields(self):
         import _rawffi
-        raises(ValueError, _rawffi.Structure, [('A', 'c', 1)])
+        raises(TypeError, _rawffi.Structure, [('A', 'c', 1)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', 129)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', -1)])
+        raises(ValueError, _rawffi.Structure, [('A', 'I', 0)])
 
     def test_packed_structure(self):
         import _rawffi
@@ -908,8 +909,8 @@ class AppTestFfi:
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
 
     def test_stackcheck(self):
-        if not self.iswin32:
-            skip("win32 specific")
+        if self.platform != "msvc":
+            skip("win32 msvc specific")
 
         # Even if the call corresponds to the specified signature,
         # the STDCALL calling convention may detect some errors

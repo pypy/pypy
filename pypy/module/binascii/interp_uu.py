@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error
 
@@ -29,6 +29,7 @@ def _a2b_write(space, res, length, char):
 _a2b_write._always_inline_ = True
 
 
+@unwrap_spec(ascii='bufferstr')
 def a2b_uu(space, ascii):
     "Decode a line of uuencoded data."
 
@@ -52,7 +53,6 @@ def a2b_uu(space, ascii):
     if remaining > 0:
         res.append_multiple_char('\x00', remaining)
     return space.wrap(res.build())
-a2b_uu.unwrap_spec = [ObjSpace, 'bufferstr']
 
 # ____________________________________________________________
 
@@ -63,6 +63,7 @@ def _b2a_read(bin, i):
         return 0
 _a2b_read._always_inline_ = True
 
+@unwrap_spec(bin='bufferstr')
 def b2a_uu(space, bin):
     "Uuencode a line of data."
 
@@ -84,4 +85,3 @@ def b2a_uu(space, bin):
 
     res.append('\n')
     return space.wrap(res.build())
-b2a_uu.unwrap_spec = [ObjSpace, 'bufferstr']

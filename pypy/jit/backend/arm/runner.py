@@ -60,6 +60,12 @@ class ArmCPU(AbstractLLCPU):
     def get_latest_value_count(self):
         return self.assembler.fail_boxes_count
 
+    def get_latest_value_count(self):
+        return self.assembler.fail_boxes_count
+
+    def get_latest_force_token(self):
+        return self.assembler.fail_force_index
+
     def clear_latest_values(self, count):
         setitem = self.assembler.fail_boxes_ptr.setitem
         null = lltype.nullptr(llmemory.GCREF.TO)
@@ -111,3 +117,6 @@ class ArmCPU(AbstractLLCPU):
         # end of "no gc operation!" block
         assert fail_index == fail_index_2
         return faildescr
+
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)

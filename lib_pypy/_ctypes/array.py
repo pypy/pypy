@@ -31,6 +31,8 @@ class ArrayMeta(_CDataMeta):
                                                    self._length_)
 
                 def setraw(self, buffer):
+                    if len(buffer) > self._length_:
+                        raise ValueError("%r too long" % (buffer,))
                     for i in range(len(buffer)):
                         self[i] = buffer[i]
                 res.raw = property(getraw, setraw)

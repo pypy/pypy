@@ -12,9 +12,9 @@ class TestLongObject(BaseApiTest):
         assert isinstance(value, W_LongObject)
         assert space.unwrap(value) == 3
 
-        value = api.PyLong_FromLong(sys.maxint + 1)
+        value = api.PyLong_FromLong(sys.maxint)
         assert isinstance(value, W_LongObject)
-        assert space.unwrap(value) == sys.maxint + 1 # should obviously fail but doesnt
+        assert space.unwrap(value) == sys.maxint
 
     def test_aslong(self, space, api):
         w_value = api.PyLong_FromLong((sys.maxint - 1) / 2)
@@ -94,7 +94,7 @@ class TestLongObject(BaseApiTest):
     def test_as_voidptr(self, space, api):
         w_l = api.PyLong_FromVoidPtr(lltype.nullptr(rffi.VOIDP.TO))
         assert space.unwrap(w_l) == 0L
-        assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP_real.TO)
+        assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP.TO)
 
     def test_sign_and_bits(self, space, api):
         if space.is_true(space.lt(space.sys.get('version_info'),

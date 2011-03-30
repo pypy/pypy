@@ -310,3 +310,16 @@ class AppTestLong:
         x = eval("-0L")
         assert x == 0L
 
+    def test_mix_int_and_long(self):
+        class IntLongMixClass(object):
+            def __int__(self):
+                return 42L
+
+            def __long__(self):
+                return 64
+
+        mixIntAndLong = IntLongMixClass()
+        as_long = long(mixIntAndLong)
+        assert type(as_long) is long
+        assert as_long == 64
+

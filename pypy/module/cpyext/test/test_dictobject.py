@@ -38,6 +38,15 @@ class TestDictObject(BaseApiTest):
         api.PyErr_Clear()
         assert api.PyDict_Size(d) == 0
 
+        space.setitem(d, space.wrap("some_key"), space.wrap(3))
+        buf = rffi.str2charp("some_key")
+        assert api.PyDict_DelItemString(d, buf) == 0
+        assert api.PyDict_Size(d) == 0
+        assert api.PyDict_DelItemString(d, buf) < 0
+        assert api.PyErr_Occurred() is space.w_KeyError
+        api.PyErr_Clear()
+        rffi.free_charp(buf)
+
         d = space.wrap({'a': 'b'})
         api.PyDict_Clear(d)
         assert api.PyDict_Size(d) == 0

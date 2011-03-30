@@ -7,8 +7,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.rlib.objectmodel import instantiate
-from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.objspace.std.dicttype import dictiter_typedef
 from pypy.objspace.std.iterobject import W_SeqIterObject, W_ReverseSeqIterObject
 
@@ -23,22 +22,19 @@ def cell_new(space):
 def code_new(space, __args__):
     w_type = space.gettypeobject(PyCode.typedef)
     return space.call_args(w_type, __args__)
-code_new.unwrap_spec = [ObjSpace, Arguments]
 
 def func_new(space):
     fu = instantiate(Function)
     fu.w_func_dict = space.newdict()
     return space.wrap(fu)
-func_new.unwrap_spec = [ObjSpace]
 
 def module_new(space, w_name, w_dict):
-    new_mod = Module(space, w_name, w_dict)
+    new_mod = Module(space, w_name, w_dict, add_package=False)
     return space.wrap(new_mod)
 
 def method_new(space, __args__):
     w_type = space.gettypeobject(Method.typedef)
     return space.call_args(w_type, __args__)
-method_new.unwrap_spec = [ObjSpace, Arguments]
 
 def builtin_method_new(space, w_instance, w_name):
     return space.getattr(w_instance, w_name)
@@ -47,7 +43,6 @@ def dictiter_surrogate_new(space, w_lis):
     # we got a listobject.
     # simply create an iterator and that's it.
     return space.iter(w_lis)
-dictiter_surrogate_new.unwrap_spec = [ObjSpace, W_Root]
 
 def seqiter_new(space, w_seq, w_index):
     return W_SeqIterObject(w_seq, space.int_w(w_index))
@@ -60,26 +55,25 @@ def reverseseqiter_new(space, w_seq, w_index):
 def frame_new(space):
     new_frame = instantiate(space.FrameClass)   # XXX fish
     return space.wrap(new_frame)
-frame_new.unwrap_spec = [ObjSpace]
 
 def traceback_new(space):
     tb = instantiate(PyTraceback)
     return space.wrap(tb)
-traceback_new.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(running=int)
 def generator_new(space, w_frame, running):
     frame = space.interp_w(PyFrame, w_frame, can_be_None=True)
     new_generator = GeneratorIterator(frame)
     new_generator.running = running
     return space.wrap(new_generator)
-generator_new.unwrap_spec = [ObjSpace, W_Root, int]
 
+@unwrap_spec(current=int, remaining=int, step=int)
 def xrangeiter_new(space, current, remaining, step):
     from pypy.module.__builtin__.functional import W_XRangeIterator
     new_iter = W_XRangeIterator(space, current, remaining, step)
     return space.wrap(new_iter)
-xrangeiter_new.unwrap_spec = [ObjSpace, int, int, int]
 
+@unwrap_spec(identifier=str)
 def builtin_code(space, identifier):
     from pypy.interpreter import gateway
     try:
@@ -88,8 +82,8 @@ def builtin_code(space, identifier):
         raise OperationError(space.w_RuntimeError, 
                              space.wrap("cannot unpickle builtin code: "+
                                         identifier))
-builtin_code.unwrap_spec = [ObjSpace, str]
-        
+
+@unwrap_spec(identifier=str)
 def builtin_function(space, identifier):
     from pypy.interpreter import function
     try:
@@ -98,18 +92,15 @@ def builtin_function(space, identifier):
         raise OperationError(space.w_RuntimeError, 
                              space.wrap("cannot unpickle builtin function: "+
                                         identifier))
-builtin_function.unwrap_spec = [ObjSpace, str]
 
 
 def enumerate_new(space, w_iter, w_index):
     from pypy.module.__builtin__.functional import _make_enumerate
     return _make_enumerate(space, w_iter, w_index)
-enumerate_new.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def reversed_new(space, w_seq, w_remaining):
     from pypy.module.__builtin__.functional import _make_reversed
     return _make_reversed(space, w_seq, w_remaining)
-reversed_new.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 
 # ___________________________________________________________________

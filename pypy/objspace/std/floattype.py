@@ -87,6 +87,7 @@ def detect_floatformat():
 
 _double_format, _float_format = detect_floatformat()
 
+@gateway.unwrap_spec(kind=str)
 def descr___getformat__(space, w_cls, kind):
     if kind == "float":
         return space.wrap(_float_format)
@@ -111,6 +112,7 @@ def _hex_digit(s, j, co_end, float_digits):
         i = co_end - 1 - j
     return _hex_from_char(s[i])
 
+@gateway.unwrap_spec(s=str)
 def descr_fromhex(space, w_cls, s):
     length = len(s)
     i = 0
@@ -133,14 +135,14 @@ def descr_fromhex(space, w_cls, s):
         i += 1
         if length - i >= 2 and s[i:i + 2].lower() == "nf":
             i += 2
-            value = rarithmetic.INFINITY
+            value = rfloat.INFINITY
             if length - i >= 5 and s[i:i + 5].lower() == "inity":
                 i += 5
     elif s[i] == "n" or s[i] == "N":
         i += 1
         if length - i >= 2 and s[i:i + 2].lower() == "an":
             i += 2
-            value = rarithmetic.NAN
+            value = rfloat.NAN
     else:
         if (s[i] == "0" and length - i > 1 and
             (s[i + 1] == "x" or s[i + 1] == "X")):
@@ -170,8 +172,10 @@ def descr_fromhex(space, w_cls, s):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("invalid hex string"))
             i += 1
-            exp_start = i
+            exp_sign = 1
             if s[i] == "-" or s[i] == "+":
+                if s[i] == "-":
+                    exp_sign = -1
                 i += 1
                 if i == length:
                     raise OperationError(space.w_ValueError,
@@ -179,18 +183,30 @@ def descr_fromhex(space, w_cls, s):
             if not s[i].isdigit():
                 raise OperationError(space.w_ValueError,
                                      space.wrap("invalid hex string"))
+            exp = ord(s[i]) - ord('0')
             i += 1
             while i < length and s[i].isdigit():
+                exp = exp * 10 + (ord(s[i]) - ord('0'))
+                if exp >= (sys.maxint-9) // 10:
+                    if exp_sign > 0:
+                        exp_sign = 2    # overflow in positive numbers
+                    else:
+                        exp_sign = -2   # overflow in negative numbers
                 i += 1
-            exp = int(s[exp_start:i])
+            if exp_sign == -1:
+                exp = -exp
+            elif exp_sign == -2:
+                exp = -sys.maxint / 2
+            elif exp_sign == 2:
+                exp = sys.maxint / 2
         else:
             exp = 0
         while (total_digits and
                _hex_digit(s, total_digits - 1, co_end, float_digits) == 0):
             total_digits -= 1
-        if not total_digits or exp < -sys.maxint / 2:
+        if not total_digits or exp <= -sys.maxint / 2:
             value = 0.0
-        elif exp > sys.maxint // 2:
+        elif exp >= sys.maxint // 2:
             raise OperationError(space.w_OverflowError, space.wrap("too large"))
         else:
             exp -=  4 * float_digits
@@ -261,10 +277,8 @@ float_typedef = StdTypeDef("float",
 Convert a string or number to a floating point number, if possible.''',
     __new__ = gateway.interp2app(descr__new__),
     __getformat__ = gateway.interp2app(descr___getformat__,
-                                       unwrap_spec=[ObjSpace, W_Root, str],
                                        as_classmethod=True),
     fromhex = gateway.interp2app(descr_fromhex,
-                                 unwrap_spec=[ObjSpace, W_Root, str],
                                  as_classmethod=True),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),

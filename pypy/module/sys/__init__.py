@@ -26,7 +26,6 @@ class Module(MixedModule):
         'maxsize'               : 'space.wrap(sys.maxint)',
         'byteorder'             : 'space.wrap(sys.byteorder)', 
         'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
-        'maxint'                : 'space.wrap(sys.maxint)',
         'stdin'                 : 'state.getio(space).w_stdin',
         '__stdin__'             : 'state.getio(space).w_stdin',
         'stdout'                : 'state.getio(space).w_stdout',
@@ -56,6 +55,7 @@ class Module(MixedModule):
         'setprofile'            : 'vm.setprofile',
         'getprofile'            : 'vm.getprofile',
         'call_tracing'          : 'vm.call_tracing',
+        'getsizeof'             : 'vm.getsizeof',
         
         'executable'            : 'space.wrap("py.py")', 
         'api_version'           : 'version.get_api_version(space)',
@@ -63,7 +63,7 @@ class Module(MixedModule):
         'version'               : 'version.get_version(space)',
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
         'subversion'            : 'version.get_subversion_info(space)',
-        '_mercurial'            : 'version.wrap_mercurial_info(space)',
+        '_mercurial'            : 'version.get_repo_info(space)',
         'hexversion'            : 'version.get_hexversion(space)',
 
         'displayhook'           : 'hook.displayhook', 
@@ -79,6 +79,7 @@ class Module(MixedModule):
 
         'float_info'            : 'system.get_float_info(space)',
         'long_info'             : 'system.get_long_info(space)',
+        'float_repr_style'      : 'system.get_float_repr_style(space)'
         }
 
     if sys.platform == 'win32':

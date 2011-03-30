@@ -1,6 +1,9 @@
 """
 This module exposes the functions longlong2float() and float2longlong(),
-which cast the bit pattern of a long long into a float and back.
+which cast the bit pattern of a float into a long long and back.
+Warning: don't use in the other direction, i.e. don't cast a random
+long long to a float and back to a long long.  There are corner cases
+in which it does not work.
 """
 from pypy.rpython.lltypesystem import lltype, rffi
 
@@ -29,10 +32,12 @@ def float2longlong_emulator(floatval):
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 eci = ExternalCompilationInfo(post_include_bits=["""
 static double pypy__longlong2float(long long x) {
-    return *((double*)&x);
+    char *p = (char*)&x;
+    return *((double*)p);
 }
 static long long pypy__float2longlong(double x) {
-    return *((long long*)&x);
+    char *p = (char*)&x;
+    return *((long long*)p);
 }
 """])
 

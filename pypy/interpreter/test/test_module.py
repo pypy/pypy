@@ -51,6 +51,8 @@ class AppTest_ModuleObject:
 
     def test_repr(self):
         import sys
+        if not hasattr(sys, "pypy_objspaceclass"):
+            skip("need PyPy for _pypy_interact")
         r = repr(sys)
         assert r == "<module 'sys' (built-in)>"
         
@@ -65,3 +67,11 @@ class AppTest_ModuleObject:
 
         m = type(_pypy_interact).__new__(type(_pypy_interact))
         assert repr(m).startswith("<module '?'")
+
+    def test_package(self):
+        import sys
+        import os
+
+        assert sys.__package__ is None
+        assert os.__package__ is None
+        assert not hasattr(type(sys)('foo'), '__package__')

@@ -166,6 +166,12 @@ class AppTestBuiltinApp:
         assert sum([1,2,3]) ==6
         assert sum([],5) ==5
         assert sum([1,2,3],4) ==10
+        #
+        class Foo(object):
+            def __radd__(self, other):
+                assert other is None
+                return 42
+        assert sum([Foo()], None) == 42
 
     def test_type_selftest(self):
         assert type(type) is type
@@ -646,10 +652,26 @@ class AppTestBuiltinOptimized(object):
         assert res == 18
 
     def test_round(self):
+        assert round(11.234) == 11.0
+        assert round(11.234, -1) == 10.0
+        assert round(11.234, 0) == 11.0
+        assert round(11.234, 1) == 11.2
+        #
         assert round(5e15-1) == 5e15-1
         assert round(5e15) == 5e15
         assert round(-(5e15-1)) == -(5e15-1)
         assert round(-5e15) == -5e15
+        #
+        inf = 1e200 * 1e200
+        assert round(inf) == inf
+        assert round(-inf) == -inf
+        nan = inf / inf
+        assert repr(round(nan)) == repr(nan)
+        #
+        raises(OverflowError, round, 1.6e308, -308)
+        #
+        assert round(562949953421312.5, 1) == 562949953421312.5
+        assert round(56294995342131.5, 3) == 56294995342131.5
 
     def test_vars_obscure_case(self):
         class C_get_vars(object):

@@ -18,7 +18,7 @@ def binary_helper_call(name):
     def f(self, c=cond.AL):
         """Generates a call to a helper function, takes its
         arguments in r0 and r1, result is placed in r0"""
-        addr = rffi.cast(lltype.Signed, llhelper(signature, function))
+        addr = rffi.cast(lltype.Signed, function)
         if c == cond.AL:
             self.BL(addr)
         else:
@@ -131,7 +131,7 @@ class AbstractARMv7Builder(object):
                 assert c == cond.AL
                 self.LDR_ri(reg.ip.value, reg.pc.value, cond=c)
                 self.SUB_rr(reg.pc.value, reg.pc.value, reg.ip.value, cond=c)
-                target += 2 * WORD
+                target += WORD
                 self.write32(target)
 
     def BL(self, target, c=cond.AL):
@@ -172,19 +172,30 @@ class AbstractARMv7Builder(object):
     def currpos(self):
         raise NotImplementedError
 
-    size_of_gen_load_int = 4 * WORD
-    ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
+    size_of_gen_load_int = 3 * WORD
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
-        self.MOV_ri(r, (value & 0xFF), cond=cond)
+        from pypy.jit.backend.arm.conditions import AL
+        if cond != AL or 0 <= value <= 0xFFFF:
+            self._load_by_shifting(r, value, cond)
+        else:
+            self.LDR_ri(r, reg.pc.value)
+            self.MOV_rr(reg.pc.value, reg.pc.value)
+            self.write32(value)
+
+    #size_of_gen_load_int = 4 * WORD
+    ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
+    def _load_by_shifting(self, r, value, c=cond.AL):
+        # to be sure it is only called for the correct cases
+        assert c != cond.AL or 0 <= value <= 0xFFFF
+        self.MOV_ri(r, (value & 0xFF), cond=c)
         for offset, shift in self.ofs_shift:
             b = (value >> offset) & 0xFF
             if b == 0:
                 continue
             t = b | (shift << 8)
-            self.ORR_ri(r, r, imm=t, cond=cond)
-
+            self.ORR_ri(r, r, imm=t, cond=c)
 
 class OverwritingBuilder(AbstractARMv7Builder):
     def __init__(self, cb, start, size):

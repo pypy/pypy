@@ -11,8 +11,7 @@ from pypy.objspace.std.stringtype import (
     str_startswith, str_endswith, str_islower, str_isupper, str_isalpha,
     str_isalnum, str_isdigit, str_isspace, str_istitle,
     str_upper, str_lower, str_title, str_swapcase, str_capitalize,
-    str_expandtabs, str_lstrip, str_rstrip, str_strip,
-    str_ljust, str_rjust, str_center, str_zfill,
+    str_expandtabs, str_ljust, str_rjust, str_center, str_zfill,
     str_join, str_split, str_rsplit, str_partition, str_rpartition,
     str_splitlines, str_translate)
 from pypy.objspace.std.listtype import (
@@ -37,6 +36,21 @@ bytearray_reverse  = SMM('reverse', 1,
                     doc="B.reverse() -> None\n\n"
                     "Reverse the order of the values in B in place.")
 
+bytearray_strip  = SMM('strip', 2, defaults=(None,),
+                    doc="B.strip([bytes]) -> bytearray\n\nStrip leading "
+                    "and trailing bytes contained in the argument.\nIf "
+                    "the argument is omitted, strip ASCII whitespace.")
+
+bytearray_lstrip  = SMM('lstrip', 2, defaults=(None,),
+                    doc="B.lstrip([bytes]) -> bytearray\n\nStrip leading "
+                    "bytes contained in the argument.\nIf the argument is "
+                    "omitted, strip leading ASCII whitespace.")
+
+bytearray_rstrip  = SMM('rstrip', 2, defaults=(None,),
+                    doc="'B.rstrip([bytes]) -> bytearray\n\nStrip trailing "
+                    "bytes contained in the argument.\nIf the argument is "
+                    "omitted, strip trailing ASCII whitespace.")
+
 def getbytevalue(space, w_value):
     if space.isinstance_w(w_value, space.w_str):
         string = space.str_w(w_value)
@@ -58,38 +72,15 @@ def new_bytearray(space, w_bytearraytype, data):
     W_BytearrayObject.__init__(w_obj, data)
     return w_obj
 
-@gateway.unwrap_spec(ObjSpace, W_Root, W_Root, W_Root, W_Root)
-def descr__new__(space, w_bytearraytype,
-                 w_source='', w_encoding=None, w_errors=None):
-    # Unicode argument
-    if not space.is_w(w_encoding, space.w_None):
-        from pypy.objspace.std.unicodetype import (
-            _get_encoding_and_errors, encode_object
-        )
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
 
-        # if w_source is an integer this correctly raises a TypeError
-        # the CPython error message is: "encoding or errors without a string argument"
-        # ours is: "expected unicode, got int object"
-        w_source = encode_object(space, w_source, encoding, errors)
+def descr__new__(space, w_bytearraytype, __args__):
+    return new_bytearray(space,w_bytearraytype, [])
 
-    # Is it an int?
-    try:
-        count = space.int_w(w_source)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-    else:
-        data = ['\0'] * count
-        return new_bytearray(space, w_bytearraytype, data)
-
-    data = makebytearraydata_w(space, w_source)
-    return new_bytearray(space, w_bytearraytype, data)
 
 def makebytearraydata_w(space, w_source):
     # String-like argument
     try:
-        string = space.str_w(w_source)
+        string = space.bufferstr_new_w(w_source)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -110,7 +101,6 @@ def makebytearraydata_w(space, w_source):
         data.append(value)
     return data
 
-@gateway.unwrap_spec(gateway.ObjSpace, gateway.W_Root)
 def descr_bytearray__reduce__(space, w_self):
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
     assert isinstance(w_self, W_BytearrayObject)
@@ -131,7 +121,6 @@ def _hex_digit_to_int(d):
         return val - 87
     return -1
 
-@gateway.unwrap_spec(ObjSpace, W_Root, W_Root)
 def descr_fromhex(space, w_type, w_hexstring):
     "bytearray.fromhex(string) -> bytearray\n\nCreate a bytearray object "
     "from a string of hexadecimal numbers.\nSpaces between two numbers are "

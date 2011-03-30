@@ -7,7 +7,7 @@ The following text gives some hints about how to translate the PyPy
 interpreter.
 
 To build pypy-c you need a C compiler.  Microsoft Visual Studio is
-preferred, but can also use the minw32 port of gcc.
+preferred, but can also use the mingw32 port of gcc.
 
 
 Translating PyPy with Visual Studio
@@ -96,4 +96,18 @@ in the base directory. Then compile::
 Using the mingw compiler
 ------------------------
 
-XXX Write me
+You can compile pypy with the mingw compiler, using the --cc=mingw32 option;
+mingw.exe must be on the PATH.
+
+libffi for the mingw32 compiler
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To enable the _rawffi (and ctypes) module, you need to compile a mingw32
+version of libffi.  I downloaded the `libffi source files`_, and extracted
+them in the base directory.  Then run::
+
+    sh ./configure
+    make
+    cp .libs/libffi-5.dll <somewhere on the PATH>
+
+.. _`libffi source files`: http://sourceware.org/libffi/

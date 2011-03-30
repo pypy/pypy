@@ -1,5 +1,5 @@
 import time
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 
 
 def clock(space):
@@ -13,8 +13,8 @@ def time_(space):
 second may be present if the system clock provides them."""
     return space.wrap(time.time())
 
+@unwrap_spec(seconds=float)
 def sleep(space, seconds):
     """Delay execution for a given number of seconds.  The argument may
 be a floating point number for subsecond precision."""
     time.sleep(seconds)
-sleep.unwrap_spec = [ObjSpace, float]

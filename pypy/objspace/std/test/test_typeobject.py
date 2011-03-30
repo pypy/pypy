@@ -609,20 +609,24 @@ class AppTestTypeObject:
             __slots__ = ('x',)
         a = A()
         raises(AttributeError, getattr, a, 'x')
+        raises(AttributeError, delattr, a, 'x')
         a.x = 1
         assert a.x == 1
         assert A.__dict__['x'].__get__(a) == 1
         del a.x
         raises(AttributeError, getattr, a, 'x')
+        raises(AttributeError, delattr, a, 'x')
         class B(A):
             pass
         b = B()
         raises(AttributeError, getattr, b, 'x')
+        raises(AttributeError, delattr, b, 'x')
         b.x = 1
         assert b.x == 1
         assert A.__dict__['x'].__get__(b) == 1
         del b.x
         raises(AttributeError, getattr, b, 'x')
+        raises(AttributeError, delattr, b, 'x')
         class Z(object):
             pass
         z = Z()
@@ -804,6 +808,8 @@ class AppTestTypeObject:
         class AA(object):
             __slots__ = ('a',)
         aa = AA()
+        # the following line works on CPython >= 2.6 but not on PyPy.
+        # but see below for more
         raises(TypeError, "aa.__class__ = A")
         raises(TypeError, "aa.__class__ = object")
         class Z1(A):
@@ -862,6 +868,28 @@ class AppTestTypeObject:
         class Int(int): __slots__ = []
 
         raises(TypeError, "Int().__class__ = int")
+
+        class Order1(object):
+            __slots__ = ['a', 'b']
+        class Order2(object):
+            __slots__ = ['b', 'a']
+        # the following line works on CPython >= 2.6 but not on PyPy.
+        # but see below for more
+        raises(TypeError, "Order1().__class__ = Order2")
+
+        class U1(object):
+            __slots__ = ['a', 'b']
+        class U2(U1):
+            __slots__ = ['c', 'd', 'e']
+        class V1(object):
+            __slots__ = ['a', 'b']
+        class V2(V1):
+            __slots__ = ['c', 'd', 'e']
+        # the following line does not work on CPython >= 2.6 either.
+        # that's just obscure.  Really really.  So we just ignore
+        # the whole issue until someone comes complaining.  Then we'll
+        # just kill slots altogether apart from maybe doing a few checks.
+        raises(TypeError, "U2().__class__ = V2")
 
     def test_name(self):
         class Abc(object):

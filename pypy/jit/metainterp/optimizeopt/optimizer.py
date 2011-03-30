@@ -69,7 +69,9 @@ class OptValue(object):
         pass
 
     def make_virtual_info(self, modifier, fieldnums):
-        raise NotImplementedError # should not be called on this level
+        #raise NotImplementedError # should not be called on this level
+        assert fieldnums is None
+        return modifier.make_not_virtual(self)
 
     def is_constant(self):
         return self.level == LEVEL_CONSTANT
@@ -162,7 +164,7 @@ class ConstantValue(OptValue):
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
-CVAL_ZERO_FLOAT = ConstantValue(ConstFloat(0.0))
+CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
 CVAL_UNINITIALIZED_ZERO = ConstantValue(CONST_0)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
@@ -436,9 +438,6 @@ class Optimizer(Optimization):
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
-        ###pendingfields = self.heap_op_optimizer.force_lazy_setfields_for_guard()
-        if op.getjumptarget():
-            return op
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)

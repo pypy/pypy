@@ -87,9 +87,9 @@ class IntOpAsslember(object):
     emit_op_int_and = gen_emit_op_ri('AND')
     emit_op_int_or = gen_emit_op_ri('ORR')
     emit_op_int_xor = gen_emit_op_ri('EOR')
-    emit_op_int_lshift = gen_emit_op_ri('LSL', imm_size=0x1F, allow_zero=False, commutative=False)
-    emit_op_int_rshift = gen_emit_op_ri('ASR', imm_size=0x1F, allow_zero=False, commutative=False)
-    emit_op_uint_rshift = gen_emit_op_ri('LSR', imm_size=0x1F, allow_zero=False, commutative=False)
+    emit_op_int_lshift = gen_emit_op_ri('LSL')
+    emit_op_int_rshift = gen_emit_op_ri('ASR')
+    emit_op_uint_rshift = gen_emit_op_ri('LSR')
 
     emit_op_int_lt = gen_emit_cmp_op(c.LT)
     emit_op_int_le = gen_emit_cmp_op(c.LE)
@@ -133,7 +133,7 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    guard_size = 10*WORD
+    guard_size = 5*WORD
     def _emit_guard(self, op, arglocs, fcond, save_exc=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
@@ -143,12 +143,9 @@ class GuardOpAssembler(object):
 
         self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size-PC_OFFSET, cond=fcond)
         descr._arm_guard_pos = self.mc.currpos()
-        self.mc.PUSH([reg.value for reg in r.caller_resp])
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-        self.mc.BL(addr)
-        self.mc.POP([reg.value for reg in r.caller_resp])
 
-        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(), arglocs)
+        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(),
+                                            arglocs, save_exc=save_exc)
         descr._failure_recovery_code = memaddr
         return c.AL
 
@@ -235,17 +232,19 @@ class OpAssembler(object):
         else:
             target = descr._arm_bootstrap_code + descr._arm_loop_code
             self.mc.B(target, fcond)
+            new_fd = max(regalloc.frame_manager.frame_depth, descr._arm_frame_depth)
+            regalloc.frame_manager.frame_depth = new_fd
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
         self._gen_path_to_exit_path(op, op.getarglist(), arglocs, c.AL)
         return fcond
 
-    def emit_op_call(self, op, args, regalloc, fcond, spill_all_regs=False):
+    def emit_op_call(self, op, args, regalloc, fcond):
         adr = args[0].value
         arglist = op.getarglist()[1:]
         cond =  self._emit_call(adr, arglist, regalloc, fcond,
-                                op.result, spill_all_regs=spill_all_regs)
+                                op.result)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
@@ -256,10 +255,9 @@ class OpAssembler(object):
         return cond
 
     # XXX improve this interface
-    # XXX and get rid of spill_all_regs in favor of pushing them in
     # emit_op_call_may_force
     # XXX improve freeing of stuff here
-    def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None, spill_all_regs=False):
+    def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None):
         n = 0
         n_args = len(args)
         reg_args = min(n_args, 4)
@@ -268,16 +266,17 @@ class OpAssembler(object):
             l = regalloc.make_sure_var_in_reg(args[i],
                                             selected_reg=r.all_regs[i])
         # save caller saved registers
-        if spill_all_regs:
-            regalloc.before_call(save_all_regs=spill_all_regs)
+        if result:
+            # XXX hack if the call has a result force the value in r0 to be
+            # spilled
+            if reg_args == 0 or (isinstance(args[0], Box) and
+                    regalloc.stays_alive(args[0])):
+                t = TempBox()
+                regalloc.force_allocate_reg(t, selected_reg=regalloc.call_result_location(t))
+                regalloc.possibly_free_var(t)
+            self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
         else:
-            if result:
-                # XXX maybe move instance check to llsupport/regalloc
-                if reg_args > 0 and isinstance(args[0], Box) and regalloc.stays_alive(args[0]):
-                    regalloc.force_spill_var(args[0])
-                self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
-            else:
-                self.mc.PUSH([reg.value for reg in r.caller_resp])
+            self.mc.PUSH([reg.value for reg in r.caller_resp])
 
         # all arguments past the 4th go on the stack
         if n_args > 4:
@@ -297,14 +296,11 @@ class OpAssembler(object):
             self._adjust_sp(-n, fcond=fcond)
 
         # restore the argumets stored on the stack
-        if spill_all_regs:
+        if result is not None:
             regalloc.after_call(result)
+            self.mc.POP([reg.value for reg in r.caller_resp][1:])
         else:
-            if result is not None:
-                regalloc.after_call(result)
-                self.mc.POP([reg.value for reg in r.caller_resp][1:])
-            else:
-                self.mc.POP([reg.value for reg in r.caller_resp])
+            self.mc.POP([reg.value for reg in r.caller_resp])
         return fcond
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):
@@ -351,11 +347,20 @@ class FieldOpAssembler(object):
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 4:
-            self.mc.STR_ri(value_loc.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.STR_ri(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.STR_rr(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 2:
-            self.mc.STRH_ri(value_loc.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.STRH_ri(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.STRH_rr(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 1:
-            self.mc.STRB_ri(value_loc.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.STRB_ri(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.STRB_rr(value_loc.value, base_loc.value, ofs.value)
         else:
             assert 0
         return fcond
@@ -365,11 +370,20 @@ class FieldOpAssembler(object):
     def emit_op_getfield_gc(self, op, arglocs, regalloc, fcond):
         base_loc, ofs, res, size = arglocs
         if size.value == 4:
-            self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.LDR_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 2:
-            self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.LDRH_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 1:
-            self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
+            if ofs.is_imm():
+                self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.LDRB_rr(res.value, base_loc.value, ofs.value)
         else:
             assert 0
 
@@ -633,11 +647,16 @@ class ForceOpAssembler(object):
     # from: ../x86/assembler.py:1668
     # XXX Split into some helper methods
     def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc, fcond):
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self._write_fail_index(fail_index)
+
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
+        assert op.numargs() == len(descr._arm_arglocs)
         resbox = TempBox()
         self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(),
-                                regalloc, fcond, result=resbox, spill_all_regs=True)
+                                regalloc, fcond, result=resbox)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
         else:
@@ -650,56 +669,56 @@ class ForceOpAssembler(object):
                 value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
-        assert value <= 0xff
-
         # check value
-        resloc = regalloc.force_allocate_reg(resbox)
+        resloc = regalloc.try_allocate_reg(resbox)
+        assert resloc is r.r0
         self.mc.gen_load_int(r.ip.value, value)
         self.mc.CMP_rr(resloc.value, r.ip.value)
+        regalloc.possibly_free_var(resbox)
 
         fast_jmp_pos = self.mc.currpos()
-        #fast_jmp_location = self.mc.curraddr()
         self.mc.NOP()
 
-        #if values are equal we take the fast pat
+        # Path A: use assembler helper
+        #if values are equal we take the fast path
         # Slow path, calling helper
         # jump to merge point
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        self._emit_call(asm_helper_adr, [resbox, op.getarg(0)], regalloc, fcond, op.result)
-        regalloc.possibly_free_var(resbox)
+        self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
+        # resbox is allready in r0
+        self.mov_loc_loc(arglocs[1], r.r1)
+        self.mc.BL(asm_helper_adr)
+        self.mc.POP([reg.value for reg in r.caller_resp][1:])
+        if op.result:
+            regalloc.after_call(op.result)
         # jump to merge point
         jmp_pos = self.mc.currpos()
         #jmp_location = self.mc.curraddr()
         self.mc.NOP()
 
+        # Path B: load return value and reset token
         # Fast Path using result boxes
         # patch the jump to the fast path
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
-        #pmc = ARMv7InMemoryBuilder(fast_jmp_location, WORD)
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
 
         # Reset the vable token --- XXX really too much special logic here:-(
-        # XXX Enable and fix this once the stange errors procuded by its
-        # presence are fixed
-        #if jd.index_of_virtualizable >= 0:
-        #    from pypy.jit.backend.llsupport.descr import BaseFieldDescr
-        #    size = jd.portal_calldescr.get_result_size(self.cpu.translate_support_code)
-        #    vable_index = jd.index_of_virtualizable
-        #    regalloc._sync_var(op.getarg(vable_index))
-        #    vable = regalloc.frame_manager.loc(op.getarg(vable_index))
-        #    fielddescr = jd.vable_token_descr
-        #    assert isinstance(fielddescr, BaseFieldDescr)
-        #    ofs = fielddescr.offset
-        #    self.mc.MOV(eax, arglocs[1])
-        #    self.mc.MOV_mi((eax.value, ofs), 0)
-        #    # in the line above, TOKEN_NONE = 0
+        if jd.index_of_virtualizable >= 0:
+            from pypy.jit.backend.llsupport.descr import BaseFieldDescr
+            fielddescr = jd.vable_token_descr
+            assert isinstance(fielddescr, BaseFieldDescr)
+            ofs = fielddescr.offset
+            resloc = regalloc.force_allocate_reg(resbox)
+            self.mov_loc_loc(arglocs[1], r.ip)
+            self.mc.MOV_ri(resloc.value, 0)
+            self.mc.STR_ri(resloc.value, r.ip.value, ofs)
+            regalloc.possibly_free_var(resbox)
 
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
-            resloc = regalloc.force_allocate_reg(op.result)
             kind = op.result.type
             if kind == INT:
                 adr = self.fail_boxes_int.get_addr_for_num(0)
@@ -707,21 +726,34 @@ class ForceOpAssembler(object):
                 adr = self.fail_boxes_ptr.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
+            resloc = regalloc.force_allocate_reg(op.result)
+            regalloc.possibly_free_var(resbox)
             self.mc.gen_load_int(r.ip.value, adr)
             self.mc.LDR_ri(resloc.value, r.ip.value)
 
+        # merge point
         offset = self.mc.currpos() - jmp_pos
-        pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
-        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET)
+        if offset - PC_OFFSET >= 0:
+            pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
+            pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET)
 
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)
 
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.GE)
-        regalloc.possibly_free_vars_for_op(op)
-        if op.result:
-            regalloc.possibly_free_var(op.result)
         return fcond
+
+
+    # ../x86/assembler.py:668
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        # we overwrite the instructions at the old _x86_direct_bootstrap_code
+        # to start with a JMP to the new _x86_direct_bootstrap_code.
+        # Ideally we should rather patch all existing CALLs, but well.
+        oldadr = oldlooptoken._arm_direct_bootstrap_code
+        target = newlooptoken._arm_direct_bootstrap_code
+        mc = ARMv7Builder()
+        mc.B(target)
+        mc.copy_to_raw_memory(oldadr)
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc, fcond):
         self.mc.LDR_ri(r.ip.value, r.fp.value)

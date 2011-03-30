@@ -13,6 +13,33 @@ import weakref
 
 TLS = tlsobject()
 
+class WeakValueDictionary(weakref.WeakValueDictionary):
+    """A subclass of weakref.WeakValueDictionary
+    which resets the 'nested_hash_level' when keys are being deleted.
+    """
+    def __init__(self, *args, **kwargs):
+        weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
+        remove_base = self._remove
+        def remove(*args):
+            if safe_equal is None:
+                # The interpreter is shutting down, and the comparison
+                # function is already gone.
+                return
+            if TLS is None: # Happens when the interpreter is shutting down
+                return remove_base(*args)
+            nested_hash_level = TLS.nested_hash_level
+            try:
+                # The 'remove' function is called when an object dies.  This
+                # can happen anywhere when they are reference cycles,
+                # especially when we are already computing another __hash__
+                # value.  It's not really a recursion in this case, so we
+                # reset the counter; otherwise the hash value may be be
+                # incorrect and the key won't be deleted.
+                TLS.nested_hash_level = 0
+                remove_base(*args)
+            finally:
+                TLS.nested_hash_level = nested_hash_level
+        self._remove = remove
 
 class _uninitialized(object):
     def __init__(self, TYPE):
@@ -368,6 +395,8 @@ class Array(ContainerType):
                 return "{ %s }" % of._str_fields()
             else:
                 return "%s { %s }" % (of._name, of._str_fields())
+        elif self._hints.get('render_as_void'):
+            return 'void'
         else:
             return str(self.OF)
     _str_fields = saferecursive(_str_fields, '...')
@@ -397,7 +426,7 @@ class FixedSizeArray(Struct):
     # behaves more or less like a Struct with fields item0, item1, ...
     # but also supports __getitem__(), __setitem__(), __len__().
 
-    _cache = weakref.WeakValueDictionary() # cache the length-1 FixedSizeArrays
+    _cache = WeakValueDictionary() # cache the length-1 FixedSizeArrays
     def __new__(cls, OF, length, **kwds):
         if length == 1 and not kwds:
             try:
@@ -620,7 +649,7 @@ UniChar  = Primitive("UniChar", u'\x00')
 class Ptr(LowLevelType):
     __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
 
-    _cache = weakref.WeakValueDictionary()  # cache the Ptrs
+    _cache = WeakValueDictionary()  # cache the Ptrs
     def __new__(cls, TO, use_cache=True):
         if not isinstance(TO, ContainerType):
             raise TypeError, ("can only point to a Container type, "
@@ -783,6 +812,8 @@ def _cast_whatever(TGT, value):
                 return cast_pointer(TGT, value)
         elif ORIG == llmemory.Address:
             return llmemory.cast_adr_to_ptr(value, TGT)
+        elif ORIG == Signed:
+            return cast_int_to_ptr(TGT, value)
     elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
         return llmemory.cast_ptr_to_adr(value)
     elif TGT == Signed and isinstance(ORIG, Ptr) and ORIG.TO._gckind == 'raw':
@@ -1112,6 +1143,11 @@ class _abstract_ptr(object):
                 raise TypeError("cannot directly assign to container array items")
             T2 = typeOf(val)
             if T2 != T1:
+                from pypy.rpython.lltypesystem import rffi
+                if T1 is rffi.VOIDP and isinstance(T2, Ptr):
+                    # Any pointer is convertible to void*
+                    val = rffi.cast(rffi.VOIDP, val)
+                else:
                     raise TypeError("%r items:\n"
                                     "expect %r\n"
                                     "   got %r" % (self._T, T1, T2))
@@ -1151,6 +1187,7 @@ class _abstract_ptr(object):
             return '* %s' % (self._obj0,)
 
     def __call__(self, *args):
+        from pypy.rpython.lltypesystem import rffi
         if isinstance(self._T, FuncType):
             if len(args) != len(self._T.ARGS):
                 raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
@@ -1164,11 +1201,19 @@ class _abstract_ptr(object):
                             pass
                         else:
                             assert a == value
+                    # None is acceptable for any pointer
+                    elif isinstance(ARG, Ptr) and a is None:
+                        pass
+                    # Any pointer is convertible to void*
+                    elif ARG is rffi.VOIDP and isinstance(typeOf(a), Ptr):
+                        pass
                     # special case: ARG can be a container type, in which
                     # case a should be a pointer to it.  This must also be
                     # special-cased in the backends.
-                    elif not (isinstance(ARG, ContainerType)
-                            and typeOf(a) == Ptr(ARG)):
+                    elif (isinstance(ARG, ContainerType) and
+                          typeOf(a) == Ptr(ARG)):
+                        pass
+                    else:
                         args_repr = [typeOf(arg) for arg in args]
                         raise TypeError, ("calling %r with wrong argument "
                                           "types: %r" % (self._T, args_repr))

@@ -77,8 +77,12 @@ class ReSTSyntaxTest(py.test.collect.Item):
         try: 
             self._checkskip(path, self.project.get_htmloutputpath(path))
             self.project.process(path)
-        except KeyboardInterrupt: 
-            raise 
+        except KeyboardInterrupt:
+            raise
+        except SystemExit, error:
+            if error.message == "ERROR: dot not found":
+                py.test.skip("system doesn't have graphviz installed")
+            raise
         except SystemMessage: 
             # we assume docutils printed info on stdout 
             py.test.fail("docutils processing failed, see captured stderr") 

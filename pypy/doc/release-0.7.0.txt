@@ -18,7 +18,7 @@ which have been partially funded by the European Union:
 
 - the ability to translate with or without thread support 
 
-- very complete language-level compliancy with CPython 2.4.1 
+- very complete language-level compliance with CPython 2.4.1 
 
 
 What is PyPy (about)? 

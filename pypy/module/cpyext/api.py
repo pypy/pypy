@@ -16,7 +16,7 @@ from pypy.tool.udir import udir
 from pypy.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
@@ -199,6 +199,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
             error = CANNOT_FAIL
     if type(error) is int:
         error = rffi.cast(restype, error)
+    expect_integer = (isinstance(restype, lltype.Primitive) and
+                      rffi.cast(restype, 0) == 0)
 
     def decorate(func):
         func_name = func.func_name
@@ -268,6 +270,9 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                             return None
                         else:
                             return api_function.error_value
+                    if not we_are_translated():
+                        got_integer = isinstance(res, (int, long, float))
+                        assert got_integer == expect_integer
                     if res is None:
                         return None
                     elif isinstance(res, Reference):
@@ -303,7 +308,7 @@ FUNCTIONS = {}
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
-    '_PyArg_NoKeywords',
+    'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyString_FromFormat', 'PyString_FromFormatV',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
@@ -827,6 +832,9 @@ def build_eci(building_bridge, export_symbols, code):
         if sys.platform == "win32":
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
+            # Sometimes the library is wrapped into another DLL, ensure that
+            # the correct bootstrap code is installed
+            kwds["link_extra"] = ["msvcrt.lib"]
         elif sys.platform == 'linux2':
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
@@ -934,7 +942,7 @@ def setup_library(space):
     copy_header_files(trunk_include)
 
 initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
-@unwrap_spec(ObjSpace, str, str)
+@unwrap_spec(path=str, name=str)
 def load_extension_module(space, path, name):
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
@@ -997,7 +1005,7 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     # exception checking occurs in call_external_function.
     argnames = ', '.join(['a%d' % i for i in range(len(FT.ARGS))])
     source = py.code.Source("""
-        def call_external_function(funcptr, %(argnames)s):
+        def cpy_call_external(funcptr, %(argnames)s):
             # NB. it is essential that no exception checking occurs here!
             res = funcptr(%(argnames)s)
             return res
@@ -1005,12 +1013,10 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     miniglobals = {'__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
-    call_external_function = miniglobals['call_external_function']
+    call_external_function = miniglobals['cpy_call_external']
     call_external_function._dont_inline_ = True
     call_external_function._annspecialcase_ = 'specialize:ll'
     call_external_function._gctransformer_hint_close_stack_ = True
-    call_external_function = func_with_new_name(call_external_function,
-                                                'ccall_' + name)
     # don't inline, as a hack to guarantee that no GC pointer is alive
     # anywhere in call_external_function
 

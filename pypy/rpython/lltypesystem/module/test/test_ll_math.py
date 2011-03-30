@@ -34,7 +34,8 @@ def make_test_case((fnname, args, expected), dict):
                 repr,)
         else:
             if not get_tester(expected)(got):
-                raise AssertionError("%r: got %s" % (repr, got))
+                raise AssertionError("%r: got %r, expected %r" %
+                                     (repr, got, expected))
     #
     dict[fnname] = dict.get(fnname, 0) + 1
     testname = 'test_%s_%d' % (fnname, dict[fnname])

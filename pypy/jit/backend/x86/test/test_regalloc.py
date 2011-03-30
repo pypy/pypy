@@ -15,6 +15,7 @@ from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
+from pypy.jit.codewriter import longlong
 from pypy.jit.backend.x86.rx86 import *
 
 def test_is_comparison_or_ovf_op():
@@ -133,6 +134,7 @@ class BaseTestRegalloc(object):
             if isinstance(arg, int):
                 self.cpu.set_future_value_int(i, arg)
             elif isinstance(arg, float):
+                arg = longlong.getfloatstorage(arg)
                 self.cpu.set_future_value_float(i, arg)
             else:
                 assert isinstance(lltype.typeOf(arg), lltype.Ptr)
@@ -153,8 +155,8 @@ class BaseTestRegalloc(object):
                 index in range(0, end)]
 
     def getfloats(self, end):
-        return [self.cpu.get_latest_value_float(index) for
-                index in range(0, end)]
+        return [longlong.getrealfloat(self.cpu.get_latest_value_float(index))
+                for index in range(0, end)]
 
     def getptr(self, index, T):
         gcref = self.cpu.get_latest_value_ref(index)

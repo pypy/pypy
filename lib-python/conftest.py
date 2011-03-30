@@ -195,7 +195,7 @@ testmap = [
     RegrTest('test_dbm.py'),
     RegrTest('test_decimal.py'),
     RegrTest('test_decorators.py', core=True),
-    RegrTest('test_deque.py', core=True),
+    RegrTest('test_deque.py', core=True, usemodules='_collections'),
     RegrTest('test_descr.py', core=True, usemodules='_weakref'),
     RegrTest('test_descrtut.py', core=True),
     RegrTest('test_dict.py', core=True),
@@ -422,7 +422,7 @@ testmap = [
     RegrTest('test_sundry.py'),
     RegrTest('test_symtable.py', skip="implementation detail"),
     RegrTest('test_syntax.py', core=True),
-    RegrTest('test_sys.py', core=True),
+    RegrTest('test_sys.py', core=True, usemodules='struct'),
     RegrTest('test_sys_settrace.py', core=True),
     RegrTest('test_sys_setprofile.py', core=True),
     RegrTest('test_sysconfig.py'),
@@ -498,8 +498,8 @@ testmap = [
     RegrTest('test_coding.py'),
     RegrTest('test_complex_args.py'),
     RegrTest('test_contextlib.py', usemodules="thread"),
-    RegrTest('test_ctypes.py', usemodules="_rawffi"),
-    RegrTest('test_defaultdict.py'),
+    RegrTest('test_ctypes.py', usemodules="_rawffi thread"),
+    RegrTest('test_defaultdict.py', usemodules='_collections'),
     RegrTest('test_email_renamed.py'),
     RegrTest('test_exception_variations.py'),
     RegrTest('test_float.py'),
@@ -519,8 +519,8 @@ testmap = [
     RegrTest('test_with.py'),
     RegrTest('test_wsgiref.py'),
     RegrTest('test_xdrlib.py'),
-    RegrTest('test_xml_etree.py', skip="unsupported ext module"),
-    RegrTest('test_xml_etree_c.py', skip="unsupported ext module"),
+    RegrTest('test_xml_etree.py'),
+    RegrTest('test_xml_etree_c.py'),
     RegrTest('test_zipfile64.py'),
 ]
 
@@ -696,6 +696,8 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 cmd += ' --pdb'
             if self.config.option.capture == 'no':
                 status = os.system(cmd)
+                stdout.write('')
+                stderr.write('')
             else:
                 status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
             if os.WIFEXITED(status):
@@ -714,8 +716,10 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
         outcome = 'OK'
-        if not exit_status: 
-            if 'FAIL' in test_stdout or re.search('[^:]ERROR', test_stderr):
+        if not exit_status:
+            # match "FAIL" but not e.g. "FAILURE", which is in the output of a
+            # test in test_zipimport_support.py
+            if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
                 outcome = 'FAIL'
                 exit_status = 2  
         elif timedout: 

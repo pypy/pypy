@@ -276,27 +276,26 @@ class Regalloc(object):
         boxes.append(box)
 
         self.possibly_free_vars(boxes)
+        self.possibly_free_vars_for_op(op)
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
 
     def prepare_guard_int_mul_ovf(self, op, guard, fcond):
-        args = []
         boxes = list(op.getarglist())
         a0, a1 = boxes
 
-        reg1, box = self._ensure_value_is_boxed(a0,forbidden_vars=boxes)
+        reg1, box = self._ensure_value_is_boxed(a0, forbidden_vars=boxes)
         boxes.append(box)
-        reg2, box = self._ensure_value_is_boxed(a1,forbidden_vars=boxes)
+        reg2, box = self._ensure_value_is_boxed(a1, forbidden_vars=boxes)
         boxes.append(box)
-        res = self.force_allocate_reg(op.result, boxes)
+        res = self.force_allocate_reg(op.result)
+        args = self._prepare_guard(guard, [reg1, reg2, res])
 
-        args.append(reg1)
-        args.append(reg2)
-        args.append(res)
-        args = self._prepare_guard(guard, args)
         self.possibly_free_vars(boxes)
+        self.possibly_free_vars_for_op(op)
         self.possibly_free_var(op.result)
+        self.possibly_free_vars(guard.getfailargs())
         return args
 
 
@@ -363,6 +362,7 @@ class Regalloc(object):
             arg = op.getarg(i)
             if arg:
                 args.append(self.loc(arg))
+                self.possibly_free_var(arg)
             else:
                 args.append(None)
         return args
@@ -371,6 +371,7 @@ class Regalloc(object):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
         args = self._prepare_guard(op, [l0])
         self.possibly_free_var(box)
+        self.possibly_free_vars(op.getfailargs())
         return args
 
     prepare_op_guard_false = prepare_op_guard_true
@@ -391,10 +392,13 @@ class Regalloc(object):
         assert op.result is None
         arglocs = self._prepare_guard(op, [l0, l1])
         self.possibly_free_vars(boxes)
+        self.possibly_free_vars(op.getfailargs())
         return arglocs
 
     def prepare_op_guard_no_overflow(self, op, fcond):
-        return  self._prepare_guard(op)
+        locs = self._prepare_guard(op)
+        self.possibly_free_vars(op.getfailargs())
+        return locs
 
     prepare_op_guard_overflow = prepare_op_guard_no_overflow
 
@@ -415,6 +419,7 @@ class Regalloc(object):
         pos_exception = imm(self.cpu.pos_exception())
         arglocs = self._prepare_guard(op, [loc, loc1, resloc, pos_exc_value, pos_exception])
         self.possibly_free_vars(boxes)
+        self.possibly_free_vars(op.getfailargs())
         return arglocs
 
     def prepare_op_guard_no_exception(self, op, fcond):
@@ -422,6 +427,7 @@ class Regalloc(object):
                     ConstInt(self.cpu.pos_exception()))
         arglocs = self._prepare_guard(op, [loc])
         self.possibly_free_var(box)
+        self.possibly_free_vars(op.getfailargs())
         return arglocs
 
     def prepare_op_guard_class(self, op, fcond):
@@ -447,6 +453,7 @@ class Regalloc(object):
         boxes.append(offset_box)
         arglocs = self._prepare_guard(op, [x, y, offset_loc])
         self.possibly_free_vars(boxes)
+        self.possibly_free_vars(op.getfailargs())
 
         return arglocs
 
@@ -454,7 +461,8 @@ class Regalloc(object):
     def prepare_op_jump(self, op, fcond):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
-        return [self.loc(op.getarg(i)) for i in range(op.numargs())]
+        locs = [self.loc(op.getarg(i)) for i in range(op.numargs())]
+        return locs
 
 
     def prepare_op_setfield_gc(self, op, fcond):
@@ -465,8 +473,14 @@ class Regalloc(object):
         boxes.append(base_box)
         value_loc, value_box = self._ensure_value_is_boxed(a1, boxes)
         boxes.append(value_box)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, boxes)
+            boxes.append(ofs_box)
         self.possibly_free_vars(boxes)
-        return [value_loc, base_loc, imm(ofs), imm(size)]
+        return [value_loc, base_loc, ofs_loc, imm(size)]
 
     prepare_op_setfield_raw = prepare_op_setfield_gc
 
@@ -474,11 +488,17 @@ class Regalloc(object):
         a0 = op.getarg(0)
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         base_loc, base_box = self._ensure_value_is_boxed(a0)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box])
+            self.possibly_free_var(ofs_box)
         self.possibly_free_var(a0)
         self.possibly_free_var(base_box)
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
-        return [base_loc, imm(ofs), res, imm(size)]
+        return [base_loc, ofs_loc, res, imm(size)]
 
     prepare_op_getfield_raw = prepare_op_getfield_gc
     prepare_op_getfield_raw_pure = prepare_op_getfield_gc
@@ -651,7 +671,6 @@ class Regalloc(object):
         else:
             argloc, box = self._ensure_value_is_boxed(arg)
             self.possibly_free_var(box)
-        self.possibly_free_vars_for_op(op)
 
         resloc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
@@ -743,16 +762,28 @@ class Regalloc(object):
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.assembler._write_fail_index(fail_index)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
-        # force all reg values to be spilled when calling
-        self.assembler.emit_op_call(op, args, self, fcond, spill_all_regs=True)
-
-        return self._prepare_guard(guard_op)
+        for v in guard_op.getfailargs():
+            if v in self.reg_bindings:
+                self.force_spill_var(v)
+        self.assembler.emit_op_call(op, args, self, fcond)
+        locs = self._prepare_guard(guard_op)
+        self.possibly_free_vars(guard_op.getfailargs())
+        return locs
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.assembler._write_fail_index(fail_index)
-        return []
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        jd = descr.outermost_jitdriver_sd
+        assert jd is not None
+        size = jd.portal_calldescr.get_result_size(self.cpu.translate_support_code)
+        vable_index = jd.index_of_virtualizable
+        if vable_index >= 0:
+            self._sync_var(op.getarg(vable_index))
+            vable = self.frame_manager.loc(op.getarg(vable_index))
+        else:
+            vable = imm(0)
+        self.possibly_free_vars(guard_op.getfailargs())
+        return [imm(size), vable]
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr

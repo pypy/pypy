@@ -1,5 +1,6 @@
 " Language   : PyPy JIT traces
 " Maintainer : Armin Rigo
+" Usage      : set syntax=pypytrace
 
 if exists("b:current_syntax")
  finish

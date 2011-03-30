@@ -29,10 +29,13 @@ def _split_complex(s):
     # ignore whitespace
     while i < slen and s[i] == ' ':
         i += 1
-    
+
     if s[i] == '(' and s[slen-1] == ')':
         i += 1
         slen -= 1
+        # ignore whitespace after bracket
+        while i < slen and s[i] == ' ':
+            i += 1
 
     # extract first number
     realstart = i
@@ -54,14 +57,18 @@ def _split_complex(s):
         newstop = realstop - 1
         if newstop < 0:
             raise ValueError
-        if s[newstop] in ('j','J'):
+        if s[newstop] in ('j', 'J'):
             if realstart == newstop:
                 imagpart = '1.0'
+            elif realstart == newstop-1 and s[realstart] == '+':
+                imagpart = '1.0'
+            elif realstart == newstop-1 and s[realstart] == '-':
+                imagpart = '-1.0'
             else:
                 imagpart = s[realstart:newstop]
             return '0.0', imagpart
         else:
-            return s[realstart:realstop],'0.0'
+            return s[realstart:realstop], '0.0'
 
     # find sign for imaginary part
     if s[i] == '-' or s[i] == '+':
@@ -166,17 +173,22 @@ def unpackcomplex(space, w_complex):
         return (w_complex.realval, w_complex.imagval)
     #
     # test for a '__complex__' method, and call it if found.
-    # A bit of a hack to support old-style classes: don't use
-    # space.lookup() (this is similar to CPython).
-    try:
-        w_method = space.getattr(w_complex, space.wrap('__complex__'))
-    except OperationError, e:
-        if not e.match(space, space.w_AttributeError):
-            raise
-        if isinstance(w_complex, W_ComplexObject):
-            return (w_complex.realval, w_complex.imagval)
+    # special case old-style instances, like CPython does.
+    w_z = None
+    if space.is_oldstyle_instance(w_complex):
+        try:
+            w_method = space.getattr(w_complex, space.wrap('__complex__'))
+        except OperationError, e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+        else:
+            w_z = space.call_function(w_method)
     else:
-        w_z = space.call_function(w_method)
+        w_method = space.lookup(w_complex, '__complex__')
+        if w_method is not None:
+            w_z = space.get_and_call_function(w_method, w_complex)
+    #
+    if w_z is not None:
         # __complex__() must return a complex object
         # (XXX should not use isinstance here)
         if not isinstance(w_z, W_ComplexObject):
@@ -185,7 +197,11 @@ def unpackcomplex(space, w_complex):
                                             " a complex number"))
         return (w_z.realval, w_z.imagval)
     #
-    # no '__complex__' method, so we assume it is a float.
+    # no '__complex__' method, so we assume it is a float,
+    # unless it is an instance of some subclass of complex.
+    if isinstance(w_complex, W_ComplexObject):
+        return (w_complex.realval, w_complex.imagval)
+    #
     # Check that it is not a string (on which space.float() would succeed).
     if (space.is_true(space.isinstance(w_complex, space.w_str)) or
         space.is_true(space.isinstance(w_complex, space.w_unicode))):
@@ -208,7 +224,8 @@ def complexwprop(name):
 def descr___getnewargs__(space,  w_self):
     from pypy.objspace.std.complexobject import W_ComplexObject
     assert isinstance(w_self, W_ComplexObject)
-    return space.newtuple([space.newcomplex(w_self.realval,w_self.imagval)])
+    return space.newtuple([space.newfloat(w_self.realval),
+                           space.newfloat(w_self.imagval)])
 
 complex_typedef = StdTypeDef("complex",
     __doc__ = """complex(real[, imag]) -> complex number

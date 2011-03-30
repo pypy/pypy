@@ -191,7 +191,7 @@ Now we modify serve_admin() as follows:
     def serve_admin(token):
         print "Highest big is:", declassify(highest_bid, token=token)
 
-The declassify() function reads the value if the "token" is priviledged
+The declassify() function reads the value if the "token" is privileged
 enough, and raises an exception otherwise.
 
 What are we protecting here?  The fact that we need the administrator
