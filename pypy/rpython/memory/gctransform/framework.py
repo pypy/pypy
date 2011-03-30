@@ -9,6 +9,7 @@ from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib import rstack, rgc
 from pypy.rlib.debug import ll_assert
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.support import var_needsgc
 from pypy.annotation import model as annmodel
@@ -151,8 +152,13 @@ class FrameworkGCTransformer(GCTransformer):
             # for regular translation: pick the GC from the config
             GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
 
+        self.root_stack_jit_hook = None
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
+            try:
+                self.root_stack_jit_hook = translator._jit2gc['rootstackhook']
+            except KeyError:
+                pass
         else:
             self.layoutbuilder = TransformerLayoutBuilder(translator, GCClass)
         self.layoutbuilder.transformer = self
@@ -1327,6 +1333,15 @@ class ShadowStackRootWalker(BaseRootWalker):
             return top
         self.decr_stack = decr_stack
 
+        self.rootstackhook = gctransformer.root_stack_jit_hook
+        if self.rootstackhook is None:
+            def collect_stack_root(callback, gc, addr):
+                if we_are_translated():
+                    ll_assert(addr.address[0].signed[0] != 0,
+                              "unexpected null object header")
+                callback(gc, addr)
+            self.rootstackhook = collect_stack_root
+
     def push_stack(self, addr):
         top = self.incr_stack(1)
         top.address[0] = addr
@@ -1348,11 +1363,12 @@ class ShadowStackRootWalker(BaseRootWalker):
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
         gc = self.gc
+        rootstackhook = self.rootstackhook
         addr = gcdata.root_stack_base
         end = gcdata.root_stack_top
         while addr != end:
             if gc.points_to_valid_gc_object(addr):
-                collect_stack_root(gc, addr)
+                rootstackhook(collect_stack_root, gc, addr)
             addr += sizeofaddr
         if self.collect_stacks_from_other_threads is not None:
             self.collect_stacks_from_other_threads(collect_stack_root)
@@ -1460,11 +1476,12 @@ class ShadowStackRootWalker(BaseRootWalker):
                 # collect all valid stacks from the dict (the entry
                 # corresponding to the current thread is not valid)
                 gc = self.gc
+                rootstackhook = self.rootstackhook
                 end = stacktop - sizeofaddr
                 addr = end.address[0]
                 while addr != end:
                     if gc.points_to_valid_gc_object(addr):
-                        callback(gc, addr)
+                        rootstackhook(callback, gc, addr)
                     addr += sizeofaddr
 
         def collect_more_stacks(callback):
