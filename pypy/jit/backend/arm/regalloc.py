@@ -156,17 +156,24 @@ class Regalloc(object):
             arg = inputargs[i]
             i += 1
             if loc.is_reg():
-                self.reg_bindings[arg] = loc
+                if arg.type == FLOAT:
+                    self.vfprm.reg_bindings[arg] = loc
+                else:
+                    self.rm.reg_bindings[arg] = loc
             #XXX add float
             else:
                 self.frame_manager.frame_bindings[arg] = loc
             used[loc] = None
 
         # XXX combine with x86 code and move to llsupport
-        self.free_regs = []
-        for reg in self.all_regs:
+        self.rm.free_regs = []
+        for reg in self.rm.all_regs:
             if reg not in used:
-                self.free_regs.append(reg)
+                self.rm.free_regs.append(reg)
+        self.vfprm.free_regs = []
+        for reg in self.vfprm.all_regs:
+            if reg not in used:
+                self.vfprm.free_regs.append(reg)
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
