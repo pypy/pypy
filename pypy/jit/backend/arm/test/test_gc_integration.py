@@ -10,7 +10,7 @@ from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.llsupport.gc import GcLLDescription
 from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.backend.arm.regalloc import ARMRegisterManager
+from pypy.jit.backend.arm.regalloc import Regalloc
 from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi

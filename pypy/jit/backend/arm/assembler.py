@@ -283,10 +283,10 @@ class AssemblerARM(ResOpAssembler):
                     j += 1
                 elif arg.type == REF:
                     mem[j] = self.REF_TYPE
-					j += 1
+                    j += 1
                 elif arg.type == FLOAT:
                     mem[j] = self.FLOAT_TYPE
-					j += 1
+                    j += 1
                 else:
                     assert 0, 'unknown type'
 
@@ -341,18 +341,21 @@ class AssemblerARM(ResOpAssembler):
         for i in range(len(inputargs)):
             loc = inputargs[i]
             reg = regalloc.force_allocate_reg(loc)
-            if loc.type == REF:
-                addr = self.fail_boxes_ptr.get_addr_for_num(i)
-            elif loc.type == INT:
-                addr = self.fail_boxes_int.get_addr_for_num(i)
+            if loc.type != FLOAT:
+                if loc.type == REF:
+                    addr = self.fail_boxes_ptr.get_addr_for_num(i)
+                elif loc.type == INT:
+                    addr = self.fail_boxes_int.get_addr_for_num(i)
+                else:
+                    assert 0
+                self.mc.gen_load_int(reg.value, addr)
+                self.mc.LDR_ri(reg.value, reg.value)
             elif loc.type == FLOAT:
                 addr = self.fail_boxes_float.get_addr_for_num(i)
-            else:
-            self.mc.gen_load_int(r.ip.value, addr)
-            if not loc.type == FLOAT:
-                self.mc.LDR_ri(reg.value, r.ip.value)
-            else:
+                self.mc.gen_load_int(r.ip.value, addr)
                 self.mc.VLDR(reg.value, r.ip.value)
+            else:
+                assert 0
             regalloc.possibly_free_var(loc)
         arglocs = [regalloc.loc(arg) for arg in inputargs]
         looptoken._arm_arglocs = arglocs
@@ -396,7 +399,7 @@ class AssemblerARM(ResOpAssembler):
         self._dump(operations)
         self.setup()
         longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = ARMRegisterManager(longevity, assembler=self, frame_manager=ARMFrameManager())
+        regalloc = Regalloc(longevity, assembler=self, frame_manager=ARMFrameManager())
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
@@ -526,9 +529,9 @@ class AssemblerARM(ResOpAssembler):
 
     def _walk_operations(self, operations, regalloc):
         fcond=c.AL
-        while regalloc.position < len(operations) - 1:
+        while regalloc.position() < len(operations) - 1:
             regalloc.next_instruction()
-            i = regalloc.position
+            i = regalloc.position()
             op = operations[i]
             opnum = op.getopnum()
             if op.has_no_side_effect() and op.result not in regalloc.longevity:

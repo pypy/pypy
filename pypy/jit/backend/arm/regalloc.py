@@ -112,6 +112,29 @@ class Regalloc(object):
             return self.vfprm.loc(var)
         else:
             return self.rm.loc(var)
+    
+    def position(self):
+        return self.rm.position
+
+    def next_instruction(self):
+        self.rm.next_instruction()
+        self.vfprm.next_instruction()
+
+    def _check_invariants(self):
+        self.rm._check_invariants()
+        self.vfprm._check_invariants()
+
+    def stays_alive(self, v):
+        if v.type == FLOAT:
+            return self.vfprm.stays_alive(v)
+        else:
+            return self.rm.stays_alive(v)
+
+    def after_call(self, v):
+        if v.type == FLOAT:
+            return self.vfprm.after_call(v)
+        else:
+            return self.rm.after_call(v)
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
@@ -121,6 +144,12 @@ class Regalloc(object):
         else:
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
+    def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
+        if v.type == FLOAT:
+            return self.vfprm.try_allocate_reg(v, selected_reg, need_lower_byte)
+        else:
+            return self.rm.try_allocate_reg(v, selected_reg, need_lower_byte)
+
     def possibly_free_var(self, var):
         if var.type == FLOAT:
             self.vfprm.possibly_free_var(var)

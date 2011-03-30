@@ -15,7 +15,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_unary_float_op)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
-from pypy.jit.backend.arm.regalloc import Regalloc
+from pypy.jit.backend.arm.regalloc import Regalloc, TempInt
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
@@ -654,7 +654,7 @@ class ForceOpAssembler(object):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
         assert op.numargs() == len(descr._arm_arglocs)
-        resbox = TempBox()
+        resbox = TempInt()
         self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(),
                                 regalloc, fcond, result=resbox)
         if op.result is None:
