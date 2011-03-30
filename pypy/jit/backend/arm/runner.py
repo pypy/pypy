@@ -39,8 +39,8 @@ class ArmCPU(AbstractLLCPU):
         self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
 
-    def set_future_value_float(self, index, intvalue):
-        self.assembler.fail_boxes_float.setitem(index, intvalue)
+    def set_future_value_float(self, index, floatvalue):
+        self.assembler.fail_boxes_float.setitem(index, floatvalue)
 
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)

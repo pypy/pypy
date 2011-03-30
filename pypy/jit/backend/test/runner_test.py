@@ -117,16 +117,16 @@ class BaseBackendTest(Runner):
         i0 = BoxFloat()
         i1 = BoxFloat()
         operations = [
-            ResOperation(rop.FLOAT_ADD, [i0, ConstFloat(2.3)], i1),
+            ResOperation(rop.FLOAT_ADD, [i0, constfloat(2.3)], i1),
             ResOperation(rop.FINISH, [i1], None, descr=BasicFailDescr(1))
             ]
         inputargs = [i0]
         looptoken = LoopToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
-        self.cpu.set_future_value_float(0, 2.8)
+        self.cpu.set_future_value_float(0, longlong.getfloatstorage(2.8))
         fail = self.cpu.execute_token(looptoken)
         res = self.cpu.get_latest_value_float(0)
-        assert res == 5.1
+        assert longlong.getrealfloat(res) == 5.1
         assert fail.identifier == 1
 
     def test_compile_loop(self):

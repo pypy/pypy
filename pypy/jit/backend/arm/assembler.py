@@ -8,6 +8,7 @@ from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
+from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
                                         BoxInt, BoxPtr, AbstractFailDescr,
                                         INT, REF, FLOAT)
@@ -58,7 +59,7 @@ class AssemblerARM(ResOpAssembler):
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
-        self.fail_boxes_float = values_array(lltype.Float, failargs_limit)
+        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.fail_boxes_count = 0
         self.fail_force_index = 0
@@ -162,7 +163,7 @@ class AssemblerARM(ResOpAssembler):
             elif group == self.REF_TYPE:
                 self.fail_boxes_ptr.setitem(fail_index, rffi.cast(llmemory.GCREF, value))
             elif group == self.FLOAT_TYPE:
-                self.fail_boxes_float.setitem(fail_index, rffi.cast(lltype.Float, value))
+                self.fail_boxes_float.setitem(fail_index, longlong.getfloatstorage(value))
             else:
                 assert 0, 'unknown type'
 

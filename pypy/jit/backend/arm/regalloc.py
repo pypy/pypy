@@ -9,12 +9,14 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_cmp_op,
                                                     prepare_float_op,
                                                     _check_imm_arg)
+from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxInt, BoxPtr, AbstractFailDescr,
                                         INT, REF, FLOAT, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.objectmodel import we_are_translated
@@ -56,8 +58,12 @@ class VFPRegisterManager(RegisterManager):
     save_around_call_regs = r.all_vfp_regs
 
     def convert_to_imm(self, c):
-        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
-        rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), adr)[0] = c.getfloat()
+        datablockwrapper = MachineDataBlockWrapper(self.assembler.cpu.asmmemmgr,
+                                                    self.assembler.blocks)
+        adr = datablockwrapper.malloc_aligned(8, 8)
+        datablockwrapper.done()
+        x = c.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
         return locations.ConstFloatLoc(adr)
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
