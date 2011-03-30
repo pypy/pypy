@@ -261,9 +261,11 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def setslice(self, w_list, start, step, slicelength, w_other):
-        #XXX now we have wrapping/unwrapping here!
-        #XXX BUT: shouldn't we use from_strage_and_strategy here anyway?
-        w_list.__init__(self.space, w_other.getitems())
+        items = w_other.getitems_copy()
+        strategy = w_other.strategy
+        storage = strategy.cast_to_void_star(items)
+        w_list.strategy = strategy
+        w_list.lstorage = storage
 
     def insert(self, w_list, index, w_item):
         assert index == 0

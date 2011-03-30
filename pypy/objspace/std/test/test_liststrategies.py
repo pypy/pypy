@@ -167,6 +167,14 @@ class TestW_ListStrategies(TestW_ListObject):
         keep_other_strategy(l, 0, 1, l.length(), other)
         assert l.strategy is self.space.fromcache(EmptyListStrategy)
 
+    def test_empty_setslice_with_objectlist(self):
+        l = W_ListObject(self.space, [])
+        o = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap("2"), self.space.wrap(3)])
+        l.setslice(0, 1, o.length(), o)
+        assert l.getitems() == o.getitems()
+        l.append(self.space.wrap(17))
+        assert l.getitems() != o.getitems()
+
     def test_extend(self):
         l = W_ListObject(self.space, [])
         assert isinstance(l.strategy, EmptyListStrategy)
