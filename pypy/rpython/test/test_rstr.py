@@ -583,8 +583,8 @@ class AbstractTestRstr(BaseRtypingTest):
             l = getattr(s, split_fn)(const('.'))
             sum = 0
             for num in l:
-                 if len(num):
-                     sum += ord(num[0]) - ord(const('0')[0])
+                if len(num):
+                    sum += ord(num[0]) - ord(const('0')[0])
             return sum + len(l) * 100
         return fn
 
@@ -607,8 +607,8 @@ class AbstractTestRstr(BaseRtypingTest):
             l = getattr(s, split_fn)(const('.'), j)
             sum = 0
             for num in l:
-                 if len(num):
-                     sum += ord(num[0]) - ord(const('0')[0])
+                if len(num):
+                    sum += ord(num[0]) - ord(const('0')[0])
             return sum + len(l) * 100
         return fn
 
@@ -620,7 +620,7 @@ class AbstractTestRstr(BaseRtypingTest):
                 assert res == fn(i, j)
 
     def test_rsplit_limit(self):
-        fn = self._make_split_limit_test('split')
+        fn = self._make_split_limit_test('rsplit')
         for i in range(5):
             for j in range(4):
                 res = self.interpret(fn, [i, j])
