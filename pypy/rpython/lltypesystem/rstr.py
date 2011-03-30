@@ -756,6 +756,41 @@ class LLHelpers(AbstractLLHelpers):
         item.copy_contents(s, item, i, 0, j - i)
         return res
 
+    def ll_rsplit_chr(LIST, s, c, max):
+        chars = s.chars
+        strlen = len(chars)
+        count = 1
+        i = 0
+        if max == 0:
+            i = strlen
+        while i < strlen:
+            if chars[i] == c:
+                count += 1
+                if max >= 0 and count > max:
+                    break
+            i += 1
+        res = LIST.ll_newlist(count)
+        items = res.ll_items()
+        i = strlen
+        j = strlen
+        resindex = count - 1
+        assert resindex >= 0
+        if max == 0:
+            j = 0
+        while j > 0:
+            j -= 1
+            if chars[j] == c:
+                item = items[resindex] = s.malloc(i - j - 1)
+                item.copy_contents(s, item, j + 1, 0, i - j - 1)
+                resindex -= 1
+                i = j
+                if resindex == 0:
+                    j = 0
+                    break
+        item = items[resindex] = s.malloc(i - j)
+        item.copy_contents(s, item, j, 0, i - j)
+        return res
+
     @purefunction
     def ll_replace_chr_chr(s, c1, c2):
         length = len(s.chars)

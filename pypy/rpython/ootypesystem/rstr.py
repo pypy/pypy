@@ -214,6 +214,9 @@ class LLHelpers(AbstractLLHelpers):
     def ll_split_chr(RESULT, s, c, max):
         return RESULT.ll_convert_from_array(s.ll_split_chr(c, max))
 
+    def ll_rsplit_chr(RESULT, s, c, max):
+        return RESULT.ll_convert_from_array(s.ll_rsplit_chr(c, max))
+
     def ll_int(s, base):
         if not 2 <= base <= 36:
             raise ValueError

@@ -234,6 +234,21 @@ class __extend__(AbstractStringRepr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_split_chr, cLIST, v_str, v_chr, v_max)
 
+    def rtype_method_rsplit(self, hop):
+        rstr = hop.args_r[0].repr
+        if hop.nb_args == 3:
+            v_str, v_chr, v_max = hop.inputargs(rstr.repr, rstr.char_repr, Signed)
+        else:
+            v_str, v_chr = hop.inputargs(rstr.repr, rstr.char_repr)
+            v_max = hop.inputconst(Signed, -1)
+        try:
+            list_type = hop.r_result.lowleveltype.TO
+        except AttributeError:
+            list_type = hop.r_result.lowleveltype
+        cLIST = hop.inputconst(Void, list_type)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_rsplit_chr, cLIST, v_str, v_chr, v_max)
+
     def rtype_method_replace(self, hop):
         rstr = hop.args_r[0].repr
         if not (hop.args_r[1] == rstr.char_repr and hop.args_r[2] == rstr.char_repr):
