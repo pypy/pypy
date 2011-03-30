@@ -254,6 +254,11 @@ class Optimization(object):
         #return self.__class__()
         raise NotImplementedError
 
+    def produce_potential_short_preamble_ops(self, potential_ops):
+        pass
+
+class BoxNotProducable(Exception):
+    pass
 
 class Optimizer(Optimization):
 
@@ -266,6 +271,7 @@ class Optimizer(Optimization):
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
         self.pure_operations = args_dict()
+        self.emitted_pure_operations = {}
         self.producer = {}
         self.pendingfields = []
         self.posponedop = None
@@ -302,6 +308,7 @@ class Optimizer(Optimization):
         assert valuemap is None
         if surviving_boxes is None:
             surviving_boxes = []
+
         valuemap = {}
         new = Optimizer(self.metainterp_sd, self.loop)
         optimizations = [o.reconstruct_for_next_iteration(surviving_boxes,
@@ -325,8 +332,44 @@ class Optimizer(Optimization):
                                      force_if_needed=force)
             if value is not None:
                 new.values[box] = value
-            
+                
         return new
+
+    def produce_potential_short_preamble_ops(self, potential_ops):
+        for op in self.emitted_pure_operations:
+            potential_ops[op.result] = op
+        for opt in self.optimizations:
+            opt.produce_potential_short_preamble_ops(potential_ops)
+
+    def produce_short_preamble_ops(self, inputargs):
+        potential_ops = {}
+        self.produce_potential_short_preamble_ops(potential_ops)
+        
+        short_boxes = {}
+        for box in inputargs:
+            short_boxes[box] = None
+        for box in potential_ops.keys():
+            try:
+                self.produce_short_preamble_box(box, short_boxes,
+                                                potential_ops)
+            except BoxNotProducable:
+                pass
+        return short_boxes
+
+    def produce_short_preamble_box(self, box, short_boxes, potential_ops):
+        if box in short_boxes:
+            return 
+        if self.getvalue(box).is_constant():
+            return 
+        if box in potential_ops:
+            op = potential_ops[box]
+            for arg in op.getarglist():
+                arg = self.getvalue(arg).get_key_box()
+                self.produce_short_preamble_box(arg, short_boxes,
+                                                potential_ops)
+            short_boxes[box] = op
+        else:
+            raise BoxNotProducable
 
     def turned_constant(self, value):
         for o in self.optimizations:
@@ -548,6 +591,7 @@ class Optimizer(Optimization):
                 return
             else:
                 self.pure_operations[args] = op
+                self.emitted_pure_operations[op] = True
 
         # otherwise, the operation remains
         self.emit_operation(op)

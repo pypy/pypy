@@ -119,6 +119,7 @@ class OptHeap(Optimization):
         self._lazy_setfields = []
         # cached array items:  {descr: CachedArrayItems}
         self.cached_arrayitems = {}
+        self.original_producer = {}
 
     def reconstruct_for_next_iteration(self, surviving_boxes,
                                        optimizer, valuemap):
