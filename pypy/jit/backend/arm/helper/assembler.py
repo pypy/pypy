@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
@@ -55,3 +56,14 @@ def gen_emit_cmp_op(condition):
         self.mc.MOV_ri(res.value, 0, cond=inv)
         return fcond
     return f
+
+class saved_registers(object):
+    def __init__(self, assembler, regs_to_save):
+        self.assembler = assembler
+        self.regs = regs_to_save
+
+    def __enter__(self):
+        self.assembler.PUSH([r.value for r in self.regs])
+
+    def __exit__(self, *args):
+        self.assembler.POP([r.value for r in self.regs])
