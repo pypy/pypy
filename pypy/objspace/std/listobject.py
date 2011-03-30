@@ -306,7 +306,7 @@ class RangeListStrategy(ListStrategy):
     def length(self, w_list):
         return self.cast_from_void_star(w_list.lstorage)[2]
 
-    def getitem(self, w_list, i):
+    def _getitem_unwrapped(self, w_list, i):
         v = self.cast_from_void_star(w_list.lstorage)
         start = v[0]
         step = v[1]
@@ -317,7 +317,10 @@ class RangeListStrategy(ListStrategy):
                 raise IndexError
         elif i >= length:
             raise IndexError
-        return self.wrap(start + i * step)
+        return start + i * step
+
+    def getitem(self, w_list, i):
+        return self.wrap(self._getitem_unwrapped(w_list, i))
 
     def getitems(self, w_list):
         return self._getitems_range(w_list, True)
@@ -352,7 +355,7 @@ class RangeListStrategy(ListStrategy):
         old_step = v[1]
         old_length = v[2]
 
-        new_start = self.unwrap(w_list.getitem(start))
+        new_start = self._getitem_unwrapped(w_list, start)
         new_step = old_step * step
         return make_range_list(self.space, new_start, new_step, length)
 
@@ -360,8 +363,8 @@ class RangeListStrategy(ListStrategy):
         if is_W_IntObject(w_item):
             l = self.cast_from_void_star(w_list.lstorage)
             step = l[1]
-            last_in_range = self.getitem(w_list, -1)
-            if self.unwrap(w_item) - step == self.unwrap(last_in_range):
+            last_in_range = self._getitem_unwrapped(w_list, -1)
+            if self.unwrap(w_item) - step == last_in_range:
                 new = self.cast_to_void_star((l[0],l[1],l[2]+1))
                 w_list.lstorage = new
                 return
@@ -420,10 +423,10 @@ class RangeListStrategy(ListStrategy):
 
     def reverse(self, w_list):
         v = self.cast_from_void_star(w_list.lstorage)
-        w_last = w_list.getitem(-1) #XXX wrapped
+        last = self._getitem_unwrapped(w_list, -1)
         length = v[2]
         skip = v[1]
-        new = self.cast_to_void_star((self.unwrap(w_last), -skip, length))
+        new = self.cast_to_void_star((last, -skip, length))
         w_list.lstorage = new
 
 class AbstractUnwrappedStrategy(object):
