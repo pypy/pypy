@@ -43,7 +43,7 @@ class VFPRegisterLocation(RegisterLocation):
         return [VFPRegisterLocation(i) for i in [self.value*2, self.value*2+1]]
 
     def __repr__(self):
-        return 'f%d' % self.value
+        return 'vfp%d' % self.value
 
     def is_reg(self):
         return False

@@ -35,7 +35,7 @@ def gen_emit_op_by_helper_call(opname):
             regs = r.caller_resp[1:]
         else:
             regs = r.caller_resp
-        with saved_registers(self.mc, regs, regalloc=regalloc):
+        with saved_registers(self.mc, regs, r.caller_vfp_resp, regalloc=regalloc):
             helper(self.mc, fcond)
         return fcond
     return f

@@ -229,7 +229,8 @@ class AssemblerARM(ResOpAssembler):
 
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = ARMv7Builder()
-        with saved_registers(mc, r.caller_resp + [r.ip]):
+        # XXX add a check if cpu supports floats 
+        with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
             mc.BL(addr)
         assert self._exit_code_addr != 0
@@ -329,10 +330,14 @@ class AssemblerARM(ResOpAssembler):
             mc = self.mc
         mc.MOV_rr(r.sp.value, r.fp.value, cond=cond)
         mc.ADD_ri(r.sp.value, r.sp.value, WORD, cond=cond)
+        if self.cpu.supports_floats:
+            mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers])
         mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
+        if self.cpu.supports_floats:
+            self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
         self.mc.SUB_ri(r.sp.value, r.sp.value,  WORD)
         self.mc.MOV_rr(r.fp.value, r.sp.value)
 
@@ -592,7 +597,7 @@ class AssemblerARM(ResOpAssembler):
 
     # regalloc support
     def load(self, loc, value):
-        assert (loc.is_reg() and values.is_imm() 
+        assert (loc.is_reg() and value.is_imm() 
                     or loc.is_vfp_reg() and value.is_imm_float())
         if value.is_imm():
             self.mc.gen_load_int(loc.value, value.getint())
@@ -602,7 +607,6 @@ class AssemblerARM(ResOpAssembler):
 
     # XXX needs float support
     def regalloc_mov(self, prev_loc, loc, cond=c.AL):
-        import pdb; pdb.set_trace()
         if prev_loc.is_imm():
             if loc.is_reg():
                 new_loc = loc
