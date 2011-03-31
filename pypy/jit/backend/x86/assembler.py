@@ -133,7 +133,7 @@ class Assembler386(object):
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
-        self.currently_compiling_loop = looptoken
+        self.current_clt = looptoken.compiled_loop_token
         self.pending_guard_tokens = []
         self.mc = codebuf.MachineCodeBlockWrapper()
         if self.datablockwrapper is None:
@@ -146,6 +146,7 @@ class Assembler386(object):
         self.mc = None
         self.looppos = -1
         self.currently_compiling_loop = None
+        self.current_clt = None
 
     def finish_once(self):
         if self._debug:
@@ -321,6 +322,7 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
+        self.currently_compiling_loop = looptoken
         funcname = self._find_debug_merge_point(operations)
         if log:
             self._register_counter()
@@ -1046,7 +1048,7 @@ class Assembler386(object):
         # instruction that doesn't already have a force_index.
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            clt = self.currently_compiling_loop.compiled_loop_token
+            clt = self.current_clt
             force_index = clt.reserve_and_record_some_faildescr_index()
             self.mc.MOV_bi(FORCE_INDEX_OFS, force_index)
             return force_index

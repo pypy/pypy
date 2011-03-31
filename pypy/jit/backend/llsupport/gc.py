@@ -458,7 +458,8 @@ class GcRootMap_shadowstack(object):
                 if offset == 0:
                     break
                 addr = llmemory.cast_int_to_adr(frame_addr + offset)
-                callback(gc, addr)
+                if gc.points_to_valid_gc_object(addr):
+                    callback(gc, addr)
                 n += 1
         #
         jit2gc.update({
