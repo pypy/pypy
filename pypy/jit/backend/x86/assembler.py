@@ -133,6 +133,7 @@ class Assembler386(object):
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
+        self.currently_compiling_loop = looptoken
         self.pending_guard_tokens = []
         self.mc = codebuf.MachineCodeBlockWrapper()
         if self.datablockwrapper is None:
@@ -318,7 +319,6 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
-        self.currently_compiling_loop = looptoken
         funcname = self._find_debug_merge_point(operations)
         if log:
             self._register_counter()
