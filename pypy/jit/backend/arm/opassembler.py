@@ -8,7 +8,9 @@ from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
 
 from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
-                                                    gen_emit_op_ri, gen_emit_cmp_op)
+                                                    gen_emit_op_ri,
+                                                    gen_emit_cmp_op,
+                                                    saved_registers)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import ARMRegisterManager
@@ -270,33 +272,30 @@ class OpAssembler(object):
                 t = TempBox()
                 regalloc.force_allocate_reg(t, selected_reg=regalloc.call_result_location(t))
                 regalloc.possibly_free_var(t)
-            self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
+            saved_regs = r.caller_resp[1:]
         else:
-            self.mc.PUSH([reg.value for reg in r.caller_resp])
+            saved_regs = r.caller_resp
+        with saved_registers(self.mc, saved_regs):
+            # all arguments past the 4th go on the stack
+            if n_args > 4:
+                stack_args = n_args - 4
+                n = stack_args*WORD
+                self._adjust_sp(n, fcond=fcond)
+                for i in range(4, n_args):
+                    self.mov_loc_loc(regalloc.loc(args[i]), r.ip)
+                    self.mc.STR_ri(r.ip.value, r.sp.value, (i-4)*WORD)
 
-        # all arguments past the 4th go on the stack
-        if n_args > 4:
-            stack_args = n_args - 4
-            n = stack_args*WORD
-            self._adjust_sp(n, fcond=fcond)
-            for i in range(4, n_args):
-                self.mov_loc_loc(regalloc.loc(args[i]), r.ip)
-                self.mc.STR_ri(r.ip.value, r.sp.value, (i-4)*WORD)
+            #the actual call
+            self.mc.BL(adr)
+            regalloc.possibly_free_vars(args)
+            # readjust the sp in case we passed some args on the stack
+            if n_args > 4:
+                assert n > 0
+                self._adjust_sp(-n, fcond=fcond)
 
-        #the actual call
-        self.mc.BL(adr)
-        regalloc.possibly_free_vars(args)
-        # readjust the sp in case we passed some args on the stack
-        if n_args > 4:
-            assert n > 0
-            self._adjust_sp(-n, fcond=fcond)
-
-        # restore the argumets stored on the stack
-        if result is not None:
-            regalloc.after_call(result)
-            self.mc.POP([reg.value for reg in r.caller_resp][1:])
-        else:
-            self.mc.POP([reg.value for reg in r.caller_resp])
+            # restore the argumets stored on the stack
+            if result is not None:
+                regalloc.after_call(result)
         return fcond
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):
@@ -682,11 +681,10 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
-        # resbox is allready in r0
-        self.mov_loc_loc(arglocs[1], r.r1)
-        self.mc.BL(asm_helper_adr)
-        self.mc.POP([reg.value for reg in r.caller_resp][1:])
+        with saved_registers(self.mc, r.caller_resp[1:]):
+            # resbox is allready in r0
+            self.mov_loc_loc(arglocs[1], r.r1)
+            self.mc.BL(asm_helper_adr)
         if op.result:
             regalloc.after_call(op.result)
         # jump to merge point
