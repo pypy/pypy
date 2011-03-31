@@ -12,6 +12,9 @@ class AssemblerLocation(object):
     def is_reg(self):
         return False
 
+    def is_vfp_reg(self):
+        return False
+
     def is_imm_float(self):
         return False
 
@@ -42,6 +45,12 @@ class VFPRegisterLocation(RegisterLocation):
     def __repr__(self):
         return 'f%d' % self.value
 
+    def is_reg(self):
+        return False
+
+    def is_vfp_reg(self):
+        return True
+
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
 
@@ -61,6 +70,8 @@ class ImmLocation(AssemblerLocation):
         return self.value + 20
 
 class ConstFloatLoc(AssemblerLocation):
+    """This class represents an imm float value which is stored in memory at
+    the address stored in the field value"""
     _immutable_ = True
 
     def __init__(self, value):
@@ -70,7 +81,7 @@ class ConstFloatLoc(AssemblerLocation):
         return self.value
 
     def __repr__(self):
-        return "imm_float(%d)" % (self.value)
+        return "imm_float(stored at %d)" % (self.value)
 
     def is_imm_float(self):
         return True

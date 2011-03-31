@@ -81,25 +81,37 @@ def gen_emit_float_cmp_op(cond):
     return f
 
 class saved_registers(object):
-    def __init__(self, assembler, regs_to_save, regalloc=None):
+    def __init__(self, assembler, regs_to_save, vfp_regs_to_save=None, regalloc=None):
         self.assembler = assembler
         self.regalloc = regalloc
+        if vfp_regs_to_save is None:
+            vfp_regs_to_save = []
         if self.regalloc:
-            self._filter_regs(regs_to_save)
+            self._filter_regs(regs_to_save, vfp_regs_to_save)
         else:
             self.regs = regs_to_save
+            self.vfp_regs = vfp_regs_to_save
 
     def __enter__(self):
         if len(self.regs) > 0:
             self.assembler.PUSH([r.value for r in self.regs])
+        if len(self.vfp_regs) > 0:
+            self.assembler.VPUSH([r.value for r in self.vfp_regs])
 
     def __exit__(self, *args):
+        if len(self.vfp_regs) > 0:
+            self.assembler.VPOP([r.value for r in self.vfp_regs])
         if len(self.regs) > 0:
             self.assembler.POP([r.value for r in self.regs])
 
-    def _filter_regs(self, regs_to_save):
+    def _filter_regs(self, regs_to_save, vfp_regs_to_save):
         regs = []
-        for box, reg in self.regalloc.reg_bindings.iteritems():
+        for box, reg in self.regalloc.rm.reg_bindings.iteritems():
             if reg in regs_to_save or reg is r.ip:
                 regs.append(reg)
         self.regs = regs
+        regs = []
+        for box, reg in self.regalloc.vfprm.reg_bindings.iteritems():
+            if reg in vfp_regs_to_save:
+                regs.append(reg)
+        self.vfp_regs = regs

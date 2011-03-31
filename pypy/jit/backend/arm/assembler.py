@@ -240,7 +240,7 @@ class AssemblerARM(ResOpAssembler):
         mc = ARMv7Builder()
         decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
 
-        with saved_registers(mc, r.all_regs):
+        with saved_registers(mc, r.all_regs, r.all_vfp_regs):
             mc.MOV_rr(r.r0.value, r.ip.value) # move mem block address, to r0 to pass as
             mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
             mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
@@ -289,7 +289,7 @@ class AssemblerARM(ResOpAssembler):
                 else:
                     assert 0, 'unknown type'
 
-                if loc.is_reg():
+                if loc.is_reg() or loc.is_vfp_reg():
                     mem[j] = chr(loc.value)
                     j += 1
                 elif loc.is_imm():
@@ -592,16 +592,17 @@ class AssemblerARM(ResOpAssembler):
 
     # regalloc support
     def load(self, loc, value):
-        assert loc.is_reg()
+        assert (loc.is_reg() and values.is_imm() 
+                    or loc.is_vfp_reg() and value.is_imm_float())
         if value.is_imm():
             self.mc.gen_load_int(loc.value, value.getint())
         elif value.is_imm_float():
-			#XXX this is wrong
             self.mc.gen_load_int(r.ip.value, value.getint())
-            self.mc.VLDR(loc.value, r.ip.value) 
+            self.mc.VLDR(loc.value, r.ip.value)
 
-	# XXX needs float support
+    # XXX needs float support
     def regalloc_mov(self, prev_loc, loc, cond=c.AL):
+        import pdb; pdb.set_trace()
         if prev_loc.is_imm():
             if loc.is_reg():
                 new_loc = loc
