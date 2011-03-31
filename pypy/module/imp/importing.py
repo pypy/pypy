@@ -32,6 +32,7 @@ if sys.platform == 'win32':
 else:
     SO = ".so"
 DEFAULT_SOABI = 'pypy-14'
+CHECK_FOR_PYW = sys.platform == 'win32'
 
 @specialize.memo()
 def get_so_extension(space):
@@ -59,7 +60,7 @@ def find_modtype(space, filepart):
         return PY_SOURCE, ".py", "U"
 
     # on Windows, also check for a .pyw file
-    if sys.platform == 'win32':
+    if CHECK_FOR_PYW:
         pyfile = filepart + ".pyw"
         if os.path.exists(pyfile) and case_ok(pyfile):
             return PY_SOURCE, ".pyw", "U"
