@@ -317,8 +317,9 @@ class GcRootMap_asmgcc(object):
         return j
 
     @rgc.no_collect
-    def freeing_block(self, start, stop):
-        from pypy.rpython.memory.gctransform import asmgcroot
+    def freeing_block(self, start, stop, asmgcroot=None):
+        if asmgcroot is None:    # always the case, except for tests
+            from pypy.rpython.memory.gctransform import asmgcroot
         # if [start:stop] is a raw block of assembler, then look up the
         # corresponding gcroot markers, and mark them as freed now in
         # self._gcmap by setting the 2nd address of every entry to NULL.
@@ -441,8 +442,24 @@ class GcRootMap_shadowstack(object):
                 return WORD
             else:
                 # case of a MARKER followed by an assembler stack frame
-                self.follow_stack_frame_of_assembler(callback, gc, addr)
+                follow_stack_frame_of_assembler(callback, gc, addr)
                 return 2 * WORD
+        #
+        def follow_stack_frame_of_assembler(callback, gc, addr):
+            frame_addr = addr.signed[1]
+            addr = llmemory.cast_int_to_adr(frame_addr + self.force_index_ofs)
+            force_index = addr.signed[0]
+            if force_index < 0:
+                force_index = ~force_index
+            callshape = self._callshapes[force_index]
+            n = 0
+            while True:
+                offset = rffi.cast(lltype.Signed, callshape[n])
+                if offset == 0:
+                    break
+                addr = llmemory.cast_int_to_adr(frame_addr + offset)
+                callback(gc, addr)
+                n += 1
         #
         jit2gc.update({
             'rootstackhook': collect_jit_stack_root,
@@ -450,22 +467,6 @@ class GcRootMap_shadowstack(object):
 
     def initialize(self):
         pass
-
-    def follow_stack_frame_of_assembler(self, callback, gc, addr):
-        frame_addr = addr.signed[1]
-        addr = llmemory.cast_int_to_adr(frame_addr + self.force_index_ofs)
-        force_index = addr.signed[0]
-        if force_index < 0:
-            force_index = ~force_index
-        callshape = self._callshapes[force_index]
-        n = 0
-        while True:
-            offset = rffi.cast(lltype.Signed, callshape[n])
-            if offset == 0:
-                break
-            addr = llmemory.cast_int_to_adr(frame_addr + offset)
-            callback(gc, addr)
-            n += 1
 
     def get_basic_shape(self, is_64_bit=False):
         return []

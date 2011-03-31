@@ -738,8 +738,12 @@ class RegAlloc(object):
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
-        self.rm.before_call(force_store, save_all_regs=save_all_regs)
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
+        if not save_all_regs:
+            gcrootmap = gc_ll_descr = self.assembler.cpu.gc_ll_descr.gcrootmap
+            if gcrootmap and gcrootmap.is_shadow_stack:
+                save_all_regs = 2
+        self.rm.before_call(force_store, save_all_regs=save_all_regs)
         if op.result is not None:
             if op.result.type == FLOAT:
                 resloc = self.xrm.after_call(op.result)

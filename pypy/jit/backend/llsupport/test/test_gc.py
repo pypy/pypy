@@ -75,8 +75,8 @@ class TestGcRootMapAsmGcc:
         num2a = ((-num2|3) >> 7) | 128
         num2b = (-num2|3) & 127
         shape = gcrootmap.get_basic_shape()
-        gcrootmap.add_ebp_offset(shape, num1)
-        gcrootmap.add_ebp_offset(shape, num2)
+        gcrootmap.add_frame_offset(shape, num1)
+        gcrootmap.add_frame_offset(shape, num2)
         assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a])
         gcrootmap.add_callee_save_reg(shape, 1)
         assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
@@ -181,51 +181,74 @@ class TestGcRootMapAsmGcc:
                 p = rffi.cast(rffi.CArrayPtr(llmemory.Address), gcmapstart)
                 p = rffi.ptradd(p, 2*i)
                 return llmemory.cast_ptr_to_adr(p)
-        saved = gc.asmgcroot
-        try:
-            gc.asmgcroot = Asmgcroot()
-            #
-            gcrootmap = GcRootMap_asmgcc()
-            gcrootmap._gcmap = lltype.malloc(gcrootmap.GCMAP_ARRAY,
-                                             1400, flavor='raw',
-                                             immortal=True)
-            for i in range(700):
-                gcrootmap._gcmap[i*2] = 1200000 + i
-                gcrootmap._gcmap[i*2+1] = i * 100 + 1
-            assert gcrootmap._gcmap_deadentries == 0
-            assert gc.asmgcroot.sort_count == 0
-            gcrootmap._gcmap_maxlength = 1400
-            gcrootmap._gcmap_curlength = 1400
-            gcrootmap._gcmap_sorted = False
-            #
-            gcrootmap.freeing_block(1200000 - 100, 1200000)
-            assert gcrootmap._gcmap_deadentries == 0
-            assert gc.asmgcroot.sort_count == 1
-            #
-            gcrootmap.freeing_block(1200000 + 100, 1200000 + 200)
-            assert gcrootmap._gcmap_deadentries == 100
-            assert gc.asmgcroot.sort_count == 1
-            for i in range(700):
-                if 100 <= i < 200:
-                    expected = 0
-                else:
-                    expected = i * 100 + 1
-                assert gcrootmap._gcmap[i*2] == 1200000 + i
-                assert gcrootmap._gcmap[i*2+1] == expected
-            #
-            gcrootmap.freeing_block(1200000 + 650, 1200000 + 750)
-            assert gcrootmap._gcmap_deadentries == 150
-            assert gc.asmgcroot.sort_count == 1
-            for i in range(700):
-                if 100 <= i < 200 or 650 <= i:
-                    expected = 0
-                else:
-                    expected = i * 100 + 1
-                assert gcrootmap._gcmap[i*2] == 1200000 + i
-                assert gcrootmap._gcmap[i*2+1] == expected
+        asmgcroot = Asmgcroot()
         #
-        finally:
-            gc.asmgcroot = saved
+        gcrootmap = GcRootMap_asmgcc()
+        gcrootmap._gcmap = lltype.malloc(gcrootmap.GCMAP_ARRAY,
+                                         1400, flavor='raw',
+                                         immortal=True)
+        for i in range(700):
+            gcrootmap._gcmap[i*2] = 1200000 + i
+            gcrootmap._gcmap[i*2+1] = i * 100 + 1
+        assert gcrootmap._gcmap_deadentries == 0
+        assert asmgcroot.sort_count == 0
+        gcrootmap._gcmap_maxlength = 1400
+        gcrootmap._gcmap_curlength = 1400
+        gcrootmap._gcmap_sorted = False
+        #
+        gcrootmap.freeing_block(1200000 - 100, 1200000, asmgcroot=asmgcroot)
+        assert gcrootmap._gcmap_deadentries == 0
+        assert asmgcroot.sort_count == 1
+        #
+        gcrootmap.freeing_block(1200000 + 100, 1200000 + 200,
+                                asmgcroot=asmgcroot)
+        assert gcrootmap._gcmap_deadentries == 100
+        assert asmgcroot.sort_count == 1
+        for i in range(700):
+            if 100 <= i < 200:
+                expected = 0
+            else:
+                expected = i * 100 + 1
+            assert gcrootmap._gcmap[i*2] == 1200000 + i
+            assert gcrootmap._gcmap[i*2+1] == expected
+        #
+        gcrootmap.freeing_block(1200000 + 650, 1200000 + 750,
+                                asmgcroot=asmgcroot)
+        assert gcrootmap._gcmap_deadentries == 150
+        assert asmgcroot.sort_count == 1
+        for i in range(700):
+            if 100 <= i < 200 or 650 <= i:
+                expected = 0
+            else:
+                expected = i * 100 + 1
+            assert gcrootmap._gcmap[i*2] == 1200000 + i
+            assert gcrootmap._gcmap[i*2+1] == expected
+
+class TestGcRootMapShadowStack:
+    class FakeGcDescr:
+        force_index_ofs = 92
+
+    def test_make_shapes(self):
+        gcrootmap = GcRootMap_shadowstack(self.FakeGcDescr())
+        shape = gcrootmap.get_basic_shape()
+        gcrootmap.add_frame_offset(shape, 16)
+        gcrootmap.add_frame_offset(shape, -24)
+        assert shape == [16, -24]
+
+    def test_compress_callshape(self):
+        class FakeDataBlockWrapper:
+            def malloc_aligned(self, size, alignment):
+                assert alignment == 4    # even on 64-bits
+                assert size == 12        # 4*3, even on 64-bits
+                return rffi.cast(lltype.Signed, p)
+        datablockwrapper = FakeDataBlockWrapper()
+        p = lltype.malloc(rffi.CArray(rffi.INT), 3, immortal=True)
+        gcrootmap = GcRootMap_shadowstack(self.FakeGcDescr())
+        shape = [16, -24]
+        gcrootmap.compress_callshape(shape, datablockwrapper)
+        assert rffi.cast(lltype.Signed, p[0]) == 16
+        assert rffi.cast(lltype.Signed, p[1]) == -24
+        assert rffi.cast(lltype.Signed, p[2]) == 0
 
 
 class FakeLLOp(object):
