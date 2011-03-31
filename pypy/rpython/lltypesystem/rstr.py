@@ -722,29 +722,73 @@ class LLHelpers(AbstractLLHelpers):
         newlen = len(s1.chars) - 1
         return LLHelpers._ll_stringslice(s1, 0, newlen)
 
-    def ll_split_chr(LIST, s, c):
+    def ll_split_chr(LIST, s, c, max):
         chars = s.chars
         strlen = len(chars)
         count = 1
         i = 0
+        if max == 0:
+            i = strlen
         while i < strlen:
             if chars[i] == c:
                 count += 1
+                if max >= 0 and count > max:
+                    break
             i += 1
         res = LIST.ll_newlist(count)
         items = res.ll_items()
         i = 0
         j = 0
         resindex = 0
+        if max == 0:
+            j = strlen
         while j < strlen:
             if chars[j] == c:
                 item = items[resindex] = s.malloc(j - i)
                 item.copy_contents(s, item, i, 0, j - i)
                 resindex += 1
                 i = j + 1
+                if max >= 0 and resindex >= max:
+                    j = strlen
+                    break
             j += 1
         item = items[resindex] = s.malloc(j - i)
         item.copy_contents(s, item, i, 0, j - i)
+        return res
+
+    def ll_rsplit_chr(LIST, s, c, max):
+        chars = s.chars
+        strlen = len(chars)
+        count = 1
+        i = 0
+        if max == 0:
+            i = strlen
+        while i < strlen:
+            if chars[i] == c:
+                count += 1
+                if max >= 0 and count > max:
+                    break
+            i += 1
+        res = LIST.ll_newlist(count)
+        items = res.ll_items()
+        i = strlen
+        j = strlen
+        resindex = count - 1
+        assert resindex >= 0
+        if max == 0:
+            j = 0
+        while j > 0:
+            j -= 1
+            if chars[j] == c:
+                item = items[resindex] = s.malloc(i - j - 1)
+                item.copy_contents(s, item, j + 1, 0, i - j - 1)
+                resindex -= 1
+                i = j
+                if resindex == 0:
+                    j = 0
+                    break
+        item = items[resindex] = s.malloc(i - j)
+        item.copy_contents(s, item, j, 0, i - j)
         return res
 
     @purefunction
