@@ -214,12 +214,11 @@ class Assembler386(object):
         #
         mc = codebuf.MachineCodeBlockWrapper()
         #
-        if IS_X86_32:
-            stack_size = WORD
-        elif IS_X86_64:
+        stack_size = WORD
+        if IS_X86_64:
             # on the x86_64, we have to save all the registers that may
             # have been used to pass arguments
-            stack_size = WORD + 6*WORD + 8*8
+            stack_size += 6*WORD + 8*8
             for reg in [edi, esi, edx, ecx, r8, r9]:
                 mc.PUSH_r(reg.value)
             mc.SUB_ri(esp.value, 8*8)
@@ -228,6 +227,7 @@ class Assembler386(object):
         #
         if IS_X86_32:
             mc.LEA_rb(eax.value, +8)
+            stack_size += 2*WORD
             mc.PUSH_r(eax.value)        # alignment
             mc.PUSH_r(eax.value)
         elif IS_X86_64:
@@ -242,7 +242,7 @@ class Assembler386(object):
         jnz_location = mc.get_relative_pos()
         #
         if IS_X86_32:
-            mc.ADD_ri(esp.value, 8)
+            mc.ADD_ri(esp.value, 2*WORD)
         elif IS_X86_64:
             # restore the registers
             for i in range(7, -1, -1):
