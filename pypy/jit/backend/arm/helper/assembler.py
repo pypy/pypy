@@ -35,7 +35,7 @@ def gen_emit_op_by_helper_call(opname):
             regs = r.caller_resp[1:]
         else:
             regs = r.caller_resp
-        with saved_registers(self.mc, regs):
+        with saved_registers(self.mc, regs, regalloc=regalloc):
             helper(self.mc, fcond)
         return fcond
     return f
@@ -55,12 +55,25 @@ def gen_emit_cmp_op(condition):
     return f
 
 class saved_registers(object):
-    def __init__(self, assembler, regs_to_save):
+    def __init__(self, assembler, regs_to_save, regalloc=None):
         self.assembler = assembler
-        self.regs = regs_to_save
+        self.regalloc = regalloc
+        if self.regalloc:
+            self._filter_regs(regs_to_save)
+        else:
+            self.regs = regs_to_save
 
     def __enter__(self):
-        self.assembler.PUSH([r.value for r in self.regs])
+        if len(self.regs) > 0:
+            self.assembler.PUSH([r.value for r in self.regs])
 
     def __exit__(self, *args):
-        self.assembler.POP([r.value for r in self.regs])
+        if len(self.regs) > 0:
+            self.assembler.POP([r.value for r in self.regs])
+
+    def _filter_regs(self, regs_to_save):
+        regs = []
+        for box, reg in self.regalloc.reg_bindings.iteritems():
+            if reg in regs_to_save or reg is r.ip:
+                regs.append(reg)
+        self.regs = regs

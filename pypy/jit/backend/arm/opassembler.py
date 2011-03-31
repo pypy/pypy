@@ -275,7 +275,7 @@ class OpAssembler(object):
             saved_regs = r.caller_resp[1:]
         else:
             saved_regs = r.caller_resp
-        with saved_registers(self.mc, saved_regs):
+        with saved_registers(self.mc, saved_regs, regalloc=regalloc):
             # all arguments past the 4th go on the stack
             if n_args > 4:
                 stack_args = n_args - 4
@@ -681,7 +681,7 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        with saved_registers(self.mc, r.caller_resp[1:]):
+        with saved_registers(self.mc, r.caller_resp[1:], regalloc=regalloc):
             # resbox is allready in r0
             self.mov_loc_loc(arglocs[1], r.r1)
             self.mc.BL(asm_helper_adr)
