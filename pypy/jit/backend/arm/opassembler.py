@@ -248,7 +248,8 @@ class OpAssembler(object):
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
-            loc = regalloc.call_result_location(op.result)
+            #XXX check result type
+            loc = regalloc.rm.call_result_location(op.result)
             size = descr.get_result_size(False)
             signed = descr.is_result_signed()
             self._ensure_result_bit_extension(loc, size, signed)
@@ -258,13 +259,28 @@ class OpAssembler(object):
     # emit_op_call_may_force
     # XXX improve freeing of stuff here
     def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None):
-        n = 0
         n_args = len(args)
-        reg_args = min(n_args, 4)
-        # prepare arguments passed in registers
-        for i in range(0, reg_args):
-            l = regalloc.make_sure_var_in_reg(args[i],
-                                            selected_reg=r.all_regs[i])
+        reg_args = 0
+        for x in range(min(n_args, 4)):
+            if args[x].type == FLOAT:
+                reg_args += 2
+            else:
+                reg_args += 1
+            if reg_args > 4:
+                reg_args = x - 1
+                break
+
+        # collect the locations of the arguments and spill those that are in
+        # the caller saved registers
+        locs = []
+        for v in range(reg_args):
+            var = args[v]
+            loc = regalloc.loc(var)
+            if loc in r.caller_resp:
+                regalloc.force_spill(var)
+                loc = regalloc.loc(var)
+            locs.append(loc)
+
         # save caller saved registers
         if result:
             # XXX hack if the call has a result force the value in r0 to be
@@ -274,10 +290,25 @@ class OpAssembler(object):
                 t = TempBox()
                 regalloc.force_allocate_reg(t, selected_reg=regalloc.call_result_location(t))
                 regalloc.possibly_free_var(t)
-            saved_regs = r.caller_resp[1:]
+            if result.type == FLOAT:
+                saved_regs = r.caller_resp[2:]
+            else:
+                saved_regs = r.caller_resp[1:]
         else:
             saved_regs = r.caller_resp
-        with saved_registers(self.mc, saved_regs, regalloc=regalloc):
+
+        with saved_registers(self.mc, saved_regs, r.caller_vfp_resp, regalloc):
+            # move variables to the argument registers
+            num = 0
+            for i in range(reg_args):
+                arg = args[i]
+                reg = r.all_regs[num]
+                self.mov_loc_loc(locs[i], reg)
+                if arg.type == FLOAT:
+                    num += 2
+                else:
+                    num += 1
+
             # all arguments past the 4th go on the stack
             if n_args > 4:
                 stack_args = n_args - 4
@@ -297,7 +328,13 @@ class OpAssembler(object):
 
             # restore the argumets stored on the stack
             if result is not None:
-                regalloc.after_call(result)
+                # support floats here
+                resloc = regalloc.after_call(result)
+                if result.type == FLOAT:
+                    # XXX ugly and fragile
+                    # move result to the allocated register
+                    self.mov_loc_loc(resloc, r.r0)
+
         return fcond
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):
@@ -683,7 +720,7 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        with saved_registers(self.mc, r.caller_resp[1:], regalloc=regalloc):
+        with saved_registers(self.mc, r.caller_resp[1:], r.caller_vfp_resp, regalloc=regalloc):
             # resbox is allready in r0
             self.mov_loc_loc(arglocs[1], r.r1)
             self.mc.BL(asm_helper_adr)

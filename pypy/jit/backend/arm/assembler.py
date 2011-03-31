@@ -641,6 +641,10 @@ class AssemblerARM(ResOpAssembler):
                 assert 0, 'unsupported case'
         elif loc.is_reg() and prev_loc.is_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
+        elif loc.is_reg() and prev_loc.is_vfp_reg():
+            self.mc.VMOV_rc(loc.value, prev_loc.value, cond=cond)
+        elif loc.is_vfp_reg() and prev_loc.is_reg():
+            self.mc.VMOV_cr(loc.value, prev_loc.value, cond=cond)
         else:
             assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov

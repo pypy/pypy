@@ -72,6 +72,41 @@ class AbstractARMv7Builder(object):
                 | 0xB << 8
                 | nregs)
         self.write32(instr)
+    
+    def VMOV_rc(self, rt, dm, cond=cond.AL):
+        """This instruction copies two words from two ARM core registers into a
+        doubleword extension register, or from a doubleword extension register
+        to two ARM core registers.
+        This implementation is modified in way that it takes to consecutive
+        core registers (rt and rt+1)"""
+        rt2 = rt + 1
+        op = 1
+        instr = (cond << 28
+                | 0xC << 24
+                | 0x4 << 20
+                | op << 20
+                | (rt2 & 0xF) << 16
+                | (rt & 0xF) << 12
+                | 0xB << 8
+                | (dm & 0xF))
+
+    # VMOV<c> <Dm>, <Rt>, <Rt2>
+    def VMOV_cr(self, dm, rt, cond=cond.AL):
+        """This instruction copies two words from two ARM core registers into a
+        doubleword extension register, or from a doubleword extension register
+        to two ARM core registers.
+        This implementation is modified in way that it takes to consecutive
+        core registers (rt and rt+1)"""
+        rt2 = rt + 1
+        op = 0
+        instr = (cond << 28
+                | 0xC << 24
+                | 0x4 << 20
+                | op << 20
+                | (rt2 & 0xF) << 16
+                | (rt & 0xF) << 12
+                | 0xB << 8
+                | (dm & 0xF))
 
     def VCVT_float_to_int(self, target, source, cond=cond.AL):
         opc2 = 0x5

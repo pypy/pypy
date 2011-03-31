@@ -69,6 +69,13 @@ class VFPRegisterManager(RegisterManager):
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
+    def after_call(self, v):
+        """ Adjust registers according to the result of the call,
+        which is in variable v.
+        """
+        self._check_type(v)
+        r = self.force_allocate_reg(v)
+        return r
 class ARMv7RegisterMananger(RegisterManager):
     all_regs              = r.all_regs
     box_types             = None       # or a list of acceptable types
@@ -135,6 +142,12 @@ class Regalloc(object):
             return self.vfprm.stays_alive(v)
         else:
             return self.rm.stays_alive(v)
+
+    def call_result_location(self, v):
+        if v.type == FLOAT:
+            return self.vfprm.call_result_location(v)
+        else:
+            return self.rm.call_result_location(v)
 
     def after_call(self, v):
         if v.type == FLOAT:
