@@ -149,7 +149,6 @@ class CPU386(AbstractX86CPU):
     WORD = 4
     NUM_REGS = 8
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi]
-    FRAME_FIXED_SIZE = len(CALLEE_SAVE_REGISTERS) + 2
 
     supports_longlong = True
 
@@ -165,7 +164,6 @@ class CPU_X86_64(AbstractX86CPU):
     WORD = 8
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
-    FRAME_FIXED_SIZE = len(CALLEE_SAVE_REGISTERS) + 2
 
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**63 - 1)

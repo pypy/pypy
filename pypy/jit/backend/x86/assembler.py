@@ -566,7 +566,7 @@ class Assembler386(object):
     def _get_offset_of_ebp_from_esp(self, allocated_depth):
         # Given that [EBP] is where we saved EBP, i.e. in the last word
         # of our fixed frame, then the 'words' value is:
-        words = (self.cpu.FRAME_FIXED_SIZE - 1) + allocated_depth
+        words = (FRAME_FIXED_SIZE - 1) + allocated_depth
         # align, e.g. for Mac OS X
         aligned_words = align_stack_words(words+2)-2 # 2 = EIP+EBP
         return -WORD * aligned_words
