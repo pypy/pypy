@@ -499,8 +499,12 @@ class __extend__(SomeString,
     def getanyitem(str):
         return str.basecharclass()
 
-    def method_split(str, patt): # XXX
+    def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
+        return getbookkeeper().newlist(str.basestringclass())
+
+    def method_rsplit(str, patt, max=-1):
+        getbookkeeper().count("str_rsplit", str, patt)
         return getbookkeeper().newlist(str.basestringclass())
 
     def method_replace(str, s1, s2):

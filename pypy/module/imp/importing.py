@@ -58,6 +58,12 @@ def find_modtype(space, filepart):
     if os.path.exists(pyfile) and case_ok(pyfile):
         return PY_SOURCE, ".py", "U"
 
+    # on Windows, also check for a .pyw file
+    if sys.platform == 'win32':
+        pyfile = filepart + ".pyw"
+        if os.path.exists(pyfile) and case_ok(pyfile):
+            return PY_SOURCE, ".pyw", "U"
+
     # The .py file does not exist.  By default on PyPy, lonepycfiles
     # is False: if a .py file does not exist, we don't even try to
     # look for a lone .pyc file.
@@ -84,7 +90,9 @@ if sys.platform == 'linux2' or 'freebsd' in sys.platform:
 else:
     # XXX that's slow
     def case_ok(filename):
-        index = filename.rfind(os.sep)
+        index1 = filename.rfind(os.sep)
+        index2 = filename.rfind(os.altsep)
+        index = max(index1, index2)
         if index < 0:
             directory = os.curdir
         else:

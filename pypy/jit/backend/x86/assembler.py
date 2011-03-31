@@ -259,7 +259,9 @@ class Assembler386(object):
         mc.J_il8(rx86.Conditions['NZ'], 0)
         jnz_location = mc.get_relative_pos()
         #
-        if IS_X86_64:
+        if IS_X86_32:
+            mc.ADD_ri(esp.value, 8)
+        elif IS_X86_64:
             # restore the registers
             for i in range(7, -1, -1):
                 mc.MOVSD_xs(i, 8*i)
