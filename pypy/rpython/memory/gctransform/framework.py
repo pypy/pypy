@@ -1336,10 +1336,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         return top.address[0]
 
     def allocate_stack(self):
-        result = llmemory.raw_malloc(self.rootstacksize)
-        if result:
-            llmemory.raw_memclear(result, self.rootstacksize)
-        return result
+        return llmemory.raw_malloc(self.rootstacksize)
 
     def setup_root_walker(self):
         stackbase = self.allocate_stack()

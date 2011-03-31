@@ -253,7 +253,7 @@ class BaseTestBasic(BaseTest):
         loop.call_pure_results = args_dict()
         if call_pure_results is not None:
             for k, v in call_pure_results.items():
-                loop.call_pure_results[list(k)] = v        
+                loop.call_pure_results[list(k)] = v
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
@@ -2886,7 +2886,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         # the result of the call, recorded as the first arg), or turned into
         # a regular CALL.
         arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
-        call_pure_results = {tuple(arg_consts): ConstInt(42)}        
+        call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
         [i0, i1, i2]
         escape(i1)
@@ -2931,7 +2931,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i0, descr=virtualtokendescr)
-        setfield_gc(p2, 5, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, -3, descr=virtualtokendescr)
@@ -2964,7 +2963,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 3, descr=virtualrefindexdescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -3005,7 +3003,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 2, descr=virtualrefindexdescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -3062,7 +3059,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         self.loop.inputargs[0].value = self.nodeobjvalue
         self.check_expanded_fail_descr('''p2, p1
             p0.refdescr = p2
-            where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3, virtualrefindexdescr=2
+            where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3
             where p1 is a node_vtable, nextdescr=p1b
             where p1b is a node_vtable, valuedescr=i1
             ''', rop.GUARD_NO_EXCEPTION)
@@ -3084,7 +3081,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 7, descr=virtualrefindexdescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3111,7 +3107,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 23, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, -3, descr=virtualtokendescr)
@@ -3360,7 +3355,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i1 = int_lt(i0, 4)
         guard_true(i1) []
         i1p = int_gt(i0, -4)
-        guard_true(i1p) []        
+        guard_true(i1p) []
         i2 = int_sub(i0, 10)
         i3 = int_lt(i2, -5)
         guard_true(i3) []
@@ -3371,7 +3366,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i1 = int_lt(i0, 4)
         guard_true(i1) []
         i1p = int_gt(i0, -4)
-        guard_true(i1p) []        
+        guard_true(i1p) []
         i2 = int_sub(i0, 10)
         jump(i0)
         """

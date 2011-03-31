@@ -200,18 +200,25 @@ class Assembler386(object):
         self.malloc_fixedsize_slowpath2 = rawstart
 
     def _build_stack_check_slowpath(self):
-        from pypy.rlib import rstack
         _, _, slowpathaddr = self.cpu.insert_stack_check()
         if slowpathaddr == 0 or self.cpu.exit_frame_with_exception_v < 0:
             return      # no stack check (for tests, or non-translated)
         #
-        mc = codebuf.MachineCodeBlockWrapper()
-        mc.PUSH_r(ebp.value)
-        mc.MOV_rr(ebp.value, esp.value)
+        # make a "function" that is called immediately at the start of
+        # an assembler function.  In particular, the stack looks like:
         #
+        #    |  ...                |    <-- aligned to a multiple of 16
+        #    |  retaddr of caller  |
+        #    |  my own retaddr     |    <-- esp
+        #    +---------------------+
+        #
+        mc = codebuf.MachineCodeBlockWrapper()
+        #
+        stack_size = WORD
         if IS_X86_64:
             # on the x86_64, we have to save all the registers that may
             # have been used to pass arguments
+            stack_size += 6*WORD + 8*8
             for reg in [edi, esi, edx, ecx, r8, r9]:
                 mc.PUSH_r(reg.value)
             mc.SUB_ri(esp.value, 8*8)
@@ -220,11 +227,13 @@ class Assembler386(object):
         #
         if IS_X86_32:
             mc.LEA_rb(eax.value, +8)
+            stack_size += 2*WORD
+            mc.PUSH_r(eax.value)        # alignment
             mc.PUSH_r(eax.value)
         elif IS_X86_64:
             mc.LEA_rb(edi.value, +16)
-            mc.AND_ri(esp.value, -16)
         #
+        # esp is now aligned to a multiple of 16 again
         mc.CALL(imm(slowpathaddr))
         #
         mc.MOV(eax, heap(self.cpu.pos_exception()))
@@ -232,16 +241,16 @@ class Assembler386(object):
         mc.J_il8(rx86.Conditions['NZ'], 0)
         jnz_location = mc.get_relative_pos()
         #
-        if IS_X86_64:
+        if IS_X86_32:
+            mc.ADD_ri(esp.value, 2*WORD)
+        elif IS_X86_64:
             # restore the registers
             for i in range(7, -1, -1):
                 mc.MOVSD_xs(i, 8*i)
-            for i, reg in [(6, r9), (5, r8), (4, ecx),
-                           (3, edx), (2, esi), (1, edi)]:
-                mc.MOV_rb(reg.value, -8*i)
+            mc.ADD_ri(esp.value, 8*8)
+            for reg in [r9, r8, ecx, edx, esi, edi]:
+                mc.POP_r(reg.value)
         #
-        mc.MOV_rr(esp.value, ebp.value)
-        mc.POP_r(ebp.value)
         mc.RET()
         #
         # patch the JNZ above
@@ -266,9 +275,7 @@ class Assembler386(object):
         # function, and will instead return to the caller's caller.  Note
         # also that we completely ignore the saved arguments, because we
         # are interrupting the function.
-        mc.MOV_rr(esp.value, ebp.value)
-        mc.POP_r(ebp.value)
-        mc.ADD_ri(esp.value, WORD)
+        mc.ADD_ri(esp.value, stack_size)
         mc.RET()
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
