@@ -6,7 +6,7 @@ soon as possible (at least in a simple case).
 """
 
 import weakref, random
-import py
+import py, os
 from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -72,6 +72,17 @@ def get_entry(g):
     return entrypoint
 
 
+def get_functions_to_patch():
+    from pypy.jit.backend.llsupport import gc
+    #
+    can_inline_malloc1 = gc.GcLLDescr_framework.can_inline_malloc
+    def can_inline_malloc2(*args):
+        if os.getenv('PYPY_NO_INLINE_MALLOC'):
+            return False
+        return can_inline_malloc1(*args)
+    #
+    return {(gc.GcLLDescr_framework, 'can_inline_malloc'): can_inline_malloc2}
+
 def compile(f, gc, **kwds):
     from pypy.annotation.listdef import s_list_of_strings
     from pypy.translator.translator import TranslationContext
@@ -87,8 +98,21 @@ def compile(f, gc, **kwds):
     ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
     ann.build_types(f, [s_list_of_strings], main_entry_point=True)
     t.buildrtyper().specialize()
+
     if kwds['jit']:
-        apply_jit(t, enable_opts='')
+        patch = get_functions_to_patch()
+        old_value = {}
+        try:
+            for (obj, attr), value in patch.items():
+                old_value[obj, attr] = getattr(obj, attr)
+                setattr(obj, attr, value)
+            #
+            apply_jit(t, enable_opts='')
+            #
+        finally:
+            for (obj, attr), oldvalue in old_value.items():
+                setattr(obj, attr, oldvalue)
+
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
     cbuilder.generate_source()
     cbuilder.compile()
@@ -182,11 +206,17 @@ class CompileFrameworkTests(object):
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
+    def _run(self, name, n, env):
+        res = self.cbuilder.cmdexec("%s %d" %(name, n), env=env)
+        assert int(res) == 20
+
     def run(self, name, n=2000):
         pypylog = udir.join('TestCompileFramework.log')
-        res = self.cbuilder.cmdexec("%s %d" %(name, n),
-                                    env={'PYPYLOG': ':%s' % pypylog})
-        assert int(res) == 20
+        env = {'PYPYLOG': ':%s' % pypylog,
+               'PYPY_NO_INLINE_MALLOC': '1'}
+        self._run(name, n, env)
+        del env['PYPY_NO_INLINE_MALLOC']
+        self._run(name, n, env)
 
     def run_orig(self, name, n, x):
         self.main_allfuncs(name, n, x)
