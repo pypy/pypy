@@ -6,6 +6,7 @@ import pypy.interpreter.pycode
 from pypy.tool.udir import udir
 from pypy.rlib import streamio
 from pypy.conftest import gettestobjspace
+import pytest
 import sys, os
 import tempfile, marshal
 
@@ -108,6 +109,14 @@ def setup_directory_structure(space):
             # also create a lone .pyc file
             p.join('lone.pyc').write(p.join('x.pyc').read(mode='rb'),
                                      mode='wb')
+
+    # create a .pyw file
+    p = setuppkg("windows", x = "x = 78")
+    try:
+        p.join('x.pyw').remove()
+    except py.error.ENOENT:
+        pass
+    p.join('x.py').rename(p.join('x.pyw'))
 
     return str(root)
 
@@ -332,6 +341,11 @@ class AppTestImport:
         import sys
         import compiled.x
         assert compiled.x == sys.modules.get('compiled.x')
+
+    @pytest.mark.skipif("sys.platform != 'win32'")
+    def test_pyw(self):
+        import windows.x
+        assert windows.x.__file__.endswith('x.pyw')
 
     def test_cannot_write_pyc(self):
         import sys, os
