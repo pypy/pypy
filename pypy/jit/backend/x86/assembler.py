@@ -1851,6 +1851,10 @@ class Assembler386(object):
         self.pending_guard_tokens.append(guard_token)
 
     def genop_call(self, op, arglocs, resloc):
+        force_index = self.write_new_force_index()
+        self._genop_call(op, arglocs, resloc, force_index)
+
+    def _genop_call(self, op, arglocs, resloc, force_index):
         sizeloc = arglocs[0]
         assert isinstance(sizeloc, ImmedLoc)
         size = sizeloc.value
@@ -1865,7 +1869,6 @@ class Assembler386(object):
         else:
             tmp = eax
 
-        force_index = self.write_new_force_index()
         self._emit_call(force_index, x, arglocs, 3, tmp=tmp)
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
@@ -1897,7 +1900,7 @@ class Assembler386(object):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
-        self.genop_call(op, arglocs, result_loc)
+        self._genop_call(op, arglocs, result_loc, fail_index)
         self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
         self.implement_guard(guard_token, 'L')
 
