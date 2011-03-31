@@ -31,6 +31,8 @@ corresponding Unix manual entries for more information on calls."""
 
     if hasattr(os, 'wait'):
         appleveldefs['wait'] = 'app_posix.wait'
+    if hasattr(os, 'wait3'):
+        appleveldefs['wait3'] = 'app_posix.wait3'
         
     interpleveldefs = {
     'open'      : 'interp_posix.open',
