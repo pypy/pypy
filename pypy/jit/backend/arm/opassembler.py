@@ -269,16 +269,22 @@ class OpAssembler(object):
             if reg_args > 4:
                 reg_args = x - 1
                 break
+        
+        #spill all vars that are stored in caller saved registers
+        #XXX good idea??
+        vars_to_spill = []
+        for v, reg in regalloc.rm.reg_bindings.iteritems():
+            if reg in r.caller_resp:
+                vars_to_spill.append(v)
 
-        # collect the locations of the arguments and spill those that are in
-        # the caller saved registers
+        for v in vars_to_spill:
+            regalloc.force_spill_var(v)
+        # collect the locations of the arguments that go in the argument
+        # registers
         locs = []
         for v in range(reg_args):
             var = args[v]
             loc = regalloc.loc(var)
-            if loc in r.caller_resp:
-                regalloc.force_spill(var)
-                loc = regalloc.loc(var)
             locs.append(loc)
 
         # save caller saved registers
@@ -300,9 +306,10 @@ class OpAssembler(object):
         with saved_registers(self.mc, saved_regs, r.caller_vfp_resp, regalloc):
             # move variables to the argument registers
             num = 0
+            import pdb; pdb.set_trace()
             for i in range(reg_args):
                 arg = args[i]
-                reg = r.all_regs[num]
+                reg = r.caller_resp[num]
                 self.mov_loc_loc(locs[i], reg)
                 if arg.type == FLOAT:
                     num += 2
@@ -310,13 +317,14 @@ class OpAssembler(object):
                     num += 1
 
             # all arguments past the 4th go on the stack
-            if n_args > 4:
-                stack_args = n_args - 4
-                n = stack_args*WORD
-                self._adjust_sp(n, fcond=fcond)
-                for i in range(4, n_args):
-                    self.mov_loc_loc(regalloc.loc(args[i]), r.ip)
-                    self.mc.STR_ri(r.ip.value, r.sp.value, (i-4)*WORD)
+            if n_args > reg_args:
+                n = 0
+                for i in range(n_args-1, reg_args-1, -1):
+                    if args[i].type == FLOAT:
+                        n += 2*WORD
+                    else:
+                        n += WORD
+                    self.regalloc_push(regalloc.loc(args[i]))
 
             #the actual call
             self.mc.BL(adr)
@@ -330,8 +338,8 @@ class OpAssembler(object):
             if result is not None:
                 # support floats here
                 resloc = regalloc.after_call(result)
+                # XXX ugly and fragile
                 if result.type == FLOAT:
-                    # XXX ugly and fragile
                     # move result to the allocated register
                     self.mov_loc_loc(resloc, r.r0)
 

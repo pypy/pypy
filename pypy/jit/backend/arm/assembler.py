@@ -641,6 +641,7 @@ class AssemblerARM(ResOpAssembler):
                 assert 0, 'unsupported case'
         elif loc.is_reg() and prev_loc.is_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
+        #XXX these instructions do not work
         elif loc.is_reg() and prev_loc.is_vfp_reg():
             self.mc.VMOV_rc(loc.value, prev_loc.value, cond=cond)
         elif loc.is_vfp_reg() and prev_loc.is_reg():
@@ -655,6 +656,8 @@ class AssemblerARM(ResOpAssembler):
             self.mc.PUSH([r.ip.value])
         elif loc.is_reg():
             self.mc.PUSH([loc.value])
+        elif loc.is_vfp_reg():
+            self.mc.VPUSH([loc.value])
         else:
             assert 0, 'ffuu'
 

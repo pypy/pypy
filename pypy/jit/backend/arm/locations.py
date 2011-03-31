@@ -98,7 +98,7 @@ class StackLocation(AssemblerLocation):
         # One of INT, REF, FLOAT
         assert num_words == 1
         assert type == INT
-        #self.type = type
+        self.type = type
 
     def frame_size(self):
         return self.width // WORD

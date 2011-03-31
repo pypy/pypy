@@ -46,8 +46,9 @@ class ARMFrameManager(FrameManager):
 
     @staticmethod
     def frame_pos(loc, type):
+        assert type == INT
         # XXX for now we only have one word stack locs
-        return locations.StackLocation(loc)
+        return locations.StackLocation(loc, type=type)
 
 def void(self, op, fcond):
     return []
@@ -228,17 +229,10 @@ class Regalloc(object):
 
 
     def force_spill_var(self, var):
-        self._sync_var(var)
-        try:
-            loc = self.reg_bindings[var]
-            del self.reg_bindings[var]
-            self.free_regs.append(loc)
-        except KeyError:
-            if not we_are_translated():
-                import pdb; pdb.set_trace()
-            else:
-                raise ValueError
-
+        if var.type == FLOAT:
+            self.vfprm.force_spill_var(var)
+        else:
+            self.rm.force_spill_var(var)
 
     def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         box = None
