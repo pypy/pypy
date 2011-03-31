@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
@@ -31,14 +32,11 @@ def gen_emit_op_by_helper_call(opname):
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
         if op.result:
-            self.mc.PUSH([reg.value for reg in r.caller_resp][1:])
+            regs = r.caller_resp[1:]
         else:
-            self.mc.PUSH([reg.value for reg in r.caller_resp])
-        helper(self.mc, fcond)
-        if op.result:
-            self.mc.POP([reg.value for reg in r.caller_resp][1:])
-        else:
-            self.mc.POP([reg.value for reg in r.caller_resp])
+            regs = r.caller_resp
+        with saved_registers(self.mc, regs, regalloc=regalloc):
+            helper(self.mc, fcond)
         return fcond
     return f
 
@@ -81,3 +79,27 @@ def gen_emit_float_cmp_op(cond):
         self.mc.MOV_ri(res.value, 0, cond=inv)
         return fcond
     return f
+
+class saved_registers(object):
+    def __init__(self, assembler, regs_to_save, regalloc=None):
+        self.assembler = assembler
+        self.regalloc = regalloc
+        if self.regalloc:
+            self._filter_regs(regs_to_save)
+        else:
+            self.regs = regs_to_save
+
+    def __enter__(self):
+        if len(self.regs) > 0:
+            self.assembler.PUSH([r.value for r in self.regs])
+
+    def __exit__(self, *args):
+        if len(self.regs) > 0:
+            self.assembler.POP([r.value for r in self.regs])
+
+    def _filter_regs(self, regs_to_save):
+        regs = []
+        for box, reg in self.regalloc.reg_bindings.iteritems():
+            if reg in regs_to_save or reg is r.ip:
+                regs.append(reg)
+        self.regs = regs
