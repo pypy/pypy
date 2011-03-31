@@ -185,7 +185,7 @@ class Assembler386(object):
         mc.SUB_rr(edx.value, eax.value)       # compute the size we want
         addr = self.cpu.gc_ll_descr.get_malloc_fixedsize_slowpath_addr()
         #
-        if gcrootmap.is_shadow_stack:
+        if gcrootmap is not None and gcrootmap.is_shadow_stack:
             # ---- shadowstack ----
             for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
                 mc.MOV_br(ofs, reg.value)
@@ -2105,12 +2105,13 @@ class Assembler386(object):
         self._regalloc.reserve_param(1+16)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if not gcrootmap.is_shadow_stack:
+        shadow_stack = (gcrootmap is not None and gcrootmap.is_shadow_stack)
+        if not shadow_stack:
             # there are two helpers to call only with asmgcc
             slowpath_addr1 = self.malloc_fixedsize_slowpath1
             self.mc.CALL(imm(slowpath_addr1))
         self.mark_gc_roots(self.write_new_force_index(),
-                           use_copy_area=gcrootmap.is_shadow_stack)
+                           use_copy_area=shadow_stack)
         slowpath_addr2 = self.malloc_fixedsize_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
 

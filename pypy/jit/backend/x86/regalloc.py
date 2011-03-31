@@ -865,7 +865,7 @@ class RegAlloc(object):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
 
-        if gc_ll_descr.gcrootmap.is_shadow_stack:
+        if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
             # ---- shadowstack ----
             # We need edx as a temporary, but otherwise don't save any more
             # register.  See comments in _build_malloc_fixedsize_slowpath().
