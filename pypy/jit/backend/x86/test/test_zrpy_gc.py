@@ -127,7 +127,7 @@ def test_compile_boehm():
 
 # ______________________________________________________________________
 
-class TestCompileFramework(object):
+class CompileFrameworkTests(object):
     # Test suite using (so far) the minimark GC.
     def setup_class(cls):
         funcs = []
@@ -178,7 +178,7 @@ class TestCompileFramework(object):
         try:
             GcLLDescr_framework.DEBUG = True
             cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
-                                   gcrootfinder="asmgcc", jit=True)
+                                   gcrootfinder=cls.gcrootfinder, jit=True)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
@@ -576,3 +576,10 @@ class TestCompileFramework(object):
 
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
+
+
+class TestShadowStack(CompileFrameworkTests):
+    gcrootfinder = "shadowstack"
+
+class TestAsmGcc(CompileFrameworkTests):
+    gcrootfinder = "asmgcc"

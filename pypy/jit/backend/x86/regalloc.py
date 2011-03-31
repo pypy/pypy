@@ -837,6 +837,7 @@ class RegAlloc(object):
         self.rm.possibly_free_vars_for_op(op)
 
     def _fastpath_malloc(self, op, descr):
+        XXX
         assert isinstance(descr, BaseSizeDescr)
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
@@ -859,7 +860,8 @@ class RegAlloc(object):
 
     def consider_new(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.can_inline_malloc(op.getdescr()):
+        os.write(2, "fixme: consider_new\n")
+        if 0 and gc_ll_descr.can_inline_malloc(op.getdescr()):  # XXX
             self._fastpath_malloc(op, op.getdescr())
         else:
             args = gc_ll_descr.args_for_new(op.getdescr())
@@ -869,7 +871,8 @@ class RegAlloc(object):
     def consider_new_with_vtable(self, op):
         classint = op.getarg(0).getint()
         descrsize = heaptracker.vtable2descr(self.assembler.cpu, classint)
-        if self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize):
+        os.write(2, "fixme: consider_new_with_vtable\n")
+        if 0 and self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize): # XXX
             self._fastpath_malloc(op, descrsize)
             self.assembler.set_vtable(eax, imm(classint))
             # result of fastpath malloc is in eax
@@ -1132,7 +1135,7 @@ class RegAlloc(object):
         # call memcpy()
         self.rm.before_call()
         self.xrm.before_call()
-        self.assembler._emit_call(imm(self.assembler.memcpy_addr),
+        self.assembler._emit_call(-1, imm(self.assembler.memcpy_addr),
                                   [dstaddr_loc, srcaddr_loc, length_loc])
         self.rm.possibly_free_var(length_box)
         self.rm.possibly_free_var(dstaddr_box)
@@ -1205,7 +1208,7 @@ class RegAlloc(object):
         for v, val in self.fm.frame_bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)
-                gcrootmap.add_ebp_offset(shape, get_ebp_ofs(val.position))
+                gcrootmap.add_frame_offset(shape, get_ebp_ofs(val.position))
         for v, reg in self.rm.reg_bindings.items():
             if reg is eax:
                 continue      # ok to ignore this one

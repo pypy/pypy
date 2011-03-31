@@ -171,25 +171,42 @@ class Assembler386(object):
         self.float_const_abs_addr = float_constants + 16
 
     def _build_malloc_fixedsize_slowpath(self):
+        # With asmgcc, we need two helpers, so that we can write two CALL
+        # instructions in assembler, with a mark_gc_roots in between.
+        # With shadowstack, this is not needed, so we produce a single helper.
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        #
         # ---------- first helper for the slow path of malloc ----------
         mc = codebuf.MachineCodeBlockWrapper()
         if self.cpu.supports_floats:          # save the XMM registers in
             for i in range(self.cpu.NUM_REGS):# the *caller* frame, from esp+8
                 mc.MOVSD_sx((WORD*2)+8*i, i)
         mc.SUB_rr(edx.value, eax.value)       # compute the size we want
-        if IS_X86_32:
-            mc.MOV_sr(WORD, edx.value)        # save it as the new argument
-        elif IS_X86_64:
-            # rdi can be clobbered: its content was forced to the stack
-            # by _fastpath_malloc(), like all other save_around_call_regs.
-            mc.MOV_rr(edi.value, edx.value)
-
         addr = self.cpu.gc_ll_descr.get_malloc_fixedsize_slowpath_addr()
-        mc.JMP(imm(addr))                    # tail call to the real malloc
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.malloc_fixedsize_slowpath1 = rawstart
-        # ---------- second helper for the slow path of malloc ----------
-        mc = codebuf.MachineCodeBlockWrapper()
+        #
+        if gcrootmap.is_shadow_stack:
+            # ---- shadowstack ----
+            mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
+            if IS_X86_32:
+                mc.MOV_sr(0, edx.value)          # push argument
+            elif IS_X86_64:
+                mc.MOV_rr(edi.value, edx.value)
+            mc.CALL(imm(addr))
+            mc.ADD_ri(esp.value, 16 - WORD)
+        else:
+            # ---- asmgcc ----
+            if IS_X86_32:
+                mc.MOV_sr(WORD, edx.value)       # save it as the new argument
+            elif IS_X86_64:
+                # rdi can be clobbered: its content was forced to the stack
+                # by _fastpath_malloc(), like all other save_around_call_regs.
+                mc.MOV_rr(edi.value, edx.value)
+            mc.JMP(imm(addr))                    # tail call to the real malloc
+            rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+            self.malloc_fixedsize_slowpath1 = rawstart
+            # ---------- second helper for the slow path of malloc ----------
+            mc = codebuf.MachineCodeBlockWrapper()
+        #
         if self.cpu.supports_floats:          # restore the XMM registers
             for i in range(self.cpu.NUM_REGS):# from where they were saved
                 mc.MOVSD_xs(i, (WORD*2)+8*i)
@@ -550,6 +567,10 @@ class Assembler386(object):
         for regloc in self.cpu.CALLEE_SAVE_REGISTERS:
             self.mc.PUSH_r(regloc.value)
 
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._call_header_shadowstack(gcrootmap)
+
     def _call_header_with_stack_check(self):
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
@@ -571,11 +592,31 @@ class Assembler386(object):
     def _call_footer(self):
         self.mc.LEA_rb(esp.value, -len(self.cpu.CALLEE_SAVE_REGISTERS) * WORD)
 
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._call_footer_shadowstack(gcrootmap)
+
         for i in range(len(self.cpu.CALLEE_SAVE_REGISTERS)-1, -1, -1):
             self.mc.POP_r(self.cpu.CALLEE_SAVE_REGISTERS[i].value)
 
         self.mc.POP_r(ebp.value)
         self.mc.RET()
+
+    def _call_header_shadowstack(self, gcrootmap):
+        # we need to put two words into the shadowstack: the MARKER
+        # and the address of the frame (ebp, actually)
+        rst = gcrootmap.get_root_stack_top_addr()
+        assert rx86.fits_in_32bits(rst)
+        self.mc.MOV_rj(eax.value, rst)                # MOV eax, [rootstacktop]
+        self.mc.LEA_rm(edx.value, (eax.value, 2*WORD))  # LEA edx, [eax+2*WORD]
+        self.mc.MOV_mi((eax.value, 0), gcrootmap.MARKER)    # MOV [eax], MARKER
+        self.mc.MOV_mr((eax.value, WORD), ebp.value)      # MOV [eax+WORD], ebp
+        self.mc.MOV_jr(rst, edx.value)                # MOV [rootstacktop], edx
+
+    def _call_footer_shadowstack(self, gcrootmap):
+        rst = gcrootmap.get_root_stack_top_addr()
+        assert rx86.fits_in_32bits(rst)
+        self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
 
     def _assemble_bootstrap_direct_call(self, arglocs, jmppos, stackdepth):
         if IS_X86_64:
@@ -896,7 +937,7 @@ class Assembler386(object):
                     self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
-    def _emit_call(self, x, arglocs, start=0, tmp=eax):
+    def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax):
         if IS_X86_64:
             return self._emit_call_64(x, arglocs, start)
 
@@ -924,9 +965,9 @@ class Assembler386(object):
         self._regalloc.reserve_param(p//WORD)
         # x is a location
         self.mc.CALL(x)
-        self.mark_gc_roots()
+        self.mark_gc_roots(force_index)
 
-    def _emit_call_64(self, x, arglocs, start=0):
+    def _emit_call_64(self, force_index, x, arglocs, start=0):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
@@ -984,11 +1025,26 @@ class Assembler386(object):
 
         self._regalloc.reserve_param(len(pass_on_stack))
         self.mc.CALL(x)
-        self.mark_gc_roots()
+        self.mark_gc_roots(force_index)
 
     def call(self, addr, args, res):
-        self._emit_call(imm(addr), args)
+        force_index = self.write_new_force_index()
+        self._emit_call(force_index, imm(addr), args)
         assert res is eax
+
+    def write_new_force_index(self):
+        # for shadowstack only: get a new, unused force_index number and
+        # write it to FORCE_INDEX_OFS.  Used to record the call shape
+        # (i.e. where the GC pointers are in the stack) around a CALL
+        # instruction that doesn't already have a force_index.
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            clt = self.currently_compiling_loop.compiled_loop_token
+            force_index = clt.reserve_and_record_some_faildescr_index()
+            self.mc.MOV_bi(FORCE_INDEX_OFS, force_index)
+            return force_index
+        else:
+            return 0
 
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
@@ -1796,8 +1852,9 @@ class Assembler386(object):
             tmp = ecx
         else:
             tmp = eax
-        
-        self._emit_call(x, arglocs, 3, tmp=tmp)
+
+        force_index = self.write_new_force_index()
+        self._emit_call(force_index, x, arglocs, 3, tmp=tmp)
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
             # a float or a long long return
@@ -1842,8 +1899,8 @@ class Assembler386(object):
         assert len(arglocs) - 2 == len(descr._x86_arglocs[0])
         #
         # Write a call to the direct_bootstrap_code of the target assembler
-        self._emit_call(imm(descr._x86_direct_bootstrap_code), arglocs, 2,
-                        tmp=eax)
+        self._emit_call(fail_index, imm(descr._x86_direct_bootstrap_code),
+                        arglocs, 2, tmp=eax)
         if op.result is None:
             assert result_loc is None
             value = self.cpu.done_with_this_frame_void_v
@@ -1868,7 +1925,7 @@ class Assembler386(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        self._emit_call(imm(asm_helper_adr), [eax, arglocs[1]], 0,
+        self._emit_call(fail_index, imm(asm_helper_adr), [eax, arglocs[1]], 0,
                         tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
             self.mc.FSTP_b(result_loc.value)
@@ -1990,11 +2047,16 @@ class Assembler386(object):
         not_implemented("not implemented operation (guard): %s" %
                         op.getopname())
 
-    def mark_gc_roots(self):
+    def mark_gc_roots(self, force_index):
+        if force_index < 0:
+            return     # not needed
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             mark = self._regalloc.get_mark_gc_roots(gcrootmap)
-            self.mc.insert_gcroot_marker(mark)
+            if gcrootmap.is_shadow_stack:
+                gcrootmap.write_callshape(mark, force_index)
+            else:
+                self.mc.insert_gcroot_marker(mark)
 
     def target_arglocs(self, loop_token):
         return loop_token._x86_arglocs
@@ -2025,11 +2087,16 @@ class Assembler386(object):
         # result in EAX; slowpath_addr2 additionally returns in EDX a
         # copy of heap(nursery_free_adr), so that the final MOV below is
         # a no-op.
-        slowpath_addr1 = self.malloc_fixedsize_slowpath1
+
         # reserve room for the argument to the real malloc and the
         # 8 saved XMM regs
         self._regalloc.reserve_param(1+16)
-        self.mc.CALL(imm(slowpath_addr1))
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if not gcrootmap.is_shadow_stack:
+            # there are two helpers to call only with asmgcc
+            slowpath_addr1 = self.malloc_fixedsize_slowpath1
+            self.mc.CALL(imm(slowpath_addr1))
         self.mark_gc_roots()
         slowpath_addr2 = self.malloc_fixedsize_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
@@ -2038,6 +2105,7 @@ class Assembler386(object):
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
         # on 64-bits, 'tid' is a value that fits in 31 bits
+        assert rx86.fits_in_32bits(tid)
         self.mc.MOV_mi((eax.value, 0), tid)
         self.mc.MOV(heap(nursery_free_adr), edx)
         

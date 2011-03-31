@@ -349,6 +349,8 @@ def common_modes(group):
     INSN_rb = insn(rex_w, chr(base+3), register(1,8), stack_bp(2))
     INSN_rm = insn(rex_w, chr(base+3), register(1,8), mem_reg_plus_const(2))
     INSN_rj = insn(rex_w, chr(base+3), register(1,8), '\x05', immediate(2))
+    INSN_ji8 = insn(rex_w, '\x83', orbyte(base), '\x05', immediate(1),
+                    immediate(2,'b'))
     INSN_bi8 = insn(rex_w, '\x83', orbyte(base), stack_bp(1), immediate(2,'b'))
     INSN_bi32= insn(rex_w, '\x81', orbyte(base), stack_bp(1), immediate(2))
 
@@ -366,7 +368,8 @@ def common_modes(group):
             INSN_bi32(mc, offset, immed)
     INSN_bi._always_inline_ = True      # try to constant-fold single_byte()
 
-    return INSN_ri, INSN_rr, INSN_rb, INSN_bi, INSN_br, INSN_rm, INSN_rj
+    return (INSN_ri, INSN_rr, INSN_rb, INSN_bi, INSN_br, INSN_rm, INSN_rj,
+            INSN_ji8)
 
 def select_8_or_32_bit_immed(insn_8, insn_32):
     def INSN(*args):
@@ -444,13 +447,13 @@ class AbstractX86CodeBuilder(object):
 
     # ------------------------------ Arithmetic ------------------------------
 
-    ADD_ri, ADD_rr, ADD_rb, _, _, ADD_rm, ADD_rj = common_modes(0)
-    OR_ri,  OR_rr,  OR_rb,  _, _, OR_rm,  OR_rj  = common_modes(1)
-    AND_ri, AND_rr, AND_rb, _, _, AND_rm, AND_rj = common_modes(4)
-    SUB_ri, SUB_rr, SUB_rb, _, _, SUB_rm, SUB_rj = common_modes(5)
-    SBB_ri, SBB_rr, SBB_rb, _, _, SBB_rm, SBB_rj = common_modes(3)
-    XOR_ri, XOR_rr, XOR_rb, _, _, XOR_rm, XOR_rj = common_modes(6)
-    CMP_ri, CMP_rr, CMP_rb, CMP_bi, CMP_br, CMP_rm, CMP_rj = common_modes(7)
+    ADD_ri, ADD_rr, ADD_rb, _, _, ADD_rm, ADD_rj, _ = common_modes(0)
+    OR_ri,  OR_rr,  OR_rb,  _, _, OR_rm,  OR_rj,  _ = common_modes(1)
+    AND_ri, AND_rr, AND_rb, _, _, AND_rm, AND_rj, _ = common_modes(4)
+    SUB_ri, SUB_rr, SUB_rb, _, _, SUB_rm, SUB_rj, SUB_ji8 = common_modes(5)
+    SBB_ri, SBB_rr, SBB_rb, _, _, SBB_rm, SBB_rj, _ = common_modes(3)
+    XOR_ri, XOR_rr, XOR_rb, _, _, XOR_rm, XOR_rj, _ = common_modes(6)
+    CMP_ri, CMP_rr, CMP_rb, CMP_bi, CMP_br, CMP_rm, CMP_rj, _ = common_modes(7)
 
     CMP_mi8 = insn(rex_w, '\x83', orbyte(7<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     CMP_mi32 = insn(rex_w, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))

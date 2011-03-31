@@ -23,18 +23,22 @@ class AbstractCPU(object):
         self.fail_descr_list = []
         self.fail_descr_free_list = []
 
+    def reserve_some_free_fail_descr_number(self):
+        lst = self.fail_descr_list
+        if len(self.fail_descr_free_list) > 0:
+            n = self.fail_descr_free_list.pop()
+            assert lst[n] is None
+        else:
+            n = len(lst)
+            lst.append(None)
+        return n
+
     def get_fail_descr_number(self, descr):
         assert isinstance(descr, history.AbstractFailDescr)
         n = descr.index
         if n < 0:
-            lst = self.fail_descr_list
-            if len(self.fail_descr_free_list) > 0:
-                n = self.fail_descr_free_list.pop()
-                assert lst[n] is None
-                lst[n] = descr
-            else:
-                n = len(lst)
-                lst.append(descr)
+            n = self.reserve_some_free_fail_descr_number()
+            self.fail_descr_list[n] = descr
             descr.index = n
         return n
 
@@ -293,6 +297,13 @@ class CompiledLoopToken(object):
 
     def record_faildescr_index(self, n):
         self.faildescr_indices.append(n)
+
+    def reserve_and_record_some_faildescr_index(self):
+        # like record_faildescr_index(), but invent and return a new,
+        # unused faildescr index
+        n = self.cpu.reserve_some_free_fail_descr_number()
+        self.record_faildescr_index(n)
+        return n
 
     def compiling_a_bridge(self):
         self.cpu.total_compiled_bridges += 1

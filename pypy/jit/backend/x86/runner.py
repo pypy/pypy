@@ -19,6 +19,8 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
+        if gcdescr is not None:
+            gcdescr.force_index_ofs = FORCE_INDEX_OFS
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
@@ -127,7 +129,7 @@ class AbstractX86CPU(AbstractLLCPU):
         fail_index = rffi.cast(TP, addr_of_force_index)[0]
         assert fail_index >= 0, "already forced!"
         faildescr = self.get_fail_descr_from_number(fail_index)
-        rffi.cast(TP, addr_of_force_index)[0] = -1
+        rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
         frb = self.assembler._find_failure_recovery_bytecode(faildescr)
         bytecode = rffi.cast(rffi.UCHARP, frb)
         # start of "no gc operation!" block
