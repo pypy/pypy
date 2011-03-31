@@ -543,6 +543,9 @@ class AbstractX86CodeBuilder(object):
     # x87 instructions
     FSTP_b = insn('\xDD', orbyte(3<<3), stack_bp(1))
 
+    # reserved as an illegal instruction
+    UD2 = insn('\x0F\x0B')
+
     # ------------------------------ SSE2 ------------------------------
 
     # Conversion

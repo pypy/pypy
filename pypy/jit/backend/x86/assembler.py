@@ -8,9 +8,8 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.backend.model import CompiledLoopToken
-from pypy.jit.backend.x86.regalloc import (RegAlloc, X86RegisterManager,
-                                           X86XMMRegisterManager, get_ebp_ofs,
-                                           _get_scale)
+from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
+                                           _get_scale, gpr_reg_mgr_cls)
 
 from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
                                        IS_X86_32, IS_X86_64)
@@ -188,6 +187,8 @@ class Assembler386(object):
         #
         if gcrootmap.is_shadow_stack:
             # ---- shadowstack ----
+            for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
+                mc.MOV_br(ofs, reg.value)
             mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
             if IS_X86_32:
                 mc.MOV_sr(0, edx.value)          # push argument
@@ -195,6 +196,8 @@ class Assembler386(object):
                 mc.MOV_rr(edi.value, edx.value)
             mc.CALL(imm(addr))
             mc.ADD_ri(esp.value, 16 - WORD)
+            for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
+                mc.MOV_rb(reg.value, ofs)
         else:
             # ---- asmgcc ----
             if IS_X86_32:
@@ -736,8 +739,8 @@ class Assembler386(object):
         nonfloatlocs, floatlocs = arglocs
         self._call_header()
         stackadjustpos = self._patchable_stackadjust()
-        tmp = X86RegisterManager.all_regs[0]
-        xmmtmp = X86XMMRegisterManager.all_regs[0]
+        tmp = eax
+        xmmtmp = xmm0
         self.mc.begin_reuse_scratch_register()
         for i in range(len(nonfloatlocs)):
             loc = nonfloatlocs[i]
@@ -1961,7 +1964,7 @@ class Assembler386(object):
             # load the return value from fail_boxes_xxx[0]
             kind = op.result.type
             if kind == FLOAT:
-                xmmtmp = X86XMMRegisterManager.all_regs[0]
+                xmmtmp = xmm0
                 adr = self.fail_boxes_float.get_addr_for_num(0)
                 self.mc.MOVSD(xmmtmp, heap(adr))
                 self.mc.MOVSD(result_loc, xmmtmp)
@@ -2056,12 +2059,12 @@ class Assembler386(object):
         not_implemented("not implemented operation (guard): %s" %
                         op.getopname())
 
-    def mark_gc_roots(self, force_index):
+    def mark_gc_roots(self, force_index, use_copy_area=False):
         if force_index < 0:
             return     # not needed
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
-            mark = self._regalloc.get_mark_gc_roots(gcrootmap)
+            mark = self._regalloc.get_mark_gc_roots(gcrootmap, use_copy_area)
             if gcrootmap.is_shadow_stack:
                 gcrootmap.write_callshape(mark, force_index)
             else:
@@ -2106,7 +2109,8 @@ class Assembler386(object):
             # there are two helpers to call only with asmgcc
             slowpath_addr1 = self.malloc_fixedsize_slowpath1
             self.mc.CALL(imm(slowpath_addr1))
-        self.mark_gc_roots()
+        self.mark_gc_roots(self.write_new_force_index(),
+                           use_copy_area=gcrootmap.is_shadow_stack)
         slowpath_addr2 = self.malloc_fixedsize_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
 

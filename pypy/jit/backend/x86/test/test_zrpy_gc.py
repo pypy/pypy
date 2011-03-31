@@ -77,8 +77,11 @@ def get_functions_to_patch():
     #
     can_inline_malloc1 = gc.GcLLDescr_framework.can_inline_malloc
     def can_inline_malloc2(*args):
-        if os.getenv('PYPY_NO_INLINE_MALLOC'):
-            return False
+        try:
+            if os.environ['PYPY_NO_INLINE_MALLOC']:
+                return False
+        except KeyError:
+            pass
         return can_inline_malloc1(*args)
     #
     return {(gc.GcLLDescr_framework, 'can_inline_malloc'): can_inline_malloc2}
@@ -215,7 +218,7 @@ class CompileFrameworkTests(object):
         env = {'PYPYLOG': ':%s' % pypylog,
                'PYPY_NO_INLINE_MALLOC': '1'}
         self._run(name, n, env)
-        del env['PYPY_NO_INLINE_MALLOC']
+        env['PYPY_NO_INLINE_MALLOC'] = ''
         self._run(name, n, env)
 
     def run_orig(self, name, n, x):
