@@ -177,6 +177,14 @@ class AppTestImport:
         import a
         assert a == a0
 
+    def test_trailing_slash(self):
+        import sys
+        try:
+            sys.path[0] += '/'
+            import a
+        finally:
+            sys.path[0] = sys.path[0].rstrip('/')
+
     def test_import_pkg(self):
         import sys
         import pkg
