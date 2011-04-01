@@ -497,6 +497,19 @@ def checkgraph(graph):
             assert block.operations == ()
             assert block.exits == ()
 
+        def definevar(v, only_in_link=None):
+            assert isinstance(v, Variable)
+            assert v not in vars, "duplicate variable %r" % (v,)
+            assert v not in vars_previous_blocks, (
+                "variable %r used in more than one block" % (v,))
+            vars[v] = only_in_link
+
+        def usevar(v, in_link=None):
+            assert v in vars
+            if in_link is not None:
+                assert vars[v] is None or vars[v] is in_link
+
+
         for block in graph.iterblocks():
             assert bool(block.isstartblock) == (block is graph.startblock)
             assert type(block.exits) is tuple, (
@@ -505,18 +518,6 @@ def checkgraph(graph):
             if not block.exits:
                 assert block in exitblocks
             vars = {}
-
-            def definevar(v, only_in_link=None):
-                assert isinstance(v, Variable)
-                assert v not in vars, "duplicate variable %r" % (v,)
-                assert v not in vars_previous_blocks, (
-                    "variable %r used in more than one block" % (v,))
-                vars[v] = only_in_link
-
-            def usevar(v, in_link=None):
-                assert v in vars
-                if in_link is not None:
-                    assert vars[v] is None or vars[v] is in_link
 
             for v in block.inputargs:
                 definevar(v)
