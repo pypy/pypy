@@ -88,6 +88,7 @@ class AbstractARMv7Builder(object):
                 | (rt2 & 0xF) << 16
                 | (rt & 0xF) << 12
                 | 0xB << 8
+                | 0x1 << 4
                 | (dm & 0xF))
         self.write32(instr)
 
@@ -107,6 +108,7 @@ class AbstractARMv7Builder(object):
                 | (rt2 & 0xF) << 16
                 | (rt & 0xF) << 12
                 | 0xB << 8
+                | 0x1 << 4
                 | (dm & 0xF))
         self.write32(instr)
 
