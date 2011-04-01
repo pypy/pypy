@@ -1,7 +1,8 @@
-from pypy.jit.metainterp.history import INT
+from pypy.jit.metainterp.history import INT, FLOAT
 from pypy.jit.backend.arm.arch import WORD
 class AssemblerLocation(object):
     _immutable_ = True
+    type = INT
 
     def is_imm(self):
         return False
@@ -38,6 +39,7 @@ class RegisterLocation(AssemblerLocation):
 
 class VFPRegisterLocation(RegisterLocation):
     _immutable_ = True
+    type = FLOAT 
 
     def get_single_precision_regs(self):
         return [VFPRegisterLocation(i) for i in [self.value*2, self.value*2+1]]
@@ -73,6 +75,7 @@ class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
     the address stored in the field value"""
     _immutable_ = True
+    type = FLOAT
 
     def __init__(self, value):
         self.value = value

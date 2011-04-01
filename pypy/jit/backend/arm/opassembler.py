@@ -255,6 +255,19 @@ class OpAssembler(object):
             self._ensure_result_bit_extension(loc, size, signed)
         return cond
 
+    def _count_reg_args(self, args):
+        reg_args = 0
+        words = 0
+        for x in range(min(len(args), 4)):
+            if args[x].type == FLOAT:
+                words += 2
+            else:
+                words += 1
+            reg_args += 1
+            if words > 4:
+                reg_args = x
+                break
+        return reg_args
     # XXX improve this interface
     # emit_op_call_may_force
     # XXX improve freeing of stuff here
@@ -330,7 +343,6 @@ class OpAssembler(object):
 
             # restore the argumets stored on the stack
             if result is not None:
-                # support floats here
                 resloc = regalloc.after_call(result)
                 # XXX ugly and fragile
                 if result.type == FLOAT:
@@ -726,8 +738,13 @@ class ForceOpAssembler(object):
             # resbox is allready in r0
             self.mov_loc_loc(arglocs[1], r.r1)
             self.mc.BL(asm_helper_adr)
-        if op.result:
-            regalloc.after_call(op.result)
+            if op.result:
+                resloc = regalloc.after_call(op.result)
+                # XXX ugly and fragile
+                if op.result.type == FLOAT:
+                    # move result to the allocated register
+                    self.mov_loc_loc(r.r0, resloc)
+
         # jump to merge point
         jmp_pos = self.mc.currpos()
         #jmp_location = self.mc.curraddr()
@@ -746,6 +763,7 @@ class ForceOpAssembler(object):
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, BaseFieldDescr)
             ofs = fielddescr.offset
+            import pdb; pdb.set_trace()
             resloc = regalloc.force_allocate_reg(resbox)
             self.mov_loc_loc(arglocs[1], r.ip)
             self.mc.MOV_ri(resloc.value, 0)
@@ -759,12 +777,17 @@ class ForceOpAssembler(object):
                 adr = self.fail_boxes_int.get_addr_for_num(0)
             elif kind == REF:
                 adr = self.fail_boxes_ptr.get_addr_for_num(0)
+            elif kind == FLOAT:
+                adr = self.fail_boxes_float.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
             resloc = regalloc.force_allocate_reg(op.result)
             regalloc.possibly_free_var(resbox)
             self.mc.gen_load_int(r.ip.value, adr)
-            self.mc.LDR_ri(resloc.value, r.ip.value)
+            if op.result.type == FLOAT:
+                self.mc.VLDR(resloc.value, r.ip.value)
+            else:
+                self.mc.LDR_ri(resloc.value, r.ip.value)
 
         # merge point
         offset = self.mc.currpos() - jmp_pos

@@ -366,19 +366,20 @@ class AssemblerARM(ResOpAssembler):
         return arglocs
 
     def gen_direct_bootstrap_code(self, arglocs, loop_head, looptoken):
-        #XXX fixme later, when float calling conv works
-        return
         self.gen_func_prolog()
-        if len(arglocs) > 4:
-            reg_args = 4
-        else:
-            reg_args = len(arglocs)
+        #import pdb; pdb.set_trace()
+        reg_args = self._count_reg_args(arglocs)
 
         stack_locs = len(arglocs) - reg_args
 
+        selected_reg = 0
         for i in range(reg_args):
             loc = arglocs[i]
-            self.mov_loc_loc(r.all_regs[i], loc)
+            self.mov_loc_loc(r.all_regs[selected_reg], loc)
+            if arglocs[i].type == FLOAT:
+                selected_reg += 2
+            else:
+                selected_reg += 1
 
         for i in range(stack_locs):
             loc = arglocs[reg_args + i]
