@@ -685,7 +685,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
-            p14 = call(ConstClass(ll_split_chr__GcStruct_listLlT_rpy_stringPtr_Char), p8, 46, descr=<GcPtrCallDescr>)
+            p14 = call(ConstClass(ll_split_chr__GcStruct_listLlT_rpy_stringPtr_Char), p8, 46, -1, descr=<GcPtrCallDescr>)
             guard_no_exception(descr=<Guard4>)
             guard_nonnull(p14, descr=<Guard5>)
             i15 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
