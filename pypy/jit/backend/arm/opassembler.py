@@ -491,11 +491,9 @@ class ArrayOpAssember(object):
 
         if scale.value == 3:
             assert value_loc.is_vfp_reg()
-            if scale_loc.is_reg():
-                self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
-                base_loc = r.ip
-                scale_loc = locations.imm(0)
-            self.mc.VSTR(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
+            assert scale_loc.is_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
+            self.mc.VSTR(value_loc.value, r.ip.value, cond=fcond)
         elif scale.value == 2:
             self.mc.STR_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 1:
@@ -521,11 +519,9 @@ class ArrayOpAssember(object):
 
         if scale.value == 3:
             assert res.is_vfp_reg()
-            if scale_loc.is_reg():
-                self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
-                base_loc = r.ip
-                scale_loc = locations.imm(0)
-            self.mc.VLDR(res.value, base_loc.value, scale_loc.value, cond=fcond)
+            assert scale_loc.is_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
+            self.mc.VLDR(res.value, r.ip.value, cond=fcond)
         elif scale.value == 2:
             self.mc.LDR_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 1:
