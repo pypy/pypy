@@ -261,20 +261,22 @@ class OpAssembler(object):
     def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None):
         n_args = len(args)
         reg_args = 0
+        words = 0
         for x in range(min(n_args, 4)):
             if args[x].type == FLOAT:
-                reg_args += 2
+                words += 2
             else:
-                reg_args += 1
-            if reg_args > 4:
-                reg_args = x - 1
+                words += 1
+            reg_args += 1
+            if words > 4:
+                reg_args = x
                 break
-        
+
         #spill all vars that are stored in caller saved registers
         #XXX good idea??
         vars_to_spill = []
         for v, reg in regalloc.rm.reg_bindings.iteritems():
-            if reg in r.caller_resp:
+            if reg in r.caller_resp and regalloc.stays_alive(v):
                 vars_to_spill.append(v)
 
         for v in vars_to_spill:
@@ -289,13 +291,6 @@ class OpAssembler(object):
 
         # save caller saved registers
         if result:
-            # XXX hack if the call has a result force the value in r0 to be
-            # spilled
-            if reg_args == 0 or (isinstance(args[0], Box) and
-                    regalloc.stays_alive(args[0])):
-                t = TempBox()
-                regalloc.force_allocate_reg(t, selected_reg=regalloc.call_result_location(t))
-                regalloc.possibly_free_var(t)
             if result.type == FLOAT:
                 saved_regs = r.caller_resp[2:]
             else:
@@ -306,7 +301,6 @@ class OpAssembler(object):
         with saved_registers(self.mc, saved_regs, r.caller_vfp_resp, regalloc):
             # move variables to the argument registers
             num = 0
-            import pdb; pdb.set_trace()
             for i in range(reg_args):
                 arg = args[i]
                 reg = r.caller_resp[num]
@@ -341,7 +335,7 @@ class OpAssembler(object):
                 # XXX ugly and fragile
                 if result.type == FLOAT:
                     # move result to the allocated register
-                    self.mov_loc_loc(resloc, r.r0)
+                    self.mov_loc_loc(r.r0, resloc)
 
         return fcond
 
