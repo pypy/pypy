@@ -18,3 +18,7 @@ opposites = [NE, EQ, CC, CS, PL, MI, VC, VS, LS, HI, LT, GE, LE, GT, AL]
 def get_opposite_of(operation):
     return opposites[operation]
 
+# see mapping for floating poin according to 
+# http://blogs.arm.com/software-enablement/405-condition-codes-4-floating-point-comparisons-using-vfp/
+VFP_LT = CC
+VFP_LE = LS

@@ -898,8 +898,8 @@ class FloatOpAssemlber(object):
     emit_op_float_neg = gen_emit_unary_float_op('VNEG')
     emit_op_float_abs = gen_emit_unary_float_op('VABS')
 
-    emit_op_float_lt = gen_emit_float_cmp_op(c.LT)
-    emit_op_float_le = gen_emit_float_cmp_op(c.LE)
+    emit_op_float_lt = gen_emit_float_cmp_op(c.VFP_LT)
+    emit_op_float_le = gen_emit_float_cmp_op(c.VFP_LE)
     emit_op_float_eq = gen_emit_float_cmp_op(c.EQ)
     emit_op_float_ne = gen_emit_float_cmp_op(c.NE)
     emit_op_float_gt = gen_emit_float_cmp_op(c.GT)
