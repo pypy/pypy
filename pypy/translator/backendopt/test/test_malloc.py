@@ -3,7 +3,7 @@ from pypy.translator.backendopt.malloc import LLTypeMallocRemover, OOTypeMallocR
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator import simplify
-from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
+from pypy.objspace.flow.model import checkgraph, Block, mkentrymap
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
@@ -22,8 +22,7 @@ class BaseMallocRemovalTest(object):
         remover = cls.MallocRemover()
         checkgraph(graph)
         count1 = count2 = 0
-        for node in flatten(graph):
-            if isinstance(node, Block):
+        for node in graph.iterblocks():
                 for op in node.operations:
                     if op.opname == cls.MallocRemover.MALLOC_OP:
                         S = op.args[0].value

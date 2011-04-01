@@ -395,11 +395,6 @@ def traverse(visit, functiongraph):
             stack += block.exits[::-1]
 
 
-def flatten(funcgraph):
-    l = []
-    traverse(l.append, funcgraph)
-    return l
-
 def flattenobj(*args):
     for arg in args:
         try:

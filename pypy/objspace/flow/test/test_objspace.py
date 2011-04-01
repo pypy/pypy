@@ -2,7 +2,7 @@ from __future__ import with_statement
 import new
 import py
 from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
-from pypy.objspace.flow.model import flatten, mkentrymap, c_last_exception
+from pypy.objspace.flow.model import mkentrymap, c_last_exception
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 from pypy.objspace.flow.objspace import FlowObjSpace, error
@@ -573,7 +573,8 @@ class TestFlowObjSpace(Base):
 
     def test_highly_branching_example(self):
         x = self.codetest(self.highly_branching_example)
-        assert len(flatten(x)) < 60   # roughly 20 blocks + 30 links
+        # roughly 20 blocks + 30 links
+        assert len(list(x.iterblocks())) + len(list(x.iterlinks())) < 60
 
     #__________________________________________________________
     def test_unfrozen_user_class1(self):

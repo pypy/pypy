@@ -1,6 +1,6 @@
 from pypy.translator.backendopt.ssa import *
 from pypy.translator.translator import TranslationContext
-from pypy.objspace.flow.model import flatten, Block, Link, Variable, Constant
+from pypy.objspace.flow.model import Block, Link, Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation
 
 
