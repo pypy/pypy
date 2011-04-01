@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
+from pypy.objspace.flow.model import Block, Link, Variable, Constant
 from pypy.translator.backendopt.tailrecursion import remove_tail_calls_to_self
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter

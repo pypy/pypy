@@ -3,7 +3,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.simplify import (get_graph, transform_dead_op_vars,
                                       desugar_isinstance)
-from pypy.objspace.flow.model import traverse, Block, Constant, summary
+from pypy.objspace.flow.model import Block, Constant, summary
 from pypy import conftest
 
 def translate(func, argtypes, backend_optimize=True):
