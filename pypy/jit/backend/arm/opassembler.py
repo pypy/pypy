@@ -394,7 +394,14 @@ class FieldOpAssembler(object):
 
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs
-        if size.value == 4:
+        if size.value == 8:
+            assert value_loc.is_vfp_reg()
+            if ofs.is_reg():
+                base_loc = r.ip
+                ofs = imm(0)
+                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
+            self.mc.VSTR(value_loc.value, base_loc.value, ofs.value)
+        elif size.value == 4:
             if ofs.is_imm():
                 self.mc.STR_ri(value_loc.value, base_loc.value, ofs.value)
             else:
@@ -417,7 +424,14 @@ class FieldOpAssembler(object):
 
     def emit_op_getfield_gc(self, op, arglocs, regalloc, fcond):
         base_loc, ofs, res, size = arglocs
-        if size.value == 4:
+        if size.value == 8:
+            assert res.is_vfp_reg()
+            if ofs.is_reg():
+                base_loc = r.ip
+                ofs = imm(0)
+                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
+            self.mc.VLDR(res.value, base_loc.value, ofs.value)
+        elif size.value == 4:
             if ofs.is_imm():
                 self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
             else:
@@ -470,7 +484,10 @@ class ArrayOpAssember(object):
             self.mc.ADD_ri(r.ip.value, scale_loc.value, ofs.value)
             scale_loc = r.ip
 
-        if scale.value == 2:
+        if scale.value == 4:
+            assert value_loc.is_vfp_reg()
+            self.mc.VSTR(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
+        elif scale.value == 2:
             self.mc.STR_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 1:
             self.mc.STRH_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
@@ -493,7 +510,10 @@ class ArrayOpAssember(object):
             self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
             scale_loc = r.ip
 
-        if scale.value == 2:
+        if scale.value == 4:
+            assert res.is_vfp_reg()
+            self.mc.VLDR(res.value, base_loc.value, scale_loc.value, cond=fcond)
+        elif scale.value == 2:
             self.mc.LDR_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 1:
             self.mc.LDRH_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
