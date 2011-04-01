@@ -238,14 +238,12 @@ class Regalloc(object):
         box = None
         loc = None
         if isinstance(thing, Const):
-            if isinstance(thing, ConstInt):
-                box = TempInt()
-            elif isinstance(thing, ConstPtr):
+            if isinstance(thing, ConstPtr):
                 box = TempPtr()
             elif isinstance(thing, ConstFloat):
                 box = TempFloat()
             else:
-                box = TempBox()
+                box = TempInt()
             loc = self.force_allocate_reg(box,
                             forbidden_vars=forbidden_vars)
             if isinstance(thing, ConstFloat):
@@ -449,7 +447,7 @@ class Regalloc(object):
         arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
         loc, box = self._ensure_value_is_boxed(arg0)
         boxes.append(box)
-        box = TempBox()
+        box = TempInt()
         loc1 = self.force_allocate_reg(box, boxes)
         boxes.append(box)
         if op.result in self.longevity:
@@ -484,7 +482,7 @@ class Regalloc(object):
         x, x_box = self._ensure_value_is_boxed(boxes[0], boxes)
         boxes.append(x_box)
 
-        t = TempBox()
+        t = TempInt()
         y = self.force_allocate_reg(t, boxes)
         boxes.append(t)
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
@@ -833,7 +831,7 @@ class Regalloc(object):
         arglocs = []
         for i in range(len(args)):
             arg = args[i]
-            t = TempBox()
+            t = TempInt()
             l = self.force_allocate_reg(t, selected_reg=r.all_regs[i])
             self.assembler.load(l, imm(arg))
             arglocs.append(t)
