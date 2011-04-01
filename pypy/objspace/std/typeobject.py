@@ -225,6 +225,34 @@ class W_TypeObject(W_Object):
                     return w_value
         return w_value
 
+    def setdictvalue(w_self, space, name, w_value):
+        if (not space.config.objspace.std.mutable_builtintypes
+                and not w_self.is_heaptype()):
+            msg = "can't set attributes on type object '%s'"
+            raise operationerrfmt(space.w_TypeError, msg, w_self.name)
+        if name == "__del__" and name not in w_self.dict_w:
+            msg = "a __del__ method added to an existing type will not be called"
+            space.warn(msg, space.w_RuntimeWarning)
+        w_self.mutated()
+        w_self.dict_w[name] = w_value
+        return True
+
+    def deldictvalue(w_self, space, w_key):
+        if w_self.lazyloaders:
+            w_self._freeze_()    # force un-lazification
+        key = space.str_w(w_key)
+        if (not space.config.objspace.std.mutable_builtintypes
+                and not w_self.is_heaptype()):
+            msg = "can't delete attributes on type object '%s'"
+            raise operationerrfmt(space.w_TypeError, msg, w_self.name)
+        try:
+            del w_self.dict_w[key]
+        except KeyError:
+            return False
+        else:
+            w_self.mutated()
+            return True
+
     def lookup(w_self, name):
         # note that this doesn't call __get__ on the result at all
         space = w_self.space
@@ -359,8 +387,7 @@ class W_TypeObject(W_Object):
     def getdict(w_self, space): # returning a dict-proxy!
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
-        newdic = space.newdict(from_strdict_shared=w_self.dict_w)
-        return W_DictProxyObject(newdic)
+        return W_DictProxyObject(space, w_self)
 
     def unwrap(w_self, space):
         if w_self.instancetypedef.fakedcpytype is not None:
@@ -799,51 +826,8 @@ def getattr__Type_ANY(space, w_type, w_name):
                           "type object '%s' has no attribute '%s'",
                           w_type.name, name)
 
-def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
-    # Note. This is exactly the same thing as descroperation.descr__setattr__,
-    # but it is needed at bootstrap to avoid a call to w_type.getdict() which
-    # would un-lazify the whole type.
-    name = space.str_w(w_name)
-    w_descr = space.lookup(w_type, name)
-    if w_descr is not None:
-        if space.is_data_descr(w_descr):
-            space.set(w_descr, w_type, w_value)
-            return
-    
-    if (not space.config.objspace.std.mutable_builtintypes
-            and not w_type.is_heaptype()):
-        msg = "can't set attributes on type object '%s'"
-        raise operationerrfmt(space.w_TypeError, msg, w_type.name)
-    if name == "__del__" and name not in w_type.dict_w:
-        msg = "a __del__ method added to an existing type will not be called"
-        space.warn(msg, space.w_RuntimeWarning)
-    w_type.mutated()
-    w_type.dict_w[name] = w_value
-
 def eq__Type_Type(space, w_self, w_other):
     return space.is_(w_self, w_other)
-
-def delattr__Type_ANY(space, w_type, w_name):
-    if w_type.lazyloaders:
-        w_type._freeze_()    # force un-lazification
-    name = space.str_w(w_name)
-    w_descr = space.lookup(w_type, name)
-    if w_descr is not None:
-        if space.is_data_descr(w_descr):
-            space.delete(w_descr, w_type)
-            return
-    if (not space.config.objspace.std.mutable_builtintypes
-            and not w_type.is_heaptype()):
-        msg = "can't delete attributes on type object '%s'"
-        raise operationerrfmt(space.w_TypeError, msg, w_type.name)
-    try:
-        del w_type.dict_w[name]
-    except KeyError:
-        raise OperationError(space.w_AttributeError, w_name)
-    else:
-        w_type.mutated()
-        return
-
 
 # ____________________________________________________________
 
