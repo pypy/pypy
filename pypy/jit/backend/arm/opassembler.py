@@ -168,10 +168,15 @@ class GuardOpAssembler(object):
         l1 = arglocs[1]
         failargs = arglocs[2:]
 
-        if l1.is_imm():
-            self.mc.CMP_ri(l0.value, l1.getint())
-        else:
-            self.mc.CMP_rr(l0.value, l1.value)
+        if l0.is_reg():
+            if l1.is_imm():
+                self.mc.CMP_ri(l0.value, l1.getint())
+            else:
+                self.mc.CMP_rr(l0.value, l1.value)
+        elif l0.is_vfp_reg():
+            assert l1.is_vfp_reg()
+            self.mc.VCMP(l0.value, l1.value)
+            self.mc.VMRS(cond=fcond)
         fcond = self._emit_guard(op, failargs, c.EQ)
         return fcond
 
@@ -783,7 +788,6 @@ class ForceOpAssembler(object):
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, BaseFieldDescr)
             ofs = fielddescr.offset
-            import pdb; pdb.set_trace()
             resloc = regalloc.force_allocate_reg(resbox)
             self.mov_loc_loc(arglocs[1], r.ip)
             self.mc.MOV_ri(resloc.value, 0)
