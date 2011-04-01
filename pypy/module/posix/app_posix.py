@@ -196,7 +196,7 @@ if osname == 'posix':
         return posix.waitpid(-1, 0)
 
     def wait3(options):
-        """ wait3() -> (pid, status, rusage)
+        """ wait3(options) -> (pid, status, rusage)
 
         Wait for completion of a child process and provides resource usage informations
         """
