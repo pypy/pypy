@@ -107,11 +107,11 @@ class saved_registers(object):
     def _filter_regs(self, regs_to_save, vfp_regs_to_save):
         regs = []
         for box, reg in self.regalloc.rm.reg_bindings.iteritems():
-            if reg in regs_to_save or reg is r.ip:
+            if reg is r.ip or (reg in regs_to_save and self.regalloc.stays_alive(box)):
                 regs.append(reg)
         self.regs = regs
         regs = []
         for box, reg in self.regalloc.vfprm.reg_bindings.iteritems():
-            if reg in vfp_regs_to_save:
+            if reg in vfp_regs_to_save and self.regalloc.stays_alive(box):
                 regs.append(reg)
         self.vfp_regs = regs
