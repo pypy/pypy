@@ -108,6 +108,17 @@ class AbstractARMv7Builder(object):
                 | (dm & 0xF))
         self.write32(instr)
 
+    def VMOV_cc(self, dd, dm, cond=cond.AL):
+        sz = 1 # for 64-bit mode
+        instr = (cond << 28
+                | 0xEB << 20
+                | (dd & 0xF) << 12
+                | 0x5 << 9
+                | (sz & 0x1) << 8
+                | 0x1 << 6
+                | (dm & 0xF))
+        self.write32(instr)
+
     def VCVT_float_to_int(self, target, source, cond=cond.AL):
         opc2 = 0x5
         sz = 1

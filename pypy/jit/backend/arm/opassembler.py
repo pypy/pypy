@@ -358,10 +358,7 @@ class OpAssembler(object):
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):
         argloc, resloc = arglocs
-        if argloc.is_imm():
-            self.mc.MOV_ri(resloc.value, argloc.getint())
-        else:
-            self.mc.MOV_rr(resloc.value, argloc.value)
+        self.mov_loc_loc(argloc, resloc)
         return fcond
 
     def emit_op_guard_no_exception(self, op, arglocs, regalloc, fcond):
