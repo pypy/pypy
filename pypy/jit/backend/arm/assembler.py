@@ -620,7 +620,19 @@ class AssemblerARM(ResOpAssembler):
             prev_loc = new_loc
             if not loc.is_stack():
                 return
-
+        if prev_loc.is_imm_float():
+            temp = r.lr
+            self.mc.gen_load_int(temp.value, prev_loc.getint())
+            if loc.is_reg():
+                # we need to load one word to loc and one to loc+1 which are
+                # two 32-bit core registers
+                self.mc.LDR_ri(loc.value, temp.value)
+                self.mc.LDR_ri(loc.value+1, temp.value, imm=WORD)
+            elif loc.is_vfp_reg():
+                # we need to load the thing into loc, which is a vfp reg
+                self.mc.VLDR(loc.value, temp.value)
+            assert not loc.is_stack()
+            return
         if loc.is_stack() or prev_loc.is_stack():
             temp = r.lr
             if loc.is_stack() and prev_loc.is_reg():
