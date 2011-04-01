@@ -276,7 +276,7 @@ class OpAssembler(object):
         #XXX good idea??
         vars_to_spill = []
         for v, reg in regalloc.rm.reg_bindings.iteritems():
-            if reg in r.caller_resp and regalloc.stays_alive(v):
+            if reg in r.caller_resp:
                 vars_to_spill.append(v)
 
         for v in vars_to_spill:
