@@ -255,7 +255,7 @@ def _hash_string(s):
     x = ord(s[0]) << 7
     i = 0
     while i < length:
-        x = (1000003*x) ^ ord(s[i])
+        x = intmask((1000003*x) ^ ord(s[i]))
         i += 1
     x ^= length
     return intmask(x)
