@@ -15,10 +15,10 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_unary_float_op, saved_registers)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
-from pypy.jit.backend.arm.regalloc import Regalloc, TempInt
+from pypy.jit.backend.arm.regalloc import Regalloc, TempInt, TempPtr
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
-from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
+from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
 from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, Box,
                                         AbstractFailDescr, LoopToken, INT, FLOAT, REF)
 from pypy.jit.metainterp.resoperation import rop
@@ -594,7 +594,7 @@ class StrOpAssembler(object):
         regalloc.possibly_free_var(args[0])
         if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
             regalloc.possibly_free_var(args[2])     # it if ==args[3] or args[4]
-        srcaddr_box = TempBox()
+        srcaddr_box = TempPtr()
         forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
         srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box, selected_reg=r.r1)
         self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
@@ -602,7 +602,7 @@ class StrOpAssembler(object):
 
         # compute the destination address
         forbidden_vars = [args[4], args[3], srcaddr_box]
-        dstaddr_box = TempBox()
+        dstaddr_box = TempPtr()
         dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box, selected_reg=r.r0)
         forbidden_vars.append(dstaddr_box)
         base_loc, box = regalloc._ensure_value_is_boxed(args[1], forbidden_vars)
@@ -624,7 +624,7 @@ class StrOpAssembler(object):
         args.append(length_box)
         if is_unicode:
             forbidden_vars = [srcaddr_box, dstaddr_box]
-            bytes_box = TempBox()
+            bytes_box = TempPtr()
             bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
             assert length_loc.is_reg()

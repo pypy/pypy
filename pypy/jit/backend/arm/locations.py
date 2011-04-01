@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.history import INT, FLOAT
+from pypy.jit.metainterp.history import INT, FLOAT, REF
 from pypy.jit.backend.arm.arch import WORD
 class AssemblerLocation(object):
     _immutable_ = True
@@ -100,7 +100,7 @@ class StackLocation(AssemblerLocation):
         self.width = num_words * WORD
         # One of INT, REF, FLOAT
         assert num_words == 1
-        assert type == INT
+        assert type == INT or type == REF
         self.type = type
 
     def frame_size(self):
