@@ -382,7 +382,7 @@ class ResumeGuardDescr(ResumeDescr):
         send_bridge_to_backend(metainterp.staticdata, self, inputargs,
                                new_loop.operations, new_loop.token)
 
-    def copy_all_attrbutes_into(self, res):
+    def copy_all_attributes_into(self, res):
         # XXX a bit ugly to have to list them all here
         res.rd_snapshot = self.rd_snapshot
         res.rd_frame_info_list = self.rd_frame_info_list
@@ -393,13 +393,13 @@ class ResumeGuardDescr(ResumeDescr):
 
     def _clone_if_mutable(self):
         res = ResumeGuardDescr()
-        self.copy_all_attrbutes_into(res)
+        self.copy_all_attributes_into(res)
         return res
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
     def _clone_if_mutable(self):
         res = ResumeAtPositionDescr()
-        self.copy_all_attrbutes_into(res)
+        self.copy_all_attributes_into(res)
         return res
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
@@ -473,7 +473,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
     def _clone_if_mutable(self):
         res = ResumeGuardForcedDescr(self.metainterp_sd,
                                      self.jitdriver_sd)
-        self.copy_all_attrbutes_into(res)
+        self.copy_all_attributes_into(res)
         return res
 
 
