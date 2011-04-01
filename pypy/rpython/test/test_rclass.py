@@ -895,6 +895,30 @@ class BaseTestRclass(BaseRtypingTest):
         B_TYPE = deref(graph.getreturnvar().concretetype)
         assert B_TYPE._hints["immutable"]
 
+    def test_quasi_immutable(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ['x', 'y?', 'z?']
+        class B(A):
+            pass
+        def f():
+            A().x = 42
+            A().y = 43
+            b = B()
+            b.y = 41
+            b.z = 44
+            return B()
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = B_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_z" : "?"} or \
+               accessor.fields == {'ox':'', 'oy':'?', 'oz':'?'} # for ootype
+        found = []
+        for op in graph.startblock.operations:
+            if op.opname == 'jit_force_quasi_immutable':
+                found.append(op.args[1].value)
+        assert found == ['mutate_y', 'mutate_y', 'mutate_z']
+
 
 class TestLLtype(BaseTestRclass, LLRtypeMixin):
 
