@@ -34,11 +34,7 @@ class ModuleDictImplementation(W_DictMultiObject):
 
     @jit.purefunction
     def _getcell_makenew(self, key):
-        res = self.content.get(key, None)
-        if res is not None:
-            return res
-        result = self.content[key] = ModuleCell()
-        return result
+        return self.content.setdefault(key, ModuleCell())
 
     def impl_setitem(self, w_key, w_value):
         space = self.space
@@ -49,6 +45,16 @@ class ModuleDictImplementation(W_DictMultiObject):
 
     def impl_setitem_str(self, name, w_value):
         self.getcell(name, True).w_value = w_value
+
+    def impl_setdefault(self, w_key, w_default):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            cell = self.getcell(space.str_w(w_key), True)
+            if cell.w_value is None:
+                cell.w_value = w_default
+            return cell.w_value
+        else:
+            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
 
     def impl_delitem(self, w_key):
         space = self.space
