@@ -26,9 +26,10 @@ from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86FrameManager,\
 CPU = getcpuclass()
 
 class MockGcRootMap(object):
+    is_shadow_stack = False
     def get_basic_shape(self, is_64_bit):
         return ['shape']
-    def add_ebp_offset(self, shape, offset):
+    def add_frame_offset(self, shape, offset):
         shape.append(offset)
     def add_callee_save_reg(self, shape, reg_index):
         index_to_name = { 1: 'ebx', 2: 'esi', 3: 'edi' }

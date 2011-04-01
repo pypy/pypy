@@ -854,6 +854,9 @@ class LLFrame(object):
     def op_gc_adr_of_nursery_free(self):
         raise NotImplementedError
 
+    def op_gc_adr_of_root_stack_top(self):
+        raise NotImplementedError
+
     def op_gc_call_rtti_destructor(self, rtti, addr):
         if hasattr(rtti._obj, 'destructor_funcptr'):
             d = rtti._obj.destructor_funcptr
