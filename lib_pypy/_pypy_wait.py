@@ -3,14 +3,14 @@ from ctypes.util import find_library
 from resource import _struct_rusage, struct_rusage
 
 libc = CDLL(find_library("c"))
-wait3 = libc.wait3
+c_wait3 = libc.wait3
 
-wait3.argtypes = [POINTER(c_int), c_int, POINTER(_struct_rusage)]
+c_wait3.argtypes = [POINTER(c_int), c_int, POINTER(_struct_rusage)]
 
 def wait3(options):
     status = c_int()
     _rusage = _struct_rusage()
-    pid = wait3(byref(status), c_int(options), byref(_rusage))
+    pid = c_wait3(byref(status), c_int(options), byref(_rusage))
 
     rusage = struct_rusage((
         float(_rusage.ru_utime),
