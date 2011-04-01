@@ -489,8 +489,12 @@ class ArrayOpAssember(object):
             self.mc.ADD_ri(r.ip.value, scale_loc.value, ofs.value)
             scale_loc = r.ip
 
-        if scale.value == 4:
+        if scale.value == 3:
             assert value_loc.is_vfp_reg()
+            if scale_loc.is_reg():
+                self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
+                base_loc = r.ip
+                scale_loc = locations.imm(0)
             self.mc.VSTR(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 2:
             self.mc.STR_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
@@ -515,8 +519,12 @@ class ArrayOpAssember(object):
             self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
             scale_loc = r.ip
 
-        if scale.value == 4:
+        if scale.value == 3:
             assert res.is_vfp_reg()
+            if scale_loc.is_reg():
+                self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
+                base_loc = r.ip
+                scale_loc = locations.imm(0)
             self.mc.VLDR(res.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 2:
             self.mc.LDR_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
