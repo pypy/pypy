@@ -4,14 +4,24 @@ from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import weakref_descr
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
-from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from pypy.rlib.jit import hint, purefunction_promote, we_are_jitted
 from pypy.rlib.jit import purefunction, dont_look_inside
 from pypy.rlib.rarithmetic import intmask, r_uint
+
+class TypeCell(W_Root):
+    def __init__(self, w_value=None):
+        self.w_value = w_value
+
+def unwrap_cell(space, w_value):
+    if (space.config.objspace.std.withtypeversion and
+            isinstance(w_value, TypeCell)):
+        return w_value.w_value
+    return w_value
 
 # from compiler/misc.py
 
@@ -211,6 +221,17 @@ class W_TypeObject(W_Object):
         return compute_C3_mro(w_self.space, w_self)
 
     def getdictvalue(w_self, space, attr):
+        if space.config.objspace.std.withtypeversion:
+            version_tag = w_self.version_tag()
+            if version_tag is not None:
+                return unwrap_cell(
+                    space,
+                    w_self._pure_getdictvalue_no_unwrapping(
+                        space, version_tag, attr))
+        w_value = w_self._getdictvalue_no_unwrapping(space, attr)
+        return unwrap_cell(space, w_value)
+
+    def _getdictvalue_no_unwrapping(w_self, space, attr):
         w_value = w_self.dict_w.get(attr, None)
         if w_self.lazyloaders and w_value is None:
             if attr in w_self.lazyloaders:
@@ -225,6 +246,10 @@ class W_TypeObject(W_Object):
                     return w_value
         return w_value
 
+    @purefunction
+    def _pure_getdictvalue_no_unwrapping(w_self, space, version_tag, attr):
+        return w_self._getdictvalue_no_unwrapping(space, attr)
+
     def setdictvalue(w_self, space, name, w_value):
         if (not space.config.objspace.std.mutable_builtintypes
                 and not w_self.is_heaptype()):
@@ -233,6 +258,16 @@ class W_TypeObject(W_Object):
         if name == "__del__" and name not in w_self.dict_w:
             msg = "a __del__ method added to an existing type will not be called"
             space.warn(msg, space.w_RuntimeWarning)
+        if space.config.objspace.std.withtypeversion:
+            version_tag = w_self.version_tag()
+            if version_tag is not None:
+                w_curr = w_self._pure_getdictvalue_no_unwrapping(
+                        space, version_tag, name)
+                if w_curr is not None:
+                    if isinstance(w_curr, TypeCell):
+                        w_curr.w_value = w_value
+                        return True
+                    w_value = TypeCell(w_value)
         w_self.mutated()
         w_self.dict_w[name] = w_value
         return True
@@ -307,7 +342,7 @@ class W_TypeObject(W_Object):
         space = w_self.space
         for w_class in w_self.mro_w:
             assert isinstance(w_class, W_TypeObject)
-            w_value = w_class.getdictvalue(space, key)
+            w_value = w_class._getdictvalue_no_unwrapping(space, key)
             if w_value is not None:
                 return w_class, w_value
         return None, None
@@ -320,7 +355,8 @@ class W_TypeObject(W_Object):
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
-        return w_self._pure_lookup_where_with_method_cache(name, version_tag)
+        w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
+        return w_class, unwrap_cell(space, w_value)
 
     @purefunction
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
@@ -385,6 +421,7 @@ class W_TypeObject(W_Object):
         return False
 
     def getdict(w_self, space): # returning a dict-proxy!
+        from pypy.objspace.std.dictproxyobject import W_DictProxyObject
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
         return W_DictProxyObject(space, w_self)

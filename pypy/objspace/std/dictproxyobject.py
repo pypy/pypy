@@ -1,7 +1,9 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, IteratorImplementation
+from pypy.objspace.std.typeobject import unwrap_cell
 from pypy.interpreter.error import OperationError
+
 
 class W_DictProxyObject(W_DictMultiObject):
     def __init__(w_self, space, w_type):
@@ -57,11 +59,11 @@ class W_DictProxyObject(W_DictMultiObject):
         return [space.wrap(key) for key in self.w_type.dict_w.iterkeys()]
 
     def impl_values(self):
-        return self.w_type.dict_w.values()
+        return [unwrap_cell(self.space, w_value) for w_value in self.w_type.dict_w.itervalues()]
 
     def impl_items(self):
         space = self.space
-        return [space.newtuple([space.wrap(key), w_value])
+        return [space.newtuple([space.wrap(key), unwrap_cell(self.space, w_value)])
                     for (key, w_value) in self.w_type.dict_w.iteritems()]
 
     def impl_clear(self):
@@ -81,6 +83,6 @@ class DictProxyIteratorImplementation(IteratorImplementation):
 
     def next_entry(self):
         for key, w_value in self.iterator:
-            return (self.space.wrap(key), w_value)
+            return (self.space.wrap(key), unwrap_cell(self.space, w_value))
         else:
             return (None, None)

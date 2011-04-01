@@ -1,14 +1,16 @@
-
+from pypy.conftest import gettestobjspace
 
 class AppTestUserObject:
     def test_dictproxy(self):
         class NotEmpty(object):
             a = 1
-        #assert isinstance(NotEmpty.__dict__, dict) == False
+        NotEmpty.a = 1
+        NotEmpty.a = 1
+        NotEmpty.a = 1
+        NotEmpty.a = 1
         assert 'a' in NotEmpty.__dict__
         assert 'a' in NotEmpty.__dict__.keys()
         assert 'b' not in NotEmpty.__dict__
-        #assert isinstance(NotEmpty.__dict__.copy(), dict)
         NotEmpty.__dict__['b'] = 4
         assert NotEmpty.b == 4
         del NotEmpty.__dict__['b']
@@ -36,7 +38,13 @@ class AppTestUserObject:
     def test_str_repr(self):
         class a(object):
             pass
-        s = repr(a.__dict__)
-        #assert s.startswith('<dictproxy') and s.endswith('>')
-        s = str(a.__dict__)
-        assert s.startswith('{') and s.endswith('}')
+        s1 = repr(a.__dict__)
+        s2 = str(a.__dict__)
+        assert s1 == s2
+        assert s1.startswith('{') and s1.endswith('}')
+
+class AppTestUserObjectMethodCache(AppTestUserObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+            **{"objspace.std.withmethodcachecounter": True})
+
