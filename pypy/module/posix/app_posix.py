@@ -203,6 +203,14 @@ if osname == 'posix':
         from _pypy_wait import wait3
         return wait3(options)
 
+    def wait4(pid, options)
+        """ wait4(pid, options) -> (pid, status, rusage)
+
+        Wait for completion of the child process "pid" and provides resource usage informations
+        """
+        from _pypy_wait import wait4
+        return wait4(pid, options)
+
 else:
     # Windows implementations
     
