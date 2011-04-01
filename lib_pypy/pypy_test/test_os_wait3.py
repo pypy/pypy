@@ -1,4 +1,11 @@
+# Generates the resource cache
+from __future__ import absolute_import
+from lib_pypy.ctypes_config_cache import rebuild
+rebuild.rebuild_one('resource.ctc.py')
+
 import os
+
+from lib_pypy._pypy_wait import wait3
 
 if hasattr(os, 'wait3'):
     def test_os_wait3():
@@ -11,7 +18,7 @@ if hasattr(os, 'wait3'):
         if child == 0: # in child
             os._exit(exit_status)
         else:
-            pid, status, rusage = os.wait3(0)
+            pid, status, rusage = wait3(0)
             assert child == pid
             assert os.WIFEXITED(status)
             assert os.WEXITSTATUS(status) == exit_status
