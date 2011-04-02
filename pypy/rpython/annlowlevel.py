@@ -480,7 +480,23 @@ hlunicode, llunicode, oounicode = make_string_entries(unicode)
 # ____________________________________________________________
 
 def cast_object_to_ptr(PTR, object):
-    raise NotImplementedError("cast_object_to_ptr")
+    """NOT_RPYTHON: hack. The object may be disguised as a PTR now.
+    Limited to casting a given object to a single type.
+    """
+    if isinstance(PTR, lltype.Ptr):
+        if not hasattr(object, '_TYPE'):
+            object._TYPE = PTR.TO
+        else:
+            assert object._TYPE == PTR.TO
+        return lltype._ptr(PTR, object, True)
+    elif isinstance(PTR, ootype.Instance):
+        if not hasattr(object, '_TYPE'):
+            object._TYPE = PTR
+        else:
+            assert object._TYPE == PTR
+        return object
+    else:
+        raise NotImplementedError("cast_object_to_ptr(%r, ...)" % PTR)
 
 def cast_instance_to_base_ptr(instance):
     return cast_object_to_ptr(base_ptr_lltype(), instance)
@@ -535,7 +551,13 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
 # ____________________________________________________________
 
 def cast_base_ptr_to_instance(Class, ptr):
-    raise NotImplementedError("cast_base_ptr_to_instance")
+    """NOT_RPYTHON: hack. Reverse the hacking done in cast_object_to_ptr()."""
+    if isinstance(lltype.typeOf(ptr), lltype.Ptr):
+        ptr = ptr._as_obj()
+    if not isinstance(ptr, Class):
+        raise NotImplementedError("cast_base_ptr_to_instance: casting %r to %r"
+                                  % (ptr, Class))
+    return ptr
 
 class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_base_ptr_to_instance
