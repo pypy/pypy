@@ -59,15 +59,13 @@ def prepare_float_op(base=True, float_result=True):
         if base:
             loc2, box2 = self._ensure_value_is_boxed(op.getarg(1))
             locs.append(loc2)
-            self.vfprm.possibly_free_var(box2)
-        self.vfprm.possibly_free_var(box1)
+            self.possibly_free_var(box2)
+        self.possibly_free_var(box1)
         if float_result:
             res  = self.vfprm.force_allocate_reg(op.result)
-            self.vfprm.possibly_free_var(op.result)
         else:
             res  = self.rm.force_allocate_reg(op.result)
-            self.rm.possibly_free_var(op.result)
-        self.vfprm.possibly_free_var(box1)
+        self.possibly_free_var(op.result)
         locs.append(res)
         return locs
     return f

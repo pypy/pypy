@@ -207,12 +207,11 @@ class Regalloc(object):
             arg = inputargs[i]
             i += 1
             if loc.is_reg():
-                if arg.type == FLOAT:
-                    self.vfprm.reg_bindings[arg] = loc
-                else:
-                    self.rm.reg_bindings[arg] = loc
-            #XXX add float
+                self.rm.reg_bindings[arg] = loc
+            elif loc.is_vfp_reg:
+                self.vfprm.reg_bindings[arg] = loc
             else:
+                assert loc.is_stack()
                 self.frame_manager.frame_bindings[arg] = loc
             used[loc] = None
 
