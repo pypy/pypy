@@ -13,28 +13,12 @@ class FieldListAccessor(object):
         assert type(fields) is dict
         self.TYPE = TYPE
         self.fields = fields
-        for x in fields.itervalues():
-            assert isinstance(x, ImmutableRanking)
 
     def __repr__(self):
         return '<FieldListAccessor for %s>' % getattr(self, 'TYPE', '?')
 
     def _freeze_(self):
         return True
-
-class ImmutableRanking(object):
-    def __init__(self, name, is_immutable):
-        self.name = name
-        self.is_immutable = is_immutable
-    def __nonzero__(self):
-        return self.is_immutable
-    def __repr__(self):
-        return '<%s>' % self.name
-
-IR_MUTABLE         = ImmutableRanking('mutable', False)
-IR_IMMUTABLE       = ImmutableRanking('immutable', True)
-IR_ARRAY_IMMUTABLE = ImmutableRanking('array_immutable', True)
-IR_QUASI_IMMUTABLE = ImmutableRanking('quasi_immutable', False)
 
 class ImmutableConflictError(Exception):
     """Raised when the _immutable_ or _immutable_fields_ hints are
@@ -227,23 +211,23 @@ class AbstractInstanceRepr(Repr):
                 self._parse_field_list(immutable_fields, accessor)
 
     def _parse_field_list(self, fields, accessor):
-        ranking = {}
+        with_suffix = {}
         for name in fields:
             if name.endswith('[*]'):    # for virtualizables' lists
                 name = name[:-3]
-                rank = IR_ARRAY_IMMUTABLE
+                suffix = '[*]'
             elif name.endswith('?'):    # a quasi-immutable field
                 name = name[:-1]
-                rank = IR_QUASI_IMMUTABLE
+                suffix = '?'
             else:                       # a regular immutable/green field
-                rank = IR_IMMUTABLE
+                suffix = ''
             try:
                 mangled_name, r = self._get_field(name)
             except KeyError:
                 continue
-            ranking[mangled_name] = rank
-        accessor.initialize(self.object_type, ranking)
-        return ranking
+            with_suffix[mangled_name] = suffix
+        accessor.initialize(self.object_type, with_suffix)
+        return with_suffix
 
     def _check_for_immutable_conflicts(self):
         # check for conflicts, i.e. a field that is defined normally as

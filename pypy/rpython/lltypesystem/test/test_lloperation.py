@@ -54,7 +54,6 @@ def test_llop_with_voids_interp():
 
 def test_is_pure():
     from pypy.objspace.flow.model import Variable, Constant
-    from pypy.rpython import rclass
     assert llop.bool_not.is_pure([Variable()])
     assert llop.debug_assert.is_pure([Variable()])
     assert not llop.int_add_ovf.is_pure([Variable(), Variable()])
@@ -86,50 +85,38 @@ def test_is_pure():
     assert llop.getarrayitem.is_pure([v_a2, Variable()])
     assert llop.getarraysize.is_pure([v_a2])
     #
-    for kind in [rclass.IR_MUTABLE, rclass.IR_IMMUTABLE,
-                 rclass.IR_ARRAY_IMMUTABLE, rclass.IR_QUASI_IMMUTABLE]:
-        accessor = rclass.FieldListAccessor()
-        S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
-                             hints={'immutable_fields': accessor})
-        accessor.initialize(S3, {'x': kind})
-        v_s3 = Variable()
-        v_s3.concretetype = lltype.Ptr(S3)
-        assert not llop.setfield.is_pure([v_s3, Constant('x'), Variable()])
-        assert not llop.setfield.is_pure([v_s3, Constant('y'), Variable()])
-        assert llop.getfield.is_pure([v_s3, Constant('x')]) is kind
-        assert not llop.getfield.is_pure([v_s3, Constant('y')])
+    accessor = rclass.FieldListAccessor()
+    S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
+                         hints={'immutable_fields': accessor})
+    accessor.initialize(S3, {'x': ''})
+    v_s3 = Variable()
+    v_s3.concretetype = lltype.Ptr(S3)
+    assert not llop.setfield.is_pure([v_s3, Constant('x'), Variable()])
+    assert not llop.setfield.is_pure([v_s3, Constant('y'), Variable()])
+    assert llop.getfield.is_pure([v_s3, Constant('x')])
+    assert not llop.getfield.is_pure([v_s3, Constant('y')])
 
 def test_getfield_pure():
     S1 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
     S2 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
                          hints={'immutable': True})
     accessor = rclass.FieldListAccessor()
+    S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
+                         hints={'immutable_fields': accessor})
+    accessor.initialize(S3, {'x': ''})
     #
     s1 = lltype.malloc(S1); s1.x = 45
     py.test.raises(TypeError, llop.getfield, lltype.Signed, s1, 'x')
     s2 = lltype.malloc(S2); s2.x = 45
     assert llop.getfield(lltype.Signed, s2, 'x') == 45
+    s3 = lltype.malloc(S3); s3.x = 46; s3.y = 47
+    assert llop.getfield(lltype.Signed, s3, 'x') == 46
+    py.test.raises(TypeError, llop.getfield, lltype.Signed, s3, 'y')
     #
     py.test.raises(TypeError, llop.getinteriorfield, lltype.Signed, s1, 'x')
     assert llop.getinteriorfield(lltype.Signed, s2, 'x') == 45
-    #
-    for kind in [rclass.IR_MUTABLE, rclass.IR_IMMUTABLE,
-                 rclass.IR_ARRAY_IMMUTABLE, rclass.IR_QUASI_IMMUTABLE]:
-        #
-        S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
-                             hints={'immutable_fields': accessor})
-        accessor.initialize(S3, {'x': kind})
-        s3 = lltype.malloc(S3); s3.x = 46; s3.y = 47
-        if kind in [rclass.IR_IMMUTABLE, rclass.IR_ARRAY_IMMUTABLE]:
-            assert llop.getfield(lltype.Signed, s3, 'x') == 46
-            assert llop.getinteriorfield(lltype.Signed, s3, 'x') == 46
-        else:
-            py.test.raises(TypeError, llop.getfield, lltype.Signed, s3, 'x')
-            py.test.raises(TypeError, llop.getinteriorfield,
-                           lltype.Signed, s3, 'x')
-        py.test.raises(TypeError, llop.getfield, lltype.Signed, s3, 'y')
-        py.test.raises(TypeError, llop.getinteriorfield,
-                       lltype.Signed, s3, 'y')
+    assert llop.getinteriorfield(lltype.Signed, s3, 'x') == 46
+    py.test.raises(TypeError, llop.getinteriorfield, lltype.Signed, s3, 'y')
 
 # ___________________________________________________________________________
 # This tests that the LLInterpreter and the LL_OPERATIONS tables are in sync.

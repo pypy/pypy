@@ -309,14 +309,13 @@ class Struct(ContainerType):
         return _struct(self, n, initialization='example')
 
     def _immutable_field(self, field):
-        if self._hints.get('immutable'):
-            return True
         if 'immutable_fields' in self._hints:
             try:
-                return self._hints['immutable_fields'].fields[field]
+                s = self._hints['immutable_fields'].fields[field]
+                return s or True
             except KeyError:
                 pass
-        return False
+        return self._hints.get('immutable', False)
 
 class RttiStruct(Struct):
     _runtime_type_info = None
