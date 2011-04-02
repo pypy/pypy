@@ -397,7 +397,11 @@ class OptHeap(Optimization):
         # as a regular getfield.
         if not smdescr.is_still_valid():
             return
-        # XXX record as an out-of-line guard!
+        # record as an out-of-line guard
+        if self.optimizer.quasi_immutable_deps is None:
+            self.optimizer.quasi_immutable_deps = {}
+        self.optimizer.quasi_immutable_deps[smdescr.mutate] = None
+        # perform the replacement in the list of operations
         fieldvalue = self.getvalue(smdescr.constantfieldbox)
         cf = self.field_cache(smdescr.fielddescr)
         cf.remember_field_value(structvalue, fieldvalue)

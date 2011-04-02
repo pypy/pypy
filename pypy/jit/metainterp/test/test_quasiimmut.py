@@ -63,6 +63,12 @@ class QuasiImmutTests:
         res = self.meta_interp(f, [100, 7])
         assert res == 700
         self.check_loops(getfield_gc=0, everywhere=True)
+        #
+        from pypy.jit.metainterp.warmspot import get_stats
+        loops = get_stats().loops
+        for loop in loops:
+            assert len(loop.quasi_immutable_deps) == 1
+            assert isinstance(loop.quasi_immutable_deps.keys()[0], SlowMutate)
 
     def test_nonopt_1(self):
         myjitdriver = JitDriver(greens=[], reds=['x', 'total', 'lst'])
@@ -86,6 +92,11 @@ class QuasiImmutTests:
         res = self.meta_interp(f, [100, 7])
         assert res == 721
         self.check_loops(getfield_gc=1)
+        #
+        from pypy.jit.metainterp.warmspot import get_stats
+        loops = get_stats().loops
+        for loop in loops:
+            assert loop.quasi_immutable_deps is None
 
     def test_change_during_tracing_1(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
