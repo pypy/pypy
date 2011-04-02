@@ -484,16 +484,19 @@ def cast_object_to_ptr(PTR, object):
     Limited to casting a given object to a single type.
     """
     if isinstance(PTR, lltype.Ptr):
-        if not hasattr(object, '_TYPE'):
-            object._TYPE = PTR.TO
-        else:
-            assert object._TYPE == PTR.TO
+        TO = PTR.TO
+    else:
+        TO = PTR
+    if not hasattr(object, '_carry_around_for_tests'):
+        assert not hasattr(object, '_TYPE')
+        object._carry_around_for_tests = True
+        object._TYPE = TO
+    else:
+        assert object._TYPE == TO
+    #
+    if isinstance(PTR, lltype.Ptr):
         return lltype._ptr(PTR, object, True)
     elif isinstance(PTR, ootype.Instance):
-        if not hasattr(object, '_TYPE'):
-            object._TYPE = PTR
-        else:
-            assert object._TYPE == PTR
         return object
     else:
         raise NotImplementedError("cast_object_to_ptr(%r, ...)" % PTR)

@@ -998,6 +998,8 @@ def normalizeptr(p, check=True):
         return None   # null pointer
     if type(p._obj0) is int:
         return p      # a pointer obtained by cast_int_to_ptr
+    if getattr(p._obj0, '_carry_around_for_tests', False):
+        return p      # a pointer obtained by cast_instance_to_base_ptr
     container = obj._normalizedcontainer()
     if type(container) is int:
         # this must be an opaque ptr originating from an integer
@@ -1850,8 +1852,8 @@ class _opaque(_parentable):
         if self.__class__ is not other.__class__:
             return NotImplemented
         if hasattr(self, 'container') and hasattr(other, 'container'):
-            obj1 = self.container._normalizedcontainer()
-            obj2 = other.container._normalizedcontainer()
+            obj1 = self._normalizedcontainer()
+            obj2 = other._normalizedcontainer()
             return obj1 == obj2
         else:
             return self is other
@@ -1874,6 +1876,8 @@ class _opaque(_parentable):
         if hasattr(self, 'container'):
             # an integer, cast to a ptr, cast to an opaque    
             if type(self.container) is int:
+                return self.container
+            if getattr(self.container, '_carry_around_for_tests', False):
                 return self.container
             return self.container._normalizedcontainer()
         else:
