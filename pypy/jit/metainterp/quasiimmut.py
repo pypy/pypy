@@ -1,4 +1,5 @@
 from pypy.rpython.rclass import IR_QUASI_IMMUTABLE
+from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.jit.metainterp.history import AbstractDescr
 
@@ -28,6 +29,21 @@ def get_current_mutate_instance(cpu, gcref, mutatefielddescr):
         cpu.bh_setfield_gc_r(gcref, mutatefielddescr, mutate.hide(cpu))
     return mutate
 
+def make_invalidation_function(STRUCT, mutatefieldname):
+    #
+    def _invalidate_now(p):
+        mutate_ptr = getattr(p, mutatefieldname)
+        setattr(p, mutatefieldname, lltype.nullptr(rclass.OBJECT))
+        mutate = cast_base_ptr_to_instance(SlowMutate, mutate_ptr)
+        mutate.invalidate()
+    _invalidate_now._dont_inline_ = True
+    #
+    def invalidation(p):
+        if getattr(p, mutatefieldname):
+            _invalidate_now(p)
+    #
+    return invalidation
+
 
 class SlowMutate(object):
     def __init__(self):
@@ -41,6 +57,9 @@ class SlowMutate(object):
     def show(cpu, mutate_gcref):
         mutate_ptr = cpu.ts.cast_to_baseclass(mutate_gcref)
         return cast_base_ptr_to_instance(SlowMutate, mutate_ptr)
+
+    def invalidate(self):
+        pass    # XXX
 
 
 class SlowMutateDescr(AbstractDescr):
@@ -61,5 +80,12 @@ class SlowMutateDescr(AbstractDescr):
         return fieldbox.constbox()
 
     def is_still_valid(self):
-        currentbox = self.get_current_constant_fieldvalue()
-        return self.constantfieldbox.same_constant(currentbox)
+        gcref = self.structbox.getref_base()
+        curmut = get_current_mutate_instance(self.cpu, gcref,
+                                             self.mutatefielddescr)
+        if curmut is not self.mutate:
+            return False
+        else:
+            currentbox = self.get_current_constant_fieldvalue()
+            assert self.constantfieldbox.same_constant(currentbox)
+            return True
