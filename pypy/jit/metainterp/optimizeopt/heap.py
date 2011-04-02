@@ -378,6 +378,23 @@ class OptHeap(Optimization):
         self.cache_arrayitem_value(op.getdescr(), value, indexvalue, fieldvalue,
                                    write=True)
 
+    def optimize_QUASIIMMUT_FIELD(self, op):
+        # Pattern: QUASIIMMUT_FIELD(s, descr=SlowMutateDescr)
+        #          x = GETFIELD_GC(s, descr='inst_x')
+        # If 's' is a constant (after optimizations), then we make 's.inst_x'
+        # a constant too, and we rely on the rest of the optimizations to
+        # constant-fold the following getfield_gc.
+        structvalue = self.getvalue(op.getarg(0))
+        if structvalue.is_constant():
+            from pypy.jit.metainterp.quasiimmut import SlowMutateDescr
+            # XXX check that the value is still correct!
+            # XXX record as an out-of-line guard!
+            smdescr = op.getdescr()
+            assert isinstance(smdescr, SlowMutateDescr)
+            fieldvalue = self.getvalue(smdescr.constantfieldbox)
+            cf = self.field_cache(smdescr.fielddescr)
+            cf.remember_field_value(structvalue, fieldvalue)
+
     def propagate_forward(self, op):
         opnum = op.getopnum()
         for value, func in optimize_ops:

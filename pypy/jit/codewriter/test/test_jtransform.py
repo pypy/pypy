@@ -962,9 +962,10 @@ def test_quasi_immutable():
         tr = Transformer(FakeCPU())
         [op1, op2] = tr.rewrite_operation(op)
         assert op1.opname == 'record_quasiimmut_field'
-        assert len(op1.args) == 2
+        assert len(op1.args) == 3
         assert op1.args[0] == v_x
-        assert op1.args[1] == ('fielddescr', STRUCT, 'mutate_x')
+        assert op1.args[1] == ('fielddescr', STRUCT, 'inst_x')
+        assert op1.args[2] == ('fielddescr', STRUCT, 'mutate_x')
         assert op1.result is None
         assert op2.opname == 'getfield_gc_i'
         assert len(op2.args) == 2

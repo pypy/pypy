@@ -555,6 +555,19 @@ class MIFrame(object):
     opimpl_setfield_raw_r = _opimpl_setfield_raw_any
     opimpl_setfield_raw_f = _opimpl_setfield_raw_any
 
+    @arguments("box", "descr", "descr")
+    def opimpl_record_quasiimmut_field(self, box, fielddescr,
+                                       mutatefielddescr):
+        from pypy.jit.metainterp.quasiimmut import SlowMutateDescr
+        cpu = self.metainterp.cpu
+        fieldbox = executor.execute(cpu, self.metainterp, rop.GETFIELD_GC,
+                                    fielddescr, box)
+        fieldbox = fieldbox.constbox()
+        descr = SlowMutateDescr(cpu, box.getref_base(), fieldbox,
+                                fielddescr, mutatefielddescr)
+        self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
+                                       None, descr=descr)
+
     def _nonstandard_virtualizable(self, pc, box):
         # returns True if 'box' is actually not the "standard" virtualizable
         # that is stored in metainterp.virtualizable_boxes[-1]

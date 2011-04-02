@@ -1166,6 +1166,11 @@ class BlackholeInterpreter(object):
     def bhimpl_setfield_raw_f(cpu, struct, fielddescr, newvalue):
         cpu.bh_setfield_raw_f(struct, fielddescr, newvalue)
 
+    @arguments("cpu", "r", "d", "d")
+    def bhimpl_record_quasiimmut_field(self, struct, fielddescr,
+                                       mutatefielddescr):
+        pass
+
     @arguments("cpu", "d", returns="r")
     def bhimpl_new(cpu, descr):
         return cpu.bh_new(descr)

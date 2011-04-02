@@ -1,5 +1,6 @@
 from pypy.rpython.rclass import IR_QUASI_IMMUTABLE
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+from pypy.jit.metainterp.history import AbstractDescr
 
 
 def is_quasi_immutable(STRUCT, fieldname):
@@ -40,3 +41,14 @@ class SlowMutate(object):
     def show(cpu, mutate_gcref):
         mutate_ptr = cpu.ts.cast_to_baseclass(mutate_gcref)
         return cast_base_ptr_to_instance(SlowMutate, mutate_ptr)
+
+
+class SlowMutateDescr(AbstractDescr):
+    def __init__(self, cpu, gcref,
+                 constantfieldbox, fielddescr, mutatefielddescr):
+        self.cpu = cpu
+        self.gcref = gcref
+        self.constantfieldbox = constantfieldbox
+        self.fielddescr = fielddescr
+        self.mutatefielddescr = mutatefielddescr
+        self.mutate = get_current_mutate_instance(cpu, gcref, mutatefielddescr)

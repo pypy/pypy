@@ -584,7 +584,7 @@ class Transformer(object):
                 v_inst.concretetype.TO,
                 quasiimmut.get_mutate_field_name(c_fieldname.value))
             op1 = [SpaceOperation('record_quasiimmut_field',
-                                  [v_inst, descr1], None),
+                                  [v_inst, descr, descr1], None),
                    op1]
         return op1
 

@@ -475,6 +475,7 @@ _oplist = [
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
+    'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
