@@ -385,15 +385,22 @@ class OptHeap(Optimization):
         # a constant too, and we rely on the rest of the optimizations to
         # constant-fold the following getfield_gc.
         structvalue = self.getvalue(op.getarg(0))
-        if structvalue.is_constant():
-            from pypy.jit.metainterp.quasiimmut import SlowMutateDescr
-            # XXX check that the value is still correct!
-            # XXX record as an out-of-line guard!
-            smdescr = op.getdescr()
-            assert isinstance(smdescr, SlowMutateDescr)
-            fieldvalue = self.getvalue(smdescr.constantfieldbox)
-            cf = self.field_cache(smdescr.fielddescr)
-            cf.remember_field_value(structvalue, fieldvalue)
+        if not structvalue.is_constant():
+            return    # not a constant at all; ignore QUASIIMMUT_FIELD
+        #
+        from pypy.jit.metainterp.quasiimmut import SlowMutateDescr
+        smdescr = op.getdescr()
+        assert isinstance(smdescr, SlowMutateDescr)
+        # check that the value is still correct; it could have changed
+        # already between the tracing and now.  In this case, we are
+        # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
+        # as a regular getfield.
+        if not smdescr.is_still_valid():
+            return
+        # XXX record as an out-of-line guard!
+        fieldvalue = self.getvalue(smdescr.constantfieldbox)
+        cf = self.field_cache(smdescr.fielddescr)
+        cf.remember_field_value(structvalue, fieldvalue)
 
     def propagate_forward(self, op):
         opnum = op.getopnum()

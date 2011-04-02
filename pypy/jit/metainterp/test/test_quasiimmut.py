@@ -4,7 +4,7 @@ from pypy.jit.metainterp import typesystem
 from pypy.jit.metainterp.quasiimmut import SlowMutate
 from pypy.jit.metainterp.quasiimmut import get_current_mutate_instance
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, dont_look_inside
 
 
 def test_get_current_mutate_instance():
@@ -63,6 +63,31 @@ class QuasiImmutTests:
         res = self.meta_interp(f, [100, 7])
         assert res == 700
         self.check_loops(getfield_gc=0, everywhere=True)
+
+    def test_change_during_tracing(self):
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
+        class Foo:
+            _immutable_fields_ = ['a?']
+            def __init__(self, a):
+                self.a = a
+        @dont_look_inside
+        def residual_call(foo):
+            foo.a += 1
+        def f(a, x):
+            foo = Foo(a)
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x, total=total)
+                # read a quasi-immutable field out of a Constant
+                total += foo.a
+                residual_call(foo)
+                x -= 1
+            return total
+        #
+        assert f(100, 7) == 721
+        res = self.meta_interp(f, [100, 7])
+        assert res == 721
+        self.check_loops(getfield_gc=1)
 
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):

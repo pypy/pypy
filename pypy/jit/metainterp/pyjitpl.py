@@ -560,11 +560,7 @@ class MIFrame(object):
                                        mutatefielddescr):
         from pypy.jit.metainterp.quasiimmut import SlowMutateDescr
         cpu = self.metainterp.cpu
-        fieldbox = executor.execute(cpu, self.metainterp, rop.GETFIELD_GC,
-                                    fielddescr, box)
-        fieldbox = fieldbox.constbox()
-        descr = SlowMutateDescr(cpu, box.getref_base(), fieldbox,
-                                fielddescr, mutatefielddescr)
+        descr = SlowMutateDescr(cpu, box, fielddescr, mutatefielddescr)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
 

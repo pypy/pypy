@@ -44,11 +44,22 @@ class SlowMutate(object):
 
 
 class SlowMutateDescr(AbstractDescr):
-    def __init__(self, cpu, gcref,
-                 constantfieldbox, fielddescr, mutatefielddescr):
+    def __init__(self, cpu, structbox, fielddescr, mutatefielddescr):
         self.cpu = cpu
-        self.gcref = gcref
-        self.constantfieldbox = constantfieldbox
+        self.structbox = structbox
         self.fielddescr = fielddescr
         self.mutatefielddescr = mutatefielddescr
+        gcref = structbox.getref_base()
         self.mutate = get_current_mutate_instance(cpu, gcref, mutatefielddescr)
+        self.constantfieldbox = self.get_current_constant_fieldvalue()
+
+    def get_current_constant_fieldvalue(self):
+        from pypy.jit.metainterp import executor
+        from pypy.jit.metainterp.resoperation import rop
+        fieldbox = executor.execute(self.cpu, None, rop.GETFIELD_GC,
+                                    self.fielddescr, self.structbox)
+        return fieldbox.constbox()
+
+    def is_still_valid(self):
+        currentbox = self.get_current_constant_fieldvalue()
+        return self.constantfieldbox.same_constant(currentbox)
