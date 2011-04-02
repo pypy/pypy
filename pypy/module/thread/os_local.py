@@ -51,10 +51,6 @@ Local.typedef = TypeDef("thread._local",
                         __dict__ = GetSetProperty(descr_get_dict, cls=Local),
                         )
 
-def getlocaltype(space):
-    return space.gettypeobject(Local.typedef)
-
-
 def finish_thread(w_obj):
     assert isinstance(w_obj, Local)
     ident = thread.get_ident()
