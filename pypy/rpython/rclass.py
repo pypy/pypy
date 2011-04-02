@@ -3,7 +3,8 @@ from pypy.annotation import model as annmodel
 #from pypy.annotation.classdef import isclassdef
 from pypy.annotation import description
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, getgcflavor
+from pypy.rpython.rmodel import Repr, getgcflavor, inputconst
+from pypy.rpython.lltypesystem.lltype import Void
 
 
 class FieldListAccessor(object):
@@ -155,7 +156,8 @@ class AbstractInstanceRepr(Repr):
         self.classdef = classdef
 
     def _setup_repr(self):
-        pass
+        if self.classdef is None:
+            self.immutable_field_set = set()
 
     def _check_for_immutable_hints(self, hints):
         loc = self.classdef.classdesc.lookup('_immutable_')
@@ -167,13 +169,13 @@ class AbstractInstanceRepr(Repr):
                     self.classdef,))
             hints = hints.copy()
             hints['immutable'] = True
-        self.immutable_field_list = []  # unless overwritten below
+        self.immutable_field_set = set()  # unless overwritten below
         if self.classdef.classdesc.lookup('_immutable_fields_') is not None:
             hints = hints.copy()
             immutable_fields = self.classdef.classdesc.classdict.get(
                 '_immutable_fields_')
             if immutable_fields is not None:
-                self.immutable_field_list = immutable_fields.value
+                self.immutable_field_set = set(immutable_fields.value)
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
         return hints
@@ -201,20 +203,23 @@ class AbstractInstanceRepr(Repr):
         if "immutable_fields" in hints:
             accessor = hints["immutable_fields"]
             if not hasattr(accessor, 'fields'):
-                immutable_fields = []
+                immutable_fields = set()
                 rbase = self
                 while rbase.classdef is not None:
-                    immutable_fields += rbase.immutable_field_list
+                    immutable_fields.update(rbase.immutable_field_set)
                     rbase = rbase.rbase
                 self._parse_field_list(immutable_fields, accessor)
 
     def _parse_field_list(self, fields, accessor):
         with_suffix = {}
         for name in fields:
-            if name.endswith('[*]'):
+            if name.endswith('[*]'):    # for virtualizables' lists
                 name = name[:-3]
                 suffix = '[*]'
-            else:
+            elif name.endswith('?'):    # a quasi-immutable field
+                name = name[:-1]
+                suffix = '?'
+            else:                       # a regular immutable/green field
                 suffix = ''
             try:
                 mangled_name, r = self._get_field(name)
@@ -227,7 +232,6 @@ class AbstractInstanceRepr(Repr):
     def _check_for_immutable_conflicts(self):
         # check for conflicts, i.e. a field that is defined normally as
         # mutable in some parent class but that is now declared immutable
-        from pypy.rpython.lltypesystem.lltype import Void
         is_self_immutable = "immutable" in self.object_type._hints
         base = self
         while base.classdef is not None:
@@ -248,11 +252,29 @@ class AbstractInstanceRepr(Repr):
                         "class %r has _immutable_=True, but parent class %r "
                         "defines (at least) the mutable field %r" % (
                         self, base, fieldname))
-                if fieldname in self.immutable_field_list:
+                if (fieldname in self.immutable_field_set or
+                    (fieldname + '?') in self.immutable_field_set):
                     raise ImmutableConflictError(
                         "field %r is defined mutable in class %r, but "
                         "listed in _immutable_fields_ in subclass %r" % (
                         fieldname, base, self))
+
+    def hook_access_field(self, vinst, cname, llops, flags):
+        pass        # for virtualizables; see rvirtualizable2.py
+
+    def hook_setfield(self, vinst, fieldname, llops):
+        if self.is_quasi_immutable(fieldname):
+            c_fieldname = inputconst(Void, 'mutate_' + fieldname)
+            llops.genop('jit_force_quasi_immutable', [vinst, c_fieldname])
+
+    def is_quasi_immutable(self, fieldname):
+        search = fieldname + '?'
+        rbase = self
+        while rbase.classdef is not None:
+            if search in rbase.immutable_field_set:
+                return True
+            rbase = rbase.rbase
+        return False
 
     def new_instance(self, llops, classcallhop=None):
         raise NotImplementedError
