@@ -804,7 +804,7 @@ class Regalloc(object):
         self.assembler._write_fail_index(fail_index)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         for v in guard_op.getfailargs():
-            if v in self.reg_bindings:
+            if v in self.rm.reg_bindings or v in self.vfprm.reg_bindings:
                 self.force_spill_var(v)
         self.assembler.emit_op_call(op, args, self, fcond)
         locs = self._prepare_guard(guard_op)

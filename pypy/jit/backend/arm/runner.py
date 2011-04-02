@@ -1,6 +1,6 @@
 from pypy.jit.backend.arm.assembler import AssemblerARM
 from pypy.jit.backend.arm.arch import WORD
-from pypy.jit.backend.arm.registers import all_regs
+from pypy.jit.backend.arm.registers import all_regs, all_vfp_regs
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
@@ -106,9 +106,11 @@ class ArmCPU(AbstractLLCPU):
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = -1
         # start of "no gc operation!" block
-        frame_depth = faildescr._arm_frame_depth
+        frame_depth = faildescr._arm_frame_depth*WORD
         addr_end_of_frame = (addr_of_force_index -
-                            (frame_depth+len(all_regs))*WORD)
+                            (frame_depth +
+                            len(all_regs)*WORD + 
+                            len(all_vfp_regs)*2*WORD))
         fail_index_2 = self.assembler.failure_recovery_func(
             faildescr._failure_recovery_code,
             addr_of_force_index,
