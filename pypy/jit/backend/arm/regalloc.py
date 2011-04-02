@@ -46,9 +46,11 @@ class ARMFrameManager(FrameManager):
 
     @staticmethod
     def frame_pos(loc, type):
-        assert type == INT or type == REF
-        # XXX for now we only have one word stack locs
-        return locations.StackLocation(loc, type=type)
+        if type == INT or type == REF:
+            num_words = 1
+        else:
+            num_words = 2
+        return locations.StackLocation(loc, num_words=num_words, type=type)
 
 def void(self, op, fcond):
     return []

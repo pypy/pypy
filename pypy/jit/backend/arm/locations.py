@@ -53,6 +53,9 @@ class VFPRegisterLocation(RegisterLocation):
     def is_vfp_reg(self):
         return True
 
+    def as_key(self):
+        return self.value + 20
+
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
 
@@ -69,7 +72,7 @@ class ImmLocation(AssemblerLocation):
         return True
 
     def as_key(self):
-        return self.value + 20
+        return self.value + 40
 
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
@@ -98,9 +101,6 @@ class StackLocation(AssemblerLocation):
     def __init__(self, position, num_words=1, type=INT):
         self.position = position
         self.width = num_words * WORD
-        # One of INT, REF, FLOAT
-        assert num_words == 1
-        assert type == INT or type == REF
         self.type = type
 
     def frame_size(self):

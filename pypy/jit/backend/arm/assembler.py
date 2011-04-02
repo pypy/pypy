@@ -149,13 +149,15 @@ class AssemblerARM(ResOpAssembler):
                 i += 4
             elif res == self.STACK_LOC:
                 stack_loc = self.decode32(enc, i+1)
-                value = self.decode32(stack, frame_depth - stack_loc*WORD)
+                if group == self.FLOAT_TYPE:
+                    value = self.decode64(stack, frame_depth - stack_loc*WORD)
+                else:
+                    value = self.decode32(stack, frame_depth - stack_loc*WORD)
                 i += 4
             else: # REG_LOC
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
-                    t = self.decode64(vfp_regs, reg*2*WORD)
-                    value = longlong2float(t)
+                    value = self.decode64(vfp_regs, reg*2*WORD)
                 else:
                     value = self.decode32(regs, reg*WORD)
 
@@ -164,7 +166,7 @@ class AssemblerARM(ResOpAssembler):
             elif group == self.REF_TYPE:
                 self.fail_boxes_ptr.setitem(fail_index, rffi.cast(llmemory.GCREF, value))
             elif group == self.FLOAT_TYPE:
-                self.fail_boxes_float.setitem(fail_index, longlong.getfloatstorage(value))
+                self.fail_boxes_float.setitem(fail_index, value)
             else:
                 assert 0, 'unknown type'
 
@@ -194,6 +196,8 @@ class AssemblerARM(ResOpAssembler):
                 # XXX decode imm if necessary
                 assert 0, 'Imm Locations are not supported'
             elif res == self.STACK_LOC:
+                if res_type == FLOAT:
+                    assert 0, 'float on stack'
                 stack_loc = self.decode32(enc, j+1)
                 loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
                 j += 4
@@ -371,7 +375,6 @@ class AssemblerARM(ResOpAssembler):
         reg_args = self._count_reg_args(arglocs)
 
         stack_locs = len(arglocs) - reg_args
-
         selected_reg = 0
         for i in range(reg_args):
             loc = arglocs[i]
@@ -650,6 +653,24 @@ class AssemblerARM(ResOpAssembler):
                     self.mc.LDR_rr(loc.value, r.fp.value, temp.value, cond=cond)
                 else:
                     self.mc.LDR_ri(loc.value, r.fp.value, offset.value, cond=cond)
+            elif loc.is_stack() and prev_loc.is_vfp_reg():
+                # spill vfp register
+                offset = ConstInt(loc.position*-WORD)
+                if not _check_imm_arg(offset):
+                    self.mc.gen_load_int(temp.value, offset.value)
+                    self.mc.ADD_rr(temp.value, r.fp.value, temp.value)
+                else:
+                    self.mc.ADD_rr(temp.value, r.fp.value, offset)
+                self.mc.VSTR(prev_loc.value, temp.value, cond=cond)
+            elif loc.is_vfp_reg() and prev_loc.is_stack():
+                # load spilled value into vfp reg
+                offset = ConstInt(prev_loc.position*-WORD)
+                if not _check_imm_arg(offset):
+                    self.mc.gen_load_int(temp.value, offset.value)
+                    self.mc.ADD_rr(temp.value, r.fp.value, temp.value)
+                else:
+                    self.mc.ADD_rr(temp.value, r.fp.value, offset)
+                self.mc.VLDR(loc.value, temp.value, cond=cond)
             else:
                 assert 0, 'unsupported case'
         elif loc.is_reg() and prev_loc.is_reg():
@@ -681,6 +702,8 @@ class AssemblerARM(ResOpAssembler):
             self.regalloc_mov(r.ip, loc)
         elif loc.is_reg():
             self.mc.POP([loc.value])
+        elif loc.is_vfp_reg():
+            self.mc.VPOP([loc.value])
         else:
             assert 0, 'ffuu'
 
