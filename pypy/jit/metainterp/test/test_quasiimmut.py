@@ -64,6 +64,29 @@ class QuasiImmutTests:
         assert res == 700
         self.check_loops(getfield_gc=0, everywhere=True)
 
+    def test_nonopt_1(self):
+        myjitdriver = JitDriver(greens=[], reds=['x', 'total', 'lst'])
+        class Foo:
+            _immutable_fields_ = ['a?']
+            def __init__(self, a):
+                self.a = a
+        def setup(x):
+            return [Foo(100 + i) for i in range(x)]
+        def f(a, x):
+            lst = setup(x)
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(lst=lst, x=x, total=total)
+                # read a quasi-immutable field out of a variable
+                x -= 1
+                total += lst[x].a
+            return total
+        #
+        assert f(100, 7) == 721
+        res = self.meta_interp(f, [100, 7])
+        assert res == 721
+        self.check_loops(getfield_gc=1)
+
     def test_change_during_tracing(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
         class Foo:
