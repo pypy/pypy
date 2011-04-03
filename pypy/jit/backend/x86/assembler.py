@@ -951,7 +951,7 @@ class Assembler386(object):
 
     def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax):
         if IS_X86_64:
-            return self._emit_call_64(x, arglocs, start)
+            return self._emit_call_64(force_index, x, arglocs, start)
 
         p = 0
         n = len(arglocs)
@@ -979,7 +979,7 @@ class Assembler386(object):
         self.mc.CALL(x)
         self.mark_gc_roots(force_index)
 
-    def _emit_call_64(self, force_index, x, arglocs, start=0):
+    def _emit_call_64(self, force_index, x, arglocs, start):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
