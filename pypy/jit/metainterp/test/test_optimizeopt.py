@@ -135,7 +135,7 @@ class Storage(compile.ResumeGuardDescr):
         return type(self) is type(other)      # xxx obscure
     def clone_if_mutable(self):
         res = Storage(self.metainterp_sd, self.original_greenkey)
-        self.copy_all_attrbutes_into(res)
+        self.copy_all_attributes_into(res)
         return res
 
 def _sortboxes(boxes):
