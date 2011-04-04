@@ -378,6 +378,10 @@ class LocationCodeBuilder(object):
                             _rx86_getattr(self, name + "_l")(val)
                             self.add_pending_relocation()
                         else:
+                            # xxx can we avoid "MOV r11, $val; JMP/CALL *r11"
+                            # in case it would fit a 32-bit displacement?
+                            # Hard, because we don't know yet where this insn
+                            # will end up...
                             assert self.WORD == 8
                             self._load_scratch(val)
                             _rx86_getattr(self, name + "_r")(X86_64_SCRATCH_REG.value)
