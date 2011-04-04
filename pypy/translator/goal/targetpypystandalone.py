@@ -158,8 +158,8 @@ class PyPyTarget(object):
             from pypy.config.pypyoption import enable_translationmodules
             enable_translationmodules(config)
 
-        if config.translation.type_system == 'ootype':
-            config.objspace.usemodules.suggest(rbench=True)
+        ## if config.translation.type_system == 'ootype':
+        ##     config.objspace.usemodules.suggest(rbench=True)
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
