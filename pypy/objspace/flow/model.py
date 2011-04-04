@@ -379,22 +379,6 @@ def uniqueitems(lst):
     return result
 
 
-def traverse(visit, functiongraph):
-    block = functiongraph.startblock
-    visit(block)
-    seen = identity_dict()
-    seen[block] = True
-    stack = list(block.exits[::-1])
-    while stack:
-        link = stack.pop()
-        visit(link)
-        block = link.target
-        if block not in seen:
-            visit(block)
-            seen[block] = True
-            stack += block.exits[::-1]
-
-
 def flattenobj(*args):
     for arg in args:
         try:

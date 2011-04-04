@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation, traverse
+from pypy.objspace.flow.model import SpaceOperation
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
@@ -149,8 +149,7 @@ class BaseMallocRemover(object):
         set_use_point(graph.exceptblock, graph.exceptblock.inputargs[0], "except")
         set_use_point(graph.exceptblock, graph.exceptblock.inputargs[1], "except")
 
-        def visit(node):
-            if isinstance(node, Block):
+        for node in graph.iterblocks():
                 for op in node.operations:
                     if op.opname in self.IDENTITY_OPS:
                         # special-case these operations to identify their input
@@ -167,7 +166,7 @@ class BaseMallocRemover(object):
                 if isinstance(node.exitswitch, Variable):
                     set_use_point(node, node.exitswitch, "exitswitch", node)
 
-            if isinstance(node, Link):
+        for node in graph.iterlinks():
                 if isinstance(node.last_exception, Variable):
                     set_creation_point(node.prevblock, node.last_exception,
                                        "last_exception")
@@ -187,7 +186,6 @@ class BaseMallocRemover(object):
                         else:
                             d[arg] = True
 
-        traverse(visit, graph)
         return lifetimes.infos()
 
     def _try_inline_malloc(self, info):

@@ -1,7 +1,7 @@
 from __future__ import with_statement
 import new
 import py
-from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
+from pypy.objspace.flow.model import Constant, Block, Link, Variable
 from pypy.objspace.flow.model import mkentrymap, c_last_exception
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
