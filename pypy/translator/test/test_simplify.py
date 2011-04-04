@@ -156,36 +156,6 @@ def test_dont_remove_if_exception_guarded():
     assert graph.startblock.operations[-1].opname == 'direct_call'
 
 
-def test_remove_pointless_keepalive():
-    from pypy.rlib import objectmodel
-    class C:
-        y = None
-        z1 = None
-        z2 = None
-
-    def g():
-        return C()
-
-    def f(i):
-        c = g()
-        c.y
-        if i:
-            n = c.z1
-        else:
-            n = c.z2
-        objectmodel.keepalive_until_here(c, n)
-
-    graph, t = translate(f, [bool])
-
-    #t.view()
-
-    for block in graph.iterblocks():
-        for op in block.operations:
-            assert op.opname != 'getfield'
-            if op.opname == 'keepalive':
-                assert op.args[0] in graph.getargs()
-
-
 def test_remove_identical_variables():
     def g(code):
         pc = 0
