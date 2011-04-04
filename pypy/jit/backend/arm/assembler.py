@@ -710,6 +710,9 @@ class AssemblerARM(ResOpAssembler):
             self.mc.PUSH([loc.value])
         elif loc.is_vfp_reg():
             self.mc.VPUSH([loc.value])
+        elif loc.is_imm():
+            self.regalloc_mov(loc, r.ip)
+            self.mc.PUSH([r.ip.value])
         else:
             assert 0, 'ffuu'
 

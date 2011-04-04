@@ -214,7 +214,7 @@ class Regalloc(object):
             i += 1
             if loc.is_reg():
                 self.rm.reg_bindings[arg] = loc
-            elif loc.is_vfp_reg:
+            elif loc.is_vfp_reg():
                 self.vfprm.reg_bindings[arg] = loc
             else:
                 assert loc.is_stack()
@@ -264,8 +264,11 @@ class Regalloc(object):
             box = thing
         return loc, box
 
-
-
+    def _sync_var(self, v):
+        if v.type == FLOAT:
+            self.vfprm._sync_var(v)
+        else:
+            self.rm._sync_var(v)
 
     def prepare_op_int_add(self, op, fcond):
         boxes = list(op.getarglist())
