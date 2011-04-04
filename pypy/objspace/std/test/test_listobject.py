@@ -347,8 +347,9 @@ class AppTestW_ListObject(object):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']
         assert list((1, 2)) == [1, 2]
-        l = []
+        l = [1]
         assert list(l) is not l
+        assert list(l) == l
         assert list(range(10)) == range(10)
 
     def test_explicit_new_init(self):
