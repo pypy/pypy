@@ -140,7 +140,7 @@ def do_failure_recovery_func(withfloats):
     xmmregisters = lltype.malloc(rffi.LONGP.TO, 16+ACTUAL_CPU.NUM_REGS+1,
                                  flavor='raw', immortal=True)
     registers = rffi.ptradd(xmmregisters, 16)
-    stacklen = baseloc + 10
+    stacklen = baseloc + 30
     stack = lltype.malloc(rffi.LONGP.TO, stacklen, flavor='raw',
                           immortal=True)
     expected_ints = [0] * len(content)
