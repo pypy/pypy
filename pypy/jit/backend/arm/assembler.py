@@ -384,16 +384,33 @@ class AssemblerARM(ResOpAssembler):
             else:
                 selected_reg += 1
 
-        for i in range(stack_locs):
-            loc = arglocs[reg_args + i]
-            stack_position = (len(r.callee_saved_registers) + 1 +i)*WORD
+        stack_position = len(r.callee_saved_registers)*WORD + \
+                            len(r.callee_saved_vfp_registers)*2*WORD + \
+                            WORD # for the FAIL INDEX
+        for i in range(reg_args, len(arglocs)):
+            loc = arglocs[i]
             if loc.is_reg():
                 self.mc.LDR_ri(loc.value, r.fp.value, stack_position)
+            elif loc.is_vfp_reg():
+                self.mc.VLDR(loc.value, r.fp.value, stack_position)
             elif loc.is_stack():
-                self.mc.LDR_ri(r.ip.value, r.fp.value, stack_position)
-                self.mov_loc_loc(r.ip, loc)
+                if loc.type == FLOAT:
+                    with saved_registers(self.mc, [], [r.d0]):
+                        self.mc.VLDR(r.d0.value, r.fp.value, stack_position)
+                        self.mov_loc_loc(r.d0, loc)
+                elif loc.type == INT or loc.type == REF:
+                    self.mc.LDR_ri(r.ip.value, r.fp.value, stack_position)
+                    self.mov_loc_loc(r.ip, loc)
+                else:
+                    assert 0, 'invalid location'
             else:
                 assert 0, 'invalid location'
+            if loc.type == FLOAT:
+                size = 2
+            else:
+                size = 1
+            stack_position += size * WORD
+
         sp_patch_location = self._prepare_sp_patch_position()
         self.mc.B_offs(loop_head)
         self._patch_sp_offset(sp_patch_location, looptoken._arm_frame_depth)
