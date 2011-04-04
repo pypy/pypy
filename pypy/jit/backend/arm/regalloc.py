@@ -198,6 +198,12 @@ class Regalloc(object):
             return self.rm.make_sure_var_in_reg(var, forbidden_vars,
                                         selected_reg, need_lower_byte)
 
+    def convert_to_imm(self, value):
+        if isinstance(value, ConstInt):
+            return self.rm.convert_to_imm(value)
+        else:
+            assert isinstance(value, ConstFloat)
+            return self.vfprm.convert_to_imm(value)
 
     def update_bindings(self, locs, frame_depth, inputargs):
         used = {}
