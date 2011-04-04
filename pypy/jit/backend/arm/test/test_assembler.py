@@ -20,11 +20,11 @@ CPU = getcpuclass()
 class TestRunningAssembler(object):
     def setup_method(self, method):
         cpu = CPU(None, None)
-        lp = LoopToken()
-        lp.compiled_loop_token = CompiledLoopToken(cpu, None)
+        #lp = LoopToken()
+        #lp.compiled_loop_token = CompiledLoopToken(cpu, None)
         self.a = AssemblerARM(cpu)
         self.a.setup_once()
-        self.a.setup(lp)
+        self.a.setup()
 
     def test_make_operation_list(self):
         i = rop.INT_ADD
