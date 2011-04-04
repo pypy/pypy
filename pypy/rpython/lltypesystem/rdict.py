@@ -4,11 +4,14 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
-from pypy.rlib import objectmodel
+from pypy.rlib import objectmodel, jit
 from pypy.rpython import rmodel
+
+HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
+MASK = intmask(HIGHEST_BIT - 1)
 
 # ____________________________________________________________
 #
@@ -306,6 +309,13 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_clear, v_dict)
 
+    def rtype_method_popitem(self, hop):
+        v_dict, = hop.inputargs(self)
+        r_tuple = hop.r_result
+        cTUPLE = hop.inputconst(lltype.Void, r_tuple.lowleveltype)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
+
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -398,6 +408,10 @@ def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
+@jit.dont_look_inside
+def ll_get_value(d, i):
+    return d.entries[i].value
+
 def ll_keyhash_custom(d, key):
     DICT = lltype.typeOf(d).TO
     return hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
@@ -415,18 +429,21 @@ def ll_dict_is_true(d):
 
 def ll_dict_getitem(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
-    entries = d.entries
-    if entries.valid(i):
-        return entries[i].value 
-    else: 
-        raise KeyError 
-ll_dict_getitem.oopspec = 'dict.getitem(d, key)'
+    if not i & HIGHEST_BIT:
+        return ll_get_value(d, i)
+    else:
+        raise KeyError
 
 def ll_dict_setitem(d, key, value):
     hash = d.keyhash(key)
     i = ll_dict_lookup(d, key, hash)
+    return _ll_dict_setitem_lookup_done(d, key, value, hash, i)
+
+@jit.dont_look_inside
+def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
+    valid = (i & HIGHEST_BIT) == 0
+    i = i & MASK
     everused = d.entries.everused(i)
-    valid    = d.entries.valid(i)
     # set up the new entry
     ENTRY = lltype.typeOf(d.entries).TO.OF
     entry = d.entries[i]
@@ -442,7 +459,6 @@ def ll_dict_setitem(d, key, value):
         d.num_pristine_entries -= 1
         if d.num_pristine_entries <= len(d.entries) / 3:
             ll_dict_resize(d)
-ll_dict_setitem.oopspec = 'dict.setitem(d, key, value)'
 
 def ll_dict_insertclean(d, key, value, hash):
     # Internal routine used by ll_dict_resize() to insert an item which is
@@ -463,8 +479,12 @@ def ll_dict_insertclean(d, key, value, hash):
 
 def ll_dict_delitem(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
-    if not d.entries.valid(i):
+    if i & HIGHEST_BIT:
         raise KeyError
+    _ll_dict_del(d, i)
+ll_dict_delitem.oopspec = 'dict.delitem(d, key)'
+
+def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
     d.num_items -= 1
     # clear the key and the value if they are GC pointers
@@ -481,7 +501,6 @@ def ll_dict_delitem(d, key):
     num_entries = len(d.entries)
     if num_entries > DICT_INITSIZE and d.num_items < num_entries / 4:
         ll_dict_resize(d)
-ll_dict_delitem.oopspec = 'dict.delitem(d, key)'
 
 def ll_dict_resize(d):
     old_entries = d.entries
@@ -532,7 +551,7 @@ def ll_dict_lookup(d, key, hash):
     elif entries.everused(i):
         freeslot = i
     else:
-        return i    # pristine entry -- lookup failed
+        return i | HIGHEST_BIT # pristine entry -- lookup failed
 
     # In the loop, a deleted entry (everused and not valid) is by far
     # (factor of 100s) the least likely outcome, so test for that last.
@@ -547,7 +566,7 @@ def ll_dict_lookup(d, key, hash):
         if not entries.everused(i):
             if freeslot == -1:
                 freeslot = i
-            return freeslot
+            return freeslot | HIGHEST_BIT
         elif entries.valid(i):
             checkingkey = entries[i].key
             if direct_compare and checkingkey == key:
@@ -571,7 +590,7 @@ def ll_dict_lookup(d, key, hash):
 def ll_dict_lookup_clean(d, hash):
     # a simplified version of ll_dict_lookup() which assumes that the
     # key is new, and the dictionary doesn't contain deleted entries.
-    # It only find the next free slot for the given hash.
+    # It only finds the next free slot for the given hash.
     entries = d.entries
     mask = len(entries) - 1
     i = hash & mask
@@ -701,22 +720,19 @@ ll_dictnext_group = {'keys'  : _make_ll_dictnext('keys'),
 
 def ll_get(dict, key, default):
     i = ll_dict_lookup(dict, key, dict.keyhash(key))
-    entries = dict.entries
-    if entries.valid(i):
-        return entries[i].value
-    else: 
+    if not i & HIGHEST_BIT:
+        return ll_get_value(dict, i)
+    else:
         return default
-ll_get.oopspec = 'dict.get(dict, key, default)'
 
 def ll_setdefault(dict, key, default):
-    i = ll_dict_lookup(dict, key, dict.keyhash(key))
-    entries = dict.entries
-    if entries.valid(i):
-        return entries[i].value
+    hash = dict.keyhash(key)
+    i = ll_dict_lookup(dict, key, hash)
+    if not i & HIGHEST_BIT:
+        return ll_get_value(dict, i)
     else:
-        ll_dict_setitem(dict, key, default)
+        _ll_dict_setitem_lookup_done(dict, key, default, hash, i)
         return default
-ll_setdefault.oopspec = 'dict.setdefault(dict, key, default)'
 
 def ll_copy(dict):
     DICT = lltype.typeOf(dict).TO
@@ -758,7 +774,10 @@ def ll_update(dic1, dic2):
     while i < d2len:
         if entries.valid(i):
             entry = entries[i]
-            ll_dict_setitem(dic1, entry.key, entry.value)
+            hash = entries.hash(i)
+            key = entry.key
+            j = ll_dict_lookup(dic1, key, hash)
+            _ll_dict_setitem_lookup_done(dic1, key, entry.value, hash, j)
         i += 1
 ll_update.oopspec = 'dict.update(dic1, dic2)'
 
@@ -808,5 +827,27 @@ ll_dict_items  = _make_ll_keys_values_items('items')
 
 def ll_contains(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
-    return d.entries.valid(i)
-ll_contains.oopspec = 'dict.contains(d, key)'
+    return not i & HIGHEST_BIT
+
+POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Signed))
+global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
+
+def ll_popitem(ELEM, dic):
+    entries = dic.entries
+    dmask = len(entries) - 1
+    base = global_popitem_index.nextindex
+    counter = 0
+    while counter <= dmask:
+        i = (base + counter) & dmask
+        counter += 1
+        if entries.valid(i):
+            break
+    else:
+        raise KeyError
+    global_popitem_index.nextindex += counter
+    entry = entries[i]
+    r = lltype.malloc(ELEM.TO)
+    r.item0 = recast(ELEM.TO.item0, entry.key)
+    r.item1 = recast(ELEM.TO.item1, entry.value)
+    _ll_dict_del(dic, i)
+    return r

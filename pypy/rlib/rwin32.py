@@ -5,6 +5,7 @@ Common types, functions from core win32 libraries, such as kernel32
 from pypy.rpython.tool import rffi_platform
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import CompilationError
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import jit
@@ -41,7 +42,7 @@ class CConfig:
         LPCSTR = rffi_platform.SimpleType("LPCSTR", rffi.CCHARP)
         LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
         LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
-        LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.INTP)
+        LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.UINTP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
 
@@ -71,6 +72,7 @@ class CConfig:
 
         for name in """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
                        MAX_PATH
+                       WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
                     """.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
@@ -97,14 +99,14 @@ if WIN32:
     # is hidden by operations in ll2ctypes.  Call it now.
     GetLastError()
 
-    LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], rffi.VOIDP)
+    LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE)
     GetProcAddress = winexternal('GetProcAddress',
-                                 [rffi.VOIDP, rffi.CCHARP],
+                                 [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
-    FreeLibrary = winexternal('FreeLibrary', [rffi.VOIDP], BOOL)
+    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL)
 
     LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
-    CloseHandle = winexternal('CloseHandle', [HANDLE], lltype.Void)
+    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL)
 
     FormatMessage = winexternal(
         'FormatMessageA',
@@ -144,7 +146,7 @@ if WIN32:
                 [cfile], ExternalCompilationInfo(),
                 outputfilename = "dosmaperr",
                 standalone=True)
-        except WindowsError:
+        except (CompilationError, WindowsError):
             # Fallback for the mingw32 compiler
             errors = {
                 2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,
@@ -170,7 +172,7 @@ if WIN32:
 
     def llimpl_FormatError(code):
         "Return a message corresponding to the given Windows error code."
-        buf = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
+        buf = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
 
         try:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
@@ -178,7 +180,7 @@ if WIN32:
                                    None,
                                    code,
                                    DEFAULT_LANGUAGE,
-                                   rffi.cast(rffi.VOIDP, buf),
+                                   rffi.cast(rffi.CCHARP, buf),
                                    0, None)
 
             if msglen <= 2 or msglen > sys.maxint:
@@ -189,7 +191,7 @@ if WIN32:
             assert buflen > 0
 
             result = rffi.charpsize2str(buf[0], buflen)
-            LocalFree(buf[0])
+            LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
         finally:
             lltype.free(buf, flavor='raw')
 
@@ -241,3 +243,49 @@ if WIN32:
                                              info.c_szCSDVersion)))
         finally:
             lltype.free(info, flavor='raw')
+
+    _WaitForSingleObject = winexternal(
+        'WaitForSingleObject', [HANDLE, DWORD], DWORD)
+
+    def WaitForSingleObject(handle, timeout):
+        """Return values:
+        - WAIT_OBJECT_0 when the object is signaled
+        - WAIT_TIMEOUT when the timeout elapsed"""
+        res = _WaitForSingleObject(handle, timeout)
+        if res == rffi.cast(DWORD, -1):
+            raise lastWindowsError("WaitForSingleObject")
+        return res
+
+    _WaitForMultipleObjects = winexternal(
+        'WaitForMultipleObjects', [
+            DWORD, rffi.CArrayPtr(HANDLE), BOOL, DWORD], DWORD)
+
+    def WaitForMultipleObjects(handles, waitall=False, timeout=INFINITE):
+        """Return values:
+        - WAIT_OBJECT_0 + index when an object is signaled
+        - WAIT_TIMEOUT when the timeout elapsed"""
+        nb = len(handles)
+        handle_array = lltype.malloc(rffi.CArrayPtr(HANDLE).TO, nb,
+                                     flavor='raw')
+        try:
+            for i in range(nb):
+                handle_array[i] = handles[i]
+            res = _WaitForMultipleObjects(nb, handle_array, waitall, timeout)
+            if res == rffi.cast(DWORD, -1):
+                raise lastWindowsError("WaitForMultipleObjects")
+            return res
+        finally:
+            lltype.free(handle_array, flavor='raw')
+
+    _CreateEvent = winexternal(
+        'CreateEventA', [rffi.VOIDP, BOOL, BOOL, LPCSTR], HANDLE)
+    def CreateEvent(*args):
+        handle = _CreateEvent(*args)
+        if handle == NULL_HANDLE:
+            raise lastWindowsError("CreateEvent")
+        return handle
+    SetEvent = winexternal(
+        'SetEvent', [HANDLE], BOOL)
+    ResetEvent = winexternal(
+        'ResetEvent', [HANDLE], BOOL)
+

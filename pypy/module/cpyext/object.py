@@ -5,21 +5,20 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    track_reference, get_typedescr, RefcountState)
+    track_reference, get_typedescr, _Py_NewReference, RefcountState)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
-from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.error import OperationError
 import pypy.module.__builtin__.operation as operation
 
 
-@cpython_api([Py_ssize_t], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
+@cpython_api([Py_ssize_t], rffi.VOIDP)
 def PyObject_MALLOC(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw', zero=True)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_FREE(space, ptr):
     lltype.free(ptr, flavor='raw')
 
@@ -41,14 +40,14 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Del(space, obj):
     lltype.free(obj, flavor='raw')
 
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
     pto = obj.c_ob_type
-    obj_voidp = rffi.cast(rffi.VOIDP_real, obj)
+    obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         Py_DecRef(space, rffi.cast(PyObject, pto))
@@ -57,11 +56,11 @@ def PyObject_dealloc(space, obj):
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
     PyObject_Del(space, obj)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Track(space, op):
     """Adds the object op to the set of container objects tracked by the
     collector.  The collector can run at unexpected times so objects must be
@@ -70,7 +69,7 @@ def PyObject_GC_Track(space, op):
     end of the constructor."""
     pass
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_UnTrack(space, op):
     """Remove the object op from the set of container objects tracked by the
     collector.  Note that PyObject_GC_Track() can be called again on
@@ -155,7 +154,7 @@ def PyObject_ClearWeakRefs(space, w_object):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyObject_Size(space, w_obj):
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCallable_Check(space, w_obj):
@@ -184,26 +183,17 @@ def PyObject_DelItem(space, w_obj, w_key):
     return 0
 
 @cpython_api([PyObject, PyTypeObjectPtr], PyObject)
-def PyObject_Init(space, py_obj, type):
+def PyObject_Init(space, obj, type):
     """Initialize a newly-allocated object op with its type and initial
     reference.  Returns the initialized object.  If type indicates that the
     object participates in the cyclic garbage detector, it is added to the
     detector's set of observed objects. Other fields of the object are not
     affected."""
-    if not py_obj:
+    if not obj:
         PyErr_NoMemory(space)
-    py_obj.c_ob_type = type
-    py_obj.c_ob_refcnt = 1
-    w_type = from_ref(space, rffi.cast(PyObject, type))
-    assert isinstance(w_type, W_TypeObject)
-    if w_type.is_cpytype():
-        w_obj = space.allocate_instance(W_ObjectObject, w_type)
-        track_reference(space, py_obj, w_obj)
-        state = space.fromcache(RefcountState)
-        state.set_lifeline(w_obj, py_obj)
-    else:
-        assert False, "Please add more cases in PyObject_Init"
-    return py_obj
+    obj.c_ob_type = type
+    _Py_NewReference(space, obj)
+    return obj
 
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
 def PyObject_InitVar(space, py_obj, type, size):
@@ -398,7 +388,7 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
                         obj, lltype.nullptr(rffi.INTP.TO)) != 1:
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a single-segment buffer object"))
-    size = generic_cpy_call(space, pb.c_bf_getreadbuffer,
+    size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
                             obj, 0, bufferp)
     if size < 0:
         return -1
@@ -419,7 +409,7 @@ def PyObject_Print(space, w_obj, fp, flags):
     else:
         w_str = space.repr(w_obj)
 
-    count = space.int_w(space.len(w_str))
+    count = space.len_w(w_str)
     data = space.str_w(w_str)
     buf = rffi.get_nonmovingbuffer(data)
     try:
@@ -427,14 +417,4 @@ def PyObject_Print(space, w_obj, fp, flags):
     finally:
         rffi.free_nonmovingbuffer(data, buf)
     return 0
-
-@cpython_api([CONST_STRING, CONST_STRING], PyObject)
-def PyFile_FromString(space, filename, mode):
-    """
-    On success, return a new file object that is opened on the file given by
-    filename, with a file mode given by mode, where mode has the same
-    semantics as the standard C routine fopen().  On failure, return NULL."""
-    w_filename = space.wrap(rffi.charp2str(filename))
-    w_mode = space.wrap(rffi.charp2str(mode))
-    return space.call_method(space.builtin, 'file', w_filename, w_mode)
 

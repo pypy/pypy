@@ -39,3 +39,15 @@ def PyImport_Import(space, w_name):
 @cpython_api([CONST_STRING], PyObject)
 def PyImport_ImportModule(space, name):
     return PyImport_Import(space, space.wrap(rffi.charp2str(name)))
+
+@cpython_api([CONST_STRING], PyObject)
+def PyImport_ImportModuleNoBlock(space, name):
+    space.warn('PyImport_ImportModuleNoBlock() is not non-blocking',
+               space.w_RuntimeWarning)
+    return PyImport_Import(space, space.wrap(rffi.charp2str(name)))
+
+@cpython_api([PyObject], PyObject)
+def PyImport_ReloadModule(space, w_mod):
+    from pypy.module.imp.importing import reload
+    return reload(space, w_mod)
+

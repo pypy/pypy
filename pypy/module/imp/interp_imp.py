@@ -3,15 +3,22 @@ from pypy.module._file.interp_file import W_File
 from pypy.rlib import streamio
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
 import struct
 
 def get_suffixes(space):
     w = space.wrap
-    return space.newlist([
+    suffixes_w = []
+    if space.config.objspace.usemodules.cpyext:
+        suffixes_w.append(
+            space.newtuple([w(importing.get_so_extension(space)),
+                            w('rb'), w(importing.C_EXTENSION)]))
+    suffixes_w.extend([
         space.newtuple([w('.py'), w('U'), w(importing.PY_SOURCE)]),
         space.newtuple([w('.pyc'), w('rb'), w(importing.PY_COMPILED)]),
         ])
+    return space.newlist(suffixes_w)
 
 def get_magic(space):
     x = importing.get_pyc_magic(space)
@@ -26,7 +33,13 @@ def get_magic(space):
 
 def get_file(space, w_file, filename, filemode):
     if w_file is None or space.is_w(w_file, space.w_None):
-        return streamio.open_file_as_stream(filename, filemode)
+        try:
+            return streamio.open_file_as_stream(filename, filemode)
+        except StreamErrors, e:
+            # XXX this is not quite the correct place, but it will do for now.
+            # XXX see the issue which I'm sure exists already but whose number
+            # XXX I cannot find any more...
+            raise wrap_streamerror(space, e)
     else:
         return space.interp_w(W_File, w_file).stream
 
@@ -92,23 +105,34 @@ def load_source(space, w_modulename, w_filename, w_file=None):
         stream.close()
     return w_mod
 
-def load_compiled(space, w_modulename, w_filename, w_file=None):
-    filename = space.str_w(w_filename)
-
+@unwrap_spec(filename=str)
+def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
+    # the function 'imp._run_compiled_module' is a pypy-only extension
     stream = get_file(space, w_file, filename, 'rb')
-
-    w_mod = space.wrap(Module(space, w_modulename))
-    importing._prepare_module(space, w_mod, filename, None)
 
     magic = importing._r_long(stream)
     timestamp = importing._r_long(stream)
 
     importing.load_compiled_module(
-        space, w_modulename, w_mod, filename, magic, timestamp,
+        space, w_modulename, w_module, filename, magic, timestamp,
         stream.readall())
     if space.is_w(w_file, space.w_None):
         stream.close()
+
+@unwrap_spec(filename=str)
+def load_compiled(space, w_modulename, filename, w_file=None):
+    w_mod = space.wrap(Module(space, w_modulename))
+    importing._prepare_module(space, w_mod, filename, None)
+    _run_compiled_module(space, w_modulename, filename, w_file, w_mod)
     return w_mod
+
+@unwrap_spec(filename=str)
+def load_dynamic(space, w_modulename, filename, w_file=None):
+    if not space.config.objspace.usemodules.cpyext:
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Not implemented"))
+    importing.load_c_extension(space, filename, space.str_w(w_modulename))
+    return importing.check_sys_modules(space, w_modulename)
 
 def new_module(space, w_name):
     return space.wrap(Module(space, w_name))
@@ -152,3 +176,7 @@ def acquire_lock(space):
 def release_lock(space):
     if space.config.objspace.usemodules.thread:
         importing.getimportlock(space).release_lock()
+
+def reinit_lock(space):
+    if space.config.objspace.usemodules.thread:
+        importing.getimportlock(space).reinit_lock()

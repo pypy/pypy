@@ -1,0 +1,100 @@
+TODO list for 2.7.0
+===================
+
+You can find the results of the most recent buildbot run at:
+http://buildbot.pypy.org/
+
+
+Probably easy tasks
+-------------------
+
+- (unicode|bytearray).(index|find) should accept None as indices (see
+  test_unicode.py)
+
+- missing posix.confstr and posix.confstr_names
+
+- remove code duplication: bit_length() and _count_bits() in rlib/rbigint.py,
+  objspace/std/longobject.py and objspace/std/longtype.py.
+
+- missing module pyexpat.errors
+
+- support for PYTHONIOENCODING, this needs a way to update file.encoding
+
+- implement format__Complex_ANY() in pypy/objspace/std/complexobject.py
+
+- Code like this does not work, for two reasons::
+
+  \
+  from __future__ import (with_statement,
+                          unicode_literals)
+  assert type("") is unicode
+
+- Code like::
+
+  assert(x is not None, "error message")
+
+  should emit a SyntaxWarning when compiled (the tuple is always true)
+
+
+Medium tasks
+------------
+
+- socket module has a couple of changes (including AF_TIPC packet range)
+
+Longer tasks
+------------
+
+- Fix usage of __cmp__ in subclasses::
+
+    class badint(int):
+        def __cmp__(self, other):
+            raise RuntimeError
+    raises(RuntimeError, cmp, 0, badint(1))
+
+- Fix comparison of objects layout: if two classes have the same __slots__, it
+  should be possible to change the instances __class__::
+
+      class A(object): __slots__ = ('a', 'b')
+      class B(object): __slots__ = ('b', 'a')
+      a = A()
+      a.__class__ = B
+
+- Show a ResourceWarning when a file/socket is not explicitely closed, like
+  CPython did for 3.2: http://svn.python.org/view?view=rev&revision=85920
+  in PyPy this should be enabled by default
+
+Won't do for this release
+-------------------------
+
+Note: when you give up with a missing feature, please mention it here, as well
+as the various skips added to the test suite.
+
+- py3k warnings
+
+  * the -3 flag is accepted on the command line, but displays a warning (see
+    `translator/goal/app_main.py`)
+
+- CJK codecs.
+
+  * In `./conftest.py`, skipped all `test_codecencodings_*.py` and
+    `test_codecmaps_*.py`.
+
+  * In test_codecs, commented out various items in `all_unicode_encodings`.
+
+- Error messages about ill-formed calls (like "argument after ** must be a
+  mapping") don't always show the function name.  That's hard to fix for
+  the case of errors raised when the Argument object is created (as opposed
+  to when parsing for a given target function, which occurs later).
+
+  * Some "..." were added to doctests in test_extcall.py
+
+- CPython's builtin methods are both functions and unbound methods (for
+  example, `str.upper is dict(str.__dict__)['upper']`). This is not the case
+  in pypy, and assertions like `object.__str__ is object.__str__` are False
+  with pypy.  Use the `==` operator instead.
+
+  * pprint.py, _threading_local.py
+
+- When importing a nested module fails, the ImportError message mentions the
+  name of the package up to the component that could not be imported (CPython
+  prefers to display the names starting with the failing part).

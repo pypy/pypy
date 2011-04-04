@@ -1,4 +1,4 @@
-import sys
+import sys, py
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.longobject import W_LongObject
@@ -12,9 +12,9 @@ class TestLongObject(BaseApiTest):
         assert isinstance(value, W_LongObject)
         assert space.unwrap(value) == 3
 
-        value = api.PyLong_FromLong(sys.maxint + 1)
+        value = api.PyLong_FromLong(sys.maxint)
         assert isinstance(value, W_LongObject)
-        assert space.unwrap(value) == sys.maxint + 1 # should obviously fail but doesnt
+        assert space.unwrap(value) == sys.maxint
 
     def test_aslong(self, space, api):
         w_value = api.PyLong_FromLong((sys.maxint - 1) / 2)
@@ -64,10 +64,54 @@ class TestLongObject(BaseApiTest):
         assert api.PyErr_Occurred()
         api.PyErr_Clear()
 
+        assert api.PyLong_AsUnsignedLongLongMask(
+            space.wrap(1<<64)) == 0
+
+    def test_as_long_and_overflow(self, space, api):
+        overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
+        assert api.PyLong_AsLongAndOverflow(
+            space.wrap(sys.maxint), overflow) == sys.maxint
+        assert api.PyLong_AsLongAndOverflow(
+            space.wrap(-sys.maxint - 2), overflow) == -1
+        assert not api.PyErr_Occurred()
+        assert overflow[0] == -1
+        lltype.free(overflow, flavor='raw')
+
+    def test_as_longlong_and_overflow(self, space, api):
+        overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
+        assert api.PyLong_AsLongLongAndOverflow(
+            space.wrap(1<<62), overflow) == 1<<62
+        assert api.PyLong_AsLongLongAndOverflow(
+            space.wrap(1<<63), overflow) == -1
+        assert not api.PyErr_Occurred()
+        assert overflow[0] == 1
+        assert api.PyLong_AsLongLongAndOverflow(
+            space.wrap(-1<<64), overflow) == -1
+        assert not api.PyErr_Occurred()
+        assert overflow[0] == -1
+        lltype.free(overflow, flavor='raw')
+
     def test_as_voidptr(self, space, api):
         w_l = api.PyLong_FromVoidPtr(lltype.nullptr(rffi.VOIDP.TO))
         assert space.unwrap(w_l) == 0L
-        assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP_real.TO)
+        assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP.TO)
+
+    def test_sign_and_bits(self, space, api):
+        if space.is_true(space.lt(space.sys.get('version_info'),
+                                  space.wrap((2, 7)))):
+            py.test.skip("unsupported before Python 2.7")
+
+        assert api._PyLong_Sign(space.wrap(0L)) == 0
+        assert api._PyLong_Sign(space.wrap(2L)) == 1
+        assert api._PyLong_Sign(space.wrap(-2L)) == -1
+
+        assert api._PyLong_NumBits(space.wrap(0)) == 0
+        assert api._PyLong_NumBits(space.wrap(1)) == 1
+        assert api._PyLong_NumBits(space.wrap(-1)) == 1
+        assert api._PyLong_NumBits(space.wrap(2)) == 2
+        assert api._PyLong_NumBits(space.wrap(-2)) == 2
+        assert api._PyLong_NumBits(space.wrap(3)) == 2
+        assert api._PyLong_NumBits(space.wrap(-3)) == 2
 
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):
@@ -100,3 +144,20 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
              """),
             ])
         assert module.from_string() == 0x1234
+
+    def test_frombytearray(self):
+        module = self.import_extension('foo', [
+            ("from_bytearray", "METH_VARARGS",
+             """
+                 int little_endian, is_signed;
+                 if (!PyArg_ParseTuple(args, "ii", &little_endian, &is_signed))
+                     return NULL;
+                 return _PyLong_FromByteArray("\x9A\xBC", 2,
+                                              little_endian, is_signed);
+             """),
+            ])
+        assert module.from_bytearray(True, False) == 0x9ABC
+        assert module.from_bytearray(True, True) == -0x6543
+        assert module.from_bytearray(False, False) == 0xBC9A
+        assert module.from_bytearray(False, True) == -0x4365
+

@@ -1,6 +1,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
 from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
 import sys
@@ -20,7 +21,7 @@ def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
         # so we have to pass the instance in, instead.
         ##m = Marshaller(space, writer.write, space.int_w(w_version))
         m = Marshaller(space, writer, space.int_w(w_version))
-        m.put_w_obj(w_data)
+        m.dump_w_obj(w_data)
     finally:
         writer.finished()
 
@@ -28,7 +29,7 @@ def dumps(space, w_data, w_version=Py_MARSHAL_VERSION):
     """Return the string that would have been written to a file
 by dump(data, file)."""
     m = StringMarshaller(space, space.int_w(w_version))
-    m.put_w_obj(w_data)
+    m.dump_w_obj(w_data)
     return space.wrap(m.get_value())
 
 def load(space, w_f):
@@ -41,7 +42,7 @@ def load(space, w_f):
         reader = FileReader(space, w_f)
     try:
         u = Unmarshaller(space, reader)
-        return u.get_w_obj(False)
+        return u.load_w_obj(False)
     finally:
         reader.finished()
 
@@ -50,7 +51,7 @@ def loads(space, w_str):
 ignored."""
     space.timer.start("marshal loads")
     u = StringUnmarshaller(space, w_str)
-    obj = u.get_w_obj(False)
+    obj = u.load_w_obj(False)
     space.timer.stop("marshal loads")
     return obj
 
@@ -122,7 +123,7 @@ class StreamReaderWriter(AbstractReaderWriter):
 
 class DirectStreamWriter(StreamReaderWriter):
     def write(self, data):
-        self.file.direct_write(data)
+        self.file.do_direct_write(data)
 
 class DirectStreamReader(StreamReaderWriter):
     def read(self, n):
@@ -131,13 +132,6 @@ class DirectStreamReader(StreamReaderWriter):
             self.raise_eof()
         return data
 
-
-MAX_MARSHAL_DEPTH = 5000
-
-# the above is unfortunately necessary because CPython
-# relies on it without run-time checking.
-# PyPy is currently in much bigger trouble, because the
-# multimethod dispatches cause deeper stack nesting.
 
 class _Base(object):
     def raise_exc(self, msg):
@@ -153,7 +147,6 @@ class Marshaller(_Base):
         ## self.put = putfunc
         self.writer = writer
         self.version = version
-        self.nesting = 0    # contribution to compatibility
         self.stringtable = {}
 
     ## currently we cannot use a put that is a bound method
@@ -224,28 +217,30 @@ class Marshaller(_Base):
         self.put(x)
 
     def put_w_obj(self, w_obj):
-        self.nesting += 1
-        if self.nesting < MAX_MARSHAL_DEPTH:
-            self.space.marshal_w(w_obj, self)
-        else:
+        self.space.marshal_w(w_obj, self)
+
+    def dump_w_obj(self, w_obj):
+        space = self.space
+        if (space.type(w_obj).is_heaptype() and
+            space.lookup(w_obj, "__buffer__") is None):
+            w_err = space.wrap("only builtins can be marshaled")
+            raise OperationError(space.w_ValueError, w_err)
+        try:
+            self.put_w_obj(w_obj)
+        except rstackovf.StackOverflow:
+            rstackovf.check_stack_overflow()
             self._overflow()
-        self.nesting -= 1
 
     def put_tuple_w(self, typecode, lst_w):
-        self.nesting += 1
         self.start(typecode)
         lng = len(lst_w)
         self.put_int(lng)
         idx = 0
         space = self.space
-        if self.nesting < MAX_MARSHAL_DEPTH:
-            while idx < lng:
-                w_obj = lst_w[idx]
-                self.space.marshal_w(w_obj, self)
-                idx += 1
-        else:
-            self._overflow()
-        self.nesting -= 1
+        while idx < lng:
+            w_obj = lst_w[idx]
+            self.space.marshal_w(w_obj, self)
+            idx += 1
 
     def _overflow(self):
         self.raise_exc('object too deeply nested to marshal')
@@ -357,7 +352,6 @@ class Unmarshaller(_Base):
     def __init__(self, space, reader):
         self.space = space
         self.reader = reader
-        self.nesting = 0
         self.stringtable_w = []
 
     def get(self, n):
@@ -433,42 +427,39 @@ class Unmarshaller(_Base):
         return self.get(lng)
 
     def get_w_obj(self, allow_null):
-        self.nesting += 1
         space = self.space
         w_ret = space.w_None # something not None
-        if self.nesting < MAX_MARSHAL_DEPTH:
-            tc = self.get1()
-            w_ret = self._dispatch[ord(tc)](space, self, tc)
-            if w_ret is None and not allow_null:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    'NULL object in marshal data'))
-        else:
-            self._overflow()
-        self.nesting -= 1
+        tc = self.get1()
+        w_ret = self._dispatch[ord(tc)](space, self, tc)
+        if w_ret is None and not allow_null:
+            raise OperationError(space.w_TypeError, space.wrap(
+                'NULL object in marshal data'))
         return w_ret
 
-    # inlined version to save a nesting level
+    def load_w_obj(self, allow_null):
+        try:
+            return self.get_w_obj(allow_null)
+        except rstackovf.StackOverflow:
+            rstackovf.check_stack_overflow()
+            self._overflow()
+
+    # inlined version to save a recursion level
     def get_tuple_w(self):
-        self.nesting += 1
         lng = self.get_lng()
         res_w = [None] * lng
         idx = 0
         space = self.space
-        w_ret = space.w_None # something not None
-        if self.nesting < MAX_MARSHAL_DEPTH:
-            while idx < lng:
-                tc = self.get1()
-                w_ret = self._dispatch[ord(tc)](space, self, tc)
-                if w_ret is None:
-                    break
-                res_w[idx] = w_ret
-                idx += 1
-        else:
-            self._overflow()
+        w_ret = space.w_None # something not
+        while idx < lng:
+            tc = self.get1()
+            w_ret = self._dispatch[ord(tc)](space, self, tc)
+            if w_ret is None:
+                break
+            res_w[idx] = w_ret
+            idx += 1
         if w_ret is None:
             raise OperationError(space.w_TypeError, space.wrap(
                 'NULL object in marshal data'))
-        self.nesting -= 1
         return res_w
 
     def get_list_w(self):

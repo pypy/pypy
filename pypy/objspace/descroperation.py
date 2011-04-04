@@ -30,7 +30,7 @@ object_delattr._annspecialcase_ = 'specialize:memo'
 
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
-    typename = w_type.getname(space, '?')
+    typename = w_type.getname(space)
     if w_descr is None:
         raise operationerrfmt(space.w_AttributeError,
                               "'%s' object has no attribute '%s'",
@@ -51,7 +51,7 @@ def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
     return space.is_w(w_typ1, w_typ2)
 
 
-class Object:
+class Object(object):
     def descr__getattribute__(space, w_obj, w_name):
         name = space.str_w(w_name)
         w_descr = space.lookup(w_obj, name)
@@ -64,25 +64,21 @@ class Object:
                     w_type = space.type(w_obj)
                     return space.get_and_call_function(w_get, w_descr, w_obj,
                                                        w_type)
-            w_value = w_obj.getdictvalue_attr_is_in_class(space, name)
-        else:
-            w_value = w_obj.getdictvalue(space, name)
+        w_value = w_obj.getdictvalue(space, name)
         if w_value is not None:
             return w_value
         if w_descr is not None:
             return space.get(w_descr, w_obj)
-        raiseattrerror(space, w_obj, name) 
+        raiseattrerror(space, w_obj, name)
 
     def descr__setattr__(space, w_obj, w_name, w_value):
         name = space.str_w(w_name)
         w_descr = space.lookup(w_obj, name)
-        shadows_type = False
         if w_descr is not None:
             if space.is_data_descr(w_descr):
                 space.set(w_descr, w_obj, w_value)
                 return
-            shadows_type = True
-        if w_obj.setdictvalue(space, name, w_value, shadows_type):
+        if w_obj.setdictvalue(space, name, w_value):
             return
         raiseattrerror(space, w_obj, name, w_descr)
 
@@ -100,7 +96,7 @@ class Object:
     def descr__init__(space, w_obj, __args__):
         pass
 
-class DescrOperation:
+class DescrOperation(object):
     _mixin_ = True
 
     def is_data_descr(space, w_obj):
@@ -142,7 +138,7 @@ class DescrOperation:
             return w_obj.call_args(args)
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not callable",
                                   typename)
@@ -159,7 +155,7 @@ class DescrOperation:
     def set(space, w_descr, w_obj, w_val):
         w_set = space.lookup(w_descr, '__set__')
         if w_set is None:
-            typename = space.type(w_descr).getname(space, '?')
+            typename = space.type(w_descr).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not a descriptor with set",
                                   typename)
@@ -168,7 +164,7 @@ class DescrOperation:
     def delete(space, w_descr, w_obj):
         w_delete = space.lookup(w_descr, '__delete__')
         if w_delete is None:
-            typename = space.type(w_descr).getname(space, '?')
+            typename = space.type(w_descr).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not a descriptor with delete",
                                   typename)
@@ -195,7 +191,7 @@ class DescrOperation:
     def setattr(space, w_obj, w_name, w_val):
         w_descr = space.lookup(w_obj, '__setattr__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_AttributeError,
                                   "'%s' object is readonly",
                                   typename)
@@ -204,7 +200,7 @@ class DescrOperation:
     def delattr(space, w_obj, w_name):
         w_descr = space.lookup(w_obj, '__delattr__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_AttributeError,
                                   "'%s' object does not support attribute removal",
                                   typename)
@@ -245,17 +241,22 @@ class DescrOperation:
         if w_descr is None:
             w_descr = space.lookup(w_obj, '__getitem__')
             if w_descr is None:
-                typename = space.type(w_obj).getname(space, '?')
+                typename = space.type(w_obj).getname(space)
                 raise operationerrfmt(space.w_TypeError,
                                       "'%s' object is not iterable",
                                       typename)
             return space.newseqiter(w_obj)
-        return space.get_and_call_function(w_descr, w_obj)
+        w_iter = space.get_and_call_function(w_descr, w_obj)
+        w_next = space.lookup(w_iter, 'next')
+        if w_next is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("iter() returned non-iterator"))
+        return w_iter
 
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, 'next')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not an iterator",
                                   typename)
@@ -264,7 +265,7 @@ class DescrOperation:
     def getitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' object is not subscriptable",
                                   typename)
@@ -273,7 +274,7 @@ class DescrOperation:
     def setitem(space, w_obj, w_key, w_val):
         w_descr = space.lookup(w_obj, '__setitem__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                               "'%s' object does not support item assignment",
                                   typename)
@@ -282,7 +283,7 @@ class DescrOperation:
     def delitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__delitem__')
         if w_descr is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                 "'%s' object does not support item deletion",
                                   typename)
@@ -312,6 +313,22 @@ class DescrOperation:
         w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
         return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
 
+    def format(space, w_obj, w_format_spec):
+        w_descr = space.lookup(w_obj, '__format__')
+        if w_descr is None:
+            typename = space.type(w_obj).getname(space)
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' object does not define __format__",
+                                  typename)
+        w_res = space.get_and_call_function(w_descr, w_obj, w_format_spec)
+        if not space.is_true(space.isinstance(w_res, space.w_basestring)):
+            typename = space.type(w_obj).getname(space)
+            restypename = space.type(w_res).getname(space)
+            raise operationerrfmt(space.w_TypeError,
+                "%s.__format__ must return string or unicode, not %s",
+                                  typename, restypename)
+        return w_res
+
     def pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
@@ -340,7 +357,7 @@ class DescrOperation:
                w_res = space.get_and_call_function(w_right_impl, w_obj2, w_obj1)
            else:
                w_res = space.get_and_call_function(w_right_impl, w_obj2, w_obj1,
-                                                   w_obj3)               
+                                                   w_obj3)
            if _check_notimplemented(space, w_res):
                return w_res
 
@@ -369,7 +386,7 @@ class DescrOperation:
                 return space.w_False
             if space.eq_w(w_next, w_item):
                 return space.w_True
-    
+
     def hash(space, w_obj):
         w_hash = space.lookup(w_obj, '__hash__')
         if w_hash is None:
@@ -378,8 +395,10 @@ class DescrOperation:
             # default __hash__.  This path should only be taken under very
             # obscure circumstances.
             return default_identity_hash(space, w_obj)
-        # XXX CPython has a special case for types with "__hash__ = None"
-        # to produce a nicer error message, namely "unhashable type: 'X'".
+        if space.is_w(w_hash, space.w_None):
+            typename = space.type(w_obj).getname(space, '?')
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' objects are unhashable", typename)
         w_result = space.get_and_call_function(w_hash, w_obj)
         w_resulttype = space.type(w_result)
         if space.is_w(w_resulttype, space.w_int):
@@ -393,8 +412,8 @@ class DescrOperation:
             # be careful about subclasses of 'long'...
             bigint = space.bigint_w(w_result)
             return space.wrap(bigint.hash())
-        else: 
-            raise OperationError(space.w_TypeError, 
+        else:
+            raise OperationError(space.w_TypeError,
                     space.wrap("__hash__() should return an int or long"))
 
     def userdel(space, w_obj):
@@ -441,19 +460,31 @@ class DescrOperation:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("coercion failed"))
             if (not space.is_true(space.isinstance(w_res, space.w_tuple)) or
-                space.int_w(space.len(w_res)) != 2):
+                space.len_w(w_res) != 2):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("coercion should return None or 2-tuple"))
             w_res = space.newtuple([space.getitem(w_res, space.wrap(1)), space.getitem(w_res, space.wrap(0))])
         elif (not space.is_true(space.isinstance(w_res, space.w_tuple)) or
-            space.int_w(space.len(w_res)) != 2):
+            space.len_w(w_res) != 2):
             raise OperationError(space.w_TypeError,
                                  space.wrap("coercion should return None or 2-tuple"))
         return w_res
-    
 
+    def issubtype(space, w_sub, w_type, allow_override=False):
+        if allow_override:
+            w_check = space.lookup(w_type, "__subclasscheck__")
+            if w_check is None:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("issubclass not supported here"))
+            return space.get_and_call_function(w_check, w_type, w_sub)
+        return space._type_issubtype(w_sub, w_type)
 
-    # xxx ord
+    def isinstance(space, w_inst, w_type, allow_override=False):
+        if allow_override:
+            w_check = space.lookup(w_type, "__instancecheck__")
+            if w_check is not None:
+                return space.get_and_call_function(w_check, w_type, w_inst)
+        return space.issubtype(space.type(w_inst), w_type, allow_override)
 
 
 
@@ -477,7 +508,7 @@ def _conditional_neg(space, w_obj, flag):
     else:
         return w_obj
 
-def _cmp(space, w_obj1, w_obj2):
+def _cmp(space, w_obj1, w_obj2, symbol):
     w_typ1 = space.type(w_obj1)
     w_typ2 = space.type(w_obj2)
     w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__cmp__')
@@ -508,9 +539,7 @@ def _cmp(space, w_obj1, w_obj2):
         return space.wrap(1)
     if space.is_w(w_typ1, w_typ2):
         #print "WARNING, comparison by address!"
-        w_id1 = space.id(w_obj1)
-        w_id2 = space.id(w_obj2)
-        lt = space.is_true(space.lt(w_id1, w_id2))
+        lt = _id_cmpr(space, w_obj1, w_obj2, symbol)
     else:
         #print "WARNING, comparison by type name!"
 
@@ -527,13 +556,21 @@ def _cmp(space, w_obj1, w_obj2):
             if name1 != name2:
                 lt = name1 < name2
             else:
-                w_id1 = space.id(w_typ1)
-                w_id2 = space.id(w_typ2)
-                lt = space.is_true(space.lt(w_id1, w_id2))
+                lt = _id_cmpr(space, w_typ1, w_typ2, symbol)
     if lt:
         return space.wrap(-1)
     else:
         return space.wrap(1)
+
+def _id_cmpr(space, w_obj1, w_obj2, symbol):
+    if symbol == "==":
+        return not space.is_w(w_obj1, w_obj2)
+    elif symbol == "!=":
+        return space.is_w(w_obj1, w_obj2)
+    w_id1 = space.id(w_obj1)
+    w_id2 = space.id(w_obj2)
+    return space.is_true(space.lt(w_id1, w_id2))
+
 
 def number_check(space, w_obj):
     # avoid this as much as possible.  It checks if w_obj "looks like"
@@ -545,7 +582,7 @@ def number_check(space, w_obj):
 
 # what is the maximum value slices can get on CPython?
 # we need to stick to that value, because fake.py etc.
-class Temp:
+class Temp(object):
     def __getslice__(self, i, j):
         return j
 slice_max = Temp()[:]
@@ -634,17 +671,16 @@ def _make_binop_impl(symbol, specialnames):
         w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
-        typename1 = w_typ1.getname(space, '?')
-        typename2 = w_typ2.getname(space, '?')
+        typename1 = w_typ1.getname(space)
+        typename2 = w_typ2.getname(space)
         raise operationerrfmt(space.w_TypeError, errormsg,
                               typename1, typename2)
-    
+
     return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))
 
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
-    
     def comparison_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
@@ -668,7 +704,7 @@ def _make_comparison_impl(symbol, specialnames):
         if w_res is not None:
             return w_res
         # fallback: lt(a, b) <= lt(cmp(a, b), 0) ...
-        w_res = _cmp(space, w_first, w_second)
+        w_res = _cmp(space, w_first, w_second, symbol)
         res = space.int_w(w_res)
         return space.wrap(op(res, 0))
 
@@ -697,56 +733,56 @@ def _make_unaryop_impl(symbol, specialnames):
     def unaryop_impl(space, w_obj):
         w_impl = space.lookup(w_obj, specialname)
         if w_impl is None:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError, errormsg, typename)
         return space.get_and_call_function(w_impl, w_obj)
     return func_with_new_name(unaryop_impl, 'unaryop_%s_impl'%specialname.strip('_'))
 
 # the following seven operations are really better to generate with
 # string-templating (and maybe we should consider this for
-# more of the above manually-coded operations as well) 
+# more of the above manually-coded operations as well)
 
 for targetname, specialname, checkerspec in [
-    ('int', '__int__', ("space.w_int", "space.w_long")), 
+    ('int', '__int__', ("space.w_int", "space.w_long")),
     ('index', '__index__', ("space.w_int", "space.w_long")),
-    ('long', '__long__', ("space.w_int", "space.w_long")), 
+    ('long', '__long__', ("space.w_int", "space.w_long")),
     ('float', '__float__', ("space.w_float",))]:
 
-    l = ["space.is_true(space.isinstance(w_result, %s))" % x 
+    l = ["space.is_true(space.isinstance(w_result, %s))" % x
                 for x in checkerspec]
-    checker = " or ".join(l) 
+    checker = " or ".join(l)
     source = """if 1:
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
-                typename = space.type(w_obj).getname(space, '?')
+                typename = space.type(w_obj).getname(space)
                 raise operationerrfmt(space.w_TypeError,
                       "unsupported operand type for %(targetname)s(): '%%s'",
                                       typename)
             w_result = space.get_and_call_function(w_impl, w_obj)
 
-            if %(checker)s: 
+            if %(checker)s:
                 return w_result
-            typename = space.type(w_result).getname(space, '?')
+            typename = space.type(w_result).getname(space)
             msg = "%(specialname)s returned non-%(targetname)s (type '%%s')"
             raise operationerrfmt(space.w_TypeError, msg, typename)
         assert not hasattr(DescrOperation, %(targetname)r)
         DescrOperation.%(targetname)s = %(targetname)s
-        del %(targetname)s 
+        del %(targetname)s
         \n""" % locals()
-    exec compile2(source) 
+    exec compile2(source)
 
 for targetname, specialname in [
-    ('str', '__str__'), 
-    ('repr', '__repr__'), 
-    ('oct', '__oct__'), 
-    ('hex', '__hex__')]: 
+    ('str', '__str__'),
+    ('repr', '__repr__'),
+    ('oct', '__oct__'),
+    ('hex', '__hex__')]:
 
     source = """if 1:
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
-                typename = space.type(w_obj).getname(space, '?')
+                typename = space.type(w_obj).getname(space)
                 raise operationerrfmt(space.w_TypeError,
                       "unsupported operand type for %(targetname)s(): '%%s'",
                                       typename)
@@ -759,7 +795,7 @@ for targetname, specialname in [
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                typename = space.type(w_result).getname(space, '?')
+                typename = space.type(w_result).getname(space)
                 msg = "%(specialname)s returned non-%(targetname)s (type '%%s')"
                 raise operationerrfmt(space.w_TypeError, msg, typename)
             else:
@@ -767,11 +803,11 @@ for targetname, specialname in [
                 return space.wrap(result)
         assert not hasattr(DescrOperation, %(targetname)r)
         DescrOperation.%(targetname)s = %(targetname)s
-        del %(targetname)s 
-        \n""" % locals() 
-    exec compile2(source) 
+        del %(targetname)s
+        \n""" % locals()
+    exec compile2(source)
 
-# add default operation implementations for all still missing ops 
+# add default operation implementations for all still missing ops
 
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if not hasattr(DescrOperation, _name):
@@ -784,14 +820,13 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
             _impl_maker = _make_inplace_impl
         elif _arity == 2 and len(_specialnames) == 2:
             #print "binop", _specialnames
-            _impl_maker = _make_binop_impl     
+            _impl_maker = _make_binop_impl
         elif _arity == 1 and len(_specialnames) == 1:
             #print "unaryop", _specialnames
-            _impl_maker = _make_unaryop_impl    
+            _impl_maker = _make_unaryop_impl
         if _impl_maker:
             setattr(DescrOperation,_name,_impl_maker(_symbol,_specialnames))
         elif _name not in ['is_', 'id','type','issubtype',
                            # not really to be defined in DescrOperation
                            'ord', 'unichr', 'unicode']:
             raise Exception, "missing def for operation %s" % _name
-            

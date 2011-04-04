@@ -5,7 +5,7 @@ from pypy.translator.unsimplify import copyvar
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import FunctionGraph
-from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
+from pypy.objspace.flow.model import mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr
 from pypy.rpython.lltypesystem.lltype import normalizeptr

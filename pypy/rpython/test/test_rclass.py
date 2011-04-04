@@ -853,17 +853,17 @@ class BaseTestRclass(BaseRtypingTest):
                accessor.fields == {"ov" : ""} # for ootype
 
     def test_immutable_subclass_1(self):
+        from pypy.rpython.rclass import ImmutableConflictError
         from pypy.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_ = True
         class B(A):
             pass
         def f():
+            A()
             B().v = 123
             return B()
-        t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
-        assert B_TYPE._hints["immutable"]    # inherited from A
+        py.test.raises(ImmutableConflictError, self.gengraph, f, [])
 
     def test_immutable_subclass_2(self):
         from pypy.jit.metainterp.typesystem import deref
@@ -872,6 +872,7 @@ class BaseTestRclass(BaseRtypingTest):
         class B(A):
             _immutable_ = True
         def f():
+            A()
             B().v = 123
             return B()
         t, typer, graph = self.gengraph(f, [])
@@ -917,6 +918,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         assert destrptr is not None
     
     def test_del_inheritance(self):
+        from pypy.rlib import rgc
         class State:
             pass
         s = State()
@@ -937,6 +939,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
             A()
             B()
             C()
+            rgc.collect()
             return s.a_dels * 10 + s.b_dels
         res = f()
         assert res == 42
@@ -1067,6 +1070,7 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
         assert meth.finalizer
 
     def test_del_inheritance(self):
+        from pypy.rlib import rgc
         class State:
             pass
         s = State()
@@ -1087,6 +1091,7 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
             A()
             B()
             C()
+            rgc.collect()
             return s.a_dels * 10 + s.b_dels
         res = f()
         assert res == 42

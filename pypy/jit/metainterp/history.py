@@ -3,13 +3,12 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
-from pypy.rlib.objectmodel import compute_hash, compute_unique_id
-from pypy.rlib.rarithmetic import intmask
-from pypy.tool.uid import uid
+from pypy.rlib.objectmodel import compute_unique_id
+from pypy.rlib.rarithmetic import intmask, r_int64
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 
 # ____________________________________________________________
 
@@ -21,7 +20,7 @@ VOID  = 'v'
 
 FAILARGS_LIMIT = 1000
 
-def getkind(TYPE, supports_floats=True):
+def getkind(TYPE, supports_floats=True, supports_longlong=True):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):
@@ -30,7 +29,11 @@ def getkind(TYPE, supports_floats=True):
         if TYPE in (lltype.Float, lltype.SingleFloat):
             raise NotImplementedError("type %s not supported" % TYPE)
         # XXX fix this for oo...
-        if rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed):
+        if (TYPE != llmemory.Address and
+            rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed)):
+            if supports_longlong:
+                assert rffi.sizeof(TYPE) == 8
+                return 'float'
             raise NotImplementedError("type %s is too large" % TYPE)
         return "int"
     elif isinstance(TYPE, lltype.Ptr):
@@ -79,8 +82,15 @@ class AbstractValue(object):
     def getint(self):
         raise NotImplementedError
 
-    def getfloat(self):
+    def getfloatstorage(self):
         raise NotImplementedError
+
+    def getfloat(self):
+        return longlong.getrealfloat(self.getfloatstorage())
+
+    def getlonglong(self):
+        assert longlong.supports_longlong
+        return self.getfloatstorage()
 
     def getref_base(self):
         raise NotImplementedError
@@ -134,6 +144,7 @@ class AbstractDescr(AbstractValue):
     def get_return_type(self):
         """ Implement in call descr.
         Must return INT, REF, FLOAT, or 'v' for void.
+        On 32-bit (hack) it can also be 'L' for longlongs.
         """
         raise NotImplementedError
 
@@ -215,7 +226,7 @@ class Const(AbstractValue):
         elif kind == "ref":
             return cpu.ts.new_ConstRef(x)
         elif kind == "float":
-            return ConstFloat(x)
+            return ConstFloat(longlong.getfloatstorage(x))
         else:
             raise NotImplementedError(kind)
 
@@ -280,8 +291,9 @@ class ConstInt(Const):
         cpu.set_future_value_int(j, self.value)
 
     def same_constant(self, other):
-        assert isinstance(other, Const)
-        return self.value == other.getint()
+        if isinstance(other, Const):
+            return self.value == other.getint()
+        return False
 
     def nonnull(self):
         return self.value != 0
@@ -297,41 +309,42 @@ CONST_TRUE  = ConstInt(1)
 
 class ConstFloat(Const):
     type = FLOAT
-    value = 0.0
+    value = longlong.ZEROF
     _attrs_ = ('value',)
 
-    def __init__(self, floatval):
-        assert isinstance(floatval, float)
-        self.value = floatval
+    def __init__(self, valuestorage):
+        assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
+        self.value = valuestorage
 
     def clonebox(self):
         return BoxFloat(self.value)
 
     nonconstbox = clonebox
 
-    def getfloat(self):
+    def getfloatstorage(self):
         return self.value
 
     def _get_hash_(self):
-        return compute_hash(self.value)
+        return longlong.gethash(self.value)
 
     def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.getfloat())
+        cpu.set_future_value_float(j, self.value)
 
     def same_constant(self, other):
-        assert isinstance(other, ConstFloat)
-        return self.value == other.value
+        if isinstance(other, ConstFloat):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
-        return self.value != 0.0
+        return self.value != longlong.ZEROF
 
     def _getrepr_(self):
-        return self.value
+        return self.getfloat()
 
     def repr_rpython(self):
         return repr_rpython(self, 'cf')
 
-CONST_FZERO = ConstFloat(0.0)
+CONST_FZERO = ConstFloat(longlong.ZEROF)
 
 class ConstPtr(Const):
     type = REF
@@ -367,8 +380,9 @@ class ConstPtr(Const):
         cpu.set_future_value_ref(j, self.value)
 
     def same_constant(self, other):
-        assert isinstance(other, ConstPtr)
-        return self.value == other.value
+        if isinstance(other, ConstPtr):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
         return bool(self.value)
@@ -426,8 +440,9 @@ class ConstObj(Const):
 ##        return self.value
 
     def same_constant(self, other):
-        assert isinstance(other, ConstObj)
-        return self.value == other.value
+        if isinstance(other, ConstObj):
+            return self.value == other.value
+        return False
 
     def nonnull(self):
         return bool(self.value)
@@ -459,7 +474,7 @@ class Box(AbstractValue):
             ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
             return BoxPtr(ptrval)
         elif kind == "float":
-            return BoxFloat(x)
+            return BoxFloat(longlong.getfloatstorage(x))
         else:
             raise NotImplementedError(kind)
 
@@ -490,6 +505,9 @@ class Box(AbstractValue):
     def _get_str(self):    # for debugging only
         return self.constbox()._get_str()
 
+    def forget_value(self):
+        raise NotImplementedError
+
 class BoxInt(Box):
     type = INT
     _attrs_ = ('value',)
@@ -501,6 +519,9 @@ class BoxInt(Box):
             else:
                 assert isinstance(value, Symbolic)
         self.value = value
+
+    def forget_value(self):
+        self.value = 0
 
     def clonebox(self):
         return BoxInt(self.value)
@@ -533,9 +554,12 @@ class BoxFloat(Box):
     type = FLOAT
     _attrs_ = ('value',)
 
-    def __init__(self, floatval=0.0):
-        assert isinstance(floatval, float)
-        self.value = floatval
+    def __init__(self, valuestorage=longlong.ZEROF):
+        assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
+        self.value = valuestorage
+
+    def forget_value(self):
+        self.value = longlong.ZEROF
 
     def clonebox(self):
         return BoxFloat(self.value)
@@ -543,20 +567,20 @@ class BoxFloat(Box):
     def constbox(self):
         return ConstFloat(self.value)
 
-    def getfloat(self):
+    def getfloatstorage(self):
         return self.value
 
     def _get_hash_(self):
-        return compute_hash(self.value)
+        return longlong.gethash(self.value)
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_float(j, self.value)
 
     def nonnull(self):
-        return self.value != 0.0
+        return self.value != longlong.ZEROF
 
     def _getrepr_(self):
-        return self.value
+        return self.getfloat()
 
     def repr_rpython(self):
         return repr_rpython(self, 'bf')
@@ -568,6 +592,9 @@ class BoxPtr(Box):
     def __init__(self, value=lltype.nullptr(llmemory.GCREF.TO)):
         assert lltype.typeOf(value) == llmemory.GCREF
         self.value = value
+
+    def forget_value(self):
+        self.value = lltype.nullptr(llmemory.GCREF.TO)
 
     def clonebox(self):
         return BoxPtr(self.value)
@@ -612,6 +639,9 @@ class BoxObj(Box):
     def __init__(self, value=ootype.NULL):
         assert ootype.typeOf(value) is ootype.Object
         self.value = value
+
+    def forget_value(self):
+        self.value = ootype.NULL
 
     def clonebox(self):
         return BoxObj(self.value)
@@ -726,22 +756,38 @@ class LoopToken(AbstractDescr):
     was compiled; but the LoopDescr remains alive and points to the
     generated assembler.
     """
+    short_preamble = None
+    failed_states = None
     terminating = False # see TerminatingLoopToken in compile.py
     outermost_jitdriver_sd = None
-    # specnodes = ...
     # and more data specified by the backend when the loop is compiled
-    number = 0
+    number = -1
+    generation = r_int64(0)
+    # one purpose of LoopToken is to keep alive the CompiledLoopToken
+    # returned by the backend.  When the LoopToken goes away, the
+    # CompiledLoopToken has its __del__ called, which frees the assembler
+    # memory and the ResumeGuards.
+    compiled_loop_token = None
 
-    def __init__(self, number=0):
-        self.number = number
+    def __init__(self):
+        # For memory management of assembled loops
+        self._keepalive_target_looktokens = {}      # set of other LoopTokens
+
+    def record_jump_to(self, target_loop_token):
+        self._keepalive_target_looktokens[target_loop_token] = None
+
+    def __repr__(self):
+        return '<Loop %d, gen=%d>' % (self.number, self.generation)
 
     def repr_of_descr(self):
         return '<Loop%d>' % self.number
+
 
 class TreeLoop(object):
     inputargs = None
     operations = None
     token = None
+    call_pure_results = None
 
     def __init__(self, name):
         self.name = name
@@ -893,6 +939,9 @@ class NoStats(object):
     def add_new_loop(self, loop):
         pass
 
+    def record_aborted(self, greenkey):
+        pass
+
     def view(self, **kwds):
         pass
 
@@ -907,6 +956,7 @@ class Stats(object):
     def __init__(self):
         self.loops = []
         self.locations = []
+        self.aborted_keys = []
 
     def set_history(self, history):
         self.history = history
@@ -928,6 +978,9 @@ class Stats(object):
 
     def add_new_loop(self, loop):
         self.loops.append(loop)
+
+    def record_aborted(self, greenkey):
+        self.aborted_keys.append(greenkey)
 
     # test read interface
 

@@ -1,10 +1,3 @@
 #!/usr/bin/env python
-
-# somewhat PYPY specific hack:
-# let's make sure setuptools does show a warning when our inlined 'py'
-# version shadows a properly installed one.
-import warnings
-warnings.filterwarnings("ignore", 
-    "Module py was already imported", category=UserWarning)
-from _findpy import py
-py.cmdline.pytest()
+from _findpy import pytest
+raise SystemExit(pytest.main())

@@ -240,6 +240,21 @@ class TestTypedTestCase(CompilationTestCase):
         gn = self.getcompiled(g, [r_longlong], view=False)
         assert gn(2147483647) == 4*2147483647
 
+        def g(i):
+            return i << 12
+        gn = self.getcompiled(g, [r_longlong])
+        assert gn(2147483647) == 2147483647 << 12
+
+        def g(i):
+            return i >> 12
+        gn = self.getcompiled(g, [r_longlong])
+        assert gn(-2147483647) == (-2147483647) >> 12
+
+        def g(i):
+            return i >> 12
+        gn = self.getcompiled(g, [r_ulonglong])
+        assert gn(2**64 - 12345678) == (2**64 - 12345678) >> 12
+
     def test_specializing_int_functions(self):
         def f(i):
             return i + 1
@@ -833,20 +848,32 @@ class TestTypedTestCase(CompilationTestCase):
             def __enter__(self):
                 state.append('acquire')
                 return self
-            def __exit__(self, *args):
-                if args[1] is not None:
+            def __exit__(self, typ, value, tb):
+                if typ is not None:
+                    if value is None:
+                        raise RuntimeError('test failed')
                     state.append('raised')
+                else:
+                    if value is not None:
+                        raise RuntimeError('test failed')
                 state.append('release')
 
-        def func():
+        def func(n):
+            del state[:]
             try:
                 with C('hello') as c:
                     state.append(c.name)
-                    raise ValueError
-            except ValueError:
+                    if n == 1:
+                        raise ValueError
+                    elif n == 2:
+                        raise TypeError
+            except (ValueError, TypeError):
                 pass
             return ', '.join(state)
-        f = self.getcompiled(func, [])
-        res = f()
+        f = self.getcompiled(func, [int])
+        res = f(0)
+        assert res == 'acquire, hello, release'
+        res = f(1)
         assert res == 'acquire, hello, raised, release'
-
+        res = f(2)
+        assert res == 'acquire, hello, raised, release'

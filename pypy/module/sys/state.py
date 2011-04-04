@@ -3,7 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 import pypy
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 
 import sys, os, stat, errno
 
@@ -33,6 +33,8 @@ def checkdir(path):
         raise OSError(errno.ENOTDIR, path)
 
 
+platform = sys.platform
+
 def getinitialpath(prefix):
     from pypy.module.sys.version import CPYTHON_VERSION
     dirname = '%d.%d.%d' % (CPYTHON_VERSION[0],
@@ -51,8 +53,18 @@ def getinitialpath(prefix):
     importlist.append(lib_pypy)
     importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
+    #
+    # List here the extra platform-specific paths.
+    if platform != 'win32':
+        importlist.append(os.path.join(python_std_lib, 'plat-'+platform))
+    if platform == 'darwin':
+        platmac = os.path.join(python_std_lib, 'plat-mac')
+        importlist.append(platmac)
+        importlist.append(os.path.join(platmac, 'lib-scriptpackages'))
+    #
     return importlist
 
+@unwrap_spec(srcdir=str)
 def pypy_initial_path(space, srcdir):
     try:
         path = getinitialpath(srcdir)
@@ -64,8 +76,6 @@ def pypy_initial_path(space, srcdir):
         space.setitem(space.sys.w_dict, space.wrap('exec_prefix'),
                                         space.wrap(srcdir))
         return space.newlist([space.wrap(p) for p in path])
-
-pypy_initial_path.unwrap_spec = [ObjSpace, str]
 
 def get(space):
     return space.fromcache(State)

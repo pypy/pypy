@@ -66,6 +66,8 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
         return ootype.make_unicode(value)
 
     def ll_str(self, value):
+        if not value:
+            return self.ll.ll_constant('None')
         sb = ootype.new(ootype.StringBuilder)
         lgt = value.ll_strlen()
         sb.ll_allocate(lgt)
@@ -169,16 +171,18 @@ class LLHelpers(AbstractLLHelpers):
             buf.ll_append(lastitem)
         return buf.ll_build()
 
-    def ll_join_chars(length_dummy, lst):
-        if typeOf(lst).ITEM == Char:
+    def ll_join_chars(length_dummy, lst, RES):
+        if RES is ootype.String:
+            target = Char
             buf = ootype.new(ootype.StringBuilder)
         else:
+            target = UniChar
             buf = ootype.new(ootype.UnicodeBuilder)
         length = lst.ll_length()
         buf.ll_allocate(length)
         i = 0
         while i < length:
-            buf.ll_append_char(lst.ll_getitem_fast(i))
+            buf.ll_append_char(cast_primitive(target, lst.ll_getitem_fast(i)))
             i += 1
         return buf.ll_build()
 
@@ -207,8 +211,11 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice_minusone(s):
         return s.ll_substring(0, s.ll_strlen()-1)
 
-    def ll_split_chr(RESULT, s, c):
-        return RESULT.ll_convert_from_array(s.ll_split_chr(c))
+    def ll_split_chr(RESULT, s, c, max):
+        return RESULT.ll_convert_from_array(s.ll_split_chr(c, max))
+
+    def ll_rsplit_chr(RESULT, s, c, max):
+        return RESULT.ll_convert_from_array(s.ll_rsplit_chr(c, max))
 
     def ll_int(s, base):
         if not 2 <= base <= 36:

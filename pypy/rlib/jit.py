@@ -2,8 +2,9 @@ import py
 import sys
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.nonconst import NonConstant
 
 def purefunction(func):
     """ Decorate a function as pure. Pure means precisely that:
@@ -24,7 +25,14 @@ def hint(x, **kwds):
     """ Hint for the JIT
 
     possible arguments are:
-    XXX
+
+    * promote - promote the argument from a variable into a constant
+    * access_directly - directly access a virtualizable, as a structure
+                        and don't treat it as a virtualizable
+    * fresh_virtualizable - means that virtualizable was just allocated.
+                            Useful in say Frame.__init__ when we do want
+                            to store things directly on it. Has to come with
+                            access_directly=True
     """
     return x
 
@@ -145,9 +153,17 @@ class Entry(ExtRegistryEntry):
         return hop.inputconst(lltype.Signed, _we_are_jitted)
 
 
+def current_trace_length():
+    """During JIT tracing, returns the current trace length (as a constant).
+    If not tracing, returns -1."""
+    if NonConstant(False):
+        return 73
+    return -1
+current_trace_length.oopspec = 'jit.current_trace_length()'
+
 def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
                       arg3=-sys.maxint-1, arg4=-sys.maxint-1):
-    """When JITted, cause an extra operation DEBUG_MERGE_POINT to appear in
+    """When JITted, cause an extra operation JIT_DEBUG to appear in
     the graphs.  Should not be left after debugging."""
     keepalive_until_here(string) # otherwise the whole function call is removed
 jit_debug.oopspec = 'jit.debug(string, arg1, arg2, arg3, arg4)'
@@ -247,35 +263,28 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-OPTIMIZER_SIMPLE = 0
-OPTIMIZER_NO_PERFECTSPEC = 1
-OPTIMIZER_FULL = 2
-
-DEBUG_OFF = 0
-DEBUG_PROFILE = 1
-DEBUG_STEPS = 2
-DEBUG_DETAILED = 3
-
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
               'trace_limit': 10000,
-              'inlining': False,
-              'optimizer': OPTIMIZER_FULL,
-              'debug' : DEBUG_STEPS,
+              'inlining': 0,
+              'loop_longevity': 1000,
+              'retrace_limit': 5,
+              'enable_opts': None, # patched later by optimizeopt/__init__.py
               }
-unroll_parameters = unrolling_iterable(PARAMETERS.keys())
+unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
 # ____________________________________________________________
 
-class JitDriver:    
+class JitDriver(object):    
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
     will allow us (later) to support a single RPython program with
     several independent JITting interpreters in it.
     """
 
+    active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
-    
+
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
@@ -319,14 +328,14 @@ class JitDriver:
         # (internal, must receive a constant 'name')
         assert name in PARAMETERS
 
+    @specialize.arg(0, 1)
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""
-        for name1 in unroll_parameters:
+        for name1, _ in unroll_parameters:
             if name1 == name:
                 self._set_param(name1, value)
                 return
         raise ValueError("no such parameter")
-    set_param._annspecialcase_ = 'specialize:arg(0)'
 
     def set_user_param(self, text):
         """Set the tunable JIT parameters from a user-supplied string
@@ -338,12 +347,17 @@ class JitDriver:
             parts = s.split('=')
             if len(parts) != 2:
                 raise ValueError
-            try:
-                value = int(parts[1])
-            except ValueError:
-                raise    # re-raise the ValueError (annotator hint)
             name = parts[0]
-            self.set_param(name, value)
+            value = parts[1]
+            if name == 'enable_opts':
+                self.set_param('enable_opts', value)
+            else:
+                for name1, _ in unroll_parameters:
+                    if name1 == name and name1 != 'enable_opts':
+                        try:
+                            self.set_param(name1, int(value))
+                        except ValueError:
+                            raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
     def _make_extregistryentries(self):
@@ -382,8 +396,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         from pypy.annotation import model as annmodel
 
         if self.instance.__name__ == 'jit_merge_point':
-            if not self.annotate_hooks(**kwds_s):
-                return None      # wrong order, try again later
+            self.annotate_hooks(**kwds_s)
 
         driver = self.instance.im_self
         keys = kwds_s.keys()
@@ -419,13 +432,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         driver = self.instance.im_self
         s_jitcell = self.bookkeeper.valueoftype(BaseJitCell)
         h = self.annotate_hook
-        return (h(driver.get_jitcell_at, driver.greens, **kwds_s)
-            and h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
-            and h(driver.get_printable_location, driver.greens, **kwds_s))
+        h(driver.get_jitcell_at, driver.greens, **kwds_s)
+        h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
+        h(driver.get_printable_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
-            return True
+            return
         bk = self.bookkeeper
         s_func = bk.immutablevalue(func)
         uniquekey = 'jitdriver.%s' % func.func_name
@@ -436,12 +449,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             else:
                 objname, fieldname = name.split('.')
                 s_instance = kwds_s['s_' + objname]
-                s_arg = s_instance.classdef.about_attribute(fieldname)
-                if s_arg is None:
-                    return False     # wrong order, try again later
+                attrdef = s_instance.classdef.find_attribute(fieldname)
+                position = self.bookkeeper.position_key
+                attrdef.read_locations[position] = True
+                s_arg = attrdef.getvalue()
+                assert s_arg is not None
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
-        return True
 
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
@@ -527,15 +541,24 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        assert annmodel.SomeInteger().contains(s_value)
+        if s_name.const == 'enable_opts':
+            assert annmodel.SomeString(can_be_None=True).contains(s_value)
+        else:
+            assert annmodel.SomeInteger().contains(s_value)
         return annmodel.s_None
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.lltypesystem.rstr import string_repr
+        
         hop.exception_cannot_occur()
         driver = self.instance.im_self
         name = hop.args_s[0].const
-        v_value = hop.inputarg(lltype.Signed, arg=1)
+        if name == 'enable_opts':
+            repr = string_repr
+        else:
+            repr = lltype.Signed
+        v_value = hop.inputarg(repr, arg=1)
         vlist = [hop.inputconst(lltype.Void, "set_param"),
                  hop.inputconst(lltype.Void, driver),
                  hop.inputconst(lltype.Void, name),

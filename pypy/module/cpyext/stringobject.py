@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
     PyObjectFields, Py_ssize_t, CONST_STRING)
+from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
@@ -14,7 +15,7 @@ from pypy.module.cpyext.pyobject import (
 ## The problem
 ## -----------
 ##
-## PyString_AsString() must returns a (non-movable) pointer to the underlying
+## PyString_AsString() must return a (non-movable) pointer to the underlying
 ## buffer, whereas pypy strings are movable.  C code may temporarily store
 ## this address and use it, as long as it owns a reference to the PyObject.
 ## There is no "release" function to specify that the pointer is not needed
@@ -167,7 +168,7 @@ def PyString_Size(space, ref):
         return ref.c_size
     else:
         w_obj = from_ref(space, ref)
-        return space.int_w(space.len(w_obj))
+        return space.len_w(w_obj)
 
 @cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
 def _PyString_Resize(space, ref, newsize):
@@ -209,10 +210,10 @@ def PyString_Concat(space, ref, w_newpart):
     the old value of string will be stolen.  If the new string cannot be created,
     the old reference to string will still be discarded and the value of
     *string will be set to NULL; the appropriate exception will be set."""
-    
-    if not ref[0]: 
+
+    if not ref[0]:
         return
-    
+
     if w_newpart is None or not PyString_Check(space, ref[0]) or \
             not PyString_Check(space, w_newpart):
          Py_DecRef(space, ref[0])
@@ -245,3 +246,21 @@ def PyString_InternFromString(space, string):
     s = rffi.charp2str(string)
     return space.new_interned_str(s)
 
+@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
+def PyString_AsEncodedObject(space, w_str, encoding, errors):
+    """Encode a string object using the codec registered for encoding and return
+    the result as Python object. encoding and errors have the same meaning as
+    the parameters of the same name in the string encode() method. The codec to
+    be used is looked up using the Python codec registry. Return NULL if an
+    exception was raised by the codec.
+
+    This function is not available in 3.x and does not have a PyBytes alias."""
+    if not PyString_Check(space, w_str):
+        PyErr_BadArgument(space)
+
+    w_encoding = w_errors = space.w_None
+    if encoding:
+        w_encoding = space.wrap(rffi.charp2str(encoding))
+    if errors:
+        w_errors = space.wrap(rffi.charp2str(errors))
+    return space.call_method(w_str, 'encode', w_encoding, w_errors)

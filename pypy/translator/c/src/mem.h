@@ -84,6 +84,9 @@ static __declspec(noinline) void pypy_asm_stack_bottom() { }
 #endif
 
 
+/* used by pypy.rlib.rstack, but also by asmgcc */
+#define OP_STACK_CURRENT(r)  r = (long)&r
+
 
 #define RAW_MALLOC_ZERO_FILLED 0
 
@@ -233,4 +236,4 @@ void boehm_gc_startup_code(void)
 #define OP_GC_GET_RPY_MEMORY_USAGE(x, r) r = -1
 #define OP_GC_GET_RPY_TYPE_INDEX(x, r)   r = -1
 #define OP_GC_IS_RPY_INSTANCE(x, r)      r = 0
-#define OP_GC_DUMP_RPY_HEAP(r)           r = 0
+#define OP_GC_DUMP_RPY_HEAP(fd, r)       r = 0

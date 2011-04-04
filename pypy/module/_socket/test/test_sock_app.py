@@ -1,9 +1,11 @@
 from pypy.conftest import gettestobjspace
-import sys
+import sys, random
 import py
 from pypy.tool.udir import udir
 from pypy.rlib import rsocket
 from pypy.rpython.lltypesystem import lltype, rffi
+
+PORT_NUMBER = random.randrange(40000, 60000)
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket', 'array'])
@@ -79,6 +81,11 @@ def test_getservbyport():
     name = space.appexec([w_socket, space.wrap(port)],
                          "(_socket, port): return _socket.getservbyport(port)")
     assert space.unwrap(name) == "smtp"
+
+    from pypy.interpreter.error import OperationError
+    exc = raises(OperationError, space.appexec,
+           [w_socket], "(_socket): return _socket.getservbyport(-1)")
+    assert exc.value.match(space, space.w_ValueError)
 
 def test_getprotobyname():
     name = "tcp"
@@ -292,6 +299,7 @@ class AppTestSocket:
     def setup_class(cls):
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
+        cls.w_PORT = space.wrap(PORT_NUMBER)
 
     def test_ntoa_exception(self):
         import _socket
@@ -348,17 +356,13 @@ class AppTestSocket:
         assert isinstance(s.fileno(), int)
 
     def test_socket_close(self):
-        import _socket, errno
+        import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         fileno = s.fileno()
+        assert s.fileno() >= 0
         s.close()
+        assert s.fileno() < 0
         s.close()
-        try:
-            s.fileno()
-        except _socket.error, ex:
-            assert ex.args[0], errno.EBADF
-        else:
-            assert 0
 
     def test_socket_close_error(self):
         import _socket, os
@@ -401,6 +405,12 @@ class AppTestSocket:
         for args in tests:
             raises((TypeError, ValueError), s.connect, args)
         s.close()
+
+    def test_bigport(self):
+        import _socket
+        s = _socket.socket()
+        raises(ValueError, s.connect, ("localhost", 1000000))
+        raises(ValueError, s.connect, ("localhost", -1))
 
     def test_NtoH(self):
         import sys
@@ -472,13 +482,26 @@ class AppTestSocket:
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
 
+    def test_socket_ioctl(self):
+        import _socket, sys
+        if sys.platform != 'win32':
+            skip("win32 only")
+        assert hasattr(_socket.socket, 'ioctl')
+        assert hasattr(_socket, 'SIO_RCVALL')
+        assert hasattr(_socket, 'RCVALL_ON')
+        assert hasattr(_socket, 'RCVALL_OFF')
+        assert hasattr(_socket, 'SIO_KEEPALIVE_VALS')
+        s = _socket.socket()
+        raises(ValueError, s.ioctl, -1, None)
+        s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
+
     def test_dup(self):
         import _socket as socket
         if not hasattr(socket.socket, 'dup'):
             skip('No dup() on this platform')
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('localhost', 50007))
+        s.bind(('localhost', self.PORT))
         s2 = s.dup()
         assert s.fileno() != s2.fileno()
         assert s.getsockname() == s2.getsockname()
@@ -534,7 +557,7 @@ class AppTestSocketTCP:
     def setup_class(cls):
         cls.space = space
 
-    PORT = 50007
+    PORT = PORT_NUMBER
     HOST = 'localhost'
         
     def setup_method(self, method):
@@ -642,14 +665,10 @@ class AppTestErrno:
     def test_errno(self):
         from socket import socket, AF_INET, SOCK_STREAM, error
         import errno
-        try:
-            s = socket(AF_INET, SOCK_STREAM)
-            import __pypy__
-            print __pypy__.internal_repr(s)
-            s.accept()
-        except Exception, e:
-            assert len(e.args) == 2
-            # error is EINVAL, or WSAEINVAL on Windows
-            assert errno.errorcode[e.args[0]].endswith("EINVAL")
-            assert isinstance(e.args[1], str)
-
+        s = socket(AF_INET, SOCK_STREAM)
+        exc = raises(error, s.accept)
+        assert isinstance(exc.value, error)
+        assert isinstance(exc.value, IOError)
+        # error is EINVAL, or WSAEINVAL on Windows
+        assert exc.value.errno == getattr(errno, 'WSAEINVAL', errno.EINVAL)
+        assert isinstance(exc.value.message, str)

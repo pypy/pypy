@@ -1,9 +1,17 @@
 """Imported by app_main.py when PyPy needs to fire up the interactive console.
 """
 import sys
+import os
 
 
 def interactive_console(mainmodule=None):
+    # set sys.{ps1,ps2} just before invoking the interactive interpreter. This
+    # mimics what CPython does in pythonrun.c
+    if not hasattr(sys, 'ps1'):
+        sys.ps1 = '>>>> '
+    if not hasattr(sys, 'ps2'):
+        sys.ps2 = '.... '
+    #
     try:
         from _pypy_irc_topic import some_topic
         text = "And now for something completely different: ``%s''" % (
@@ -15,7 +23,13 @@ def interactive_console(mainmodule=None):
         print text
     except ImportError:
         pass
+    #
     try:
+        if not os.isatty(sys.stdin.fileno()):
+            # Bail out if stdin is not tty-like, as pyrepl wouldn't be happy
+            # For example, with:
+            # subprocess.Popen(['pypy', '-i'], stdin=subprocess.PIPE)
+            raise ImportError
         from pyrepl.simple_interact import check
         if not check():
             raise ImportError

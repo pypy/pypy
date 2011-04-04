@@ -1,4 +1,4 @@
-import struct
+import struct, sys
 from pypy.jit.backend.x86.regloc import *
 from pypy.jit.backend.x86.test.test_rx86 import CodeBuilder32, CodeBuilder64, assert_encodes_as
 from pypy.jit.backend.x86.assembler import heap
@@ -37,26 +37,36 @@ def test_cmp_16():
     assert_encodes_as(cb64, "CMP16", (ecx, ImmedLoc(12345)), '\x66\x81\xF9\x39\x30')
     assert_encodes_as(cb64, "CMP16", (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)), '\x66\x41\x81\x7D\x00\x39\x30')
 
-def test_jmp_wraparound():
-    if not IS_X86_32:
-        py.test.skip()
-
-    pos_addr = intmask(0x7FFFFF00)
-    neg_addr = intmask(0x800000BB)
-
-    # JMP to "negative" address from "positive" address
-    s = cb32()
-    s.base_address = pos_addr
-    s.JMP(ImmedLoc(neg_addr))
-    expected_ofs = neg_addr - (pos_addr+5)
-    assert s.getvalue() == '\xE9' + struct.pack("<i", expected_ofs)
-
-    # JMP to a "positive" address from a "negative" address
-    s = cb32()
-    s.base_address = neg_addr
-    s.JMP(ImmedLoc(pos_addr))
-    expected_ofs = pos_addr - (neg_addr+5)
-    assert s.getvalue() == '\xE9' + struct.pack("<i", expected_ofs)
+def test_relocation():
+    from pypy.rpython.lltypesystem import lltype, rffi
+    from pypy.jit.backend.x86 import codebuf
+    for target in [0x01020304, 0x0102030405060708]:
+        if target > sys.maxint:
+            continue
+        mc = codebuf.MachineCodeBlockWrapper()
+        mc.CALL(ImmedLoc(target))
+        length = mc.get_relative_pos()
+        buf = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
+        rawstart = rffi.cast(lltype.Signed, buf)
+        if IS_X86_32:
+            assert length == 5
+            assert mc.relocations == [5]
+            expected = "\xE8" + struct.pack('<i', target - (rawstart + 5))
+        elif IS_X86_64:
+            assert mc.relocations == []
+            if target <= 0x7fffffff:
+                assert length == 10
+                expected = (
+                    "\x49\xC7\xC3\x04\x03\x02\x01"  # MOV %r11, target
+                    "\x41\xFF\xD3")                 # CALL *%r11
+            else:
+                assert length == 13
+                expected = (
+                    "\x49\xBB\x08\x07\x06\x05\x04\x03\x02\x01" # MOV %r11, targ
+                    "\x41\xFF\xD3")                 # CALL *%r11
+        mc.copy_to_raw_memory(rawstart)
+        assert ''.join([buf[i] for i in range(length)]) == expected
+        lltype.free(buf, flavor='raw')
 
 
 class Test64Bits:

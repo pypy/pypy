@@ -29,11 +29,23 @@ class TestDictObject(BaseApiTest):
         rffi.free_charp(buf)
         assert not api.PyErr_Occurred()
 
+        assert api.PyDict_Contains(d, space.wrap("c"))
+        assert not api.PyDict_Contains(d, space.wrap("z"))
+
         assert api.PyDict_DelItem(d, space.wrap("c")) == 0
         assert api.PyDict_DelItem(d, space.wrap("name")) < 0
         assert api.PyErr_Occurred() is space.w_KeyError
         api.PyErr_Clear()
         assert api.PyDict_Size(d) == 0
+
+        space.setitem(d, space.wrap("some_key"), space.wrap(3))
+        buf = rffi.str2charp("some_key")
+        assert api.PyDict_DelItemString(d, buf) == 0
+        assert api.PyDict_Size(d) == 0
+        assert api.PyDict_DelItemString(d, buf) < 0
+        assert api.PyErr_Occurred() is space.w_KeyError
+        api.PyErr_Clear()
+        rffi.free_charp(buf)
 
         d = space.wrap({'a': 'b'})
         api.PyDict_Clear(d)
@@ -75,7 +87,7 @@ class TestDictObject(BaseApiTest):
         assert space.unwrap(w_d) == dict(a='b', c='d', e='f')
 
     def test_iter(self, space, api):
-        w_dict = space.sys.getdict()
+        w_dict = space.sys.getdict(space)
         py_dict = make_ref(space, w_dict)
 
         ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')

@@ -1,4 +1,7 @@
+import sys
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
 
 def values_array(TP, size):
     ATP = lltype.GcArray(TP)
@@ -23,3 +26,19 @@ def values_array(TP, size):
             return True
 
     return ValuesArray()
+
+# ____________________________________________________________
+
+memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
+                                       rffi.SIZE_T], lltype.Void,
+                            sandboxsafe=True, _nowrapper=True)
+
+# ____________________________________________________________
+
+if sys.platform == 'win32':
+    ensure_sse2_floats = lambda : None
+else:
+    ensure_sse2_floats = rffi.llexternal_use_eci(ExternalCompilationInfo(
+        compile_extra = ['-msse2', '-mfpmath=sse',
+                         '-DPYPY_CPU_HAS_STANDARD_PRECISION'],
+        ))

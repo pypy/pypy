@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
+from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 
@@ -76,7 +76,7 @@ class DelTests:
                 x += inst.foo
                 n -= 1
             return 1
-        res = self.meta_interp(f, [20], optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(f, [20], enable_opts='')
         assert res == 1
         self.check_loops(call=1)   # for the case B(), but not for the case A()
 
@@ -85,6 +85,7 @@ class TestLLtype(DelTests, LLJitMixin):
     def test_signal_action(self):
         from pypy.module.signal.interp_signal import SignalActionFlag
         action = SignalActionFlag()
+        action.has_bytecode_counter = True
         #
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
         class X:
@@ -92,17 +93,17 @@ class TestLLtype(DelTests, LLJitMixin):
         #
         def f(n):
             x = X()
-            while n > 0:
+            action.reset_ticker(n)
+            while True:
                 myjitdriver.can_enter_jit(n=n, x=x)
                 myjitdriver.jit_merge_point(n=n, x=x)
                 x.foo = n
                 n -= 1
-                if action.get() != 0:
+                if action.decrement_ticker(1) < 0:
                     break
-                action.set(0)
             return 42
         self.meta_interp(f, [20])
-        self.check_loops(getfield_raw=1, call=0, call_pure=0)
+        self.check_loops(getfield_raw=1, setfield_raw=1, call=0, call_pure=0)
 
 class TestOOtype(DelTests, OOJitMixin):
     def setup_class(cls):

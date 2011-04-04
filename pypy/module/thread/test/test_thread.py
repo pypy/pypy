@@ -39,6 +39,20 @@ class AppTestThread(GenericTestThread):
         self.waitfor(lambda: feedback)
         assert feedback == [42]
 
+    def test_thread_count(self):
+        import thread, time
+        feedback = []
+        please_start = []
+        def f():
+            feedback.append(42)
+            self.waitfor(lambda: please_start)
+        assert thread._count() == 0
+        thread.start_new_thread(f, ())
+        self.waitfor(lambda: feedback)
+        assert thread._count() == 1
+        please_start.append(1)  # trigger
+        # XXX joining a thread seems difficult at applevel.
+
     def test_start_new_thread_args(self):
         import thread
         def f():
@@ -118,6 +132,7 @@ class AppTestThread(GenericTestThread):
             result = sys.stderr.getvalue()
             assert "ValueError" in result
             assert "hello world" in result
+            assert len(result.splitlines()) == 1
         finally:
             sys.stderr = prev
 
@@ -199,3 +214,21 @@ class AppTestThread(GenericTestThread):
         assert res == 1024*1024
         res = thread.stack_size(0)
         assert res == 2*1024*1024
+
+    def test_interrupt_main(self):
+        import thread, time
+        import signal
+
+        def f():
+            time.sleep(0.5)
+            thread.interrupt_main()
+
+        def busy_wait():
+            for x in range(1000):
+                time.sleep(0.01)
+
+        # This is normally called by app_main.py
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+
+        thread.start_new_thread(f, ())
+        raises(KeyboardInterrupt, busy_wait)

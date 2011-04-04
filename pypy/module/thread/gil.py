@@ -20,7 +20,8 @@ class GILThreadLocals(OSThreadLocals):
 
     def initialize(self, space):
         # add the GIL-releasing callback as an action on the space
-        space.actionflag.register_action(GILReleaseAction(space))
+        space.actionflag.register_periodic_action(GILReleaseAction(space),
+                                                  use_bytecode_counter=True)
 
     def setup_threads(self, space):
         """Enable threads in the object space, if they haven't already been."""
@@ -44,9 +45,14 @@ class GILThreadLocals(OSThreadLocals):
         # test_compile_lock.  As a workaround, we repatch these global
         # fields systematically.
         spacestate.ll_GIL = self.ll_GIL
-        spacestate.actionflag = space.actionflag
         invoke_around_extcall(before_external_call, after_external_call)
         return result
+
+    def reinit_threads(self, space):
+        if self.ll_GIL:
+            self.ll_GIL = thread.allocate_ll_lock()
+            thread.acquire_NOAUTO(self.ll_GIL, True)
+            self.enter_thread(space)
 
     def yield_thread(self):
         thread.yield_thread()  # explicitly release the gil (used by test_gil)
@@ -68,18 +74,17 @@ class SpaceState:
 
     def _freeze_(self):
         self.ll_GIL = thread.null_ll_lock
-        self.actionflag = None
-        self.set_actionflag_bit_after_thread_switch = 0
+        self.action_after_thread_switch = None
+        # ^^^ set by AsyncAction.fire_after_thread_switch()
         return False
 
     def after_thread_switch(self):
         # this is support logic for the signal module, to help it deliver
         # signals to the main thread.
-        actionflag = self.actionflag
-        if actionflag is not None:
-            flag = actionflag.get()
-            flag |= self.set_actionflag_bit_after_thread_switch
-            actionflag.set(flag)
+        action = self.action_after_thread_switch
+        if action is not None:
+            self.action_after_thread_switch = None
+            action.fire()
 
 spacestate = SpaceState()
 spacestate._freeze_()

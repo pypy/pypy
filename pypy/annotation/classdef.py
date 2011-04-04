@@ -58,7 +58,7 @@ from pypy.annotation import description
 #        same name in all subclasses of A, if any.  (Parent class attributes can
 #        be visible in reads from instances of subclasses.)
 
-class Attribute:
+class Attribute(object):
     # readonly-ness
     # SomeThing-ness
     # NB.  an attribute is readonly if it is a constant class attribute.
@@ -124,9 +124,9 @@ class Attribute:
                                                     "allowed" %
                                                     (self.name, homedef)
                                                     )
-                                self.bookkeeper.warning("demoting method %s "
-                                                        "to base class %s" % 
-                                                        (self.name, homedef))
+                                #self.bookkeeper.warning("demoting method %s "
+                                #                        "to base class %s" % 
+                                #                        (self.name, homedef))
                                 break
 
         # check for attributes forbidden by slots or _attrs_
@@ -402,7 +402,7 @@ class ClassDef(object):
 
 # ____________________________________________________________
 
-class InstanceSource:
+class InstanceSource(object):
     instance_level = True
 
     def __init__(self, bookkeeper, obj):

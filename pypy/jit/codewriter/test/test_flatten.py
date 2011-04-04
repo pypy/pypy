@@ -592,6 +592,7 @@ class TestFlatten:
         self.encoding_test(f, [4, 5], """
             -live- %i0, %i1
             int_guard_value %i0
+            -live- %i0, %i1
             jit_merge_point $27, I[%i0], R[], F[], I[%i1], R[], F[]
             -live-
             loop_header $27
@@ -717,7 +718,7 @@ class TestFlatten:
             return ((r_uint(n) - 123) >> 1) <= r_uint(456)
         self.encoding_test(f, [200], """
             int_sub %i0, $123L -> %i1
-            uint_rshift %i1, $1L -> %i2
+            uint_rshift %i1, $1 -> %i2
             uint_le %i2, $456L -> %i3
             int_return %i3
         """, transform=True)

@@ -27,9 +27,10 @@ class Completer:
         import keyword
         w_res = self.space.call_method(self.w_globals, "keys")
         namespace_keys = self.space.unwrap(w_res)
-        w_res = self.space.call_method(self.space.builtin.getdict(), "keys")
+        w_res = self.space.call_method(self.space.builtin.getdict(self.space),
+                                       "keys")
         builtin_keys = self.space.unwrap(w_res)
-        
+
         matches = []
         n = len(text)
 
@@ -71,8 +72,8 @@ class Completer:
     def get_class_members(self, w_clz):
         s = self.space
         words = self.get_words(w_clz)
-        try:                
-            w_bases = s.getattr(w_clz, s.wrap("__bases__"))             
+        try:
+            w_bases = s.getattr(w_clz, s.wrap("__bases__"))
             bases_w = s.fixedview(w_bases)
 
         except error.OperationError:
@@ -114,7 +115,7 @@ class PyPyConsole(code.InteractiveConsole):
             try:
                 readline.read_history_file()
             except IOError:
-                pass # guess it doesn't exit 
+                pass # guess it doesn't exit
 
             import atexit
             atexit.register(readline.write_history_file)
@@ -126,10 +127,13 @@ class PyPyConsole(code.InteractiveConsole):
         #    sys.version, self.__class__.__name__,
         #    self.space.__class__.__name__)
         w_sys = self.space.sys
-        major, minor, micro, _, _ = self.space.unwrap(self.space.sys.get('pypy_version_info'))
+        major, minor, micro, tag, rev = self.space.unwrap(self.space.sys.get('pypy_version_info'))
         elapsed = time.time() - self.space._starttime
-        banner = "PyPy %d.%d.%d in %r on top of Python %s (startuptime: %.2f secs)" % (
-            major, minor, micro, self.space, sys.version.split()[0], elapsed)
+        version = "%d.%d.%d" % (major, minor, micro)
+        if tag != "final":
+            version += "-%s%d" %(tag, rev)
+        banner = "PyPy %s in %r on top of Python %s (startuptime: %.2f secs)" % (
+            version, self.space, sys.version.split()[0], elapsed)
         code.InteractiveConsole.interact(self, banner)
 
     def raw_input(self, prompt=""):
@@ -215,12 +219,12 @@ class PyPyConsole(code.InteractiveConsole):
         if self.tracelevel > 0 and tracelevel == 0:
             s.reset_trace()
             print "Tracing disabled"
-            
+
         if self.tracelevel == 0 and tracelevel > 0:
             trace.create_trace_space(s)
             self.space.unsettrace()
             print "Tracing enabled"
-                        
+
         self.tracelevel = tracelevel
 
 

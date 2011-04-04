@@ -5,11 +5,6 @@
 from pypy.conftest import gettestobjspace
 import sys
 
-class AppTestNoProxy(object):
-    disabled = True
-    def test_init(self):
-        raises(ImportError, "import distributed")
-
 class AppTestDistributed(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
@@ -96,24 +91,27 @@ class AppTestDistributed(object):
 class AppTestDistributedTasklets(object):
     spaceconfig = {"objspace.std.withtproxy": True,
                    "objspace.usemodules._stackless": True}
+    reclimit = sys.getrecursionlimit()
+
     def setup_class(cls):
+        import py.test
+        py.test.importorskip('greenlet')
         #cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
         #    "usemodules":("_stackless",)})
-        cls.w_test_env = cls.space.appexec([], """():
+        cls.w_test_env_ = cls.space.appexec([], """():
         from distributed import test_env
-        return test_env
+        return (test_env,)
         """)
-        cls.reclimit = sys.getrecursionlimit()
         sys.setrecursionlimit(100000)
 
     def teardown_class(cls):
         sys.setrecursionlimit(cls.reclimit)
-    
+
     def test_remote_protocol_call(self):
         def f(x, y):
             return x + y
         
-        protocol = self.test_env({"f": f})
+        protocol = self.test_env_[0]({"f": f})
         fun = protocol.get_remote("f")
         assert fun(2, 3) == 5
 
@@ -124,14 +122,14 @@ class AppTestDistributedTasklets(object):
         def f(x):
             return x + g()
         
-        protocol = self.test_env({"f":f})
+        protocol = self.test_env_[0]({"f":f})
         fun = protocol.get_remote("f")
         assert fun(8) == 16
     
     def test_remote_dict(self):
         #skip("Land of infinite recursion")
         d = {'a':3}
-        protocol = self.test_env({'d':d})
+        protocol = self.test_env_[0]({'d':d})
         xd = protocol.get_remote('d')
         #assert d['a'] == xd['a']
         assert d.keys() == xd.keys()
@@ -147,7 +145,7 @@ class AppTestDistributedTasklets(object):
                 return self.x + 8
         a = A(3)
         
-        protocol = self.test_env({'a':a})
+        protocol = self.test_env_[0]({'a':a})
         xa = protocol.get_remote("a")
         assert xa.x == 3
         assert len(xa) == 11
@@ -166,7 +164,7 @@ class AppTestDistributedTasklets(object):
         
         a = A()
         
-        protocol = self.test_env({'a':a})
+        protocol = self.test_env_[0]({'a':a})
         xa = protocol.get_remote('a')
         assert xa.__class__.__doc__ == 'xxx'
         assert xa.meth(x) == 4
@@ -184,7 +182,7 @@ class AppTestDistributedTasklets(object):
                 return [1,2,3]
         
         a = A()
-        protocol = self.test_env({'a': a})
+        protocol = self.test_env_[0]({'a': a})
         xa = protocol.get_remote('a')
         xa.meth(B())
         assert xa.perform() == 4
@@ -193,7 +191,7 @@ class AppTestDistributedTasklets(object):
         #skip("Land of infinite recursion")
         import sys
         f = sys._getframe()
-        protocol = self.test_env({'f':f})
+        protocol = self.test_env_[0]({'f':f})
         xf = protocol.get_remote('f')
         assert f.f_globals.keys() == xf.f_globals.keys()
         assert f.f_locals.keys() == xf.f_locals.keys()
@@ -202,7 +200,7 @@ class AppTestDistributedTasklets(object):
         def raising():
             1/0
         
-        protocol = self.test_env({'raising':raising})
+        protocol = self.test_env_[0]({'raising':raising})
         xr = protocol.get_remote('raising')
         try:
             xr()
@@ -222,7 +220,7 @@ class AppTestDistributedTasklets(object):
                 return cls.z
 
         a = A()
-        protocol = self.test_env({'a':a})
+        protocol = self.test_env_[0]({'a':a})
         xa = protocol.get_remote("a")
         res = xa.x()
         assert res == 8
@@ -233,7 +231,7 @@ class AppTestDistributedTasklets(object):
                 assert type(self) is tp
 
         a = A()
-        protocol = self.test_env({'a':a, 'A':A})
+        protocol = self.test_env_[0]({'a':a, 'A':A})
         xa = protocol.get_remote('a')
         xA = protocol.get_remote('A')
         xa.m(xA)
@@ -246,23 +244,24 @@ class AppTestDistributedTasklets(object):
             def x(self):
                 return self.y
 
-        protocol = self.test_env({'C':C})
+        protocol = self.test_env_[0]({'C':C})
         xC = protocol.get_remote('C')
         xc = xC(3)
         res = xc.x()
         assert res == 3
 
     def test_remote_sys(self):
+        skip("Fix me some day maybe")
         import sys
 
-        protocol = self.test_env({'sys':sys})
+        protocol = self.test_env_[0]({'sys':sys})
         s = protocol.get_remote('sys')
         l = dir(s)
         assert l
 
     def test_remote_file_access(self):
         skip("Descriptor logic seems broken")
-        protocol = self.test_env({'f':open})
+        protocol = self.test_env_[0]({'f':open})
         xf = protocol.get_remote('f')
         data = xf('/etc/passwd').read()
         assert data
@@ -279,7 +278,7 @@ class AppTestDistributedTasklets(object):
 
         x = X()
 
-        protocol = self.test_env({'x':x})
+        protocol = self.test_env_[0]({'x':x})
         xx = protocol.get_remote('x')
         assert xx.x == 3
     
@@ -291,17 +290,17 @@ class AppTestDistributedTasklets(object):
             pass
 
         y = Y()
-        protocol = self.test_env({'y':y, 'X':X})
+        protocol = self.test_env_[0]({'y':y, 'X':X})
         xy = protocol.get_remote('y')
         xX = protocol.get_remote('X')
         assert isinstance(xy, xX)
 
     def test_key_error(self):
         from distributed import ObjectNotFound
-        protocol = self.test_env({})
+        protocol = self.test_env_[0]({})
         raises(ObjectNotFound, "protocol.get_remote('x')")
 
     def test_list_items(self):
-        protocol = self.test_env({'x':3, 'y':8})
+        protocol = self.test_env_[0]({'x':3, 'y':8})
         assert sorted(protocol.remote_keys()) == ['x', 'y']
 

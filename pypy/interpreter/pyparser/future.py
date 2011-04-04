@@ -26,7 +26,7 @@ the "in" comparisons with explicit numeric comparisons.
 
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR_ALLOWED, \
     CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSOLUTE_IMPORT
-            
+
 def get_futures(future_flags, source):
     futures = FutureAutomaton(future_flags, source)
     try:
@@ -34,7 +34,7 @@ def get_futures(future_flags, source):
     except DoneException, e:
         pass
     return futures.flags, (futures.lineno, futures.col_offset)
-    
+
 class DoneException(Exception):
     pass
 
@@ -85,7 +85,7 @@ class FutureAutomaton(object):
         c = self.getc()
         if c in ("'", '"', "r", "u") and not self.docstring_consumed:
             self.consume_docstring()
-        elif c in whitespace_or_newline:
+        elif c == '\\' or c in whitespace_or_newline:
             self.consume_empty_line()
         elif c == '#':
             self.consume_comment()
@@ -149,6 +149,12 @@ class FutureAutomaton(object):
                     # Syntax error
                     return
 
+    def consume_continuation(self):
+        c = self.getc()
+        if c in '\n\r':
+            self.pos += 1
+            self.atbol()
+
     def consume_empty_line(self):
         """
         Called when the remainder of the line can only contain whitespace
@@ -162,13 +168,17 @@ class FutureAutomaton(object):
             self.pos += 1
             self.consume_whitespace()
             self.start()
+        elif self.getc() in '\\':
+            self.pos += 1
+            self.consume_continuation()
+            self.start()
         elif self.getc() in '\r\n':
             c = self.getc()
             self.pos += 1
             if c == '\r':
                 if self.getc() == '\n':
                     self.pos += 1
-                    self.atbol()
+                self.atbol()
             else:
                 self.atbol()
             self.start()
@@ -216,7 +226,7 @@ class FutureAutomaton(object):
         if self.getc() not in whitespace + '\\':
             raise DoneException
         self.consume_whitespace()
-        
+
     def consume_whitespace(self):
         while 1:
             c = self.getc()
@@ -262,7 +272,6 @@ class FutureAutomaton(object):
         if paren_list and self.getc() == ')':
             self.pos += 1
             return
-        
         if (self.getc() == 'a' and
             self.getc(+1) == 's' and
             self.getc(+2) in whitespace):
@@ -318,3 +327,4 @@ class FutureFlags(object):
 
 futureFlags_2_4 = FutureFlags((2, 4, 4, 'final', 0))
 futureFlags_2_5 = FutureFlags((2, 5, 0, 'final', 0))
+futureFlags_2_7 = FutureFlags((2, 7, 0, 'final', 0))

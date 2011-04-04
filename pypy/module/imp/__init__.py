@@ -19,12 +19,17 @@ class Module(MixedModule):
         'load_module':     'interp_imp.load_module',
         'load_source':     'interp_imp.load_source',
         'load_compiled':   'interp_imp.load_compiled',
+        'load_dynamic':    'interp_imp.load_dynamic',
+        '_run_compiled_module': 'interp_imp._run_compiled_module',   # pypy
+        '_getimporter':    'importing._getimporter',                 # pypy
         #'run_module':      'interp_imp.run_module',
         'new_module':      'interp_imp.new_module',
         'init_builtin':    'interp_imp.init_builtin',
         'init_frozen':     'interp_imp.init_frozen',
         'is_builtin':      'interp_imp.is_builtin',
         'is_frozen':       'interp_imp.is_frozen',
+        'reload':          'importing.reload',
+        'NullImporter':    'importing.W_NullImporter',
 
         'lock_held':       'interp_imp.lock_held',
         'acquire_lock':    'interp_imp.acquire_lock',
@@ -33,3 +38,13 @@ class Module(MixedModule):
 
     appleveldefs = {
         }
+
+    def __init__(self, space, *args):
+        "NOT_RPYTHON"
+        MixedModule.__init__(self, space, *args)
+        from pypy.module.posix.interp_posix import add_fork_hook
+        from pypy.module.imp import interp_imp
+        add_fork_hook('before', interp_imp.acquire_lock)
+        add_fork_hook('parent', interp_imp.release_lock)
+        add_fork_hook('child', interp_imp.reinit_lock)
+

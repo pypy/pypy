@@ -255,7 +255,7 @@ def _hash_string(s):
     x = ord(s[0]) << 7
     i = 0
     while i < length:
-        x = (1000003*x) ^ ord(s[i])
+        x = intmask((1000003*x) ^ ord(s[i]))
         i += 1
     x ^= length
     return intmask(x)
@@ -266,7 +266,8 @@ def _hash_float(f):
     except the fact that the integer case is not treated specially.
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
-    from pypy.rlib.rarithmetic import intmask, isinf, isnan
+    from pypy.rlib.rarithmetic import intmask
+    from pypy.rlib.rfloat import isinf, isnan
     if isinf(f):
         if f < 0.0:
             return -271828
@@ -474,6 +475,10 @@ class r_dict(object):
 
     def setdefault(self, key, default):
         return self._dict.setdefault(_r_dictkey(self, key), default)
+
+    def popitem(self):
+        dk, value = self._dict.popitem()
+        return dk.key, value
 
     def copy(self):
         result = r_dict(self.key_eq, self.key_hash)

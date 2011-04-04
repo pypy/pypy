@@ -5,7 +5,7 @@ Python locks, based on true threading locks provided by the OS.
 from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import ObjSpace, interp2app, Arguments
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 
 # Force the declaration of the type 'thread.LockType' for RPython
@@ -30,11 +30,13 @@ class Lock(Wrappable):
     "A wrappable box around an interp-level lock object."
 
     def __init__(self, space):
+        self.space = space
         try:
             self.lock = thread.allocate_lock()
         except thread.error:
             raise wrap_thread_error(space, "out of resources")
 
+    @unwrap_spec(waitflag=int)
     def descr_lock_acquire(self, space, waitflag=1):
         """Lock the lock.  Without argument, this blocks if the lock is already
 locked (even by the same thread), waiting for another thread to release
@@ -70,16 +72,18 @@ but it needn't be locked by the same thread that unlocks it."""
     def descr__exit__(self, space, __args__):
         self.descr_lock_release(space)
 
-descr_acquire = interp2app(Lock.descr_lock_acquire,
-                           unwrap_spec=['self', ObjSpace, int])
-descr_release = interp2app(Lock.descr_lock_release,
-                           unwrap_spec=['self', ObjSpace])
-descr_locked  = interp2app(Lock.descr_lock_locked,
-                           unwrap_spec=['self', ObjSpace])
-descr__enter__ = interp2app(Lock.descr__enter__,
-                            unwrap_spec=['self', ObjSpace])
-descr__exit__ = interp2app(Lock.descr__exit__,
-                            unwrap_spec=['self', ObjSpace, Arguments])
+    def __enter__(self):
+        self.descr_lock_acquire(self.space)
+        return self
+
+    def __exit__(self, *args):
+        self.descr_lock_release(self.space)
+
+descr_acquire = interp2app(Lock.descr_lock_acquire)
+descr_release = interp2app(Lock.descr_lock_release)
+descr_locked  = interp2app(Lock.descr_lock_locked)
+descr__enter__ = interp2app(Lock.descr__enter__)
+descr__exit__ = interp2app(Lock.descr__exit__)
 
 
 Lock.typedef = TypeDef("thread.lock",
@@ -110,6 +114,3 @@ def allocate_lock(space):
     """Create a new lock object.  (allocate() is an obsolete synonym.)
 See LockType.__doc__ for information about locks."""
     return space.wrap(Lock(space))
-
-def getlocktype(space):
-    return space.gettypeobject(Lock.typedef)

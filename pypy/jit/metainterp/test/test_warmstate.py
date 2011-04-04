@@ -7,6 +7,13 @@ from pypy.jit.metainterp.warmstate import equal_whatever, hash_whatever
 from pypy.jit.metainterp.warmstate import WarmEnterState, JitCell
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
+from pypy.jit.codewriter import longlong
+
+def boxfloat(x):
+    return BoxFloat(longlong.getfloatstorage(x))
+
+def constfloat(x):
+    return ConstFloat(longlong.getfloatstorage(x))
 
 
 def test_unwrap():
@@ -16,7 +23,7 @@ def test_unwrap():
     assert unwrap(lltype.Void, BoxInt(42)) is None
     assert unwrap(lltype.Signed, BoxInt(42)) == 42
     assert unwrap(lltype.Char, BoxInt(42)) == chr(42)
-    assert unwrap(lltype.Float, BoxFloat(42.5)) == 42.5
+    assert unwrap(lltype.Float, boxfloat(42.5)) == 42.5
     assert unwrap(lltype.Ptr(S), BoxPtr(po)) == p
 
 def test_wrap():
@@ -26,10 +33,10 @@ def test_wrap():
     p = lltype.malloc(lltype.GcStruct('S'))
     po = lltype.cast_opaque_ptr(llmemory.GCREF, p)
     assert _is(wrap(None, 42), BoxInt(42))
-    assert _is(wrap(None, 42.5), BoxFloat(42.5))
+    assert _is(wrap(None, 42.5), boxfloat(42.5))
     assert _is(wrap(None, p), BoxPtr(po))
     assert _is(wrap(None, 42, in_const_box=True), ConstInt(42))
-    assert _is(wrap(None, 42.5, in_const_box=True), ConstFloat(42.5))
+    assert _is(wrap(None, 42.5, in_const_box=True), constfloat(42.5))
     assert _is(wrap(None, p, in_const_box=True), ConstPtr(po))
 
 def test_hash_equal_whatever_lltype():
@@ -99,6 +106,8 @@ def test_make_jitcell_getter_custom():
                                          lltype.Float], lltype.Void))
     class FakeWarmRunnerDesc:
         rtyper = FakeRTyper()
+        cpu = None
+        memory_manager = None
     class FakeJitDriverSD:
         _get_jitcell_at_ptr = llhelper(GETTER, getter)
         _set_jitcell_at_ptr = llhelper(SETTER, setter)
@@ -126,6 +135,7 @@ def test_make_set_future_values():
             future_values[j] = "float", value
     class FakeWarmRunnerDesc:
         cpu = FakeCPU()
+        memory_manager = None
     class FakeJitDriverSD:
         _red_args_types = ["int", "float"]
         virtualizable_info = None
@@ -135,7 +145,7 @@ def test_make_set_future_values():
     set_future_values(5, 42.5)
     assert future_values == {
         0: ("int", 5),
-        1: ("float", 42.5),
+        1: ("float", longlong.getfloatstorage(42.5)),
     }
     assert set_future_values is state.make_set_future_values()
 
@@ -144,7 +154,7 @@ def test_make_unwrap_greenkey():
         _green_args_spec = [lltype.Signed, lltype.Float]
     state = WarmEnterState(None, FakeJitDriverSD())
     unwrap_greenkey = state.make_unwrap_greenkey()
-    greenargs = unwrap_greenkey([ConstInt(42), ConstFloat(42.5)])
+    greenargs = unwrap_greenkey([ConstInt(42), constfloat(42.5)])
     assert greenargs == (42, 42.5)
     assert type(greenargs[0]) is int
 
@@ -154,16 +164,20 @@ def test_attach_unoptimized_bridge_from_interp():
         _get_jitcell_at_ptr = None
     state = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = state.make_jitcell_getter()
+    class FakeLoopToken(object):
+        pass
+    looptoken = FakeLoopToken()
     state.attach_unoptimized_bridge_from_interp([ConstInt(5),
-                                                 ConstFloat(2.25)],
-                                                "entry loop token")
+                                                 constfloat(2.25)],
+                                                looptoken)
     cell1 = get_jitcell(True, 5, 2.25)
     assert cell1.counter < 0
-    assert cell1.entry_loop_token == "entry loop token"
+    assert cell1.get_entry_loop_token() is looptoken
 
 def test_make_jitdriver_callbacks_1():
     class FakeWarmRunnerDesc:
         cpu = None
+        memory_manager = None
     class FakeJitDriverSD:
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
@@ -176,7 +190,7 @@ def test_make_jitdriver_callbacks_1():
         return FakeCell()
     state.jit_getter = jit_getter
     state.make_jitdriver_callbacks()
-    res = state.get_location_str([ConstInt(5), ConstFloat(42.5)])
+    res = state.get_location_str([ConstInt(5), constfloat(42.5)])
     assert res == '(no jitdriver.get_printable_location!)'
 
 def test_make_jitdriver_callbacks_3():
@@ -189,6 +203,7 @@ def test_make_jitdriver_callbacks_3():
     class FakeWarmRunnerDesc:
         rtyper = None
         cpu = None
+        memory_manager = None
     class FakeJitDriverSD:
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
@@ -197,7 +212,7 @@ def test_make_jitdriver_callbacks_3():
         _get_jitcell_at_ptr = None
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
-    res = state.get_location_str([ConstInt(5), ConstFloat(42.5)])
+    res = state.get_location_str([ConstInt(5), constfloat(42.5)])
     assert res == "hi there"
 
 def test_make_jitdriver_callbacks_4():
@@ -211,6 +226,7 @@ def test_make_jitdriver_callbacks_4():
     class FakeWarmRunnerDesc:
         rtyper = None
         cpu = None
+        memory_manager = None
     class FakeJitDriverSD:
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
@@ -233,6 +249,7 @@ def test_make_jitdriver_callbacks_5():
     class FakeWarmRunnerDesc:
         rtyper = None
         cpu = None
+        memory_manager = None
     class FakeJitDriverSD:
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None

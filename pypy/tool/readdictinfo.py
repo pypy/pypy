@@ -7,37 +7,38 @@
 
 import sys
 
-infile = open(sys.argv[1])
+if __name__ == '__main__':
+    infile = open(sys.argv[1])
 
-curr = None
-slots = []
-for line in infile:
-    if line == '------------------\n':
-        if curr:
-            break
-        curr = 1
-    else:
-        attr, val = [s.strip() for s in line.split(':')]
-        slots.append(attr)
-
-class DictInfo(object):
-    __slots__ = slots
-
-infile = open(sys.argv[1])
-
-infos = []
-
-for line in infile:
-    if line == '------------------\n':
-        curr = object.__new__(DictInfo)
-        infos.append(curr)
-    else:
-        attr, val = [s.strip() for s in line.split(':')]
-        if '.' in val:
-            val = float(val)
+    curr = None
+    slots = []
+    for line in infile:
+        if line == '------------------\n':
+            if curr:
+                break
+            curr = 1
         else:
-            val = int(val)
-        setattr(curr, attr, val)
+            attr, val = [s.strip() for s in line.split(':')]
+            slots.append(attr)
+
+    class DictInfo(object):
+        __slots__ = slots
+
+    infile = open(sys.argv[1])
+
+    infos = []
+
+    for line in infile:
+        if line == '------------------\n':
+            curr = object.__new__(DictInfo)
+            infos.append(curr)
+        else:
+            attr, val = [s.strip() for s in line.split(':')]
+            if '.' in val:
+                val = float(val)
+            else:
+                val = int(val)
+            setattr(curr, attr, val)
 
 def histogram(infos, keyattr, *attrs):
     r = {}

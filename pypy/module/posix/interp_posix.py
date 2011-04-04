@@ -1,9 +1,10 @@
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.rlib import rposix
+from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
+from pypy.rlib import rposix, objectmodel
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.error import operationerrfmt
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -13,7 +14,10 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import os, sys
 _WIN = sys.platform == 'win32'
 
-class FileEncoder:
+c_int = "c_int"
+c_nonnegint = "c_nonnegint"
+
+class FileEncoder(object):
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
@@ -28,7 +32,7 @@ class FileEncoder:
     def as_unicode(self):
         return self.space.unicode_w(self.w_obj)
 
-class FileDecoder:
+class FileDecoder(object):
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
@@ -75,95 +79,115 @@ def dispatch_filename_2(func):
                 return func(fname1, fname2, *args)
     return dispatch
 
+@unwrap_spec(flag=c_int, mode=c_int)
 def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""
     try:
         fd = dispatch_filename(rposix.open)(
             space, w_fname, flag, mode)
-    except OSError, e: 
+    except OSError, e:
         raise wrap_oserror2(space, e, w_fname)
     return space.wrap(fd)
-open.unwrap_spec = [ObjSpace, W_Root, "c_int", "c_int"]
 
+@unwrap_spec(fd=c_int, pos=r_longlong, how=c_int)
 def lseek(space, fd, pos, how):
     """Set the current position of a file descriptor.  Return the new position.
 If how == 0, 'pos' is relative to the start of the file; if how == 1, to the
 current position; if how == 2, to the end."""
     try:
         pos = os.lseek(fd, pos, how)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    else: 
-        return space.wrap(pos) 
-lseek.unwrap_spec = [ObjSpace, "c_int", r_longlong, "c_int"]
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(pos)
 
+@unwrap_spec(fd=c_int)
 def isatty(space, fd):
     """Return True if 'fd' is an open file descriptor connected to the
 slave end of a terminal."""
     try:
         res = os.isatty(fd)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    else:  
-        return space.wrap(res) 
-isatty.unwrap_spec = [ObjSpace, "c_int"]
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(res)
 
+@unwrap_spec(fd=c_int, buffersize=int)
 def read(space, fd, buffersize):
     """Read data from a file descriptor."""
-    try: 
+    try:
         s = os.read(fd, buffersize)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    else: 
-        return space.wrap(s) 
-read.unwrap_spec = [ObjSpace, "c_int", int]
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(s)
 
+@unwrap_spec(fd=c_int, data='bufferstr')
 def write(space, fd, data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
-    try: 
+    try:
         res = os.write(fd, data)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    else: 
-        return space.wrap(res) 
-write.unwrap_spec = [ObjSpace, "c_int", 'bufferstr']
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(res)
 
+@unwrap_spec(fd=c_int)
 def close(space, fd):
     """Close a file descriptor (for low level IO)."""
-    try: 
+    try:
         os.close(fd)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-close.unwrap_spec = [ObjSpace, "c_int"]
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
+@unwrap_spec(fd_low=c_int, fd_high=c_int)
 def closerange(fd_low, fd_high):
     """Closes all file descriptors in [fd_low, fd_high), ignoring errors."""
     rposix.closerange(fd_low, fd_high)
-closerange.unwrap_spec = ["c_int", "c_int"]
 
+@unwrap_spec(fd=c_int, length=r_longlong)
 def ftruncate(space, fd, length):
     """Truncate a file to a specified length."""
     try:
         os.ftruncate(fd, length)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-ftruncate.unwrap_spec = [ObjSpace, "c_int", r_longlong]
+    except IOError, e:
+        if not objectmodel.we_are_translated():
+            # Python 2.6 raises an IOError here. Let's not repeat that mistake.
+            w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
+                                          space.wrap(e.strerror),
+                                          space.wrap(e.filename))
+            raise OperationError(space.w_OSError, w_error)
+        raise AssertionError
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
-def fsync(space, fd):
+def fsync(space, w_fd):
+    """Force write of file with filedescriptor to disk."""
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fsync(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-fsync.unwrap_spec = [ObjSpace, "c_int"]
 
-def fdatasync(space, fd):
+def fdatasync(space, w_fd):
+    """Force write of file with filedescriptor to disk.
+Does not force update of metadata."""
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fdatasync(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
-fdatasync.unwrap_spec = [ObjSpace, "c_int"]
+
+def fchdir(space, w_fd):
+    """Change to the directory of the given file descriptor.  fildes must be
+opened on a directory, not a file."""
+    fd = space.c_filedescriptor_w(w_fd)
+    try:
+        os.fchdir(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
 # ____________________________________________________________
 
@@ -212,16 +236,16 @@ def build_stat_result(space, st):
                                   space.wrap('stat_result'))
     return space.call_function(w_stat_result, w_tuple, w_keywords)
 
+@unwrap_spec(fd=c_int)
 def fstat(space, fd):
     """Perform a stat system call on the file referenced to by an open
 file descriptor."""
     try:
         st = os.fstat(fd)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        raise wrap_oserror(space, e)
     else:
         return build_stat_result(space, st)
-fstat.unwrap_spec = [ObjSpace, "c_int"]
 
 def stat(space, w_path):
     """Perform a stat system call on the given path.  Return an object
@@ -240,11 +264,10 @@ with (at least) the following attributes:
 
     try:
         st = dispatch_filename(rposix.stat)(space, w_path)
-    except OSError, e: 
+    except OSError, e:
         raise wrap_oserror2(space, e, w_path)
-    else: 
+    else:
         return build_stat_result(space, st)
-stat.unwrap_spec = [ObjSpace, W_Root]
 
 def lstat(space, w_path):
     "Like stat(path), but do no follow symbolic links."
@@ -254,7 +277,6 @@ def lstat(space, w_path):
         raise wrap_oserror2(space, e, w_path)
     else:
         return build_stat_result(space, st)
-lstat.unwrap_spec = [ObjSpace, W_Root]
 
 class StatState(object):
     def __init__(self, space):
@@ -269,32 +291,32 @@ future calls return ints.
 If newval is omitted, return the current setting.
 """
     state = space.fromcache(StatState)
-    
+
     if w_value is None:
         return space.wrap(state.stat_float_times)
     else:
         state.stat_float_times = space.bool_w(w_value)
-stat_float_times.unwrap_spec = [ObjSpace, W_Root]
 
+@unwrap_spec(fd=c_int)
 def dup(space, fd):
     """Create a copy of the file descriptor.  Return the new file
 descriptor."""
     try:
         newfd = os.dup(fd)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        raise wrap_oserror(space, e)
     else:
         return space.wrap(newfd)
-dup.unwrap_spec = [ObjSpace, "c_int"]
 
+@unwrap_spec(old_fd=c_int, new_fd=c_int)
 def dup2(space, old_fd, new_fd):
     """Duplicate a file descriptor."""
     try:
         os.dup2(old_fd, new_fd)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-dup2.unwrap_spec = [ObjSpace, "c_int", "c_int"]
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
+@unwrap_spec(mode=c_int)
 def access(space, w_path, mode):
     """
     access(path, mode) -> 1 if granted, 0 otherwise
@@ -311,7 +333,6 @@ def access(space, w_path, mode):
         raise wrap_oserror2(space, e, w_path)
     else:
         return space.wrap(ok)
-access.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
 
 def times(space):
@@ -330,17 +351,16 @@ def times(space):
                                space.wrap(times[2]),
                                space.wrap(times[3]),
                                space.wrap(times[4])])
-times.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(cmd=str)
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
         rc = os.system(cmd)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    else: 
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
         return space.wrap(rc)
-system.unwrap_spec = [ObjSpace, str]
 
 def unlink(space, w_path):
     """Remove a file (same as remove(path))."""
@@ -348,7 +368,6 @@ def unlink(space, w_path):
         dispatch_filename(rposix.unlink)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
-unlink.unwrap_spec = [ObjSpace, W_Root]
 
 def remove(space, w_path):
     """Remove a file (same as unlink(path))."""
@@ -356,7 +375,6 @@ def remove(space, w_path):
         dispatch_filename(rposix.unlink)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
-remove.unwrap_spec = [ObjSpace, W_Root]
 
 def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
@@ -373,17 +391,15 @@ def _getfullpathname(space, w_path):
         raise wrap_oserror2(space, e, w_path)
     else:
         return w_fullpath
-_getfullpathname.unwrap_spec = [ObjSpace, W_Root]
 
 def getcwd(space):
     """Return the current working directory."""
     try:
         cur = os.getcwd()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    else: 
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
         return space.wrap(cur)
-getcwd.unwrap_spec = [ObjSpace]
 
 if sys.platform == 'win32':
     def getcwdu(space):
@@ -400,7 +416,6 @@ else:
         filesystemencoding = space.sys.filesystemencoding
         return space.call_method(getcwd(space), 'decode',
                                  space.wrap(filesystemencoding))
-getcwdu.unwrap_spec = [ObjSpace]
 
 def chdir(space, w_path):
     """Change the current working directory to the specified path."""
@@ -408,15 +423,14 @@ def chdir(space, w_path):
         dispatch_filename(rposix.chdir)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
-chdir.unwrap_spec = [ObjSpace, W_Root]
 
+@unwrap_spec(mode=c_int)
 def mkdir(space, w_path, mode=0777):
     """Create a directory."""
     try:
         dispatch_filename(rposix.mkdir)(space, w_path, mode)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
-mkdir.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
 def rmdir(space, w_path):
     """Remove a directory."""
@@ -424,8 +438,8 @@ def rmdir(space, w_path):
         dispatch_filename(rposix.rmdir)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
-rmdir.unwrap_spec = [ObjSpace, W_Root]
 
+@unwrap_spec(errno=c_int)
 def strerror(space, errno):
     """Translate an error code to a message string."""
     try:
@@ -434,7 +448,6 @@ def strerror(space, errno):
         raise OperationError(space.w_ValueError,
                              space.wrap("strerror() argument out of range"))
     return space.wrap(text)
-strerror.unwrap_spec = [ObjSpace, "c_int"]
 
 # ____________________________________________________________
 
@@ -449,12 +462,13 @@ def getstatfields(space):
 
 
 class State:
-    def __init__(self, space): 
+    def __init__(self, space):
         self.space = space
         self.w_environ = space.newdict()
         if _WIN:
             self.cryptProviderPtr = lltype.malloc(
-                rffi.CArray(HCRYPTPROV), 1, zero=True, flavor='raw')
+                rffi.CArray(HCRYPTPROV), 1, zero=True,
+                flavor='raw', immortal=True)
     def startup(self, space):
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
@@ -464,22 +478,23 @@ class State:
             self.cryptProviderPtr[0] = HCRYPTPROV._default
         return True
 
-def get(space): 
-    return space.fromcache(State) 
+def get(space):
+    return space.fromcache(State)
 
 def _convertenviron(space, w_env):
     space.call_method(w_env, 'clear')
     for key, value in os.environ.items():
         space.setitem(w_env, space.wrap(key), space.wrap(value))
 
+@unwrap_spec(name=str, value=str)
 def putenv(space, name, value):
     """Change or add an environment variable."""
     try:
         os.environ[name] = value
     except OSError, e:
-        raise wrap_oserror(space, e) 
-putenv.unwrap_spec = [ObjSpace, str, str]
+        raise wrap_oserror(space, e)
 
+@unwrap_spec(name=str)
 def unsetenv(space, name):
     """Delete an environment variable."""
     try:
@@ -487,8 +502,7 @@ def unsetenv(space, name):
     except KeyError:
         pass
     except OSError, e:
-        raise wrap_oserror(space, e) 
-unsetenv.unwrap_spec = [ObjSpace, str]
+        raise wrap_oserror(space, e)
 
 
 def listdir(space, w_dirname):
@@ -498,11 +512,16 @@ def listdir(space, w_dirname):
 
 The list is in arbitrary order.  It does not include the special
 entries '.' and '..' even if they are present in the directory."""
+    from pypy.module.sys.interp_encoding import getfilesystemencoding
     try:
         if space.isinstance_w(w_dirname, space.w_unicode):
             dirname = FileEncoder(space, w_dirname)
             result = rposix.listdir(dirname)
-            result_w = [space.wrap(s) for s in result]
+            w_fs_encoding = getfilesystemencoding(space)
+            result_w = [
+                space.call_method(space.wrap(s), "decode", w_fs_encoding)
+                for s in result
+            ]
         else:
             dirname = space.str_w(w_dirname)
             result = rposix.listdir(dirname)
@@ -510,93 +529,153 @@ entries '.' and '..' even if they are present in the directory."""
     except OSError, e:
         raise wrap_oserror2(space, e, w_dirname)
     return space.newlist(result_w)
-listdir.unwrap_spec = [ObjSpace, W_Root]
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
-    try: 
+    try:
         fd1, fd2 = os.pipe()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
-pipe.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(mode=c_int)
 def chmod(space, w_path, mode):
     "Change the access permissions of a file."
     try:
         dispatch_filename(rposix.chmod)(space, w_path, mode)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
-chmod.unwrap_spec = [ObjSpace, W_Root, "c_int"]
 
 def rename(space, w_old, w_new):
     "Rename a file or directory."
     try:
         dispatch_filename_2(rposix.rename)(space, w_old, w_new)
     except OSError, e:
-        raise wrap_oserror(space, e) 
-rename.unwrap_spec = [ObjSpace, W_Root, W_Root]
+        raise wrap_oserror(space, e)
 
+@unwrap_spec(mode=c_int)
+def mkfifo(space, w_filename, mode=0666):
+    """Create a FIFO (a POSIX named pipe)."""
+    try:
+        dispatch_filename(rposix.mkfifo)(space, w_filename, mode)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_filename)
+
+@unwrap_spec(mode=c_int, device=c_int)
+def mknod(space, w_filename, mode=0600, device=0):
+    """Create a filesystem node (file, device special file or named pipe)
+named filename. mode specifies both the permissions to use and the
+type of node to be created, being combined (bitwise OR) with one of
+S_IFREG, S_IFCHR, S_IFBLK, and S_IFIFO. For S_IFCHR and S_IFBLK,
+device defines the newly created device special file (probably using
+os.makedev()), otherwise it is ignored."""
+    try:
+        dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
+    except OSError, e:
+        raise wrap_oserror2(space, e, w_filename)
+
+@unwrap_spec(mask=c_int)
 def umask(space, mask):
     "Set the current numeric umask and return the previous umask."
     prevmask = os.umask(mask)
     return space.wrap(prevmask)
-umask.unwrap_spec = [ObjSpace, "c_int"]
 
 def getpid(space):
     "Return the current process id."
-    try: 
+    try:
         pid = os.getpid()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        raise wrap_oserror(space, e)
     return space.wrap(pid)
-getpid.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(pid=c_int, sig=c_int)
 def kill(space, pid, sig):
     "Kill a process with a signal."
     try:
         os.kill(pid, sig)
     except OSError, e:
         raise wrap_oserror(space, e)
-kill.unwrap_spec = [ObjSpace, "c_int", "c_int"]
+
+@unwrap_spec(pgid=c_int, sig=c_int)
+def killpg(space, pgid, sig):
+    "Kill a process group with a signal."
+    try:
+        os.killpg(pgid, sig)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
 def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
 in the hardest way possible on the hosting operating system."""
     import signal
     os.kill(os.getpid(), signal.SIGABRT)
-abort.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(src=str, dst=str)
 def link(space, src, dst):
     "Create a hard link to a file."
-    try: 
+    try:
         os.link(src, dst)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-link.unwrap_spec = [ObjSpace, str, str]
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
-def symlink(space, src, dst):
+def symlink(space, w_src, w_dst):
     "Create a symbolic link pointing to src named dst."
-    try: 
-        os.symlink(src, dst)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-symlink.unwrap_spec = [ObjSpace, str, str]
+    try:
+        dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
+@unwrap_spec(path=str)
 def readlink(space, path):
     "Return a string representing the path to which the symbolic link points."
     try:
         result = os.readlink(path)
-    except OSError, e: 
+    except OSError, e:
         raise wrap_oserror(space, e, path)
     return space.wrap(result)
-readlink.unwrap_spec = [ObjSpace, str]
+
+before_fork_hooks = []
+after_fork_child_hooks = []
+after_fork_parent_hooks = []
+
+@specialize.memo()
+def get_fork_hooks(where):
+    if where == 'before':
+        return before_fork_hooks
+    elif where == 'child':
+        return after_fork_child_hooks
+    elif where == 'parent':
+        return after_fork_parent_hooks
+    else:
+        assert False, "Unknown fork hook"
+
+def add_fork_hook(where, hook):
+    "NOT_RPYTHON"
+    get_fork_hooks(where).append(hook)
+
+@specialize.arg(0)
+def run_fork_hooks(where, space):
+    for hook in get_fork_hooks(where):
+        hook(space)
 
 def fork(space):
+    run_fork_hooks('before', space)
+
     try:
         pid = os.fork()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        try:
+            run_fork_hooks('parent', space)
+        except:
+            # Don't clobber the OSError if the fork failed
+            pass
+        raise wrap_oserror(space, e)
+
+    if pid == 0:
+        run_fork_hooks('child', space)
+    else:
+        run_fork_hooks('parent', space)
+
     return space.wrap(pid)
 
 def openpty(space):
@@ -607,22 +686,31 @@ def openpty(space):
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
 
+def forkpty(space):
+    try:
+        pid, master_fd = os.forkpty()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(pid),
+                           space.wrap(master_fd)])
+
+@unwrap_spec(pid=c_int, options=c_int)
 def waitpid(space, pid, options):
     """ waitpid(pid, options) -> (pid, status)
-    
+
     Wait for completion of a given child process.
     """
     try:
         pid, status = os.waitpid(pid, options)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
+    except OSError, e:
+        raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(pid), space.wrap(status)])
-waitpid.unwrap_spec = [ObjSpace, "c_int", "c_int"]
 
+@unwrap_spec(status=c_int)
 def _exit(space, status):
     os._exit(status)
-_exit.unwrap_spec = [ObjSpace, "c_int"]
 
+@unwrap_spec(command=str)
 def execv(space, command, w_args):
     """ execv(path, args)
 
@@ -632,16 +720,22 @@ Execute an executable path with arguments, replacing current process.
         args: iterable of strings
     """
     try:
-        os.execv(command, [space.str_w(i) for i in space.unpackiterable(w_args)])
+        args_w = space.unpackiterable(w_args)
+        if len(args_w) < 1:
+            w_msg = space.wrap("execv() must have at least one argument")
+            raise OperationError(space.w_ValueError, w_msg)
+        args = [space.str_w(w_arg) for w_arg in args_w]
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         msg = "execv() arg 2 must be an iterable of strings"
         raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+    try:
+        os.execv(command, args)
     except OSError, e:
-        raise wrap_oserror(space, e) 
-execv.unwrap_spec = [ObjSpace, str, W_Root]
+        raise wrap_oserror(space, e)
 
+@unwrap_spec(command=str)
 def execve(space, command, w_args, w_env):
     """ execve(path, args, env)
 
@@ -661,7 +755,15 @@ Execute a path with arguments and environment, replacing current process.
         os.execve(command, args, env)
     except OSError, e:
         raise wrap_oserror(space, e)
-execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
+
+@unwrap_spec(mode=int, path=str)
+def spawnv(space, mode, path, w_args):
+    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    try:
+        ret = os.spawnv(mode, path, args)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(ret)
 
 def utime(space, w_path, w_tuple):
     """ utime(path, (atime, mtime))
@@ -690,11 +792,10 @@ second form is used, set the access and modified times to the current time.
         if not e.match(space, space.w_TypeError):
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
-utime.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def setsid(space):
     """setsid() -> pid
-    
+
     Creates a new session with this process as the leader.
     """
     try:
@@ -702,7 +803,6 @@ def setsid(space):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(result)
-setsid.unwrap_spec = [ObjSpace]
 
 def uname(space):
     """ uname() -> (sysname, nodename, release, version, machine)
@@ -715,7 +815,6 @@ def uname(space):
         raise wrap_oserror(space, e)
     l_w = [space.wrap(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
     return space.newtuple(l_w)
-uname.unwrap_spec = [ObjSpace]
 
 def getuid(space):
     """ getuid() -> uid
@@ -723,8 +822,8 @@ def getuid(space):
     Return the current process's user id.
     """
     return space.wrap(os.getuid())
-getuid.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(arg=c_nonnegint)
 def setuid(space, arg):
     """ setuid(uid)
 
@@ -735,8 +834,8 @@ def setuid(space, arg):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-setuid.unwrap_spec = [ObjSpace, "c_nonnegint"]
 
+@unwrap_spec(arg=c_nonnegint)
 def seteuid(space, arg):
     """ seteuid(uid)
 
@@ -747,8 +846,8 @@ def seteuid(space, arg):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-seteuid.unwrap_spec = [ObjSpace, "c_nonnegint"]
 
+@unwrap_spec(arg=c_nonnegint)
 def setgid(space, arg):
     """ setgid(gid)
 
@@ -759,8 +858,8 @@ def setgid(space, arg):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-setgid.unwrap_spec = [ObjSpace, "c_nonnegint"]
 
+@unwrap_spec(arg=c_nonnegint)
 def setegid(space, arg):
     """ setegid(gid)
 
@@ -771,8 +870,8 @@ def setegid(space, arg):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.w_None
-setegid.unwrap_spec = [ObjSpace, "c_nonnegint"]
 
+@unwrap_spec(path=str)
 def chroot(space, path):
     """ chroot(path)
 
@@ -783,23 +882,20 @@ def chroot(space, path):
     except OSError, e:
         raise wrap_oserror(space, e, path)
     return space.w_None
-chroot.unwrap_spec = [ObjSpace, str]
 
 def getgid(space):
     """ getgid() -> gid
-    
+
     Return the current process's group id.
     """
     return space.wrap(os.getgid())
-getgid.unwrap_spec = [ObjSpace]
 
 def getegid(space):
     """ getegid() -> gid
-    
+
     Return the current process's effective group id.
     """
     return space.wrap(os.getegid())
-getgid.unwrap_spec = [ObjSpace]
 
 def geteuid(space):
     """ geteuid() -> euid
@@ -807,7 +903,13 @@ def geteuid(space):
     Return the current process's effective user id.
     """
     return space.wrap(os.geteuid())
-geteuid.unwrap_spec = [ObjSpace]
+
+def getgroups(space):
+    """ getgroups() -> list of group IDs
+
+    Return list of supplemental group IDs for the process.
+    """
+    return space.newlist([space.wrap(e) for e in os.getgroups()])
 
 def getpgrp(space):
     """ getpgrp() -> pgrp
@@ -815,7 +917,6 @@ def getpgrp(space):
     Return the current process group id.
     """
     return space.wrap(os.getpgrp())
-getpgrp.unwrap_spec = [ObjSpace]
 
 def setpgrp(space):
     """ setpgrp()
@@ -826,8 +927,7 @@ def setpgrp(space):
         os.setpgrp()
     except OSError, e:
         raise wrap_oserror(space, e)
-    return space.w_None        
-setpgrp.unwrap_spec = [ObjSpace]
+    return space.w_None
 
 def getppid(space):
     """ getppid() -> ppid
@@ -835,8 +935,8 @@ def getppid(space):
     Return the parent's process id.
     """
     return space.wrap(os.getppid())
-getppid.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(pid=c_int)
 def getpgid(space, pid):
     """ getpgid(pid) -> pgid
 
@@ -847,8 +947,8 @@ def getpgid(space, pid):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(pgid)
-getpgid.unwrap_spec = [ObjSpace, "c_int"]
 
+@unwrap_spec(pid=c_int, pgrp=c_int)
 def setpgid(space, pid, pgrp):
     """ setpgid(pid, pgrp)
 
@@ -858,9 +958,9 @@ def setpgid(space, pid, pgrp):
         os.setpgid(pid, pgrp)
     except OSError, e:
         raise wrap_oserror(space, e)
-    return space.w_None                
-setpgid.unwrap_spec = [ObjSpace, "c_int", "c_int"]
+    return space.w_None
 
+@unwrap_spec(ruid=c_int, euid=c_int)
 def setreuid(space, ruid, euid):
     """ setreuid(ruid, euid)
 
@@ -870,9 +970,9 @@ def setreuid(space, ruid, euid):
         os.setreuid(ruid, euid)
     except OSError, e:
         raise wrap_oserror(space, e)
-    return space.w_None                
-setreuid.unwrap_spec = [ObjSpace, "c_nonnegint", "c_nonnegint"]
+    return space.w_None
 
+@unwrap_spec(rgid=c_int, egid=c_int)
 def setregid(space, rgid, egid):
     """ setregid(rgid, egid)
 
@@ -882,9 +982,9 @@ def setregid(space, rgid, egid):
         os.setregid(rgid, egid)
     except OSError, e:
         raise wrap_oserror(space, e)
-    return space.w_None                
-setregid.unwrap_spec = [ObjSpace, "c_nonnegint", "c_nonnegint"]
+    return space.w_None
 
+@unwrap_spec(pid=c_int)
 def getsid(space, pid):
     """ getsid(pid) -> sid
 
@@ -895,7 +995,6 @@ def getsid(space, pid):
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(sid)
-getsid.unwrap_spec = [ObjSpace, "c_int"]
 
 def setsid(space):
     """ setsid()
@@ -906,18 +1005,18 @@ def setsid(space):
         os.setsid()
     except OSError, e:
         raise wrap_oserror(space, e)
-    return space.w_None                
-setsid.unwrap_spec = [ObjSpace]        
+    return space.w_None
 
 def declare_new_w_star(name):
     if name in RegisterOs.w_star_returning_int:
+        @unwrap_spec(status=c_int)
         def WSTAR(space, status):
             return space.wrap(getattr(os, name)(status))
     else:
+        @unwrap_spec(status=c_int)
         def WSTAR(space, status):
             return space.newbool(getattr(os, name)(status))
     WSTAR.__doc__ = getattr(os, name).__doc__
-    WSTAR.unwrap_spec = [ObjSpace, "c_int"]
     WSTAR.func_name = name
     return WSTAR
 
@@ -926,33 +1025,86 @@ for name in RegisterOs.w_star:
         func = declare_new_w_star(name)
         globals()[name] = func
 
+@unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
         return space.wrap(os.ttyname(fd))
     except OSError, e:
         raise wrap_oserror(space, e)
-ttyname.unwrap_spec = [ObjSpace, "c_int"]
 
-def sysconf(space, w_num_or_name):
+def confname_w(space, w_name, namespace):
     # XXX slightly non-nice, reuses the sysconf of the underlying os module
-    if space.is_true(space.isinstance(w_num_or_name, space.w_basestring)):
+    if space.is_true(space.isinstance(w_name, space.w_basestring)):
         try:
-            num = os.sysconf_names[space.str_w(w_num_or_name)]
+            num = namespace[space.str_w(w_name)]
         except KeyError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("unrecognized configuration name"))
     else:
-        num = space.int_w(w_num_or_name)
-    return space.wrap(os.sysconf(num))
-sysconf.unwrap_spec = [ObjSpace, W_Root]
+        num = space.int_w(w_name)
+    return num
 
+def sysconf(space, w_name):
+    num = confname_w(space, w_name, os.sysconf_names)
+    return space.wrap(os.sysconf(num))
+
+@unwrap_spec(fd=c_int)
+def fpathconf(space, fd, w_name):
+    num = confname_w(space, w_name, os.pathconf_names)
+    try:
+        return space.wrap(os.fpathconf(fd, num))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+@unwrap_spec(path=str, uid=c_int, gid=c_int)
 def chown(space, path, uid, gid):
     try:
         os.chown(path, uid, gid)
     except OSError, e:
         raise wrap_oserror(space, e, path)
     return space.w_None
-chown.unwrap_spec = [ObjSpace, str, "c_nonnegint", "c_nonnegint"]
+
+@unwrap_spec(path=str, uid=c_int, gid=c_int)
+def lchown(space, path, uid, gid):
+    try:
+        os.lchown(path, uid, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e, path)
+    return space.w_None
+
+def getloadavg(space):
+    try:
+        load = os.getloadavg()
+    except OSError, e:
+        raise OperationError(space.w_OSError,
+                             space.wrap("Load averages are unobtainable"))
+    return space.newtuple([space.wrap(load[0]),
+                           space.wrap(load[1]),
+                           space.wrap(load[2])])
+
+@unwrap_spec(major=c_int, minor=c_int)
+def makedev(space, major, minor):
+    result = os.makedev(major, minor)
+    return space.wrap(result)
+
+@unwrap_spec(device=c_int)
+def major(space, device):
+    result = os.major(device)
+    return space.wrap(result)
+
+@unwrap_spec(device=c_int)
+def minor(space, device):
+    result = os.minor(device)
+    return space.wrap(result)
+
+@unwrap_spec(inc=c_int)
+def nice(space, inc):
+    "Decrease the priority of process by inc and return the new priority."
+    try:
+        res = os.nice(inc)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
 
 if _WIN:
     from pypy.rlib import rwin32
@@ -988,6 +1140,7 @@ if _WIN:
         calling_conv='win',
         compilation_info=eci)
 
+    @unwrap_spec(n=int)
     def win32_urandom(space, n):
         """urandom(n) -> str
 
@@ -1022,4 +1175,3 @@ if _WIN:
                 rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n))
         finally:
             lltype.free(buf, flavor='raw')
-    win32_urandom.unwrap_spec = [ObjSpace, int]

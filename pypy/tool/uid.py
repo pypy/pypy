@@ -44,6 +44,14 @@ class Hashable(object):
         self.value = value     # a concrete value
         # try to be smart about constant mutable or immutable values
         key = type(self.value), self.value  # to avoid confusing e.g. 0 and 0.0
+        #
+        # we also have to avoid confusing 0.0 and -0.0 (needed e.g. for
+        # translating the cmath module)
+        if key[0] is float and not self.value:
+            from pypy.rlib.rfloat import copysign
+            if copysign(1., self.value) == -1.:    # -0.0
+                key = (float, "-0.0")
+        #
         try:
             hash(key)
         except TypeError:

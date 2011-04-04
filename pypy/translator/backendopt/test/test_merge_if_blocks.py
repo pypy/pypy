@@ -2,7 +2,7 @@ from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks_once
 from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof as tgraphof
-from pypy.objspace.flow.model import flatten, Block
+from pypy.objspace.flow.model import Block
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, r_int

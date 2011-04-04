@@ -15,6 +15,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
 from pypy.rpython import extregistry
+from pypy.tool.error import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):
@@ -303,6 +304,7 @@ class __extend__(SomeList):
     def method_pop(lst, s_index=None):
         lst.listdef.resize()
         return lst.listdef.read_item()
+    method_pop.can_only_throw = [IndexError]
 
     def method_index(lst, s_value):
         getbookkeeper().count("list_index")
@@ -434,6 +436,9 @@ class __extend__(SomeDict):
     def method_clear(dct):
         pass
 
+    def method_popitem(dct):
+        return dct.getanyitem('items')
+
     def _can_only_throw(dic, *ignore):
         if dic1.dictdef.dictkey.custom_eq_hash:
             return None    # r_dict: can throw anything
@@ -494,8 +499,12 @@ class __extend__(SomeString,
     def getanyitem(str):
         return str.basecharclass()
 
-    def method_split(str, patt): # XXX
+    def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
+        return getbookkeeper().newlist(str.basestringclass())
+
+    def method_rsplit(str, patt, max=-1):
+        getbookkeeper().count("str_rsplit", str, patt)
         return getbookkeeper().newlist(str.basestringclass())
 
     def method_replace(str, s1, s2):
@@ -612,6 +621,9 @@ class __extend__(SomeInstance):
                     if basedef.classdesc.all_enforced_attrs is not None:
                         if attr in basedef.classdesc.all_enforced_attrs:
                             raise HarmlesslyBlocked("get enforced attr")
+            elif isinstance(s_result, SomeList):
+                s_result = ins.classdef.classdesc.maybe_return_immutable_list(
+                    attr, s_result)
             return s_result
         return SomeObject()
     getattr.can_only_throw = []
@@ -636,6 +648,16 @@ class __extend__(SomeInstance):
 
 
 class __extend__(SomeBuiltin):
+    def _can_only_throw(bltn, *args):
+        analyser_func = getattr(bltn.analyser, 'im_func', None)
+        can_only_throw = getattr(analyser_func, 'can_only_throw', None)
+        if can_only_throw is None or isinstance(can_only_throw, list):
+            return can_only_throw
+        if bltn.s_self is not None:
+            return can_only_throw(bltn.s_self, *args)
+        else:
+            return can_only_throw(*args)
+
     def simple_call(bltn, *args):
         if bltn.s_self is not None:
             return bltn.analyser(bltn.s_self, *args)
@@ -643,6 +665,7 @@ class __extend__(SomeBuiltin):
             if bltn.methodname:
                 getbookkeeper().count(bltn.methodname.replace('.', '_'), *args)
             return bltn.analyser(*args)
+    simple_call.can_only_throw = _can_only_throw
 
     def call(bltn, args, implicit_init=False):
         args_s, kwds = args.unpack()
@@ -664,7 +687,8 @@ class __extend__(SomePBC):
     getattr.can_only_throw = []
 
     def setattr(pbc, s_attr, s_value):
-        getbookkeeper().warning("setattr not wanted on %r" % (pbc,))
+        if not pbc.isNone():
+            raise AnnotatorError("setattr on %r" % pbc)
 
     def call(pbc, args):
         bookkeeper = getbookkeeper()

@@ -3,10 +3,11 @@ from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
 from pypy.interpreter.argument import ArgErr
+from pypy.interpreter.function import Defaults
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
-class CallFamily:
+class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
     The call families are conceptually a partition of all (callable) Desc
     objects, where the equivalence relation is the transitive closure of
@@ -15,7 +16,7 @@ class CallFamily:
     overridden = False
     normalized = False
     modified   = True
-    
+
     def __init__(self, desc):
         self.descs = { desc: True }
         self.calltables = {}  # see calltable_lookup_row()
@@ -51,7 +52,7 @@ class CallFamily:
             self.total_calltable_size += 1
 
 
-class FrozenAttrFamily:
+class FrozenAttrFamily(object):
     """A family of FrozenDesc objects that have any common 'getattr' sites.
     The attr families are conceptually a partition of FrozenDesc objects,
     where the equivalence relation is the transitive closure of:
@@ -80,7 +81,7 @@ class FrozenAttrFamily:
         self.attrs[attrname] = s_value
 
 
-class ClassAttrFamily:
+class ClassAttrFamily(object):
     """A family of ClassDesc objects that have common 'getattr' sites for a
     given attribute name.  The attr families are conceptually a partition
     of ClassDesc objects, where the equivalence relation is the transitive
@@ -172,7 +173,7 @@ class NoStandardGraph(Exception):
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
     overridden = False
-    
+
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, signature=None, defaults=None,
                  specializer=None):
@@ -230,7 +231,7 @@ class FunctionDesc(Desc):
                     return '_'.join(map(nameof, thing))
                 else:
                     return str(thing)[:30]
-                
+
             if key is not None and alt_name is None:
                 postfix = valid_identifier(nameof(key))
                 alt_name = "%s__%s"%(self.name, postfix)
@@ -250,7 +251,7 @@ class FunctionDesc(Desc):
             for x in defaults:
                 defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
-            inputcells = args.match_signature(signature, defs_s)
+            inputcells = args.match_signature(signature, Defaults(defs_s))
         except ArgErr, e:
             raise TypeError, "signature mismatch: %s" % e.getmsg(self.name)
         return inputcells
@@ -291,7 +292,7 @@ class FunctionDesc(Desc):
 
     def bind_under(self, classdef, name):
         # XXX static methods
-        return self.bookkeeper.getmethoddesc(self, 
+        return self.bookkeeper.getmethoddesc(self,
                                              classdef,   # originclassdef,
                                              None,       # selfclassdef
                                              name)
@@ -574,7 +575,7 @@ class ClassDesc(Desc):
         while name not in cdesc.classdict:
             cdesc = cdesc.basedesc
             if cdesc is None:
-                return None 
+                return None
         else:
             return cdesc
 
@@ -636,6 +637,24 @@ class ClassDesc(Desc):
                     return self
         return None
 
+    def maybe_return_immutable_list(self, attr, s_result):
+        # hack: 'x.lst' where lst is listed in _immutable_fields_ as 'lst[*]'
+        # should really return an immutable list as a result.  Implemented
+        # by changing the result's annotation (but not, of course, doing an
+        # actual copy in the rtyper).  Tested in pypy.rpython.test.test_rlist,
+        # test_immutable_list_out_of_instance.
+        search = '%s[*]' % (attr,)
+        cdesc = self
+        while cdesc is not None:
+            if '_immutable_fields_' in cdesc.classdict:
+                if search in cdesc.classdict['_immutable_fields_'].value:
+                    s_result.listdef.never_resize()
+                    s_copy = s_result.listdef.offspring()
+                    s_copy.listdef.mark_as_immutable()
+                    return s_copy
+            cdesc = cdesc.basedesc
+        return s_result     # common case
+
     def consider_call_site(bookkeeper, family, descs, args, s_result):
         from pypy.annotation.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
@@ -647,6 +666,21 @@ class ClassDesc(Desc):
         else:
             # call to multiple classes: specialization not supported
             classdefs = [desc.getuniqueclassdef() for desc in descs]
+            # If some of the classes have an __init__ and others not, then
+            # we complain, even though in theory it could work if all the
+            # __init__s take no argument.  But it's messy to implement, so
+            # let's just say it is not RPython and you have to add an empty
+            # __init__ to your base class.
+            has_init = False
+            for desc in descs:
+                s_init = desc.s_read_attribute('__init__')
+                has_init |= isinstance(s_init, SomePBC)
+            basedesc = ClassDesc.getcommonbase(descs)
+            s_init = basedesc.s_read_attribute('__init__')
+            parent_has_init = isinstance(s_init, SomePBC)
+            if has_init and not parent_has_init:
+                raise Exception("some subclasses among %r declare __init__(),"
+                                " but not the common parent class" % (descs,))
         # make a PBC of MethodDescs, one for the __init__ of each class
         initdescs = []
         for desc, classdef in zip(descs, classdefs):
@@ -654,7 +688,7 @@ class ClassDesc(Desc):
             if isinstance(s_init, SomePBC):
                 assert len(s_init.descriptions) == 1, (
                     "unexpected dynamic __init__?")
-                initfuncdesc = s_init.descriptions.keys()[0]
+                initfuncdesc, = s_init.descriptions
                 if isinstance(initfuncdesc, FunctionDesc):
                     initmethdesc = bookkeeper.getmethoddesc(initfuncdesc,
                                                             classdef,
@@ -668,6 +702,23 @@ class ClassDesc(Desc):
             MethodDesc.consider_call_site(bookkeeper, initfamily, initdescs,
                                           args, s_None)
     consider_call_site = staticmethod(consider_call_site)
+
+    def getallbases(self):
+        desc = self
+        while desc is not None:
+            yield desc
+            desc = desc.basedesc
+
+    def getcommonbase(descs):
+        commondesc = descs[0]
+        for desc in descs[1:]:
+            allbases = set(commondesc.getallbases())
+            while desc not in allbases:
+                assert desc is not None, "no common base for %r" % (descs,)
+                desc = desc.basedesc
+            commondesc = desc
+        return commondesc
+    getcommonbase = staticmethod(getcommonbase)
 
     def rowkey(self):
         return self
@@ -700,7 +751,7 @@ class ClassDesc(Desc):
 class MethodDesc(Desc):
     knowntype = types.MethodType
 
-    def __init__(self, bookkeeper, funcdesc, originclassdef, 
+    def __init__(self, bookkeeper, funcdesc, originclassdef,
                  selfclassdef, name, flags={}):
         super(MethodDesc, self).__init__(bookkeeper)
         self.funcdesc = funcdesc
@@ -753,7 +804,7 @@ class MethodDesc(Desc):
         # FunctionDescs, not MethodDescs.  The present method returns the
         # FunctionDesc to use as a key in that family.
         return self.funcdesc
-    
+
     def simplify_desc_set(descs):
         # Some hacking needed to make contains() happy on SomePBC: if the
         # set of MethodDescs contains some "redundant" ones, i.e. ones that
@@ -782,8 +833,8 @@ class MethodDesc(Desc):
                                                         desc.selfclassdef,
                                                         desc.name,
                                                         commonflags)
-                del descs[desc]
-                descs[newdesc] = None
+                descs.remove(desc)
+                descs.add(newdesc)
 
         # --- case 1 ---
         groups = {}
@@ -798,7 +849,7 @@ class MethodDesc(Desc):
                     for desc2 in group:
                         cdef2 = desc2.selfclassdef
                         if cdef1 is not cdef2 and cdef1.issubclass(cdef2):
-                            del descs[desc1]
+                            descs.remove(desc1)
                             break
     simplify_desc_set = staticmethod(simplify_desc_set)
 
@@ -844,7 +895,7 @@ class FrozenDesc(Desc):
             return s_ImpossibleValue
         else:
             return self.bookkeeper.immutablevalue(value)
-    
+
     def create_new_attribute(self, name, value):
         try:
             self.read_attribute(name)
@@ -896,7 +947,7 @@ class MethodOfFrozenDesc(Desc):
         s_self = SomePBC([self.frozendesc])
         args = args.prepend(s_self)
         return self.funcdesc.pycall(schedule, args, s_previous_result)
-    
+
     def consider_call_site(bookkeeper, family, descs, args, s_result):
         shape = rawshape(args, nextra=1)    # account for the extra 'self'
         funcdescs = [mofdesc.funcdesc for mofdesc in descs]

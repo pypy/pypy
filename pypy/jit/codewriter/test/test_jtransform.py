@@ -74,10 +74,23 @@ class FakeRegularIndirectCallControl:
     def calldescr_canraise(self, calldescr):
         return False
 
+class FakeCallInfoCollection:
+    def __init__(self):
+        self.seen = []
+    def add(self, oopspecindex, calldescr, func):
+        self.seen.append((oopspecindex, calldescr, func))
+    def has_oopspec(self, oopspecindex):
+        for i, c, f in self.seen:
+            if i == oopspecindex:
+                return True
+        return False
+
 class FakeBuiltinCallControl:
+    def __init__(self):
+        self.callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'builtin'
-    def getcalldescr(self, op, oopspecindex=None):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
         assert oopspecindex is not None    # in this test
         EI = effectinfo.EffectInfo
         if oopspecindex != EI.OS_ARRAYCOPY:
@@ -103,6 +116,10 @@ class FakeBuiltinCallControl:
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
             assert argtypes[1] == op.result.concretetype
+            if oopspecindex == EI.OS_STR2UNICODE:
+                assert extraeffect == None    # not pure, can raise!
+            else:
+                assert extraeffect == EI.EF_PURE
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
@@ -691,6 +708,7 @@ def test_jit_merge_point_1():
     class FakeJitDriverSD:
         index = 42
         class jitdriver:
+            active = True
             greens = ['green1', 'green2', 'voidgreen3']
             reds = ['red1', 'red2', 'voidred3']
     jd = FakeJitDriverSD()
@@ -708,18 +726,19 @@ def test_jit_merge_point_1():
     tr = Transformer()
     tr.portal_jd = jd
     oplist = tr.rewrite_operation(op)
-    assert len(oplist) == 6
+    assert len(oplist) == 7
     assert oplist[0].opname == '-live-'
     assert oplist[1].opname == 'int_guard_value'
     assert oplist[1].args   == [v1]
     assert oplist[2].opname == '-live-'
     assert oplist[3].opname == 'int_guard_value'
     assert oplist[3].args   == [v2]
-    assert oplist[4].opname == 'jit_merge_point'
-    assert oplist[4].args[0].value == 42
-    assert list(oplist[4].args[1]) == [v1, v2]
-    assert list(oplist[4].args[4]) == [v3, v4]
-    assert oplist[5].opname == '-live-'
+    assert oplist[4].opname == '-live-'
+    assert oplist[5].opname == 'jit_merge_point'
+    assert oplist[5].args[0].value == 42
+    assert list(oplist[5].args[1]) == [v1, v2]
+    assert list(oplist[5].args[4]) == [v3, v4]
+    assert oplist[6].opname == '-live-'
 
 def test_getfield_gc():
     S = lltype.GcStruct('S', ('x', lltype.Char))
@@ -809,7 +828,8 @@ def test_unicode_concat():
     v2 = varoftype(PSTR)
     v3 = varoftype(PSTR)
     op = SpaceOperation('direct_call', [const(func), v1, v2], v3)
-    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    cc = FakeBuiltinCallControl()
+    tr = Transformer(FakeCPU(), cc)
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_r_r'
     assert op1.args[0].value == func
@@ -818,9 +838,10 @@ def test_unicode_concat():
     assert op1.result == v3
     #
     # check the callinfo_for_oopspec
-    got = effectinfo.callinfo_for_oopspec(effectinfo.EffectInfo.OS_UNI_CONCAT)
-    assert got[0] == op1.args[1]    # the calldescr
-    assert heaptracker.int2adr(got[1]) == llmemory.cast_ptr_to_adr(func)
+    got = cc.callinfocollection.seen[0]
+    assert got[0] == effectinfo.EffectInfo.OS_UNI_CONCAT
+    assert got[1] == op1.args[1]    # the calldescr
+    assert heaptracker.int2adr(got[2]) == llmemory.cast_ptr_to_adr(func)
 
 def test_str_slice():
     # test that the oopspec is present and correctly transformed
@@ -892,7 +913,8 @@ def test_unicode_eq_checknull_char():
     v2 = varoftype(PUNICODE)
     v3 = varoftype(lltype.Bool)
     op = SpaceOperation('direct_call', [const(func), v1, v2], v3)
-    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    cc = FakeBuiltinCallControl()
+    tr = Transformer(FakeCPU(), cc)
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_r_i'
     assert op1.args[0].value == func
@@ -900,9 +922,9 @@ def test_unicode_eq_checknull_char():
     assert op1.args[2] == ListOfKind('ref', [v1, v2])
     assert op1.result == v3
     # test that the OS_UNIEQ_* functions are registered
-    cifo = effectinfo._callinfo_for_oopspec
-    assert effectinfo.EffectInfo.OS_UNIEQ_SLICE_NONNULL in cifo
-    assert effectinfo.EffectInfo.OS_UNIEQ_CHECKNULL_CHAR in cifo
+    cic = cc.callinfocollection
+    assert cic.has_oopspec(effectinfo.EffectInfo.OS_UNIEQ_SLICE_NONNULL)
+    assert cic.has_oopspec(effectinfo.EffectInfo.OS_UNIEQ_CHECKNULL_CHAR)
 
 def test_list_ll_arraycopy():
     from pypy.rlib.rgc import ll_arraycopy

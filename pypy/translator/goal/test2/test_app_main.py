@@ -3,7 +3,7 @@ Tests for the entry point of pypy-c, app_main.py.
 """
 from __future__ import with_statement
 import py
-import sys, os, re
+import sys, os, re, runpy, subprocess
 import autopath
 from pypy.tool.udir import udir
 from contextlib import contextmanager
@@ -14,14 +14,43 @@ app_main = os.path.join(autopath.this_dir, os.pardir, 'app_main.py')
 app_main = os.path.abspath(app_main)
 
 _counter = 0
-def getscript(source):
+def _get_next_path(ext='.py'):
     global _counter
-    p = udir.join('demo_test_app_main_%d.py' % (_counter,))
+    p = udir.join('demo_test_app_main_%d%s' % (_counter, ext))
     _counter += 1
+    return p
+
+def getscript(source):
+    p = _get_next_path()
     p.write(str(py.code.Source(source)))
     # return relative path for testing purposes 
     return py.path.local().bestrelpath(p) 
 
+def getscript_pyc(space, source):
+    p = _get_next_path()
+    p.write(str(py.code.Source(source)))
+    w_dir = space.wrap(str(p.dirpath()))
+    w_modname = space.wrap(p.purebasename)
+    space.appexec([w_dir, w_modname], """(dir, modname):
+        import sys
+        d = sys.modules.copy()
+        sys.path.insert(0, dir)
+        __import__(modname)
+        sys.path.pop(0)
+        for key in sys.modules.keys():
+            if key not in d:
+                del sys.modules[key]
+    """)
+    p = str(p) + 'c'
+    assert os.path.isfile(p)   # the .pyc file should have been created above
+    return p
+
+def getscript_in_dir(source):
+    pdir = _get_next_path(ext='')
+    p = pdir.ensure(dir=1).join('__main__.py')
+    p.write(str(py.code.Source(source)))
+    # return relative path for testing purposes 
+    return py.path.local().bestrelpath(pdir)
 
 demo_script = getscript("""
     print 'hello'
@@ -42,6 +71,128 @@ crashing_demo_script = getscript("""
     print 'Goodbye2'   # should not be reached
     """)
 
+
+class TestParseCommandLine:
+
+    def check_options(self, options, sys_argv, **expected):
+        assert sys.argv == sys_argv
+        for key, value in expected.items():
+            assert options[key] == value
+        for key, value in options.items():
+            if key not in expected:
+                assert not value, (
+                    "option %r has unexpectedly the value %r" % (key, value))
+
+    def check(self, argv, **expected):
+        import StringIO
+        from pypy.translator.goal import app_main
+        saved_sys_argv = sys.argv[:]
+        saved_sys_stdout = sys.stdout
+        saved_sys_stderr = sys.stdout
+        app_main.os = os
+        try:
+            sys.stdout = sys.stderr = StringIO.StringIO()
+            try:
+                options = app_main.parse_command_line(argv)
+            except SystemExit:
+                output = expected['output_contains']
+                assert output in sys.stdout.getvalue()
+            else:
+                self.check_options(options, **expected)
+        finally:
+            sys.argv[:] = saved_sys_argv
+            sys.stdout = saved_sys_stdout
+            sys.stderr = saved_sys_stderr
+
+    def test_all_combinations_I_can_think_of(self):
+        self.check([], sys_argv=[''], run_stdin=True)
+        self.check(['-'], sys_argv=['-'], run_stdin=True)
+        self.check(['-S'], sys_argv=[''], run_stdin=True, no_site=1)
+        self.check(['-OO'], sys_argv=[''], run_stdin=True, optimize=2)
+        self.check(['-O', '-O'], sys_argv=[''], run_stdin=True, optimize=2)
+        self.check(['-Qnew'], sys_argv=[''], run_stdin=True, division_new=1)
+        self.check(['-Qold'], sys_argv=[''], run_stdin=True, division_new=0)
+        self.check(['-Qwarn'], sys_argv=[''], run_stdin=True, division_warning=1)
+        self.check(['-Qwarnall'], sys_argv=[''], run_stdin=True,
+                   division_warning=2)
+        self.check(['-Q', 'new'], sys_argv=[''], run_stdin=True, division_new=1)
+        self.check(['-SOQnew'], sys_argv=[''], run_stdin=True,
+                   no_site=1, optimize=1, division_new=1)
+        self.check(['-SOQ', 'new'], sys_argv=[''], run_stdin=True,
+                   no_site=1, optimize=1, division_new=1)
+        self.check(['-i'], sys_argv=[''], run_stdin=True,
+                   interactive=1, inspect=1)
+        self.check(['-h'], output_contains='usage:')
+        self.check(['-S', '-tO', '-h'], output_contains='usage:')
+        self.check(['-S', '-thO'], output_contains='usage:')
+        self.check(['-S', '-tO', '--help'], output_contains='usage:')
+        self.check(['-S', '-tO', '--info'], output_contains='translation')
+        self.check(['-S', '-tO', '--version'], output_contains='Python')
+        self.check(['-S', '-tOV'], output_contains='Python')
+        self.check(['--jit', 'foobar', '-S'], sys_argv=[''],
+                   run_stdin=True, no_site=1)
+        self.check(['-c', 'pass'], sys_argv=['-c'], run_command='pass')
+        self.check(['-cpass'], sys_argv=['-c'], run_command='pass')
+        self.check(['-cpass','x'], sys_argv=['-c','x'], run_command='pass')
+        self.check(['-Sc', 'pass'], sys_argv=['-c'], run_command='pass',
+                   no_site=1)
+        self.check(['-Scpass'], sys_argv=['-c'], run_command='pass', no_site=1)
+        self.check(['-c', '', ''], sys_argv=['-c', ''], run_command='')
+        self.check(['-mfoo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True)
+        self.check(['-m', 'foo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True)
+        self.check(['-Smfoo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True, no_site=1)
+        self.check(['-Sm', 'foo', 'bar', 'baz'], sys_argv=['foo', 'bar', 'baz'],
+                   run_module=True, no_site=1)
+        self.check(['-', 'foo', 'bar'], sys_argv=['-', 'foo', 'bar'],
+                   run_stdin=True)
+        self.check(['foo', 'bar'], sys_argv=['foo', 'bar'])
+        self.check(['foo', '-i'], sys_argv=['foo', '-i'])
+        self.check(['-i', 'foo'], sys_argv=['foo'], interactive=1, inspect=1)
+        self.check(['--', 'foo'], sys_argv=['foo'])
+        self.check(['--', '-i', 'foo'], sys_argv=['-i', 'foo'])
+        self.check(['--', '-', 'foo'], sys_argv=['-', 'foo'], run_stdin=True)
+        self.check(['-Wbog'], sys_argv=[''], warnoptions=['bog'], run_stdin=True)
+        self.check(['-W', 'ab', '-SWc'], sys_argv=[''], warnoptions=['ab', 'c'],
+                   run_stdin=True, no_site=1)
+
+    def test_sysflags(self):
+        flags = (
+            ("debug", "-d", "1"),
+            ("py3k_warning", "-3", "1"),
+            ("division_warning", "-Qwarn", "1"),
+            ("division_warning", "-Qwarnall", "2"),
+            ("division_new", "-Qnew", "1"),
+            (["inspect", "interactive"], "-i", "1"),
+            ("optimize", "-O", "1"),
+            ("optimize", "-OO", "2"),
+            ("dont_write_bytecode", "-B", "1"),
+            ("no_user_site", "-s", "1"),
+            ("no_site", "-S", "1"),
+            ("ignore_environment", "-E", "1"),
+            ("tabcheck", "-t", "1"),
+            ("tabcheck", "-tt", "2"),
+            ("verbose", "-v", "1"),
+            ("unicode", "-U", "1"),
+            ("bytes_warning", "-b", "1"),
+        )
+        for flag, opt, value in flags:
+            if isinstance(flag, list):   # this is for inspect&interactive
+                expected = {}
+                for flag1 in flag:
+                    expected[flag1] = int(value)
+            else:
+                expected = {flag: int(value)}
+            self.check([opt, '-c', 'pass'], sys_argv=['-c'],
+                       run_command='pass', **expected)
+
+    def test_sysflags_envvar(self, monkeypatch):
+        monkeypatch.setenv('PYTHONNOUSERSITE', '1')
+        expected = {"no_user_site": True}
+        self.check(['-c', 'pass'], sys_argv=['-c'], run_command='pass', **expected)
+        
 
 class TestInteraction:
     """
@@ -95,6 +246,17 @@ class TestInteraction:
         child.expect('>>> ')
         child.sendline('__name__')
         child.expect("'__main__'")
+        child.expect('>>> ')
+        child.sendline('import sys')
+        child.expect('>>> ')
+        child.sendline("'' in sys.path")
+        child.expect("True")
+
+    def test_help(self):
+        # test that -h prints the usage, including the name of the executable
+        # which should be /full/path/to/app_main.py in this case
+        child = self.spawn(['-h'])
+        child.expect(r'usage: .*app_main.py \[options\]')
 
     def test_run_script(self):
         child = self.spawn([demo_script])
@@ -212,6 +374,38 @@ class TestInteraction:
         finally:
             os.environ['PYTHONSTARTUP'] = old
 
+    def test_ignore_python_startup(self):
+        old = os.environ.get('PYTHONSTARTUP', '')
+        try:
+            os.environ['PYTHONSTARTUP'] = crashing_demo_script
+            child = self.spawn(['-E'])
+            child.expect(re.escape(banner))
+            index = child.expect(['Traceback', '>>> '])
+            assert index == 1      # no traceback
+        finally:
+            os.environ['PYTHONSTARTUP'] = old
+
+    def test_ignore_python_inspect(self):
+        os.environ['PYTHONINSPECT_'] = '1'
+        try:
+            child = self.spawn(['-E', '-c', 'pass'])
+            from pexpect import EOF
+            index = child.expect(['>>> ', EOF])
+            assert index == 1      # no prompt
+        finally:
+            del os.environ['PYTHONINSPECT_']
+
+    def test_ignore_python_path(self):
+        old = os.environ.get('PYTHONPATH', '')
+        try:
+            os.environ['PYTHONPATH'] = 'foobarbaz'
+            child = self.spawn(['-E', '-c', 'import sys; print sys.path'])
+            from pexpect import EOF
+            index = child.expect(['foobarbaz', EOF])
+            assert index == 1      # no foobarbaz
+        finally:
+            os.environ['PYTHONPATH'] = old
+
     def test_unbuffered(self):
         line = 'import os,sys;sys.stdout.write(str(789));os.read(0,1)'
         child = self.spawn(['-u', '-c', line])
@@ -221,6 +415,8 @@ class TestInteraction:
     def test_options_i_m(self):
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         child = self.spawn(['-i',
@@ -231,15 +427,21 @@ class TestInteraction:
         child.expect(re.escape('File: ' + p))
         child.expect(re.escape('Argv: ' + repr([p, 'extra'])))
         child.expect('>>> ')
-        #XXX the following doesn't work on CPython 2.5 either
-        #child.sendline('somevalue')
-        #child.expect(re.escape(repr("foobar")))
-        #child.expect('>>> ')
+        child.sendline('somevalue')
+        child.expect(re.escape(repr("foobar")))
+        child.expect('>>> ')
         child.sendline('import sys')
         child.sendline('"pypy.translator.goal.test2" in sys.modules')
         child.expect('True')
         child.sendline('"pypy.translator.goal.test2.mymodule" in sys.modules')
         child.expect('False')
+        child.sendline('sys.path[0]')
+        child.expect("''")
+
+    def test_option_i_noexit(self):
+        child = self.spawn(['-i', '-c', 'import sys; sys.exit(1)'])
+        child.expect('Traceback')
+        child.expect('SystemExit: 1')
 
     def test_options_u_i(self):
         if sys.platform == "win32":
@@ -289,17 +491,16 @@ class TestInteraction:
         child.expect('>>> ')
 
     def test_clear_pythoninspect(self):
-        py.test.skip("obscure difference with CPython -- do we care?")
-        old = os.environ.get('PYTHONINSPECT', '')
+        os.environ['PYTHONINSPECT_'] = '1'
         try:
             path = getscript("""
                 import os
                 del os.environ['PYTHONINSPECT']
                 """)
             child = self.spawn([path])
-            xxx  # do we expect a prompt or not?  CPython gives one
+            child.expect('>>> ')
         finally:
-            os.environ['PYTHONINSPECT'] = old
+            del os.environ['PYTHONINSPECT_']
 
     def test_stdout_flushes_before_stdin_blocks(self):
         # This doesn't really test app_main.py, but a behavior that
@@ -318,27 +519,44 @@ class TestInteraction:
         child.expect('A five ounce bird could not carry a one pound coconut.')
 
     def test_no_space_before_argument(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         child = self.spawn(['-cprint "hel" + "lo"'])
         child.expect('hello')
 
         child = self.spawn(['-mpypy.translator.goal.test2.mymodule'])
         child.expect('mymodule running')
 
+    def test_ps1_only_if_interactive(self):
+        argv = ['-c', 'import sys; print hasattr(sys, "ps1")']
+        child = self.spawn(argv)
+        child.expect('False')
 
 class TestNonInteractive:
 
-    def run(self, cmdline, senddata='', expect_prompt=False,
-            expect_banner=False, python_flags=''):
+    def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
+            expect_banner=False, python_flags='', env=None):
         cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
                                      app_main, cmdline)
         print 'POPEN:', cmdline
-        child_in, child_out_err = os.popen4(cmdline)
+        process = subprocess.Popen(
+            cmdline,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            shell=True, env=env,
+            universal_newlines=True
+        )
+        child_in, child_out_err = process.stdin, process.stdout
         child_in.write(senddata)
         child_in.close()
         data = child_out_err.read()
         child_out_err.close()
+        process.wait()
         assert (banner in data) == expect_banner   # no banner unless expected
         assert ('>>> ' in data) == expect_prompt   # no prompt unless expected
+        return data, process.returncode
+
+    def run(self, *args, **kwargs):
+        data, status = self.run_with_status_code(*args, **kwargs)
         return data
 
     def test_script_on_stdin(self):
@@ -375,7 +593,7 @@ class TestNonInteractive:
 
     def test_option_W_crashing(self):
         data = self.run('-W')
-        assert 'Argument expected for the -W option' in data
+        assert "Argument expected for the '-W' option" in data
 
     def test_option_W_arg_ignored(self):
         data = self.run('-Wc')
@@ -400,7 +618,19 @@ class TestNonInteractive:
         finally:
             os.environ['PYTHONSTARTUP'] = old
 
+    def test_pythonwarnings(self):
+        old = os.environ.get('PYTHONWARNINGS', '')
+        try:
+            os.environ['PYTHONWARNINGS'] = "once,error"
+            data = self.run('-W ignore -W default '
+                            '-c "import sys; print sys.warnoptions"')
+            assert "['ignore', 'default', 'once', 'error']" in data
+        finally:
+            os.environ['PYTHONWARNINGS'] = old
+
     def test_option_m(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         data = self.run('-m pypy.translator.goal.test2.mymodule extra')
@@ -463,8 +693,10 @@ class TestNonInteractive:
                 yield
             finally:
                 old_cwd.chdir()
-                os.putenv('PYTHONPATH', old_pythonpath)
-        
+                # Can't call putenv with a None argument.
+                if old_pythonpath is not None:
+                    os.putenv('PYTHONPATH', old_pythonpath)
+
         tmpdir.join('site.py').write('print "SHOULD NOT RUN"')
         runme_py = tmpdir.join('runme.py')
         runme_py.write('print "some text"')
@@ -485,9 +717,61 @@ class TestNonInteractive:
 
         with chdir_and_unset_pythonpath(tmpdir):
             data = self.run(cmdline2, python_flags='-S')
-
         assert data.startswith("some new text\n")
         assert repr(str(tmpdir.join('otherpath'))) in data
+        assert "''" not in data
+
+        data = self.run('-c "import sys; print sys.path"')
+        assert data.startswith("[''")
+
+    def test_pyc_commandline_argument(self):
+        p = getscript_pyc(self.space, "print 6*7\n")
+        assert os.path.isfile(p) and p.endswith('.pyc')
+        data = self.run(p)
+        assert data == 'in _run_compiled_module\n'
+
+    def test_main_in_dir_commandline_argument(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
+        p = getscript_in_dir('import sys; print sys.argv[0]\n')
+        data = self.run(p)
+        assert data == p + '\n'
+        data = self.run(p + os.sep)
+        assert data == p + os.sep + '\n'
+
+    def test_pythonioencoding(self):
+        if sys.version_info < (2, 7):
+            skip("test requires Python >= 2.7")
+        for encoding, expected in [
+            ("iso-8859-15", "15\xa4"),
+            ("utf-8", '15\xe2\x82\xac'),
+            ("utf-16-le", '1\x005\x00\xac\x20'),
+            ("iso-8859-1:ignore", "15"),
+            ("iso-8859-1:replace", "15?"),
+            ("iso-8859-1:backslashreplace", "15\\u20ac"),
+        ]:
+            p = getscript_in_dir("""
+            import sys
+            sys.stdout.write(u'15\u20ac')
+            sys.stdout.flush()
+            """)
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = encoding
+            data = self.run(p, env=env)
+            assert data == expected
+
+    def test_sys_exit_pythonioencoding(self):
+        if sys.version_info < (2, 7):
+            skip("test required Python >= 2.7")
+        p = getscript_in_dir("""
+        import sys
+        sys.exit(u'15\u20ac')
+        """)
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        data, status = self.run_with_status_code(p, env=env)
+        assert status == 1
+        assert data.startswith("15\xe2\x82\xac")
 
 
 class AppTestAppMain:
@@ -524,7 +808,8 @@ class AppTestAppMain:
             newpath = app_main.get_library_path('/tmp/pypy-c') # stdlib not found
             assert newpath == sys.path
             newpath = app_main.get_library_path(self.fake_exe)
-            assert newpath == self.expected_path
+            # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
+            assert newpath[:len(self.expected_path)] == self.expected_path
         finally:
             sys.path.pop()
 
@@ -537,7 +822,9 @@ class AppTestAppMain:
             app_main.os = os
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
             newpath = app_main.get_library_path(pypy_c)
-            assert len(newpath) == 3
+            # we get at least lib_pypy, lib-python/modified-X.Y.Z,
+            # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
+            assert len(newpath) >= 3
             for p in newpath:
                 assert p.startswith(self.trunkdir)
         finally:

@@ -21,6 +21,21 @@ def _get_immutable_code(func):
     assert not func.can_change_code
     return func.code
 
+class Defaults(object):
+    _immutable_fields_ = ["items[*]"]
+
+    def __init__(self, items):
+        self.items = items
+
+    def getitems(self):
+        return jit.hint(self, promote=True).items
+
+    def getitem(self, idx):
+        return self.getitems()[idx]
+
+    def getlen(self):
+        return len(self.getitems())
+
 class Function(Wrappable):
     """A function is a code object captured with some environment:
     an object space, a dictionary of globals, default arguments,
@@ -36,8 +51,7 @@ class Function(Wrappable):
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
-        self.defs_w    = defs_w     # list of w_default's
-        make_sure_not_resized(self.defs_w)
+        self.defs = Defaults(defs_w)     # wrapper around list of w_default's
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
 
@@ -48,7 +62,7 @@ class Function(Wrappable):
         return "<%s %s>" % (self.__class__.__name__, name)
 
     def call_args(self, args):
-        # delegate activation to code        
+        # delegate activation to code
         return self.getcode().funcrun(self, args)
 
     def call_obj_args(self, w_obj, args):
@@ -61,17 +75,17 @@ class Function(Wrappable):
                 return _get_immutable_code(self)
             return jit.hint(self.code, promote=True)
         return self.code
-    
+
     def funccall(self, *args_w): # speed hack
         from pypy.interpreter import gateway
         from pypy.interpreter.pycode import PyCode
-        
+
         code = self.getcode() # hook for the jit
         nargs = len(args_w)
         fast_natural_arity = code.fast_natural_arity
         if nargs == fast_natural_arity:
             if nargs == 0:
-                assert isinstance(code, gateway.BuiltinCode0)                
+                assert isinstance(code, gateway.BuiltinCode0)
                 return code.fastcall_0(self.space, self)
             elif nargs == 1:
                 assert isinstance(code, gateway.BuiltinCode1)
@@ -80,22 +94,22 @@ class Function(Wrappable):
                 assert isinstance(code, gateway.BuiltinCode2)
                 return code.fastcall_2(self.space, self, args_w[0], args_w[1])
             elif nargs == 3:
-                assert isinstance(code, gateway.BuiltinCode3)                
+                assert isinstance(code, gateway.BuiltinCode3)
                 return code.fastcall_3(self.space, self, args_w[0],
                                        args_w[1], args_w[2])
             elif nargs == 4:
-                assert isinstance(code, gateway.BuiltinCode4)                
+                assert isinstance(code, gateway.BuiltinCode4)
                 return code.fastcall_4(self.space, self, args_w[0],
                                        args_w[1], args_w[2], args_w[3])
-        elif (nargs|PyCode.FLATPYCALL) == fast_natural_arity:
-            assert isinstance(code, PyCode)            
+        elif (nargs | PyCode.FLATPYCALL) == fast_natural_arity:
+            assert isinstance(code, PyCode)
             if nargs < 5:
                 new_frame = self.space.createframe(code, self.w_func_globals,
                                                    self.closure)
                 for i in funccallunrolling:
                     if i < nargs:
                         new_frame.fastlocals_w[i] = args_w[i]
-                return new_frame.run()                                    
+                return new_frame.run()
         elif nargs >= 1 and fast_natural_arity == Code.PASSTHROUGHARGS1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             return code.funcrun_obj(self, args_w[0],
@@ -106,9 +120,9 @@ class Function(Wrappable):
     def funccall_valuestack(self, nargs, frame): # speed hack
         from pypy.interpreter import gateway
         from pypy.interpreter.pycode import PyCode
-            
+
         code = self.getcode() # hook for the jit
-        fast_natural_arity = code.fast_natural_arity        
+        fast_natural_arity = code.fast_natural_arity
         if nargs == fast_natural_arity:
             if nargs == 0:
                 assert isinstance(code, gateway.BuiltinCode0)
@@ -129,21 +143,21 @@ class Function(Wrappable):
                 return code.fastcall_4(self.space, self, frame.peekvalue(3),
                                        frame.peekvalue(2), frame.peekvalue(1),
                                         frame.peekvalue(0))
-        elif (nargs|Code.FLATPYCALL) == fast_natural_arity:
+        elif (nargs | Code.FLATPYCALL) == fast_natural_arity:
             assert isinstance(code, PyCode)
             return self._flat_pycall(code, nargs, frame)
-        elif fast_natural_arity&Code.FLATPYCALL:
-            natural_arity = fast_natural_arity&0xff
-            if natural_arity > nargs >= natural_arity-len(self.defs_w):
+        elif fast_natural_arity & Code.FLATPYCALL:
+            natural_arity = fast_natural_arity & 0xff
+            if natural_arity > nargs >= natural_arity - self.defs.getlen():
                 assert isinstance(code, PyCode)
                 return self._flat_pycall_defaults(code, nargs, frame,
-                                                  natural_arity-nargs)
+                                                  natural_arity - nargs)
         elif fast_natural_arity == Code.PASSTHROUGHARGS1 and nargs >= 1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             w_obj = frame.peekvalue(nargs-1)
             args = frame.make_arguments(nargs-1)
             return code.funcrun_obj(self, w_obj, args)
-                    
+
         args = frame.make_arguments(nargs)
         return self.call_args(args)
 
@@ -155,8 +169,8 @@ class Function(Wrappable):
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.fastlocals_w[i] = w_arg
-            
-        return new_frame.run()                        
+
+        return new_frame.run()
 
     @jit.unroll_safe
     def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load):
@@ -166,30 +180,30 @@ class Function(Wrappable):
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.fastlocals_w[i] = w_arg
-            
-        defs_w = self.defs_w
-        ndefs = len(defs_w)
-        start = ndefs-defs_to_load
+
+        defs = self.defs
+        ndefs = defs.getlen()
+        start = ndefs - defs_to_load
         i = nargs
         for j in xrange(start, ndefs):
-            new_frame.fastlocals_w[i] = defs_w[j]
+            new_frame.fastlocals_w[i] = defs.getitem(j)
             i += 1
-        return new_frame.run()                        
+        return new_frame.run()
 
-    def getdict(self):
+    def getdict(self, space):
         if self.w_func_dict is None:
-            self.w_func_dict = self.space.newdict(instance=True)
+            self.w_func_dict = space.newdict(instance=True)
         return self.w_func_dict
 
     def setdict(self, space, w_dict):
-        if not space.is_true(space.isinstance( w_dict, space.w_dict )):
-            raise OperationError( space.w_TypeError, space.wrap("setting function's dictionary to a non-dict") )
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise OperationError(space.w_TypeError,
+                space.wrap("setting function's dictionary to a non-dict")
+            )
         self.w_func_dict = w_dict
 
-    # unwrapping is done through unwrap_specs in typedef.py
-
-    def descr_function__new__(space, w_subtype, w_code, w_globals, 
-                            w_name=None, w_argdefs=None, w_closure=None):
+    def descr_function__new__(space, w_subtype, w_code, w_globals,
+                              w_name=None, w_argdefs=None, w_closure=None):
         code = space.interp_w(Code, w_code)
         if not space.is_true(space.isinstance(w_globals, space.w_dict)):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
@@ -229,7 +243,7 @@ class Function(Wrappable):
         return self.getrepr(self.space, 'function %s' % (self.name,))
 
 
-    # delicate   
+    # delicate
     _all = {'': None}
 
     def _freeze_(self):
@@ -260,7 +274,7 @@ class Function(Wrappable):
             new_inst = mod.get('builtin_function')
             return space.newtuple([new_inst,
                                    space.newtuple([space.wrap(code.identifier)])])
-            
+
         new_inst = mod.get('func_new')
         w        = space.wrap
         if self.closure is None:
@@ -288,7 +302,7 @@ class Function(Wrappable):
             w(self.code),
             w_func_globals,
             w_closure,
-            nt(self.defs_w),
+            nt(self.defs.getitems()),
             w_func_dict,
             self.w_module,
         ]
@@ -298,7 +312,7 @@ class Function(Wrappable):
         from pypy.interpreter.pycode import PyCode
         args_w = space.unpackiterable(w_args)
         try:
-            (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs_w,
+            (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs,
              w_func_dict, w_module) = args_w
         except ValueError:
             # wrong args
@@ -323,38 +337,41 @@ class Function(Wrappable):
         if space.is_w(w_func_dict, space.w_None):
             w_func_dict = None
         self.w_func_dict = w_func_dict
-        self.defs_w    = space.fixedview(w_defs_w)
+        self.defs = Defaults(space.fixedview(w_defs))
         self.w_module = w_module
 
-    def fget_func_defaults(space, self):
-        values_w = self.defs_w
+    def fget_func_defaults(self, space):
+        values_w = self.defs.getitems()
+        # the `None in values_w` check here is to ensure that interp-level
+        # functions with a default of NoneNotWrapped do not get their defaults
+        # exposed at applevel
         if not values_w or None in values_w:
             return space.w_None
         return space.newtuple(values_w)
 
-    def fset_func_defaults(space, self, w_defaults):
+    def fset_func_defaults(self, space, w_defaults):
         if space.is_w(w_defaults, space.w_None):
-            self.defs_w = []
+            self.defs = Defaults([])
             return
         if not space.is_true(space.isinstance(w_defaults, space.w_tuple)):
             raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None") )
-        self.defs_w = space.fixedview(w_defaults)
+        self.defs = Defaults(space.fixedview(w_defaults))
 
-    def fdel_func_defaults(space, self):
-        self.defs_w = []
+    def fdel_func_defaults(self, space):
+        self.defs = Defaults([])
 
-    def fget_func_doc(space, self):
+    def fget_func_doc(self, space):
         if self.w_doc is None:
             self.w_doc = self.code.getdocstring(space)
         return self.w_doc
 
-    def fset_func_doc(space, self, w_doc):
+    def fset_func_doc(self, space, w_doc):
         self.w_doc = w_doc
 
-    def fget_func_name(space, self):
+    def fget_func_name(self, space):
         return space.wrap(self.name)
 
-    def fset_func_name(space, self, w_name):
+    def fset_func_name(self, space, w_name):
         try:
             self.name = space.str_w(w_name)
         except OperationError, e:
@@ -365,27 +382,27 @@ class Function(Wrappable):
             raise
 
 
-    def fdel_func_doc(space, self):
+    def fdel_func_doc(self, space):
         self.w_doc = space.w_None
 
-    def fget___module__(space, self):
+    def fget___module__(self, space):
         if self.w_module is None:
             if self.w_func_globals is not None and not space.is_w(self.w_func_globals, space.w_None):
-                self.w_module = space.call_method( self.w_func_globals, "get", space.wrap("__name__") )
+                self.w_module = space.call_method(self.w_func_globals, "get", space.wrap("__name__"))
             else:
                 self.w_module = space.w_None
         return self.w_module
 
-    def fset___module__(space, self, w_module):
+    def fset___module__(self, space, w_module):
         self.w_module = w_module
 
-    def fdel___module__(space, self):
+    def fdel___module__(self, space):
         self.w_module = space.w_None
 
-    def fget_func_code(space, self):
+    def fget_func_code(self, space):
         return space.wrap(self.code)
 
-    def fset_func_code(space, self, w_code):
+    def fset_func_code(self, space, w_code):
         from pypy.interpreter.pycode import PyCode
         if not self.can_change_code:
             raise OperationError(space.w_TypeError,
@@ -400,7 +417,7 @@ class Function(Wrappable):
                 self.name, closure_len, len(code.co_freevars))
         self.code = code
 
-    def fget_func_closure(space, self):
+    def fget_func_closure(self, space):
         if self.closure is not None:
             w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
         else:
@@ -444,7 +461,7 @@ class Method(Wrappable):
             pre = "bound"
         else:
             pre = "unbound"
-        return "%s method %s" % (pre, self.w_function.getname(self.space, '?'))
+        return "%s method %s" % (pre, self.w_function.getname(self.space))
 
     def call_args(self, args):
         space = self.space
@@ -493,13 +510,13 @@ class Method(Wrappable):
 
     def descr_method_repr(self):
         space = self.space
-        name = self.w_function.getname(self.space, '?')
+        name = self.w_function.getname(self.space)
         # XXX do we handle all cases sanely here?
         if space.is_w(self.w_class, space.w_None):
             w_class = space.type(self.w_instance)
         else:
             w_class = self.w_class
-        typename = w_class.getname(self.space, '?')
+        typename = w_class.getname(self.space)
         if self.w_instance is None:
             s = "<unbound method %s.%s>" % (typename, name)
             return space.wrap(s)
@@ -524,7 +541,7 @@ class Method(Wrappable):
         space = self.space
         other = space.interpclass_w(w_other)
         if not isinstance(other, Method):
-            return space.w_False
+            return space.w_NotImplemented
         if self.w_instance is None:
             if other.w_instance is not None:
                 return space.w_False
@@ -562,10 +579,10 @@ class Method(Wrappable):
         else:
             tup = [self.w_function, w_instance, self.w_class]
         return space.newtuple([new_inst, space.newtuple(tup)])
-        
+
 class StaticMethod(Wrappable):
     """The staticmethod objects."""
-    _immutable_ = True
+    _immutable_fields_ = ['w_function']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -579,7 +596,7 @@ class StaticMethod(Wrappable):
 
 class ClassMethod(Wrappable):
     """The classmethod objects."""
-    _immutable_ = True
+    _immutable_fields_ = ['w_function']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -589,12 +606,10 @@ class ClassMethod(Wrappable):
             w_klass = space.type(w_obj)
         return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
 
-    def descr_classmethod__new__(space, w_type, w_function):
-        if not space.is_true(space.callable(w_function)):
-            typename = space.type(w_function).getname(space, '?')
-            raise operationerrfmt(space.w_TypeError,
-                                  "'%s' object is not callable", typename)
-        return space.wrap(ClassMethod(w_function))
+    def descr_classmethod__new__(space, w_subtype, w_function):
+        instance = space.allocate_instance(ClassMethod, w_subtype)
+        instance.__init__(w_function)
+        return space.wrap(instance)
 
 class FunctionWithFixedCode(Function):
     can_change_code = False
@@ -605,16 +620,14 @@ class BuiltinFunction(Function):
     def __init__(self, func):
         assert isinstance(func, Function)
         Function.__init__(self, func.space, func.code, func.w_func_globals,
-                          func.defs_w, func.closure, func.name)
+                          func.defs.getitems(), func.closure, func.name)
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
 
-    def descr_builtinfunction__new__(space, w_subtype, w_func):
-        func = space.interp_w(Function, w_func)
-        bltin = space.allocate_instance(BuiltinFunction, w_subtype)
-        BuiltinFunction.__init__(bltin, func)
-        return space.wrap(bltin)
+    def descr_builtinfunction__new__(space, w_subtype):
+        raise OperationError(space.w_TypeError,
+                     space.wrap("cannot create 'builtin_function' instances"))
 
     def descr_function_repr(self):
         return self.space.wrap('<built-in function %s>' % (self.name,))

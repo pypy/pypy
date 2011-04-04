@@ -136,7 +136,7 @@ class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
         return funcdesc.cachedgraph(TYPE, alt_name=valid_identifier(alt_name))
 
 
-class MixLevelHelperAnnotator:
+class MixLevelHelperAnnotator(object):
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
@@ -412,9 +412,9 @@ def make_string_entries(strtype):
 
         def compute_result_annotation(self, s_ll_str):
             if strtype is str:
-                return annmodel.SomeString()
+                return annmodel.SomeString(can_be_None=True)
             else:
-                return annmodel.SomeUnicodeString()
+                return annmodel.SomeUnicodeString(can_be_None=True)
 
         def specialize_call(self, hop):
             hop.exception_cannot_occur()

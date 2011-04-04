@@ -645,3 +645,16 @@ def test_context_manager():
     res = interpret(f, [])
     assert hlstr(res) == 'acquire, use, raised, release'
 
+
+def test_scoped_allocator():
+    from pypy.rpython.lltypesystem.lltype import scoped_alloc, Array, Signed
+    T = Array(Signed)
+    
+    def f():
+        x = 0
+        with scoped_alloc(T, 1) as array:
+            array[0] = -42
+            x = array[0]
+        assert x == -42
+
+    res = interpret(f, [])

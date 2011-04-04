@@ -135,6 +135,27 @@ def rmdir(path):
     else:
         return os.rmdir(path.as_bytes())
 
+@specialize.argtype(0)
+def mkfifo(path, mode):
+    if isinstance(path, str):
+        os.mkfifo(path, mode)
+    else:
+        os.mkfifo(path.as_bytes(), mode)
+
+@specialize.argtype(0)
+def mknod(path, mode, device):
+    if isinstance(path, str):
+        os.mknod(path, mode, device)
+    else:
+        os.mknod(path.as_bytes(), mode, device)
+
+@specialize.argtype(0, 1)
+def symlink(src, dest):
+    if isinstance(src, str):
+        os.symlink(src, dest)
+    else:
+        os.symlink(src.as_bytes(), dest.as_bytes())
+
 if os.name == 'nt':
     import nt
     def _getfullpathname(path):

@@ -82,7 +82,6 @@ def test_traverse():
                    pieces.headerblock.exits[1],
                    pieces.whileblock,
                    pieces.whileblock.exits[0]]
-    assert flatten(graph) == lst
 
 def test_mkentrymap():
     entrymap = mkentrymap(graph)

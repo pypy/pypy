@@ -278,6 +278,105 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res
 
+    def test_bug_1(self):
+        import weakref
+        class B(object):
+            pass
+        def g():
+            b = B()
+            llop.gc__collect(lltype.Void)    # force 'b' to be old
+            ref = weakref.ref(B())
+            b.ref = ref
+            return ref
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res
+
+    def test_cycle_with_weakref_and_del(self):
+        import weakref, gc
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            def __del__(self):
+                # when __del__ is called, the weakref to c should be dead
+                if self.ref() is None:
+                    a.count += 10  # ok
+                else:
+                    a.count = 666  # not ok
+        class C(object):
+            pass
+        def g():
+            c = C()
+            c.b = B()
+            ref = weakref.ref(c)
+            c.b.ref = ref
+            return ref
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count + (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res == 11
+
+    def test_weakref_to_object_with_finalizer_ordering(self):
+        import weakref, gc
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            def __del__(self):
+                # when __del__ is called, the weakref to myself is still valid
+                # in RPython (at least with most GCs; this test might be
+                # skipped for specific GCs)
+                if self.ref() is self:
+                    a.count += 10  # ok
+                else:
+                    a.count = 666  # not ok
+        def g():
+            b = B()
+            ref = weakref.ref(b)
+            b.ref = ref
+            return ref
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count + (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res == 11
+
+    def test_weakref_bug_1(self):
+        import weakref
+        class A(object):
+            pass
+        class B(object):
+            def __del__(self):
+                self.wref().x += 1
+        def g(a):
+            b = B()
+            b.wref = weakref.ref(a)
+            # the only way to reach this weakref is via B, which is an
+            # object with finalizer (but the weakref itself points to
+            # a, which does not go away but will move during the next
+            # gc.collect)
+        def f():
+            a = A()
+            a.x = 10
+            g(a)
+            llop.gc__collect(lltype.Void)
+            return a.x
+        res = self.interpret(f, [])
+        assert res == 11
+
     def test_id(self):
         class A(object):
             pass
@@ -634,6 +733,9 @@ class UnboxedObject(TaggedBase, UnboxedValue):
 
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
+
+    def test_weakref_to_object_with_finalizer_ordering(self):
+        py.test.skip("Does not work")
 
 class TestSemiSpaceGC(GCTest, snippet.SemiSpaceGCTests):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass

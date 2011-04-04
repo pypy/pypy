@@ -1,13 +1,20 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
+
+class SignalChecker:
+    def __init__(self, space):
+        self.space = space
+
+    def check(self):
+        self.space.getexecutioncontext().checksignals()
 
 class W_RSocket(Wrappable, RSocket):
     def __del__(self):
@@ -27,7 +34,6 @@ class W_RSocket(Wrappable, RSocket):
                                    addr.as_object(sock.fd, space)])
         except SocketError, e:
             raise converted_error(space, e)
-    accept_w.unwrap_spec = ['self', ObjSpace]
 
     def bind_w(self, space, w_addr):
         """bind(address)
@@ -40,7 +46,6 @@ class W_RSocket(Wrappable, RSocket):
             self.bind(self.addr_from_object(space, w_addr))
         except SocketError, e:
             raise converted_error(space, e)
-    bind_w.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def close_w(self, space):
         """close()
@@ -51,7 +56,6 @@ class W_RSocket(Wrappable, RSocket):
             self.close()
         except SocketError, e:
             raise converted_error(space, e)
-    close_w.unwrap_spec = ['self', ObjSpace]
 
     def connect_w(self, space, w_addr):
         """connect(address)
@@ -66,7 +70,6 @@ class W_RSocket(Wrappable, RSocket):
         except TypeError, e:
             raise OperationError(space.w_TypeError,
                                  space.wrap(str(e)))
-    connect_w.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def connect_ex_w(self, space, w_addr):
         """connect_ex(address) -> errno
@@ -80,26 +83,19 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
         error = self.connect_ex(addr)
         return space.wrap(error)
-    connect_ex_w.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def dup_w(self, space):
         try:
             return self.dup(W_RSocket)
         except SocketError, e:
             raise converted_error(space, e)
-    dup_w.unwrap_spec = ['self', ObjSpace]
     
     def fileno_w(self, space):
         """fileno() -> integer
 
         Return the integer file descriptor of the socket.
         """
-        try:
-            fd = self.fileno()
-        except SocketError, e:
-            raise converted_error(space, e)
-        return space.wrap(intmask(fd))
-    fileno_w.unwrap_spec = ['self', ObjSpace]
+        return space.wrap(intmask(self.fd))
 
     def getpeername_w(self, space):
         """getpeername() -> address info
@@ -112,7 +108,6 @@ class W_RSocket(Wrappable, RSocket):
             return addr.as_object(self.fd, space)
         except SocketError, e:
             raise converted_error(space, e)
-    getpeername_w.unwrap_spec = ['self', ObjSpace]
 
     def getsockname_w(self, space):
         """getsockname() -> address info
@@ -125,8 +120,8 @@ class W_RSocket(Wrappable, RSocket):
             return addr.as_object(self.fd, space)
         except SocketError, e:
             raise converted_error(space, e)
-    getsockname_w.unwrap_spec = ['self', ObjSpace]
 
+    @unwrap_spec(level=int, optname=int)
     def getsockopt_w(self, space, level, optname, w_buflen=NoneNotWrapped):
         """getsockopt(level, option[, buffersize]) -> value
 
@@ -141,7 +136,6 @@ class W_RSocket(Wrappable, RSocket):
                 raise converted_error(space, e)
         buflen = space.int_w(w_buflen)
         return space.wrap(self.getsockopt(level, optname, buflen))
-    getsockopt_w.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
 
     def gettimeout_w(self, space):
         """gettimeout() -> timeout
@@ -153,8 +147,8 @@ class W_RSocket(Wrappable, RSocket):
         if timeout < 0.0:
             return space.w_None
         return space.wrap(timeout)
-    gettimeout_w.unwrap_spec = ['self', ObjSpace]
-    
+
+    @unwrap_spec(backlog=int)
     def listen_w(self, space, backlog):
         """listen(backlog)
 
@@ -166,7 +160,6 @@ class W_RSocket(Wrappable, RSocket):
             self.listen(backlog)
         except SocketError, e:
             raise converted_error(space, e)
-    listen_w.unwrap_spec = ['self', ObjSpace, int]
 
     def makefile_w(self, space, w_mode="r", w_buffsize=-1):
         """makefile([mode[, buffersize]]) -> file object
@@ -175,10 +168,8 @@ class W_RSocket(Wrappable, RSocket):
         The mode and buffersize arguments are as for the built-in open() function.
         """
         return app_makefile(space, self, w_mode, w_buffsize)
-    makefile_w.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
-        
-        
-                   
+
+    @unwrap_spec(buffersize='nonnegint', flags=int)
     def recv_w(self, space, buffersize, flags=0):
         """recv(buffersize[, flags]) -> data
 
@@ -192,8 +183,8 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(data)
-    recv_w.unwrap_spec = ['self', ObjSpace, 'nonnegint', int]
 
+    @unwrap_spec(buffersize='nonnegint', flags=int)
     def recvfrom_w(self, space, buffersize, flags=0):
         """recvfrom(buffersize[, flags]) -> (data, address info)
 
@@ -208,8 +199,8 @@ class W_RSocket(Wrappable, RSocket):
             return space.newtuple([space.wrap(data), w_addr])
         except SocketError, e:
             raise converted_error(space, e)
-    recvfrom_w.unwrap_spec = ['self', ObjSpace, 'nonnegint', int]
 
+    @unwrap_spec(data='bufferstr', flags=int)
     def send_w(self, space, data, flags=0):
         """send(data[, flags]) -> count
 
@@ -222,8 +213,8 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(count)
-    send_w.unwrap_spec = ['self', ObjSpace, 'bufferstr', int]
 
+    @unwrap_spec(data='bufferstr', flags=int)
     def sendall_w(self, space, data, flags=0):
         """sendall(data[, flags])
 
@@ -233,11 +224,11 @@ class W_RSocket(Wrappable, RSocket):
         to tell how much data has been sent.
         """
         try:
-            count = self.sendall(data, flags)
+            count = self.sendall(data, flags, SignalChecker(space))
         except SocketError, e:
             raise converted_error(space, e)
-    sendall_w.unwrap_spec = ['self', ObjSpace, 'bufferstr', int]
 
+    @unwrap_spec(data='bufferstr')
     def sendto_w(self, space, data, w_param2, w_param3=NoneNotWrapped):
         """sendto(data[, flags], address) -> count
 
@@ -258,18 +249,18 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(count)
-    sendto_w.unwrap_spec = ['self', ObjSpace, 'bufferstr', W_Root, W_Root]
 
-    def setblocking_w(self, space, flag):
+    @unwrap_spec(flag=bool)
+    def setblocking_w(self, flag):
         """setblocking(flag)
 
         Set the socket to blocking (flag is true) or non-blocking (false).
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        self.setblocking(bool(flag))
-    setblocking_w.unwrap_spec = ['self', ObjSpace, int]
+        self.setblocking(flag)
 
+    @unwrap_spec(level=int, optname=int)
     def setsockopt_w(self, space, level, optname, w_optval):
         """setsockopt(level, option, value)
 
@@ -289,9 +280,7 @@ class W_RSocket(Wrappable, RSocket):
             self.setsockopt_int(level, optname, optval)
         except SocketError, e:
             raise converted_error(space, e)
-            
-    setsockopt_w.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
-    
+
     def settimeout_w(self, space, w_timeout):
         """settimeout(timeout)
 
@@ -308,8 +297,8 @@ class W_RSocket(Wrappable, RSocket):
                 raise OperationError(space.w_ValueError,
                                      space.wrap('Timeout value out of range'))
         self.settimeout(timeout)
-    settimeout_w.unwrap_spec = ['self', ObjSpace, W_Root]
 
+    @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
         rwbuffer = space.rwbuffer_w(w_buffer)
         lgt = rwbuffer.getlength()
@@ -320,8 +309,7 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
 
-    recv_into_w.unwrap_spec = ['self', ObjSpace, W_Root, int, int]
-
+    @unwrap_spec(nbytes=int, flags=int)
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
         rwbuffer = space.rwbuffer_w(w_buffer)
         lgt = rwbuffer.getlength()
@@ -336,8 +324,49 @@ class W_RSocket(Wrappable, RSocket):
             return space.newtuple([space.wrap(readlgt), w_addr])
         except SocketError, e:
             raise converted_error(space, e)        
-    recvfrom_into_w.unwrap_spec = ['self', ObjSpace, W_Root, int, int]
-    
+
+    @unwrap_spec(cmd=int)
+    def ioctl_w(self, space, cmd, w_option):
+        from pypy.rpython.lltypesystem import rffi, lltype
+        from pypy.rlib import rwin32
+        from pypy.rlib.rsocket import _c
+
+        recv_ptr = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+        try:
+            if cmd == _c.SIO_RCVALL:
+                value_size = rffi.sizeof(rffi.INTP)
+            elif cmd == _c.SIO_KEEPALIVE_VALS:
+                value_size = rffi.sizeof(_c.tcp_keepalive)
+            else:
+                raise operationerrfmt(space.w_ValueError,
+                                      "invalid ioctl command %d", cmd)
+
+            value_ptr = lltype.malloc(rffi.VOIDP.TO, value_size, flavor='raw')
+            try:
+                if cmd == _c.SIO_RCVALL:
+                    option_ptr = rffi.cast(rffi.INTP, value_ptr)
+                    option_ptr[0] = space.int_w(w_option)
+                elif cmd == _c.SIO_KEEPALIVE_VALS:
+                    w_onoff, w_time, w_interval = space.unpackiterable(w_option)
+                    option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
+                    option_ptr.c_onoff = space.uint_w(w_onoff)
+                    option_ptr.c_keepalivetime = space.uint_w(w_time)
+                    option_ptr.c_keepaliveinterval = space.uint_w(w_interval)
+
+                res = _c.WSAIoctl(
+                    self.fd, cmd, value_ptr, value_size,
+                    rffi.NULL, 0, recv_ptr, rffi.NULL, rffi.NULL)
+                if res < 0:
+                    raise converted_error(space, rsocket.last_error())
+            finally:
+                if value_ptr:
+                    lltype.free(value_ptr, flavor='raw')
+
+            return space.wrap(recv_ptr[0])
+        finally:
+            lltype.free(recv_ptr, flavor='raw')
+
+    @unwrap_spec(how=int)
     def shutdown_w(self, space, how):
         """shutdown(flag)
 
@@ -349,7 +378,6 @@ class W_RSocket(Wrappable, RSocket):
             self.shutdown(how)
         except SocketError, e:
             raise converted_error(space, e)
-    shutdown_w.unwrap_spec = ['self', ObjSpace, int]
 
     #------------------------------------------------------------
     # Support functions for socket._socketobject
@@ -361,7 +389,6 @@ class W_RSocket(Wrappable, RSocket):
         Intended only to be used by socket._socketobject
         """
         self.usecount += 1
-    _reuse_w.unwrap_spec = ['self']
 
     def _drop_w(self, space):
         """_drop()
@@ -374,7 +401,6 @@ class W_RSocket(Wrappable, RSocket):
         if self.usecount > 0:
             return
         self.close_w(space)
-    _drop_w.unwrap_spec = ['self', ObjSpace]
 
 app_makefile = gateway.applevel(r'''
 def makefile(self, mode="r", buffersize=-1):
@@ -388,6 +414,7 @@ def makefile(self, mode="r", buffersize=-1):
     return os.fdopen(newfd, mode, buffersize)
 ''', filename =__file__).interphook('makefile')
 
+@unwrap_spec(family=int, type=int, proto=int)
 def newsocket(space, w_subtype, family=AF_INET,
               type=SOCK_STREAM, proto=0):
     # XXX If we want to support subclassing the socket type we will need
@@ -400,16 +427,37 @@ def newsocket(space, w_subtype, family=AF_INET,
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(sock)
-descr_socket_new = interp2app(newsocket,
-                               unwrap_spec=[ObjSpace, W_Root, int, int, int])
+descr_socket_new = interp2app(newsocket)
 
 # ____________________________________________________________
 # Error handling
 
+class SocketAPI:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class(
+            "_socket.error", space.w_IOError)
+        self.w_herror = space.new_exception_class(
+            "_socket.herror", self.w_error)
+        self.w_gaierror = space.new_exception_class(
+            "_socket.gaierror", self.w_error)
+        self.w_timeout = space.new_exception_class(
+            "_socket.timeout", self.w_error)
+
+        self.errors_w = {'error': self.w_error,
+                         'herror': self.w_herror,
+                         'gaierror': self.w_gaierror,
+                         'timeout': self.w_timeout,
+                         }
+
+    def get_exception(self, applevelerrcls):
+        return self.errors_w[applevelerrcls]
+
+def get_error(space, name):
+    return space.fromcache(SocketAPI).get_exception(name)
+
 def converted_error(space, e):
     message = e.get_msg()
-    w_module = space.getbuiltinmodule('_socket')
-    w_exception_class = space.getattr(w_module, space.wrap(e.applevelerrcls))
+    w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
         w_exception = space.call_function(w_exception_class, space.wrap(e.errno),
                                       space.wrap(message))
@@ -429,13 +477,13 @@ setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into
 for name in ('dup',):
     if not hasattr(RSocket, name):
         socketmethodnames.remove(name)
+if hasattr(rsocket._c, 'WSAIoctl'):
+    socketmethodnames.append('ioctl')
 
 socketmethods = {}
 for methodname in socketmethodnames:
     method = getattr(W_RSocket, methodname + '_w')
-    assert hasattr(method,'unwrap_spec'), methodname
-    assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
-    socketmethods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
+    socketmethods[methodname] = interp2app(method)
 
 W_RSocket.typedef = TypeDef("_socket.socket",
     __doc__ = """\

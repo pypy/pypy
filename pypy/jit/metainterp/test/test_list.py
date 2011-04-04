@@ -188,6 +188,26 @@ class ListTests:
         assert res == f(4)
         self.check_loops(call=0, getfield_gc=0)
 
+    def test_fold_indexerror(self):
+        jitdriver = JitDriver(greens = [], reds = ['total', 'n', 'lst'])
+        def f(n):
+            lst = []
+            total = 0
+            while n > 0:
+                jitdriver.can_enter_jit(lst=lst, n=n, total=total)
+                jitdriver.jit_merge_point(lst=lst, n=n, total=total)
+                lst.append(n)
+                try:
+                    total += lst[n]
+                except IndexError:
+                    total += 1000
+                n -= 1
+            return total
+
+        res = self.meta_interp(f, [15], listops=True)
+        assert res == f(15)
+        self.check_loops(guard_exception=0)
+
 class TestOOtype(ListTests, OOJitMixin):
     pass
 
@@ -216,4 +236,4 @@ class TestLLtype(ListTests, LLJitMixin):
             return a * b
         res = self.meta_interp(f, [37])
         assert res == f(37)
-        self.check_loops(getfield_gc=1)
+        self.check_loops(getfield_gc=1, everywhere=True)

@@ -77,6 +77,7 @@ class TestLibffiCall(BaseFfiTest):
         c_file = udir.ensure("test_libffi", dir=1).join("foolib.c")
         # automatically collect the C source from the docstrings of the tests
         snippets = []
+        exports = []
         for name in dir(cls):
             if name.startswith('test_'):
                 meth = getattr(cls, name)
@@ -84,9 +85,12 @@ class TestLibffiCall(BaseFfiTest):
                 # improved: so far we just check that there is a '{' :-)
                 if meth.__doc__ is not None and '{' in meth.__doc__:
                     snippets.append(meth.__doc__)
+                    import re
+                    for match in re.finditer(" ([a-z_]+)\(", meth.__doc__):
+                        exports.append(match.group(1))
         #
         c_file.write(py.code.Source('\n'.join(snippets)))
-        eci = ExternalCompilationInfo(export_symbols=[])
+        eci = ExternalCompilationInfo(export_symbols=exports)
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
 
@@ -262,3 +266,24 @@ class TestLibffiCall(BaseFfiTest):
         #
         res = self.call(get_dummy, [], rffi.LONG)
         assert res == initval+1
+
+    def test_wrong_number_of_arguments(self):
+        from pypy.rpython.llinterp import LLException
+        libfoo = self.get_libfoo() 
+        func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
+
+        glob = globals()
+        loc = locals()
+        def my_raises(s):
+            try:
+                exec s in glob, loc
+            except TypeError:
+                pass
+            except LLException, e:
+                if str(e) != "<LLException 'TypeError'>":
+                    raise
+            else:
+                assert False, 'Did not raise'
+
+        my_raises("self.call(func, [38], rffi.LONG)") # one less
+        my_raises("self.call(func, [38, 12.3, 42], rffi.LONG)") # one more

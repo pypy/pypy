@@ -1,5 +1,5 @@
 import sys
-from pypy.rlib.debug import check_nonneg, make_sure_not_modified
+from pypy.rlib.debug import check_nonneg
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rsre import rsre_char
 from pypy.tool.sourcetools import func_with_new_name
@@ -385,10 +385,13 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
                 marks = p.marks
                 enum = p.enum.move_to_next_result(ctx)
             #
+            # zero-width match protection
             min = ctx.pat(ppos+1)
-            if (enum is not None and
-                (ptr != ctx.match_end or self.num_pending < min)):
-                #               ^^^^^^^^^^ zero-width match protection
+            if self.num_pending >= min:
+                while enum is not None and ptr == ctx.match_end:
+                    enum = enum.move_to_next_result(ctx)
+            #
+            if enum is not None:
                 # matched one more 'item'.  record it and continue.
                 self.pending = Pending(ptr, marks, enum, self.pending)
                 self.num_pending += 1
@@ -436,12 +439,15 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
             if max == 65535 or self.num_pending < max:
                 # try to match one more 'item'
                 enum = sre_match(ctx, ppos + 3, ptr, marks)
+                #
+                # zero-width match protection
+                if self.num_pending >= min:
+                    while enum is not None and ptr == ctx.match_end:
+                        enum = enum.move_to_next_result(ctx)
             else:
                 enum = None    # 'max' reached, no more matches
 
-            while (enum is None or
-                   (ptr == ctx.match_end and self.num_pending >= min)):
-                #                   ^^^^^^^^^^ zero-width match protection
+            while enum is None:
                 # 'item' does not match; try to get further results from
                 # the 'pending' list.
                 p = self.pending
@@ -471,7 +477,6 @@ def sre_match(ctx, ppos, ptr, marks):
     while True:
         op = ctx.pat(ppos)
         ppos += 1
-        make_sure_not_modified(ctx.pattern)
 
         #jit.jit_debug("sre_match", op, ppos, ptr)
         #

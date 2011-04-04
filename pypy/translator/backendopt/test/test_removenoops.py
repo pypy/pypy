@@ -6,7 +6,7 @@ from pypy.rpython.memory.gctransform.test.test_transform import getops
 from pypy.translator.test.snippet import simple_method
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
-from pypy.objspace.flow.model import checkgraph, flatten, Block
+from pypy.objspace.flow.model import checkgraph, Block
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter

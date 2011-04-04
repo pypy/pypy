@@ -38,6 +38,11 @@ class Logger(object):
             self._log_operations(inputargs, operations)
             debug_stop("jit-log-opt-bridge")
 
+    def log_short_preamble(self, inputargs, operations):
+        debug_start("jit-log-short-preamble")
+        self._log_operations(inputargs, operations)
+        debug_stop("jit-log-short-preamble")            
+
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()
 
@@ -62,7 +67,7 @@ class Logger(object):
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)
         elif isinstance(arg, ConstFloat):
-            return str(arg.value)
+            return str(arg.getfloat())
         elif isinstance(arg, BoxFloat):
             return 'f' + str(mv)
         elif arg is None:
@@ -81,7 +86,8 @@ class Logger(object):
             op = operations[i]
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 loc = op.getarg(0)._get_str()
-                debug_print("debug_merge_point('%s')" % (loc,))
+                reclev = op.getarg(1).getint()
+                debug_print("debug_merge_point('%s', %s)" % (loc, reclev))
                 continue
             args = ", ".join([self.repr_of_arg(memo, op.getarg(i)) for i in range(op.numargs())])
             if op.result is not None:

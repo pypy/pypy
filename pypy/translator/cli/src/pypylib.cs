@@ -26,7 +26,10 @@ namespace pypy.test
             else {
                 string res = "";
                 foreach(char ch in x)
-                    res+= string.Format("\\x{0:X2}", (int)ch);
+                    if (ch >= 32 && ch < 128)
+                        res+= ch;
+                    else
+                        res+= string.Format("\\x{0:X2}", (int)ch);
                 return string.Format("'{0}'", res);
             }
         }
@@ -83,8 +86,12 @@ namespace pypy.test
                 return Double.NegativeInfinity;
             else if (s == "nan")
                 return Double.NaN;
-            else
-                return System.Convert.ToDouble(s);
+            else {
+                System.Globalization.NumberFormatInfo formatter;
+                formatter = new System.Globalization.NumberFormatInfo();
+                formatter.NumberDecimalSeparator = ".";
+                return System.Convert.ToDouble(s, formatter);
+            }
         }
     }
 
@@ -713,9 +720,31 @@ namespace pypy.runtime
             return s.Substring(start, count);
         }
 
-        public static string[] ll_split_chr(string s, char ch)
+        public static string[] ll_split_chr(string s, char ch, int max)
         {
-            return s.Split(ch);
+            if (max < 0)
+                return s.Split(ch);
+            else
+                return s.Split(new Char[] {ch}, max + 1);
+        }
+
+        public static string[] ll_rsplit_chr(string s, char ch, int max)
+        {
+            string[] splits = s.Split(ch);
+            if (max < 0 || splits.Length <= max + 1)
+                return splits;
+            else {
+                /* XXX not very efficient */
+                string first = splits[0];
+                // join the first (length - max - 1) items
+                int i;
+                for (i = 1; i < splits.Length - max; i++)
+                    first += ch + splits[i];
+                splits[0] = first;
+                Array.Copy(splits, i, splits, 1, max);
+                Array.Resize(ref splits, max + 1);
+                return splits;
+            }
         }
 
         public static bool ll_contains(string s, char ch)

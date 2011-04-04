@@ -1,4 +1,5 @@
 import py
+import sys
 
 from pypy.tool.autopath import pypydir
 from pypy.translator.platform import host
@@ -269,17 +270,24 @@ class ExternalCompilationInfo(object):
     def compile_shared_lib(self, outputfilename=None):
         self = self.convert_sources_to_files()
         if not self.separate_module_files:
-            return self
+            if sys.platform != 'win32':
+                return self
+            if not self.export_symbols:
+                return self
+            basepath = udir.join('module_cache')
+        else:
+            #basepath = py.path.local(self.separate_module_files[0]).dirpath()
+            basepath = udir.join('shared_cache')
         if outputfilename is None:
             # find more or less unique name there
-            basepath = py.path.local(self.separate_module_files[0]).dirpath()
             pth = basepath.join('externmod').new(ext=host.so_ext)
             num = 0
             while pth.check():
                 pth = basepath.join(
                     'externmod_%d' % (num,)).new(ext=host.so_ext)
                 num += 1
-            outputfilename=pth.purebasename
+            basepath.ensure(dir=1)
+            outputfilename = str(pth.dirpath().join(pth.purebasename))
         lib = str(host.compile([], self, outputfilename=outputfilename,
                                standalone=False))
         d = self._copy_attributes()
@@ -309,6 +317,7 @@ STANDARD_DEFINES = '''
 #define _POSIX_C_SOURCE 200112L
 /* Define on FreeBSD to activate all library features */
 #define __BSD_VISIBLE 1
+#define __XSI_VISIBLE 700
 /* Windows: winsock/winsock2 mess */
 #define WIN32_LEAN_AND_MEAN
 '''

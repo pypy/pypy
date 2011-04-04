@@ -1,5 +1,7 @@
+"""Support for OS X."""
 
-import py, os
+import os
+
 from pypy.translator.platform import posix
 
 class Darwin(posix.BasePosix):
@@ -10,14 +12,18 @@ class Darwin(posix.BasePosix):
     standalone_only = ('-mdynamic-no-pic',)
     shared_only = ()
 
-    so_ext = 'so'
-    
+    so_ext = 'dylib'
+
+    # NOTE: GCC 4.2 will fail at runtime due to subtle issues, possibly
+    # related to GC roots. Using LLVM-GCC or Clang will break the build.
+    default_cc = 'gcc-4.0'
+
     def __init__(self, cc=None):
         if cc is None:
             try:
                 cc = os.environ['CC']
             except KeyError:
-                cc = 'gcc'
+                cc = self.default_cc
         self.cc = cc
 
     def _args_for_shared(self, args):
@@ -25,22 +31,10 @@ class Darwin(posix.BasePosix):
                 + ['-dynamiclib', '-undefined', 'dynamic_lookup']
                 + args)
     
-    def _preprocess_include_dirs(self, include_dirs):
-        res_incl_dirs = list(include_dirs)
-        res_incl_dirs.append('/usr/local/include') # Homebrew
-        res_incl_dirs.append('/opt/local/include') # MacPorts
-        return res_incl_dirs
-
-    def _preprocess_library_dirs(self, library_dirs):
-        res_lib_dirs = list(library_dirs) 
-        res_lib_dirs.append('/usr/local/lib') # Homebrew
-        res_lib_dirs.append('/opt/local/lib') # MacPorts
-        return res_lib_dirs
-
-    def include_dirs_for_libffi(self):
+    def _include_dirs_for_libffi(self):
         return ['/usr/include/ffi']
 
-    def library_dirs_for_libffi(self):
+    def _library_dirs_for_libffi(self):
         return ['/usr/lib']
 
     def check___thread(self):

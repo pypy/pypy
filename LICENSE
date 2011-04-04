@@ -27,7 +27,7 @@ documentation in the 'pypy' directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2010
+PyPy Copyright holders 2003-2011
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -108,6 +108,7 @@ copyrighted by one or more of the following people and organizations:
     Anders Qvist
     Alan McIntyre
     Bert Freudenberg
+    Tav
 
     Heinrich-Heine University, Germany 
     Open End AB (formerly AB Strakt), Sweden

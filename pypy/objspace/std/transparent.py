@@ -63,7 +63,7 @@ completely controlled by the controller."""
             return v(space, w_type, w_controller)
     raise operationerrfmt(space.w_TypeError, 
         "'%s' object could not be wrapped (YET)",
-        w_type.getname(space, "?"))
+        w_type.getname(space))
 
 def register_proxyable(space, cls):
     tpdef = cls.typedef
@@ -81,6 +81,5 @@ None."""
         return w_object.w_controller
     return None
 
-app_proxy = gateway.interp2app(proxy, unwrap_spec=[gateway.ObjSpace, gateway.W_Root, \
-    gateway.W_Root])
-app_proxy_controller = gateway.interp2app(proxy_controller, unwrap_spec=[gateway.ObjSpace, gateway.W_Root])
+app_proxy = gateway.interp2app(proxy)
+app_proxy_controller = gateway.interp2app(proxy_controller)

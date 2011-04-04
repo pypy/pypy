@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, Py_DecRef, borrow_from)
+    PyObject, PyObjectP, make_ref, from_ref, Py_DecRef, borrow_from)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.rlib.rposix import get_errno
@@ -39,13 +39,17 @@ def PyErr_Clear(space):
     state = space.fromcache(State)
     state.clear_exception()
 
+@cpython_api([PyObject], PyObject)
+def PyExceptionInstance_Class(space, w_obj):
+    return space.type(w_obj)
+
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     """Retrieve the error indicator into three variables whose addresses are passed.
     If the error indicator is not set, set all three variables to NULL.  If it is
     set, it will be cleared and you own a reference to each object retrieved.  The
     value and traceback object may be NULL even when the type object is not.
-    
+
     This function is normally only used by code that needs to handle exceptions or
     by code that needs to save and restore the error indicator temporarily."""
     state = space.fromcache(State)
@@ -70,22 +74,40 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     reference to each object before the call and after the call you no longer own
     these references.  (If you don't understand this, don't use this function.  I
     warned you.)
-    
+
     This function is normally only used by code that needs to save and restore the
     error indicator temporarily; use PyErr_Fetch() to save the current
     exception state."""
     state = space.fromcache(State)
+    if w_type is None:
+        state.clear_exception()
+        return
     state.set_exception(OperationError(w_type, w_value))
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
     Py_DecRef(space, w_traceback)
+
+@cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
+def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
+    """Under certain circumstances, the values returned by PyErr_Fetch() below
+    can be "unnormalized", meaning that *exc is a class object but *val is
+    not an instance of the  same class.  This function can be used to instantiate
+    the class in that case.  If the values are already normalized, nothing happens.
+    The delayed normalization is implemented to improve performance."""
+    operr = OperationError(from_ref(space, exc_p[0]),
+                           from_ref(space, val_p[0]))
+    operr.normalize_exception(space)
+    Py_DecRef(space, exc_p[0])
+    Py_DecRef(space, val_p[0])
+    exc_p[0] = make_ref(space, operr.w_type)
+    val_p[0] = make_ref(space, operr.get_w_value(space))
 
 @cpython_api([], lltype.Void)
 def PyErr_BadArgument(space):
     """This is a shorthand for PyErr_SetString(PyExc_TypeError, message), where
     message indicates that a built-in operation was invoked with an illegal
     argument.  It is mostly for internal use."""
-    raise OperationError(space.w_TypeError, 
+    raise OperationError(space.w_TypeError,
             space.wrap("bad argument type for built-in operation"))
 
 @cpython_api([], lltype.Void)
@@ -114,10 +136,29 @@ def PyErr_SetFromErrno(space, w_type):
     function around a system call can write return PyErr_SetFromErrno(type);
     when the system call returns an error.
     Return value: always NULL."""
+    PyErr_SetFromErrnoWithFilename(space, w_type,
+                                   lltype.nullptr(rffi.CCHARP.TO))
+
+@cpython_api([PyObject, rffi.CCHARP], PyObject)
+def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
+    """Similar to PyErr_SetFromErrno(), with the additional behavior that if
+    filename is not NULL, it is passed to the constructor of type as a third
+    parameter.  In the case of exceptions such as IOError and OSError,
+    this is used to define the filename attribute of the exception instance.
+    Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = get_errno()
     msg = os.strerror(errno)
-    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
+    if llfilename:
+        w_filename = rffi.charp2str(llfilename)
+        w_error = space.call_function(w_type,
+                                      space.wrap(errno),
+                                      space.wrap(msg),
+                                      space.wrap(w_filename))
+    else:
+        w_error = space.call_function(w_type,
+                                      space.wrap(errno),
+                                      space.wrap(msg))
     raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)
@@ -164,7 +205,7 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     the  currently executing line of code in that stack frame.  A stacklevel of 1
     is the function calling PyErr_WarnEx(), 2 is  the function above that,
     and so forth.
-    
+
     This function normally prints a warning message to sys.stderr; however, it is
     also possible that the user has specified that warnings are to be turned into
     errors, and in that case this will raise an exception.  It is also possible that
@@ -176,7 +217,7 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     intentional.)  If an exception is raised, the caller should do its normal
     exception handling (for example, Py_DECREF() owned references and return
     an error value).
-    
+
     Warning categories must be subclasses of Warning; the default warning
     category is RuntimeWarning.  The standard Python warning categories are
     available as global variables whose names are PyExc_ followed by the Python
@@ -187,7 +228,7 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     PyExc_FutureWarning.  PyExc_Warning is a subclass of
     PyExc_Exception; the other warning categories are subclasses of
     PyExc_Warning.
-    
+
     For information about warning control, see the documentation for the
     warnings module and the -W option in the command line
     documentation.  There is no C API for warning control."""
@@ -207,7 +248,7 @@ def PyErr_Warn(space, w_category, message):
     below) or NULL; the message argument is a message string.  The warning will
     appear to be issued from the function calling PyErr_Warn(), equivalent to
     calling PyErr_WarnEx() with a stacklevel of 1.
-    
+
     Deprecated; use PyErr_WarnEx() instead."""
     return PyErr_WarnEx(space, w_category, message, 1)
 
@@ -241,3 +282,36 @@ def PyErr_PrintEx(space, set_sys_last_vars):
 def PyErr_Print(space):
     """Alias for PyErr_PrintEx(1)."""
     PyErr_PrintEx(space, 1)
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PyTraceBack_Print(space, w_tb, w_file):
+    space.call_method(w_file, "write", space.wrap(
+        'Traceback (most recent call last):\n'))
+    w_traceback = space.call_method(space.builtin, '__import__',
+                                    space.wrap("traceback"))
+    space.call_method(w_traceback, "print_tb", w_tb, space.w_None, w_file)
+    return 0
+
+@cpython_api([PyObject], lltype.Void)
+def PyErr_WriteUnraisable(space, w_where):
+    """This utility function prints a warning message to sys.stderr when an
+    exception has been set but it is impossible for the interpreter to actually
+    raise the exception.  It is used, for example, when an exception occurs in
+    an __del__() method.
+
+    The function is called with a single argument obj that identifies the
+    context in which the unraisable exception occurred. The repr of obj will be
+    printed in the warning message."""
+
+    state = space.fromcache(State)
+    operror = state.clear_exception()
+    if operror:
+        operror.write_unraisable(space, space.str_w(space.repr(w_where)))
+
+@cpython_api([], lltype.Void)
+def PyErr_SetInterrupt(space):
+    """This function simulates the effect of a SIGINT signal arriving --- the
+    next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
+    It may be called without holding the interpreter lock."""
+    space.check_signal_action.set_interrupt()
+

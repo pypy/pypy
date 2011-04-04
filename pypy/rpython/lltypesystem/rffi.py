@@ -185,6 +185,15 @@ def llexternal(name, args, result, _callable=None,
                     # XXX leaks if a unicode2wcharp() fails with MemoryError
                     # and was not the first in this function
                     freeme = arg
+            elif TARGET is VOIDP:
+                if arg is None:
+                    arg = lltype.nullptr(VOIDP.TO)
+                elif isinstance(arg, str):
+                    arg = str2charp(arg)
+                    freeme = arg
+                elif isinstance(arg, unicode):
+                    arg = unicode2wcharp(arg)
+                    freeme = arg
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
                 if invoke_around_handlers:
@@ -295,6 +304,15 @@ class StackCounter:
         return False                # and threads increase it by one
 stackcounter = StackCounter()
 stackcounter._freeze_()
+
+def llexternal_use_eci(compilation_info):
+    """Return a dummy function that, if called in a RPython program,
+    adds the given ExternalCompilationInfo to it."""
+    eci = ExternalCompilationInfo(post_include_bits=['#define PYPY_NO_OP()'])
+    eci = eci.merge(compilation_info)
+    return llexternal('PYPY_NO_OP', [], lltype.Void,
+                      compilation_info=eci, sandboxsafe=True, _nowrapper=True,
+                      _callable=lambda: None)
 
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
@@ -542,6 +560,7 @@ INTPTR_T = SSIZE_T
 
 # double
 DOUBLE = lltype.Float
+LONGDOUBLE = lltype.LongFloat
 
 # float - corresponds to pypy.rlib.rarithmetic.r_float, and supports no
 #         operation except rffi.cast() between FLOAT and DOUBLE
@@ -549,8 +568,8 @@ FLOAT = lltype.SingleFloat
 r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
-VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
-VOIDP_real = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+NULL = None
 
 # void **
 VOIDPP = CArrayPtr(VOIDP)
@@ -607,15 +626,6 @@ def make_string_mappings(strtype):
         return array
     str2charp._annenforceargs_ = [strtype]
 
-    def str2charp_immortal(s):
-        "NOT_RPYTHON"
-        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw',
-                              immortal=True)
-        for i in range(len(s)):
-            array[i] = s[i]
-        array[len(s)] = lastchar
-        return array
-
     def free_charp(cp):
         lltype.free(cp, flavor='raw')
 
@@ -647,6 +657,7 @@ def make_string_mappings(strtype):
             data_start = cast_ptr_to_adr(llstrtype(data)) + \
                 offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
             return cast(TYPEP, data_start)
+    get_nonmovingbuffer._annenforceargs_ = [strtype]
 
     # (str, char*) -> None
     def free_nonmovingbuffer(data, buf):
@@ -665,6 +676,7 @@ def make_string_mappings(strtype):
         keepalive_until_here(data)
         if not followed_2nd_path:
             lltype.free(buf, flavor='raw')
+    free_nonmovingbuffer._annenforceargs_ = [strtype, None]
 
     # int -> (char*, str)
     def alloc_buffer(count):
@@ -679,6 +691,7 @@ def make_string_mappings(strtype):
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
     alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
@@ -733,20 +746,21 @@ def make_string_mappings(strtype):
     def charpsize2str(cp, size):
         l = [cp[i] for i in range(size)]
         return emptystr.join(l)
+    charpsize2str._annenforceargs_ = [None, int]
 
-    return (str2charp, str2charp_immortal, free_charp, charp2str,
+    return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
             charp2strn, charpsize2str,
             )
 
-(str2charp, str2charp_immortal, free_charp, charp2str,
+(str2charp, free_charp, charp2str,
  get_nonmovingbuffer, free_nonmovingbuffer,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
  charp2strn, charpsize2str,
  ) = make_string_mappings(str)
 
-(unicode2wcharp, unicode2wcharp_immortal, free_wcharp, wcharp2unicode,
+(unicode2wcharp, free_wcharp, wcharp2unicode,
  get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
  wcharp2unicoden, wcharpsize2unicode,
@@ -933,3 +947,70 @@ def getintfield(pdst, fieldname):
     """
     return cast(lltype.Signed, getattr(pdst, fieldname))
 getintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
+
+class scoped_str2charp:
+    def __init__(self, value):
+        if value is not None:
+            self.buf = str2charp(value)
+        else:
+            self.buf = lltype.nullptr(CCHARP.TO)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        if self.buf:
+            free_charp(self.buf)
+
+
+class scoped_unicode2wcharp:
+    def __init__(self, value):
+        if value is not None:
+            self.buf = unicode2wcharp(value)
+        else:
+            self.buf = lltype.nullptr(CWCHARP.TO)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        if self.buf:
+            free_wcharp(self.buf)
+
+
+class scoped_nonmovingbuffer:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf = get_nonmovingbuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmovingbuffer(self.data, self.buf)
+
+
+class scoped_nonmoving_unicodebuffer:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf = get_nonmoving_unicodebuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmoving_unicodebuffer(self.data, self.buf)
+
+class scoped_alloc_buffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf = alloc_buffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_buffer_alive_until_here(self.raw, self.gc_buf)
+    def str(self, length):
+        return str_from_buffer(self.raw, self.gc_buf, self.size, length)
+
+class scoped_alloc_unicodebuffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf = alloc_unicodebuffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
+    def str(self, length):
+        return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)

@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib.rStringIO import RStringIO
 
 
@@ -12,11 +12,9 @@ class W_InputOutputType(Wrappable):
     def descr___iter__(self):
         self.check_closed()
         return self
-    descr___iter__.unwrap_spec = ['self']
 
     def descr_close(self):
         self.close()
-    descr_close.unwrap_spec = ['self']
 
     def check_closed(self):
         if self.is_closed():
@@ -26,17 +24,14 @@ class W_InputOutputType(Wrappable):
 
     def descr_flush(self):
         self.check_closed()
-    descr_flush.unwrap_spec = ['self']
 
     def descr_getvalue(self):
         self.check_closed()
         return self.space.wrap(self.getvalue())
-    descr_getvalue.unwrap_spec = ['self']
 
     def descr_isatty(self):
         self.check_closed()
         return self.space.w_False
-    descr_isatty.unwrap_spec = ['self']
 
     def descr_next(self):
         space = self.space
@@ -46,16 +41,17 @@ class W_InputOutputType(Wrappable):
             raise OperationError(space.w_StopIteration, space.w_None)
         return space.wrap(line)
 
+    @unwrap_spec(n=int)
     def descr_read(self, n=-1):
         self.check_closed()
         return self.space.wrap(self.read(n))
-    descr_read.unwrap_spec = ['self', int]
 
+    @unwrap_spec(size=int)
     def descr_readline(self, size=-1):
         self.check_closed()
         return self.space.wrap(self.readline(size))
-    descr_readline.unwrap_spec = ['self', int]
 
+    @unwrap_spec(size=int)
     def descr_readlines(self, size=0):
         self.check_closed()
         lines_w = []
@@ -69,22 +65,19 @@ class W_InputOutputType(Wrappable):
                 if size <= 0:
                     break
         return self.space.newlist(lines_w)
-    descr_readlines.unwrap_spec = ['self', int]
 
     def descr_reset(self):
         self.check_closed()
         self.seek(0)
-    descr_reset.unwrap_spec = ['self']
 
+    @unwrap_spec(position=int, mode=int)
     def descr_seek(self, position, mode=0):
         self.check_closed()
         self.seek(position, mode)
-    descr_seek.unwrap_spec = ['self', int, int]
 
     def descr_tell(self):
         self.check_closed()
         return self.space.wrap(self.tell())
-    descr_tell.unwrap_spec = ['self']
 
     # abstract methods
     def close(self):                  assert False, "abstract"
@@ -183,12 +176,11 @@ class W_OutputType(RStringIO, W_InputOutputType):
         if size < 0:
             raise OperationError(space.w_IOError, space.wrap("negative size"))
         self.truncate(size)
-    descr_truncate.unwrap_spec = ['self', W_Root]
 
+    @unwrap_spec(buffer='bufferstr')
     def descr_write(self, buffer):
         self.check_closed()
         self.write(buffer)
-    descr_write.unwrap_spec = ['self', 'bufferstr']
 
     def descr_writelines(self, w_lines):
         self.check_closed()
@@ -202,17 +194,16 @@ class W_OutputType(RStringIO, W_InputOutputType):
                     raise
                 break  # done
             self.write(space.str_w(w_line))
-    descr_writelines.unwrap_spec = ['self', W_Root]
 
 # ____________________________________________________________
 
-def descr_closed(space, self):
+def descr_closed(self, space):
     return space.wrap(self.is_closed())
 
-def descr_softspace(space, self):
+def descr_softspace(self, space):
     return space.wrap(self.softspace)
 
-def descr_setsoftspace(space, self, w_newvalue):
+def descr_setsoftspace(self, space, w_newvalue):
     self.softspace = space.int_w(w_newvalue)
 
 common_descrs = {
@@ -262,4 +253,3 @@ def StringIO(space, w_string=None):
     else:
         string = space.bufferstr_w(w_string)
         return space.wrap(W_InputType(space, string))
-StringIO.unwrap_spec = [ObjSpace, W_Root]

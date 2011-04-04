@@ -1,23 +1,34 @@
+import sys
 from pypy.jit.codewriter.policy import contains_unsupported_variable_type
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.codewriter import support
-from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib.rarithmetic import r_singlefloat, r_longlong
 from pypy.rlib import jit
 
 def test_contains_unsupported_variable_type():
     def f(x):
         return x
     graph = support.getgraph(f, [5])
-    assert not contains_unsupported_variable_type(graph, True)
-    assert not contains_unsupported_variable_type(graph, False)
+    for sf in [False, True]:
+        for sll in [False, True]:
+            assert not contains_unsupported_variable_type(graph, sf, sll)
     #
     graph = support.getgraph(f, [5.5])
-    assert not contains_unsupported_variable_type(graph, True)
-    assert contains_unsupported_variable_type(graph, False)
+    for sf in [False, True]:
+        for sll in [False, True]:
+            res = contains_unsupported_variable_type(graph, sf, sll)
+            assert res is not sf
     #
     graph = support.getgraph(f, [r_singlefloat(5.5)])
-    assert contains_unsupported_variable_type(graph, True)
-    assert contains_unsupported_variable_type(graph, False)
+    for sf in [False, True]:
+        for sll in [False, True]:
+            assert contains_unsupported_variable_type(graph, sf, sll)
+    #
+    graph = support.getgraph(f, [r_longlong(5)])
+    for sf in [False, True]:
+        for sll in [False, True]:
+            res = contains_unsupported_variable_type(graph, sf, sll)
+            assert res == (sys.maxint == 2147483647 and not sll)
 
 
 def test_regular_function():

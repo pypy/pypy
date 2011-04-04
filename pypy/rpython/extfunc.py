@@ -201,6 +201,11 @@ class ExtFuncEntry(ExtRegistryEntry):
                 exec py.code.compile("""
                     from pypy.rlib.objectmodel import running_on_llinterp
                     from pypy.rlib.debug import llinterpcall
+                    from pypy.rlib.jit import dont_look_inside
+                    # note: we say 'dont_look_inside' mostly because the
+                    # JIT does not support 'running_on_llinterp', but in
+                    # theory it is probably right to stop jitting anyway.
+                    @dont_look_inside
                     def ll_wrapper(%s):
                         if running_on_llinterp:
                             return llinterpcall(s_result, fakeimpl, %s)

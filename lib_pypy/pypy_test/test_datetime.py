@@ -1,6 +1,7 @@
 from __future__ import absolute_import
+import py
 
-from .. import datetime
+from lib_pypy import datetime
 
 def test_repr():
     print datetime
@@ -8,7 +9,9 @@ def test_repr():
     assert repr(datetime.datetime(1,2,3)) == expected
 
 def test_strptime():
-    import time
+    import time, sys
+    if sys.version_info < (2, 6):
+        py.test.skip("needs the _strptime module")
 
     string = '2004-12-01 13:02:47'
     format = '%Y-%m-%d %H:%M:%S'

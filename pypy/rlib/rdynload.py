@@ -14,7 +14,7 @@ _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
 _MAC_OS = platform.name == "darwin"
-_FREEBSD_7 = platform.name == "freebsd7"
+_FREEBSD = platform.name == "freebsd"
 
 if _WIN32:
     from pypy.rlib import rwin32
@@ -27,7 +27,7 @@ if _MAC_OS:
 else: 
     pre_include_bits = []
 
-if _FREEBSD_7 or _WIN32:
+if _FREEBSD or _WIN32:
     libraries = []
 else:
     libraries = ['dl']
@@ -66,6 +66,8 @@ if not _WIN32:
     c_dlclose = external('dlclose', [rffi.VOIDP], rffi.INT)
     c_dlerror = external('dlerror', [], rffi.CCHARP)
     c_dlsym = external('dlsym', [rffi.VOIDP, rffi.CCHARP], rffi.VOIDP)
+
+    DLLHANDLE = rffi.VOIDP
 
     RTLD_LOCAL = cConfig.RTLD_LOCAL
     RTLD_GLOBAL = cConfig.RTLD_GLOBAL
@@ -110,6 +112,8 @@ if not _WIN32:
         raise KeyError(index)
 
 if _WIN32:
+    DLLHANDLE = rwin32.HMODULE
+
     def dlopen(name):
         res = rwin32.LoadLibrary(name)
         if not res:

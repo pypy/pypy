@@ -1,6 +1,6 @@
 import py, sys
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
+from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
 from pypy.jit.codewriter.policy import StopAtXPolicy
 
@@ -446,10 +446,10 @@ class ExceptionTests:
                 n += 1
             return m
 
-        res = self.meta_interp(f, [1, 1, 0], optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(f, [1, 1, 0], enable_opts='')
         assert res == f(1, 1, 0)
         res = self.meta_interp(f, [809644098, 16, 0],
-                               optimizer=OPTIMIZER_SIMPLE)
+                               enable_opts='')
         assert res == f(809644098, 16, 0)
 
     def test_int_neg_ovf(self):
@@ -470,7 +470,7 @@ class ExceptionTests:
             return m
 
         res = self.meta_interp(f, [-sys.maxint-1+100, 0],
-                               optimizer=OPTIMIZER_SIMPLE)
+                               enable_opts='')
         assert res == 16
 
     def test_reraise_through_portal(self):
@@ -516,10 +516,9 @@ class ExceptionTests:
         assert res == -1
         self.check_tree_loop_count(2)      # the loop and the entry path
         # we get:
-        #    ENTER    - compile the new loop
-        #    ENTER    - compile the entry bridge
+        #    ENTER    - compile the new loop and the entry bridge
         #    ENTER    - compile the leaving path (raising MyError)
-        self.check_enter_count(3)
+        self.check_enter_count(2)
 
 
     def test_bridge_from_interpreter_exc_2(self):
@@ -552,7 +551,7 @@ class ExceptionTests:
                 return 8
 
         res = self.meta_interp(main, [41], repeat=7, policy=StopAtXPolicy(x),
-                               optimizer=OPTIMIZER_SIMPLE)
+                               enable_opts='')
         assert res == 8
 
     def test_overflowerror_escapes(self):
@@ -587,6 +586,33 @@ class ExceptionTests:
                 return 42
         res = self.interp_operations(f, [99])
         assert res == 21
+
+    def test_bug_exc1_noexc_exc2(self):
+        myjitdriver = JitDriver(greens=[], reds=['i'])
+        @dont_look_inside
+        def rescall(i):
+            if i < 10:
+                raise KeyError
+            if i < 20:
+                return None
+            raise ValueError
+        def f(i):
+            while i < 30:
+                myjitdriver.can_enter_jit(i=i)
+                myjitdriver.jit_merge_point(i=i)
+                try:
+                    rescall(i)
+                except KeyError:
+                    assert i < 10
+                except ValueError:
+                    assert i >= 20
+                else:
+                    assert 10 <= i < 20
+                i += 1
+            return i
+        res = self.meta_interp(f, [0], inline=True)
+        assert res == 30
+
 
 class MyError(Exception):
     def __init__(self, n):

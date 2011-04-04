@@ -12,33 +12,32 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.debug import debug_print, fatalerror
+from pypy.rlib.debug import debug_start, debug_stop
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.unsimplify import call_final_function
 
-from pypy.jit.metainterp import history, pyjitpl, gc
+from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
-from pypy.jit.codewriter import support, codewriter
+from pypy.jit.codewriter import support, codewriter, longlong
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.rlib.jit import DEBUG_STEPS, DEBUG_DETAILED, DEBUG_OFF, DEBUG_PROFILE
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 # ____________________________________________________________
 # Bootstrapping
 
-def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
-              inline=False,
-              **kwds):
+def apply_jit(translator, backend_name="auto", inline=False,
+              enable_opts=ALL_OPTS_NAMES, **kwds):
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
-    if debug_level > DEBUG_OFF:
-        ProfilerClass = Profiler
-    else:
-        ProfilerClass = EmptyProfiler
+    ProfilerClass = Profiler
+    # Always use Profiler here, which should have a very low impact.
+    # Otherwise you can try with ProfilerClass = EmptyProfiler.
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
@@ -47,7 +46,7 @@ def apply_jit(translator, backend_name="auto", debug_level=DEBUG_STEPS,
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
-        jd.warmstate.set_param_debug(debug_level)
+        jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
@@ -66,7 +65,8 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
-                    debug_level=DEBUG_STEPS, inline=False, **kwds):
+                    inline=False, loop_longevity=0, retrace_limit=5,
+                    enable_opts=ALL_OPTS_NAMES, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -83,7 +83,9 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
-        jd.warmstate.set_param_debug(debug_level)
+        jd.warmstate.set_param_loop_longevity(loop_longevity)
+        jd.warmstate.set_param_retrace_limit(retrace_limit)
+        jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
@@ -98,8 +100,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
         repeat -= 1
     return res
 
-def rpython_ll_meta_interp(function, args, backendopt=True,
-                           loops='not used right now', **kwds):
+def rpython_ll_meta_interp(function, args, backendopt=True, **kwds):
     return ll_meta_interp(function, args, backendopt=backendopt,
                           translate_support_code=True, **kwds)
 
@@ -110,7 +111,8 @@ def _find_jit_marker(graphs, marker_name):
             for i in range(len(block.operations)):
                 op = block.operations[i]
                 if (op.opname == 'jit_marker' and
-                    op.args[0].value == marker_name):
+                    op.args[0].value == marker_name and
+                    op.args[1].value.active):   # the jitdriver
                     results.append((graph, block, i))
     return results
 
@@ -148,20 +150,24 @@ class ContinueRunningNormallyBase(JitException):
 class WarmRunnerDesc(object):
 
     def __init__(self, translator, policy=None, backendopt=True, CPUClass=None,
-                 optimizer=None, ProfilerClass=EmptyProfiler, **kwds):
+                 ProfilerClass=EmptyProfiler, **kwds):
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         self.set_translator(translator)
+        self.memory_manager = memmgr.MemoryManager()
         self.build_cpu(CPUClass, **kwds)
         self.find_portals()
         self.codewriter = codewriter.CodeWriter(self.cpu, self.jitdrivers_sd)
         if policy is None:
             policy = JitPolicy()
         policy.set_supports_floats(self.cpu.supports_floats)
+        policy.set_supports_longlong(self.cpu.supports_longlong)
         graphs = self.codewriter.find_all_graphs(policy)
         policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)
         if backendopt:
             self.prejit_optimizations(policy, graphs)
+        elif self.opt.listops:
+            self.prejit_optimizations_minimal_inline(policy, graphs)
 
         self.build_meta_interp(ProfilerClass)
         self.make_args_specifications()
@@ -182,7 +188,7 @@ class WarmRunnerDesc(object):
         self.rewrite_set_param()
         self.rewrite_force_virtual(vrefinfo)
         self.add_finish()
-        self.metainterp_sd.finish_setup(self.codewriter, optimizer=optimizer)
+        self.metainterp_sd.finish_setup(self.codewriter)
 
     def finish(self):
         vinfos = set([jd.virtualizable_info for jd in self.jitdrivers_sd])
@@ -259,6 +265,10 @@ class WarmRunnerDesc(object):
                               remove_asserts=True,
                               really_remove_asserts=True)
 
+    def prejit_optimizations_minimal_inline(self, policy, graphs):
+        from pypy.translator.backendopt.inline import auto_inline_graphs
+        auto_inline_graphs(self.translator, graphs, 0.01)
+
     def build_cpu(self, CPUClass, translate_support_code=False,
                   no_stats=False, **kwds):
         assert CPUClass is not None
@@ -267,7 +277,7 @@ class WarmRunnerDesc(object):
             stats = history.NoStats()
         else:
             stats = history.Stats()
-        self.stats = stats 
+        self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
             annhelper = self.annhelper
@@ -336,7 +346,7 @@ class WarmRunnerDesc(object):
 
         class DoneWithThisFrameFloat(JitException):
             def __init__(self, result):
-                assert lltype.typeOf(result) is lltype.Float
+                assert lltype.typeOf(result) is longlong.FLOATSTORAGE
                 self.result = result
             def __str__(self):
                 return 'DoneWithThisFrameFloat(%s)' % (self.result,)
@@ -479,8 +489,19 @@ class WarmRunnerDesc(object):
          jd._PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
         (jd._PORTAL_FUNCTYPE,
          jd._PTR_PORTAL_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, RESTYPE)
+        #
+        if jd.result_type == 'v':
+            ASMRESTYPE = lltype.Void
+        elif jd.result_type == history.INT:
+            ASMRESTYPE = lltype.Signed
+        elif jd.result_type == history.REF:
+            ASMRESTYPE = llmemory.GCREF
+        elif jd.result_type == history.FLOAT:
+            ASMRESTYPE = lltype.Float
+        else:
+            assert False
         (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
-            [lltype.Signed, llmemory.GCREF], RESTYPE)
+            [lltype.Signed, llmemory.GCREF], ASMRESTYPE)
 
     def rewrite_can_enter_jits(self):
         sublists = {}
@@ -661,7 +682,7 @@ class WarmRunnerDesc(object):
                         raise Exception, value
 
         def handle_jitexception(e):
-            # XXX the bulk of this function is a copy-paste from above :-(
+            # XXX the bulk of this function is mostly a copy-paste from above
             try:
                 raise e
             except self.ContinueRunningNormally, e:
@@ -670,19 +691,22 @@ class WarmRunnerDesc(object):
                     x = getattr(e, attrname)[count]
                     x = specialize_value(ARGTYPE, x)
                     args = args + (x,)
-                return ll_portal_runner(*args)
+                result = ll_portal_runner(*args)
+                if result_kind != 'void':
+                    result = unspecialize_value(result)
+                return result
             except self.DoneWithThisFrameVoid:
                 assert result_kind == 'void'
                 return
             except self.DoneWithThisFrameInt, e:
                 assert result_kind == 'int'
-                return specialize_value(RESULT, e.result)
+                return e.result
             except self.DoneWithThisFrameRef, e:
                 assert result_kind == 'ref'
-                return specialize_value(RESULT, e.result)
+                return e.result
             except self.DoneWithThisFrameFloat, e:
                 assert result_kind == 'float'
-                return specialize_value(RESULT, e.result)
+                return e.result
             except self.ExitFrameWithExceptionRef, e:
                 value = ts.cast_to_baseclass(e.value)
                 if not we_are_translated():
@@ -713,7 +737,7 @@ class WarmRunnerDesc(object):
                     loop_token = fail_descr.handle_fail(self.metainterp_sd, jd)
                 except JitException, e:
                     return handle_jitexception(e)
-                fail_descr = self.cpu.execute_token(loop_token)
+                fail_descr = self.execute_token(loop_token)
 
         jd._assembler_call_helper = assembler_call_helper # for debugging
         jd._assembler_helper_ptr = self.helper_func(
@@ -726,17 +750,16 @@ class WarmRunnerDesc(object):
 
         def handle_jitexception_from_blackhole(bhcaller, e):
             result = handle_jitexception(e)
-            #
-            if result_kind != 'void':
-                result = unspecialize_value(result)
-                if result_kind == 'int':
-                    bhcaller._setup_return_value_i(result)
-                elif result_kind == 'ref':
-                    bhcaller._setup_return_value_r(result)
-                elif result_kind == 'float':
-                    bhcaller._setup_return_value_f(result)
-                else:
-                    assert False
+            if result_kind == 'void':
+                pass
+            elif result_kind == 'int':
+                bhcaller._setup_return_value_i(result)
+            elif result_kind == 'ref':
+                bhcaller._setup_return_value_r(result)
+            elif result_kind == 'float':
+                bhcaller._setup_return_value_f(result)
+            else:
+                assert False
         jd.handle_jitexc_from_bh = handle_jitexception_from_blackhole
 
         # ____________________________________________________________
@@ -771,22 +794,32 @@ class WarmRunnerDesc(object):
             if self.metainterp_sd.profiler.initialized:
                 self.metainterp_sd.profiler.finish()
             self.metainterp_sd.cpu.finish_once()
-        
+
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish,
                                 annhelper = self.annhelper)
 
     def rewrite_set_param(self):
+        from pypy.rpython.lltypesystem.rstr import STR
+
         closures = {}
         graphs = self.translator.graphs
         _, PTR_SET_PARAM_FUNCTYPE = self.cpu.ts.get_FuncType([lltype.Signed],
                                                              lltype.Void)
-        def make_closure(jd, fullfuncname):
+        _, PTR_SET_PARAM_STR_FUNCTYPE = self.cpu.ts.get_FuncType(
+            [lltype.Ptr(STR)], lltype.Void)
+        def make_closure(jd, fullfuncname, is_string):
             state = jd.warmstate
             def closure(i):
+                if is_string:
+                    i = hlstr(i)
                 getattr(state, fullfuncname)(i)
-            funcptr = self.helper_func(PTR_SET_PARAM_FUNCTYPE, closure)
-            return Constant(funcptr, PTR_SET_PARAM_FUNCTYPE)
+            if is_string:
+                TP = PTR_SET_PARAM_STR_FUNCTYPE
+            else:
+                TP = PTR_SET_PARAM_FUNCTYPE
+            funcptr = self.helper_func(TP, closure)
+            return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
             op = block.operations[i]
@@ -798,7 +831,8 @@ class WarmRunnerDesc(object):
             funcname = op.args[2].value
             key = jd, funcname
             if key not in closures:
-                closures[key] = make_closure(jd, 'set_param_' + funcname)
+                closures[key] = make_closure(jd, 'set_param_' + funcname,
+                                             funcname == 'enable_opts')
             op.opname = 'direct_call'
             op.args[:3] = [closures[key]]
 
@@ -807,3 +841,10 @@ class WarmRunnerDesc(object):
             py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
         vrefinfo.replace_force_virtual_with_call(all_graphs)
+
+    # ____________________________________________________________
+
+    def execute_token(self, loop_token):
+        fail_descr = self.cpu.execute_token(loop_token)
+        self.memory_manager.keep_loop_alive(loop_token)
+        return fail_descr

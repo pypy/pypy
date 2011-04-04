@@ -8,18 +8,19 @@ import weakref
 
 
 class RWeakValueDictionary(object):
-    """A limited dictionary containing weak values.
-    Only supports string keys.
-    """
+    """A dictionary containing weak values."""
 
-    def __init__(self, valueclass):
+    def __init__(self, keyclass, valueclass):
         self._dict = weakref.WeakValueDictionary()
+        self._keyclass = keyclass
         self._valueclass = valueclass
 
     def get(self, key):
+        assert isinstance(key, self._keyclass)
         return self._dict.get(key, None)
 
     def set(self, key, value):
+        assert isinstance(key, self._keyclass)
         if value is None:
             self._dict.pop(key, None)
         else:
@@ -67,18 +68,19 @@ from pypy.tool.pairtype import pairtype
 class SomeWeakValueDict(annmodel.SomeObject):
     knowntype = RWeakValueDictionary
 
-    def __init__(self, valueclassdef):
+    def __init__(self, s_key, valueclassdef):
+        self.s_key = s_key
         self.valueclassdef = valueclassdef
 
     def rtyper_makerepr(self, rtyper):
         from pypy.rlib import _rweakvaldict
-        return _rweakvaldict.WeakValueDictRepr(rtyper)
+        return _rweakvaldict.WeakValueDictRepr(rtyper,
+                                               rtyper.makerepr(self.s_key))
 
     def rtyper_makekey_ex(self, rtyper):
         return self.__class__,
 
     def method_get(self, s_key):
-        assert annmodel.SomeString(can_be_None=True).contains(s_key)
         return annmodel.SomeInstance(self.valueclassdef, can_be_None=True)
 
     def method_set(self, s_key, s_value):
@@ -88,14 +90,19 @@ class SomeWeakValueDict(annmodel.SomeObject):
 class __extend__(pairtype(SomeWeakValueDict, SomeWeakValueDict)):
     def union((s_wvd1, s_wvd2)):
         if s_wvd1.valueclassdef is not s_wvd2.valueclassdef:
-            return SomeObject() # not the same class! complain...
-        return SomeWeakValueDict(s_wvd1.valueclassdef)
+            return annmodel.SomeObject() # not the same class! complain...
+        s_key = annmodel.unionof(s_wvd1.s_key, s_wvd2.s_key)
+        return SomeWeakValueDict(s_key, s_wvd1.valueclassdef)
 
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = RWeakValueDictionary
 
-    def compute_result_annotation(self, s_valueclass):
-        return SomeWeakValueDict(_getclassdef(s_valueclass))
+    def compute_result_annotation(self, s_keyclass, s_valueclass):
+        assert s_keyclass.is_constant()
+        s_key = self.bookkeeper.immutablevalue(s_keyclass.const())
+        return SomeWeakValueDict(
+            s_key,
+            _getclassdef(s_valueclass))
 
     def specialize_call(self, hop):
         from pypy.rlib import _rweakvaldict
@@ -107,7 +114,9 @@ class Entry(extregistry.ExtRegistryEntry):
     def compute_annotation(self):
         bk = self.bookkeeper
         x = self.instance
-        return SomeWeakValueDict(bk.getuniqueclassdef(x._valueclass))
+        return SomeWeakValueDict(
+            bk.immutablevalue(x._keyclass()),
+            bk.getuniqueclassdef(x._valueclass))
 
 def _getclassdef(s_instance):
     assert isinstance(s_instance, annmodel.SomePBC)

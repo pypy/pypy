@@ -17,12 +17,17 @@ from pypy.interpreter.pyparser.automata import NonGreedyDFA, DFA, DEFAULT
 def makePyPseudoDFA ():
     import string
     states = []
+    def makeEOL():
+        return group(states,
+                     newArcPair(states, "\n"),
+                     chain(states,
+                           newArcPair(states, "\r"),
+                           maybe(states, newArcPair(states, "\n"))))
     # ____________________________________________________________
     def makeLineCont ():
         return chain(states,
                      newArcPair(states, "\\"),
-                     maybe(states, newArcPair(states, "\r")),
-                     newArcPair(states, "\n"))
+                     makeEOL())
     # ____________________________________________________________
     # Ignore stuff
     def makeWhitespace ():
@@ -54,17 +59,27 @@ def makePyPseudoDFA ():
     hexNumber = chain(states,
                       newArcPair(states, "0"),
                       groupStr(states, "xX"),
-                      any(states, groupStr(states, "0123456789abcdefABCDEF")),
+                      atleastonce(states,
+                                  groupStr(states, "0123456789abcdefABCDEF")),
                       maybe(states, groupStr(states, "lL")))
     octNumber = chain(states,
                       newArcPair(states, "0"),
+                      maybe(states,
+                            chain(states,
+                                  groupStr(states, "oO"),
+                                  groupStr(states, "01234567"))),
                       any(states, groupStr(states, "01234567")),
+                      maybe(states, groupStr(states, "lL")))
+    binNumber = chain(states,
+                      newArcPair(states, "0"),
+                      groupStr(states, "bB"),
+                      atleastonce(states, groupStr(states, "01")),
                       maybe(states, groupStr(states, "lL")))
     decNumber = chain(states,
                       groupStr(states, "123456789"),
                       any(states, makeDigits()),
                       maybe(states, groupStr(states, "lL")))
-    intNumber = group(states, hexNumber, octNumber, decNumber)
+    intNumber = group(states, hexNumber, octNumber, binNumber, decNumber)
     # ____________________________________________________________
     # Exponents
     def makeExp ():
@@ -124,15 +139,13 @@ def makePyPseudoDFA ():
                      newArcPair(states, "~"))
     bracket = groupStr(states, "[](){}")
     special = group(states,
-                    chain(states,
-                          maybe(states, newArcPair(states, "\r")),
-                          newArcPair(states, "\n")),
+                    makeEOL(),
                     groupStr(states, "@:;.,`"))
     funny = group(states, operator, bracket, special)
     # ____________________________________________________________
     def makeStrPrefix ():
         return chain(states,
-                     maybe(states, groupStr(states, "uU")),
+                     maybe(states, groupStr(states, "uUbB")),
                      maybe(states, groupStr(states, "rR")))
     # ____________________________________________________________
     contStr = group(states,
@@ -140,13 +153,13 @@ def makePyPseudoDFA ():
                           makeStrPrefix(),
                           newArcPair(states, "'"),
                           any(states,
-                              notGroupStr(states, "\n'\\")),
+                              notGroupStr(states, "\r\n'\\")),
                           any(states,
                               chain(states,
                                     newArcPair(states, "\\"),
                                     newArcPair(states, DEFAULT),
                                     any(states,
-                                        notGroupStr(states, "\n'\\")))),
+                                        notGroupStr(states, "\r\n'\\")))),
                           group(states,
                                 newArcPair(states, "'"),
                                 makeLineCont())),
@@ -154,13 +167,13 @@ def makePyPseudoDFA ():
                           makeStrPrefix(),
                           newArcPair(states, '"'),
                           any(states,
-                              notGroupStr(states, '\n"\\')),
+                              notGroupStr(states, '\r\n"\\')),
                           any(states,
                               chain(states,
                                     newArcPair(states, "\\"),
                                     newArcPair(states, DEFAULT),
                                     any(states,
-                                        notGroupStr(states, '\n"\\')))),
+                                        notGroupStr(states, '\r\n"\\')))),
                           group(states,
                                 newArcPair(states, '"'),
                                 makeLineCont())))
@@ -239,8 +252,10 @@ def makePyEndDFAMap ():
            "r" : None,
            "R" : None,
            "u" : None,
-           "U" : None}
-    for uniPrefix in ("", "u", "U", ):
+           "U" : None,
+           "b" : None,
+           "B" : None}
+    for uniPrefix in ("", "u", "U", "b", "B", ):
         for rawPrefix in ("", "r", "R"):
             prefix = uniPrefix + rawPrefix
             map[prefix + "'''"] = single3DFA

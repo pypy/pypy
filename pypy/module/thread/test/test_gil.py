@@ -8,7 +8,7 @@ class FakeEC(object):
     pass
 
 class FakeActionFlag(object):
-    def register_action(self, action):
+    def register_periodic_action(self, action, use_bytecode_counter):
         pass
     def get(self):
         return 0
@@ -22,7 +22,7 @@ class FakeSpace(object):
         return True
     def getexecutioncontext(self):
         return FakeEC()
-    def getbuiltinmodule(self, name):
+    def fromcache(self, key):
         raise NotImplementedError
 
 

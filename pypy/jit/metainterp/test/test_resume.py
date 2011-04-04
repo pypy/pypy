@@ -1,13 +1,14 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.jit.metainterp.optimizeopt.virtualize import VirtualValue, OptValue, VArrayValue
+from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
+from pypy.jit.metainterp.optimizeopt.virtualize import VirtualValue, VArrayValue
 from pypy.jit.metainterp.optimizeopt.virtualize import VStructValue
 from pypy.jit.metainterp.resume import *
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from pypy.jit.metainterp.history import ConstPtr, ConstFloat
-from pypy.jit.metainterp.test.test_optimizefindnode import LLtypeMixin
+from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 from pypy.jit.metainterp import executor
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter import heaptracker, longlong
 
 class Storage:
     rd_frame_info_list = None
@@ -51,6 +52,7 @@ def test_vinfo():
 
 class MyMetaInterp:
     _already_allocated_resume_virtuals = None
+    callinfocollection = None
 
     def __init__(self, cpu=None):
         if cpu is None:
@@ -112,7 +114,7 @@ class MyBlackholeInterp:
                         callback_i(index, count_i); count_i += 1
                     elif ARG == llmemory.GCREF:
                         callback_r(index, count_r); count_r += 1
-                    elif ARG == lltype.Float:
+                    elif ARG == longlong.FLOATSTORAGE:
                         callback_f(index, count_f); count_f += 1
                     else:
                         assert 0
@@ -135,11 +137,19 @@ def _next_section(reader, *expected):
     reader.consume_one_section(bh)
     expected_i = [x for x in expected if lltype.typeOf(x) == lltype.Signed]
     expected_r = [x for x in expected if lltype.typeOf(x) == llmemory.GCREF]
-    expected_f = [x for x in expected if lltype.typeOf(x) == lltype.Float]
+    expected_f = [x for x in expected if lltype.typeOf(x) ==
+                                                      longlong.FLOATSTORAGE]
     assert bh.written_i == expected_i
     assert bh.written_r == expected_r
     assert bh.written_f == expected_f
 
+
+def Numbering(prev, nums):
+    numb = lltype.malloc(NUMBERING, len(nums))
+    numb.prev = prev or lltype.nullptr(NUMBERING)
+    for i in range(len(nums)):
+        numb.nums[i] = nums[i]
+    return numb
 
 def test_simple_read():
     #b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
@@ -156,12 +166,12 @@ def test_simple_read():
     storage.rd_numb = numb
     #
     cpu = MyCPU([42, gcref1, -66])
-    reader = ResumeDataDirectReader(cpu, storage)
+    metainterp = MyMetaInterp(cpu)
+    reader = ResumeDataDirectReader(metainterp, storage)
     _next_section(reader, 42, 111, gcrefnull, 42, gcref1)
     _next_section(reader, 222, 333)
     _next_section(reader, 42, gcref1, -66)
     #
-    metainterp = MyMetaInterp(cpu)
     reader = ResumeDataBoxReader(storage, metainterp)
     bi, br, bf = [None]*3, [None]*2, [None]*0
     info = MyBlackholeInterp([lltype.Signed, lltype.Signed,
@@ -193,7 +203,7 @@ def test_simple_read_tagged_ints():
     storage.rd_numb = numb
     #
     cpu = MyCPU([])
-    reader = ResumeDataDirectReader(cpu, storage)
+    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
     _next_section(reader, 100)
 
 
@@ -211,7 +221,7 @@ def test_prepare_virtuals():
     class FakeMetainterp(object):
         _already_allocated_resume_virtuals = None
         cpu = None
-    reader = ResumeDataDirectReader(None, FakeStorage())
+    reader = ResumeDataDirectReader(MyMetaInterp(None), FakeStorage())
     assert reader.force_all_virtuals() == ["allocated", reader.virtual_default]
 
 # ____________________________________________________________
@@ -390,15 +400,15 @@ def test_FrameInfo_create():
     assert fi1.pc == 3
 
 def test_Numbering_create():
-    l = [1, 2]
+    l = [rffi.r_short(1), rffi.r_short(2)]
     numb = Numbering(None, l)
-    assert numb.prev is None
-    assert numb.nums is l
+    assert not numb.prev
+    assert list(numb.nums) == l
 
-    l1 = ['b3']
+    l1 = [rffi.r_short(3)]
     numb1 = Numbering(numb, l1)
-    assert numb1.prev is numb
-    assert numb1.nums is l1
+    assert numb1.prev == numb
+    assert list(numb1.nums) == l1
 
 def test_capture_resumedata():
     b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
@@ -740,7 +750,7 @@ def test_ResumeDataLoopMemo_refs():
 
 def test_ResumeDataLoopMemo_other():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    const = ConstFloat(-1.0)
+    const = ConstFloat(longlong.getfloatstorage(-1.0))
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
     assert tagbits == TAGCONST
@@ -764,11 +774,12 @@ def test_ResumeDataLoopMemo_number():
 
     assert liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
-    assert numb.nums == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
-                         tag(1, TAGINT)]
-    assert numb.prev.nums == [tag(0, TAGBOX), tag(1, TAGINT), tag(1, TAGBOX),
-                              tag(0, TAGBOX), tag(2, TAGINT)]
-    assert numb.prev.prev is None
+    assert list(numb.nums) == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
+                               tag(1, TAGINT)]
+    assert list(numb.prev.nums) == [tag(0, TAGBOX), tag(1, TAGINT),
+                                    tag(1, TAGBOX),
+                                    tag(0, TAGBOX), tag(2, TAGINT)]
+    assert not numb.prev.prev
 
     numb2, liveboxes2, v = memo.number({}, snap2)
     assert v == 0
@@ -776,9 +787,9 @@ def test_ResumeDataLoopMemo_number():
     assert liveboxes2 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
     assert liveboxes2 is not liveboxes
-    assert numb2.nums == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
-                         tag(3, TAGINT)]
-    assert numb2.prev is numb.prev
+    assert list(numb2.nums) == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
+                                tag(3, TAGINT)]
+    assert numb2.prev == numb.prev
 
     env3 = [c3, b3, b1, c3]
     snap3 = Snapshot(snap, env3)
@@ -799,9 +810,9 @@ def test_ResumeDataLoopMemo_number():
     assert v == 0
     
     assert liveboxes3 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
-    assert numb3.nums == [tag(3, TAGINT), tag(4, TAGINT), tag(0, TAGBOX),
-                          tag(3, TAGINT)]
-    assert numb3.prev is numb.prev
+    assert list(numb3.nums) == [tag(3, TAGINT), tag(4, TAGINT), tag(0, TAGBOX),
+                                tag(3, TAGINT)]
+    assert numb3.prev == numb.prev
 
     # virtual
     env4 = [c3, b4, b1, c3]
@@ -812,9 +823,9 @@ def test_ResumeDataLoopMemo_number():
     
     assert liveboxes4 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL)}
-    assert numb4.nums == [tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX),
-                          tag(3, TAGINT)]
-    assert numb4.prev is numb.prev
+    assert list(numb4.nums) == [tag(3, TAGINT), tag(0, TAGVIRTUAL),
+                                tag(0, TAGBOX), tag(3, TAGINT)]
+    assert numb4.prev == numb.prev
 
     env5 = [b1, b4, b5]
     snap5 = Snapshot(snap4, env5)    
@@ -825,9 +836,9 @@ def test_ResumeDataLoopMemo_number():
     
     assert liveboxes5 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
-    assert numb5.nums == [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
-                                          tag(1, TAGVIRTUAL)]
-    assert numb5.prev is numb4
+    assert list(numb5.nums) == [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
+                                                tag(1, TAGVIRTUAL)]
+    assert numb5.prev == numb4
 
 def test_ResumeDataLoopMemo_number_boxes():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
@@ -925,7 +936,7 @@ def test_virtual_adder_int_constants():
     liveboxes = modifier.finish({})
     assert storage.rd_snapshot is None
     cpu = MyCPU([])
-    reader = ResumeDataDirectReader(cpu, storage)
+    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
     _next_section(reader, sys.maxint, 2**16, -65)
     _next_section(reader, 2, 3)
     _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)

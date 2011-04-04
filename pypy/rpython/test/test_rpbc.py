@@ -1547,7 +1547,7 @@ class BaseTestRPBC(BaseRtypingTest):
     def test_always_raising_methods(self):
         class Base:
             def m(self):
-                raise NotImplementedError
+                raise KeyError
         class A(Base):
             def m(self):
                 return 42
@@ -1560,11 +1560,11 @@ class BaseTestRPBC(BaseRtypingTest):
                 o = B()
             try:
                 o.m()
-            except NotImplementedError:
-                pass
+            except KeyError:
+                assert 0
             return B().m()
 
-        self.interpret_raises(NotImplementedError, f, [7])
+        self.interpret_raises(KeyError, f, [7])
 
     def test_possible_missing_attribute_access(self):
         py.test.skip("Should explode or give some warning")
@@ -1612,6 +1612,13 @@ class BaseTestRPBC(BaseRtypingTest):
         
         res = self.interpret(fn, [0])
         assert res == -1
+
+    def test_is_none(self):
+        from pypy.rlib.nonconst import NonConstant
+        def g(x):
+            return NonConstant(g) is None
+        res = self.interpret(g, [1])
+        assert not res
 
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
@@ -1974,4 +1981,3 @@ def test_smallfuncsets_basic():
     assert res == -1
     res = interp.eval_graph(graph, [0, 1])
     assert res == 1
-

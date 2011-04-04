@@ -68,6 +68,17 @@ class BaseTestCompiler:
         space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                        'if 1:\n  x\n y\n', '?', 'exec', 0)
 
+    def test_syntaxerror_attrs(self):
+        w_args = self.space.appexec([], r"""():
+            try:
+                exec 'if 1:\n  x\n y\n'
+            except SyntaxError, e:
+                return e.args
+        """)
+        assert self.space.unwrap(w_args) == (
+            'unindent does not match any outer indentation level',
+            (None, 3, 0, ' y\n'))
+
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',
                                      '<hello>', 'exec', 0)
@@ -206,25 +217,21 @@ class BaseTestCompiler:
             assert not space.eq_w(w_const, space.wrap("b"))
             assert not space.eq_w(w_const, space.wrap("c"))
 
-    _unicode_error_kind = "w_UnicodeError"
-
     def test_unicodeliterals(self):
-        w_error = getattr(self.space, self._unicode_error_kind)
-
         e = py.test.raises(OperationError, self.eval_string, "u'\\Ufffffffe'")
         ex = e.value
         ex.normalize_exception(self.space)
-        assert ex.match(self.space, w_error)
+        assert ex.match(self.space, self.space.w_SyntaxError)
 
         e = py.test.raises(OperationError, self.eval_string, "u'\\Uffffffff'")
         ex = e.value
         ex.normalize_exception(self.space)
-        assert ex.match(self.space, w_error)
+        assert ex.match(self.space, self.space.w_SyntaxError)
 
         e = py.test.raises(OperationError, self.eval_string, "u'\\U%08x'" % 0x110000)
         ex = e.value
         ex.normalize_exception(self.space)
-        assert ex.match(self.space, w_error)
+        assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_unicode_docstring(self):
         space = self.space
@@ -705,6 +712,45 @@ class TestECCompiler(BaseTestCompiler):
         self.compiler = self.space.getexecutioncontext().compiler
 
 
+class AppTestCompiler:
+
+    def test_values_of_different_types(self):
+        exec "a = 0; b = 0L; c = 0.0; d = 0j"
+        assert type(a) is int
+        assert type(b) is long
+        assert type(c) is float
+        assert type(d) is complex
+
+    def test_values_of_different_types_in_tuples(self):
+        exec "a = ((0,),); b = ((0L,),); c = ((0.0,),); d = ((0j,),)"
+        assert type(a[0][0]) is int
+        assert type(b[0][0]) is long
+        assert type(c[0][0]) is float
+        assert type(d[0][0]) is complex
+
+    def test_zeros_not_mixed(self):
+        import math
+        code = compile("x = -0.0; y = 0.0", "<test>", "exec")
+        consts = code.co_consts
+        x, y, z = consts
+        assert isinstance(x, float) and isinstance(y, float)
+        assert math.copysign(1, x) != math.copysign(1, y)
+        ns = {}
+        exec "z1, z2 = 0j, -0j" in ns
+        assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)
+        assert math.atan2(ns["z2"].imag, -1.) == math.atan2(-0., -1.)
+
+    def test_zeros_not_mixed_in_tuples(self):
+        import math
+        exec "a = (0.0, 0.0); b = (-0.0, 0.0); c = (-0.0, -0.0)"
+        assert math.copysign(1., a[0]) == 1.0
+        assert math.copysign(1., a[1]) == 1.0
+        assert math.copysign(1., b[0]) == -1.0
+        assert math.copysign(1., b[1]) == 1.0
+        assert math.copysign(1., c[0]) == -1.0
+        assert math.copysign(1., c[1]) == -1.0
+
+
 ##class TestPythonAstCompiler(BaseTestCompiler):
 ##    def setup_method(self, method):
 ##        self.compiler = PythonAstCompiler(self.space, "2.4")
@@ -908,3 +954,25 @@ class AppTestExceptions:
             assert e.msg == 'unindent does not match any outer indentation level'
         else:
             raise Exception("DID NOT RAISE")
+
+
+    def test_repr_vs_str(self):
+        source1 = "x = (\n"
+        source2 = "x = (\n\n"
+        try:
+            exec source1
+        except SyntaxError, err1:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+        try:
+            exec source2
+        except SyntaxError, err2:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+        assert str(err1) != str(err2)
+        assert repr(err1) != repr(err2)
+        err3 = eval(repr(err1))
+        assert str(err3) == str(err1)
+        assert repr(err3) == repr(err1)

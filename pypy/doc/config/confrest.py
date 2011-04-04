@@ -7,7 +7,6 @@ from pypy.config import pypyoption, translationoption
 all_optiondescrs = [pypyoption.pypy_optiondescription,
                     translationoption.translation_optiondescription,
                    ]
-
 start_to_descr = dict([(descr._name, descr) for descr in all_optiondescrs])
 
 class PyPyPage(PyPyPage): 
@@ -29,7 +28,7 @@ class Project(Project):
     Page = PyPyPage 
 
     def get_content(self, txtpath, encoding):
-        if txtpath.basename == "commandline.txt":
+        if txtpath.basename == "commandline.rst":
             result = []
             for line in txtpath.read().splitlines():
                 if line.startswith('.. GENERATE:'):

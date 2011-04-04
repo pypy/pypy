@@ -98,18 +98,17 @@ _pypy_g_RPyRaiseException:
 """
     lines = source.splitlines(True)
     parts = list(DarwinAssemblerParser().find_functions(iter(lines)))
-    assert len(parts) == 7
+    assert len(parts) == 6
     assert parts[0] == (False, lines[:3])
     assert parts[1] == (True,  lines[3:7])
     assert parts[2] == (True,  lines[7:11])
-    assert parts[3] == (True,  lines[11:13])
-    assert parts[4] == (False, lines[13:18])
-    assert parts[5] == (True,  lines[18:20])
-    assert parts[6] == (False, lines[20:])
+    assert parts[3] == (True,  lines[11:18])
+    assert parts[4] == (True,  lines[18:20])
+    assert parts[5] == (False, lines[20:])
  
 def test_computegcmaptable():
     tests = []
-    for format in ('elf', 'darwin', 'msvc', 'elf64'):
+    for format in ('elf', 'elf64', 'darwin', 'darwin64', 'msvc'):
         for path in this_dir.join(format).listdir("track*.s"):
             n = path.purebasename[5:]
             try:

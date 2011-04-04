@@ -405,6 +405,13 @@ class AbstractTestRstr(BaseRtypingTest):
                 res = self.interpret(fn, [i,j])
                 assert self.ll_to_string(res) == fn(i, j)
 
+        def fn(i):
+            c = ["a", "b", "c"]
+            assert i >= 0
+            return const('').join(c[i:])
+        res = self.interpret(fn, [0])
+        assert self.ll_to_string(res) == const("abc")
+
     def test_str_slice(self):
         const = self.const
         def fn(n):
@@ -569,19 +576,55 @@ class AbstractTestRstr(BaseRtypingTest):
                 res = self.interpret(f, [i, newlines])
                 assert res == f(i, newlines)
 
-    def test_split(self):
+    def _make_split_test(self, split_fn):
         const = self.const
         def fn(i):
             s = [const(''), const('0.1.2.4.8'), const('.1.2'), const('1.2.'), const('.1.2.4.')][i]
-            l = s.split(const('.'))
+            l = getattr(s, split_fn)(const('.'))
             sum = 0
             for num in l:
-                 if len(num):
-                     sum += ord(num[0]) - ord(const('0')[0])
+                if len(num):
+                    sum += ord(num[0]) - ord(const('0')[0])
             return sum + len(l) * 100
+        return fn
+
+    def test_split(self):
+        fn = self._make_split_test('split')
         for i in range(5):
             res = self.interpret(fn, [i])
             assert res == fn(i)
+
+    def test_rsplit(self):
+        fn = self._make_split_test('rsplit')
+        for i in range(5):
+            res = self.interpret(fn, [i])
+            assert res == fn(i)
+
+    def _make_split_limit_test(self, split_fn):
+        const = self.const
+        def fn(i, j):
+            s = [const(''), const('0.1.2.4.8'), const('.1.2'), const('1.2.'), const('.1.2.4.')][i]
+            l = getattr(s, split_fn)(const('.'), j)
+            sum = 0
+            for num in l:
+                if len(num):
+                    sum += ord(num[0]) - ord(const('0')[0])
+            return sum + len(l) * 100
+        return fn
+
+    def test_split_limit(self):
+        fn = self._make_split_limit_test('split')
+        for i in range(5):
+            for j in range(4):
+                res = self.interpret(fn, [i, j])
+                assert res == fn(i, j)
+
+    def test_rsplit_limit(self):
+        fn = self._make_split_limit_test('rsplit')
+        for i in range(5):
+            for j in range(4):
+                res = self.interpret(fn, [i, j])
+                assert res == fn(i, j)
 
     def test_contains(self):
         const = self.const
@@ -880,6 +923,22 @@ class AbstractTestRstr(BaseRtypingTest):
             c = u"abc"
             return c[i].encode("latin-1")
         assert self.ll_to_string(self.interpret(f, [0])) == "a"
+
+    def test_str_none(self):
+        const = self.const
+        def g():
+            pass
+        def f(i):
+            if i > 5:
+                u = None
+            else:
+                u = const('xxx')
+            g()    # hack for flow object space
+            return str(u)
+        assert self.ll_to_string(self.interpret(f, [3])) == 'xxx'
+        got = self.interpret(f, [7])
+        assert self.ll_to_string(got) == 'None'
+
 
 def FIXME_test_str_to_pystringobj():
     def f(n):

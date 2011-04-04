@@ -17,8 +17,8 @@ def and_(space, w_obj1, w_obj2):
 
 def concat(space, w_obj1, w_obj2):
     'concat(a, b) -- Same as a + b, for a and b sequences.'
-    if space.findattr(w_obj1, space.wrap('__getitem__')) is None or \
-            space.findattr(w_obj2, space.wrap('__getitem__')) is None:
+    if (space.lookup(w_obj1, '__getitem__') is None or
+        space.lookup(w_obj2, '__getitem__') is None):
         raise OperationError(space.w_TypeError, space.w_None)
 
     return space.add(w_obj1, w_obj2)
@@ -219,15 +219,15 @@ def ixor(space, w_a, w_b):
 
 def iconcat(space, w_obj1, w_obj2):
     'iconcat(a, b) -- Same as a += b, for a and b sequences.'
-    if space.findattr(w_obj1, space.wrap('__getitem__')) is None or \
-            space.findattr(w_obj2, space.wrap('__getitem__')) is None:
+    if (space.lookup(w_obj1, '__getitem__') is None or
+        space.lookup(w_obj2, '__getitem__') is None):
         raise OperationError(space.w_TypeError, space.w_None)
 
     return space.inplace_add(w_obj1, w_obj2)
 
 def irepeat(space, w_obj1, w_obj2):
     'irepeat(a, b) -- Same as a *= b, for a and b sequences.'
-    if space.findattr(w_obj1, space.wrap('__getitem__')) is None:
+    if space.lookup(w_obj1, '__getitem__') is None:
         # first arg has to be a sequence
         raise OperationError(space.w_TypeError,
                            space.wrap("non-sequence object can't be repeated"))

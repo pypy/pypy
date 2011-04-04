@@ -78,6 +78,7 @@ def generate_tokens(lines, flags):
     contline = None
     indents = [0]
     last_comment = ''
+    parenlevstart = (0, 0, "")
 
     # make the annotator happy
     endDFA = automata.DFA([], [])
@@ -85,15 +86,17 @@ def generate_tokens(lines, flags):
     line = ''
     pos = 0
     lines.append("")
-    strstart = (0, 0)
+    strstart = (0, 0, "")
     for line in lines:
         lnum = lnum + 1
         pos, max = 0, len(line)
 
         if contstr:
             if not line:
-                raise TokenError("EOF while scanning triple-quoted string",
-                                 line, lnum-1, 0, token_list)
+                raise TokenError(
+                    "EOF while scanning triple-quoted string literal",
+                    strstart[2], strstart[0], strstart[1]+1,
+                    token_list, lnum-1)
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
@@ -146,6 +149,10 @@ def generate_tokens(lines, flags):
 
         else:                                  # continued statement
             if not line:
+                if parenlev > 0:
+                    lnum1, start1, line1 = parenlevstart
+                    raise TokenError("parenthesis is never closed", line1,
+                                     lnum1, start1 + 1, token_list, lnum)
                 raise TokenError("EOF in multi-line statement", line,
                                  lnum, 0, token_list)
             continued = 0
@@ -187,7 +194,7 @@ def generate_tokens(lines, flags):
                         token_list.append(tok)
                         last_comment = ''
                     else:
-                        strstart = (lnum, start)
+                        strstart = (lnum, start, line)
                         contstr = line[start:]
                         contline = line
                         break
@@ -195,7 +202,7 @@ def generate_tokens(lines, flags):
                     token[:2] in single_quoted or \
                     token[:3] in single_quoted:
                     if token[-1] == '\n':                  # continued string
-                        strstart = (lnum, start)
+                        strstart = (lnum, start, line)
                         endDFA = (endDFAs[initial] or endDFAs[token[1]] or
                                    endDFAs[token[2]])
                         contstr, needcont = line[start:], 1
@@ -212,6 +219,8 @@ def generate_tokens(lines, flags):
                     continued = 1
                 else:
                     if initial in '([{':
+                        if parenlev == 0:
+                            parenlevstart = (lnum, start, line)
                         parenlev = parenlev + 1
                     elif initial in ')]}':
                         parenlev = parenlev - 1
@@ -229,8 +238,8 @@ def generate_tokens(lines, flags):
                 if start < 0:
                     start = pos
                 if start<max and line[start] in single_quoted:
-                    raise TokenError("EOL while scanning single-quoted string",
-                             line, lnum, start, token_list)
+                    raise TokenError("EOL while scanning string literal",
+                             line, lnum, start+1, token_list)
                 tok = (tokens.ERRORTOKEN, line[pos], lnum, pos, line)
                 token_list.append(tok)
                 last_comment = ''

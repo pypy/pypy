@@ -19,7 +19,7 @@ def PyPy_GetReference(space, arg):
 
 class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
-        cls.space = space = gettestobjspace(usemodules=['cpyext', 'thread'])
+        cls.space = space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
 
         # warm up reference counts:
         # - the posix module allocates a HCRYPTPROV on Windows
@@ -77,5 +77,5 @@ def test_copy_header_files(tmpdir):
         assert f.check(file=True)
         py.test.raises(py.error.EACCES, "f.open('w')") # check that it's not writable
     check('Python.h')
-    check('modsupport.inl')
+    check('modsupport.h')
     check('pypy_decl.h')

@@ -5,15 +5,31 @@
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
 from pypy.rpython.lltypesystem.module import ll_math
 import math
+from pypy.rlib import rfloat
 
 # XXX no OORtypeMixin here
 
 class TestMath(BaseRtypingTest, LLRtypeMixin):
     def new_unary_test(name):
+        try:
+            fn = getattr(math, name)
+            assert_exact = True
+        except AttributeError:
+            fn = getattr(rfloat, name)
+            assert_exact = False
+        if name == 'acosh':
+            value = 1.3     # acosh(x) is only defined for x >= 1.0
+        else:
+            value = 0.3
+        #
         def next_test(self):
             def f(x):
-                return getattr(math, name)(x)
-            assert self.interpret(f, [0.3]) == f(0.3)
+                return fn(x)
+            res = self.interpret(f, [value])
+            if assert_exact:
+                assert res == f(value)
+            else:
+                assert abs(res - f(value)) < 1e-10
         return next_test
 
     def new_binary_test(name):

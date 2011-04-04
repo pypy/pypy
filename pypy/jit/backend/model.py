@@ -1,23 +1,44 @@
+from pypy.rlib.debug import debug_start, debug_print, debug_stop
 from pypy.jit.metainterp import history, compile
 
 
 class AbstractCPU(object):
     supports_floats = False
+    supports_longlong = False
+    # ^^^ This is only useful on 32-bit platforms.  If True,
+    # longlongs are supported by the JIT, but stored as doubles.
+    # Boxes and Consts are BoxFloats and ConstFloats.
+
     done_with_this_frame_void_v = -1
     done_with_this_frame_int_v = -1
     done_with_this_frame_ref_v = -1
     done_with_this_frame_float_v = -1
+    exit_frame_with_exception_v = -1
+    total_compiled_loops = 0
+    total_compiled_bridges = 0
+    total_freed_loops = 0
+    total_freed_bridges = 0
 
     def __init__(self):
         self.fail_descr_list = []
+        self.fail_descr_free_list = []
+
+    def reserve_some_free_fail_descr_number(self):
+        lst = self.fail_descr_list
+        if len(self.fail_descr_free_list) > 0:
+            n = self.fail_descr_free_list.pop()
+            assert lst[n] is None
+        else:
+            n = len(lst)
+            lst.append(None)
+        return n
 
     def get_fail_descr_number(self, descr):
         assert isinstance(descr, history.AbstractFailDescr)
         n = descr.index
         if n < 0:
-            lst = self.fail_descr_list
-            n = len(lst)
-            lst.append(descr)
+            n = self.reserve_some_free_fail_descr_number()
+            self.fail_descr_list[n] = descr
             descr.index = n
         return n
 
@@ -33,14 +54,16 @@ class AbstractCPU(object):
         pass
 
 
-    def compile_loop(self, inputargs, operations, looptoken):
+    def compile_loop(self, inputargs, operations, looptoken, log=True):
         """Assemble the given loop.
-        Extra attributes should be put in the LoopToken to
-        point to the compiled loop in assembler.
+        Should create and attach a fresh CompiledLoopToken to
+        looptoken.compiled_loop_token and stick extra attributes
+        on it to point to the compiled loop in assembler.
         """
         raise NotImplementedError
 
-    def compile_bridge(self, faildescr, inputargs, operations):
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True):
         """Assemble the bridge.
         The FailDescr is the descr of the original guard that failed.
         """
@@ -113,6 +136,28 @@ class AbstractCPU(object):
         oldlooptoken so that from now own they will call newlooptoken."""
         raise NotImplementedError
 
+    def free_loop_and_bridges(self, compiled_loop_token):
+        """This method is called to free resources (machine code,
+        references to resume guards, etc.) allocated by the compilation
+        of a loop and all bridges attached to it.  After this call, the
+        frontend cannot use this compiled loop any more; in fact, it
+        guarantees that at the point of the call to free_code_group(),
+        none of the corresponding assembler is currently running.
+        """
+        # The base class provides a limited implementation: freeing the
+        # resume descrs.  This is already quite helpful, because the
+        # resume descrs are the largest consumers of memory (about 3x
+        # more than the assembler, in the case of the x86 backend).
+        lst = self.fail_descr_list
+        # We expect 'compiled_loop_token' to be itself garbage-collected soon,
+        # but better safe than sorry: be ready to handle several calls to
+        # free_loop_and_bridges() for the same compiled_loop_token.
+        faildescr_indices = compiled_loop_token.faildescr_indices
+        compiled_loop_token.faildescr_indices = []
+        for n in faildescr_indices:
+            lst[n] = None
+        self.fail_descr_free_list.extend(faildescr_indices)
+
     @staticmethod
     def sizeof(S):
         raise NotImplementedError
@@ -142,12 +187,6 @@ class AbstractCPU(object):
     @staticmethod
     def typedescrof(TYPE):
         raise NotImplementedError
-
-    #def cast_adr_to_int(self, adr):
-    #    raise NotImplementedError
-
-    #def cast_int_to_adr(self, int):
-    #    raise NotImplementedError
 
     # ---------- the backend-dependent operations ----------
 
@@ -237,3 +276,47 @@ class AbstractCPU(object):
 
     def force(self, force_token):
         raise NotImplementedError
+
+
+class CompiledLoopToken(object):
+    asmmemmgr_blocks = None
+    asmmemmgr_gcroots = 0
+
+    def __init__(self, cpu, number):
+        cpu.total_compiled_loops += 1
+        self.cpu = cpu
+        self.number = number
+        self.bridges_count = 0
+        # This growing list gives the 'descr_number' of all fail descrs
+        # that belong to this loop or to a bridge attached to it.
+        # Filled by the frontend calling record_faildescr_index().
+        self.faildescr_indices = []
+        debug_start("jit-mem-looptoken-alloc")
+        debug_print("allocating Loop #", self.number)
+        debug_stop("jit-mem-looptoken-alloc")
+
+    def record_faildescr_index(self, n):
+        self.faildescr_indices.append(n)
+
+    def reserve_and_record_some_faildescr_index(self):
+        # like record_faildescr_index(), but invent and return a new,
+        # unused faildescr index
+        n = self.cpu.reserve_some_free_fail_descr_number()
+        self.record_faildescr_index(n)
+        return n
+
+    def compiling_a_bridge(self):
+        self.cpu.total_compiled_bridges += 1
+        self.bridges_count += 1
+        debug_start("jit-mem-looptoken-alloc")
+        debug_print("allocating Bridge #", self.bridges_count, "of Loop #", self.number)
+        debug_stop("jit-mem-looptoken-alloc")
+
+    def __del__(self):
+        debug_start("jit-mem-looptoken-free")
+        debug_print("freeing Loop #", self.number, 'with',
+                    self.bridges_count, 'attached bridges')
+        self.cpu.free_loop_and_bridges(self)
+        self.cpu.total_freed_loops += 1
+        self.cpu.total_freed_bridges += self.bridges_count
+        debug_stop("jit-mem-looptoken-free")

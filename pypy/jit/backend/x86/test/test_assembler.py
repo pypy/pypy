@@ -1,5 +1,5 @@
 from pypy.jit.backend.x86.regloc import *
-from pypy.jit.backend.x86.assembler import Assembler386, MachineCodeBlockWrapper
+from pypy.jit.backend.x86.assembler import Assembler386
 from pypy.jit.backend.x86.regalloc import X86FrameManager, get_ebp_ofs
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, INT, REF, FLOAT
 from pypy.rlib.rarithmetic import intmask
@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from pypy.jit.backend.detect_cpu import getcpuclass 
 from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86_64_RegisterManager, X86XMMRegisterManager, X86_64_XMMRegisterManager
+from pypy.jit.codewriter import longlong
 
 ACTUAL_CPU = getcpuclass()
 
@@ -19,28 +20,10 @@ class FakeCPU:
         return 42
 
 class FakeMC:
-    def __init__(self, base_address=0):
+    def __init__(self):
         self.content = []
-        self._size = 100
-        self.base_address = base_address
-    def writechr(self, n):
-        self.content.append(n)
-    def tell(self):
-        return self.base_address + len(self.content)
-    def get_relative_pos(self):
-        return len(self.content)
-    def JMP(self, *args):
-        self.content.append(("JMP", args))
-    def done(self):
-        pass
-    def PUSH_r(self, reg):
-        pass
-    def POP_r(self, reg):
-        pass
-
-class FakeAssembler:
-    def write_pending_failure_recoveries(self):
-        pass
+    def writechar(self, char):
+        self.content.append(ord(char))
 
 def test_write_failure_recovery_description():
     assembler = Assembler386(FakeCPU())
@@ -162,7 +145,7 @@ def do_failure_recovery_func(withfloats):
                           immortal=True)
     expected_ints = [0] * len(content)
     expected_ptrs = [lltype.nullptr(llmemory.GCREF.TO)] * len(content)
-    expected_floats = [0.0] * len(content)
+    expected_floats = [longlong.ZEROF] * len(content)
 
     def write_in_stack(loc, value):
         assert loc >= 0
@@ -178,7 +161,7 @@ def do_failure_recovery_func(withfloats):
         else:
             if kind == 'float':
                 value, lo, hi = get_random_float()
-                expected_floats[i] = value
+                expected_floats[i] = longlong.getfloatstorage(value)
                 kind = Assembler386.DESCR_FLOAT
                 if isinstance(loc, RegLoc):
                     if WORD == 4:
@@ -255,41 +238,3 @@ def do_failure_recovery_func(withfloats):
         assert assembler.fail_boxes_int.getitem(i) == expected_ints[i]
         assert assembler.fail_boxes_ptr.getitem(i) == expected_ptrs[i]
         assert assembler.fail_boxes_float.getitem(i) == expected_floats[i]
-
-class FakeProfileAgent(object):
-    def __init__(self):
-        self.functions = []
-
-    def native_code_written(self, name, address, size):
-        self.functions.append((name, address, size))
-
-class FakeMCWrapper(MachineCodeBlockWrapper):
-    count = 0
-    def _instantiate_mc(self):
-        self.count += 1
-        return FakeMC(200 * (self.count - 1))
-
-def test_mc_wrapper_profile_agent():
-    agent = FakeProfileAgent()
-    assembler = FakeAssembler()
-    mc = FakeMCWrapper(assembler, 100, agent)
-    mc.start_function("abc")
-    mc.writechr("x")
-    mc.writechr("x")
-    mc.writechr("x")
-    mc.writechr("x")
-    mc.end_function()
-    assert agent.functions == [("abc", 0, 4)]
-    mc.writechr("x")
-    mc.start_function("cde")
-    mc.writechr("x")
-    mc.writechr("x")
-    mc.writechr("x")
-    mc.writechr("x")
-    mc.end_function()
-    assert agent.functions == [("abc", 0, 4), ("cde", 5, 4)]
-    mc.start_function("xyz")
-    for i in range(50):
-        mc.writechr("x")
-    mc.end_function()
-    assert agent.functions == [("abc", 0, 4), ("cde", 5, 4), ("xyz", 9, 29), ("xyz", 200, 22)]

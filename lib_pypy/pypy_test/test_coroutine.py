@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from py.test import skip, raises
 
 try:
-    from ..stackless import coroutine, CoroutineExit
+    from lib_pypy.stackless import coroutine, CoroutineExit
 except ImportError, e:
     skip('cannot import stackless: %s' % (e,))
 

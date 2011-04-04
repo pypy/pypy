@@ -4,13 +4,9 @@ from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, r_int64, intmask
+from pypy.rlib import objectmodel
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-
-if r_longlong is not r_int:
-    int64 = r_longlong
-else:
-    int64 = int
 
 
 class TestSnippet(object):
@@ -110,10 +106,10 @@ class BaseTestRint(BaseRtypingTest):
         def f(i):
             return str(i)
 
-        res = self.interpret(f, [int64(0)])
+        res = self.interpret(f, [r_int64(0)])
         assert self.ll_to_string(res) == '0'
 
-        res = self.interpret(f, [int64(413974738222117)])
+        res = self.interpret(f, [r_int64(413974738222117)])
         assert self.ll_to_string(res) == '413974738222117'
 
     def test_unsigned(self):
@@ -135,7 +131,7 @@ class BaseTestRint(BaseRtypingTest):
         f._annspecialcase_ = "specialize:argtype(0)"
         def g(n):
             if n > 0:
-                return f(int64(0))
+                return f(r_int64(0))
             else:
                 return f(0)
         res = self.interpret(g, [0])
@@ -147,7 +143,7 @@ class BaseTestRint(BaseRtypingTest):
     def test_downcast_int(self):
         def f(i):
             return int(i)
-        res = self.interpret(f, [int64(0)])
+        res = self.interpret(f, [r_int64(0)])
         assert res == 0
 
     def test_isinstance_vs_int_types(self):
@@ -157,7 +153,7 @@ class BaseTestRint(BaseRtypingTest):
                     return [None]
                 if isinstance(x, str):
                     return x
-                if isinstance(x, int64):
+                if isinstance(x, r_int64):
                     return int(x)
                 return "XXX"
             wrap._annspecialcase_ = 'specialize:argtype(0)'
@@ -165,7 +161,7 @@ class BaseTestRint(BaseRtypingTest):
         space = FakeSpace()
         def wrap(x):
             return space.wrap(x)
-        res = self.interpret(wrap, [int64(0)])
+        res = self.interpret(wrap, [r_int64(0)])
         assert res == 0
 
     def test_truediv(self):
@@ -178,25 +174,25 @@ class BaseTestRint(BaseRtypingTest):
     def test_float_conversion(self):
         def f(ii):
             return float(ii)
-        res = self.interpret(f, [int64(100000000)])
+        res = self.interpret(f, [r_int64(100000000)])
         assert type(res) is float
         assert res == 100000000.
-        res = self.interpret(f, [int64(1234567890123456789)])
+        res = self.interpret(f, [r_int64(1234567890123456789)])
         assert type(res) is float
         assert self.float_eq(res, 1.2345678901234568e+18)
 
     def test_float_conversion_implicit(self):
         def f(ii):
             return 1.0 + ii
-        res = self.interpret(f, [int64(100000000)])
+        res = self.interpret(f, [r_int64(100000000)])
         assert type(res) is float
         assert res == 100000001.
-        res = self.interpret(f, [int64(1234567890123456789)])
+        res = self.interpret(f, [r_int64(1234567890123456789)])
         assert type(res) is float
         assert self.float_eq(res, 1.2345678901234568e+18)
 
     def test_rarithmetic(self):
-        inttypes = [int, r_uint, int64, r_ulonglong]
+        inttypes = [int, r_uint, r_int64, r_ulonglong]
         for inttype in inttypes:
             c = inttype()
             def f():
@@ -231,16 +227,37 @@ class BaseTestRint(BaseRtypingTest):
             res = self.interpret(f, [int(-1<<(r_int.BITS-1))])
             assert res == 0
 
-            res = self.interpret(f, [int64(-1)])
-            assert res == 1
-            res = self.interpret(f, [int64(-1)<<(r_longlong.BITS-1)])
-            assert res == 0
+    def test_lshift_rshift(self):
+        for name, f in [('_lshift', lambda x, y: x << y),
+                        ('_rshift', lambda x, y: x >> y)]:
+            for inttype in (int, r_uint, r_int64, r_ulonglong):
+                res = self.interpret(f, [inttype(2147483647), 12])
+                if inttype is int:
+                    assert res == intmask(f(2147483647, 12))
+                else:
+                    assert res == inttype(f(2147483647, 12))
+                #
+                # check that '*_[lr]shift' take an inttype and an
+                # int as arguments, without the need for a
+                # 'cast_int_to_{uint,longlong,...}'
+                _, _, graph = self.gengraph(f, [inttype, int])
+                block = graph.startblock
+                assert len(block.operations) == 1
+                assert block.operations[0].opname.endswith(name)
+
+    def test_cast_uint_to_longlong(self):
+        if r_uint.BITS == r_longlong.BITS:
+            py.test.skip("only on 32-bits")
+        def f(x):
+            return r_longlong(r_uint(x))
+        res = self.interpret(f, [-42])
+        assert res == (sys.maxint+1) * 2 - 42
 
     div_mod_iteration_count = 1000
     def test_div_mod(self):
         import random
 
-        for inttype in (int, int64):
+        for inttype in (int, r_int64):
 
             def d(x, y):
                 return x/y
@@ -249,6 +266,8 @@ class BaseTestRint(BaseRtypingTest):
                 x = inttype(random.randint(-100000, 100000))
                 y = inttype(random.randint(-100000, 100000))
                 if not y: continue
+                if (i & 31) == 0:
+                    x = (x//y) * y      # case where x is exactly divisible by y
                 res = self.interpret(d, [x, y])
                 assert res == d(x, y)
 
@@ -259,6 +278,8 @@ class BaseTestRint(BaseRtypingTest):
                 x = inttype(random.randint(-100000, 100000))
                 y = inttype(random.randint(-100000, 100000))
                 if not y: continue
+                if (i & 31) == 0:
+                    x = (x//y) * y      # case where x is exactly divisible by y
                 res = self.interpret(m, [x, y])
                 assert res == m(x, y)
 
@@ -303,7 +324,7 @@ class BaseTestRint(BaseRtypingTest):
             except ZeroDivisionError:
                 return 84
 
-        for inttype in (int, int64):
+        for inttype in (int, r_int64):
 
             args = [( 5, 2), (-5, 2), ( 5,-2), (-5,-2),
                     ( 6, 2), (-6, 2), ( 6,-2), (-6,-2),
@@ -319,7 +340,9 @@ class BaseTestRint(BaseRtypingTest):
                 for x, y in args:
                     x, y = inttype(x), inttype(y)
                     try:
-                        res1 = ovfcheck(func(x, y))
+                        res1 = func(x, y)
+                        if isinstance(res1, int):
+                            res1 = ovfcheck(res1)
                     except (OverflowError, ZeroDivisionError):
                         continue
                     res2 = self.interpret(func, [x, y])
@@ -352,6 +375,18 @@ class BaseTestRint(BaseRtypingTest):
 
         res = self.interpret(f, [3])
         assert res == 3
+
+    def test_hash(self):
+        def f(x):
+            return objectmodel.compute_hash(x)
+        res = self.interpret(f, [123456789])
+        assert res == 123456789
+        res = self.interpret(f, [r_int64(123456789012345678)])
+        if sys.maxint == 2147483647:
+            # check the way we compute such a hash so far
+            assert res == -1506741426 + 9 * 28744523
+        else:
+            assert res == 123456789012345678
 
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass

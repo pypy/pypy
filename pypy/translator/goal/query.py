@@ -30,15 +30,13 @@ class Found(Exception):
 def polluted_qgen(translator):
     """list functions with still real SomeObject variables"""
     annotator = translator.annotator
-    def visit(block):
-        if isinstance(block, flowmodel.Block):
-            for v in block.getvariables():
-                s = annotator.binding(v, None)
-                if s and s.__class__ == annmodel.SomeObject and s.knowntype != type:
-                    raise Found
     for g in translator.graphs:
         try:
-            flowmodel.traverse(visit, g)
+            for block in g.iterblocks():
+                for v in block.getvariables():
+                    s = annotator.binding(v, None)
+                    if s and s.__class__ == annmodel.SomeObject and s.knowntype != type:
+                        raise Found
         except Found:
             line = "%s: %s" % (g, graph_sig(translator, g))
             yield line

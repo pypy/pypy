@@ -12,6 +12,23 @@ class AppTestGenerator:
         assert g.next() == 1
         raises(StopIteration, g.next)
 
+    def test_attributes(self):
+        def f():
+            yield 1
+            assert g.gi_running
+        g = f()
+        assert g.gi_code is f.func_code
+        assert g.__name__ == 'f'
+        assert g.gi_frame is not None
+        assert not g.gi_running
+        g.next()
+        assert not g.gi_running
+        raises(StopIteration, g.next)
+        assert not g.gi_running
+        assert g.gi_frame is None
+        assert g.gi_code is f.func_code
+        assert g.__name__ == 'f'
+
     def test_generator3(self):
         def f():
             yield 1
@@ -89,9 +106,10 @@ class AppTestGenerator:
                 pass
         g = f()
         g.next()
-        # String exceptions are allowed (with DeprecationWarning)
-        assert g.throw("Error") == 3
-        raises(StopIteration, g.throw, "Error")
+        # String exceptions are not allowed anymore
+        raises(TypeError, g.throw, "Error")
+        assert g.throw(Exception) == 3
+        raises(StopIteration, g.throw, Exception)
 
     def test_throw6(self):
         def f():
@@ -240,3 +258,12 @@ z = [1, 2, 7]
 res = f()
 """ in d
         assert d['res'] == (10, 7)
+
+    def test_repr(self):
+        def myFunc():
+            yield 1
+        g = myFunc()
+        r = repr(g)
+        assert r.startswith("<generator object myFunc at 0x")
+        assert list(g) == [1]
+        assert repr(g) == r

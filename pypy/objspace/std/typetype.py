@@ -54,7 +54,7 @@ def _precheck_for_new(space, w_type):
     if not isinstance(w_type, W_TypeObject):
         raise operationerrfmt(space.w_TypeError,
                               "X is not a type object (%s)",
-                              space.type(w_type).getname(space, '?'))
+                              space.type(w_type).getname(space))
     return w_type
 
 # ____________________________________________________________
@@ -114,7 +114,7 @@ def descr_set__bases__(space, w_type, w_value):
         raise operationerrfmt(space.w_TypeError,
                               "can only assign tuple to %s.__bases__, not %s",
                               w_type.name,
-                              space.type(w_value).getname(space, '?'))
+                              space.type(w_value).getname(space))
     newbases_w = space.fixedview(w_value)
     if len(newbases_w) == 0:
         raise operationerrfmt(space.w_TypeError,
@@ -137,8 +137,8 @@ def descr_set__bases__(space, w_type, w_value):
         raise operationerrfmt(space.w_TypeError,
                            "__bases__ assignment: '%s' object layout"
                            " differs from '%s'",
-                           w_newbestbase.getname(space, '?'),
-                           w_oldbestbase.getname(space, '?'))
+                           w_newbestbase.getname(space),
+                           w_oldbestbase.getname(space))
 
     # invalidate the version_tag of all the current subclasses
     w_type.mutated()
@@ -181,6 +181,8 @@ def descr__doc(space, w_type):
         return space.wrap("""type(object) -> the object's type
 type(name, bases, dict) -> a new type""")
     w_type = _check(space, w_type)
+    if not w_type.is_heaptype():
+        return w_type.w_doc
     w_result = w_type.getdictvalue(space, '__doc__')
     if w_result is None:
         return space.w_None
@@ -188,8 +190,16 @@ type(name, bases, dict) -> a new type""")
         return space.get(w_result, space.w_None, w_type)
 
 def descr__flags(space, w_type):
+    from copy_reg import _HEAPTYPE
+    _CPYTYPE = 1 # used for non-heap types defined in C
+    _ABSTRACT = 1 << 20
+    #
     w_type = _check(space, w_type)
-    return space.wrap(w_type.__flags__)
+    flags = 0
+    if w_type.flag_heaptype: flags |= _HEAPTYPE
+    if w_type.flag_cpytype:  flags |= _CPYTYPE
+    if w_type.flag_abstract: flags |= _ABSTRACT
+    return space.wrap(flags)
 
 def descr_get__module(space, w_type):
     w_type = _check(space, w_type)
@@ -203,6 +213,33 @@ def descr_set__module(space, w_type, w_value):
                               w_type.name)
     w_type.mutated()
     w_type.dict_w['__module__'] = w_value
+
+def descr_get___abstractmethods__(space, w_type):
+    w_type = _check(space, w_type)
+    # type itself has an __abstractmethods__ descriptor (this). Don't return it
+    if not space.is_w(w_type, space.w_type):
+        try:
+            return w_type.dict_w["__abstractmethods__"]
+        except KeyError:
+            pass
+    raise OperationError(space.w_AttributeError,
+                         space.wrap("__abstractmethods__"))
+
+def descr_set___abstractmethods__(space, w_type, w_new):
+    w_type = _check(space, w_type)
+    w_type.dict_w["__abstractmethods__"] = w_new
+    w_type.mutated()
+    w_type.set_abstract(space.is_true(w_new))
+
+def descr_del___abstractmethods__(space, w_type):
+    w_type = _check(space, w_type)
+    try:
+        del w_type.dict_w["__abstractmethods__"]
+    except KeyError:
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("__abstractmethods__"))
+    w_type.mutated()
+    w_type.set_abstract(False)
 
 def descr___subclasses__(space, w_type):
     """Return the list of immediate subclasses."""
@@ -222,6 +259,9 @@ type_typedef = StdTypeDef("type",
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),
+    __abstractmethods__ = GetSetProperty(descr_get___abstractmethods__,
+                                         descr_set___abstractmethods__,
+                                         descr_del___abstractmethods__),
     __subclasses__ = gateway.interp2app(descr___subclasses__),
     __weakref__ = weakref_descr,
     )

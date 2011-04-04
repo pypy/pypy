@@ -20,21 +20,20 @@ BUILDERS = [
     'own-linux-x86-32',
     'own-linux-x86-64',
 #    'own-macosx-x86-32',
-    'pypy-c-app-level-linux-x86-32',
-    'pypy-c-app-level-linux-x86-64',
+#    'pypy-c-app-level-linux-x86-32',
+#    'pypy-c-app-level-linux-x86-64',
     'pypy-c-stackless-app-level-linux-x86-32',
     'pypy-c-app-level-win-x86-32',
     'pypy-c-jit-linux-x86-32',
+    'pypy-c-jit-linux-x86-64',
 #    'pypy-c-jit-macosx-x86-32',
     'pypy-c-jit-win-x86-32',
 ]
 
 def main():
+    #XXX: handle release tags
+    #XXX: handle validity checks
     branch = sys.argv[1]
-    if (not branch.startswith('/branch/') and not branch.startswith('/tag/') and
-        not branch.startswith('/release/')):
-        branch = '/branch/' + branch
-
     lock = defer.DeferredLock()
     requests = []
     def ebList(err):

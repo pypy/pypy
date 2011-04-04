@@ -5,8 +5,8 @@ from pypy.jit.metainterp.history import getkind
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
-from pypy.jit.codewriter import support, heaptracker
-from pypy.jit.codewriter.effectinfo import EffectInfo, _callinfo_for_oopspec
+from pypy.jit.codewriter import support, heaptracker, longlong
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
 from pypy.rlib import objectmodel
@@ -24,6 +24,7 @@ def transform_graph(graph, cpu=None, callcontrol=None, portal_jd=None):
 
 
 class Transformer(object):
+    vable_array_vars = None
 
     def __init__(self, cpu=None, callcontrol=None, portal_jd=None):
         self.cpu = cpu
@@ -38,7 +39,6 @@ class Transformer(object):
     def optimize_block(self, block):
         if block.operations == ():
             return
-        self.immutable_arrays = {}
         self.vable_array_vars = {}
         self.vable_flags = {}
         renamings = {}
@@ -83,6 +83,7 @@ class Transformer(object):
         self.follow_constant_exit(block)
         self.optimize_goto_if_not(block)
         for link in block.exits:
+            self._check_no_vable_array(link.args)
             self._do_renaming_on_link(renamings, link)
 
     def _do_renaming(self, rename, op):
@@ -99,6 +100,28 @@ class Transformer(object):
                     newlst.append(x)
                 op.args[i] = ListOfKind(v.kind, newlst)
         return op
+
+    def _check_no_vable_array(self, list):
+        if not self.vable_array_vars:
+            return
+        for v in list:
+            if v in self.vable_array_vars:
+                raise AssertionError(
+                    "A virtualizable array is passed around; it should\n"
+                    "only be used immediately after being read.  Note\n"
+                    "that a possible cause is indexing with an index not\n"
+                    "known non-negative, or catching IndexError, or\n"
+                    "not inlining at all (for tests: use listops=True).\n"
+                    "Occurred in: %r" % self.graph)
+            # extra expanation: with the way things are organized in
+            # rpython/rlist.py, the ll_getitem becomes a function call
+            # that is typically meant to be inlined by the JIT, but
+            # this does not work with vable arrays because
+            # jtransform.py expects the getfield and the getarrayitem
+            # to be in the same basic block.  It works a bit as a hack
+            # for simple cases where we performed the backendopt
+            # inlining before (even with a very low threshold, because
+            # there is _always_inline_ on the relevant functions).
 
     def _do_renaming_on_link(self, rename, link):
         for i, v in enumerate(link.args):
@@ -170,9 +193,12 @@ class Transformer(object):
         else:
             return rewrite(self, op)
 
-    def rewrite_op_same_as(self, op): pass
-    def rewrite_op_cast_pointer(self, op): pass
-    def rewrite_op_cast_primitive(self, op): pass
+    def rewrite_op_same_as(self, op):
+        if op.args[0] in self.vable_array_vars:
+            self.vable_array_vars[op.result]= self.vable_array_vars[op.args[0]]
+
+    rewrite_op_cast_pointer = rewrite_op_same_as
+    rewrite_op_cast_opaque_ptr = rewrite_op_same_as   # rlib.rerased
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
@@ -256,6 +282,7 @@ class Transformer(object):
            The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
         if args is None:
             args = op.args[1:]
+        self._check_no_vable_array(args)
         lst_i, lst_r, lst_f = self.make_three_lists(args)
         reskind = getkind(op.result.concretetype)[0]
         if lst_f or reskind == 'f': kinds = 'irf'
@@ -396,7 +423,17 @@ class Transformer(object):
     rewrite_op_int_mod_zer     = _do_builtin_call
     rewrite_op_int_lshift_ovf  = _do_builtin_call
     rewrite_op_int_abs         = _do_builtin_call
+    rewrite_op_llong_abs          = _do_builtin_call
+    rewrite_op_llong_floordiv     = _do_builtin_call
+    rewrite_op_llong_floordiv_zer = _do_builtin_call
+    rewrite_op_llong_mod          = _do_builtin_call
+    rewrite_op_llong_mod_zer      = _do_builtin_call
+    rewrite_op_ullong_floordiv     = _do_builtin_call
+    rewrite_op_ullong_floordiv_zer = _do_builtin_call
+    rewrite_op_ullong_mod          = _do_builtin_call
+    rewrite_op_ullong_mod_zer      = _do_builtin_call
     rewrite_op_gc_identityhash = _do_builtin_call
+    rewrite_op_gc_id           = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.
@@ -523,17 +560,14 @@ class Transformer(object):
                                                 arrayfielddescr,
                                                 arraydescr)
             return []
-        # check for deepfrozen structures that force constant-folding
-        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
-        if immut:
+        # check for _immutable_fields_ hints
+        if v_inst.concretetype.TO._immutable_field(c_fieldname.value):
             if (self.callcontrol is not None and
                 self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
                                                       c_fieldname.value)):
                 pure = '_greenfield'
             else:
                 pure = '_pure'
-            if immut == "[*]":
-                self.immutable_arrays[op.result] = True
         else:
             pure = ''
         argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')
@@ -753,6 +787,114 @@ class Transformer(object):
         return result
 
     # ----------
+    # Long longs, for 32-bit only.  Supported operations are left unmodified,
+    # and unsupported ones are turned into a call to a function from
+    # jit.codewriter.support.
+
+    for _op, _oopspec in [('llong_invert',  'INVERT'),
+                          ('ullong_invert', 'INVERT'),
+                          ('llong_lt',      'LT'),
+                          ('llong_le',      'LE'),
+                          ('llong_eq',      'EQ'),
+                          ('llong_ne',      'NE'),
+                          ('llong_gt',      'GT'),
+                          ('llong_ge',      'GE'),
+                          ('ullong_lt',     'ULT'),
+                          ('ullong_le',     'ULE'),
+                          ('ullong_eq',     'EQ'),
+                          ('ullong_ne',     'NE'),
+                          ('ullong_gt',     'UGT'),
+                          ('ullong_ge',     'UGE'),
+                          ('llong_add',     'ADD'),
+                          ('llong_sub',     'SUB'),
+                          ('llong_mul',     'MUL'),
+                          ('llong_and',     'AND'),
+                          ('llong_or',      'OR'),
+                          ('llong_xor',     'XOR'),
+                          ('ullong_add',    'ADD'),
+                          ('ullong_sub',    'SUB'),
+                          ('ullong_mul',    'MUL'),
+                          ('ullong_and',    'AND'),
+                          ('ullong_or',     'OR'),
+                          ('ullong_xor',    'XOR'),
+                          ('llong_lshift',  'LSHIFT'),
+                          ('llong_rshift',  'RSHIFT'),
+                          ('ullong_lshift', 'LSHIFT'),
+                          ('ullong_rshift', 'URSHIFT'),
+                          ('cast_int_to_longlong',     'FROM_INT'),
+                          ('truncate_longlong_to_int', 'TO_INT'),
+                          ('cast_float_to_longlong',   'FROM_FLOAT'),
+                          ('cast_longlong_to_float',   'TO_FLOAT'),
+                          ('cast_uint_to_longlong',    'FROM_UINT'),
+                          ]:
+        exec py.code.Source('''
+            def rewrite_op_%s(self, op):
+                args = op.args
+                op1 = self.prepare_builtin_call(op, "llong_%s", args)
+                op2 = self._handle_oopspec_call(op1, args,
+                                                EffectInfo.OS_LLONG_%s,
+                                                EffectInfo.EF_PURE)
+                if %r == "TO_INT":
+                    assert op2.result.concretetype == lltype.Signed
+                return op2
+        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+
+    def _normalize(self, oplist):
+        if isinstance(oplist, SpaceOperation):
+            return [oplist]
+        else:
+            assert type(oplist) is list
+            return oplist
+
+    def rewrite_op_llong_neg(self, op):
+        v = varoftype(lltype.SignedLongLong)
+        op0 = SpaceOperation('cast_int_to_longlong',
+                             [Constant(0, lltype.Signed)],
+                             v)
+        args = [v, op.args[0]]
+        op1 = SpaceOperation('llong_sub', args, op.result)
+        return (self._normalize(self.rewrite_operation(op0)) +
+                self._normalize(self.rewrite_operation(op1)))
+
+    def rewrite_op_llong_is_true(self, op):
+        v = varoftype(lltype.SignedLongLong)
+        op0 = SpaceOperation('cast_int_to_longlong',
+                             [Constant(0, lltype.Signed)],
+                             v)
+        args = [op.args[0], v]
+        op1 = SpaceOperation('llong_ne', args, op.result)
+        return (self._normalize(self.rewrite_operation(op0)) +
+                self._normalize(self.rewrite_operation(op1)))
+
+    rewrite_op_ullong_is_true = rewrite_op_llong_is_true
+
+    def rewrite_op_cast_primitive(self, op):
+        fromll = longlong.is_longlong(op.args[0].concretetype)
+        toll   = longlong.is_longlong(op.result.concretetype)
+        if fromll != toll:
+            args = op.args
+            if fromll:
+                opname = 'truncate_longlong_to_int'
+                RESULT = lltype.Signed
+            else:
+                from pypy.rpython.lltypesystem import rffi
+                if rffi.cast(op.args[0].concretetype, -1) < 0:
+                    opname = 'cast_int_to_longlong'
+                else:
+                    opname = 'cast_uint_to_longlong'
+                RESULT = lltype.SignedLongLong
+            v = varoftype(RESULT)
+            op1 = SpaceOperation(opname, args, v)
+            op2 = self.rewrite_operation(op1)
+            #
+            # force a renaming to put the correct result in place, even though
+            # it might be slightly mistyped (e.g. Signed versus Unsigned)
+            assert op2.result is v
+            op2.result = op.result
+            #
+            return op2
+
+    # ----------
     # Renames, from the _old opname to the _new one.
     # The new operation is optionally further processed by rewrite_operation().
     for _old, _new in [('bool_not', 'int_is_zero'),
@@ -831,6 +973,8 @@ class Transformer(object):
     def rewrite_op_jit_marker(self, op):
         key = op.args[0].value
         jitdriver = op.args[1].value
+        if not jitdriver.active:
+            return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
@@ -840,13 +984,22 @@ class Transformer(object):
             "general mix-up of jitdrivers?")
         ops = self.promote_greens(op.args[2:], jitdriver)
         num_green_args = len(jitdriver.greens)
+        redlists = self.make_three_lists(op.args[2+num_green_args:])
+        for redlist in redlists:
+            for v in redlist:
+                assert isinstance(v, Variable), (
+                    "Constant specified red in jit_merge_point()")
+            assert len(dict.fromkeys(redlist)) == len(list(redlist)), (
+                "duplicate red variable on jit_merge_point()")
         args = ([Constant(self.portal_jd.index, lltype.Signed)] +
                 self.make_three_lists(op.args[2:2+num_green_args]) +
-                self.make_three_lists(op.args[2+num_green_args:]))
+                redlists)
         op1 = SpaceOperation('jit_merge_point', args, None)
         op2 = SpaceOperation('-live-', [], None)
         # ^^^ we need a -live- for the case of do_recursive_call()
-        return ops + [op1, op2]
+        op3 = SpaceOperation('-live-', [], None)
+        # and one for inlined short preambles
+        return ops + [op3, op1, op2]
 
     def handle_jit_marker__loop_header(self, op, jitdriver):
         jd = self.callcontrol.jitdriver_sd_from_jitdriver(jitdriver)
@@ -870,6 +1023,8 @@ class Transformer(object):
         elif oopspec_name == 'jit.assert_green':
             kind = getkind(args[0].concretetype)
             return SpaceOperation('%s_assert_green' % kind, args, None)
+        elif oopspec_name == 'jit.current_trace_length':
+            return SpaceOperation('current_trace_length', [], op.result)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 
@@ -891,17 +1046,21 @@ class Transformer(object):
             prefix = 'do_resizable_'
             ARRAY = LIST.items.TO
             if self._array_of_voids(ARRAY):
-                raise NotSupported("resizable lists of voids")
-            descrs = (self.cpu.arraydescrof(ARRAY),
-                      self.cpu.fielddescrof(LIST, 'length'),
-                      self.cpu.fielddescrof(LIST, 'items'),
-                      self.cpu.sizeof(LIST))
+                prefix += 'void_'
+                descrs = ()
+            else:
+                descrs = (self.cpu.arraydescrof(ARRAY),
+                          self.cpu.fielddescrof(LIST, 'length'),
+                          self.cpu.fielddescrof(LIST, 'items'),
+                          self.cpu.sizeof(LIST))
         else:
             prefix = 'do_fixed_'
             if self._array_of_voids(LIST):
-                raise NotSupported("fixed lists of voids")
-            arraydescr = self.cpu.arraydescrof(LIST)
-            descrs = (arraydescr,)
+                prefix += 'void_'
+                descrs = ()
+            else:
+                arraydescr = self.cpu.arraydescrof(LIST)
+                descrs = (arraydescr,)
         #
         try:
             meth = getattr(self, prefix + oopspec_name.replace('.', '_'))
@@ -915,21 +1074,19 @@ class Transformer(object):
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
         assert func.func_name.startswith('ll_')
+        # check that we have carefully placed the oopspec in
+        # pypy/rpython/rlist.py.  There should not be an oopspec on
+        # a ll_getitem or ll_setitem that expects a 'func' argument.
+        # The idea is that a ll_getitem/ll_setitem with dum_checkidx
+        # should get inlined by the JIT, so that we see the potential
+        # 'raise IndexError'.
+        assert 'func' not in func.func_code.co_varnames
         non_negative = '_nonneg' in func.func_name
         fast = '_fast' in func.func_name
-        if fast:
-            can_raise = False
-            non_negative = True
-        else:
-            tag = op.args[1].value
-            assert tag in (rlist.dum_nocheck, rlist.dum_checkidx)
-            can_raise = tag != rlist.dum_nocheck
-        return non_negative, can_raise
+        return non_negative or fast
 
     def _prepare_list_getset(self, op, descr, args, checkname):
-        non_negative, can_raise = self._get_list_nonneg_canraise_flags(op)
-        if can_raise:
-            raise NotSupported("list operation can raise")
+        non_negative = self._get_list_nonneg_canraise_flags(op)
         if non_negative:
             return args[1], []
         else:
@@ -939,6 +1096,10 @@ class Transformer(object):
             op1 = SpaceOperation(checkname, [args[0],
                                              descr, args[1]], v_posindex)
             return v_posindex, [op0, op1]
+
+    def _prepare_void_list_getset(self, op):
+        # sanity check:
+        self._get_list_nonneg_canraise_flags(op)
 
     def _get_initial_newlist_length(self, op, args):
         # normalize number of arguments to the 'newlist' function
@@ -983,7 +1144,7 @@ class Transformer(object):
         v_index, extraop = self._prepare_list_getset(op, arraydescr, args,
                                                      'check_neg_index')
         extra = getkind(op.result.concretetype)[0]
-        if pure or args[0] in self.immutable_arrays:
+        if pure:
             extra = 'pure_' + extra
         op = SpaceOperation('getarrayitem_gc_%s' % extra,
                             [args[0], arraydescr, v_index], op.result)
@@ -1010,6 +1171,12 @@ class Transformer(object):
 
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYCOPY)
+
+    def do_fixed_void_list_getitem(self, op, args):
+        self._prepare_void_list_getset(op)
+        return []
+    do_fixed_void_list_getitem_foldable = do_fixed_void_list_getitem
+    do_fixed_void_list_setitem = do_fixed_void_list_getitem
 
     # ---------- resizable lists ----------
 
@@ -1046,19 +1213,28 @@ class Transformer(object):
         return SpaceOperation('getfield_gc_i',
                               [args[0], lengthdescr], op.result)
 
+    def do_resizable_void_list_getitem(self, op, args):
+        self._prepare_void_list_getset(op)
+        return []
+    do_resizable_void_list_getitem_foldable = do_resizable_void_list_getitem
+    do_resizable_void_list_setitem = do_resizable_void_list_getitem
+
     # ----------
     # Strings and Unicodes.
 
     def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
-        if extraeffect:
-            calldescr.get_extra_info().extraeffect = extraeffect
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
+                                                  extraeffect)
+        if extraeffect is not None:
+            assert (type(calldescr) is str      # for tests
+                    or calldescr.get_extra_info().extraeffect == extraeffect)
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(op.args[0].value))
-            _callinfo_for_oopspec[oopspecindex] = calldescr, func
+            self.callcontrol.callinfocollection.add(oopspecindex,
+                                                    calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0], calldescr],
                                 args=args)
@@ -1067,23 +1243,24 @@ class Transformer(object):
         return op1
 
     def _register_extra_helper(self, oopspecindex, oopspec_name,
-                               argtypes, resulttype):
+                               argtypes, resulttype, effectinfo):
         # a bit hackish
-        if oopspecindex in _callinfo_for_oopspec:
+        if self.callcontrol.callinfocollection.has_oopspec(oopspecindex):
             return
         c_func, TP = support.builtin_func_for_spec(self.cpu.rtyper,
                                                    oopspec_name, argtypes,
                                                    resulttype)
-        op = SpaceOperation('pseudo_call',
+        op = SpaceOperation('pseudo_call_cannot_raise',
                             [c_func] + [varoftype(T) for T in argtypes],
                             varoftype(resulttype))
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
+                                                  effectinfo)
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(c_func.value))
-        _callinfo_for_oopspec[oopspecindex] = calldescr, func
+        self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
@@ -1136,11 +1313,15 @@ class Transformer(object):
                 if args[0].concretetype.TO == rstr.UNICODE:
                     otherindex += EffectInfo._OS_offset_uni
                 self._register_extra_helper(otherindex, othername,
-                                            argtypes, resulttype)
+                                            argtypes, resulttype,
+                                            EffectInfo.EF_PURE)
         #
-        return self._handle_oopspec_call(op, args, dict[oopspec_name])
+        return self._handle_oopspec_call(op, args, dict[oopspec_name],
+                                         EffectInfo.EF_PURE)
 
     def _handle_str2unicode_call(self, op, oopspec_name, args):
+        # ll_str2unicode is not EF_PURE, because it can raise
+        # UnicodeDecodeError...
         return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE)
 
     # ----------

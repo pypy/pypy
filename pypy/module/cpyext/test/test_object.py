@@ -3,9 +3,8 @@ import py
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import Py_LT, Py_LE, Py_NE, Py_EQ,\
-    Py_GE, Py_GT
-from pypy.tool.udir import udir
+from pypy.module.cpyext.api import (
+    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
 
 class TestObject(BaseApiTest):
     def test_IsTrue(self, space, api):
@@ -180,17 +179,6 @@ class TestObject(BaseApiTest):
         assert space.unwrap(api.PyObject_Unicode(space.wrap("e"))) == u"e"
         assert api.PyObject_Unicode(space.wrap("\xe9")) is None
         api.PyErr_Clear()
-
-    def test_file_fromstring(self, space, api):
-        filename = rffi.str2charp(str(udir / "_test_file"))
-        mode = rffi.str2charp("wb")
-        w_file = api.PyFile_FromString(filename, mode)
-        rffi.free_charp(filename)
-        rffi.free_charp(mode)
-
-        space.call_method(w_file, "write", space.wrap("text"))
-        space.call_method(w_file, "close")
-        assert (udir / "_test_file").read() == "text"
 
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):

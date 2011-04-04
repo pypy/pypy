@@ -68,7 +68,7 @@ class TestExceptions(BaseApiTest):
         api.PyErr_NoMemory()
         assert space.eq_w(state.operror.w_type, space.w_MemoryError)
         api.PyErr_Clear()
-        
+
     def test_BadArgument(self, space, api):
         api.PyErr_BadArgument()
         state = space.fromcache(State)
@@ -88,6 +88,17 @@ class TestExceptions(BaseApiTest):
         out, err = capfd.readouterr()
         assert "cpyext is cool" in err
         assert not api.PyErr_Occurred()
+
+    def test_WriteUnraisable(self, space, api, capfd):
+        api.PyErr_SetObject(space.w_ValueError, space.wrap("message"))
+        w_where = space.wrap("location")
+        api.PyErr_WriteUnraisable(w_where)
+        out, err = capfd.readouterr()
+        assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
+
+    def test_ExceptionInstance_Class(self, space, api):
+        instance = space.call_function(space.w_ValueError)
+        assert api.PyExceptionInstance_Class(instance) is space.w_ValueError
 
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
@@ -129,6 +140,41 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
         assert module.check_error()
 
+
+    def test_normalize(self):
+        module = self.import_extension('foo', [
+            ("check_error", "METH_NOARGS",
+             '''
+             PyObject *type, *val, *tb;
+             PyErr_SetString(PyExc_TypeError, "message");
+
+             PyErr_Fetch(&type, &val, &tb);
+             if (type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+             if (!PyString_Check(val))
+                 Py_RETURN_FALSE;
+             /* Normalize */
+             PyErr_NormalizeException(&type, &val, &tb);
+             if (type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+             if (val->ob_type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+
+             /* Normalize again */
+             PyErr_NormalizeException(&type, &val, &tb);
+             if (type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+             if (val->ob_type != PyExc_TypeError)
+                 Py_RETURN_FALSE;
+
+             PyErr_Restore(type, val, tb);
+             PyErr_Clear();
+             Py_RETURN_TRUE;
+             '''
+             ),
+            ])
+        assert module.check_error()
+
     def test_SetFromErrno(self):
         import sys
         if sys.platform != 'win32':
@@ -147,5 +193,28 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         try:
             module.set_from_errno()
         except OSError, e:
+            assert e.errno == errno.EBADF
+            assert e.strerror == os.strerror(errno.EBADF)
+            assert e.filename == None
+
+    def test_SetFromErrnoWithFilename(self):
+        import sys
+        if sys.platform != 'win32':
+            skip("callbacks through ll2ctypes modify errno")
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "blyf");
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        try:
+            module.set_from_errno()
+        except OSError, e:
+            assert e.filename == "blyf"
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)

@@ -6,15 +6,13 @@ Another name could be genEric, but well...
 import sys
 
 from pypy.objspace.flow.model import Block
-from pypy.objspace.flow.model import traverse
 
 # ordering the blocks of a graph by source position
 
 def ordered_blocks(graph):
     # collect all blocks
     allblocks = []
-    def visit(block):
-        if isinstance(block, Block):
+    for block in graph.iterblocks():
             # first we order by offset in the code string
             if block.operations:
                 ofs = block.operations[0].offset
@@ -26,7 +24,6 @@ def ordered_blocks(graph):
             else:
                 txt = "dummy"
             allblocks.append((ofs, txt, block))
-    traverse(visit, graph)
     allblocks.sort()
     #for ofs, txt, block in allblocks:
     #    print ofs, txt, block

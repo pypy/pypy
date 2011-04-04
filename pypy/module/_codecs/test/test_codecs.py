@@ -14,6 +14,7 @@ class AppTestCodecs:
     def test_bigU_codecs(self):
         u = u'\U00010001\U00020002\U00030003\U00040004\U00050005'
         for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
+                         'utf-32', 'utf-32-le', 'utf-32-be',
                          'raw_unicode_escape',
                          'unicode_escape', 'unicode_internal'):
             assert unicode(u.encode(encoding),encoding) == u
@@ -35,7 +36,7 @@ class AppTestCodecs:
         assert 1 <= len(u"\N{CJK UNIFIED IDEOGRAPH-20000}") <= 2
 
     def test_literals(self):
-        raises(UnicodeError, eval, 'u\'\\Uffffffff\'')
+        raises(SyntaxError, eval, 'u\'\\Uffffffff\'')
 
     def test_insecure_pickle(self):
         import pickle
@@ -407,18 +408,20 @@ class AppTestPartialEvaluation:
 
     def test_errors(self):
         import codecs
-        assert (
-            codecs.replace_errors(UnicodeEncodeError("ascii", u"\u3042", 0, 1, "ouch"))) == (
-            (u"?", 1)
-        )
-        assert (
-            codecs.replace_errors(UnicodeDecodeError("ascii", "\xff", 0, 1, "ouch"))) == (
-            (u"\ufffd", 1)
-        )
-        assert (
-            codecs.replace_errors(UnicodeTranslateError(u"\u3042", 0, 1, "ouch"))) == (
-            (u"\ufffd", 1)
-        )
+        assert codecs.replace_errors(UnicodeEncodeError(
+            "ascii", u"\u3042", 0, 1, "ouch")) == (u"?", 1)
+        assert codecs.replace_errors(UnicodeDecodeError(
+            "ascii", "\xff", 0, 1, "ouch")) == (u"\ufffd", 1)
+        assert codecs.replace_errors(UnicodeTranslateError(
+            u"\u3042", 0, 1, "ouch")) == (u"\ufffd", 1)
+
+        assert codecs.replace_errors(UnicodeEncodeError(
+            "ascii", u"\u3042\u3042", 0, 2, "ouch")) == (u"??", 2)
+        assert codecs.replace_errors(UnicodeDecodeError(
+            "ascii", "\xff\xff", 0, 2, "ouch")) == (u"\ufffd", 2)
+        assert codecs.replace_errors(UnicodeTranslateError(
+            u"\u3042\u3042", 0, 2, "ouch")) == (u"\ufffd\ufffd", 2)
+
         class BadStartUnicodeEncodeError(UnicodeEncodeError):
             def __init__(self):
                 UnicodeEncodeError.__init__(self, "ascii", u"", 0, 1, "bad")
