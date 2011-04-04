@@ -846,22 +846,6 @@ class BlockSpecializer(object):
         else:
             return self.handle_default(op)
 
-    def handle_op_keepalive(self, op):
-        node = self.getnode(op.args[0])
-        if isinstance(node, VirtualSpecNode):
-            rtnodes, vtnodes = find_all_nodes([node])
-            newops = []
-            for rtnode in rtnodes:
-                v = self.renamings[rtnode]
-                if isinstance(v, Variable):
-                    T = v.concretetype
-                    if isinstance(T, lltype.Ptr) and T._needsgc():
-                        v0 = varoftype(lltype.Void)
-                        newops.append(SpaceOperation('keepalive', [v], v0))
-            return newops
-        else:
-            return self.handle_default(op)
-
     def handle_op_ptr_nonzero(self, op):
         node = self.getnode(op.args[0])
         if isinstance(node, VirtualSpecNode):

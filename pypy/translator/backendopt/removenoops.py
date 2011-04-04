@@ -108,15 +108,3 @@ def remove_debug_assert(graph):
         for i, op in list(enumerate(block.operations))[::-1]:
             if op.opname == "debug_assert":
                 del block.operations[i]
-
-def remove_superfluous_keep_alive(graph):
-    for block in graph.iterblocks():
-        used = {}
-        for i, op in list(enumerate(block.operations))[::-1]:
-            if op.opname == "keepalive":
-                if op.args[0] in used:
-                    del block.operations[i]
-                else:
-                    used[op.args[0]] = True
- 
-
