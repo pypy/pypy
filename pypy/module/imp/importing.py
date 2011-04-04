@@ -134,11 +134,13 @@ def _get_relative_name(space, modulename, level, w_globals):
 
     if ctxt_package is not None:
         # __package__ is set, so use it
+        if ctxt_package == '' and level < 0:
+            return None, 0
+
         package_parts = ctxt_package.split('.')
         while level > 1 and package_parts:
             level -= 1
-            if package_parts:
-                package_parts.pop()
+            package_parts.pop()
         if not package_parts:
             if len(ctxt_package) == 0:
                 msg = "Attempted relative import in non-package"
@@ -162,9 +164,9 @@ def _get_relative_name(space, modulename, level, w_globals):
                            "while handling absolute import" % ctxt_package,
                            space.w_RuntimeWarning)
 
+        rel_level = len(package_parts)
         if modulename:
             package_parts.append(modulename)
-        rel_level = len(package_parts)
         rel_modulename = '.'.join(package_parts)
     else:
         # __package__ not set, so figure it out and set it
