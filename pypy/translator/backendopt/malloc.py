@@ -67,7 +67,6 @@ class BaseMallocRemover(object):
         # in this 'block', follow where the 'var' goes to and replace
         # it by a flattened-out family of variables.  This family is given
         # by newvarsmap, whose keys are the 'flatnames'.
-        self.last_removed_access = None
 
         def list_newvars():
             return [newvarsmap[key] for key in self.flatnames]
@@ -115,7 +114,6 @@ class BaseMallocRemover(object):
                     newargs.append(arg)
             link.args[:] = newargs
 
-        self.insert_keepalives(list_newvars())
         block.operations[:] = self.newops
 
     def compute_lifetimes(self, graph):
@@ -211,7 +209,7 @@ class BaseMallocRemover(object):
         STRUCT = self.get_STRUCT(lltypes.keys()[0])
 
         # must be only ever accessed via getfield/setfield/getsubstruct/
-        # direct_fieldptr, or touched by keepalive or ptr_iszero/ptr_nonzero.
+        # direct_fieldptr, or touched by ptr_iszero/ptr_nonzero.
         # Note that same_as and cast_pointer are not recorded in usepoints.
         self.accessed_substructs = {}
 
@@ -331,7 +329,6 @@ class LLTypeMallocRemover(BaseMallocRemover):
     MALLOC_OP = "malloc"
     FIELD_ACCESS =     dict.fromkeys(["getfield",
                                       "setfield",
-                                      "keepalive",
                                       "ptr_iszero",
                                       "ptr_nonzero",
                                       "getarrayitem",
@@ -482,7 +479,6 @@ class LLTypeMallocRemover(BaseMallocRemover):
                                        [newvarsmap[key]],
                                        op.result)
             self.newops.append(newop)
-            self.last_removed_access = len(self.newops)
         elif op.opname in ("setfield", "setarrayitem"):
             S = op.args[0].concretetype.TO
             fldname = op.args[1].value
@@ -498,15 +494,12 @@ class LLTypeMallocRemover(BaseMallocRemover):
                 self.newops.append(newop)
             else:
                 newvarsmap[key] = op.args[2]
-                self.last_removed_access = len(self.newops)
         elif op.opname in ("same_as", "cast_pointer"):
             vars[op.result] = True
             # Consider the two pointers (input and result) as
             # equivalent.  We can, and indeed must, use the same
             # flattened list of variables for both, as a "setfield"
             # via one pointer must be reflected in the other.
-        elif op.opname == 'keepalive':
-            self.last_removed_access = len(self.newops)
         elif op.opname in ("getsubstruct", "getarraysubstruct",
                            "direct_fieldptr"):
             S = op.args[0].concretetype.TO
@@ -544,18 +537,6 @@ class LLTypeMallocRemover(BaseMallocRemover):
         else:
             raise AssertionError, op.opname
 
-        
-    def insert_keepalives(self, newvars):
-        if self.last_removed_access is not None:
-            keepalives = []
-            for v in newvars:
-                T = v.concretetype
-                if isinstance(T, lltype.Ptr) and T._needsgc():
-                    v0 = Variable()
-                    v0.concretetype = lltype.Void
-                    newop = SpaceOperation('keepalive', [v], v0)
-                    keepalives.append(newop)
-            self.newops[self.last_removed_access:self.last_removed_access] = keepalives
 
 class OOTypeMallocRemover(BaseMallocRemover):
 
@@ -614,14 +595,12 @@ class OOTypeMallocRemover(BaseMallocRemover):
                                    [newvarsmap[key]],
                                    op.result)
             self.newops.append(newop)
-            last_removed_access = len(self.newops)
         elif op.opname == "oosetfield":
             S = op.args[0].concretetype
             fldname = op.args[1].value
             key = self.key_for_field_access(S, fldname)
             assert key in newvarsmap
             newvarsmap[key] = op.args[2]
-            last_removed_access = len(self.newops)
         elif op.opname in ("same_as", "oodowncast", "ooupcast"):
             vars[op.result] = True
             # Consider the two pointers (input and result) as
@@ -637,8 +616,6 @@ class OOTypeMallocRemover(BaseMallocRemover):
         else:
             raise AssertionError, op.opname
 
-    def insert_keepalives(self, newvars):
-        pass
 
 def remove_simple_mallocs(graph, type_system='lltypesystem', verbose=True):
     if type_system == 'lltypesystem':
