@@ -1965,14 +1965,6 @@ def PyNumber_ToBase(space, n, base):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
-def PyObject_Cmp(space, o1, o2, result):
-    """Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  The result of the
-    comparison is returned in result.  Returns -1 on failure.  This is the
-    equivalent of the Python statement result = cmp(o1, o2)."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], PyObject)
 def PyObject_Bytes(space, o):
     """Compute a bytes representation of object o.  In 2.x, this is just a alias
