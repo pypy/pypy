@@ -1116,20 +1116,6 @@ def PyImport_ReloadModule(space, m):
     with an exception set on failure (the module still exists in this case)."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], PyObject)
-def PyImport_AddModule(space, name):
-    """Return the module object corresponding to a module name.  The name argument
-    may be of the form package.module. First check the modules dictionary if
-    there's one there, and if not, create a new one and insert it in the modules
-    dictionary. Return NULL with an exception set on failure.
-    
-    This function does not load or import the module; if the module wasn't already
-    loaded, you will get an empty module object. Use PyImport_ImportModule()
-    or one of its variants to import a module.  Package structures implied by a
-    dotted name for name are not created if not already present."""
-    borrow_from()
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
 def PyImport_ExecCodeModule(space, name, co):
     """Given a module name (possibly of the form package.module) and a code
