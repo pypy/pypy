@@ -257,16 +257,7 @@ def importhook(space, name, w_globals=None,
                 space.timer.stop_name("importhook", modulename)
                 return w_mod
 
-        ## if level > 0:
-        ##     msg = "Attempted relative import in non-package"
-        ##     raise OperationError(space.w_ValueError, w(msg))
-
-        ## if not modulename:
-        ##     return None
-
-    w_mod = absolute_import_try(space, modulename, 0, fromlist_w)
-    if w_mod is None or space.is_w(w_mod, space.w_None):
-        w_mod = absolute_import(space, modulename, 0, fromlist_w, tentative=0)
+    w_mod = absolute_import(space, modulename, 0, fromlist_w, tentative=0)
     if rel_modulename is not None:
         space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
     space.timer.stop_name("importhook", modulename)
@@ -274,6 +265,11 @@ def importhook(space, name, w_globals=None,
 
 @jit.dont_look_inside
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):
+    # Short path: check in sys.modules
+    w_mod = absolute_import_try(space, modulename, baselevel, fromlist_w)
+    if w_mod is not None and not space.is_w(w_mod, space.w_None):
+        return w_mod
+
     lock = getimportlock(space)
     lock.acquire_lock()
     try:
