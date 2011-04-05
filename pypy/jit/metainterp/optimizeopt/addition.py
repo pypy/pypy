@@ -1,15 +1,13 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
-from pypy.jit.metainterp.resoperation import opboolinvers, opboolreflex
 from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.optimizeopt.intutils import IntBound
-from pypy.rlib.rarithmetic import highest_bit
 
 class OptAddition(Optimization):
     def __init__(self):
-        self.args = {}
+        self.loperands = {}
+        self.roperands = {} # roperands is only for int_sub(ConstInt(*), i*)
+                            # and cases deriving from that
 
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return OptAddition()
@@ -31,16 +29,58 @@ class OptAddition(Optimization):
             constant = ConstInt(constant)
             return ResOperation(rop.INT_ADD, [variable, constant], result)
 
-    def _process_add(self, variable, constant, result):
+    def _process_add(self, constant, variable, result):
+        # int_add(ConstInt(*), int_sub(ConstInt(*), i*))
         try:
-            root, stored_constant = self.args[variable]
+            stored_constant, root = self.roperands[variable]
+            constant = constant + stored_constant
+
+            self.roperands[result] = constant, root
+
+            boxed_constant = ConstInt(constant)
+            new_op = ResOperation(rop.INT_SUB, [boxed_constant, variable], result)
+            self.emit_operation(new_op)
+            return
+        except KeyError:
+            pass
+
+        # int_add(ConstInt(*), int_add(ConstInt(*), i*))
+        try:
+            root, stored_constant = self.loperands[variable]
             constant = constant + stored_constant
         except KeyError:
             root = variable
 
-        self.args[result] = root, constant
+        self.loperands[result] = root, constant
 
         new_op = self._int_operation(root, constant, result)
+        self.emit_operation(new_op)
+
+    def _process_sub(self, constant, variable, result):
+        # int_sub(ConstInt(*), int_sub(ConstInt(*), i*))
+        try:
+            stored_constant, root = self.roperands[variable]
+            constant = constant - stored_constant
+
+            self.loperands[result] = root, constant
+
+            new_op = self._int_operation(root, constant, result)
+            self.emit_operation(new_op)
+            return
+        except KeyError:
+            pass
+
+        # int_sub(ConstInt(*), int_add(ConstInt(*), i*))
+        try:
+            root, stored_constant = self.loperands[variable]
+            constant = constant - stored_constant
+        except KeyError:
+            root = variable
+
+        self.roperands[result] = constant, root
+
+        constant = ConstInt(constant)
+        new_op = ResOperation(rop.INT_SUB, [constant, root], result)
         self.emit_operation(new_op)
 
     def optimize_INT_ADD(self, op):
@@ -51,10 +91,10 @@ class OptAddition(Optimization):
             self.emit_operation(op) # XXX: there's support for optimizing this elsewhere, right?
         elif lv.is_constant():
             constant = lv.box.getint()
-            self._process_add(op.getarg(1), constant, result)
+            self._process_add(constant, op.getarg(1), result)
         elif rv.is_constant():
             constant = rv.box.getint()
-            self._process_add(op.getarg(0), constant, result)
+            self._process_add(constant, op.getarg(0), result)
         else:
             self.emit_operation(op)
 
@@ -65,11 +105,12 @@ class OptAddition(Optimization):
         if lv.is_constant() and rv.is_constant():
             self.emit_operation(op) # XXX: there's support for optimizing this elsewhere, right?
         elif lv.is_constant():
-            # TODO: implement?
-            self.emit_operation(op)
+            constant = lv.box.getint()
+            self._process_sub(constant, op.getarg(1), result)
+            #self.emit_operation(op)
         elif rv.is_constant():
             constant = rv.box.getint()
-            self._process_add(op.getarg(0), -constant, result)
+            self._process_add(-constant, op.getarg(0), result)
         else:
             self.emit_operation(op)
 

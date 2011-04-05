@@ -5554,6 +5554,24 @@ class TestFoldIntAdds(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
+    def test_fold_backwards_sub(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 3)
+        i2 = int_sub(4, i1)
+        i3 = int_sub(i2, 14)
+        i4 = int_add(6, i2)
+        jump(i3)
+        """
+
+        expected = """
+        [i0]
+        i1 = int_add(i0, 3)
+        i2 = int_sub(1, i0)
+        i3 = int_sub(i0, 13)
+        i4 = int_sub(7, i0)
+        jump(i3)
+        """
 
 ##class TestOOtype(OptimizeOptTest, OOtypeMixin):
 
