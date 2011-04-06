@@ -23,10 +23,10 @@ class W_SmallTupleObject(W_Object):
     def getitem(self, index):
         raise NotImplementedError
 
-    def hash(self):
+    def hash(self, space):
         raise NotImplementedError
 
-    def eq(self, w_other):
+    def eq(self, space, w_other):
         raise NotImplementedError
 
 def make_specialized_class(n):
