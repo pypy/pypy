@@ -215,6 +215,14 @@ class BaseTestRint(BaseRtypingTest):
             assert res == f(inttype(0))
             assert type(res) == inttype
 
+    def test_and(self):
+        inttypes = [int, r_uint, r_int64, r_ulonglong]
+        for inttype in inttypes:
+            def f(a, b):
+                return a&b
+            res = self.interpret(f, [inttype(0x1234), inttype(0x00FF)])
+            assert res == f(0x1234, 0x00FF)
+
     def test_neg_abs_ovf(self):
         for op in (operator.neg, abs):
             def f(x):

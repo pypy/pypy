@@ -267,6 +267,7 @@ binary_ops = {
     'ullong_ge':                _not('clt.un'),
     'ullong_lshift':            [PushAllArgs, 'conv.u4', 'shl'],
     'ullong_rshift':            [PushAllArgs, 'conv.i4', 'shr'],
+    'ullong_and':               'and',
 
     'oois':                     'ceq',
     'ooisnot':                  _not('ceq'),
