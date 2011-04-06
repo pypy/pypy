@@ -5,6 +5,7 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.rpython.lltypesystem import rffi, lltype
 
 class TestTupleObject(BaseApiTest):
+    #XXX these tests do not test both W_SmallTupleObject and W_TupleObject
     def test_tupleobject(self, space, api):
         assert not api.PyTuple_Check(space.w_None)
         assert api.PyTuple_SetItem(space.w_None, 0, space.w_None) == -1
@@ -20,11 +21,11 @@ class TestTupleObject(BaseApiTest):
         ar[0] = rffi.cast(PyObject, make_ref(space, py_tuple))
         api._PyTuple_Resize(ar, 2)
         py_tuple = from_ref(space, ar[0])
-        assert len(py_tuple.wrappeditems) == 2
+        assert space.int_w(space.len(py_tuple)) == 2
         
         api._PyTuple_Resize(ar, 10)
         py_tuple = from_ref(space, ar[0])
-        assert len(py_tuple.wrappeditems) == 10
+        assert space.int_w(space.len(py_tuple)) == 10
         
         api.Py_DecRef(ar[0])
         lltype.free(ar, flavor='raw')

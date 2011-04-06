@@ -29,6 +29,9 @@ class W_SmallTupleObject(W_Object):
     def eq(self, space, w_other):
         raise NotImplementedError
 
+    def setitem(self, index, w_item):
+        raise NotImplementedError
+
 def make_specialized_class(n):
     iter_n = unrolling_iterable(range(n))
     class cls(W_SmallTupleObject):
@@ -51,6 +54,13 @@ def make_specialized_class(n):
             for i in iter_n:
                 if index == i:
                     return getattr(self,'w_value%s' % i)
+            raise IndexError
+
+        def setitem(self, index, w_item):
+            for i in iter_n:
+                if index == i:
+                    setattr(self, 'w_value%s' % i, w_item)
+                    return
             raise IndexError
 
         def eq(self, space, w_other):
