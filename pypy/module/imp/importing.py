@@ -263,13 +263,17 @@ def importhook(space, name, w_globals=None,
     space.timer.stop_name("importhook", modulename)
     return w_mod
 
-@jit.dont_look_inside
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):
     # Short path: check in sys.modules
     w_mod = absolute_import_try(space, modulename, baselevel, fromlist_w)
     if w_mod is not None and not space.is_w(w_mod, space.w_None):
         return w_mod
+    return absolute_import_with_lock(space, modulename, baselevel,
+                                     fromlist_w, tentative)
 
+@jit.dont_look_inside
+def absolute_import_with_lock(space, modulename, baselevel,
+                              fromlist_w, tentative):
     lock = getimportlock(space)
     lock.acquire_lock()
     try:
