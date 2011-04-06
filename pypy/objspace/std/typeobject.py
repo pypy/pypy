@@ -163,7 +163,7 @@ class W_TypeObject(W_Object):
         if (not we_are_jitted() or w_self.is_heaptype() or
             w_self.space.config.objspace.std.mutable_builtintypes):
             return w_self._version_tag
-        # heap objects cannot get their version_tag changed
+        # prebuilt objects cannot get their version_tag changed
         return w_self._pure_version_tag()
 
     @purefunction_promote()
