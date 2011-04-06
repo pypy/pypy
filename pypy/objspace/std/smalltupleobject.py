@@ -20,6 +20,15 @@ class W_SmallTupleObject(W_Object):
     def length(self):
         raise NotImplementedError
 
+    def getitem(self, index):
+        raise NotImplementedError
+
+    def hash(self):
+        raise NotImplementedError
+
+    def eq(self, w_other):
+        raise NotImplementedError
+
 def make_specialized_class(n):
     iter_n = unrolling_iterable(range(n))
     class cls(W_SmallTupleObject):
@@ -43,6 +52,29 @@ def make_specialized_class(n):
                 if index == i:
                     return getattr(self,'w_value%s' % i)
             raise IndexError
+
+        def eq(self, space, w_other):
+            if self.length() != w_other.length():
+                return space.w_False
+            for i in iter_n:
+                item1 = self.getitem(i)
+                item2 = w_other.getitem(i)
+                if not space.eq_w(item1, item2):
+                    return space.w_False
+            return space.w_True
+
+        def hash(self, space):
+            mult = 1000003
+            x = 0x345678
+            z = self.length()
+            for i in iter_n:
+                w_item = self.getitem(i)
+                y = space.int_w(space.hash(w_item))
+                x = (x ^ y) * mult
+                z -= 1
+                mult += 82520 + z + z
+            x += 97531
+            return space.wrap(intmask(x))
 
     cls.__name__ = "W_SmallTupleObject%s" % n
     return cls
@@ -102,27 +134,10 @@ def mul__ANY_SmallTuple(space, w_times, w_tuple):
     return mul_smalltuple_times(space, w_tuple, w_times)
 
 def eq__SmallTuple_SmallTuple(space, w_tuple1, w_tuple2):
-    if w_tuple1.length() != w_tuple2.length():
-        return space.w_False
-    for i in range(w_tuple1.length()):
-        item1 = w_tuple1.getitem(i)
-        item2 = w_tuple2.getitem(i)
-        if not space.eq_w(item1, item2):
-            return space.w_False
-    return space.w_True
+    return w_tuple1.eq(space, w_tuple2)
 
 def hash__SmallTuple(space, w_tuple):
-    # this is the CPython 2.4 algorithm (changed from 2.3)
-    mult = 1000003
-    x = 0x345678
-    z = w_tuple.length()
-    for w_item in w_tuple.tolist():     #XXX: remove list and run through items directly, later
-        y = space.int_w(space.hash(w_item))
-        x = (x ^ y) * mult
-        z -= 1
-        mult += 82520 + z + z
-    x += 97531
-    return space.wrap(intmask(x))
+    return w_tuple.hash(space)
 
 from pypy.objspace.std import tupletype
 register_all(vars(), tupletype)
