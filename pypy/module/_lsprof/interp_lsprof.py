@@ -9,6 +9,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from pypy.rlib import jit
 from pypy.rlib.rtimer import read_timestamp
 from pypy.rpython.lltypesystem import rffi
+from pypy.rlib.rarithmetic import r_longlong
 
 import time, sys
 
@@ -96,7 +97,8 @@ class ProfilerSubEntry(object):
     def stats(self, space, parent, factor):
         w_sse = W_StatsSubEntry(space, self.frame,
                                 self.callcount, self.recursivecallcount,
-                                factor * self.tt, factor * self.it)
+                                factor * float(self.tt),
+                                factor * float(self.it))
         return space.wrap(w_sse)
 
     def _stop(self, tt, it):
@@ -121,7 +123,8 @@ class ProfilerEntry(ProfilerSubEntry):
             w_sublist = space.w_None
         w_se = W_StatsEntry(space, self.frame, self.callcount,
                             self.recursivecallcount,
-                            factor * self.tt, factor * self.it, w_sublist)
+                            factor * float(self.tt),
+                            factor * float(self.it), w_sublist)
         return space.wrap(w_se)
 
     @jit.purefunction
@@ -211,6 +214,7 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         pass
 
 class W_Profiler(Wrappable):
+    
     def __init__(self, space, w_callable, time_unit, subcalls, builtins):
         self.subcalls = subcalls
         self.builtins = builtins
@@ -222,15 +226,22 @@ class W_Profiler(Wrappable):
         self.space = space
 
     def timer(self):
+        # XXX ignore for now casting of float to long long and instead
+        #     use float -> int -> long long
         if self.w_callable:
             space = self.space
             try:
-                return space.float_w(space.call_function(self.w_callable))
+                if self.time_unit > 0.0:
+                    return r_longlong(
+                        space.int_w(space.call_function(self.w_callable)))
+                else:
+                    return r_longlong(int(space.float_w(
+                        space.call_function(self.w_callable))))
             except OperationError, e:
                 e.write_unraisable(space, "timer function ",
                                    self.w_callable)
-                return 0.0
-        return float(read_timestamp())
+                return r_longlong(0)
+        return read_timestamp()
 
     def enable(self, space, w_subcalls=NoneNotWrapped,
                w_builtins=NoneNotWrapped):
@@ -311,6 +322,7 @@ class W_Profiler(Wrappable):
 
     def getstats(self, space):
         if self.w_callable is None:
+            # XXX find out a correct measurment freq
             factor = 1. # we measure time.time in floats
         elif self.time_unit > 0.0:
             factor = self.time_unit
