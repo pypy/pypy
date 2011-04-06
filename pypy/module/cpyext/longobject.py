@@ -4,6 +4,8 @@ from pypy.module.cpyext.api import (cpython_api, PyObject, build_type_checkers,
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
+from pypy.rlib.rbigint import rbigint
+from pypy.rlib.rarithmetic import intmask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -177,4 +179,31 @@ def _PyLong_Sign(space, w_long):
     assert isinstance(w_long, W_LongObject)
     return w_long.num.sign
 
+UCHARP = rffi.CArrayPtr(rffi.UCHAR)
+@cpython_api([UCHARP, rffi.SIZE_T, rffi.INT_real, rffi.INT_real], PyObject)
+def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
+    little_endian = rffi.cast(lltype.Signed, little_endian)
+    signed = rffi.cast(lltype.Signed, signed)
+
+    result = rbigint()
+    negative = False
+
+    for i in range(0, n):
+        if little_endian:
+            c = intmask(bytes[i])
+        else:
+            c = intmask(bytes[n - i - 1])
+        if i == 0 and signed and c & 0x80:
+            negative = True
+        if negative:
+            c = c ^ 0xFF
+        digit = rbigint.fromint(c)
+
+        result = result.lshift(8)
+        result = result.add(digit)
+
+    if negative:
+        result = result.neg()
+
+    return space.newlong_from_rbigint(result)
 

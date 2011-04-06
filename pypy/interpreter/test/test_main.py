@@ -1,6 +1,6 @@
 from cStringIO import StringIO
 
-import py 
+import py
 from pypy.tool.udir import udir
 from pypy.interpreter.baseobjspace import OperationError
 from pypy.interpreter import main
@@ -25,23 +25,23 @@ if __name__ == '__main__':
 testresultoutput = '11\n'
 
 def checkoutput(space, expected_output,f,*args):
-    w_oldout = space.sys.get('stdout') 
+    w_oldout = space.sys.get('stdout')
     capturefn = udir.join('capturefile')
-    capturefile = capturefn.open('w') 
+    capturefile = capturefn.open('w')
     w_sys = space.sys.getmodule('sys')
     space.setattr(w_sys, space.wrap("stdout"), space.wrap(capturefile))
     try:
         f(*(args + (space,)))
     finally:
         space.setattr(w_sys, space.wrap("stdout"), w_oldout)
-    capturefile.close() 
+    capturefile.close()
     assert capturefn.read(mode='rU') == expected_output
 
 testfn = udir.join('tmp_hello_world.py')
 testmodule = 'tmp_hello_module'
 testpackage = 'tmp_package'
 
-class TestMain: 
+class TestMain:
     def setup_class(cls):
         testfn.write(testcode, 'w')
         udir.join(testmodule + '.py').write(testmodulecode, 'w')

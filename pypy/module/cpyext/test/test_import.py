@@ -7,6 +7,12 @@ class TestImport(BaseApiTest):
         assert pdb
         assert space.getattr(pdb, space.wrap("pm"))
 
+    def test_reload(self, space, api):
+        pdb = api.PyImport_Import(space.wrap("pdb"))
+        space.delattr(pdb, space.wrap("set_trace"))
+        pdb = api.PyImport_ReloadModule(pdb)
+        assert space.getattr(pdb, space.wrap("set_trace"))
+
 class AppTestImportLogic(AppTestCpythonExtensionBase):
     def test_import_logic(self):
         skip("leak?")

@@ -53,7 +53,7 @@ app = gateway.applevel("""
 def _abstract_method_error(typ):
     methods = ", ".join(sorted(typ.__abstractmethods__))
     err = "Can't instantiate abstract class %s with abstract methods %s"
-    raise TypeError(err % (methods, typ.__name__))
+    raise TypeError(err % (typ.__name__, methods))
 """)
 _abstract_method_error = app.interphook("_abstract_method_error")
 

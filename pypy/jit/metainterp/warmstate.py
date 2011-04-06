@@ -47,7 +47,7 @@ def unspecialize_value(value):
     elif isinstance(value, float):
         return longlong.getfloatstorage(value)
     else:
-        return intmask(value)
+        return lltype.cast_primitive(lltype.Signed, value)
 
 @specialize.arg(0)
 def unwrap(TYPE, box):

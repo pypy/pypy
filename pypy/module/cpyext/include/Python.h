@@ -102,6 +102,7 @@ typedef long Py_ssize_t;
 #include "modsupport.h"
 #include "pythonrun.h"
 #include "pyerrors.h"
+#include "sysmodule.h"
 #include "stringobject.h"
 #include "descrobject.h"
 #include "tupleobject.h"
@@ -119,6 +120,7 @@ typedef long Py_ssize_t;
 #include "pystate.h"
 #include "fileobject.h"
 #include "pysignals.h"
+#include "pythread.h"
 
 // XXX This shouldn't be included here
 #include "structmember.h"

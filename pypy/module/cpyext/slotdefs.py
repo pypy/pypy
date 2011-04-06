@@ -4,9 +4,9 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import generic_cpy_call, cpython_api, PyObject
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
-    getattrfunc, setattrofunc, lenfunc, ssizeargfunc, ssizessizeargfunc,
-    ssizeobjargproc, iternextfunc, initproc, richcmpfunc, hashfunc,
-    descrgetfunc, descrsetfunc, objobjproc)
+    getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc,
+    ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
+    hashfunc, descrgetfunc, descrsetfunc, objobjproc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -64,6 +64,12 @@ def wrap_getattr(space, w_self, w_args, func):
         return generic_cpy_call(space, func_target, w_self, name_ptr)
     finally:
         rffi.free_charp(name_ptr)
+
+def wrap_getattro(space, w_self, w_args, func):
+    func_target = rffi.cast(getattrofunc, func)
+    check_num_args(space, w_args, 1)
+    args_w = space.fixedview(w_args)
+    return generic_cpy_call(space, func_target, w_self, args_w[0])
 
 def wrap_setattr(space, w_self, w_args, func):
     func_target = rffi.cast(setattrofunc, func)
@@ -289,7 +295,12 @@ def FLSLOT(NAME, SLOT, FUNCTION, WRAPPER, DOC, FLAGS):
 
     # irregular interface, because of tp_getattr/tp_getattro confusion
     if NAME == "__getattr__":
-        wrapper = wrap_getattr
+        if SLOT == "tp_getattro":
+            wrapper = wrap_getattro
+        elif SLOT == "tp_getattr":
+            wrapper = wrap_getattr
+        else:
+            assert False
 
     function = globals().get(FUNCTION, None)
     assert FLAGS == 0 or FLAGS == PyWrapperFlag_KEYWORDS

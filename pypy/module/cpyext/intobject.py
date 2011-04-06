@@ -5,8 +5,15 @@ from pypy.module.cpyext.api import (
     cpython_api, build_type_checkers, PyObject,
     CONST_STRING, CANNOT_FAIL, Py_ssize_t)
 from pypy.rlib.rarithmetic import r_uint
+import sys
 
 PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
+
+@cpython_api([], lltype.Signed, error=CANNOT_FAIL)
+def PyInt_GetMax(space):
+    """Return the system's idea of the largest integer it can handle (LONG_MAX,
+    as defined in the system header files)."""
+    return sys.maxint
 
 @cpython_api([lltype.Signed], PyObject)
 def PyInt_FromLong(space, ival):

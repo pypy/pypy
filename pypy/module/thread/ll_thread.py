@@ -1,10 +1,10 @@
 
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py, os
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rlib import jit
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -79,6 +79,7 @@ def ll_start_new_thread(func):
 
 # wrappers...
 
+@jit.loop_invariant
 def get_ident():
     return rffi.cast(lltype.Signed, c_thread_get_ident())
 
@@ -111,7 +112,7 @@ class Lock(object):
             c_thread_releaselock(self._lock)
 
     def __del__(self):
-        lltype.free(self._lock, flavor='raw', track_allocation=False)
+        free_ll_lock(self._lock)
 
 # ____________________________________________________________
 #
@@ -137,6 +138,9 @@ def allocate_ll_lock():
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
     return ll_lock
+
+def free_ll_lock(ll_lock):
+    lltype.free(ll_lock, flavor='raw', track_allocation=False)
 
 def acquire_NOAUTO(ll_lock, flag):
     flag = rffi.cast(rffi.INT, int(flag))

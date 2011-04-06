@@ -5,16 +5,33 @@ from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
-import py
+import py, sys
 
 cdir = py.path.local(pypydir) / 'translator' / 'c'
 include_dirs = [cdir]
+
+# set the word endianness based on the host's endianness
+# and the C double's endianness (which should be equal)
+if hasattr(float, '__getformat__'):
+    assert float.__getformat__('double') == 'IEEE, %s-endian' % sys.byteorder
+if sys.byteorder == 'little':
+    source_file = ['#define DOUBLE_IS_LITTLE_ENDIAN_IEEE754']
+elif sys.byteorder == 'big':
+    source_file = ['#define WORDS_BIGENDIAN',
+                   '#define DOUBLE_IS_BIG_ENDIAN_IEEE754']
+else:
+    raise AssertionError(sys.byteorder)
+
+source_file.append('#include "src/dtoa.c"')
+source_file = '\n\n'.join(source_file)
+
+# ____________________________________________________________
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],
     includes = ['src/dtoa.h'],
     libraries = [],
-    separate_module_files = [cdir / 'src' / 'dtoa.c'],
+    separate_module_sources = [source_file],
     export_symbols = ['_PyPy_dg_strtod',
                       '_PyPy_dg_dtoa',
                       '_PyPy_dg_freedtoa',

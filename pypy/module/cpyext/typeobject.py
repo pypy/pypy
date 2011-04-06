@@ -3,7 +3,7 @@ import sys
 
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.annlowlevel import llhelper
-from pypy.interpreter.baseobjspace import DescrMismatch
+from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
@@ -287,11 +287,17 @@ class W_PyCTypeObject(W_TypeObject):
 
         W_TypeObject.__init__(self, space, extension_name,
             bases_w or [space.w_object], dict_w)
-        self.flag_cpytype = True
+        if not space.is_true(space.issubtype(self, space.w_type)):
+            self.flag_cpytype = True
         self.flag_heaptype = False
 
 @bootstrap_function
 def init_typeobject(space):
+    # Probably a hack
+    space.model.typeorder[W_PyCTypeObject] = [(W_PyCTypeObject, None),
+                                              (W_TypeObject, None),
+                                              (W_Root, None)]
+
     make_typedescr(space.w_type.instancetypedef,
                    basestruct=PyTypeObject,
                    attach=type_attach,
@@ -472,14 +478,19 @@ def type_attach(space, py_obj, w_type):
 def PyType_Ready(space, pto):
     if pto.c_tp_flags & Py_TPFLAGS_READY:
         return 0
+    type_realize(space, rffi.cast(PyObject, pto))
+    return 0
+
+def type_realize(space, py_obj):
+    pto = rffi.cast(PyTypeObjectPtr, py_obj)
     assert pto.c_tp_flags & Py_TPFLAGS_READYING == 0
     pto.c_tp_flags |= Py_TPFLAGS_READYING
     try:
-        type_realize(space, rffi.cast(PyObject, pto))
-        pto.c_tp_flags |= Py_TPFLAGS_READY
+        w_obj = _type_realize(space, py_obj)
     finally:
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
-    return 0
+    pto.c_tp_flags |= Py_TPFLAGS_READY
+    return w_obj
 
 def solid_base(space, w_type):
     typedef = w_type.instancetypedef
@@ -535,7 +546,7 @@ def inherit_slots(space, pto, w_base):
     finally:
         Py_DecRef(space, base_pyo)
 
-def type_realize(space, py_obj):
+def _type_realize(space, py_obj):
     """
     Creates an interpreter type from a PyTypeObject structure.
     """
@@ -554,7 +565,9 @@ def type_realize(space, py_obj):
 
     finish_type_1(space, py_type)
 
-    w_obj = space.allocate_instance(W_PyCTypeObject, space.w_type)
+    w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
+
+    w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
     w_obj.__init__(space, py_type)
     w_obj.ready()

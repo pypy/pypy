@@ -232,3 +232,13 @@ from __future__ import generators""")
 
         raises(TypeError, ast.Num, 1, 2)
         raises(TypeError, ast.Num, 1, 2, lineno=0)
+
+    def test_node_identity(self):
+        import _ast as ast
+        n1 = ast.Num(1)
+        n3 = ast.Num(3)
+        addop = ast.Add()
+        x = ast.BinOp(n1, addop, n3)
+        assert x.left == n1
+        assert x.op == addop
+        assert x.right == n3

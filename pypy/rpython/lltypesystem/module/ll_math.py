@@ -6,7 +6,7 @@ import sys
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.tool.autopath import pypydir
-from pypy.rlib import rposix
+from pypy.rlib import jit, rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
@@ -91,11 +91,11 @@ def _likely_raise(errno, x):
 #
 # Custom implementations
 
-
+@jit.purefunction
 def ll_math_isnan(y):
     return bool(math_isnan(y))
 
-
+@jit.purefunction
 def ll_math_isinf(y):
     return bool(math_isinf(y))
 

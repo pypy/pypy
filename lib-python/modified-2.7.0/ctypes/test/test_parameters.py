@@ -89,6 +89,8 @@ class SimpleTypesTestCase(unittest.TestCase):
 
         pa = c_wchar_p.from_param(c_wchar_p(u"123"))
         self.assertEqual(type(pa), c_wchar_p)
+    if sys.platform == "win32":
+        test_cw_strings = xfail(test_cw_strings)
 
     @xfail
     def test_int_pointers(self):
