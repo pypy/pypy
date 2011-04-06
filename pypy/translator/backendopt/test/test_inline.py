@@ -1,7 +1,7 @@
 # XXX clean up these tests to use more uniform helpers
 import py
 import os
-from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
+from pypy.objspace.flow.model import Block, Link, Variable, Constant
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.backendopt import canraise
 from pypy.translator.backendopt.inline import simple_inline_function, CannotInline
@@ -20,29 +20,27 @@ from pypy.conftest import option
 from pypy.translator.backendopt import removenoops
 from pypy.objspace.flow.model import summary
 
-def no_missing_concretetype(node):
-    if isinstance(node, Block):
-        for v in node.inputargs:
-            assert hasattr(v, 'concretetype')
-        for op in node.operations:
-            for v in op.args:
-                assert hasattr(v, 'concretetype')
-            assert hasattr(op.result, 'concretetype')
-    if isinstance(node, Link):
-        if node.exitcase is not None:
-            assert hasattr(node, 'llexitcase')
-        for v in node.args:
-            assert hasattr(v, 'concretetype')
-        if isinstance(node.last_exception, (Variable, Constant)):
-            assert hasattr(node.last_exception, 'concretetype')
-        if isinstance(node.last_exc_value, (Variable, Constant)):
-            assert hasattr(node.last_exc_value, 'concretetype')
-
 def sanity_check(t):
     # look for missing '.concretetype'
     for graph in t.graphs:
         checkgraph(graph)
-        traverse(no_missing_concretetype, graph)
+        for node in graph.iterblocks():
+            for v in node.inputargs:
+                assert hasattr(v, 'concretetype')
+            for op in node.operations:
+                for v in op.args:
+                    assert hasattr(v, 'concretetype')
+                assert hasattr(op.result, 'concretetype')
+        for node in graph.iterlinks():
+            if node.exitcase is not None:
+                assert hasattr(node, 'llexitcase')
+            for v in node.args:
+                assert hasattr(v, 'concretetype')
+            if isinstance(node.last_exception, (Variable, Constant)):
+                assert hasattr(node.last_exception, 'concretetype')
+            if isinstance(node.last_exc_value, (Variable, Constant)):
+                assert hasattr(node.last_exc_value, 'concretetype')
+
 
 class CustomError1(Exception):
     def __init__(self):

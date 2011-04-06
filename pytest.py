@@ -3,11 +3,11 @@ unit and functional testing with Python.
 (pypy version of startup script)
 see http://pytest.org for details.
 """
-__version__ = '2.0.3.dev1' # base pytest version
 __all__ = ['main']
 
 from _pytest.core import main, UsageError, _preloadplugins
 from _pytest import core as cmdline
+from _pytest import __version__
 
 # This pytest.py script is located in the pypy source tree
 # which has a copy of pytest and py within its source tree.

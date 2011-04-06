@@ -159,7 +159,7 @@ class LoopWithIds(Function):
         return matcher.match(expected_src)
 
     def match_by_id(self, id, expected_src, **kwds):
-        ops = list(self.ops_by_id(id, *kwds))
+        ops = list(self.ops_by_id(id, **kwds))
         matcher = OpMatcher(ops, src=self.format_ops(id))
         return matcher.match(expected_src)
 
@@ -260,7 +260,7 @@ class OpMatcher(object):
     @classmethod
     def is_const(cls, v1):
         return isinstance(v1, str) and v1.startswith('ConstClass(')
-    
+
     def match_var(self, v1, exp_v2):
         assert v1 != '_'
         if exp_v2 == '_':
@@ -274,8 +274,7 @@ class OpMatcher(object):
     def match_descr(self, descr, exp_descr):
         if descr == exp_descr or exp_descr == '...':
             return True
-        match = exp_descr is not None and re.match(exp_descr, descr)
-        self._assert(match, "descr mismatch")
+        self._assert(exp_descr is not None and re.match(exp_descr, descr), "descr mismatch")
 
     def _assert(self, cond, message):
         if not cond:
@@ -286,9 +285,9 @@ class OpMatcher(object):
         self.match_var(op.res, exp_res)
         self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
         for arg, exp_arg in zip(op.args, exp_args):
-            self._assert(self.match_var(arg, exp_arg), "variable mismatch")
+            self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
         self.match_descr(op.descr, exp_descr)
-        
+
 
     def _next_op(self, iter_ops, assert_raises=False):
         try:

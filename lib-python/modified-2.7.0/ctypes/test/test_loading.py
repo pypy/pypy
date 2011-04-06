@@ -2,7 +2,7 @@ from ctypes import *
 import sys, unittest
 import os
 from ctypes.util import find_library
-from ctypes.test import is_resource_enabled
+from ctypes.test import is_resource_enabled, xfail
 
 libc_name = None
 if os.name == "nt":
@@ -75,6 +75,7 @@ class LoaderTest(unittest.TestCase):
             self.assertRaises(AttributeError, dll.__getitem__, 1234)
 
     if os.name == "nt":
+        @xfail
         def test_1703286_A(self):
             from _ctypes import LoadLibrary, FreeLibrary
             # On winXP 64-bit, advapi32 loads at an address that does
@@ -85,6 +86,7 @@ class LoaderTest(unittest.TestCase):
             handle = LoadLibrary("advapi32")
             FreeLibrary(handle)
 
+        @xfail
         def test_1703286_B(self):
             # Since on winXP 64-bit advapi32 loads like described
             # above, the (arbitrarily selected) CloseEventLog function

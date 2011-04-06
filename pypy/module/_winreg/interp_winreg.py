@@ -261,7 +261,8 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
 
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValue')
-                return space.wrap(rffi.charp2strn(buf, bufsize_p[0] - 1))
+                length = intmask(bufsize_p[0] - 1)
+                return space.wrap(rffi.charp2strn(buf, length))
 
 def convert_to_regdata(space, w_value, typ):
     buf = None
@@ -445,9 +446,10 @@ value_name is a string indicating the value to query"""
                         continue
                     if ret != 0:
                         raiseWindowsError(space, ret, 'RegQueryValueEx')
+                    length = intmask(retDataSize[0])
                     return space.newtuple([
                         convert_from_regdata(space, databuf,
-                                             retDataSize[0], retType[0]),
+                                             length, retType[0]),
                         space.wrap(retType[0]),
                         ])
 
@@ -595,11 +597,11 @@ data_type is an integer that identifies the type of the value data."""
                             if ret != 0:
                                 raiseWindowsError(space, ret, 'RegEnumValue')
 
+                            length = intmask(retDataSize[0])
                             return space.newtuple([
                                 space.wrap(rffi.charp2str(valuebuf)),
                                 convert_from_regdata(space, databuf,
-                                                     retDataSize[0],
-                                                     retType[0]),
+                                                     length, retType[0]),
                                 space.wrap(retType[0]),
                                 ])
 

@@ -1430,6 +1430,8 @@ class PyPyCJITTests(object):
                 res1 += dd(a, b, a1, b1)
                 res2 += dd(a, b, a2, b2)
                 res3 += dd(a, b, a3, b3)
+        # The purpose of this test is to check that we get
+        # the correct results, not really to count operations.
         self.run_source('''
         def main(a, b):
             i = sa = 0
@@ -1437,11 +1439,10 @@ class PyPyCJITTests(object):
 %s                
                 i += 1
             return sa
-        ''' % code, 179, ([a1, b1], 2000 * res1),
-                         ([a2, b2], 2000 * res2),
-                         ([a3, b3], 2000 * res3),
-                         count_debug_merge_point=False)
-        
+        ''' % code, sys.maxint, ([a1, b1], 2000 * res1),
+                                ([a2, b2], 2000 * res2),
+                                ([a3, b3], 2000 * res3))
+
     def test_mod(self):
         avalues = ('a', 'b', 7, -42, 8)
         bvalues = ['b'] + range(-10, 0) + range(1,10)
@@ -1462,6 +1463,8 @@ class PyPyCJITTests(object):
                 res1 += dd(a, b, a1, b1)
                 res2 += dd(a, b, a2, b2)
                 res3 += dd(a, b, a3, b3)
+        # The purpose of this test is to check that we get
+        # the correct results, not really to count operations.
         self.run_source('''
         def main(a, b):
             i = sa = 0
@@ -1471,11 +1474,10 @@ class PyPyCJITTests(object):
 %s
                 i += 1
             return sa
-        ''' % code, 450, ([a1, b1], 2000 * res1),
-                         ([a2, b2], 2000 * res2),
-                         ([a3, b3], 2000 * res3),
-                         count_debug_merge_point=False)
-        
+        ''' % code, sys.maxint, ([a1, b1], 2000 * res1),
+                                ([a2, b2], 2000 * res2),
+                                ([a3, b3], 2000 * res3))
+
     def test_dont_trace_every_iteration(self):
         self.run_source('''
         def main(a, b):

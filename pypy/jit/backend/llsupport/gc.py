@@ -1,3 +1,4 @@
+import os
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
@@ -212,10 +213,12 @@ class GcRefList:
         return addr_ref
 
 
-class GcRootMap_asmgcc:
+class GcRootMap_asmgcc(object):
     """Handles locating the stack roots in the assembler.
     This is the class supporting --gcrootfinder=asmgcc.
     """
+    is_shadow_stack = False
+
     LOC_REG       = 0
     LOC_ESP_PLUS  = 1
     LOC_EBP_PLUS  = 2
@@ -224,7 +227,7 @@ class GcRootMap_asmgcc:
     GCMAP_ARRAY = rffi.CArray(lltype.Signed)
     CALLSHAPE_ARRAY_PTR = rffi.CArrayPtr(rffi.UCHAR)
 
-    def __init__(self):
+    def __init__(self, gcdescr=None):
         # '_gcmap' is an array of length '_gcmap_maxlength' of addresses.
         # '_gcmap_curlength' tells how full the array really is.
         # The addresses are actually grouped in pairs:
@@ -236,6 +239,13 @@ class GcRootMap_asmgcc:
         self._gcmap_maxlength = 0
         self._gcmap_deadentries = 0
         self._gcmap_sorted = True
+
+    def add_jit2gc_hooks(self, jit2gc):
+        jit2gc.update({
+            'gcmapstart': lambda: self.gcmapstart(),
+            'gcmapend': lambda: self.gcmapend(),
+            'gcmarksorted': lambda: self.gcmarksorted(),
+            })
 
     def initialize(self):
         # hack hack hack.  Remove these lines and see MissingRTypeAttribute
@@ -365,7 +375,7 @@ class GcRootMap_asmgcc:
             number >>= 7
         shape.append(chr(number | flag))
 
-    def add_ebp_offset(self, shape, offset):
+    def add_frame_offset(self, shape, offset):
         assert (offset & 3) == 0
         if offset >= 0:
             num = self.LOC_EBP_PLUS | offset
@@ -386,6 +396,126 @@ class GcRootMap_asmgcc:
         for i in range(length):
             p[length-1-i] = rffi.cast(rffi.UCHAR, shape[i])
         return rawaddr
+
+
+class GcRootMap_shadowstack(object):
+    """Handles locating the stack roots in the assembler.
+    This is the class supporting --gcrootfinder=shadowstack.
+    """
+    is_shadow_stack = True
+    MARKER = 8
+
+    # The "shadowstack" is a portable way in which the GC finds the
+    # roots that live in the stack.  Normally it is just a list of
+    # pointers to GC objects.  The pointers may be moved around by a GC
+    # collection.  But with the JIT, an entry can also be MARKER, in
+    # which case the next entry points to an assembler stack frame.
+    # During a residual CALL from the assembler (which may indirectly
+    # call the GC), we use the force_index stored in the assembler
+    # stack frame to identify the call: we can go from the force_index
+    # to a list of where the GC pointers are in the frame (this is the
+    # purpose of the present class).
+    #
+    # Note that across CALL_MAY_FORCE or CALL_ASSEMBLER, we can also go
+    # from the force_index to a ResumeGuardForcedDescr instance, which
+    # is used if the virtualizable or the virtualrefs need to be forced
+    # (see pypy.jit.backend.model).  The force_index number in the stack
+    # frame is initially set to a non-negative value x, but it is
+    # occasionally turned into (~x) in case of forcing.
+
+    INTARRAYPTR = rffi.CArrayPtr(rffi.INT)
+    CALLSHAPES_ARRAY = rffi.CArray(INTARRAYPTR)
+
+    def __init__(self, gcdescr):
+        self._callshapes = lltype.nullptr(self.CALLSHAPES_ARRAY)
+        self._callshapes_maxlength = 0
+        self.force_index_ofs = gcdescr.force_index_ofs
+
+    def add_jit2gc_hooks(self, jit2gc):
+        #
+        def collect_jit_stack_root(callback, gc, addr):
+            if addr.signed[0] != GcRootMap_shadowstack.MARKER:
+                # common case
+                if gc.points_to_valid_gc_object(addr):
+                    callback(gc, addr)
+                return WORD
+            else:
+                # case of a MARKER followed by an assembler stack frame
+                follow_stack_frame_of_assembler(callback, gc, addr)
+                return 2 * WORD
+        #
+        def follow_stack_frame_of_assembler(callback, gc, addr):
+            frame_addr = addr.signed[1]
+            addr = llmemory.cast_int_to_adr(frame_addr + self.force_index_ofs)
+            force_index = addr.signed[0]
+            if force_index < 0:
+                force_index = ~force_index
+            callshape = self._callshapes[force_index]
+            n = 0
+            while True:
+                offset = rffi.cast(lltype.Signed, callshape[n])
+                if offset == 0:
+                    break
+                addr = llmemory.cast_int_to_adr(frame_addr + offset)
+                if gc.points_to_valid_gc_object(addr):
+                    callback(gc, addr)
+                n += 1
+        #
+        jit2gc.update({
+            'rootstackhook': collect_jit_stack_root,
+            })
+
+    def initialize(self):
+        pass
+
+    def get_basic_shape(self, is_64_bit=False):
+        return []
+
+    def add_frame_offset(self, shape, offset):
+        assert offset != 0
+        shape.append(offset)
+
+    def add_callee_save_reg(self, shape, register):
+        msg = "GC pointer in %s was not spilled" % register
+        os.write(2, '[llsupport/gc] %s\n' % msg)
+        raise AssertionError(msg)
+
+    def compress_callshape(self, shape, datablockwrapper):
+        length = len(shape)
+        SZINT = rffi.sizeof(rffi.INT)
+        rawaddr = datablockwrapper.malloc_aligned((length + 1) * SZINT, SZINT)
+        p = rffi.cast(self.INTARRAYPTR, rawaddr)
+        for i in range(length):
+            p[i] = rffi.cast(rffi.INT, shape[i])
+        p[length] = rffi.cast(rffi.INT, 0)
+        return p
+
+    def write_callshape(self, p, force_index):
+        if force_index >= self._callshapes_maxlength:
+            self._enlarge_callshape_list(force_index + 1)
+        self._callshapes[force_index] = p
+
+    def _enlarge_callshape_list(self, minsize):
+        newlength = 250 + (self._callshapes_maxlength // 3) * 4
+        if newlength < minsize:
+            newlength = minsize
+        newarray = lltype.malloc(self.CALLSHAPES_ARRAY, newlength,
+                                 flavor='raw', track_allocation=False)
+        if self._callshapes:
+            i = self._callshapes_maxlength - 1
+            while i >= 0:
+                newarray[i] = self._callshapes[i]
+                i -= 1
+            lltype.free(self._callshapes, flavor='raw')
+        self._callshapes = newarray
+        self._callshapes_maxlength = newlength
+
+    def freeing_block(self, start, stop):
+        pass     # nothing needed here
+
+    def get_root_stack_top_addr(self):
+        rst_addr = llop.gc_adr_of_root_stack_top(llmemory.Address)
+        return rffi.cast(lltype.Signed, rst_addr)
 
 
 class WriteBarrierDescr(AbstractDescr):
@@ -437,7 +567,7 @@ class GcLLDescr_framework(GcLLDescription):
         except KeyError:
             raise NotImplementedError("--gcrootfinder=%s not implemented"
                                       " with the JIT" % (name,))
-        gcrootmap = cls()
+        gcrootmap = cls(gcdescr)
         self.gcrootmap = gcrootmap
         self.gcrefs = GcRefList()
         self.single_gcref_descr = GcPtrFieldDescr('', 0)
@@ -446,12 +576,9 @@ class GcLLDescr_framework(GcLLDescription):
         # where it can be fished and reused by the FrameworkGCTransformer
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
-        self.translator._jit2gc = {
-            'layoutbuilder': self.layoutbuilder,
-            'gcmapstart': lambda: gcrootmap.gcmapstart(),
-            'gcmapend': lambda: gcrootmap.gcmapend(),
-            'gcmarksorted': lambda: gcrootmap.gcmarksorted(),
-            }
+        self.translator._jit2gc = {'layoutbuilder': self.layoutbuilder}
+        gcrootmap.add_jit2gc_hooks(self.translator._jit2gc)
+
         self.GCClass = self.layoutbuilder.GCClass
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)

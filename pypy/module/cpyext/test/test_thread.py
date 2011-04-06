@@ -24,17 +24,17 @@ class TestPyThread(BaseApiTest):
 
         assert results[0][0] != results[1][0]
 
-    @py.test.mark.xfail
     def test_acquire_lock(self, space, api):
         assert hasattr(api, 'PyThread_acquire_lock')
-        lock = allocate_ll_lock()
-        assert api.PyThread_acquire_lock(lock, space.w_int(0)) == 1
-        assert api.PyThread_acquire_lock(lock, space.w_int(1)) == 0
+        lock = api.PyThread_allocate_lock()
+        assert api.PyThread_acquire_lock(lock, 1) == 1
+        assert api.PyThread_acquire_lock(lock, 0) == 0
+        api.PyThread_free_lock(lock)
 
-    @py.test.mark.xfail
     def test_release_lock(self, space, api):
         assert hasattr(api, 'PyThread_acquire_lock')
-        lock = allocate_ll_lock()
-        api.PyThread_acquire_lock(lock, space.w_int(0))
+        lock = api.PyThread_allocate_lock()
+        api.PyThread_acquire_lock(lock, 1)
         api.PyThread_release_lock(lock)
-        assert api.PyThread_acquire_lock(lock, space.w_int(0)) == 1
+        assert api.PyThread_acquire_lock(lock, 0) == 1
+        api.PyThread_free_lock(lock)

@@ -205,7 +205,8 @@ def get_library_path(executable):
         if dirname == search:
             # not found!  let's hope that the compiled-in path is ok
             print >> sys.stderr, ('debug: WARNING: library path not found, '
-                                  'using compiled-in sys.path')
+                                  'using compiled-in sys.path '
+                                  'and sys.prefix will be unset')
             newpath = sys.path[:]
             break
         newpath = sys.pypy_initial_path(dirname)

@@ -51,9 +51,7 @@ class BaseTestPyPyC(object):
                                 env=env,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
-        pipe.wait()
-        stderr = pipe.stderr.read()
-        stdout = pipe.stdout.read()
+        stdout, stderr = pipe.communicate()
         assert not stderr
         #
         # parse the JIT log
@@ -62,6 +60,13 @@ class BaseTestPyPyC(object):
         log = Log(rawtraces)
         log.result = eval(stdout)
         return log
+
+    def run_and_check(self, src, args=[], **jitopts):
+        log1 = self.run(src, args, threshold=-1)  # without the JIT
+        log2 = self.run(src, args, **jitopts)     # with the JIT
+        assert log1.result == log2.result
+        # check that the JIT actually ran
+        assert len(log2.loops_by_filename(self.filepath)) > 0
 
 
 class TestLog(object):

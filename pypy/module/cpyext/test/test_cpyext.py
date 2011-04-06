@@ -385,6 +385,19 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert module.__doc__ == "docstring"
         assert module.return_cookie() == 3.14
 
+    def test_load_dynamic(self):
+        import sys
+        init = """
+        if (Py_IsInitialized())
+            Py_InitModule("foo", NULL);
+        """
+        foo = self.import_module(name='foo', init=init)
+        assert 'foo' in sys.modules
+        del sys.modules['foo']
+        import imp
+        foo2 = imp.load_dynamic('foo', foo.__file__)
+        assert 'foo' in sys.modules
+        assert foo.__dict__ == foo2.__dict__
 
     def test_InitModule4_dotted(self):
         """

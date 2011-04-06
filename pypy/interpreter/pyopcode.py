@@ -1421,9 +1421,10 @@ app = gateway.applevel(r'''
 
         # add a softspace unless we just printed a string which ends in a '\t'
         # or '\n' -- or more generally any whitespace character but ' '
-        if isinstance(x, str) and x and x[-1].isspace() and x[-1]!=' ':
-            return
-        # XXX add unicode handling
+        if isinstance(x, (str, unicode)) and x:
+            lastchar = x[-1]
+            if lastchar.isspace() and lastchar != ' ':
+                return
         file_softspace(stream, True)
     print_item_to._annspecialcase_ = "specialize:argtype(0)"
 

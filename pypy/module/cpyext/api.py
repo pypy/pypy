@@ -314,6 +314,7 @@ SYMBOLS_C = [
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
+    'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
@@ -883,6 +884,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "stringobject.c",
                                source_dir / "mysnprintf.c",
                                source_dir / "pythonrun.c",
+                               source_dir / "sysmodule.c",
                                source_dir / "bufferobject.c",
                                source_dir / "object.c",
                                source_dir / "cobject.c",

@@ -86,7 +86,7 @@ class PyCode(eval.Code):
         self._init_flags()
         # Precompute what arguments need to be copied into cellvars
         self._args_as_cellvars = []
-        
+
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -146,7 +146,7 @@ class PyCode(eval.Code):
 
     def signature(self):
         return self._signature
-    
+
     @classmethod
     def _from_code(cls, space, code, hidden_applevel=False, code_hook=None):
         """ Initialize the code object from a real (CPython) one.
@@ -182,7 +182,7 @@ class PyCode(eval.Code):
                       list(code.co_cellvars),
                       hidden_applevel, cpython_magic)
 
-    
+
     def _compute_flatcall(self):
         # Speed hack!
         self.fast_natural_arity = eval.Code.HOPELESS
@@ -192,7 +192,7 @@ class PyCode(eval.Code):
             return
         if self.co_argcount > 0xff:
             return
-        
+
         self.fast_natural_arity = eval.Code.FLATPYCALL | self.co_argcount
 
     def funcrun(self, func, args):
@@ -204,7 +204,7 @@ class PyCode(eval.Code):
                                       fresh_virtualizable=True)
         args_matched = args.parse_into_scope(None, fresh_frame.fastlocals_w,
                                              func.name,
-                                             sig, func.defs_w)
+                                             sig, func.defs)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -214,10 +214,10 @@ class PyCode(eval.Code):
         sig = self._signature
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
-                                      fresh_virtualizable=True)        
+                                      fresh_virtualizable=True)
         args_matched = args.parse_into_scope(w_obj, fresh_frame.fastlocals_w,
                                              func.name,
-                                             sig, func.defs_w)
+                                             sig, func.defs)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -269,7 +269,7 @@ class PyCode(eval.Code):
 
     def fget_co_consts(self, space):
         return space.newtuple(self.co_consts_w)
-    
+
     def fget_co_names(self, space):
         return space.newtuple(self.co_names_w)
 
@@ -280,7 +280,7 @@ class PyCode(eval.Code):
         return space.newtuple([space.wrap(name) for name in self.co_cellvars])
 
     def fget_co_freevars(self, space):
-        return space.newtuple([space.wrap(name) for name in self.co_freevars])    
+        return space.newtuple([space.wrap(name) for name in self.co_freevars])
 
     def descr_code__eq__(self, w_other):
         space = self.space
@@ -372,18 +372,18 @@ class PyCode(eval.Code):
         new_inst = mod.get('code_new')
         w        = space.wrap
         tup      = [
-            w(self.co_argcount), 
-            w(self.co_nlocals), 
-            w(self.co_stacksize), 
+            w(self.co_argcount),
+            w(self.co_nlocals),
+            w(self.co_stacksize),
             w(self.co_flags),
-            w(self.co_code), 
-            space.newtuple(self.co_consts_w), 
-            space.newtuple(self.co_names_w), 
-            space.newtuple([w(v) for v in self.co_varnames]), 
+            w(self.co_code),
+            space.newtuple(self.co_consts_w),
+            space.newtuple(self.co_names_w),
+            space.newtuple([w(v) for v in self.co_varnames]),
             w(self.co_filename),
-            w(self.co_name), 
+            w(self.co_name),
             w(self.co_firstlineno),
-            w(self.co_lnotab), 
+            w(self.co_lnotab),
             space.newtuple([w(v) for v in self.co_freevars]),
             space.newtuple([w(v) for v in self.co_cellvars]),
             w(self.magic),
