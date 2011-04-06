@@ -558,9 +558,9 @@ class MIFrame(object):
     @arguments("box", "descr", "descr")
     def opimpl_record_quasiimmut_field(self, box, fielddescr,
                                        mutatefielddescr):
-        from pypy.jit.metainterp.quasiimmut import SlowMutateDescr
+        from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
         cpu = self.metainterp.cpu
-        descr = SlowMutateDescr(cpu, box, fielddescr, mutatefielddescr)
+        descr = QuasiImmutDescr(cpu, box, fielddescr, mutatefielddescr)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
 

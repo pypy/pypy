@@ -76,6 +76,10 @@ def record_loop_or_bridge(metainterp_sd, loop):
             op.setdescr(None)    # clear reference, mostly for tests
             if not we_are_translated():
                 op._jumptarget_number = descr.number
+    # record this looptoken on the QuasiImmut used in the code
+    if loop.quasi_immutable_deps is not None:
+        for qmut in loop.quasi_immutable_deps:
+            qmut.register_loop_token(wref)
     # mostly for tests: make sure we don't keep a reference to the LoopToken
     loop.token = None
     if not we_are_translated():

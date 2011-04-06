@@ -1,13 +1,13 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.rclass import FieldListAccessor, IR_QUASI_IMMUTABLE
 from pypy.jit.metainterp import typesystem
-from pypy.jit.metainterp.quasiimmut import SlowMutate
-from pypy.jit.metainterp.quasiimmut import get_current_mutate_instance
+from pypy.jit.metainterp.quasiimmut import QuasiImmut
+from pypy.jit.metainterp.quasiimmut import get_current_qmut_instance
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
 from pypy.rlib.jit import JitDriver, dont_look_inside
 
 
-def test_get_current_mutate_instance():
+def test_get_current_qmut_instance():
     accessor = FieldListAccessor()
     accessor.initialize(None, {'inst_x': IR_QUASI_IMMUTABLE})
     STRUCT = lltype.GcStruct('Foo', ('inst_x', lltype.Signed),
@@ -36,10 +36,10 @@ def test_get_current_mutate_instance():
     mutatefielddescr = ('fielddescr', STRUCT, 'mutate_x')
 
     foo_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, foo)
-    sm1 = get_current_mutate_instance(cpu, foo_gcref, mutatefielddescr)
-    assert isinstance(sm1, SlowMutate)
-    sm2 = get_current_mutate_instance(cpu, foo_gcref, mutatefielddescr)
-    assert sm1 is sm2
+    qmut1 = get_current_qmut_instance(cpu, foo_gcref, mutatefielddescr)
+    assert isinstance(qmut1, QuasiImmut)
+    qmut2 = get_current_qmut_instance(cpu, foo_gcref, mutatefielddescr)
+    assert qmut1 is qmut2
 
 
 class QuasiImmutTests:
@@ -68,7 +68,7 @@ class QuasiImmutTests:
         loops = get_stats().loops
         for loop in loops:
             assert len(loop.quasi_immutable_deps) == 1
-            assert isinstance(loop.quasi_immutable_deps.keys()[0], SlowMutate)
+            assert isinstance(loop.quasi_immutable_deps.keys()[0], QuasiImmut)
 
     def test_nonopt_1(self):
         myjitdriver = JitDriver(greens=[], reds=['x', 'total', 'lst'])
@@ -148,6 +148,32 @@ class QuasiImmutTests:
         res = self.meta_interp(f, [100, 7])
         assert res == 700
         self.check_loops(getfield_gc=1)
+
+    def test_change_invalidate_reentering(self):
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
+        class Foo:
+            _immutable_fields_ = ['a?']
+            def __init__(self, a):
+                self.a = a
+        def f(foo, x):
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x, total=total)
+                # read a quasi-immutable field out of a Constant
+                total += foo.a
+                x -= 1
+            return total
+        def g(a, x):
+            foo = Foo(a)
+            res1 = f(foo, x)
+            foo.a += 1          # invalidation, while the jit is not running
+            res2 = f(foo, x)    # should still mark the loop as invalid
+            return res1 * 1000 + res2
+        #
+        assert g(100, 7) == 700707
+        res = self.meta_interp(g, [100, 7])
+        assert res == 700707
+        self.check_loops(getfield_gc=0)
 
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):

@@ -379,7 +379,7 @@ class OptHeap(Optimization):
                                    write=True)
 
     def optimize_QUASIIMMUT_FIELD(self, op):
-        # Pattern: QUASIIMMUT_FIELD(s, descr=SlowMutateDescr)
+        # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
         #          x = GETFIELD_GC(s, descr='inst_x')
         # If 's' is a constant (after optimizations), then we make 's.inst_x'
         # a constant too, and we rely on the rest of the optimizations to
@@ -388,22 +388,22 @@ class OptHeap(Optimization):
         if not structvalue.is_constant():
             return    # not a constant at all; ignore QUASIIMMUT_FIELD
         #
-        from pypy.jit.metainterp.quasiimmut import SlowMutateDescr
-        smdescr = op.getdescr()
-        assert isinstance(smdescr, SlowMutateDescr)
+        from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
+        qmutdescr = op.getdescr()
+        assert isinstance(qmutdescr, QuasiImmutDescr)
         # check that the value is still correct; it could have changed
         # already between the tracing and now.  In this case, we are
         # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
         # as a regular getfield.
-        if not smdescr.is_still_valid():
+        if not qmutdescr.is_still_valid():
             return
         # record as an out-of-line guard
         if self.optimizer.quasi_immutable_deps is None:
             self.optimizer.quasi_immutable_deps = {}
-        self.optimizer.quasi_immutable_deps[smdescr.mutate] = None
+        self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
         # perform the replacement in the list of operations
-        fieldvalue = self.getvalue(smdescr.constantfieldbox)
-        cf = self.field_cache(smdescr.fielddescr)
+        fieldvalue = self.getvalue(qmutdescr.constantfieldbox)
+        cf = self.field_cache(qmutdescr.fielddescr)
         cf.remember_field_value(structvalue, fieldvalue)
 
     def propagate_forward(self, op):
