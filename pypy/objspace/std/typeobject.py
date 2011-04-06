@@ -10,7 +10,7 @@ from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from pypy.rlib.jit import hint, purefunction_promote, we_are_jitted
-from pypy.rlib.jit import purefunction, dont_look_inside
+from pypy.rlib.jit import purefunction, dont_look_inside, unroll_safe
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 # from compiler/misc.py
@@ -253,7 +253,7 @@ class W_TypeObject(W_Object):
                     return w_value
         return None
                 
-
+    @unroll_safe
     def _lookup(w_self, key):
         space = w_self.space
         for w_class in w_self.mro_w:
@@ -262,6 +262,7 @@ class W_TypeObject(W_Object):
                 return w_value
         return None
 
+    @unroll_safe
     def _lookup_where(w_self, key):
         # like lookup() but also returns the parent class in which the
         # attribute was found
