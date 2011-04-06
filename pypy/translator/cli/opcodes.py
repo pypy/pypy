@@ -148,6 +148,7 @@ unary_ops = {
     'cast_longlong_to_float':   'conv.r8',
     'cast_float_to_longlong':   'conv.i8',
     'cast_primitive':           [PushAllArgs, CastPrimitive],
+    'force_cast':               [PushAllArgs, CastPrimitive],
     'truncate_longlong_to_int': 'conv.i4',
     }
 
