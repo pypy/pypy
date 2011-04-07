@@ -165,12 +165,12 @@ class UnrollOptimizer(Optimization):
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
             short_boxes = preamble_optimizer.produce_short_preamble_ops(inputargs)
-            print short_boxes
+            initial_inputargs_len = len(short_boxes)
 
             try:
-                inputargs = self.inline(self.cloned_operations,
-                                        loop.inputargs, jump_args,
-                                        virtual_state)
+                inputargs, short = self.inline(self.cloned_operations,
+                                               loop.inputargs, jump_args,
+                                               virtual_state, short_boxes)
             except KeyError:
                 debug_print("Unrolling failed.")
                 loop.preamble.operations = None
@@ -197,7 +197,7 @@ class UnrollOptimizer(Optimization):
                 snapshot.boxes = new_snapshot_args
                 snapshot = snapshot.prev
 
-            short = self.create_short_preamble(loop.preamble, loop)
+            #short = self.create_short_preamble(loop.preamble, loop)
             if short:
                 if False:
                     # FIXME: This should save some memory but requires
@@ -214,7 +214,7 @@ class UnrollOptimizer(Optimization):
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')
-                short_loop.inputargs = loop.preamble.inputargs[:]
+                short_loop.inputargs = loop.inputargs[:initial_inputargs_len]
                 short_loop.operations = short
 
                 # Clone ops and boxes to get private versions and 
@@ -224,6 +224,7 @@ class UnrollOptimizer(Optimization):
                 ops = [inliner.inline_op(op) for op in short_loop.operations]
                 short_loop.operations = ops
                 descr = start_resumedescr.clone_if_mutable()
+                self.inliner.inline_descr_inplace(descr)
                 inliner.inline_descr_inplace(descr)
                 short_loop.start_resumedescr = descr
 
@@ -241,7 +242,8 @@ class UnrollOptimizer(Optimization):
                     if op.result:
                         op.result.forget_value()
                 
-    def inline(self, loop_operations, loop_args, jump_args, virtual_state):
+    def inline(self, loop_operations, loop_args, jump_args, virtual_state,
+               short_boxes):
         self.inliner = inliner = Inliner(loop_args, jump_args)
 
         values = [self.getvalue(arg) for arg in jump_args]
@@ -267,6 +269,9 @@ class UnrollOptimizer(Optimization):
         boxes_created_this_iteration = {}
         jumpargs = jmp.getarglist()
 
+        short_inliner = Inliner(inputargs, jumpargs)
+        short = []
+
         # FIXME: Should also loop over operations added by forcing things in this loop
         for op in newoperations: 
             boxes_created_this_iteration[op.result] = True
@@ -277,15 +282,19 @@ class UnrollOptimizer(Optimization):
             for a in args:
                 if not isinstance(a, Const) and not a in boxes_created_this_iteration:
                     if a not in inputargs:
+                        short_op = short_boxes[a]
+                        short.append(short_op)
+                        newop = short_inliner.inline_op(short_op)
+                        self.optimizer.send_extra_operation(newop)
                         inputargs.append(a)
-                        box = inliner.inline_arg(a)
+                        box = newop.result
                         if box in self.optimizer.values:
                             box = self.optimizer.values[box].force_box()
                         jumpargs.append(box)
 
         jmp.initarglist(jumpargs)
         self.optimizer.newoperations.append(jmp)
-        return inputargs
+        return inputargs, short
 
     def sameop(self, op1, op2):
         if op1.getopnum() != op2.getopnum():
