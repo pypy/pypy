@@ -7,6 +7,7 @@ import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
+from pypy.rpython.extfunc import register_external
 
 class LocaleError(Exception):
     def __init__(self, message):
@@ -172,6 +173,13 @@ def numeric_formatting():
     thousands_sep = rffi.charp2str(conv.c_thousands_sep)
     grouping = rffi.charp2str(conv.c_grouping)
     return decimal_point, thousands_sep, grouping
+
+def oo_numeric_formatting():
+    return '.', '', ''
+
+register_external(numeric_formatting, [], (str, str, str),
+                  ooimpl=oo_numeric_formatting)
+
 
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
