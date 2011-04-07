@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import Block, Constant, Variable, flatten
+from pypy.objspace.flow.model import Block, Constant, Variable
 from pypy.objspace.flow.model import checkgraph, mkentrymap
 from pypy.translator.backendopt.support import log
 

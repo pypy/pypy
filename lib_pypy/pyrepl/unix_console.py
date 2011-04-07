@@ -27,7 +27,10 @@ from pyrepl.fancy_termios import tcgetattr, tcsetattr
 from pyrepl.console import Console, Event
 from pyrepl import unix_eventqueue
 
-_error = (termios.error, curses.error)
+class InvalidTerminal(RuntimeError):
+    pass
+
+_error = (termios.error, curses.error, InvalidTerminal)
 
 # there are arguments for changing this to "refresh"
 SIGWINCH_EVENT = 'repaint'
@@ -38,7 +41,7 @@ TIOCGWINSZ = getattr(termios, "TIOCGWINSZ", None)
 def _my_getstr(cap, optional=0):
     r = curses.tigetstr(cap)
     if not optional and r is None:
-        raise RuntimeError, \
+        raise InvalidTerminal, \
               "terminal doesn't have the required '%s' capability"%cap
     return r
 
@@ -289,6 +292,12 @@ class UnixConsole(Console):
                 self.__write_code(self._el)
             self.__write(newline[x:])
             self.__posxy = len(newline), y
+        
+        if '\x1b' in newline:
+            # ANSI escape characters are present, so we can't assume
+            # anything about the position of the cursor.  Moving the cursor
+            # to the left margin should work to get to a known position.
+            self.move_cursor(0, y)
 
     def __write(self, text):
         self.__buffer.append((text, 0))

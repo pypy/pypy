@@ -79,7 +79,8 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want the included JIT
-   compiler.  As of March 2011, Intel **32-bit** environment needs ``4GB``.
+   compiler.  As of March 2011, Intel 32-bit environment needs **at
+   least** 2GB, and 64-bit needs 4GB.
 
 .. _`optimization level`: config/opt.html
 
@@ -231,6 +232,12 @@ to find a ``PREFIX`` from which the directories
     ../../lib/pypy-1.2
     ../../..
     etc.
+
+If the executable fails to find suitable libraries, it will report
+``debug: WARNING: library path not found, using compiled-in sys.path``
+and then attempt to continue normally.  If the default path is usable,
+most code will be fine.  However, the ``sys.prefix`` will be unset
+and some existing libraries assume that this is never the case.
 
 In order to use ``distutils`` or ``setuptools`` a directory ``PREFIX/site-packages`` needs to be created. Here's an example session setting up and using ``easy_install``::
 

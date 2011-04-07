@@ -746,16 +746,33 @@ public class PyPy implements Constants {
         return str.substring(start, end);
     }
 
-    public static Object[] ll_split_chr(String str, char c) {
+    public static Object[] ll_split_chr(String str, char c, int max) {
         ArrayList list = new ArrayList();
         int lastidx = 0, idx = 0;
         while ((idx = str.indexOf(c, lastidx)) != -1)
         {
+            if (max >= 0 && list.size() >= max)
+                break;
             String sub = str.substring(lastidx, idx);
             list.add(sub);
             lastidx = idx+1;
         }
         list.add(str.substring(lastidx));
+        return list.toArray(new String[list.size()]);
+    }
+
+    public static Object[] ll_rsplit_chr(String str, char c, int max) {
+        ArrayList list = new ArrayList();
+        int lastidx = str.length(), idx = 0;
+        while ((idx = str.lastIndexOf(c, lastidx - 1)) != -1)
+        {
+            if (max >= 0 && list.size() >= max)
+                break;
+            String sub = str.substring(idx + 1, lastidx);
+            list.add(0, sub);
+            lastidx = idx;
+        }
+        list.add(0, str.substring(0, lastidx));
         return list.toArray(new String[list.size()]);
     }
 

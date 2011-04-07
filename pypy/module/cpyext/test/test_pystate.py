@@ -43,3 +43,16 @@ class TestThreadState(BaseApiTest):
         ts = api.PyThreadState_Get()
         assert ts.c_interp == api.PyInterpreterState_Head()
         clear_threadstate(space)
+
+    def test_basic_threadstate_dance(self, space, api):
+        # Let extension modules call these functions,
+        # Not sure of the semantics in pypy though.
+        # (cpyext always acquires and releases the GIL around calls)
+        tstate = api.PyThreadState_Swap(None)
+        assert tstate is not None
+        assert not api.PyThreadState_Swap(tstate)
+
+        api.PyEval_AcquireThread(tstate)
+        api.PyEval_ReleaseThread(tstate)
+
+        clear_threadstate(space)

@@ -27,7 +27,7 @@ PARAMETERS['enable_opts'] = ALL_OPTS_NAMES
 
 def optimize_loop_1(metainterp_sd, loop, enable_opts,
                     inline_short_preamble=True, retraced=False):
-    """Optimize loop.operations to remove internal overheadish operations. 
+    """Optimize loop.operations to remove internal overheadish operations.
     """
     optimizations = []
     unroll = 'unroll' in enable_opts
@@ -43,7 +43,7 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
 
     if 'rewrite' not in enable_opts or 'virtualize' not in enable_opts:
         optimizations.append(OptSimplify())
-    
+
     if inline_short_preamble:
         optimizations = [OptInlineShortPreamble(retraced)] + optimizations
 

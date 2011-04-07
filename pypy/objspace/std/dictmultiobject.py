@@ -108,6 +108,11 @@ class W_DictMultiObject(W_Object):
         #return w_value or None
         return None
 
+    def impl_setdefault(self, w_key, w_default):
+        # here the dict is always empty
+        self._as_rdict().impl_fallback_setitem(w_key, w_default)
+        return w_default
+
     def impl_setitem(self, w_key, w_value):
         self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
@@ -181,6 +186,9 @@ class W_DictMultiObject(W_Object):
     # _________________________________________________________________
     # fallback implementation methods
 
+    def impl_fallback_setdefault(self, w_key, w_default):
+        return self.r_dict_content.setdefault(w_key, w_default)
+
     def impl_fallback_setitem(self, w_key, w_value):
         self.r_dict_content[w_key] = w_value
 
@@ -227,6 +235,7 @@ implementation_methods = [
     ("length", 0),
     ("setitem_str", 2),
     ("setitem", 2),
+    ("setdefault", 2),
     ("delitem", 1),
     ("iter", 0),
     ("items", 0),
@@ -316,6 +325,14 @@ class StrDictImplementation(W_DictMultiObject):
 
     def impl_setitem_str(self, key, w_value):
         self.content[key] = w_value
+
+    def impl_setdefault(self, w_key, w_default):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            return self.content.setdefault(space.str_w(w_key), w_default)
+        else:
+            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
+
 
     def impl_delitem(self, w_key):
         space = self.space
@@ -787,13 +804,7 @@ def dict_get__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
         return w_default
 
 def dict_setdefault__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
-    # XXX should be more efficient, with only one dict lookup
-    w_value = w_dict.getitem(w_key)
-    if w_value is not None:
-        return w_value
-    else:
-        w_dict.setitem(w_key, w_default)
-        return w_default
+    return w_dict.setdefault(w_key, w_default)
 
 def dict_pop__DictMulti_ANY(space, w_dict, w_key, defaults_w):
     len_defaults = len(defaults_w)
