@@ -3,6 +3,7 @@ from pypy.tool.udir import udir
 import py
 from py.test import skip
 import sys, os, re
+import subprocess
 
 class BytecodeTrace(list):
     def get_opnames(self, prefix=""):
@@ -116,13 +117,12 @@ class PyPyCJITTests(object):
         print >> f, "print 'OK :-)'"
         f.close()
 
-        if sys.platform.startswith('win'):
-            py.test.skip("XXX this is not Windows-friendly")
         print logfilepath
-        child_stdout = os.popen('PYPYLOG=":%s" "%s" "%s"' % (
-            logfilepath, self.pypy_c, filepath), 'r')
-        result = child_stdout.read()
-        child_stdout.close()
+        env = os.environ.copy()
+        env['PYPYLOG'] = ":%s" % (logfilepath,)
+        p = subprocess.Popen([self.pypy_c, str(filepath)],
+                             env=env, stdout=subprocess.PIPE)
+        result, _ = p.communicate()
         assert result
         if result.strip().startswith('SKIP:'):
             py.test.skip(result.strip())
