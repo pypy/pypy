@@ -170,6 +170,16 @@ class BaseTestRfloat(BaseRtypingTest):
             s = ['42.3', '123.4'][i]
             return rstring_to_float(s)
         assert self.interpret(fn, [0]) == 42.3
+
+    def test_isnan(self):
+        import math
+        def fn(x):
+            inf = x * x
+            nan = inf / inf
+            return math.isnan(nan)
+        assert self.interpret(fn, [1e200])
+
+        
         
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
