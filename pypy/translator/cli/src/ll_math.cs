@@ -225,6 +225,11 @@ namespace pypy.builtin
             return Math.Tanh(x);
         }
 
+        static public bool ll_math_isnan(double x)
+        {
+            return double.IsNaN(x);
+        }
+
         static public double ll_math_copysign(double x, double y)
         {
             if (x < 0.0)
