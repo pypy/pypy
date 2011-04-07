@@ -71,6 +71,8 @@ misc_ops = {
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call],
     'indirect_call':            [IndirectCall],
+    'int_between':              [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::IntBetween(int32, int32, int32)'],
+
 
     'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
     'gc__collect':              'call void class [mscorlib]System.GC::Collect()',

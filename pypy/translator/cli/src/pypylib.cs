@@ -501,6 +501,11 @@ namespace pypy.runtime
             }
         }
 
+        public static bool IntBetween(int a, int b, int c)
+        {
+            return a <= b && b < c;
+        }
+
         public static bool Equal<T>(T t1, T t2) 
         { 
             if (t1 == null)

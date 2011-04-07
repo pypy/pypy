@@ -673,7 +673,6 @@ class LLFrame(object):
         return frame.eval()        
 
     def op_direct_call(self, f, *args):
-        import pdb;pdb.set_trace()
         FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
         return self.perform_call(f, FTYPE.ARGS, args)
 

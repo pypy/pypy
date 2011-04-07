@@ -4,7 +4,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_int64, intmask
+from pypy.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
 from pypy.rlib import objectmodel
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
@@ -395,6 +395,18 @@ class BaseTestRint(BaseRtypingTest):
             assert res == -1506741426 + 9 * 28744523
         else:
             assert res == 123456789012345678
+
+    def test_int_between(self):
+        def fn(a, b, c):
+            return int_between(a, b, c)
+        assert self.interpret(fn, [1, 1, 3])
+        assert self.interpret(fn, [1, 2, 3])
+        assert not self.interpret(fn, [1, 0, 2])
+        assert not self.interpret(fn, [1, 5, 2])
+        assert not self.interpret(fn, [1, 2, 2])
+        assert not self.interpret(fn, [1, 1, 1])
+
+
 
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass
