@@ -40,11 +40,11 @@
 #include "src/asm.h"
 #include "src/timer.h"
 
+#include "src/profiling.h"
 
 /*** modules ***/
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"
-#  include "src/profiling.h"
 #  include "src/debug_print.h"
 #  include "src/debug_traceback.h"
 #  include "src/debug_alloc.h"
