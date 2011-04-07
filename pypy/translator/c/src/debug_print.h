@@ -103,6 +103,8 @@ void pypy_debug_ensure_opened(void)
 }
 
 
+#define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
+
 #ifndef READ_TIMESTAMP
 /* asm_xxx.h may contain a specific implementation of READ_TIMESTAMP.
  * This is the default generic timestamp implementation.

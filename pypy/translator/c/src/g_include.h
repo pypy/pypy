@@ -38,7 +38,6 @@
 
 #include "src/instrument.h"
 #include "src/asm.h"
-#include "src/timer.h"
 
 #include "src/profiling.h"
 
