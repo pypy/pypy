@@ -6,7 +6,7 @@ from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
     borrow_from, make_ref, from_ref)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
-
+from pypy.objspace.std.smalltupleobject import W_SmallTupleObject
 
 PyTuple_Check, PyTuple_CheckExact = build_type_checkers("Tuple")
 
