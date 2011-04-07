@@ -179,7 +179,13 @@ class BaseTestRfloat(BaseRtypingTest):
             return math.isnan(nan)
         assert self.interpret(fn, [1e200])
 
-        
+    def test_isinf(self):
+        import math
+        def fn(x):
+            inf = x * x
+            return math.isinf(inf)
+        assert self.interpret(fn, [1e200])
+
         
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
