@@ -41,6 +41,8 @@ extern FILE *pypy_debug_file;
 
 /* implementations */
 
+#define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
+
 #ifndef PYPY_NOT_MAIN_FILE
 #include <string.h>
 
@@ -101,9 +103,6 @@ void pypy_debug_ensure_opened(void)
   if (!debug_ready)
     pypy_debug_open();
 }
-
-
-#define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
 
 #ifndef READ_TIMESTAMP
 /* asm_xxx.h may contain a specific implementation of READ_TIMESTAMP.
