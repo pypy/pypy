@@ -3,9 +3,10 @@ import py
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.conftest import gettestobjspace
 
 class TestTupleObject(BaseApiTest):
-    #XXX these tests do not test both W_SmallTupleObject and W_TupleObject
+
     def test_tupleobject(self, space, api):
         assert not api.PyTuple_Check(space.w_None)
         assert api.PyTuple_SetItem(space.w_None, 0, space.w_None) == -1
@@ -29,3 +30,15 @@ class TestTupleObject(BaseApiTest):
         
         api.Py_DecRef(ar[0])
         lltype.free(ar, flavor='raw')
+
+    def test_setitem(self, space, api):
+        atuple = space.newtuple([space.wrap(0), space.wrap("hello")])
+        assert api.PyTuple_Size(atuple) == 2
+        assert space.eq_w(space.getitem(atuple, space.wrap(0)), space.wrap(0))
+        assert space.eq_w(space.getitem(atuple, space.wrap(1)), space.wrap("hello"))
+        w_obj = space.wrap(1)
+        api.Py_IncRef(w_obj)
+        api.PyTuple_SetItem(atuple, 1, w_obj)
+        assert api.PyTuple_Size(atuple) == 2
+        assert space.eq_w(space.getitem(atuple, space.wrap(0)), space.wrap(0))
+        assert space.eq_w(space.getitem(atuple, space.wrap(1)), space.wrap(1))
