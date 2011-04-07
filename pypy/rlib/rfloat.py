@@ -4,6 +4,7 @@ import math
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib import objectmodel
+from pypy.rpython.extfunc import register_external
 
 USE_SHORT_FLOAT_REPR = True # XXX make it a translation option?
 
@@ -24,16 +25,33 @@ del float_constants, int_constants, const
 globals().update(rffi_platform.configure(CConfig))
 
 def rstring_to_float(s):
+    return rstring_to_float_impl(s)
+
+def rstring_to_float_impl(s):
     if USE_SHORT_FLOAT_REPR:
         from pypy.rlib.rdtoa import strtod
         return strtod(s)
-
     sign, before_point, after_point, exponent = break_up_float(s)
-
     if not before_point and not after_point:
         raise ValueError
-
     return parts_to_float(sign, before_point, after_point, exponent)
+
+def oo_rstring_to_float(s):
+    from pypy.rpython.annlowlevel import oostr
+    from pypy.rpython.ootypesystem import ootype
+    lls = oostr(s)
+    return ootype.ooparse_float(lls)
+
+def ll_rstring_to_float(lls):
+    from pypy.rpython.annlowlevel import hlstr
+    s = hlstr(lls)
+    assert s is not None
+    return rstring_to_float_impl(s)
+
+register_external(rstring_to_float, [str], float,
+                  llimpl=ll_rstring_to_float,
+                  ooimpl=oo_rstring_to_float)
+
 
 # float as string  -> sign, beforept, afterpt, exponent
 def break_up_float(s):

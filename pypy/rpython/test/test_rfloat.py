@@ -163,6 +163,13 @@ class BaseTestRfloat(BaseRtypingTest):
         assert self.interpret(fn, [42, -1]) == -42
         assert self.interpret(fn, [42, -0.0]) == -42
         assert self.interpret(fn, [42, 0.0]) == 42
+
+    def test_rstring_to_float(self):
+        from pypy.rlib.rfloat import rstring_to_float
+        def fn(i):
+            s = ['42.3', '123.4'][i]
+            return rstring_to_float(s)
+        assert self.interpret(fn, [0]) == 42.3
         
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
