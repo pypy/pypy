@@ -29,20 +29,14 @@ class TestInterpreterState(BaseApiTest):
         state = api.PyInterpreterState_Head()
         assert nullptr(PyInterpreterState.TO) == api.PyInterpreterState_Next(state)
 
-def clear_threadstate(space):
-    # XXX: this should collect the ThreadState memory
-    del space.getexecutioncontext().cpyext_threadstate
-
 class TestThreadState(BaseApiTest):
     def test_thread_state_get(self, space, api):
         ts = api.PyThreadState_Get()
         assert ts != nullptr(PyThreadState.TO)
-        clear_threadstate(space)
 
     def test_thread_state_interp(self, space, api):
         ts = api.PyThreadState_Get()
         assert ts.c_interp == api.PyInterpreterState_Head()
-        clear_threadstate(space)
 
     def test_basic_threadstate_dance(self, space, api):
         # Let extension modules call these functions,
@@ -54,5 +48,3 @@ class TestThreadState(BaseApiTest):
 
         api.PyEval_AcquireThread(tstate)
         api.PyEval_ReleaseThread(tstate)
-
-        clear_threadstate(space)

@@ -539,7 +539,8 @@ def make_wrapper(space, callable):
 
             elif is_PyObject(callable.api_func.restype):
                 if result is None:
-                    retval = make_ref(space, None)
+                    retval = rffi.cast(callable.api_func.restype,
+                                       make_ref(space, None))
                 elif isinstance(result, Reference):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):

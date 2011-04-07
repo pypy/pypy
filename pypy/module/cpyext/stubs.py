@@ -351,14 +351,6 @@ def PyCode_GetNumFree(space, co):
     """Return the number of free variables in co."""
     raise NotImplementedError
 
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, rffi.INT_real, PyObject], PyCodeObject)
-def PyCode_New(space, argcount, nlocals, stacksize, flags, code, consts, names, varnames, freevars, cellvars, filename, name, firstlineno, lnotab):
-    """Return a new code object.  If you need a dummy code object to
-    create a frame, use PyCode_NewEmpty() instead.  Calling
-    PyCode_New() directly can bind you to a precise Python
-    version since the definition of the bytecode changes often."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyCodec_Register(space, search_function):
     """Register a new codec search function.
