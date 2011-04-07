@@ -156,6 +156,14 @@ class BaseTestRfloat(BaseRtypingTest):
                 return x
         self.interpret(fn, [1.0, 2.0, 3.0])
 
+    def test_copysign(self):
+        import math
+        def fn(x, y):
+            return math.copysign(x, y)
+        assert self.interpret(fn, [42, -1]) == -42
+        assert self.interpret(fn, [42, -0.0]) == -42
+        assert self.interpret(fn, [42, 0.0]) == 42
+        
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
     def test_hash(self):
