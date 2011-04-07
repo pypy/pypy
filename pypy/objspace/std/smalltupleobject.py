@@ -32,6 +32,10 @@ class W_SmallTupleObject(W_Object):
     def setitem(self, index, w_item):
         raise NotImplementedError
 
+    def unwrap(w_tuple, space):
+        items = [space.unwrap(w_item) for w_item in w_tuple.tolist()] # XXX generic mixed types unwrap
+        return tuple(items)
+
 def make_specialized_class(n):
     iter_n = unrolling_iterable(range(n))
     class cls(W_SmallTupleObject):
