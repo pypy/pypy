@@ -28,6 +28,8 @@ def _setitem_tuple(w_t, pos, w_obj):
         w_t.wrappeditems[pos] = w_obj
     elif isinstance(w_t, W_SmallTupleObject):
         w_t.setitem(pos, w_obj)
+    else:
+        assert False
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
 def PyTuple_GetItem(space, w_t, pos):
