@@ -12,7 +12,7 @@ lltype_only_defs = [
     'dup2', 'execv', 'execve', 'fchdir', 'fchmod', 'fchown', 'fdatasync', 'fork',
     'forkpty', 'fpathconf', 'fstatvfs', 'fsync', 'ftruncate', 'getegid', 'geteuid',
     'getgid', 'getgroups', 'getloadavg', 'getlogin', 'getpgid', 'getpgrp', 'getppid',
-    'getsid', 'getuid', 'isatty', 'kill', 'killpg', 'lchown', 'link', 'lseek', 'major',
+    'getsid', 'getuid', 'kill', 'killpg', 'lchown', 'link', 'lseek', 'major',
     'makedev', 'minor', 'mkfifo', 'mknod', 'nice', 'openpty', 'pathconf', 'pathconf_names',
     'pipe', 'readlink', 'setegid', 'seteuid', 'setgid', 'setgroups', 'setpgid', 'setpgrp',
     'setregid', 'setreuid', 'setsid', 'setuid', 'stat_float_times', 'statvfs',
