@@ -5,6 +5,7 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib import objectmodel
 from pypy.rpython.extfunc import register_external
+from pypy.annotation.model import SomeString
 
 USE_SHORT_FLOAT_REPR = True # XXX make it a translation option?
 
@@ -45,10 +46,9 @@ def oo_rstring_to_float(s):
 def ll_rstring_to_float(lls):
     from pypy.rpython.annlowlevel import hlstr
     s = hlstr(lls)
-    assert s is not None
     return rstring_to_float_impl(s)
 
-register_external(rstring_to_float, [str], float,
+register_external(rstring_to_float, [SomeString(can_be_None=True)], float,
                   llimpl=ll_rstring_to_float,
                   ooimpl=oo_rstring_to_float)
 
