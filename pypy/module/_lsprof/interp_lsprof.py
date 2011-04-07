@@ -8,12 +8,25 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.rlib import jit
 from pypy.rlib.rtimer import read_timestamp
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.tool.autopath import pypydir
 from pypy.rlib.rarithmetic import r_longlong
 
 import time, sys
 
-# timer
+# cpu affinity settings
+
+srcdir = py.path.local(pypydir).join('translator', 'c', 'src')
+eci = ExternalCompilationInfo(separate_module_files=
+                              [srcdir.join('profiling.c')])
+                                                     
+c_setup_profiling = rffi.llexternal('pypy_setup_profiling',
+                                  [], lltype.Void,
+                                  compilation_info = eci)
+c_teardown_profiling = rffi.llexternal('pypy_teardown_profiling',
+                                       [], lltype.Void,
+                                       compilation_info = eci)
 
 class W_StatsEntry(Wrappable):
     def __init__(self, space, frame, callcount, reccallcount, tt, it,
@@ -250,6 +263,7 @@ class W_Profiler(Wrappable):
         if w_builtins is not None:
             self.builtins = space.bool_w(w_builtins)
         # set profiler hook
+        c_setup_profiling()
         space.getexecutioncontext().setllprofile(lsprof_call, space.wrap(self))
 
     @jit.purefunction
@@ -318,6 +332,7 @@ class W_Profiler(Wrappable):
     def disable(self, space):
         # unset profiler hook
         space.getexecutioncontext().setllprofile(None, None)
+        c_teardown_profiling()
         self._flush_unmatched()
 
     def getstats(self, space):

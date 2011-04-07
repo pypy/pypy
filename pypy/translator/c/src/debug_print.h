@@ -20,7 +20,6 @@
    Note that 'fname' can be '-' to send the logging data to stderr.
 */
 
-
 /* macros used by the generated code */
 #define PYPY_HAVE_DEBUG_PRINTS    (pypy_have_debug_prints & 1 ? \
                                    (pypy_debug_ensure_opened(), 1) : 0)
@@ -40,24 +39,10 @@ void pypy_debug_stop(const char *category);
 extern long pypy_have_debug_prints;
 extern FILE *pypy_debug_file;
 
-
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
 #include <string.h>
-
-#if defined(__GNUC__) && defined(__linux__)
-# include <sched.h>
-  static void pypy_setup_profiling()
-  {
-    cpu_set_t set;
-    CPU_ZERO(&set);
-    CPU_SET(0, &set);   /* restrict to a single cpu */
-    sched_setaffinity(0, sizeof(cpu_set_t), &set);
-  }
-#else
-static void pypy_setup_profiling() { }
-#endif
 
 long pypy_have_debug_prints = -1;
 FILE *pypy_debug_file = NULL;

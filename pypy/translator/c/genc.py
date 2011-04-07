@@ -915,6 +915,11 @@ def commondefs(defines):
     from pypy.rlib.rarithmetic import LONG_BIT
     defines['PYPY_LONG_BIT'] = LONG_BIT
 
+def add_extra_files(eci):
+    srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')
+    return eci.merge(ExternalCompilationInfo(
+        separate_module_files=[srcdir.join('profiling.c')]))
+
 def gen_source_standalone(database, modulename, targetdir, eci,
                           entrypointname, defines={}): 
     assert database.standalone
@@ -964,6 +969,7 @@ def gen_source_standalone(database, modulename, targetdir, eci,
         print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
+    eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files(being_main=True)
     files, eci = eci.get_module_files()
     return eci, filename, sg.getextrafiles() + list(files)
@@ -1010,6 +1016,7 @@ def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
     gen_startupcode(f, database)
     f.close()
 
+    eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files(being_main=True)
     files, eci = eci.get_module_files()
     return eci, filename, sg.getextrafiles() + list(files)
