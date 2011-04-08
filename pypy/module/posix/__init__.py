@@ -5,6 +5,25 @@ from pypy.rpython.module.ll_os import RegisterOs
 import os, sys
 exec 'import %s as posix' % os.name
 
+# this is the list of function which is *not* present in the posix module of
+# IronPython 2.6, and that we want to ignore for now
+lltype_only_defs = [
+    'chown', 'chroot', 'closerange', 'confstr', 'confstr_names', 'ctermid', 'dup',
+    'dup2', 'execv', 'execve', 'fchdir', 'fchmod', 'fchown', 'fdatasync', 'fork',
+    'forkpty', 'fpathconf', 'fstatvfs', 'fsync', 'ftruncate', 'getegid', 'geteuid',
+    'getgid', 'getgroups', 'getloadavg', 'getlogin', 'getpgid', 'getpgrp', 'getppid',
+    'getsid', 'getuid', 'kill', 'killpg', 'lchown', 'link', 'lseek', 'major',
+    'makedev', 'minor', 'mkfifo', 'mknod', 'nice', 'openpty', 'pathconf', 'pathconf_names',
+    'pipe', 'readlink', 'setegid', 'seteuid', 'setgid', 'setgroups', 'setpgid', 'setpgrp',
+    'setregid', 'setreuid', 'setsid', 'setuid', 'stat_float_times', 'statvfs',
+    'statvfs_result', 'symlink', 'sysconf', 'sysconf_names', 'tcgetpgrp', 'tcsetpgrp',
+    'ttyname', 'uname', 'wait', 'wait3', 'wait4'
+    ]
+
+# the Win32 urandom implementation isn't going to translate on JVM or CLI so
+# we have to remove it
+lltype_only_defs.append('urandom')
+
 class Module(MixedModule):
     """This module provides access to operating system functionality that is
 standardized by the C Standard and the POSIX standard (a thinly
@@ -160,11 +179,12 @@ corresponding Unix manual entries for more information on calls."""
             interpleveldefs[name] = 'interp_posix.' + name
 
     def __init__(self, space, w_name):
+        # if it's an ootype translation, remove all the defs that are lltype
+        # only
         backend = space.config.translation.backend
-        # the Win32 urandom implementation isn't going to translate on JVM or CLI
-        # so we have to remove it
-        if 'urandom' in self.interpleveldefs and (backend == 'cli' or backend == 'jvm'):
-            del self.interpleveldefs['urandom']
+        if backend == 'cli' or backend == 'jvm':
+            for name in lltype_only_defs:
+                self.interpleveldefs.pop(name, None)
         MixedModule.__init__(self, space, w_name)
 
     def startup(self, space):
