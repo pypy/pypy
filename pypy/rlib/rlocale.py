@@ -178,7 +178,8 @@ def oo_numeric_formatting():
     return '.', '', ''
 
 register_external(numeric_formatting, [], (str, str, str),
-                  ooimpl=oo_numeric_formatting)
+                  ooimpl=oo_numeric_formatting,
+                  sandboxsafe=True)
 
 
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)

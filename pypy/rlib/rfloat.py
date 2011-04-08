@@ -46,7 +46,8 @@ def oo_rstring_to_float(s):
 register_external(rstring_to_float, [SomeString(can_be_None=False)], float,
                   export_name='rstring_to_float',
                   llimpl=rstring_to_float_impl,
-                  ooimpl=oo_rstring_to_float)
+                  ooimpl=oo_rstring_to_float,
+                  sandboxsafe=True)
 
 
 # float as string  -> sign, beforept, afterpt, exponent
