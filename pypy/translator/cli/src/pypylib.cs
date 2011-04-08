@@ -501,6 +501,11 @@ namespace pypy.runtime
             }
         }
 
+        public static bool IntBetween(int a, int b, int c)
+        {
+            return a <= b && b < c;
+        }
+
         public static bool Equal<T>(T t1, T t2) 
         { 
             if (t1 == null)
@@ -1148,10 +1153,36 @@ namespace pypy.builtin
 
     public class rffi
     {
-      public static int tolower(int chr)
-      {
-        return (int)Char.ToLower((char)chr);
-      }
+        public static int tolower(int chr)
+        {
+            return (int)Char.ToLower((char)chr);
+        }
+
+        public static int locale_tolower(int chr)
+        {
+            return (int)Char.ToLower((char)chr);
+        }
+
+        public static int locale_isupper(int chr)
+        {
+            return Convert.ToInt32(Char.IsUpper((char)chr));
+        }
+
+        public static int locale_islower(int chr)
+        {
+            return Convert.ToInt32(Char.IsLower((char)chr));
+        }
+
+        public static int locale_isalpha(int chr)
+        {
+            return Convert.ToInt32(Char.IsLetter((char)chr));
+        }
+
+        public static int locale_isalnum(int chr)
+        {
+            return Convert.ToInt32(Char.IsLetterOrDigit((char)chr));
+        }
+
     }
 
 }

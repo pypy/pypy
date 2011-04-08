@@ -8,6 +8,8 @@ from pypy.rpython.lltypesystem.rclass import OBJECTPTR
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.error import TyperError
 
+from pypy.rpython.ootypesystem import ootype
+
 
 class SomeVRef(annmodel.SomeObject):
 
@@ -24,7 +26,10 @@ class SomeVRef(annmodel.SomeObject):
         return self.s_instance
 
     def rtyper_makerepr(self, rtyper):
-        return vrefrepr
+        if rtyper.type_system.name == 'lltypesystem':
+            return vrefrepr
+        elif rtyper.type_system.name == 'ootypesystem':
+            return oovrefrepr
 
     def rtyper_makekey(self):
         return self.__class__,
@@ -54,4 +59,20 @@ class VRefRepr(Repr):
                              " prebuilt virtual_ref")
         return lltype.nullptr(OBJECTPTR.TO)
 
+from pypy.rpython.ootypesystem.rclass import OBJECT
+
+class OOVRefRepr(VRefRepr):
+    lowleveltype = OBJECT
+    def rtype_simple_call(self, hop):
+        [v] = hop.inputargs(self)
+        v = hop.genop('jit_force_virtual', [v], resulttype = OBJECT)
+        return hop.genop('oodowncast', [v], resulttype = hop.r_result)
+    
+    def convert_const(self, value):
+        if value() is not None:
+            raise TypeError("only supports virtual_ref_None as a"
+                            " prebuilt virtual_ref")
+        return ootype.ROOT._null
+
 vrefrepr = VRefRepr()
+oovrefrepr = OOVRefRepr()

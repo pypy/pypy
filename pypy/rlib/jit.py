@@ -457,6 +457,12 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
 
+    def get_getfield_op(self, rtyper):
+        if rtyper.type_system.name == 'ootypesystem':
+            return 'oogetfield'
+        else:
+            return 'getfield'
+
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
         # of the variables are the same for each of the calls.
@@ -471,8 +477,8 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 r_green = hop.args_r[i]
                 v_green = hop.inputarg(r_green, arg=i)
             else:
-                if hop.rtyper.type_system.name == 'ootypesystem':
-                    py.test.skip("lltype only")
+                #if hop.rtyper.type_system.name == 'ootypesystem':
+                    #py.test.skip("lltype only")
                 objname, fieldname = name.split('.')   # see test_green_field
                 assert objname in driver.reds
                 i = kwds_i['i_' + objname]
@@ -488,7 +494,10 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                         "field %r not found in %r" % (name,
                                                       r_red.lowleveltype.TO))
                     r_red = r_red.rbase
-                GTYPE = r_red.lowleveltype.TO
+                if hop.rtyper.type_system.name == 'ootypesystem':
+                    GTYPE = r_red.lowleveltype
+                else:
+                    GTYPE = r_red.lowleveltype.TO
                 assert GTYPE._immutable_field(mangled_name), (
                     "field %r must be declared as immutable" % name)
                 if not hasattr(driver, 'll_greenfields'):
@@ -497,7 +506,8 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 #
                 v_red = hop.inputarg(r_red, arg=i)
                 c_llname = hop.inputconst(lltype.Void, mangled_name)
-                v_green = hop.genop('getfield', [v_red, c_llname],
+                getfield_op = self.get_getfield_op(hop.rtyper)
+                v_green = hop.genop(getfield_op, [v_red, c_llname],
                                     resulttype = r_field)
                 s_green = s_red.classdef.about_attribute(fieldname)
                 assert s_green is not None
