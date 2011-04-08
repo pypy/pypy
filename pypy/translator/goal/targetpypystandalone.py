@@ -105,12 +105,6 @@ class PyPyTarget(object):
         return parser
 
     def handle_config(self, config, translateconfig):
-        if config.translation.type_system == 'ootype':
-            print
-            print 'Translation to cli and jvm is known to be broken at the moment'
-            print 'Please try the "cli-jit" branch at:'
-            print 'http://codespeak.net/svn/pypy/branch/cli-jit/'
-
         self.translateconfig = translateconfig
         # set up the objspace optimizations based on the --opt argument
         from pypy.config.pypyoption import set_pypy_opt_level
