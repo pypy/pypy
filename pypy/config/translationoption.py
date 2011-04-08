@@ -343,7 +343,11 @@ OPT_TABLE = {
     }
 
 def final_check_config(config):
-    pass
+    # XXX: this should be a real config option, but it is hard to refactor it;
+    # instead, we "just" patch it from here
+    from pypy.rlib import rfloat
+    if config.translation.type_system == 'ootype':
+        rfloat.USE_SHORT_FLOAT_REPR = False
 
 def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.

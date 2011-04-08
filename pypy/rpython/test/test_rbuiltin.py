@@ -496,6 +496,13 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(llf, [rffi.r_short(123)], policy=LowLevelAnnotatorPolicy())
         assert res == 123
 
+    def test_force_cast(self):
+        def llfn(v):
+            return rffi.cast(rffi.SHORT, v)
+        res = self.interpret(llfn, [0x12345678])
+        assert res == 0x5678
+
+
 class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
 
     def test_isinstance_obj(self):

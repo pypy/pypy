@@ -114,6 +114,12 @@ class Lock(object):
     def __del__(self):
         free_ll_lock(self._lock)
 
+    def __enter__(self):
+        self.acquire(True)
+        
+    def __exit__(self, *args):
+        self.release()
+
 # ____________________________________________________________
 #
 # Stack size
