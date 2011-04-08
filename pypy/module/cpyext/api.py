@@ -400,21 +400,9 @@ PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
 # So we need a forward and backward mapping in our State instance
 PyObjectStruct = lltype.ForwardReference()
 PyObject = lltype.Ptr(PyObjectStruct)
-PyBufferProcs = lltype.ForwardReference()
 PyObjectFields = (("ob_refcnt", lltype.Signed), ("ob_type", PyTypeObjectPtr))
-def F(ARGS, RESULT=lltype.Signed):
-    return lltype.Ptr(lltype.FuncType(ARGS, RESULT))
-PyBufferProcsFields = (
-    ("bf_getreadbuffer", F([PyObject, lltype.Signed, rffi.VOIDPP])),
-    ("bf_getwritebuffer", F([PyObject, lltype.Signed, rffi.VOIDPP])),
-    ("bf_getsegcount", F([PyObject, rffi.INTP])),
-    ("bf_getcharbuffer", F([PyObject, lltype.Signed, rffi.CCHARPP])),
-# we don't support new buffer interface for now
-    ("bf_getbuffer", rffi.VOIDP),
-    ("bf_releasebuffer", rffi.VOIDP))
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
 cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
-cpython_struct('PyBufferProcs', PyBufferProcsFields, PyBufferProcs)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
 

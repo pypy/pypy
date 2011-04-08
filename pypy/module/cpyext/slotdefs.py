@@ -1,16 +1,18 @@
 import re
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import generic_cpy_call, cpython_api, PyObject
+from pypy.module.cpyext.api import (
+    cpython_api, generic_cpy_call, PyObject, Py_ssize_t)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
-    cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc)
+    cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, readbufferproc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.buffer import Buffer as W_Buffer
 from pypy.interpreter.argument import Arguments
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
@@ -192,6 +194,29 @@ def wrap_hashfunc(space, w_self, w_args, func):
     func_target = rffi.cast(hashfunc, func)
     check_num_args(space, w_args, 0)
     return space.wrap(generic_cpy_call(space, func_target, w_self))
+
+class CPyBuffer(W_Buffer):
+    # Similar to Py_buffer
+
+    def __init__(self, ptr, size, w_obj):
+        self.ptr = ptr
+        self.size = size
+        self.w_obj = w_obj # kept alive
+
+    def getlength(self):
+        return self.size
+
+    def getitem(self, index):
+        return self.ptr[index]
+
+def wrap_getreadbuffer(space, w_self, w_args, func):
+    func_target = rffi.cast(readbufferproc, func)
+    with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
+        index = rffi.cast(Py_ssize_t, 0)
+        size = generic_cpy_call(space, func_target, w_self, index, ptr)
+        if size < 0:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.wrap(CPyBuffer(ptr[0], size, w_self))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -589,12 +614,19 @@ slotdef_replacements = (
 for regex, repl in slotdef_replacements:
     slotdefs_str = re.sub(regex, repl, slotdefs_str)
 
+slotdefs = eval(slotdefs_str)
+# PyPy addition
+slotdefs += (
+    TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+)
+
 slotdefs_for_tp_slots = unrolling_iterable(
     [(x.method_name, x.slot_name, x.slot_names, x.slot_func)
-     for x in eval(slotdefs_str)])
+     for x in slotdefs])
+
 slotdefs_for_wrappers = unrolling_iterable(
     [(x.method_name, x.slot_names, x.wrapper_func, x.wrapper_func_kwds, x.doc)
-     for x in eval(slotdefs_str)])
+     for x in slotdefs])
 
 if __name__ == "__main__":
     print slotdefs_str
