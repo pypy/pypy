@@ -43,13 +43,8 @@ def oo_rstring_to_float(s):
     lls = oostr(s)
     return ootype.ooparse_float(lls)
 
-def ll_rstring_to_float(lls):
-    from pypy.rpython.annlowlevel import hlstr
-    s = hlstr(lls)
-    return rstring_to_float_impl(s)
-
-register_external(rstring_to_float, [SomeString(can_be_None=True)], float,
-                  llimpl=ll_rstring_to_float,
+register_external(rstring_to_float, [SomeString(can_be_None=False)], float,
+                  llimpl=rstring_to_float_impl,
                   ooimpl=oo_rstring_to_float)
 
 
