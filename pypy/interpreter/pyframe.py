@@ -54,7 +54,7 @@ class PyFrame(eval.Frame):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.pycode = code
-        eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
+        eval.Frame.__init__(self, space, w_globals)
         self.valuestack_w = [None] * code.co_stacksize
         self.valuestackdepth = 0
         self.lastblock = None
@@ -63,7 +63,7 @@ class PyFrame(eval.Frame):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         self.initialize_frame_scopes(closure, code)
-        self.fastlocals_w = [None]*self.numlocals
+        self.fastlocals_w = [None] * code.co_nlocals
         make_sure_not_resized(self.fastlocals_w)
         self.f_lineno = code.co_firstlineno
 
@@ -430,7 +430,10 @@ class PyFrame(eval.Frame):
         """Initialize cellvars from self.fastlocals_w
         This is overridden in nestedscope.py"""
         pass
-    
+
+    def getfastscopelength(self):
+        return self.pycode.co_nlocals
+
     def getclosure(self):
         return None
 
