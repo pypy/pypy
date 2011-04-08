@@ -205,6 +205,10 @@ def get_richcmp_func(OP_CONST):
 
 richcmp_eq = get_richcmp_func(Py_EQ)
 richcmp_ne = get_richcmp_func(Py_NE)
+richcmp_lt = get_richcmp_func(Py_LT)
+richcmp_le = get_richcmp_func(Py_LE)
+richcmp_gt = get_richcmp_func(Py_GT)
+richcmp_ge = get_richcmp_func(Py_GE)
 
 @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=False)
 def slot_tp_new(space, type, w_args, w_kwds):
