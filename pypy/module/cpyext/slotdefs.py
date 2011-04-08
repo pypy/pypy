@@ -6,7 +6,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
-    hashfunc, descrgetfunc, descrsetfunc, objobjproc)
+    cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -197,10 +197,9 @@ def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
         func_target = rffi.cast(richcmpfunc, func)
         check_num_args(space, w_args, 1)
-        args_w = space.fixedview(w_args)
-        other_w = args_w[0]
+        w_other, = space.fixedview(w_args)
         return generic_cpy_call(space, func_target,
-            w_self, other_w, rffi.cast(rffi.INT_real, OP_CONST))
+            w_self, w_other, rffi.cast(rffi.INT_real, OP_CONST))
     return inner
 
 richcmp_eq = get_richcmp_func(Py_EQ)
@@ -209,6 +208,21 @@ richcmp_lt = get_richcmp_func(Py_LT)
 richcmp_le = get_richcmp_func(Py_LE)
 richcmp_gt = get_richcmp_func(Py_GT)
 richcmp_ge = get_richcmp_func(Py_GE)
+
+def wrap_cmpfunc(space, w_self, w_args, func):
+    func_target = rffi.cast(cmpfunc, func)
+    check_num_args(space, w_args, 1)
+    w_other, = space.fixedview(w_args)
+
+    if not space.is_true(space.issubtype(space.type(w_self),
+                                         space.type(w_other))):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "%s.__cmp__(x,y) requires y to be a '%s', not a '%s'" %
+            space.type(w_self).getname(space),
+            space.type(w_self).getname(space),
+            space.type(w_other).getname(space)))
+
+    return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
 
 @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=False)
 def slot_tp_new(space, type, w_args, w_kwds):

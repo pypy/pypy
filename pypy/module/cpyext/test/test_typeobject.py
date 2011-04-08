@@ -213,6 +213,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
         assert cmpr.__le__(4) is NotImplemented
 
+    def test_tpcompare(self):
+        module = self.import_module("comparisons")
+        cmpr = module.OldCmpType()
+        assert cmpr < cmpr
+
     def test_hash(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
