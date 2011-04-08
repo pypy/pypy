@@ -4960,6 +4960,58 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         p2 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, i1, descr=nextdescr)
         """
+        py.test.skip("no test here")
+
+    def test_immutable_not(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_noimmut_vtable))
+        setfield_gc(p0, 42, descr=noimmut_intval)
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_variable(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p0, i0, descr=immut_intval)
+        escape(p0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_incomplete(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_constantfold(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p0, 1242, descr=immut_intval)
+        escape(p0)
+        jump()
+        """
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        class IntObj1242(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(self, other):
+                return other.container.intval == 1242
+        self.namespace['intobj1242'] = lltype._ptr(llmemory.GCREF,
+                                                   IntObj1242())
+        expected = """
+        []
+        escape(ConstPtr(intobj1242))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble=None):

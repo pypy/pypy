@@ -4,6 +4,8 @@ from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
 from pypy.jit.metainterp.optimizeutil import descrlist_dict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.optimizeopt import optimizer
+from pypy.jit.metainterp.executor import execute
+from pypy.jit.codewriter.heaptracker import vtable2descr
 
 
 class AbstractVirtualValue(optimizer.OptValue):
@@ -72,28 +74,53 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         assert isinstance(fieldvalue, optimizer.OptValue)
         self._fields[ofs] = fieldvalue
 
+    def _get_descr(self):
+        raise NotImplementedError
+
+    def _is_immutable_and_filled_with_constants(self):
+        count = self._get_descr().count_fields_if_immutable()
+        if count != len(self._fields):    # always the case if count == -1
+            return False
+        for value in self._fields.itervalues():
+            subbox = value.force_box()
+            if not isinstance(subbox, Const):
+                return False
+        return True
+
     def _really_force(self):
-        assert self.source_op is not None
+        op = self.source_op
+        assert op is not None
         # ^^^ This case should not occur any more (see test_bug_3).
         #
         if not we_are_translated():
-            self.source_op.name = 'FORCE ' + self.source_op.name
-        newoperations = self.optimizer.newoperations
-        newoperations.append(self.source_op)
-        self.box = box = self.source_op.result
-        #
-        iteritems = self._fields.iteritems()
-        if not we_are_translated(): #random order is fine, except for tests
-            iteritems = list(iteritems)
-            iteritems.sort(key = lambda (x,y): x.sort_key())
-        for ofs, value in iteritems:
-            if value.is_null():
-                continue
-            subbox = value.force_box()
-            op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
-                              descr=ofs)
+            op.name = 'FORCE ' + self.source_op.name
+
+        if self._is_immutable_and_filled_with_constants():
+            box = self.optimizer.constant_fold(op)
+            self.make_constant(box)
+            for ofs, value in self._fields.iteritems():
+                subbox = value.force_box()
+                assert isinstance(subbox, Const)
+                execute(self.optimizer.cpu, None, rop.SETFIELD_GC,
+                        ofs, box, subbox)
+            # keep self._fields, because it's all immutable anyway
+        else:
+            newoperations = self.optimizer.newoperations
             newoperations.append(op)
-        self._fields = None
+            self.box = box = op.result
+            #
+            iteritems = self._fields.iteritems()
+            if not we_are_translated(): #random order is fine, except for tests
+                iteritems = list(iteritems)
+                iteritems.sort(key = lambda (x,y): x.sort_key())
+            for ofs, value in iteritems:
+                if value.is_null():
+                    continue
+                subbox = value.force_box()
+                op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
+                                  descr=ofs)
+                newoperations.append(op)
+            self._fields = None
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
@@ -168,6 +195,9 @@ class VirtualValue(AbstractVirtualStructValue):
         fielddescrs = self._get_field_descr_list()
         return modifier.make_virtual(self.known_class, fielddescrs)
 
+    def _get_descr(self):
+        return vtable2descr(self.optimizer.cpu, self.known_class.getint())
+
     def __repr__(self):
         cls_name = self.known_class.value.adr.ptr._obj._TYPE._name
         if self._fields is None:
@@ -184,6 +214,9 @@ class VStructValue(AbstractVirtualStructValue):
     def _make_virtual(self, modifier):
         fielddescrs = self._get_field_descr_list()
         return modifier.make_vstruct(self.structdescr, fielddescrs)
+
+    def _get_descr(self):
+        return self.structdescr
 
 class VArrayValue(AbstractVirtualValue):
 
