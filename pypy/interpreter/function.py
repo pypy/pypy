@@ -28,7 +28,9 @@ class Defaults(object):
         self.items = items
 
     def getitems(self):
-        return jit.hint(self, promote=True).items
+        ## XXX! we would like: return jit.hint(self, promote=True).items
+        ## XXX! but it gives horrible performance in some cases
+        return self.items
 
     def getitem(self, idx):
         return self.getitems()[idx]
