@@ -168,6 +168,9 @@ localeconv = external('localeconv', [], _lconv)
 
 def numeric_formatting():
     """Specialized function to get formatting for numbers"""
+    return numeric_formatting_impl()
+
+def numeric_formatting_impl():
     conv = localeconv()
     decimal_point = rffi.charp2str(conv.c_decimal_point)
     thousands_sep = rffi.charp2str(conv.c_thousands_sep)
@@ -178,6 +181,7 @@ def oo_numeric_formatting():
     return '.', '', ''
 
 register_external(numeric_formatting, [], (str, str, str),
+                  llimpl=numeric_formatting_impl,
                   ooimpl=oo_numeric_formatting)
 
 
