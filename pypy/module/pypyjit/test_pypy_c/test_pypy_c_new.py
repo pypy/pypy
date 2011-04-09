@@ -1010,6 +1010,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_func_defaults(self):
+        py.test.skip("skipped until we fix defaults")
         def main(n):
             i = 1
             while i < n:
