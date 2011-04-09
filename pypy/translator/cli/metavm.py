@@ -284,18 +284,24 @@ INT_SIZE = {
 UNSIGNED_TYPES = [ootype.Char, ootype.UniChar, rffi.USHORT,
                   ootype.Unsigned, ootype.UnsignedLongLong]
 
+def ootype_to_mnemonic(FROM, TO, default=None):
+    if TO == ootype.Float:
+        return 'r8'
+    #
+    try:
+        size = str(INT_SIZE[TO])
+    except KeyError:
+        return default
+    if FROM in UNSIGNED_TYPES:
+        return 'u' + size
+    else:
+        return 'i' + size
+
 class _CastPrimitive(MicroInstruction):
     def render(self, generator, op):
         FROM = op.args[0].concretetype
         TO = op.result.concretetype
-        if TO == ootype.Float:
-            mnemonic = 'r8'
-        else:
-            if FROM in UNSIGNED_TYPES:
-                mnemonic = 'u'
-            else:
-                mnemonic = 'i'
-            mnemonic += str(INT_SIZE[TO])
+        mnemonic = ootype_to_mnemonic(FROM, TO)
         generator.ilasm.opcode('conv.%s' % mnemonic)
 
 Call = _Call()
