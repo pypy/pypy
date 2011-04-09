@@ -415,12 +415,10 @@ def graph_footprint(graph):
         ops = 0
     count = Counter()
     def visit(block):
-        if isinstance(block, flowmodel.Block):
+    for block in graph.iterblocks():
             count.blocks += 1
             count.ops += len(block.operations)
-        elif isinstance(block, flowmodel.Link):
-            count.links += 1
-    flowmodel.traverse(visit, graph)
+    count.links = len(list(graph.iterlinks()))
     return count.blocks, count.links, count.ops
 
 # better used before backends opts

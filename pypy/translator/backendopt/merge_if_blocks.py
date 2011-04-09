@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import Block, Constant, Variable, flatten
+from pypy.objspace.flow.model import Block, Constant, Variable
 from pypy.objspace.flow.model import checkgraph, mkentrymap
 from pypy.translator.backendopt.support import log
 
@@ -75,14 +75,19 @@ def merge_if_blocks_once(graph):
             # False link
             checkvar = [var for var in current.operations[-1].args
                            if isinstance(var, Variable)][0]
+            resvar = current.operations[-1].result
             case = [var for var in current.operations[-1].args
                        if isinstance(var, Constant)][0]
-            chain.append((current, case))
             checkvars.append(checkvar)
             falseexit = current.exits[0]
             assert not falseexit.exitcase
             trueexit = current.exits[1]
             targetblock = falseexit.target
+            # if the result of the check is also passed through the link, we
+            # cannot construct the chain
+            if resvar in falseexit.args or resvar in trueexit.args:
+                break
+            chain.append((current, case))
             if len(entrymap[targetblock]) != 1:
                 break
             if checkvar not in falseexit.args:

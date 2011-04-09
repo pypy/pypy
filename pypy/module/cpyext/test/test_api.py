@@ -61,6 +61,12 @@ class BaseApiTest(LeakCheckingTest):
         except OperationError, e:
             print e.errorstr(self.space)
             raise
+
+        try:
+            del self.space.getexecutioncontext().cpyext_threadstate
+        except AttributeError:
+            pass
+
         if self.check_and_print_leaks():
             assert False, "Test leaks or loses object(s)."
 

@@ -79,7 +79,8 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want the included JIT
-   compiler.  As of March 2011, Intel **32-bit** environment needs ``4GB``.
+   compiler.  As of March 2011, Intel 32-bit environment needs **at
+   least** 2GB, and 64-bit needs 4GB.
 
 .. _`optimization level`: config/opt.html
 

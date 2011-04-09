@@ -138,11 +138,13 @@ class __extend__(pyframe.PyFrame):
                 # raised after the exception handler block was popped.
                 try:
                     trace = self.w_f_trace
-                    self.w_f_trace = None
+                    if trace is not None:
+                        self.w_f_trace = None
                     try:
                         ec.bytecode_trace_after_exception(self)
                     finally:
-                        self.w_f_trace = trace
+                        if trace is not None:
+                            self.w_f_trace = trace
                 except OperationError, e:
                     operr = e
             pytraceback.record_application_traceback(
@@ -1421,9 +1423,10 @@ app = gateway.applevel(r'''
 
         # add a softspace unless we just printed a string which ends in a '\t'
         # or '\n' -- or more generally any whitespace character but ' '
-        if isinstance(x, str) and x and x[-1].isspace() and x[-1]!=' ':
-            return
-        # XXX add unicode handling
+        if isinstance(x, (str, unicode)) and x:
+            lastchar = x[-1]
+            if lastchar.isspace() and lastchar != ' ':
+                return
         file_softspace(stream, True)
     print_item_to._annspecialcase_ = "specialize:argtype(0)"
 

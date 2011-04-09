@@ -206,3 +206,8 @@ def test_mov_rm_negative_64():
     s = CodeBuilder64()
     s.MOV_rm(edx, (edi, -1))
     assert s.getvalue() == '\x48\x8B\x57\xFF'
+
+def test_movsd_xj_64():
+    s = CodeBuilder64()
+    s.MOVSD_xj(xmm2, 0x01234567)
+    assert s.getvalue() == '\xF2\x0F\x10\x14\x25\x67\x45\x23\x01'

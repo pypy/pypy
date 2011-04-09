@@ -91,9 +91,10 @@ if sys.platform == 'linux2' or 'freebsd' in sys.platform:
 else:
     # XXX that's slow
     def case_ok(filename):
-        index1 = filename.rfind(os.sep)
-        index2 = filename.rfind(os.altsep)
-        index = max(index1, index2)
+        index = filename.rfind(os.sep)
+        if os.altsep is not None:
+            index2 = filename.rfind(os.altsep)
+            index = max(index, index2)
         if index < 0:
             directory = os.curdir
         else:

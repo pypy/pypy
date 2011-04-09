@@ -194,8 +194,8 @@ class TestString(BaseApiTest):
         c_buf = py_str.c_ob_type.c_tp_as_buffer
         assert c_buf
         py_obj = rffi.cast(PyObject, py_str)
-        assert c_buf.c_bf_getsegcount(py_obj, lltype.nullptr(rffi.INTP.TO)) == 1
-        ref = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        assert c_buf.c_bf_getsegcount(py_obj, lltype.nullptr(Py_ssize_tP.TO)) == 1
+        ref = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
         assert c_buf.c_bf_getsegcount(py_obj, ref) == 1
         assert ref[0] == 10
         lltype.free(ref, flavor='raw')
