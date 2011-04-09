@@ -21,7 +21,7 @@ if sys.platform == "win32":
         export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
                         '_pypy_math_atanh',
                         '_pypy_math_expm1', '_pypy_math_log1p',
-                        '_pypy_math_isinf', '_pypy_math_isnan'],
+                        '_pypy_math_isinf'],
         )
     math_prefix = '_pypy_math_'
 else:
@@ -58,7 +58,6 @@ math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_isinf = math_llexternal('isinf', [rffi.DOUBLE], rffi.INT)
-math_isnan = math_llexternal('isnan', [rffi.DOUBLE], rffi.INT)
 
 # ____________________________________________________________
 #
@@ -91,9 +90,10 @@ def _likely_raise(errno, x):
 #
 # Custom implementations
 
-@jit.purefunction
 def ll_math_isnan(y):
-    return bool(math_isnan(y))
+    # By not calling into the extenal function the JIT can inline this.  Floats
+    # are awesome.
+    return y != y
 
 @jit.purefunction
 def ll_math_isinf(y):
