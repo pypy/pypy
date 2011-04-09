@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
+    cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     build_type_checkers)
@@ -361,14 +361,14 @@ def subtype_dealloc(space, obj):
     # hopefully this does not clash with the memory model assumed in
     # extension modules
 
-@cpython_api([PyObject, rffi.INTP], lltype.Signed, external=False,
+@cpython_api([PyObject, Py_ssize_tP], lltype.Signed, external=False,
              error=CANNOT_FAIL)
 def str_segcount(space, w_obj, ref):
     if ref:
-        ref[0] = rffi.cast(rffi.INT, space.len_w(w_obj))
+        ref[0] = space.len_w(w_obj)
     return 1
 
-@cpython_api([PyObject, lltype.Signed, rffi.VOIDPP], lltype.Signed,
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              external=False, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.stringobject import PyString_AsString
@@ -381,7 +381,7 @@ def str_getreadbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
-@cpython_api([PyObject, lltype.Signed, rffi.CCHARPP], lltype.Signed,
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              external=False, error=-1)
 def str_getcharbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.stringobject import PyString_AsString
