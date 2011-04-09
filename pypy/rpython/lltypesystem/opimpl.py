@@ -227,6 +227,14 @@ def op_int_or(x, y):
     assert isinstance(y, int)
     return x | y
 
+def op_int_xor(x, y):
+    # used in computing hashes
+    if isinstance(x, AddressAsInt): x = llmemory.cast_adr_to_int(x.adr)
+    if isinstance(y, AddressAsInt): y = llmemory.cast_adr_to_int(y.adr)
+    assert isinstance(x, int)
+    assert isinstance(y, int)
+    return x ^ y
+
 def op_int_mul(x, y):
     assert isinstance(x, (int, llmemory.AddressOffset))
     assert isinstance(y, (int, llmemory.AddressOffset))

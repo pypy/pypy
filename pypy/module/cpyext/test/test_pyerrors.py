@@ -68,7 +68,7 @@ class TestExceptions(BaseApiTest):
         api.PyErr_NoMemory()
         assert space.eq_w(state.operror.w_type, space.w_MemoryError)
         api.PyErr_Clear()
-        
+
     def test_BadArgument(self, space, api):
         api.PyErr_BadArgument()
         state = space.fromcache(State)
@@ -88,6 +88,17 @@ class TestExceptions(BaseApiTest):
         out, err = capfd.readouterr()
         assert "cpyext is cool" in err
         assert not api.PyErr_Occurred()
+
+    def test_WriteUnraisable(self, space, api, capfd):
+        api.PyErr_SetObject(space.w_ValueError, space.wrap("message"))
+        w_where = space.wrap("location")
+        api.PyErr_WriteUnraisable(w_where)
+        out, err = capfd.readouterr()
+        assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
+
+    def test_ExceptionInstance_Class(self, space, api):
+        instance = space.call_function(space.w_ValueError)
+        assert api.PyExceptionInstance_Class(instance) is space.w_ValueError
 
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):

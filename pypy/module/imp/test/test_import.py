@@ -6,6 +6,7 @@ import pypy.interpreter.pycode
 from pypy.tool.udir import udir
 from pypy.rlib import streamio
 from pypy.conftest import gettestobjspace
+import pytest
 import sys, os
 import tempfile, marshal
 
@@ -49,7 +50,8 @@ def setup_directory_structure(space):
              absolute   = "from __future__ import absolute_import\nimport string",
              relative_b = "from __future__ import absolute_import\nfrom . import string",
              relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
-             relative_f = "from .os import sep",
+             relative_f = "from .imp import get_magic",
+             relative_g = "import imp; from .imp import get_magic",
              )
     setuppkg("pkg.pkg1", 
              a          = '',
@@ -107,6 +109,14 @@ def setup_directory_structure(space):
             # also create a lone .pyc file
             p.join('lone.pyc').write(p.join('x.pyc').read(mode='rb'),
                                      mode='wb')
+
+    # create a .pyw file
+    p = setuppkg("windows", x = "x = 78")
+    try:
+        p.join('x.pyw').remove()
+    except py.error.ENOENT:
+        pass
+    p.join('x.py').rename(p.join('x.pyw'))
 
     return str(root)
 
@@ -175,6 +185,14 @@ class AppTestImport:
         a0 = a
         import a
         assert a == a0
+
+    def test_trailing_slash(self):
+        import sys
+        try:
+            sys.path[0] += '/'
+            import a
+        finally:
+            sys.path[0] = sys.path[0].rstrip('/')
 
     def test_import_pkg(self):
         import sys
@@ -324,6 +342,11 @@ class AppTestImport:
         import compiled.x
         assert compiled.x == sys.modules.get('compiled.x')
 
+    @pytest.mark.skipif("sys.platform != 'win32'")
+    def test_pyw(self):
+        import windows.x
+        assert windows.x.__file__.endswith('x.pyw')
+
     def test_cannot_write_pyc(self):
         import sys, os
         p = os.path.join(sys.path[-1], 'readonly')
@@ -359,7 +382,13 @@ class AppTestImport:
         def imp():
             from pkg import relative_f
         exc = raises(ImportError, imp)
-        assert exc.value.message == "No module named pkg.os"
+        assert exc.value.message == "No module named pkg.imp"
+
+    def test_no_relative_import_bug(self):
+        def imp():
+            from pkg import relative_g
+        exc = raises(ImportError, imp)
+        assert exc.value.message == "No module named pkg.imp"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
@@ -978,7 +1007,8 @@ class AppTestImportHooks(object):
 
 class AppTestPyPyExtension(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['imp', 'zipimport'])
+        cls.space = gettestobjspace(usemodules=['imp', 'zipimport',
+                                                '__pypy__'])
         cls.w_udir = cls.space.wrap(str(udir))
 
     def test_run_compiled_module(self):

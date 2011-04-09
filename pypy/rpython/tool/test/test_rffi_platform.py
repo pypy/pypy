@@ -5,7 +5,8 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, isnan
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rfloat import isnan
 
 def import_ctypes():
     try:

@@ -190,8 +190,16 @@ type(name, bases, dict) -> a new type""")
         return space.get(w_result, space.w_None, w_type)
 
 def descr__flags(space, w_type):
+    from copy_reg import _HEAPTYPE
+    _CPYTYPE = 1 # used for non-heap types defined in C
+    _ABSTRACT = 1 << 20
+    #
     w_type = _check(space, w_type)
-    return space.wrap(w_type.__flags__)
+    flags = 0
+    if w_type.flag_heaptype: flags |= _HEAPTYPE
+    if w_type.flag_cpytype:  flags |= _CPYTYPE
+    if w_type.flag_abstract: flags |= _ABSTRACT
+    return space.wrap(flags)
 
 def descr_get__module(space, w_type):
     w_type = _check(space, w_type)

@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.runicode import UNICHR
-from pypy.rlib.rarithmetic import isnan, isinf, round_double
+from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
 import math
 import __builtin__

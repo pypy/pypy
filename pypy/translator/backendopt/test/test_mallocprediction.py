@@ -4,7 +4,7 @@ from pypy.translator.backendopt import inline
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.objspace.flow.model import checkgraph, flatten, Block
+from pypy.objspace.flow.model import checkgraph, Block
 from pypy.conftest import option
 import sys
 

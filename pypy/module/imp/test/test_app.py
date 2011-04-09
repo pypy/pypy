@@ -1,3 +1,4 @@
+from __future__ import with_statement
 MARKER = 42
 
 class AppTestImpModule:
@@ -34,7 +35,8 @@ class AppTestImpModule:
 
     def test_load_dynamic(self):
         raises(ImportError, self.imp.load_dynamic, 'foo', 'bar')
-        raises(ImportError, self.imp.load_dynamic, 'foo', 'bar', 'baz.so')
+        raises(ImportError, self.imp.load_dynamic, 'foo', 'bar',
+               open(self.file_module))
 
     def test_suffixes(self):
         for suffix, mode, type in self.imp.get_suffixes():
@@ -138,3 +140,58 @@ class AppTestImpModule:
         )
         # Doesn't end up in there when run with -A
         assert sys.path_importer_cache.get(lib_pypy) is None
+
+    def test_rewrite_pyc_check_code_name(self):
+        # This one is adapted from cpython's Lib/test/test_import.py
+        from os import chmod
+        from os.path import join
+        from sys import modules, path
+        from shutil import rmtree
+        from tempfile import mkdtemp
+        code = """if 1:
+            import sys
+            code_filename = sys._getframe().f_code.co_filename
+            module_filename = __file__
+            constant = 1
+            def func():
+                pass
+            func_filename = func.func_code.co_filename
+            """
+
+        module_name = "unlikely_module_name"
+        dir_name = mkdtemp(prefix='pypy_test')
+        file_name = join(dir_name, module_name + '.py')
+        with open(file_name, "wb") as f:
+            f.write(code)
+        compiled_name = file_name + ("c" if __debug__ else "o")
+        chmod(file_name, 0777)
+
+        # Setup
+        sys_path = path[:]
+        orig_module = modules.pop(module_name, None)
+        assert modules.get(module_name) == None
+        path.insert(0, dir_name)
+
+        # Test
+        import py_compile
+        py_compile.compile(file_name, dfile="another_module.py")
+        __import__(module_name, globals(), locals())
+        mod = modules.get(module_name)
+
+        try:
+            # Ensure proper results
+            assert mod != orig_module
+            assert mod.module_filename == compiled_name
+            assert mod.code_filename == file_name
+            assert mod.func_filename == file_name
+        finally:
+            # TearDown
+            path[:] = sys_path
+            if orig_module is not None:
+                modules[module_name] = orig_module
+            else:
+                try:
+                    del modules[module_name]
+                except KeyError:
+                    pass
+            rmtree(dir_name, True)

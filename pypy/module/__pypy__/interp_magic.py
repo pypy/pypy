@@ -3,6 +3,8 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
+from pypy.module._file.interp_file import W_File
+
 
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))

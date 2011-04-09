@@ -270,6 +270,30 @@ class AppTestInterpreter:
         finally:
             sys.stdout = save
 
+    def test_print_unicode(self):
+        import sys
+
+        save = sys.stdout
+        class Out(object):
+            def __init__(self):
+                self.data = []
+
+            def write(self, x):
+                self.data.append(x)
+        sys.stdout = out = Out()
+        try:
+            raises(UnicodeError, "print unichr(0xa2)")
+            assert out.data == []
+            out.encoding = "cp424"
+            print unichr(0xa2)
+            assert out.data == [unichr(0xa2).encode("cp424"), "\n"]
+            del out.data[:]
+            del out.encoding
+            print u"foo\t", u"bar\n", u"trick", u"baz\n"  # softspace handling
+            assert out.data == ["foo\t", "bar\n", "trick", " ", "baz\n", "\n"]
+        finally:
+            sys.stdout = save
+
     def test_identity(self):
         def f(x): return x
         assert f(666) == 666

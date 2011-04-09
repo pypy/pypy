@@ -39,7 +39,10 @@ def show_loop(metainterp_sd, loop=None, error=None):
 
 def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
-    return TreeLoop(name_prefix + name)
+    loop = TreeLoop(name_prefix + name)
+    loop.call_pure_results = metainterp.call_pure_results
+    return loop
+
 
 def make_loop_token(nb_args, jitdriver_sd):
     loop_token = LoopToken()
@@ -85,6 +88,8 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
+    from pypy.jit.metainterp.optimize import optimize_loop
+
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.inputargs = history.inputargs
@@ -105,8 +110,8 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
     loop.preamble.start_resumedescr = start_resumedescr
 
     try:
-        old_loop_token = jitdriver_sd.warmstate.optimize_loop(
-            metainterp_sd, old_loop_tokens, loop)
+        old_loop_token = optimize_loop(metainterp_sd, old_loop_tokens, loop,
+                                       jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
         return None
     if old_loop_token is not None:
@@ -377,7 +382,7 @@ class ResumeGuardDescr(ResumeDescr):
         send_bridge_to_backend(metainterp.staticdata, self, inputargs,
                                new_loop.operations, new_loop.token)
 
-    def copy_all_attrbutes_into(self, res):
+    def copy_all_attributes_into(self, res):
         # XXX a bit ugly to have to list them all here
         res.rd_snapshot = self.rd_snapshot
         res.rd_frame_info_list = self.rd_frame_info_list
@@ -388,13 +393,13 @@ class ResumeGuardDescr(ResumeDescr):
 
     def _clone_if_mutable(self):
         res = ResumeGuardDescr()
-        self.copy_all_attrbutes_into(res)
+        self.copy_all_attributes_into(res)
         return res
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
     def _clone_if_mutable(self):
         res = ResumeAtPositionDescr()
-        self.copy_all_attrbutes_into(res)
+        self.copy_all_attributes_into(res)
         return res
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
@@ -468,7 +473,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
     def _clone_if_mutable(self):
         res = ResumeGuardForcedDescr(self.metainterp_sd,
                                      self.jitdriver_sd)
-        self.copy_all_attrbutes_into(res)
+        self.copy_all_attributes_into(res)
         return res
 
 
@@ -570,6 +575,8 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
+    from pypy.jit.metainterp.optimize import optimize_bridge
+    
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
     #
@@ -586,10 +593,9 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     else:
         inline_short_preamble = True
     try:
-        target_loop_token = state.optimize_bridge(metainterp_sd,
-                                                  old_loop_tokens, new_loop,
-                                                  inline_short_preamble,
-                                                  retraced)
+        target_loop_token = optimize_bridge(metainterp_sd, old_loop_tokens,
+                                            new_loop, state.enable_opts,
+                                            inline_short_preamble, retraced)
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop

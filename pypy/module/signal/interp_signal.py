@@ -60,7 +60,8 @@ for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
 
 def external(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           sandboxsafe=True, **kwds)
 
 pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
 pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
@@ -144,6 +145,15 @@ class CheckSignalAction(PeriodicAsyncAction):
                     # running in another thread: we need to hack a bit
                     self.pending_signals[n] = None
                     self.reissue_signal_action.fire_after_thread_switch()
+
+    def set_interrupt(self):
+        "Simulates the effect of a SIGINT signal arriving"
+        n = cpy_signal.SIGINT
+        if self.reissue_signal_action is None:
+            self.report_signal(n)
+        else:
+            self.pending_signals[n] = None
+            self.reissue_signal_action.fire_after_thread_switch()
 
     def report_signal(self, n):
         try:

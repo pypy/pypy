@@ -429,6 +429,9 @@ class ThreadJoinOnShutdown(BaseTestCase):
             def joiningfunc(mainthread):
                 mainthread.join()
                 print 'end of thread'
+                # stdout is fully buffered because not a tty, we have to flush
+                # before exit.
+                sys.stdout.flush()
         \n""" + script
 
         import subprocess

@@ -24,8 +24,11 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
     # XXX fish
     t.driver.config.translation.countmallocs = True
     compiled_fn = t.compile_c()
-    if getattr(py.test.config.option, 'view', False):
-        t.view()
+    try:
+        if py.test.config.option.view:
+            t.view()
+    except AttributeError:
+        pass
     malloc_counters = t.driver.cbuilder.get_malloc_counters()
     def checking_fn(*args, **kwds):
         if 'expected_extra_mallocs' in kwds:
@@ -270,8 +273,7 @@ def test_infinite_float():
     assert res == 1.5
 
 def test_nan_and_special_values():
-    from pypy.translator.c.primitive import isnan, isinf
-    from pypy.rlib.rarithmetic import copysign
+    from pypy.rlib.rfloat import isnan, isinf, copysign
     inf = 1e300 * 1e300
     assert isinf(inf)
     nan = inf/inf

@@ -193,6 +193,9 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
         if space.is_w(space.type(w_s), space.w_unicode):
             return w_s
 
+    return _unicode_join_many_items(space, w_self, list_w, size)
+
+def _unicode_join_many_items(space, w_self, list_w, size):
     self = w_self._value
     sb = UnicodeBuilder()
     for i in range(size):

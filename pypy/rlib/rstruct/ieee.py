@@ -4,7 +4,7 @@ Packing and unpacking of floats in the IEEE 32-bit and 64-bit formats.
 
 import math
 
-from pypy.rlib import rarithmetic, objectmodel
+from pypy.rlib import rarithmetic, rfloat, objectmodel
 from pypy.rlib.rarithmetic import r_ulonglong
 
 
@@ -58,7 +58,7 @@ def float_unpack(Q, size):
 
     if exp == MAX_EXP - MIN_EXP + 2:
         # nan or infinity
-        result = rarithmetic.NAN if mant else rarithmetic.INFINITY
+        result = rfloat.NAN if mant else rfloat.INFINITY
     elif exp == 0:
         # subnormal or zero
         result = math.ldexp(mant, MIN_EXP - MANT_DIG)
@@ -86,11 +86,11 @@ def float_pack(x, size):
     else:
         raise ValueError("invalid size value")
 
-    sign = rarithmetic.copysign(1.0, x) < 0.0
-    if rarithmetic.isinf(x):
+    sign = rfloat.copysign(1.0, x) < 0.0
+    if rfloat.isinf(x):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2
-    elif rarithmetic.isnan(x):
+    elif rfloat.isnan(x):
         mant = r_ulonglong(1) << (MANT_DIG-2) # other values possible
         exp = MAX_EXP - MIN_EXP + 2
     elif x == 0.0:

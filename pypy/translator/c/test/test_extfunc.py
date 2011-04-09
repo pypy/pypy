@@ -262,8 +262,8 @@ def test_time_time():
     assert t0 <= res <= t1
 
 
-def test_rarith_parts_to_float():
-    from pypy.rlib.rarithmetic import parts_to_float
+def test_parts_to_float():
+    from pypy.rlib.rfloat import parts_to_float
     def fn(sign, beforept, afterpt, exponent):
         return parts_to_float(sign, beforept, afterpt, exponent)
 
@@ -281,8 +281,8 @@ def test_rarith_parts_to_float():
     for parts, val in data:
         assert f(*parts) == val
 
-def test_rarith_formatd():
-    from pypy.rlib.rarithmetic import formatd
+def test_formatd():
+    from pypy.rlib.rfloat import formatd
     def fn(x):
         return formatd(x, 'f', 2, 0)
 
@@ -292,7 +292,7 @@ def test_rarith_formatd():
     assert f(1.5) == "1.50"
     assert f(2.0) == "2.00"
 
-def test_rarith_float_to_str():
+def test_float_to_str():
     def fn(f):
         return str(f)
     f = compile(fn, [float])

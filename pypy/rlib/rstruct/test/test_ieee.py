@@ -2,7 +2,7 @@ import py, sys
 import random
 import struct
 
-from pypy.rlib.rarithmetic import isnan
+from pypy.rlib.rfloat import isnan
 from pypy.rlib.rstruct.ieee import float_pack, float_unpack
 
 

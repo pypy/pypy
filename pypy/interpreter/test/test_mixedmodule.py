@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+import py.test
 
 
 class TestMixedModule(object):
@@ -31,6 +32,8 @@ class TestMixedModule(object):
         assert isinstance(self.space.builtin_modules["test_module.sub"], SubModule)
 
 class AppTestMixedModule(object):
+    pytestmark = py.test.mark.skipif("config.option.runappdirect")
+
     def setup_class(cls):
         space = cls.space
 

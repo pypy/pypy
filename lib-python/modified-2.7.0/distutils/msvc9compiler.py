@@ -644,6 +644,7 @@ class MSVCCompiler(CCompiler) :
             temp_manifest = os.path.join(
                     build_temp,
                     os.path.basename(output_filename) + ".manifest")
+            ld_args.append('/MANIFEST')
             ld_args.append('/MANIFESTFILE:' + temp_manifest)
 
             if extra_preargs:

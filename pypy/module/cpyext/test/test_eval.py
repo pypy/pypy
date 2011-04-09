@@ -63,6 +63,21 @@ class TestEval(BaseApiTest):
 
         assert space.int_w(w_res) == 10
 
+    def test_run_simple_string(self, space, api):
+        def run(code):
+            buf = rffi.str2charp(code)
+            try:
+                return api.PyRun_SimpleString(buf)
+            finally:
+                rffi.free_charp(buf)
+
+        assert 0 == run("42 * 43")
+        
+        assert -1 == run("4..3 * 43")
+        
+        assert api.PyErr_Occurred()
+        api.PyErr_Clear()
+        
     def test_run_string(self, space, api):
         def run(code, start, w_globals, w_locals):
             buf = rffi.str2charp(code)

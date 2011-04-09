@@ -10,10 +10,9 @@ class Module(MixedModule):
     }
 
     appleveldefs = {
-        '_conv_descriptor': 'app_fcntl._conv_descriptor',
         '__doc__': 'app_fcntl.__doc__'
     }
-    
+
     def buildloaders(cls):
         from pypy.module.fcntl import interp_fcntl
         for constant, value in interp_fcntl.constants.iteritems():

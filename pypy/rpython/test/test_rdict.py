@@ -578,6 +578,26 @@ class BaseTestRdict(BaseRtypingTest):
             res = self.interpret(fn, [3, 3])
             assert res == 123
 
+    def test_dict_popitem(self):
+        def func():
+            d = {}
+            d[5] = 2
+            d[6] = 3
+            k1, v1 = d.popitem()
+            assert len(d) == 1
+            k2, v2 = d.popitem()
+            try:
+                d.popitem()
+            except KeyError:
+                pass
+            else:
+                assert 0, "should have raised KeyError"
+            assert len(d) == 0
+            return k1*1000 + v1*100 + k2*10 + v2
+
+        res = self.interpret(func, [])
+        assert res in [5263, 6352]
+
 
 class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):
@@ -681,26 +701,6 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
             res = 0
         # if it does not crash, we are fine. It crashes if you forget the hash field.
         self.interpret(func, [])
-
-    def test_dict_popitem(self):
-        def func():
-            d = {}
-            d[5] = 2
-            d[6] = 3
-            k1, v1 = d.popitem()
-            assert len(d) == 1
-            k2, v2 = d.popitem()
-            try:
-                d.popitem()
-            except KeyError:
-                pass
-            else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
-            return k1*1000 + v1*100 + k2*10 + v2
-
-        res = self.interpret(func, [])
-        assert res in [5263, 6352]
 
     # ____________________________________________________________
 

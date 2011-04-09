@@ -2,7 +2,8 @@ import py
 import marshal
 from pypy.rlib.rmarshal import *
 from pypy.annotation import model as annmodel
-from pypy.rlib.rarithmetic import formatd, LONG_BIT
+from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.rfloat import formatd
 
 types_that_can_be_none = [
     [int],

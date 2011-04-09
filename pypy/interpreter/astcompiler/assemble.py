@@ -8,7 +8,7 @@ from pypy.tool import stdlib_opcode as ops
 
 from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import rarithmetic
+from pypy.rlib import rfloat
 
 
 class Instruction(object):
@@ -233,7 +233,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         w_type = space.type(obj)
         if space.is_w(w_type, space.w_float):
             val = space.float_w(obj)
-            if val == 0.0 and rarithmetic.copysign(1., val) < 0:
+            if val == 0.0 and rfloat.copysign(1., val) < 0:
                 w_key = space.newtuple([obj, space.w_float, space.w_None])
             else:
                 w_key = space.newtuple([obj, space.w_float])
@@ -243,9 +243,9 @@ class PythonCodeMaker(ast.ASTVisitor):
             real = space.float_w(w_real)
             imag = space.float_w(w_imag)
             real_negzero = (real == 0.0 and
-                            rarithmetic.copysign(1., real) < 0)
+                            rfloat.copysign(1., real) < 0)
             imag_negzero = (imag == 0.0 and
-                            rarithmetic.copysign(1., imag) < 0)
+                            rfloat.copysign(1., imag) < 0)
             if real_negzero and imag_negzero:
                 tup = [obj, space.w_complex, space.w_None, space.w_None,
                        space.w_None]

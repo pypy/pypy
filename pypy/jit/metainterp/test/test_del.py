@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
+from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 
@@ -76,7 +76,7 @@ class DelTests:
                 x += inst.foo
                 n -= 1
             return 1
-        res = self.meta_interp(f, [20], optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(f, [20], enable_opts='')
         assert res == 1
         self.check_loops(call=1)   # for the case B(), but not for the case A()
 

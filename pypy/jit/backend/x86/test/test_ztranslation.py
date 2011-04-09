@@ -1,6 +1,6 @@
 import py, os, sys
 from pypy.tool.udir import udir
-from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
+from pypy.rlib.jit import JitDriver, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.rlib.jit import hint
 from pypy.jit.metainterp.jitprof import Profiler
@@ -45,7 +45,7 @@ class TestTranslationX86(CCompiledMixin):
                               reds = ['total', 'frame', 'j'],
                               virtualizables = ['frame'])
         def f(i, j):
-            for param in unroll_parameters:
+            for param, _ in unroll_parameters:
                 defl = PARAMETERS[param]
                 jitdriver.set_param(param, defl)
             jitdriver.set_param("threshold", 3)
@@ -64,7 +64,7 @@ class TestTranslationX86(CCompiledMixin):
                 k = myabs(j)
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
-            return total * 10
+            return chr(total % 253)
         #
         from pypy.rpython.lltypesystem import lltype, rffi
         from pypy.rlib.libffi import types, CDLL, ArgChain
@@ -84,10 +84,12 @@ class TestTranslationX86(CCompiledMixin):
                 argchain.arg(x)
                 res = func.call(argchain, rffi.DOUBLE)
                 i -= 1
-            return int(res)
+            return res
         #
         def main(i, j):
-            return f(i, j) + libffi_stuff(i, j)
+            a_char = f(i, j)
+            a_float = libffi_stuff(i, j)
+            return ord(a_char) * 10 + int(a_float)
         expected = main(40, -49)
         res = self.meta_interp(main, [40, -49])
         assert res == expected
@@ -99,10 +101,10 @@ class TestTranslationX86(CCompiledMixin):
         class Thing(object):
             def __init__(self, val):
                 self.val = val
-        
+
         class Frame(object):
             _virtualizable2_ = ['thing']
-        
+
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
                            get_printable_location = lambda codeno: str(codeno))

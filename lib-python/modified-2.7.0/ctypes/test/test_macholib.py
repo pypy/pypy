@@ -52,7 +52,6 @@ class MachOTest(unittest.TestCase):
                                  '/usr/lib/libSystem.B.dylib')
 
             result = find_lib('z')
-            self.assertTrue(result.startswith('/usr/lib/libz.1'))
             self.assertTrue(result.endswith('.dylib'))
 
             self.assertEqual(find_lib('IOKit'),

@@ -138,11 +138,13 @@ class __extend__(pyframe.PyFrame):
                 # raised after the exception handler block was popped.
                 try:
                     trace = self.w_f_trace
-                    self.w_f_trace = None
+                    if trace is not None:
+                        self.w_f_trace = None
                     try:
                         ec.bytecode_trace_after_exception(self)
                     finally:
-                        self.w_f_trace = trace
+                        if trace is not None:
+                            self.w_f_trace = trace
                 except OperationError, e:
                     operr = e
             pytraceback.record_application_traceback(
@@ -538,11 +540,18 @@ class __extend__(pyframe.PyFrame):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
 
+    @jit.unroll_safe
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs == 0:
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
+            frame = self
+            ec = self.space.getexecutioncontext()
+            while frame:
+                if frame.last_exception is not None:
+                    operror = ec._convert_exc(frame.last_exception)
+                    break
+                frame = frame.f_backref()
+            else:
                 raise OperationError(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
             # re-raise, no new traceback obj will be attached
@@ -1408,13 +1417,16 @@ app = gateway.applevel(r'''
     def print_item_to(x, stream):
         if file_softspace(stream, False):
            stream.write(" ")
+        if isinstance(x, unicode) and getattr(stream, "encoding", None) is not None:
+            x = x.encode(stream.encoding, getattr(stream, "errors", None) or "strict")
         stream.write(str(x))
 
         # add a softspace unless we just printed a string which ends in a '\t'
         # or '\n' -- or more generally any whitespace character but ' '
-        if isinstance(x, str) and x and x[-1].isspace() and x[-1]!=' ':
-            return
-        # XXX add unicode handling
+        if isinstance(x, (str, unicode)) and x:
+            lastchar = x[-1]
+            if lastchar.isspace() and lastchar != ' ':
+                return
         file_softspace(stream, True)
     print_item_to._annspecialcase_ = "specialize:argtype(0)"
 

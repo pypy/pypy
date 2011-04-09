@@ -68,7 +68,7 @@ def test_inlined_call():
     assert isinstance(res.chunks[2], TraceForOpcode)
     assert res.chunks[1].path == "1"
     assert len(res.chunks[1].chunks) == 3
-    
+
 def test_name():
     ops = parse('''
     [i0]

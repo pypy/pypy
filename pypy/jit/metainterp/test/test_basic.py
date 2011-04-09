@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
-from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_SIMPLE, loop_invariant
+from pypy.rlib.jit import loop_invariant
 from pypy.rlib.jit import jit_debug, assert_green, AssertGreenFailed
 from pypy.rlib.jit import unroll_safe, current_trace_length
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
@@ -15,11 +15,11 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, **kwds):
     from pypy.jit.codewriter import support, codewriter
-    from pypy.jit.metainterp import simple_optimize
 
     class FakeJitCell:
         __compiled_merge_points = []
@@ -37,11 +37,8 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
             return self._cell
         _cell = FakeJitCell()
 
-        # pick the optimizer this way
-        optimize_loop = staticmethod(simple_optimize.optimize_loop)
-        optimize_bridge = staticmethod(simple_optimize.optimize_bridge)
-
         trace_limit = sys.maxint
+        enable_opts = ALL_OPTS_DICT
 
     func._jit_unroll_safe_ = True
     rtyper = support.annotate(func, values, type_system=type_system)
@@ -1176,7 +1173,7 @@ class BasicTests:
                 x += inst.foo
                 n -= 1
             return x
-        res = self.meta_interp(f, [20], optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(f, [20], enable_opts='')
         assert res == f(20)
         self.check_loops(call=0)
 
@@ -1379,8 +1376,7 @@ class BasicTests:
                 m = m >> 1
             return x
 
-        res = self.meta_interp(f, [50, 1],
-                               optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(f, [50, 1], enable_opts='')
         assert res == 42
 
     def test_set_param(self):
@@ -2306,12 +2302,12 @@ class TestOOtype(BasicTests, OOJitMixin):
 
         res = self.meta_interp(f, [1, 100],
                                policy=StopAtXPolicy(getcls),
-                               optimizer=OPTIMIZER_SIMPLE)
+                               enable_opts='')
         assert not res
         
         res = self.meta_interp(f, [0, 100],
                                policy=StopAtXPolicy(getcls),
-                               optimizer=OPTIMIZER_SIMPLE)
+                               enable_opts='')
         assert res
 
 class BaseLLtypeTests(BasicTests):
@@ -2390,6 +2386,26 @@ class BaseLLtypeTests(BasicTests):
             f(10, lltype.nullptr(S))
 
         self.meta_interp(main, [])
+
+    def test_enable_opts(self):
+        jitdriver = JitDriver(greens = [], reds = ['a'])
+
+        class A(object):
+            def __init__(self, i):
+                self.i = i
+
+        def f():
+            a = A(0)
+            
+            while a.i < 10:
+                jitdriver.jit_merge_point(a=a)
+                jitdriver.can_enter_jit(a=a)
+                a = A(a.i + 1)
+
+        self.meta_interp(f, [])
+        self.check_loops(new_with_vtable=0)
+        self.meta_interp(f, [], enable_opts='')
+        self.check_loops(new_with_vtable=1)
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass

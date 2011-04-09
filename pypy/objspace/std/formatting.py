@@ -2,8 +2,8 @@
 String formatting routines.
 """
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import (
-    ovfcheck, formatd, DTSF_ALT, isnan, isinf)
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder

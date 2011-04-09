@@ -37,7 +37,7 @@ def handle_sys_exit(e):
             except AttributeError:
                 pass   # too bad
             else:
-                print >> stderr, exitcode
+                stderr.write(exitcode)
             exitcode = 1
     raise SystemExit(exitcode)
 
@@ -205,7 +205,8 @@ def get_library_path(executable):
         if dirname == search:
             # not found!  let's hope that the compiled-in path is ok
             print >> sys.stderr, ('debug: WARNING: library path not found, '
-                                  'using compiled-in sys.path')
+                                  'using compiled-in sys.path '
+                                  'and sys.prefix will be unset')
             newpath = sys.path[:]
             break
         newpath = sys.pypy_initial_path(dirname)
@@ -253,6 +254,22 @@ def setup_initial_paths(ignore_environment=False, **extra):
         if dir not in _seen:
             sys.path.append(dir)
             _seen[dir] = True
+
+def set_io_encoding(io_encoding):
+    try:
+        import _file
+    except ImportError:
+        import ctypes # HACK: while running on top of CPython
+        set_file_encoding = ctypes.pythonapi.PyFile_SetEncodingAndErrors
+        set_file_encoding.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p]
+    else:
+        set_file_encoding = _file.set_file_encoding
+    if ":" in io_encoding:
+        encoding, errors = io_encoding.split(":", 1)
+    else:
+        encoding, errors = io_encoding, None
+    for f in [sys.stdin, sys.stdout, sys.stderr]:
+        set_file_encoding(f, encoding, errors)
 
 # Order is significant!
 sys_flags = (
@@ -447,7 +464,6 @@ def run_command_line(interactive,
     elif not sys.stdout.isatty():
         set_fully_buffered_io()
 
-
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
@@ -458,6 +474,10 @@ def run_command_line(interactive,
             print >> sys.stderr, "'import site' failed"
 
     readenv = not ignore_environment
+    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    if io_encoding:
+        set_io_encoding(io_encoding)
+
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
         warnoptions.extend(pythonwarnings.split(','))
@@ -574,7 +594,7 @@ def run_command_line(interactive,
                     # the module __main__
                     import runpy
                     sys.path.insert(0, filename)
-                    args = (runpy._run_module_as_main, '__main__')
+                    args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # no.  That's the normal path, "pypy stuff.py".
                     args = (execfile, filename, mainmodule.__dict__)

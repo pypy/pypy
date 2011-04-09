@@ -1,5 +1,6 @@
 import py
-from pypy.conftest import option, gettestobjspace
+import pytest
+from pypy.conftest import gettestobjspace
 
 def pytest_ignore_collect(path, config):
     if config.option.runappdirect:

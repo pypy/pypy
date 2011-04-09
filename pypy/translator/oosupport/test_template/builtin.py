@@ -227,6 +227,17 @@ class BaseTestBuiltin(BaseTestRbuiltin):
         assert res == ord('a')
 
 
+    def test_rlocale(self):
+        from pypy.rlib.rlocale import isupper, islower, isalpha, isalnum, tolower
+        def fn():
+            assert isupper(ord("A"))
+            assert islower(ord("a"))
+            assert not isalpha(ord(" "))
+            assert isalnum(ord("1"))
+            assert tolower(ord("A")) == ord("a")
+        self.interpret(fn, [])
+
+
 class BaseTestTime(llBaseTestTime):
 
     def test_time_clock(self):

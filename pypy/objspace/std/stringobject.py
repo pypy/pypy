@@ -338,6 +338,9 @@ def str_join__String_ANY(space, w_self, w_list):
             space.is_w(space.type(w_s), space.w_unicode)):
             return w_s
 
+    return _str_join_many_items(space, w_self, list_w, size)
+
+def _str_join_many_items(space, w_self, list_w, size):
     self = w_self._value
     reslen = len(self) * (size - 1)
     for i in range(size):

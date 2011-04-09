@@ -6,8 +6,8 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.signature import annotation
 from pypy.annotation.listdef import ListDef, TooLateForChange
 from pypy.tool.pairtype import pair, pairtype
-from pypy.rlib.rarithmetic import formatd, r_longlong, intmask, LONG_BIT
-from pypy.rlib.rarithmetic import rstring_to_float
+from pypy.rlib.rarithmetic import r_longlong, intmask, LONG_BIT
+from pypy.rlib.rfloat import formatd, rstring_to_float
 from pypy.rlib.unroll import unrolling_iterable
 
 class CannotMarshal(Exception):

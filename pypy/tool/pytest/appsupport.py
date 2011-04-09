@@ -163,7 +163,7 @@ def build_pytest_assertion(space):
             except py.error.ENOENT: 
                 source = None
             from pypy import conftest
-            if source and not conftest.option.nomagic: 
+            if source and not py.test.config.option.nomagic:
                 msg = py.code._reinterpret_old(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),
                             space.newtuple([space.wrap(msg)]))
@@ -196,7 +196,7 @@ def _exc_info(space, err):
     class _ExceptionInfo(object):
         def __init__(self):
             import sys
-            self.type, self.value, _ = sys.exc_info()
+            self.type, self.value, self.traceback = sys.exc_info()
 
     return _ExceptionInfo
 """)    

@@ -185,6 +185,15 @@ def llexternal(name, args, result, _callable=None,
                     # XXX leaks if a unicode2wcharp() fails with MemoryError
                     # and was not the first in this function
                     freeme = arg
+            elif TARGET is VOIDP:
+                if arg is None:
+                    arg = lltype.nullptr(VOIDP.TO)
+                elif isinstance(arg, str):
+                    arg = str2charp(arg)
+                    freeme = arg
+                elif isinstance(arg, unicode):
+                    arg = unicode2wcharp(arg)
+                    freeme = arg
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
                 if invoke_around_handlers:
@@ -295,6 +304,15 @@ class StackCounter:
         return False                # and threads increase it by one
 stackcounter = StackCounter()
 stackcounter._freeze_()
+
+def llexternal_use_eci(compilation_info):
+    """Return a dummy function that, if called in a RPython program,
+    adds the given ExternalCompilationInfo to it."""
+    eci = ExternalCompilationInfo(post_include_bits=['#define PYPY_NO_OP()'])
+    eci = eci.merge(compilation_info)
+    return llexternal('PYPY_NO_OP', [], lltype.Void,
+                      compilation_info=eci, sandboxsafe=True, _nowrapper=True,
+                      _callable=lambda: None)
 
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
@@ -550,9 +568,8 @@ FLOAT = lltype.SingleFloat
 r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
-VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
-VOIDP_real = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
-NULL = lltype.nullptr(VOIDP.TO)
+VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+NULL = None
 
 # void **
 VOIDPP = CArrayPtr(VOIDP)
@@ -640,6 +657,7 @@ def make_string_mappings(strtype):
             data_start = cast_ptr_to_adr(llstrtype(data)) + \
                 offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
             return cast(TYPEP, data_start)
+    get_nonmovingbuffer._annenforceargs_ = [strtype]
 
     # (str, char*) -> None
     def free_nonmovingbuffer(data, buf):
@@ -658,6 +676,7 @@ def make_string_mappings(strtype):
         keepalive_until_here(data)
         if not followed_2nd_path:
             lltype.free(buf, flavor='raw')
+    free_nonmovingbuffer._annenforceargs_ = [strtype, None]
 
     # int -> (char*, str)
     def alloc_buffer(count):
@@ -672,6 +691,7 @@ def make_string_mappings(strtype):
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
     alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
@@ -726,6 +746,7 @@ def make_string_mappings(strtype):
     def charpsize2str(cp, size):
         l = [cp[i] for i in range(size)]
         return emptystr.join(l)
+    charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,

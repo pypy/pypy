@@ -299,7 +299,6 @@ class FunctionCodeGenerator(object):
 
     def gen_link(self, link):
         "Generate the code to jump across the given Link."
-        is_alive = {}
         assignments = []
         for a1, a2 in zip(link.args, link.target.inputargs):
             a2type, a2typename = self.illtypes[a2]
@@ -644,9 +643,17 @@ class FunctionCodeGenerator(object):
         return '%s = %s;' % (self.expr(op.result), items)
 
     def OP_DIRECT_PTRADD(self, op):
-        return '%s = %s + %s;' % (self.expr(op.result),
-                                  self.expr(op.args[0]),
-                                  self.expr(op.args[1]))
+        ARRAY = self.lltypemap(op.args[0]).TO
+        if ARRAY._hints.get("render_as_void"):
+            return '%s = (char *)%s + %s;' % (
+                self.expr(op.result), 
+                self.expr(op.args[0]),
+                self.expr(op.args[1]))
+        else:
+            return '%s = %s + %s;' % (
+                self.expr(op.result),
+                self.expr(op.args[0]),
+                self.expr(op.args[1]))
 
     def OP_CAST_POINTER(self, op):
         TYPE = self.lltypemap(op.result)
@@ -800,7 +807,6 @@ class FunctionCodeGenerator(object):
         from pypy.rpython.lltypesystem.rstr import STR
         msg = op.args[0]
         assert msg.concretetype == Ptr(STR)
-        argv = []
         if isinstance(msg, Constant):
             msg = c_string_constant(''.join(msg.value.chars))
         else:

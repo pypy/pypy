@@ -71,19 +71,6 @@ def test_iterlinks():
                                        pieces.headerblock.exits[1],
                                        pieces.whileblock.exits[0]]
 
-def test_traverse():
-    lst = []
-    traverse(lst.append, graph)
-    assert lst == [pieces.startblock,
-                   pieces.startblock.exits[0],
-                   pieces.headerblock,
-                   pieces.headerblock.exits[0],
-                   graph.returnblock,
-                   pieces.headerblock.exits[1],
-                   pieces.whileblock,
-                   pieces.whileblock.exits[0]]
-    assert flatten(graph) == lst
-
 def test_mkentrymap():
     entrymap = mkentrymap(graph)
     startlink = entrymap[graph.startblock][0]

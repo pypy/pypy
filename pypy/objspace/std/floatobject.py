@@ -8,9 +8,10 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
-from pypy.rlib.rarithmetic import (LONG_BIT, INFINITY, copysign,
-    formatd, DTSF_ADD_DOT_0, DTSF_STR_PRECISION, NAN)
+from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
+from pypy.rlib.rfloat import (
+    isinf, isnan, INFINITY, NAN, copysign, formatd,
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat

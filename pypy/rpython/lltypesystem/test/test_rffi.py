@@ -766,6 +766,9 @@ def test_ptradd():
 def test_ptradd_interpret():
     interpret(test_ptradd, [])
 
+def test_voidptr():
+    assert repr(VOIDP) == "<* Array of void >"
+
 class TestCRffi(BaseTestRffi):
     def compile(self, func, args, **kwds):
         return compile_c(func, args, **kwds)

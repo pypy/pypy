@@ -1,19 +1,16 @@
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import c_last_exception
 from pypy.objspace.flow.model import mkentrymap
-from pypy.translator.backendopt.support import split_block_with_keepalive
 from pypy.translator.backendopt.support import log
 from pypy.translator.simplify import eliminate_empty_blocks
-from pypy.translator.unsimplify import insert_empty_block
+from pypy.translator.unsimplify import insert_empty_block, split_block
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem import lltype
 
 
 def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
     newops = []
-    keepalives = []
     folded_count = 0
-    first_sideeffect_index = None
     for spaceop in operations:
         vargsmodif = False
         vargs = []
@@ -29,10 +26,9 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
         try:
             op = getattr(llop, spaceop.opname)
         except AttributeError:
-            sideeffects = True
+            pass
         else:
-            sideeffects = op.sideeffects
-            if not sideeffects and len(args) == len(vargs):
+            if not op.sideeffects and len(args) == len(vargs):
                 RESTYPE = spaceop.result.concretetype
                 try:
                     result = op(RESTYPE, *args)
@@ -53,10 +49,6 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
         # failed to fold an operation, exit early if requested
         if exit_early:
             return folded_count
-        if spaceop.opname == 'keepalive' and first_sideeffect_index is None:
-            if vargsmodif:
-                continue    # keepalive(constant) is not useful
-            keepalives.append(spaceop)
         else:
             if vargsmodif:
                 if (spaceop.opname == 'indirect_call'
@@ -66,20 +58,11 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                 else:
                     spaceop = SpaceOperation(spaceop.opname, vargs,
                                              spaceop.result)
-            if sideeffects and first_sideeffect_index is None:
-                first_sideeffect_index = len(newops)
             newops.append(spaceop)
     # end
     if exit_early:
         return folded_count
     else:
-        # move the keepalives to the end of the block, which makes the life
-        # of prepare_constant_fold_link() easier.  Don't put them past the
-        # exception-raising operation, though.  There is also no point in
-        # moving them past the first sideeffect-ing operation.
-        if first_sideeffect_index is None:
-            first_sideeffect_index = len(newops) - exc_catch
-        newops[first_sideeffect_index:first_sideeffect_index] = keepalives
         return newops
 
 def constant_fold_block(block):
@@ -177,33 +160,23 @@ def prepare_constant_fold_link(link, constants, splitblocks):
     if block.exitswitch == c_last_exception:
         n -= 1
     # is the next, non-folded operation an indirect_call?
-    m = folded_count
-    while m < n and block.operations[m].opname == 'keepalive':
-        m += 1
-    if m < n:
-        nextop = block.operations[m]
+    if folded_count < n:
+        nextop = block.operations[folded_count]
         if nextop.opname == 'indirect_call' and nextop.args[0] in constants:
             # indirect_call -> direct_call
             callargs = [constants[nextop.args[0]]]
             constants1 = constants.copy()
             complete_constants(link, constants1)
-            newkeepalives = []
-            for i in range(folded_count, m):
-                [v] = block.operations[i].args
-                v = constants1.get(v, v)
-                v_void = Variable()
-                v_void.concretetype = lltype.Void
-                newkeepalives.append(SpaceOperation('keepalive', [v], v_void))
             for v in nextop.args[1:-1]:
                 callargs.append(constants1.get(v, v))
             v_result = Variable(nextop.result)
             v_result.concretetype = nextop.result.concretetype
             constants[nextop.result] = v_result
             callop = SpaceOperation('direct_call', callargs, v_result)
-            newblock = insert_empty_block(None, link, newkeepalives + [callop])
+            newblock = insert_empty_block(None, link, [callop])
             [link] = newblock.exits
             assert link.target is block
-            folded_count = m+1
+            folded_count += 1
 
     if folded_count > 0:
         splits = splitblocks.setdefault(block, [])
@@ -226,7 +199,7 @@ def rewire_links(splitblocks, graph):
                 splitlink = block.exits[0]
             else:
                 # split the block at the given position
-                splitlink = split_block_with_keepalive(block, position)
+                splitlink = split_block(None, block, position)
                 assert list(block.exits) == [splitlink]
             assert link.target is block
             assert splitlink.prevblock is block

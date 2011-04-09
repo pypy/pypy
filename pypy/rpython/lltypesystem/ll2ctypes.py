@@ -1026,7 +1026,10 @@ def get_ctypes_callable(funcptr, calling_conv):
             funcname, place))
 
     # get_ctypes_type() can raise NotImplementedError too
-    cfunc.argtypes = [get_ctypes_type(T) for T in FUNCTYPE.ARGS
+    from pypy.rpython.lltypesystem import rffi
+    cfunc.argtypes = [get_ctypes_type(T) if T is not rffi.VOIDP
+                                         else ctypes.c_void_p
+                      for T in FUNCTYPE.ARGS
                       if not T is lltype.Void]
     if FUNCTYPE.RESULT is lltype.Void:
         cfunc.restype = None

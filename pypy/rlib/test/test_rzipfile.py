@@ -20,7 +20,7 @@ class BaseTestRZipFile(BaseRtypingTest):
         cls.zipname = zipname
         zipfile = ZipFile(zipname, "w", compression=cls.compression)
         cls.year = time.localtime(time.time())[0]
-        zipfile.writestr("one", "stuff")
+        zipfile.writestr("one", "stuff\n")
         zipfile.writestr("dir" + os.path.sep + "two", "otherstuff")
         # Value selected to produce a CRC32 which is negative if
         # interpreted as a signed 32 bit integer.  This exercises the
@@ -36,7 +36,7 @@ class BaseTestRZipFile(BaseRtypingTest):
             rzip = RZipFile(zipname, "r", compression)
             info = rzip.getinfo('one')
             return (info.date_time[0] == year and
-                    rzip.read('one') == 'stuff' and
+                    rzip.read('one') == 'stuff\n' and
                     rzip.read('three') == 'hello, world')
 
         assert one()

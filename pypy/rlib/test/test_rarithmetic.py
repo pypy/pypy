@@ -299,25 +299,6 @@ def test_abs():
     assert type(abs(r_longlong(1))) is r_longlong
 
 
-def test_break_up_float():
-    assert break_up_float('1') == ('', '1', '', '')
-    assert break_up_float('+1') == ('+', '1', '', '')
-    assert break_up_float('-1') == ('-', '1', '', '')
-
-    assert break_up_float('.5') == ('', '', '5', '')
-    
-    assert break_up_float('1.2e3') == ('', '1', '2', '3')
-    assert break_up_float('1.2e+3') == ('', '1', '2', '+3')
-    assert break_up_float('1.2e-3') == ('', '1', '2', '-3')
-
-    # some that will get thrown out on return:
-    assert break_up_float('.') == ('', '', '', '')
-    assert break_up_float('+') == ('+', '', '', '')
-    assert break_up_float('-') == ('-', '', '', '')
-    assert break_up_float('e1') == ('', '', '', '1')
-
-    py.test.raises(ValueError, break_up_float, 'e')
-
 def test_r_singlefloat():
     x = r_singlefloat(2.5)       # exact number
     assert float(x) == 2.5
@@ -335,65 +316,6 @@ def test_r_singlefloat_eq():
     py.test.raises(TypeError, "x>y")
 
 class BaseTestRarithmetic(BaseRtypingTest):
-    def test_formatd(self):
-        from pypy.rlib.rarithmetic import formatd
-        def f(x):
-            return formatd(x, 'f', 2, 0)
-        res = self.ll_to_string(self.interpret(f, [10/3.0]))
-        assert res == '3.33'
-
-    def test_formatd_repr(self):
-        from pypy.rlib.rarithmetic import formatd
-        def f(x):
-            return formatd(x, 'r', 0, 0)
-        res = self.ll_to_string(self.interpret(f, [1.1]))
-        assert res == '1.1'
-
-    def test_formatd_huge(self):
-        def f(x):
-            return formatd(x, 'f', 1234, 0)
-        res = self.ll_to_string(self.interpret(f, [1.0]))
-        assert res == '1.' + 1234 * '0'
-
-    def test_formatd_F(self):
-        from pypy.translator.c.test.test_genc import compile
-        from pypy.rlib.rarithmetic import formatd
-
-        def func(x):
-            # Test the %F format, which is not supported by
-            # the Microsoft's msvcrt library.
-            return formatd(x, 'F', 4)
-
-        f = compile(func, [float])
-        assert f(10/3.0) == '3.3333'
-
-    def test_parts_to_float(self):
-        from pypy.rlib.rarithmetic import parts_to_float, break_up_float
-        def f(x):
-            if x == 0:
-                s = '1.0'
-            else:
-                s = '1e-100'
-            sign, beforept, afterpt, expt = break_up_float(s)   
-            return parts_to_float(sign, beforept, afterpt, expt)
-        res = self.interpret(f, [0])
-        assert res == 1.0
-
-        res = self.interpret(f, [1])
-        assert res == 1e-100
-
-    def test_string_to_float(self):
-        from pypy.rlib.rarithmetic import rstring_to_float
-        def func(x):
-            if x == 0:
-                s = '1e23'
-            else:
-                s = '-1e23'
-            return rstring_to_float(s)
-
-        assert self.interpret(func, [0]) == 1e23
-        assert self.interpret(func, [1]) == -1e23
-
     def test_compare_singlefloat_crashes(self):
         from pypy.rlib.rarithmetic import r_singlefloat
         from pypy.rpython.error import MissingRTypeOperation
@@ -403,28 +325,11 @@ class BaseTestRarithmetic(BaseRtypingTest):
             return a == b
         py.test.raises(MissingRTypeOperation, "self.interpret(f, [42.0])")
 
-
 class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
-    def test_formatd(self):
-        skip('formatd is broken on ootype')
-
-    def test_formatd_repr(self):
-        skip('formatd is broken on ootype')
-
-    def test_formatd_huge(self):
-        skip('formatd is broken on ootype')
-
-    def test_string_to_float(self):
-        skip('string_to_float is broken on ootype')
-
-def test_isinf():
-    assert isinf(INFINITY)
-
-def test_isnan():
-    assert isnan(NAN)
+    pass
 
 def test_int_real_union():
     from pypy.rpython.lltypesystem.rffi import r_int_real
@@ -447,82 +352,6 @@ def test_highest_bit():
     py.test.raises(AssertionError, highest_bit, 14)
     for i in xrange(31):
         assert highest_bit(2**i) == i
-
-def test_copysign():
-    assert copysign(1, 1) == 1
-    assert copysign(-1, 1) == 1
-    assert copysign(-1, -1) == -1
-    assert copysign(1, -1) == -1
-    assert copysign(1, -0.) == -1
-
-def test_round_away():
-    assert round_away(.1) == 0.
-    assert round_away(.5) == 1.
-    assert round_away(.7) == 1.
-    assert round_away(1.) == 1.
-    assert round_away(-.5) == -1.
-    assert round_away(-.1) == 0.
-    assert round_away(-.7) == -1.
-    assert round_away(0.) == 0.
-
-def test_round_double():
-    def almost_equal(x, y):
-        assert round(abs(x-y), 7) == 0
-
-    almost_equal(round_double(0.125, 2), 0.13)
-    almost_equal(round_double(0.375, 2), 0.38)
-    almost_equal(round_double(0.625, 2), 0.63)
-    almost_equal(round_double(0.875, 2), 0.88)
-    almost_equal(round_double(-0.125, 2), -0.13)
-    almost_equal(round_double(-0.375, 2), -0.38)
-    almost_equal(round_double(-0.625, 2), -0.63)
-    almost_equal(round_double(-0.875, 2), -0.88)
-
-    almost_equal(round_double(0.25, 1), 0.3)
-    almost_equal(round_double(0.75, 1), 0.8)
-    almost_equal(round_double(-0.25, 1), -0.3)
-    almost_equal(round_double(-0.75, 1), -0.8)
-
-    round_double(-6.5, 0) == -7.0
-    round_double(-5.5, 0) == -6.0
-    round_double(-1.5, 0) == -2.0
-    round_double(-0.5, 0) == -1.0
-    round_double(0.5, 0) == 1.0
-    round_double(1.5, 0) == 2.0
-    round_double(2.5, 0) == 3.0
-    round_double(3.5, 0) == 4.0
-    round_double(4.5, 0) == 5.0
-    round_double(5.5, 0) == 6.0
-    round_double(6.5, 0) == 7.0
-
-    round_double(-25.0, -1) == -30.0
-    round_double(-15.0, -1) == -20.0
-    round_double(-5.0, -1) == -10.0
-    round_double(5.0, -1) == 10.0
-    round_double(15.0, -1) == 20.0
-    round_double(25.0, -1) == 30.0
-    round_double(35.0, -1) == 40.0
-    round_double(45.0, -1) == 50.0
-    round_double(55.0, -1) == 60.0
-    round_double(65.0, -1) == 70.0
-    round_double(75.0, -1) == 80.0
-    round_double(85.0, -1) == 90.0
-    round_double(95.0, -1) == 100.0
-    round_double(12325.0, -1) == 12330.0
-
-    round_double(350.0, -2) == 400.0
-    round_double(450.0, -2) == 500.0
-
-    almost_equal(round_double(0.5e21, -21), 1e21)
-    almost_equal(round_double(1.5e21, -21), 2e21)
-    almost_equal(round_double(2.5e21, -21), 3e21)
-    almost_equal(round_double(5.5e21, -21), 6e21)
-    almost_equal(round_double(8.5e21, -21), 9e21)
-
-    almost_equal(round_double(-1.5e22, -22), -2e22)
-    almost_equal(round_double(-0.5e22, -22), -1e22)
-    almost_equal(round_double(0.5e22, -22), 1e22)
-    almost_equal(round_double(1.5e22, -22), 2e22)
 
 def test_int_between():
     assert int_between(1, 1, 3)

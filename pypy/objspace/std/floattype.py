@@ -135,14 +135,14 @@ def descr_fromhex(space, w_cls, s):
         i += 1
         if length - i >= 2 and s[i:i + 2].lower() == "nf":
             i += 2
-            value = rarithmetic.INFINITY
+            value = rfloat.INFINITY
             if length - i >= 5 and s[i:i + 5].lower() == "inity":
                 i += 5
     elif s[i] == "n" or s[i] == "N":
         i += 1
         if length - i >= 2 and s[i:i + 2].lower() == "an":
             i += 2
-            value = rarithmetic.NAN
+            value = rfloat.NAN
     else:
         if (s[i] == "0" and length - i > 1 and
             (s[i + 1] == "x" or s[i + 1] == "X")):

@@ -1,20 +1,37 @@
 from __future__ import with_statement
-from pypy.rlib import rarithmetic
+from pypy.rlib import rfloat
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
-import py
+import py, sys
 
 cdir = py.path.local(pypydir) / 'translator' / 'c'
 include_dirs = [cdir]
+
+# set the word endianness based on the host's endianness
+# and the C double's endianness (which should be equal)
+if hasattr(float, '__getformat__'):
+    assert float.__getformat__('double') == 'IEEE, %s-endian' % sys.byteorder
+if sys.byteorder == 'little':
+    source_file = ['#define DOUBLE_IS_LITTLE_ENDIAN_IEEE754']
+elif sys.byteorder == 'big':
+    source_file = ['#define WORDS_BIGENDIAN',
+                   '#define DOUBLE_IS_BIG_ENDIAN_IEEE754']
+else:
+    raise AssertionError(sys.byteorder)
+
+source_file.append('#include "src/dtoa.c"')
+source_file = '\n\n'.join(source_file)
+
+# ____________________________________________________________
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],
     includes = ['src/dtoa.h'],
     libraries = [],
-    separate_module_files = [cdir / 'src' / 'dtoa.c'],
+    separate_module_sources = [source_file],
     export_symbols = ['_PyPy_dg_strtod',
                       '_PyPy_dg_dtoa',
                       '_PyPy_dg_freedtoa',
@@ -61,7 +78,7 @@ def format_nonfinite(digits, sign, flags, special_strings):
     if digits[0] == 'i' or digits[0] == 'I':
         if sign == 1:
             return special_strings[2]
-        elif flags & rarithmetic.DTSF_SIGN:
+        elif flags & rfloat.DTSF_SIGN:
             return special_strings[1]
         else:
             return special_strings[0]
@@ -110,9 +127,9 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
             use_exp = True
         elif decpt > precision:
             use_exp = True
-        elif flags & rarithmetic.DTSF_ADD_DOT_0 and decpt == precision:
+        elif flags & rfloat.DTSF_ADD_DOT_0 and decpt == precision:
             use_exp = True
-        if flags & rarithmetic.DTSF_ALT:
+        if flags & rfloat.DTSF_ALT:
             vdigits_end = precision
     elif code == 'r':
         #  convert to exponential format at 1e16.  We used to convert
@@ -140,7 +157,7 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
     else:
         vdigits_start = 0
     if vdigits_end <= decpt:
-        if not use_exp and flags & rarithmetic.DTSF_ADD_DOT_0:
+        if not use_exp and flags & rfloat.DTSF_ADD_DOT_0:
             vdigits_end = decpt + 1
         else:
             vdigits_end = decpt
@@ -153,7 +170,7 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
     if sign == 1:
         builder.append('-')
-    elif flags & rarithmetic.DTSF_SIGN:
+    elif flags & rfloat.DTSF_SIGN:
         builder.append('+')
 
     # note that exactly one of the three 'if' conditions is true, so
@@ -186,7 +203,7 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
     s = builder.build()
 
     # Delete a trailing decimal pt unless using alternative formatting.
-    if not flags & rarithmetic.DTSF_ALT:
+    if not flags & rfloat.DTSF_ALT:
         last = len(s) - 1
         if last >= 0 and s[last] == '.':
             s = s[:last]
