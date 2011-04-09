@@ -84,6 +84,19 @@ class W_Kqueue(Wrappable):
     def descr_close(self, space):
         self.close()
 
+    @unwrap_spec(max_events=int)
+    def descr_control(self, space, w_changelist, max_events, w_timeout=None):
+        self.check_closed(space)
+
+        if max_events < 0:
+            raise operationerrfmt(space.w_ValueError,
+                "Length of eventlist must be 0 or positive, got %d", max_events
+            )
+
+        if space.is_w(w_timeout, space.w_None):
+            timeoutspec = 
+        
+
 
 W_Kqueue.typedef = TypeDef("select.kqueue",
     __new__ = interp2app(W_Kqueue.descr__new__.im_func),
@@ -93,6 +106,7 @@ W_Kqueue.typedef = TypeDef("select.kqueue",
     fileno = interp2app(W_Kqueue.descr_fileno),
 
     close = interp2app(W_Kqueue.descr_close),
+    control = interp2app(W_Kqueue.descr_control),
 )
 W_Kqueue.typedef.acceptable_as_base_class = False
 
