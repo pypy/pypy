@@ -38,7 +38,7 @@ class OptAddition(Optimization):
             self.roperands[result] = constant, root
 
             boxed_constant = ConstInt(constant)
-            new_op = ResOperation(rop.INT_SUB, [boxed_constant, variable], result)
+            new_op = ResOperation(rop.INT_SUB, [boxed_constant, root], result)
             self.emit_operation(new_op)
             return
         except KeyError:
@@ -88,7 +88,7 @@ class OptAddition(Optimization):
         rv = self.getvalue(op.getarg(1))
         result = op.result
         if lv.is_constant() and rv.is_constant():
-            self.emit_operation(op) # XXX: there's support for optimizing this elsewhere, right?
+            self.emit_operation(op)
         elif lv.is_constant():
             constant = lv.box.getint()
             self._process_add(constant, op.getarg(1), result)
@@ -103,11 +103,10 @@ class OptAddition(Optimization):
         rv = self.getvalue(op.getarg(1))
         result = op.result
         if lv.is_constant() and rv.is_constant():
-            self.emit_operation(op) # XXX: there's support for optimizing this elsewhere, right?
+            self.emit_operation(op)
         elif lv.is_constant():
             constant = lv.box.getint()
             self._process_sub(constant, op.getarg(1), result)
-            #self.emit_operation(op)
         elif rv.is_constant():
             constant = rv.box.getint()
             self._process_add(-constant, op.getarg(0), result)

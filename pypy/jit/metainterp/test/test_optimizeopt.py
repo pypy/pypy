@@ -5561,17 +5561,18 @@ class TestFoldIntAdds(OptimizeOptTest, LLtypeMixin):
         i2 = int_sub(4, i1)
         i3 = int_sub(i2, 14)
         i4 = int_add(6, i2)
-        jump(i3)
+        jump(i4)
         """
 
         expected = """
         [i0]
         i1 = int_add(i0, 3)
         i2 = int_sub(1, i0)
-        i3 = int_sub(i0, 13)
-        i4 = int_sub(7, i0)
-        jump(i3)
+        i3 = int_sub(-13, i0)
+        i4 = int_sub(-7, i0)
+        jump(i4)
         """
+        self.optimize_loop(ops, expected)
 
 ##class TestOOtype(OptimizeOptTest, OOtypeMixin):
 
