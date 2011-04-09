@@ -48,8 +48,6 @@ class LoopStorage(object):
                 # attribute of the code object is wrong (e.g., code objects
                 # produced by gateway.applevel(), such as the ones found in
                 # nanos.py)
-                import pdb
-                pdb.set_trace() 
                 return None
             code = codeobjs[(startlineno, name)]
             res = dis(code)
