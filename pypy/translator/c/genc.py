@@ -917,8 +917,11 @@ def commondefs(defines):
 
 def add_extra_files(eci):
     srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')
-    return eci.merge(ExternalCompilationInfo(
-        separate_module_files=[srcdir.join('profiling.c')]))
+    files = [
+        srcdir / 'profiling.c',
+        srcdir / 'debug_print.c',
+    ]
+    return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 def gen_source_standalone(database, modulename, targetdir, eci,
                           entrypointname, defines={}): 
