@@ -487,6 +487,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_range_iter(self):
+        py.test.skip("until we fix defaults")
         def main(n):
             def g(n):
                 return range(n)
@@ -539,7 +540,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         i12 = int_sub_ovf(i3, 1)
         guard_no_overflow(descr=<Guard5>)
         --TICK--
-        jump(p0, p1, p2, i12, p4, descr=<Loop0>)
+        jump(p0, p1, p2, i12, descr=<Loop0>)
         """)
 
     def test_exception_inside_loop_2(self):
@@ -585,7 +586,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             --EXC-TICK--
             i14 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i14, i5, p6, descr=<Loop0>)
+            jump(p0, p1, p2, p3, i14, i5, descr=<Loop0>)
         """)
 
     def test_chain_of_guards(self):

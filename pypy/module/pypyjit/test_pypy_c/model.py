@@ -250,7 +250,6 @@ class OpMatcher(object):
         # this is the ticker check generated in PyFrame.handle_operation_error
         exc_ticker_check = """
             ticker2 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
-            setfield_gc(_, _, descr=<GcPtrFieldDescr pypy.interpreter.pyframe.PyFrame.inst_w_f_trace .*>)
             ticker_cond1 = int_lt(ticker2, 0)
             guard_false(ticker_cond1, descr=...)
         """
