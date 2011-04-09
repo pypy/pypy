@@ -22,14 +22,20 @@ def _get_immutable_code(func):
     return func.code
 
 class Defaults(object):
-    _immutable_fields_ = ["items[*]"]
+    _immutable_fields_ = ["items[*]", "promote"]
 
-    def __init__(self, items):
+    def __init__(self, items, promote=False):
         self.items = items
+        self.promote = promote
 
     def getitems(self):
-        ## XXX! we would like: return jit.hint(self, promote=True).items
-        ## XXX! but it gives horrible performance in some cases
+        # an idea - we want to promote only items that we know won't change
+        # too often. this is the case for builtin functions and functions
+        # with known constant defaults. Otherwise we don't want to promote
+        # this so lambda a=a won't create a new trace each time it's
+        # encountered
+        if self.promote:
+            return jit.hint(self, promote=True).items
         return self.items
 
     def getitem(self, idx):
@@ -46,14 +52,15 @@ class Function(Wrappable):
     can_change_code = True
 
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
-                 forcename=None):
+                 forcename=None, promote_defs=False):
         self.space = space
         self.name = forcename or code.co_name
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
-        self.defs = Defaults(defs_w)     # wrapper around list of w_default's
+        self.defs = Defaults(defs_w, promote=promote_defs)
+        # wrapper around list of w_default's
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
 
@@ -622,7 +629,8 @@ class BuiltinFunction(Function):
     def __init__(self, func):
         assert isinstance(func, Function)
         Function.__init__(self, func.space, func.code, func.w_func_globals,
-                          func.defs.getitems(), func.closure, func.name)
+                          func.defs.getitems(), func.closure, func.name,
+                          promote_defs=True)
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
