@@ -77,8 +77,8 @@ class Assembler386(object):
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
-        self.malloc_fixedsize_slowpath1 = 0
-        self.malloc_fixedsize_slowpath2 = 0
+        self.malloc_slowpath1 = 0
+        self.malloc_slowpath2 = 0
         self.memcpy_addr = 0
         self.setup_failure_recovery()
         self._debug = False
@@ -123,8 +123,8 @@ class Assembler386(object):
             self._build_failure_recovery(True, withfloats=True)
             support.ensure_sse2_floats()
             self._build_float_constants()
-        if hasattr(gc_ll_descr, 'get_malloc_fixedsize_slowpath_addr'):
-            self._build_malloc_fixedsize_slowpath()
+        if gc_ll_descr.get_malloc_slowpath_addr is not None:
+            self._build_malloc_slowpath()
         self._build_stack_check_slowpath()
         debug_start('jit-backend-counts')
         self.set_debug(have_debug_prints())
@@ -171,7 +171,7 @@ class Assembler386(object):
         self.float_const_neg_addr = float_constants
         self.float_const_abs_addr = float_constants + 16
 
-    def _build_malloc_fixedsize_slowpath(self):
+    def _build_malloc_slowpath(self):
         # With asmgcc, we need two helpers, so that we can write two CALL
         # instructions in assembler, with a mark_gc_roots in between.
         # With shadowstack, this is not needed, so we produce a single helper.
@@ -183,7 +183,7 @@ class Assembler386(object):
             for i in range(self.cpu.NUM_REGS):# the *caller* frame, from esp+8
                 mc.MOVSD_sx((WORD*2)+8*i, i)
         mc.SUB_rr(edx.value, eax.value)       # compute the size we want
-        addr = self.cpu.gc_ll_descr.get_malloc_fixedsize_slowpath_addr()
+        addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
         #
         if gcrootmap is not None and gcrootmap.is_shadow_stack:
             # ---- shadowstack ----
@@ -208,7 +208,7 @@ class Assembler386(object):
                 mc.MOV_rr(edi.value, edx.value)
             mc.JMP(imm(addr))                    # tail call to the real malloc
             rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-            self.malloc_fixedsize_slowpath1 = rawstart
+            self.malloc_slowpath1 = rawstart
             # ---------- second helper for the slow path of malloc ----------
             mc = codebuf.MachineCodeBlockWrapper()
         #
@@ -219,7 +219,7 @@ class Assembler386(object):
         mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
         mc.RET()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.malloc_fixedsize_slowpath2 = rawstart
+        self.malloc_slowpath2 = rawstart
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
@@ -1273,6 +1273,11 @@ class Assembler386(object):
             assert isinstance(loc_vtable, ImmedLoc)
             self.mc.MOV(mem(loc, self.cpu.vtable_offset), loc_vtable)
 
+    def set_new_array_length(self, loc, ofs_length, loc_num_elem):
+        assert isinstance(loc, RegLoc)
+        assert isinstance(loc_num_elem, ImmedLoc)
+        self.mc.MOV(mem(loc, ofs_length), loc_num_elem)
+
     # XXX genop_new is abused for all varsized mallocs with Boehm, for now
     # (instead of genop_new_array, genop_newstr, genop_newunicode)
     def genop_new(self, op, arglocs, result_loc):
@@ -2094,8 +2099,7 @@ class Assembler386(object):
         else:
             self.mc.JMP(imm(loop_token._x86_loop_code))
 
-    def malloc_cond_fixedsize(self, nursery_free_adr, nursery_top_adr,
-                              size, tid):
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
         size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (eax.value, size))
@@ -2103,7 +2107,7 @@ class Assembler386(object):
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
 
-        # See comments in _build_malloc_fixedsize_slowpath for the
+        # See comments in _build_malloc_slowpath for the
         # details of the two helper functions that we are calling below.
         # First, we need to call two of them and not just one because we
         # need to have a mark_gc_roots() in between.  Then the calling
@@ -2122,11 +2126,11 @@ class Assembler386(object):
         shadow_stack = (gcrootmap is not None and gcrootmap.is_shadow_stack)
         if not shadow_stack:
             # there are two helpers to call only with asmgcc
-            slowpath_addr1 = self.malloc_fixedsize_slowpath1
+            slowpath_addr1 = self.malloc_slowpath1
             self.mc.CALL(imm(slowpath_addr1))
         self.mark_gc_roots(self.write_new_force_index(),
                            use_copy_area=shadow_stack)
-        slowpath_addr2 = self.malloc_fixedsize_slowpath2
+        slowpath_addr2 = self.malloc_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
 
         offset = self.mc.get_relative_pos() - jmp_adr

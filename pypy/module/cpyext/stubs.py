@@ -351,14 +351,6 @@ def PyCode_GetNumFree(space, co):
     """Return the number of free variables in co."""
     raise NotImplementedError
 
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, rffi.INT_real, PyObject], PyCodeObject)
-def PyCode_New(space, argcount, nlocals, stacksize, flags, code, consts, names, varnames, freevars, cellvars, filename, name, firstlineno, lnotab):
-    """Return a new code object.  If you need a dummy code object to
-    create a frame, use PyCode_NewEmpty() instead.  Calling
-    PyCode_New() directly can bind you to a precise Python
-    version since the definition of the bytecode changes often."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyCodec_Register(space, search_function):
     """Register a new codec search function.
@@ -1114,20 +1106,6 @@ def PyImport_ReloadModule(space, m):
     Python function reload(), as the standard reload() function calls this
     function directly.  Return a new reference to the reloaded module, or NULL
     with an exception set on failure (the module still exists in this case)."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyImport_AddModule(space, name):
-    """Return the module object corresponding to a module name.  The name argument
-    may be of the form package.module. First check the modules dictionary if
-    there's one there, and if not, create a new one and insert it in the modules
-    dictionary. Return NULL with an exception set on failure.
-    
-    This function does not load or import the module; if the module wasn't already
-    loaded, you will get an empty module object. Use PyImport_ImportModule()
-    or one of its variants to import a module.  Package structures implied by a
-    dotted name for name are not created if not already present."""
-    borrow_from()
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
@@ -1963,14 +1941,6 @@ def PyNumber_ToBase(space, n, base):
     base. If n is not an int object, it is converted with
     PyNumber_Index() first.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
-def PyObject_Cmp(space, o1, o2, result):
-    """Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  The result of the
-    comparison is returned in result.  Returns -1 on failure.  This is the
-    equivalent of the Python statement result = cmp(o1, o2)."""
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
