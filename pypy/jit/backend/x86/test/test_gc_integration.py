@@ -178,9 +178,9 @@ class GCDescrFastpathMalloc(GcLLDescription):
         self.addrs = lltype.malloc(rffi.CArray(lltype.Signed), 3,
                                    flavor='raw')
         self.addrs[0] = rffi.cast(lltype.Signed, self.nursery)
-        self.addrs[1] = self.addrs[0] + 64
+        self.addrs[1] = self.addrs[0] + 16*WORD
         self.addrs[2] = 0
-        # 64 bytes
+        # 16 WORDs
         def malloc_slowpath(size):
             assert size == self.expected_malloc_slowpath_size
             nadr = rffi.cast(lltype.Signed, self.nursery)
@@ -225,9 +225,11 @@ class TestMallocFastpath(BaseTestRegalloc):
         cpu.gc_ll_descr = GCDescrFastpathMalloc()
         cpu.setup_once()
 
-        NODE = lltype.Struct('node', ('tid', lltype.Signed),
-                                     ('value', lltype.Signed))
-        nodedescr = cpu.sizeof(NODE)     # xxx hack: NODE is not a GcStruct
+        # hack: specify 'tid' explicitly, because this test is not running
+        # with the gc transformer
+        NODE = lltype.GcStruct('node', ('tid', lltype.Signed),
+                                       ('value', lltype.Signed))
+        nodedescr = cpu.sizeof(NODE)
         valuedescr = cpu.fielddescrof(NODE, 'value')
 
         self.cpu = cpu
