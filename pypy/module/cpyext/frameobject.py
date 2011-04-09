@@ -33,7 +33,7 @@ def frame_attach(space, py_obj, w_obj):
     py_frame = rffi.cast(PyFrameObject, py_obj)
     py_frame.c_f_code = rffi.cast(PyCodeObject, make_ref(space, frame.pycode))
     py_frame.c_f_globals = make_ref(space, frame.w_globals)
-    py_frame.c_f_lineno = frame.f_lineno
+    rffi.setintfield(py_frame, 'c_f_lineno', frame.f_lineno)
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def frame_dealloc(space, py_obj):
