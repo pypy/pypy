@@ -265,7 +265,7 @@ class OpMatcher(object):
         if exp_v2 == '_':
             return True
         if self.is_const(v1) or self.is_const(exp_v2):
-            return v1 == exp_v2
+            return v1[:-1].startswith(exp_v2[:-1])
         if v1 not in self.alpha_map:
             self.alpha_map[v1] = exp_v2
         return self.alpha_map[v1] == exp_v2
