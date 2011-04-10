@@ -16,7 +16,6 @@ ALL_OPTS = [
             ('intbounds', OptIntBounds),
             ('addition', OptAddition),
             ('rewrite', OptRewrite),
-            #('lastsetitem', OptLastSetitem),
             ('virtualize', OptVirtualize),
             ('string', OptString),
             ('heap', OptHeap),
