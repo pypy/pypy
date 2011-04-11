@@ -1849,9 +1849,6 @@ class Assembler386(object):
     def implement_guard(self, guard_token, condition=None):
         # These jumps are patched later.
         if condition:
-            if condition not in ['B', 'E', 'BE']:
-                # this is a hint "branch not taken
-                self.mc.writechar('\x2E')
             self.mc.J_il(rx86.Conditions[condition], 0)
         else:
             self.mc.JMP_l(0)
