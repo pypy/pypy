@@ -39,7 +39,7 @@ working_modules.update(dict.fromkeys(
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "md5", "cStringIO", "array"]))
+     "struct", "_md5", "cStringIO", "array"]))
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
