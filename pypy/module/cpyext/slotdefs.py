@@ -1,3 +1,5 @@
+from __future__ import with_statement
+
 import re
 
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -509,7 +511,7 @@ static slotdef slotdefs[] = {
                "oct(x)"),
         UNSLOT("__hex__", nb_hex, slot_nb_hex, wrap_unaryfunc,
                "hex(x)"),
-        NBSLOT("__index__", nb_index, slot_nb_index, wrap_unaryfunc, 
+        NBSLOT("__index__", nb_index, slot_nb_index, wrap_unaryfunc,
                "x[y:z] <==> x[y.__index__():z.__index__()]"),
         IBSLOT("__iadd__", nb_inplace_add, slot_nb_inplace_add,
                wrap_binaryfunc, "+"),
