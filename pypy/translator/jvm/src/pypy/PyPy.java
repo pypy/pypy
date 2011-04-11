@@ -1182,6 +1182,10 @@ public class PyPy implements Constants {
         return Math.tanh(x);
     }
 
+    public double ll_math_copysign(double x, double y) {
+        return Math.copySign(x, y);
+    }
+
     private double check(double v) {
         if (Double.isNaN(v))
             interlink.throwValueError();
