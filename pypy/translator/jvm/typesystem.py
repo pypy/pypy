@@ -933,6 +933,7 @@ PYPYUINTMOD =           Method.v(jPyPy, 'uint_mod', (jInt, jInt), jInt)
 PYPYUINTMUL =           Method.v(jPyPy, 'uint_mul', (jInt, jInt), jInt)
 PYPYUINTDIV =           Method.v(jPyPy, 'uint_div', (jInt, jInt), jInt)
 PYPYULONGMOD =          Method.v(jPyPy, 'ulong_mod', (jLong, jLong), jLong)
+PYPYUINTTOLONG =        Method.s(jPyPy, 'uint_to_long', (jInt,), jLong)
 PYPYUINTTODOUBLE =      Method.s(jPyPy, 'uint_to_double', (jInt,), jDouble)
 PYPYDOUBLETOUINT =      Method.s(jPyPy, 'double_to_uint', (jDouble,), jInt)
 PYPYDOUBLETOLONG =      Method.v(jPyPy, 'double_to_long', (jDouble,), jLong) #PAUL

@@ -96,6 +96,7 @@ CASTS = {
     (ootype.UnsignedLongLong, ootype.Unsigned):         jvm.L2I,
     (ootype.UnsignedLongLong, ootype.Signed):           jvm.L2I,
     (ootype.Signed,           rffi.SHORT):              jvm.I2S,
+    (ootype.Unsigned,         ootype.SignedLongLong):   jvm.PYPYUINTTOLONG,
     (ootype.UnsignedLongLong, ootype.SignedLongLong):   None,
     (ootype.SignedLongLong,   ootype.UnsignedLongLong): None,
     }
