@@ -105,6 +105,8 @@ class _CastPrimitive(MicroInstruction):
     def render(self, generator, op):
         FROM = op.args[0].concretetype
         TO = op.result.concretetype
+        if TO == FROM:
+            return
         opcode = CASTS[(FROM, TO)]
         if opcode:
             generator.emit(opcode)
