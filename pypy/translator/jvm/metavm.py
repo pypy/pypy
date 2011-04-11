@@ -1,4 +1,5 @@
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import rffi
 from pypy.translator.oosupport.metavm import MicroInstruction
 from pypy.translator.jvm.typesystem import JvmScalarType, JvmClassType
 import pypy.translator.jvm.typesystem as jvm
@@ -94,6 +95,7 @@ CASTS = {
     (ootype.SignedLongLong,   ootype.Signed):           jvm.L2I,
     (ootype.UnsignedLongLong, ootype.Unsigned):         jvm.L2I,
     (ootype.UnsignedLongLong, ootype.Signed):           jvm.L2I,
+    (ootype.Signed,           rffi.SHORT):              jvm.I2S,
     (ootype.UnsignedLongLong, ootype.SignedLongLong):   None,
     (ootype.SignedLongLong,   ootype.UnsignedLongLong): None,
     }

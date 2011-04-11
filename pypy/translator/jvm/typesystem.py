@@ -181,6 +181,7 @@ class JvmGeneratedInterfaceType(JvmInterfaceType):
 
 jIntegerClass = JvmClassType('java.lang.Integer')
 jLongClass = JvmClassType('java.lang.Long')
+jShortClass = JvmClassType('java.lang.Short')
 jDoubleClass = JvmClassType('java.lang.Double')
 jByteClass = JvmClassType('java.lang.Byte')
 jCharClass = JvmClassType('java.lang.Character')
@@ -239,6 +240,7 @@ jBool = JvmScalarType('Z', jBoolClass, 'booleanValue')
 jDouble = JvmScalarType('D', jDoubleClass, 'doubleValue')
 jByte = JvmScalarType('B', jByteClass, 'byteValue')
 jChar = JvmScalarType('C', jCharClass, 'charValue')
+jShort = JvmScalarType('S', jShortClass, 'shortValue')
 
 class Generifier(object):
 
@@ -527,6 +529,7 @@ class OpcodeFamily(object):
         if desc == 'C':    return self._o("i")   # Characters
         if desc == 'B':    return self._o("i")   # Bytes
         if desc == 'Z':    return self._o("i")   # Boolean
+        if desc == 'S':    return self._o("i")   # Short
 
         assert False, "Unknown argtype=%s" % repr(argtype)
         raise NotImplementedError
@@ -625,6 +628,7 @@ DCMPL =     Opcode('dcmpl')
 NOP =       Opcode('nop')
 I2D =       Opcode('i2d')
 I2L =       Opcode('i2l')
+I2S =       Opcode('i2s')
 D2I=        Opcode('d2i')
 #D2L=        Opcode('d2l') #PAUL
 L2I =       Opcode('l2i')
@@ -891,6 +895,7 @@ OBJEQUALS =             Method.v(jObject, 'equals', (jObject,), jBool)
 SYSTEMIDENTITYHASH =    Method.s(jSystem, 'identityHashCode', (jObject,), jInt)
 SYSTEMGC =              Method.s(jSystem, 'gc', (), jVoid)
 INTTOSTRINGI =          Method.s(jIntegerClass, 'toString', (jInt,), jString)
+SHORTTOSTRINGS =        Method.s(jShortClass, 'toString', (jShort,), jString)
 LONGTOSTRINGL =         Method.s(jLongClass, 'toString', (jLong,), jString)
 DOUBLETOSTRINGD =       Method.s(jDoubleClass, 'toString', (jDouble,), jString)
 CHARTOSTRINGC =         Method.s(jCharClass, 'toString', (jChar,), jString)
