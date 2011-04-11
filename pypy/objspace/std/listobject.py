@@ -121,6 +121,10 @@ class W_ListObject(W_Object):
         return self.strategy.getitems_copy(self)
     # ___________________________________________________
 
+
+    def mul(self, times):
+        return self.strategy.mul(self, times)
+
     def inplace_mul(self, times):
         self.strategy.inplace_mul(self, times)
 
@@ -181,6 +185,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def append(self, w_list, w_item):
+        raise NotImplementedError
+
+    def mul(self, w_list, times):
         raise NotImplementedError
 
     def inplace_mul(self, w_list, times):
@@ -244,6 +251,9 @@ class EmptyListStrategy(ListStrategy):
 
     def append(self, w_list, w_item):
         w_list.__init__(self.space, [w_item])
+
+    def mul(self, w_list, times):
+        return w_list.clone()
 
     def inplace_mul(self, w_list, times):
         return
@@ -375,6 +385,12 @@ class RangeListStrategy(ListStrategy):
         else:
             w_list.switch_to_object_strategy()
         w_list.append(w_item)
+
+    def mul(self, w_list, times):
+        #XXX maybe faster to get unwrapped items and create new integer list?
+        w_newlist = w_list.clone()
+        w_newlist.inplace_mul(times)
+        return w_newlist
 
     def inplace_mul(self, w_list, times):
         self.switch_to_integer_strategy(w_list)
@@ -655,6 +671,11 @@ class AbstractUnwrappedStrategy(object):
         w_list.check_empty_strategy()
         return w_item
 
+    def mul(self, w_list, times):
+        w_newlist = w_list.clone()
+        w_newlist.inplace_mul(times)
+        return w_newlist
+
     def inplace_mul(self, w_list, times):
         l = self.cast_from_void_star(w_list.lstorage)
         l *= times
@@ -834,6 +855,7 @@ def mul_list_times(space, w_list, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
+    return w_list.mul(times)
     return W_ListObject(space, w_list.getitems() * times)
 
 def mul__List_ANY(space, w_list, w_times):

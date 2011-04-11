@@ -305,3 +305,17 @@ class TestW_ListStrategies(TestW_ListObject):
         l3 = self.space.add(l1, l2)
         l4 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert self.space.eq_w(l3, l4)
+
+    def test_mul(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l2 = l1.mul(2)
+        l3 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        assert self.space.eq_w(l2, l3)
+
+    def test_mul_same_strategy_but_different_object(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l2 = l1.mul(1)
+        assert self.space.eq_w(l1, l2)
+        l1.setitem(0, self.space.wrap(5))
+        assert not self.space.eq_w(l1, l2)
+
