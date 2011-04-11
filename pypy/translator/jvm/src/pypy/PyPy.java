@@ -163,6 +163,13 @@ public class PyPy implements Constants {
             return ULONG_MAX + value;
         }
     }
+
+    public static long double_to_ulong(double value) {
+        if (value < 0)
+            return (long)(ULONG_MAX + value);
+        else
+            return (long)value;
+    }
     
     public static int double_to_uint(double value) {
         if (value <= Integer.MAX_VALUE)
