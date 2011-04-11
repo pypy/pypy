@@ -205,6 +205,8 @@ opcodes = _proc_dict({
     'ullong_lshift':            [PushAllArgs, jvm.L2I, jvm.LSHL, StoreResult],
     'ullong_rshift':            [PushAllArgs, jvm.L2I, jvm.LUSHR, StoreResult],
     'ullong_mod_zer':           jvm.PYPYULONGMOD,
+    'ullong_or':                jvm.LOR,
+    'ullong_and':               jvm.LAND,
 
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
