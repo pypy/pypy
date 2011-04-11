@@ -927,6 +927,7 @@ CLASSFORNAME =          Method.s(jClass, 'forName', (jString,), jClass)
 CLASSISASSIGNABLEFROM = Method.v(jClass, 'isAssignableFrom', (jClass,), jBool)
 STRINGBUILDERAPPEND =   Method.v(jStringBuilder, 'append',
                                  (jString,), jStringBuilder)
+PYPYINTBETWEEN =        Method.s(jPyPy, 'int_between', (jInt,jInt,jInt), jBool)
 PYPYUINTCMP =           Method.s(jPyPy, 'uint_cmp', (jInt,jInt,), jInt)
 PYPYULONGCMP =          Method.s(jPyPy, 'ulong_cmp', (jLong,jLong), jInt)
 PYPYUINTMOD =           Method.v(jPyPy, 'uint_mod', (jInt, jInt), jInt)

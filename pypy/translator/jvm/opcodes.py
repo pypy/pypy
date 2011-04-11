@@ -144,6 +144,7 @@ opcodes = _proc_dict({
     'int_xor_ovf':              jvm.IXOR,
     'int_floordiv_ovf_zer':     jvm.IFLOORDIVZEROVF,
     'int_mod_ovf_zer':          _check_zer(jvm.IREMOVF),
+    'int_between':              jvm.PYPYINTBETWEEN,
 
     'uint_invert':              'bitwise_negate',
 

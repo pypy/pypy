@@ -38,6 +38,10 @@ public class PyPy implements Constants {
     public final static int INT_MIN = Integer.MIN_VALUE;
     public final static double ULONG_MAX = 18446744073709551616.0;
 
+    public static boolean int_between(int a, int b, int c) {
+        return a <= b && b < c;
+    }
+
     /** 
      * Compares two unsigned integers (value1 and value2) and returns
      * a value greater than, equal to, or less than zero if value 1 is
