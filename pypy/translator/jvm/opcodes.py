@@ -185,8 +185,8 @@ opcodes = _proc_dict({
     'llong_mod_zer':            _check_zer(jvm.LREM),
     'llong_and':                jvm.LAND,
     'llong_or':                 jvm.LOR,
-    'llong_lshift':             [PushAllArgs, jvm.L2I, jvm.LSHL, StoreResult],
-    'llong_rshift':             [PushAllArgs, jvm.L2I, jvm.LSHR, StoreResult],
+    'llong_lshift':             [PushAllArgs, jvm.LSHL, StoreResult],
+    'llong_rshift':             [PushAllArgs, jvm.LSHR, StoreResult],
     'llong_xor':                jvm.LXOR,
     'llong_floordiv_ovf':       jvm.LFLOORDIVOVF,
     'llong_floordiv_ovf_zer':   jvm.LFLOORDIVZEROVF,    
@@ -202,8 +202,8 @@ opcodes = _proc_dict({
     'ullong_truediv':           None, # TODO
     'ullong_floordiv':          jvm.LDIV, # valid?
     'ullong_mod':               jvm.PYPYULONGMOD,
-    'ullong_lshift':            [PushAllArgs, jvm.L2I, jvm.LSHL, StoreResult],
-    'ullong_rshift':            [PushAllArgs, jvm.L2I, jvm.LUSHR, StoreResult],
+    'ullong_lshift':            [PushAllArgs, jvm.LSHL, StoreResult],
+    'ullong_rshift':            [PushAllArgs, jvm.LUSHR, StoreResult],
     'ullong_mod_zer':           jvm.PYPYULONGMOD,
     'ullong_or':                jvm.LOR,
     'ullong_and':               jvm.LAND,
