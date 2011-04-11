@@ -94,7 +94,7 @@ def ll_math_isnan(y):
     return y != y
 
 def ll_math_isinf(y):
-    return not isnan(y) and isnan(y - y)
+    return y != 0 and y * .5 == y
 
 
 ll_math_copysign = math_copysign
