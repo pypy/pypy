@@ -1187,8 +1187,41 @@ public class PyPy implements Constants {
         return Character.toLowerCase(c);
     }
 
+    public int locale_tolower(int chr)
+    {
+        return Character.toLowerCase(chr);
+    }
+
+    public int locale_isupper(int chr)
+    {
+        return boolean2int(Character.isUpperCase(chr));
+    }
+
+    public int locale_islower(int chr)
+    {
+        return boolean2int(Character.isLowerCase(chr));
+    }
+
+    public int locale_isalpha(int chr)
+    {
+        return boolean2int(Character.isLetter(chr));
+    }
+
+    public int locale_isalnum(int chr)
+    {
+        return boolean2int(Character.isLetterOrDigit(chr));
+    }
+
+
     // ----------------------------------------------------------------------
     // Self Test
+
+    public static int boolean2int(boolean b)
+    {
+        if (b)
+            return 1;
+        return 0;
+    }
 
     public static int __counter = 0, __failures = 0;
     public static void ensure(boolean f) {
