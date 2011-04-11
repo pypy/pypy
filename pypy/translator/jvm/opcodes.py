@@ -109,6 +109,7 @@ opcodes = _proc_dict({
     'debug_start':              Ignore,
     'debug_stop':               Ignore,
     'debug_print':              Ignore,
+    'keepalive':                Ignore,
 
     # __________ numeric operations __________
 
