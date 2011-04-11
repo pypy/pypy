@@ -937,6 +937,7 @@ PYPYUINTTODOUBLE =      Method.s(jPyPy, 'uint_to_double', (jInt,), jDouble)
 PYPYDOUBLETOUINT =      Method.s(jPyPy, 'double_to_uint', (jDouble,), jInt)
 PYPYDOUBLETOLONG =      Method.v(jPyPy, 'double_to_long', (jDouble,), jLong) #PAUL
 PYPYDOUBLETOULONG =     Method.s(jPyPy, 'double_to_ulong', (jDouble,), jLong)
+PYPYULONGTODOUBLE =     Method.s(jPyPy, 'ulong_to_double', (jLong,), jDouble)
 PYPYLONGBITWISENEGATE = Method.v(jPyPy, 'long_bitwise_negate', (jLong,), jLong)
 PYPYSTRTOINT =          Method.v(jPyPy, 'str_to_int', (jString,), jInt)
 PYPYSTRTOUINT =         Method.v(jPyPy, 'str_to_uint', (jString,), jInt)

@@ -228,6 +228,7 @@ opcodes = _proc_dict({
     'truncate_longlong_to_int': jvm.L2I,
     'cast_longlong_to_float':   jvm.L2D,
     'cast_float_to_ulonglong':  jvm.PYPYDOUBLETOULONG,
+    'cast_ulonglong_to_float':  jvm.PYPYULONGTODOUBLE,
     'cast_primitive':           [PushAllArgs, CastPrimitive, StoreResult],
     'force_cast':               [PushAllArgs, CastPrimitive, StoreResult],
 })
