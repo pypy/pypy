@@ -250,7 +250,6 @@ class OpMatcher(object):
         # this is the ticker check generated in PyFrame.handle_operation_error
         exc_ticker_check = """
             ticker2 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
-            setfield_gc(_, _, descr=<GcPtrFieldDescr pypy.interpreter.pyframe.PyFrame.inst_w_f_trace .*>)
             ticker_cond1 = int_lt(ticker2, 0)
             guard_false(ticker_cond1, descr=...)
         """
@@ -260,13 +259,13 @@ class OpMatcher(object):
     @classmethod
     def is_const(cls, v1):
         return isinstance(v1, str) and v1.startswith('ConstClass(')
-    
+
     def match_var(self, v1, exp_v2):
         assert v1 != '_'
         if exp_v2 == '_':
             return True
         if self.is_const(v1) or self.is_const(exp_v2):
-            return v1 == exp_v2
+            return v1[:-1].startswith(exp_v2[:-1])
         if v1 not in self.alpha_map:
             self.alpha_map[v1] = exp_v2
         return self.alpha_map[v1] == exp_v2
@@ -285,9 +284,9 @@ class OpMatcher(object):
         self.match_var(op.res, exp_res)
         self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
         for arg, exp_arg in zip(op.args, exp_args):
-            self._assert(self.match_var(arg, exp_arg), "variable mismatch")
+            self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
         self.match_descr(op.descr, exp_descr)
-        
+
 
     def _next_op(self, iter_ops, assert_raises=False):
         try:

@@ -9,7 +9,7 @@ import py
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import (SpaceOperation, Variable, Constant, Block,
                                       Link, c_last_exception, checkgraph,
-                                      traverse, mkentrymap)
+                                      mkentrymap)
 from pypy.rlib import rarithmetic
 from pypy.translator import unsimplify
 from pypy.translator.backendopt import ssa
@@ -76,23 +76,19 @@ def replace_exitswitch_by_constant(block, const):
 def desugar_isinstance(graph):
     """Replace isinstance operation with a call to isinstance."""
     constant_isinstance = Constant(isinstance)
-    def visit(block):
-        if not isinstance(block, Block):
-            return
+    for block in graph.iterblocks():
         for i in range(len(block.operations) - 1, -1, -1):
             op = block.operations[i]
             if op.opname == "isinstance":
                 args = [constant_isinstance, op.args[0], op.args[1]]
                 new_op = SpaceOperation("simple_call", args, op.result)
                 block.operations[i] = new_op
-    traverse(visit, graph)
 
 def eliminate_empty_blocks(graph):
     """Eliminate basic blocks that do not contain any operations.
     When this happens, we need to replace the preceeding link with the
     following link.  Arguments of the links should be updated."""
-    def visit(link):
-        if isinstance(link, Link):
+    for link in list(graph.iterlinks()):
             while not link.target.operations:
                 block1 = link.target
                 if block1.exitswitch is not None:
@@ -113,7 +109,6 @@ def eliminate_empty_blocks(graph):
                 link.args = outputargs
                 link.target = exit.target
                 # the while loop above will simplify recursively the new link
-    traverse(visit, graph)
 
 def transform_ovfcheck(graph):
     """The special function calls ovfcheck and ovfcheck_lshift need to
@@ -174,11 +169,10 @@ def simplify_exceptions(graph):
     def rename(v):
         return renaming.get(v, v)
 
-    def visit(block):
-        if not (isinstance(block, Block)
-                and block.exitswitch == clastexc
+    for block in graph.iterblocks():
+        if not (block.exitswitch == clastexc
                 and block.exits[-1].exitcase is Exception):
-            return
+            continue
         covered = [link.exitcase for link in block.exits[1:-1]]
         seen = []
         preserve = list(block.exits[:-1])
@@ -233,8 +227,6 @@ def simplify_exceptions(graph):
             exits.append(link)
         block.recloseblock(*(preserve + exits))
 
-    traverse(visit, graph)
-
 def transform_xxxitem(graph):
     # xxx setitem too
     for block in graph.iterblocks():
@@ -262,9 +254,9 @@ def remove_dead_exceptions(graph):
                 return True
         return False
 
-    def visit(block):
-        if not (isinstance(block, Block) and block.exitswitch == clastexc):
-            return
+    for block in list(graph.iterblocks()):
+        if block.exitswitch != clastexc:
+            continue
         exits = []
         seen = []
         for link in block.exits:
@@ -282,8 +274,6 @@ def remove_dead_exceptions(graph):
             exits.append(link)
             seen.append(case)
         block.recloseblock(*exits)
-
-    traverse(visit, graph)
 
 def join_blocks(graph):
     """Links can be deleted if they are the single exit of a block and
@@ -340,8 +330,7 @@ def remove_assertion_errors(graph):
     this is how implicit exceptions are removed (see _implicit_ in
     flowcontext.py).
     """
-    def visit(block):
-        if isinstance(block, Block):
+    for block in list(graph.iterblocks()):
             for i in range(len(block.exits)-1, -1, -1):
                 exit = block.exits[i]
                 if not (exit.target is graph.exceptblock and
@@ -361,7 +350,6 @@ def remove_assertion_errors(graph):
                 lst = list(block.exits)
                 del lst[i]
                 block.recloseblock(*lst)
-    traverse(visit, graph)
 
 
 # _____________________________________________________________________
@@ -627,12 +615,11 @@ def coalesce_is_true(graph):
                         tgts.append((exit.exitcase, tgt))
         return tgts
 
-    def visit(block):
-        if isinstance(block, Block) and block.operations and block.operations[-1].opname == 'is_true':
+    for block in graph.iterblocks():
+        if block.operations and block.operations[-1].opname == 'is_true':
             tgts = has_is_true_exitpath(block)
             if tgts:
                 candidates.append((block, tgts))
-    traverse(visit, graph)
 
     while candidates:
         cand, tgts = candidates.pop()

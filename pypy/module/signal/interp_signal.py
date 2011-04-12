@@ -146,6 +146,15 @@ class CheckSignalAction(PeriodicAsyncAction):
                     self.pending_signals[n] = None
                     self.reissue_signal_action.fire_after_thread_switch()
 
+    def set_interrupt(self):
+        "Simulates the effect of a SIGINT signal arriving"
+        n = cpy_signal.SIGINT
+        if self.reissue_signal_action is None:
+            self.report_signal(n)
+        else:
+            self.pending_signals[n] = None
+            self.reissue_signal_action.fire_after_thread_switch()
+
     def report_signal(self, n):
         try:
             w_handler = self.handlers_w[n]

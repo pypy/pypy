@@ -351,14 +351,6 @@ def PyCode_GetNumFree(space, co):
     """Return the number of free variables in co."""
     raise NotImplementedError
 
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, PyObject, rffi.INT_real, PyObject], PyCodeObject)
-def PyCode_New(space, argcount, nlocals, stacksize, flags, code, consts, names, varnames, freevars, cellvars, filename, name, firstlineno, lnotab):
-    """Return a new code object.  If you need a dummy code object to
-    create a frame, use PyCode_NewEmpty() instead.  Calling
-    PyCode_New() directly can bind you to a precise Python
-    version since the definition of the bytecode changes often."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyCodec_Register(space, search_function):
     """Register a new codec search function.
@@ -745,13 +737,6 @@ def PyErr_WarnExplicit(space, category, message, filename, lineno, module, regis
     described there."""
     raise NotImplementedError
 
-@cpython_api([], lltype.Void)
-def PyErr_SetInterrupt(space):
-    """This function simulates the effect of a SIGINT signal arriving --- the
-    next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
-    It may be called without holding the interpreter lock."""
-    raise NotImplementedError
-
 @cpython_api([rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
 def PySignal_SetWakeupFd(space, fd):
     """This utility function specifies a file descriptor to which a '\0' byte will
@@ -850,13 +835,6 @@ def Py_LeaveRecursiveCall(space):
     successful invocation of Py_EnterRecursiveCall()."""
     raise NotImplementedError
 
-@cpython_api([FILE, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
-def PyFile_FromFile(space, fp, name, mode, close):
-    """Create a new PyFileObject from the already-open standard C file
-    pointer, fp.  The function close will be called when the file should be
-    closed.  Return NULL on failure."""
-    raise NotImplementedError
-
 @cpython_api([PyFileObject], lltype.Void)
 def PyFile_IncUseCount(space, p):
     """Increments the PyFileObject's internal use count to indicate
@@ -899,12 +877,6 @@ def PyFile_Name(space, p):
     borrow_from()
     raise NotImplementedError
 
-@cpython_api([PyFileObject, rffi.INT_real], lltype.Void)
-def PyFile_SetBufSize(space, p, n):
-    """Available on systems with setvbuf() only.  This should only be called
-    immediately after file object creation."""
-    raise NotImplementedError
-
 @cpython_api([PyFileObject, rffi.CCHARP], rffi.INT_real, error=0)
 def PyFile_SetEncoding(space, p, enc):
     """Set the file's encoding for Unicode output to enc. Return 1 on success and 0
@@ -939,12 +911,6 @@ def PyFile_WriteObject(space, obj, p, flags):
     Py_PRINT_RAW; if given, the str() of the object is written
     instead of the repr().  Return 0 on success or -1 on failure; the
     appropriate exception will be set."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject], rffi.INT_real, error=-1)
-def PyFile_WriteString(space, s, p):
-    """Write string s to file object p.  Return 0 on success or -1 on
-    failure; the appropriate exception will be set."""
     raise NotImplementedError
 
 @cpython_api([], PyObject)
@@ -1140,20 +1106,6 @@ def PyImport_ReloadModule(space, m):
     Python function reload(), as the standard reload() function calls this
     function directly.  Return a new reference to the reloaded module, or NULL
     with an exception set on failure (the module still exists in this case)."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyImport_AddModule(space, name):
-    """Return the module object corresponding to a module name.  The name argument
-    may be of the form package.module. First check the modules dictionary if
-    there's one there, and if not, create a new one and insert it in the modules
-    dictionary. Return NULL with an exception set on failure.
-    
-    This function does not load or import the module; if the module wasn't already
-    loaded, you will get an empty module object. Use PyImport_ImportModule()
-    or one of its variants to import a module.  Package structures implied by a
-    dotted name for name are not created if not already present."""
-    borrow_from()
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
@@ -1770,12 +1722,6 @@ def PyInt_AsUnsignedLongLongMask(space, io):
     """
     raise NotImplementedError
 
-@cpython_api([], lltype.Signed, error=CANNOT_FAIL)
-def PyInt_GetMax(space):
-    """Return the system's idea of the largest integer it can handle (LONG_MAX,
-    as defined in the system header files)."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyInt_ClearFreeList(space):
     """Clear the integer free list. Return the number of items that could not
@@ -1995,14 +1941,6 @@ def PyNumber_ToBase(space, n, base):
     base. If n is not an int object, it is converted with
     PyNumber_Index() first.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
-def PyObject_Cmp(space, o1, o2, result):
-    """Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  The result of the
-    comparison is returned in result.  Returns -1 on failure.  This is the
-    equivalent of the Python statement result = cmp(o1, o2)."""
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
@@ -2334,28 +2272,6 @@ def PySys_SetPath(space, path):
     """Set sys.path to a list object of paths found in path which should
     be a list of paths separated with the platform's search path delimiter
     (: on Unix, ; on Windows)."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, ], lltype.Void)
-def PySys_WriteStdout(space, format):
-    """Write the output string described by format to sys.stdout.  No
-    exceptions are raised, even if truncation occurs (see below).
-    
-    format should limit the total size of the formatted output string to
-    1000 bytes or less -- after 1000 bytes, the output string is truncated.
-    In particular, this means that no unrestricted "%s" formats should occur;
-    these should be limited using "%.<N>s" where <N> is a decimal number
-    calculated so that <N> plus the maximum size of other formatted text does not
-    exceed 1000 bytes.  Also watch out for "%f", which can print hundreds of
-    digits for very large numbers.
-    
-    If a problem occurs, or sys.stdout is unset, the formatted message
-    is written to the real (C level) stdout."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, ], lltype.Void)
-def PySys_WriteStderr(space, format):
-    """As above, but write to sys.stderr or stderr instead."""
     raise NotImplementedError
 
 @cpython_api([rffi.INT_real], lltype.Void)

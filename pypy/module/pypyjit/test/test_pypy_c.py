@@ -3,6 +3,7 @@ from pypy.tool.udir import udir
 import py
 from py.test import skip
 import sys, os, re
+import subprocess
 
 class BytecodeTrace(list):
     def get_opnames(self, prefix=""):
@@ -118,13 +119,12 @@ class PyPyCJITTests(object):
         print >> f, "print 'OK :-)'"
         f.close()
 
-        if sys.platform.startswith('win'):
-            py.test.skip("XXX this is not Windows-friendly")
         print logfilepath
-        child_stdout = os.popen('PYPYLOG=":%s" "%s" "%s"' % (
-            logfilepath, self.pypy_c, filepath), 'r')
-        result = child_stdout.read()
-        child_stdout.close()
+        env = os.environ.copy()
+        env['PYPYLOG'] = ":%s" % (logfilepath,)
+        p = subprocess.Popen([self.pypy_c, str(filepath)],
+                             env=env, stdout=subprocess.PIPE)
+        result, _ = p.communicate()
         assert result
         if result.strip().startswith('SKIP:'):
             py.test.skip(result.strip())
@@ -1454,6 +1454,8 @@ class PyPyCJITTests(object):
                 res1 += dd(a, b, a1, b1)
                 res2 += dd(a, b, a2, b2)
                 res3 += dd(a, b, a3, b3)
+        # The purpose of this test is to check that we get
+        # the correct results, not really to count operations.
         self.run_source('''
         def main(a, b):
             i = sa = 0
@@ -1461,11 +1463,10 @@ class PyPyCJITTests(object):
 %s                
                 i += 1
             return sa
-        ''' % code, 179, ([a1, b1], 2000 * res1),
-                         ([a2, b2], 2000 * res2),
-                         ([a3, b3], 2000 * res3),
-                         count_debug_merge_point=False)
-        
+        ''' % code, sys.maxint, ([a1, b1], 2000 * res1),
+                                ([a2, b2], 2000 * res2),
+                                ([a3, b3], 2000 * res3))
+
     def test_mod(self):
         avalues = ('a', 'b', 7, -42, 8)
         bvalues = ['b'] + range(-10, 0) + range(1,10)
@@ -1486,6 +1487,8 @@ class PyPyCJITTests(object):
                 res1 += dd(a, b, a1, b1)
                 res2 += dd(a, b, a2, b2)
                 res3 += dd(a, b, a3, b3)
+        # The purpose of this test is to check that we get
+        # the correct results, not really to count operations.
         self.run_source('''
         def main(a, b):
             i = sa = 0
@@ -1495,11 +1498,10 @@ class PyPyCJITTests(object):
 %s
                 i += 1
             return sa
-        ''' % code, 450, ([a1, b1], 2000 * res1),
-                         ([a2, b2], 2000 * res2),
-                         ([a3, b3], 2000 * res3),
-                         count_debug_merge_point=False)
-        
+        ''' % code, sys.maxint, ([a1, b1], 2000 * res1),
+                                ([a2, b2], 2000 * res2),
+                                ([a3, b3], 2000 * res3))
+
     def test_dont_trace_every_iteration(self):
         self.run_source('''
         def main(a, b):

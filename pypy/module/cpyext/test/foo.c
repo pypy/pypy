@@ -435,14 +435,6 @@ foo_new(PyObject *self, PyObject *args)
     return (PyObject *)foop;
 }
 
-/* List of functions exported by this module */
-
-static PyMethodDef foo_functions[] = {
-    {"new",        (PyCFunction)foo_new, METH_NOARGS, NULL},
-    {NULL,        NULL}    /* Sentinel */
-};
-
-
 static int initerrtype_init(PyObject *self, PyObject *args, PyObject *kwargs) {
     PyErr_SetString(PyExc_ValueError, "init raised an error!");
     return -1;
@@ -592,6 +584,41 @@ PyTypeObject SimplePropertyType = {
     0           /*tp_weaklist*/
 };
 
+/* A type with a custom allocator */
+static void custom_dealloc(PyObject *ob)
+{
+    free(ob);
+}
+
+static PyTypeObject CustomType;
+
+static PyObject *newCustom(PyObject *self, PyObject *args)
+{
+    PyObject *obj = calloc(1, sizeof(PyObject));
+    obj->ob_type = &CustomType;
+    _Py_NewReference(obj);
+    return obj;
+}
+
+static PyTypeObject CustomType = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "foo.Custom",            /*tp_name*/
+    sizeof(PyObject),        /*tp_size*/
+    0,                       /*tp_itemsize*/
+    /* methods */
+    (destructor)custom_dealloc, /*tp_dealloc*/
+};
+
+
+/* List of functions exported by this module */
+
+static PyMethodDef foo_functions[] = {
+    {"new",        (PyCFunction)foo_new, METH_NOARGS, NULL},
+    {"newCustom",  (PyCFunction)newCustom, METH_NOARGS, NULL},
+    {NULL,        NULL}    /* Sentinel */
+};
+
 
 /* Initialize this module. */
 
@@ -616,7 +643,10 @@ void initfoo(void)
     if (PyType_Ready(&InitErrType) < 0)
         return;
     if (PyType_Ready(&SimplePropertyType) < 0)
-	return;
+        return;
+    CustomType.ob_type = &MetaType;
+    if (PyType_Ready(&CustomType) < 0)
+        return;
     m = Py_InitModule("foo", foo_functions);
     if (m == NULL)
         return;
@@ -634,5 +664,7 @@ void initfoo(void)
     if (PyDict_SetItemString(d, "InitErrType", (PyObject *) &InitErrType) < 0)
         return;
     if (PyDict_SetItemString(d, "Property", (PyObject *) &SimplePropertyType) < 0)
+        return;
+    if (PyDict_SetItemString(d, "Custom", (PyObject *) &CustomType) < 0)
         return;
 }

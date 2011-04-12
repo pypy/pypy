@@ -153,6 +153,13 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return self.send_message(hop, 'll_clear')
 
+    def rtype_method_popitem(self, hop):
+        v_dict, = hop.inputargs(self)
+        r_tuple = hop.r_result
+        cTUPLE = hop.inputconst(ootype.Void, r_tuple.lowleveltype)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
+
     def __get_func(self, interp, r_func, fn, TYPE):
         if isinstance(r_func, MethodOfFrozenPBCRepr):
             obj = r_func.r_im_self.convert_const(fn.im_self)
@@ -352,6 +359,16 @@ def _make_ll_keys_values_items(kind):
 ll_dict_keys   = _make_ll_keys_values_items('keys')
 ll_dict_values = _make_ll_keys_values_items('values')
 ll_dict_items  = _make_ll_keys_values_items('items')
+
+def ll_popitem(ELEM, d):
+    it = d.ll_get_items_iterator()
+    if it.ll_go_next():
+        res = ootype.new(ELEM)
+        key = res.item0 = it.ll_current_key()
+        res.item1 = it.ll_current_value()
+        d.ll_remove(key)
+        return res
+    raise KeyError
 
 # ____________________________________________________________
 #

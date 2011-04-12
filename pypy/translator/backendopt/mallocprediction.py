@@ -176,7 +176,6 @@ def clever_inlining_and_malloc_removal(translator, graphs=None,
             break
         count += newcount
     for graph in graphs:
-        removenoops.remove_superfluous_keep_alive(graph)
         removenoops.remove_duplicate_casts(graph, translator)
     return count
 

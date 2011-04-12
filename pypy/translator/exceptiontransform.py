@@ -229,7 +229,6 @@ class BaseExceptionTransformer(object):
             n_need_exc_matching_blocks += need_exc_matching
             n_gen_exc_checks           += gen_exc_checks
         cleanup_graph(graph)
-        removenoops.remove_superfluous_keep_alive(graph)
         return n_need_exc_matching_blocks, n_gen_exc_checks
 
     def replace_stack_unwind(self, block):

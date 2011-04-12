@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
 from pypy.rlib import rarithmetic
 from pypy.rpython import rclass, rmodel
-from pypy.translator.backendopt import support
+from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow import model
 from pypy.translator import unsimplify, simplify
 from pypy.translator.unsimplify import varoftype
@@ -598,7 +598,7 @@ class StacklessTransformer(object):
             link = block.exits[0]
             nextblock = None
         else:
-            link = support.split_block_with_keepalive(block, i+1)
+            link = split_block(None, block, i+1)
             i = 0
             nextblock = link.target
 
@@ -765,7 +765,7 @@ class StacklessTransformer(object):
             exitcases = dict.fromkeys([l.exitcase for l in block.exits])
             nextblock = None
         else:
-            link = support.split_block_with_keepalive(block, i+1)
+            link = split_block(None, block, i+1)
             nextblock = link.target
             block.exitswitch = model.c_last_exception
             link.llexitcase = None

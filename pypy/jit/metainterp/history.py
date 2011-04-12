@@ -179,6 +179,9 @@ class AbstractDescr(AbstractValue):
         """
         raise NotImplementedError
 
+    def count_fields_if_immutable(self):
+        return -1
+
     def _clone_if_mutable(self):
         return self
     def clone_if_mutable(self):

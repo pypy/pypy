@@ -5,7 +5,7 @@ from pypy.translator.unsimplify import copyvar
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import FunctionGraph
-from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
+from pypy.objspace.flow.model import mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr
 from pypy.rpython.lltypesystem.lltype import normalizeptr
@@ -13,7 +13,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt import removenoops
-from pypy.translator.backendopt.support import log, split_block_with_keepalive
+from pypy.translator.backendopt.support import log
 from pypy.translator.unsimplify import split_block
 from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
@@ -280,13 +280,6 @@ class BaseInliner(object):
             self.varmap[var] = copyvar(None, var)
         return self.varmap[var]
 
-    def generate_keepalive(self, *args):
-        from pypy.translator.backendopt.support import generate_keepalive
-        if self.translator.rtyper.type_system.name == 'lltypesystem':
-            return generate_keepalive(*args)
-        else:
-            return []
-
     def passon_vars(self, cache_key):
         if cache_key in self._passon_vars:
             return self._passon_vars[cache_key]
@@ -397,7 +390,6 @@ class BaseInliner(object):
             for exceptionlink in afterblock.exits[1:]:
                 if exc_match(vtable, exceptionlink.llexitcase):
                     passon_vars = self.passon_vars(link.prevblock)
-                    copiedblock.operations += self.generate_keepalive(passon_vars)
                     copiedlink.target = exceptionlink.target
                     linkargs = self.find_args_in_exceptional_case(
                         exceptionlink, link.prevblock, var_etype, var_evalue, afterblock, passon_vars)
@@ -445,7 +437,6 @@ class BaseInliner(object):
         del blocks[-1].exits[0].llexitcase
         linkargs = copiedexceptblock.inputargs
         copiedexceptblock.recloseblock(Link(linkargs, blocks[0]))
-        copiedexceptblock.operations += self.generate_keepalive(linkargs)
 
     def do_inline(self, block, index_operation):
         splitlink = split_block(None, block, index_operation)
@@ -457,11 +448,8 @@ class BaseInliner(object):
         # this copy is created with the method passon_vars
         self.original_passon_vars = [arg for arg in block.exits[0].args
                                          if isinstance(arg, Variable)]
-        n = 0
-        while afterblock.operations[n].opname == 'keepalive':
-            n += 1
-        assert afterblock.operations[n].opname == self.op.opname
-        self.op = afterblock.operations.pop(n)
+        assert afterblock.operations[0].opname == self.op.opname
+        self.op = afterblock.operations.pop(0)
         #vars that need to be passed through the blocks of the inlined function
         linktoinlined = splitlink
         copiedstartblock = self.copy_block(self.graph_to_inline.startblock)
@@ -551,7 +539,6 @@ class OneShotInliner(BaseInliner):
 
 OP_WEIGHTS = {'same_as': 0,
               'cast_pointer': 0,
-              'keepalive': 0,
               'malloc': 2,
               'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               'resume_point': sys.maxint, # XXX bit extreme
@@ -784,5 +771,4 @@ def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None,
                               call_count_pred=call_count_pred)
         log.inlining('inlined %d callsites.'% (count,))
         for graph in graphs:
-            removenoops.remove_superfluous_keep_alive(graph)
             removenoops.remove_duplicate_casts(graph, translator)

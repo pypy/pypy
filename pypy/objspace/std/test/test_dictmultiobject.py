@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
@@ -151,6 +152,8 @@ class TestW_DictObject:
 
 
 class AppTest_DictObject:
+    def setup_class(cls):
+        cls.w_on_pypy = cls.space.wrap("__pypy__" in sys.builtin_module_names)
 
     def test_equality(self):
         d = {1:2} 
@@ -259,7 +262,29 @@ class AppTest_DictObject:
         d[33] = 99
         assert d == dd
         assert x == 99
-    
+
+    def test_setdefault_fast(self):
+        class Key(object):
+            calls = 0
+            def __hash__(self):
+                self.calls += 1
+                return object.__hash__(self)
+
+        k = Key()
+        d = {}
+        d.setdefault(k, [])
+        if self.on_pypy:
+            assert k.calls == 1
+
+        d.setdefault(k, 1)
+        if self.on_pypy:
+            assert k.calls == 2
+
+        k = Key()
+        d.setdefault(k, 42)
+        if self.on_pypy:
+            assert k.calls == 1
+
     def test_update(self):
         d = {1:2, 3:4}
         dd = d.copy()
@@ -704,13 +729,20 @@ class AppTestModuleDict(object):
 
 
 class FakeString(str):
+    hash_count = 0
     def unwrap(self, space):
         self.unwrapped = True
         return str(self)
 
+    def __hash__(self):
+        self.hash_count += 1
+        return str.__hash__(self)
+
 # the minimal 'space' needed to use a W_DictMultiObject
 class FakeSpace:
+    hash_count = 0
     def hash_w(self, obj):
+        self.hash_count += 1
         return hash(obj)
     def unwrap(self, x):
         return x
@@ -726,6 +758,8 @@ class FakeSpace:
         return []
     DictObjectCls = W_DictMultiObject
     def type(self, w_obj):
+        if isinstance(w_obj, FakeString):
+            return str
         return type(w_obj)
     w_str = str
     def str_w(self, string):
@@ -889,6 +923,19 @@ class BaseTestRDictImplementation:
             impl.setitem(self.fakespace.str_w(str(x)), x)
             impl.setitem(x, x)
         assert impl.r_dict_content is not None
+
+    def test_setdefault_fast(self):
+        on_pypy = "__pypy__" in sys.builtin_module_names
+        impl = self.impl
+        key = FakeString(self.string)
+        x = impl.setdefault(key, 1)
+        assert x == 1
+        if on_pypy:
+            assert key.hash_count == 1
+        x = impl.setdefault(key, 2)
+        assert x == 1
+        if on_pypy:
+            assert key.hash_count == 2
 
 class TestStrDictImplementation(BaseTestRDictImplementation):
     ImplementionClass = StrDictImplementation
