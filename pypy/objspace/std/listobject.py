@@ -768,7 +768,7 @@ def init__List(space, w_list, __args__):
         if isinstance(w_iterable, W_ListObject):
             w_list.extend(w_iterable)
         elif isinstance(w_iterable, W_TupleObject):
-            w_list.extend(W_ListObject(space, w_iterable.wrappeditems[:])
+            w_list.extend(W_ListObject(space, w_iterable.wrappeditems[:]))
         else:
             _init_from_iterable(space, w_list, w_iterable)
 
@@ -783,8 +783,7 @@ def _init_from_iterable(space, w_list, w_iterable):
             if not e.match(space, space.w_StopIteration):
                 raise
             break  # done
-            #items_w.append(w_item)
-            w_list.append(w_item)
+        w_list.append(w_item)
 
 def len__List(space, w_list):
     result = w_list.length()
