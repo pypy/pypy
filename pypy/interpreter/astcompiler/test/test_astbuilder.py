@@ -755,6 +755,7 @@ class TestAstBuilder:
             ("{x : x for x in z}", "dict comprehension"),
             ("'str'", "literal"),
             ("u'str'", "literal"),
+            ("b'bytes'", "literal"),
             ("()", "()"),
             ("23", "literal"),
             ("{}", "literal"),
