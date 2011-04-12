@@ -1,5 +1,5 @@
 import py, sys
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
 from pypy.jit.codewriter.policy import StopAtXPolicy

@@ -12,7 +12,7 @@ if len(sys.argv) >= 4 and sys.argv[1] == '--sub':
 
 import py
 from pypy.jit.metainterp.memmgr import MemoryManager
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.jit import JitDriver, dont_look_inside
 
 
