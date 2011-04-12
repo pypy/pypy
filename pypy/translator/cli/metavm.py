@@ -270,23 +270,38 @@ class _DebugPrint(MicroInstruction):
 
         generator.ilasm.call('void [pypylib]pypy.runtime.DebugPrint::DEBUG_PRINT(%s)' % signature)
 
-
-OOTYPE_TO_MNEMONIC = {
-    ootype.Bool: 'i1', 
-    ootype.Char: 'i2',
-    ootype.UniChar: 'i2',
-    rffi.SHORT: 'i2',
-    ootype.Signed: 'i4',
-    ootype.SignedLongLong: 'i8',
-    ootype.Unsigned: 'u4',
-    ootype.UnsignedLongLong: 'u8',
-    ootype.Float: 'r8',
+INT_SIZE = {
+    ootype.Bool: 1,
+    ootype.Char: 2,
+    ootype.UniChar: 2,
+    rffi.SHORT: 2,
+    ootype.Signed: 4,
+    ootype.Unsigned: 4,
+    ootype.SignedLongLong: 8,
+    ootype.UnsignedLongLong: 8
     }
+
+UNSIGNED_TYPES = [ootype.Char, ootype.UniChar, rffi.USHORT,
+                  ootype.Unsigned, ootype.UnsignedLongLong]
+
+def ootype_to_mnemonic(FROM, TO, default=None):
+    if TO == ootype.Float:
+        return 'r8'
+    #
+    try:
+        size = str(INT_SIZE[TO])
+    except KeyError:
+        return default
+    if FROM in UNSIGNED_TYPES:
+        return 'u' + size
+    else:
+        return 'i' + size
 
 class _CastPrimitive(MicroInstruction):
     def render(self, generator, op):
+        FROM = op.args[0].concretetype
         TO = op.result.concretetype
-        mnemonic = OOTYPE_TO_MNEMONIC[TO]
+        mnemonic = ootype_to_mnemonic(FROM, TO)
         generator.ilasm.opcode('conv.%s' % mnemonic)
 
 Call = _Call()

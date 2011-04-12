@@ -11,6 +11,7 @@ class TestMath(MathTests):
         nan = inf / inf
         assert not ll_math.ll_math_isinf(0)
         assert ll_math.ll_math_isinf(inf)
+        assert ll_math.ll_math_isinf(-inf)
         assert not ll_math.ll_math_isinf(nan)
 
     def test_isnan(self):

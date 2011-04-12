@@ -112,6 +112,7 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     try:
         while True:
             count = fread(buf, 1, BUF_SIZE, fp)
+            count = rffi.cast(lltype.Signed, count)
             source += rffi.charpsize2str(buf, count)
             if count < BUF_SIZE:
                 if feof(fp):

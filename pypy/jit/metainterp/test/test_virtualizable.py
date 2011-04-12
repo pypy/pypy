@@ -6,7 +6,7 @@ from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 from pypy.rlib.rarithmetic import intmask
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history

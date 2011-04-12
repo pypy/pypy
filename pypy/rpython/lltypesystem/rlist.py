@@ -16,7 +16,6 @@ from pypy.rpython import robject
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib import rgc
 

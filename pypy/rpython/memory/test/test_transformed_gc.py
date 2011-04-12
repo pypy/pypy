@@ -13,7 +13,6 @@ from pypy.rlib.debug import ll_assert
 from pypy.rlib import rgc
 from pypy import conftest
 from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import LONG_BIT
 
 WORD = LONG_BIT // 8

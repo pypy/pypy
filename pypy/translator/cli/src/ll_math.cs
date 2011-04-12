@@ -224,5 +224,25 @@ namespace pypy.builtin
         {
             return Math.Tanh(x);
         }
+
+        static public bool ll_math_isnan(double x)
+        {
+            return double.IsNaN(x);
+        }
+
+        static public bool ll_math_isinf(double x)
+        {
+            return double.IsInfinity(x);
+        }
+
+        static public double ll_math_copysign(double x, double y)
+        {
+            if (x < 0.0)
+                x = -x;
+            if (y > 0.0 || (y == 0.0 && Math.Atan2(y, -1.0) > 0.0))
+                return x;
+            else
+                return -x;
+        }
     }
 }

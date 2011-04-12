@@ -1,10 +1,10 @@
 
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py, os
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rlib import jit
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -79,6 +79,7 @@ def ll_start_new_thread(func):
 
 # wrappers...
 
+@jit.loop_invariant
 def get_ident():
     return rffi.cast(lltype.Signed, c_thread_get_ident())
 
@@ -112,6 +113,12 @@ class Lock(object):
 
     def __del__(self):
         free_ll_lock(self._lock)
+
+    def __enter__(self):
+        self.acquire(True)
+        
+    def __exit__(self, *args):
+        self.release()
 
 # ____________________________________________________________
 #

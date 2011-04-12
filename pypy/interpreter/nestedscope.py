@@ -219,12 +219,14 @@ class __extend__(pyframe.PyFrame):
             freevars = [self.space.interp_w(Cell, cell)
                         for cell in self.space.fixedview(w_freevarstuple)]
         else:
-            nfreevars = len(codeobj.co_freevars)
-            freevars = [self.space.interp_w(Cell, self.popvalue())
-                        for i in range(nfreevars)]
-            freevars.reverse()
-        defaultarguments = [self.popvalue() for i in range(numdefaults)]
-        defaultarguments.reverse()
+            n = len(codeobj.co_freevars)
+            freevars = [None] * n
+            while True:
+                n -= 1
+                if n < 0:
+                    break
+                freevars[n] = self.space.interp_w(Cell, self.popvalue())
+        defaultarguments = self.popvalues(numdefaults)
         fn = function.Function(self.space, codeobj, self.w_globals,
                                defaultarguments, freevars)
         self.pushvalue(self.space.wrap(fn))

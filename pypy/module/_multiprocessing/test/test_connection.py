@@ -10,7 +10,7 @@ class TestImport:
 
 class AppTestBufferTooShort:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
+        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal'))
         cls.space = space
 
         if option.runappdirect:
@@ -88,7 +88,7 @@ class AppTestWinpipeConnection(BaseConnectionTest):
 
 class AppTestSocketConnection(BaseConnectionTest):
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
+        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal'))
         cls.space = space
         cls.w_connections = space.newlist([])
 

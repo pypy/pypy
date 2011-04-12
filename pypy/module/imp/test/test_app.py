@@ -1,3 +1,4 @@
+from __future__ import with_statement
 MARKER = 42
 
 class AppTestImpModule:
@@ -34,7 +35,8 @@ class AppTestImpModule:
 
     def test_load_dynamic(self):
         raises(ImportError, self.imp.load_dynamic, 'foo', 'bar')
-        raises(ImportError, self.imp.load_dynamic, 'foo', 'bar', 'baz.so')
+        raises(ImportError, self.imp.load_dynamic, 'foo', 'bar',
+               open(self.file_module))
 
     def test_suffixes(self):
         for suffix, mode, type in self.imp.get_suffixes():

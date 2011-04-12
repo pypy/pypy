@@ -107,7 +107,8 @@ class TraceForOpcode(object):
                 self.bytecode_no = int(bytecode_no)
         self.operations = operations
         self.storage = storage
-        self.code = storage.disassemble_code(self.filename, self.startlineno)
+        self.code = storage.disassemble_code(self.filename, self.startlineno,
+                                             self.name)
 
     def repr(self):
         if self.filename is None:

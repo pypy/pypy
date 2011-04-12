@@ -305,6 +305,15 @@ class StackCounter:
 stackcounter = StackCounter()
 stackcounter._freeze_()
 
+def llexternal_use_eci(compilation_info):
+    """Return a dummy function that, if called in a RPython program,
+    adds the given ExternalCompilationInfo to it."""
+    eci = ExternalCompilationInfo(post_include_bits=['#define PYPY_NO_OP()'])
+    eci = eci.merge(compilation_info)
+    return llexternal('PYPY_NO_OP', [], lltype.Void,
+                      compilation_info=eci, sandboxsafe=True, _nowrapper=True,
+                      _callable=lambda: None)
+
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
 # this makes passing opaque objects possible (they don't even pass
@@ -737,6 +746,7 @@ def make_string_mappings(strtype):
     def charpsize2str(cp, size):
         l = [cp[i] for i in range(size)]
         return emptystr.join(l)
+    charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,

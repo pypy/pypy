@@ -253,8 +253,10 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     except OperationError, e:
         parser._exc_info = e
         XML_StopParser(parser.itself, XML_FALSE)
-        return 0
-    return 1
+        result = 0
+    else:
+        result = 1
+    return rffi.cast(rffi.INT, result)
 callback_type = lltype.Ptr(lltype.FuncType(
     [rffi.VOIDP, rffi.CCHARP, XML_Encoding_Ptr], rffi.INT))
 XML_SetUnknownEncodingHandler = expat_external(

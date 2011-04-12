@@ -5,10 +5,9 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    track_reference, get_typedescr, RefcountState)
+    track_reference, get_typedescr, _Py_NewReference, RefcountState)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
-from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.error import OperationError
 import pypy.module.__builtin__.operation as operation
@@ -184,26 +183,17 @@ def PyObject_DelItem(space, w_obj, w_key):
     return 0
 
 @cpython_api([PyObject, PyTypeObjectPtr], PyObject)
-def PyObject_Init(space, py_obj, type):
+def PyObject_Init(space, obj, type):
     """Initialize a newly-allocated object op with its type and initial
     reference.  Returns the initialized object.  If type indicates that the
     object participates in the cyclic garbage detector, it is added to the
     detector's set of observed objects. Other fields of the object are not
     affected."""
-    if not py_obj:
+    if not obj:
         PyErr_NoMemory(space)
-    py_obj.c_ob_type = type
-    py_obj.c_ob_refcnt = 1
-    w_type = from_ref(space, rffi.cast(PyObject, type))
-    assert isinstance(w_type, W_TypeObject)
-    if w_type.is_cpytype():
-        w_obj = space.allocate_instance(W_ObjectObject, w_type)
-        track_reference(space, py_obj, w_obj)
-        state = space.fromcache(RefcountState)
-        state.set_lifeline(w_obj, py_obj)
-    else:
-        assert False, "Please add more cases in PyObject_Init"
-    return py_obj
+    obj.c_ob_type = type
+    _Py_NewReference(space, obj)
+    return obj
 
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
 def PyObject_InitVar(space, py_obj, type, size):
@@ -254,6 +244,16 @@ def PyObject_Compare(space, w_o1, w_o2):
     PyErr_Occurred() to detect an error.  This is equivalent to the Python
     expression cmp(o1, o2)."""
     return space.int_w(space.cmp(w_o1, w_o2))
+
+@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
+def PyObject_Cmp(space, w_o1, w_o2, result):
+    """Compare the values of o1 and o2 using a routine provided by o1, if one
+    exists, otherwise with a routine provided by o2.  The result of the
+    comparison is returned in result.  Returns -1 on failure.  This is the
+    equivalent of the Python statement result = cmp(o1, o2)."""
+    res = space.int_w(space.cmp(w_o1, w_o2))
+    result[0] = rffi.cast(rffi.INT, res)
+    return 0
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
@@ -395,7 +395,7 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a character buffer object"))
     if generic_cpy_call(space, pb.c_bf_getsegcount,
-                        obj, lltype.nullptr(rffi.INTP.TO)) != 1:
+                        obj, lltype.nullptr(Py_ssize_tP.TO)) != 1:
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a single-segment buffer object"))
     size = generic_cpy_call(space, pb.c_bf_getcharbuffer,

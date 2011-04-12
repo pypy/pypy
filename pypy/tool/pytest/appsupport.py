@@ -196,7 +196,7 @@ def _exc_info(space, err):
     class _ExceptionInfo(object):
         def __init__(self):
             import sys
-            self.type, self.value, _ = sys.exc_info()
+            self.type, self.value, self.traceback = sys.exc_info()
 
     return _ExceptionInfo
 """)    

@@ -19,7 +19,8 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
-from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE, IS_X86_32, IS_X86_64
+from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
+from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
 from pypy.rlib.rarithmetic import r_longlong, r_uint
 
 class X86RegisterManager(RegisterManager):
@@ -33,6 +34,12 @@ class X86RegisterManager(RegisterManager):
         ebx: 1,
         esi: 2,
         edi: 3,
+    }
+    REGLOC_TO_COPY_AREA_OFS = {
+        ecx: MY_COPY_OF_REGS + 0 * WORD,
+        ebx: MY_COPY_OF_REGS + 1 * WORD,
+        esi: MY_COPY_OF_REGS + 2 * WORD,
+        edi: MY_COPY_OF_REGS + 3 * WORD,
     }
 
     def call_result_location(self, v):
@@ -60,6 +67,19 @@ class X86_64_RegisterManager(X86RegisterManager):
         r13: 3,
         r14: 4,
         r15: 5,
+    }
+    REGLOC_TO_COPY_AREA_OFS = {
+        ecx: MY_COPY_OF_REGS + 0 * WORD,
+        ebx: MY_COPY_OF_REGS + 1 * WORD,
+        esi: MY_COPY_OF_REGS + 2 * WORD,
+        edi: MY_COPY_OF_REGS + 3 * WORD,
+        r8:  MY_COPY_OF_REGS + 4 * WORD,
+        r9:  MY_COPY_OF_REGS + 5 * WORD,
+        r10: MY_COPY_OF_REGS + 6 * WORD,
+        r12: MY_COPY_OF_REGS + 7 * WORD,
+        r13: MY_COPY_OF_REGS + 8 * WORD,
+        r14: MY_COPY_OF_REGS + 9 * WORD,
+        r15: MY_COPY_OF_REGS + 10 * WORD,
     }
 
 class X86XMMRegisterManager(RegisterManager):
@@ -117,6 +137,16 @@ class X86FrameManager(FrameManager):
         else:
             return 1
 
+if WORD == 4:
+    gpr_reg_mgr_cls = X86RegisterManager
+    xmm_reg_mgr_cls = X86XMMRegisterManager
+elif WORD == 8:
+    gpr_reg_mgr_cls = X86_64_RegisterManager
+    xmm_reg_mgr_cls = X86_64_XMMRegisterManager
+else:
+    raise AssertionError("Word size should be 4 or 8")
+
+
 class RegAlloc(object):
 
     def __init__(self, assembler, translate_support_code=False):
@@ -135,16 +165,6 @@ class RegAlloc(object):
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        # XXX
-        if cpu.WORD == 4:
-            gpr_reg_mgr_cls = X86RegisterManager
-            xmm_reg_mgr_cls = X86XMMRegisterManager
-        elif cpu.WORD == 8:
-            gpr_reg_mgr_cls = X86_64_RegisterManager
-            xmm_reg_mgr_cls = X86_64_XMMRegisterManager
-        else:
-            raise AssertionError("Word size should be 4 or 8")
-            
         self.rm = gpr_reg_mgr_cls(longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
@@ -738,8 +758,12 @@ class RegAlloc(object):
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
-        self.rm.before_call(force_store, save_all_regs=save_all_regs)
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
+        if not save_all_regs:
+            gcrootmap = gc_ll_descr = self.assembler.cpu.gc_ll_descr.gcrootmap
+            if gcrootmap and gcrootmap.is_shadow_stack:
+                save_all_regs = 2
+        self.rm.before_call(force_store, save_all_regs=save_all_regs)
         if op.result is not None:
             if op.result.type == FLOAT:
                 resloc = self.xrm.after_call(op.result)
@@ -836,31 +860,53 @@ class RegAlloc(object):
         self.PerformDiscard(op, arglocs)
         self.rm.possibly_free_vars_for_op(op)
 
-    def _fastpath_malloc(self, op, descr):
+    def fastpath_malloc_fixedsize(self, op, descr):
         assert isinstance(descr, BaseSizeDescr)
+        self._do_fastpath_malloc(op, descr.size, descr.tid)
+
+    def fastpath_malloc_varsize(self, op, arraydescr, num_elem):
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
+        basesize = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        size = basesize + itemsize * num_elem
+        self._do_fastpath_malloc(op, size, arraydescr.tid)
+        self.assembler.set_new_array_length(eax, ofs_length, imm(num_elem))
+
+    def _do_fastpath_malloc(self, op, size, tid):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-        # We need to force-allocate each of save_around_call_regs now.
-        # The alternative would be to save and restore them around the
-        # actual call to malloc(), in the rare case where we need to do
-        # it; however, mark_gc_roots() would need to be adapted to know
-        # where the variables end up being saved.  Messy.
-        for reg in self.rm.save_around_call_regs:
-            if reg is not eax:
-                tmp_box = TempBox()
-                self.rm.force_allocate_reg(tmp_box, selected_reg=reg)
-                self.rm.possibly_free_var(tmp_box)
 
-        self.assembler.malloc_cond_fixedsize(
+        if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
+            # ---- shadowstack ----
+            # We need edx as a temporary, but otherwise don't save any more
+            # register.  See comments in _build_malloc_slowpath().
+            tmp_box = TempBox()
+            self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
+            self.rm.possibly_free_var(tmp_box)
+        else:
+            # ---- asmgcc ----
+            # We need to force-allocate each of save_around_call_regs now.
+            # The alternative would be to save and restore them around the
+            # actual call to malloc(), in the rare case where we need to do
+            # it; however, mark_gc_roots() would need to be adapted to know
+            # where the variables end up being saved.  Messy.
+            for reg in self.rm.save_around_call_regs:
+                if reg is not eax:
+                    tmp_box = TempBox()
+                    self.rm.force_allocate_reg(tmp_box, selected_reg=reg)
+                    self.rm.possibly_free_var(tmp_box)
+
+        self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            descr.size, descr.tid,
+            size, tid,
             )
 
     def consider_new(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         if gc_ll_descr.can_inline_malloc(op.getdescr()):
-            self._fastpath_malloc(op, op.getdescr())
+            self.fastpath_malloc_fixedsize(op, op.getdescr())
         else:
             args = gc_ll_descr.args_for_new(op.getdescr())
             arglocs = [imm(x) for x in args]
@@ -870,7 +916,7 @@ class RegAlloc(object):
         classint = op.getarg(0).getint()
         descrsize = heaptracker.vtable2descr(self.assembler.cpu, classint)
         if self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize):
-            self._fastpath_malloc(op, descrsize)
+            self.fastpath_malloc_fixedsize(op, descrsize)
             self.assembler.set_vtable(eax, imm(classint))
             # result of fastpath malloc is in eax
         else:
@@ -929,16 +975,25 @@ class RegAlloc(object):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newarray is not None:
             # framework GC
-            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(op.getdescr())
+            box_num_elem = op.getarg(0)
+            if isinstance(box_num_elem, ConstInt):
+                num_elem = box_num_elem.value
+                if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
+                                                         num_elem):
+                    self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
+                    return
+            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
+                op.getdescr())
             arglocs = [imm(x) for x in args]
-            arglocs.append(self.loc(op.getarg(0)))
-            return self._call(op, arglocs)
+            arglocs.append(self.loc(box_num_elem))
+            self._call(op, arglocs)
+            return
         # boehm GC (XXX kill the following code at some point)
         itemsize, basesize, ofs_length, _, _ = (
             self._unpack_arraydescr(op.getdescr()))
         scale_of_field = _get_scale(itemsize)
-        return self._malloc_varsize(basesize, ofs_length, scale_of_field,
-                                    op.getarg(0), op.result)
+        self._malloc_varsize(basesize, ofs_length, scale_of_field,
+                             op.getarg(0), op.result)
 
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
@@ -1132,7 +1187,7 @@ class RegAlloc(object):
         # call memcpy()
         self.rm.before_call()
         self.xrm.before_call()
-        self.assembler._emit_call(imm(self.assembler.memcpy_addr),
+        self.assembler._emit_call(-1, imm(self.assembler.memcpy_addr),
                                   [dstaddr_loc, srcaddr_loc, length_loc])
         self.rm.possibly_free_var(length_box)
         self.rm.possibly_free_var(dstaddr_box)
@@ -1200,18 +1255,24 @@ class RegAlloc(object):
     def consider_jit_debug(self, op):
         pass
 
-    def get_mark_gc_roots(self, gcrootmap):
+    def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(IS_X86_64)
         for v, val in self.fm.frame_bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)
-                gcrootmap.add_ebp_offset(shape, get_ebp_ofs(val.position))
+                gcrootmap.add_frame_offset(shape, get_ebp_ofs(val.position))
         for v, reg in self.rm.reg_bindings.items():
             if reg is eax:
                 continue      # ok to ignore this one
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
-                gcrootmap.add_callee_save_reg(shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
+                if use_copy_area:
+                    assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
+                    area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
+                    gcrootmap.add_frame_offset(shape, area_offset)
+                else:
+                    assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
+                    gcrootmap.add_callee_save_reg(
+                        shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
         return gcrootmap.compress_callshape(shape,
                                             self.assembler.datablockwrapper)
 

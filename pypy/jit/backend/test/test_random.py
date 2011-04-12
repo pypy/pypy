@@ -717,6 +717,7 @@ def check_random_function(cpu, BuilderClass, r, num=None, max=None):
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
     cpu = get_cpu()
+    cpu.setup_once()
     if pytest.config.option.repeat == -1:
         while 1:
             check_random_function(cpu, BuilderClass, r)

@@ -18,7 +18,6 @@ class TestRx86_64(test_rx86_32_auto_encoding.TestRx86_32):
     def should_skip_instruction(self, instrname, argmodes):
         return (
                 super(TestRx86_64, self).should_skip_instruction(instrname, argmodes) or
-                ('j' in argmodes) or
                 # Not testing FSTP on 64-bit for now
                 (instrname == 'FSTP')
         )
