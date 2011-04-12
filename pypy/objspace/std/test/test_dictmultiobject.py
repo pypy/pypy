@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     StrDictImplementation
+     StringDictStrategy
 
 from pypy.objspace.std.celldict import ModuleDictImplementation
 from pypy.conftest import gettestobjspace
@@ -843,14 +843,20 @@ class BaseTestRDictImplementation:
         self.impl = self.get_impl()
 
     def get_impl(self):
-        return self.ImplementionClass(self.fakespace)
+        strategy = self.StrategyClass(self.fakespace)
+        storage = strategy.get_empty_storage()
+        w_dict = self.fakespace.allocate_instance(W_DictMultiObject, None)
+        W_DictMultiObject.__init__(w_dict, self.fakespace, strategy, storage)
+        return w_dict
 
     def fill_impl(self):
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
 
     def check_not_devolved(self):
-        assert self.impl.r_dict_content is None
+        #XXX check if strategy changed!?
+        assert type(self.impl.strategy) is self.StrategyClass
+        #assert self.impl.r_dict_content is None
 
     def test_setitem(self):
         self.impl.setitem(self.string, 1000)
@@ -938,7 +944,8 @@ class BaseTestRDictImplementation:
             assert key.hash_count == 2
 
 class TestStrDictImplementation(BaseTestRDictImplementation):
-    ImplementionClass = StrDictImplementation
+    StrategyClass = StringDictStrategy
+    #ImplementionClass = StrDictImplementation
 
     def test_str_shortcut(self):
         self.fill_impl()
@@ -969,7 +976,8 @@ class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
         pass
 
 class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
-    ImplementionClass = StrDictImplementation
+    pass
+    #ImplementionClass = StrDictImplementation
 
 class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
     ImplementionClass = ModuleDictImplementation
