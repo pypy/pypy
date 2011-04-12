@@ -312,6 +312,12 @@ class TestW_ListStrategies(TestW_ListObject):
         l3 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         assert self.space.eq_w(l2, l3)
 
+        l4 = make_range_list(self.space, 1, 1, 3)
+        assert self.space.eq_w(l4, l1)
+
+        l5 = l4.mul(2)
+        assert self.space.eq_w(l5, l3)
+
     def test_mul_same_strategy_but_different_object(self):
         l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
         l2 = l1.mul(1)

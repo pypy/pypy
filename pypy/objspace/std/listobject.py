@@ -387,9 +387,11 @@ class RangeListStrategy(ListStrategy):
         w_list.append(w_item)
 
     def mul(self, w_list, times):
-        #XXX maybe faster to get unwrapped items and create new integer list?
-        w_newlist = w_list.clone()
-        w_newlist.inplace_mul(times)
+        l = self._getitems_range(w_list, False)
+        l *= times
+        strategy = self.space.fromcache(IntegerListStrategy)
+        storage = strategy.cast_to_void_star(l)
+        w_newlist = W_ListObject.from_storage_and_strategy(self.space, storage, strategy)
         return w_newlist
 
     def inplace_mul(self, w_list, times):
@@ -672,6 +674,7 @@ class AbstractUnwrappedStrategy(object):
         return w_item
 
     def mul(self, w_list, times):
+        # clone 
         w_newlist = w_list.clone()
         w_newlist.inplace_mul(times)
         return w_newlist
