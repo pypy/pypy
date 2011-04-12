@@ -311,8 +311,7 @@ class FlowExecutionContext(ExecutionContext):
         # EggBlocks reuse the variables of their previous block,
         # which is deemed not acceptable for simplicity of the operations
         # that will be performed later on the flow graph.
-        def fixegg(link):
-            if isinstance(link, Link):
+        for link in list(self.graph.iterlinks()):
                 block = link.target
                 if isinstance(block, EggBlock):
                     if (not block.operations and len(block.exits) == 1 and
@@ -324,15 +323,14 @@ class FlowExecutionContext(ExecutionContext):
                         link.args = list(link2.args)
                         link.target = link2.target
                         assert link2.exitcase is None
-                        fixegg(link)
                     else:
                         mapping = {}
                         for a in block.inputargs:
                             mapping[a] = Variable(a)
                         block.renamevariables(mapping)
-            elif isinstance(link, SpamBlock):
+        for block in self.graph.iterblocks():
+            if isinstance(link, SpamBlock):
                 del link.framestate     # memory saver
-        traverse(fixegg, self.graph)
 
     def mergeblock(self, currentblock, currentstate):
         next_instr = currentstate.next_instr

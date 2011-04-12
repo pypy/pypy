@@ -20,6 +20,22 @@ class W_SmallTupleObject(W_Object):
     def length(self):
         raise NotImplementedError
 
+    def getitem(self, index):
+        raise NotImplementedError
+
+    def hash(self, space):
+        raise NotImplementedError
+
+    def eq(self, space, w_other):
+        raise NotImplementedError
+
+    def setitem(self, index, w_item):
+        raise NotImplementedError
+
+    def unwrap(w_tuple, space):
+        items = [space.unwrap(w_item) for w_item in w_tuple.tolist()] # XXX generic mixed types unwrap
+        return tuple(items)
+
 def make_specialized_class(n):
     iter_n = unrolling_iterable(range(n))
     class cls(W_SmallTupleObject):
@@ -44,11 +60,46 @@ def make_specialized_class(n):
                     return getattr(self,'w_value%s' % i)
             raise IndexError
 
+        def setitem(self, index, w_item):
+            for i in iter_n:
+                if index == i:
+                    setattr(self, 'w_value%s' % i, w_item)
+                    return
+            raise IndexError
+
+        def eq(self, space, w_other):
+            if self.length() != w_other.length():
+                return space.w_False
+            for i in iter_n:
+                item1 = self.getitem(i)
+                item2 = w_other.getitem(i)
+                if not space.eq_w(item1, item2):
+                    return space.w_False
+            return space.w_True
+
+        def hash(self, space):
+            mult = 1000003
+            x = 0x345678
+            z = self.length()
+            for i in iter_n:
+                w_item = self.getitem(i)
+                y = space.int_w(space.hash(w_item))
+                x = (x ^ y) * mult
+                z -= 1
+                mult += 82520 + z + z
+            x += 97531
+            return space.wrap(intmask(x))
+
     cls.__name__ = "W_SmallTupleObject%s" % n
     return cls
 
 W_SmallTupleObject2 = make_specialized_class(2)
 W_SmallTupleObject3 = make_specialized_class(3)
+W_SmallTupleObject4 = make_specialized_class(4)
+W_SmallTupleObject5 = make_specialized_class(5)
+W_SmallTupleObject6 = make_specialized_class(6)
+W_SmallTupleObject7 = make_specialized_class(7)
+W_SmallTupleObject8 = make_specialized_class(8)
 
 registerimplementation(W_SmallTupleObject)
 
@@ -95,6 +146,12 @@ def mul__SmallTuple_ANY(space, w_tuple, w_times):
 
 def mul__ANY_SmallTuple(space, w_times, w_tuple):
     return mul_smalltuple_times(space, w_tuple, w_times)
+
+def eq__SmallTuple_SmallTuple(space, w_tuple1, w_tuple2):
+    return w_tuple1.eq(space, w_tuple2)
+
+def hash__SmallTuple(space, w_tuple):
+    return w_tuple.hash(space)
 
 from pypy.objspace.std import tupletype
 register_all(vars(), tupletype)

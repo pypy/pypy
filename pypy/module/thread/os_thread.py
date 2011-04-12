@@ -248,3 +248,8 @@ def exit(space):
     """This is synonymous to ``raise SystemExit''.  It will cause the current
 thread to exit silently unless the exception is caught."""
     raise OperationError(space.w_SystemExit, space.w_None)
+
+def interrupt_main(space):
+    """Raise a KeyboardInterrupt in the main thread.
+A subthread can use this function to interrupt the main thread."""
+    space.check_signal_action.set_interrupt()

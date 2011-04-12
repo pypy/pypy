@@ -8,6 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.objectmodel import instantiate, specialize
+from pypy.interpreter.function import Defaults
 from pypy.rlib.listsort import TimSort
 from pypy.rlib import rerased
 from pypy.interpreter.argument import Signature
@@ -752,30 +753,36 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 # _______________________________________________________
 
 init_signature = Signature(['sequence'], None, None)
-init_defaults = [None]
+init_defaults = Defaults([None])
 
 def init__List(space, w_list, __args__):
+    from pypy.objspace.std.tupleobject import W_TupleObject
     # this is on the silly side
     w_iterable, = __args__.parse_obj(
             None, 'list', init_signature, init_defaults)
-    #
-    # this is the old version of the loop at the end of this function:
-    #
-    #   w_list.wrappeditems = space.unpackiterable(w_iterable)
-    #
-    # This is commented out to avoid assigning a new RPython list to
-    # 'wrappeditems', which defeats the W_FastSeqIterObject optimization.
-    #
     w_list.__init__(space, [])
     if w_iterable is not None:
-        w_iterator = space.iter(w_iterable)
-        while True:
-            try:
-                w_item = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
+        # unfortunately this is duplicating space.unpackiterable to avoid
+        # assigning a new RPython list to 'wrappeditems', which defeats the
+        # W_FastSeqIterObject optimization.
+        if isinstance(w_iterable, W_ListObject):
+            w_list.extend(w_iterable)
+        elif isinstance(w_iterable, W_TupleObject):
+            w_list.extend(W_ListObject(space, w_iterable.wrappeditems[:])
+        else:
+            _init_from_iterable(space, w_list, w_iterable)
+
+def _init_from_iterable(space, w_list, w_iterable):
+    # in its own function to make the JIT look into init__List
+    # XXX this would need a JIT driver somehow?
+    w_iterator = space.iter(w_iterable)
+    while True:
+        try:
+            w_item = space.next(w_iterator)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break  # done
             #items_w.append(w_item)
             w_list.append(w_item)
 

@@ -2,7 +2,7 @@ TODO list for 2.7.0
 ===================
 
 You can find the results of the most recent buildbot run at:
-http://buildbot.pypy.org/summary?branch=fast-forward
+http://buildbot.pypy.org/
 
 
 Probably easy tasks
@@ -39,17 +39,7 @@ Probably easy tasks
 Medium tasks
 ------------
 
-- Ast objects should be picklable, see in pypy/module/_ast/test/test_ast.py:
-  test_pickle()
-
 - socket module has a couple of changes (including AF_TIPC packet range)
-
-- (test_lib2to3) When a "for" loop runs a generator function, if the loop is
-  exited before the end, the "finally" clause of the generator is not called
-  until the next gc collection.  In our case, in lib2to3/pytree.py,
-  WildcardPattern.match_seq() does not exhaust the generate_matches() generator,
-  and stderr is not restored.
-
 
 Longer tasks
 ------------

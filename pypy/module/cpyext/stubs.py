@@ -745,13 +745,6 @@ def PyErr_WarnExplicit(space, category, message, filename, lineno, module, regis
     described there."""
     raise NotImplementedError
 
-@cpython_api([], lltype.Void)
-def PyErr_SetInterrupt(space):
-    """This function simulates the effect of a SIGINT signal arriving --- the
-    next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
-    It may be called without holding the interpreter lock."""
-    raise NotImplementedError
-
 @cpython_api([rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
 def PySignal_SetWakeupFd(space, fd):
     """This utility function specifies a file descriptor to which a '\0' byte will
@@ -850,13 +843,6 @@ def Py_LeaveRecursiveCall(space):
     successful invocation of Py_EnterRecursiveCall()."""
     raise NotImplementedError
 
-@cpython_api([FILE, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
-def PyFile_FromFile(space, fp, name, mode, close):
-    """Create a new PyFileObject from the already-open standard C file
-    pointer, fp.  The function close will be called when the file should be
-    closed.  Return NULL on failure."""
-    raise NotImplementedError
-
 @cpython_api([PyFileObject], lltype.Void)
 def PyFile_IncUseCount(space, p):
     """Increments the PyFileObject's internal use count to indicate
@@ -899,12 +885,6 @@ def PyFile_Name(space, p):
     borrow_from()
     raise NotImplementedError
 
-@cpython_api([PyFileObject, rffi.INT_real], lltype.Void)
-def PyFile_SetBufSize(space, p, n):
-    """Available on systems with setvbuf() only.  This should only be called
-    immediately after file object creation."""
-    raise NotImplementedError
-
 @cpython_api([PyFileObject, rffi.CCHARP], rffi.INT_real, error=0)
 def PyFile_SetEncoding(space, p, enc):
     """Set the file's encoding for Unicode output to enc. Return 1 on success and 0
@@ -939,12 +919,6 @@ def PyFile_WriteObject(space, obj, p, flags):
     Py_PRINT_RAW; if given, the str() of the object is written
     instead of the repr().  Return 0 on success or -1 on failure; the
     appropriate exception will be set."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject], rffi.INT_real, error=-1)
-def PyFile_WriteString(space, s, p):
-    """Write string s to file object p.  Return 0 on success or -1 on
-    failure; the appropriate exception will be set."""
     raise NotImplementedError
 
 @cpython_api([], PyObject)
@@ -1770,12 +1744,6 @@ def PyInt_AsUnsignedLongLongMask(space, io):
     """
     raise NotImplementedError
 
-@cpython_api([], lltype.Signed, error=CANNOT_FAIL)
-def PyInt_GetMax(space):
-    """Return the system's idea of the largest integer it can handle (LONG_MAX,
-    as defined in the system header files)."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyInt_ClearFreeList(space):
     """Clear the integer free list. Return the number of items that could not
@@ -2334,28 +2302,6 @@ def PySys_SetPath(space, path):
     """Set sys.path to a list object of paths found in path which should
     be a list of paths separated with the platform's search path delimiter
     (: on Unix, ; on Windows)."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, ], lltype.Void)
-def PySys_WriteStdout(space, format):
-    """Write the output string described by format to sys.stdout.  No
-    exceptions are raised, even if truncation occurs (see below).
-    
-    format should limit the total size of the formatted output string to
-    1000 bytes or less -- after 1000 bytes, the output string is truncated.
-    In particular, this means that no unrestricted "%s" formats should occur;
-    these should be limited using "%.<N>s" where <N> is a decimal number
-    calculated so that <N> plus the maximum size of other formatted text does not
-    exceed 1000 bytes.  Also watch out for "%f", which can print hundreds of
-    digits for very large numbers.
-    
-    If a problem occurs, or sys.stdout is unset, the formatted message
-    is written to the real (C level) stdout."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, ], lltype.Void)
-def PySys_WriteStderr(space, format):
-    """As above, but write to sys.stderr or stderr instead."""
     raise NotImplementedError
 
 @cpython_api([rffi.INT_real], lltype.Void)
@@ -3070,12 +3016,6 @@ def PyRun_AnyFileExFlags(space, fp, filename, closeit, flags):
     PyRun_InteractiveLoop(), otherwise return the result of
     PyRun_SimpleFile().  If filename is NULL, this function uses
     "???" as the filename."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=-1)
-def PyRun_SimpleString(space, command):
-    """This is a simplified interface to PyRun_SimpleStringFlags() below,
-    leaving the PyCompilerFlags* argument set to NULL."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, PyCompilerFlags], rffi.INT_real, error=-1)

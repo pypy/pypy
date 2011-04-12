@@ -252,6 +252,9 @@ class StdTypeModel:
         if config.objspace.std.withsmalltuple:
             self.typeorder[smalltupleobject.W_SmallTupleObject] += [
                 (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
+        if config.objspace.std.withsmalltuple:
+            self.typeorder[smalltupleobject.W_SmallTupleObject] += [
+                (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []

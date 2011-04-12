@@ -12,12 +12,13 @@ class Module(MixedModule):
         'get_ident':              'os_thread.get_ident',
         'exit':                   'os_thread.exit',
         'exit_thread':            'os_thread.exit', # obsolete synonym
+        'interrupt_main':         'os_thread.interrupt_main',
         'stack_size':             'os_thread.stack_size',
         '_count':                 'os_thread._count',
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
-        'LockType':               'os_lock.getlocktype(space)',
-        '_local':                 'os_local.getlocaltype(space)',
+        'LockType':               'os_lock.Lock',
+        '_local':                 'os_local.Local',
         'error':                  'space.fromcache(error.Cache).w_error',
     }
 
