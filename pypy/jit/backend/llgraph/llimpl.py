@@ -12,6 +12,7 @@ from pypy.jit.metainterp.history import (ConstInt, ConstPtr,
                                          REF, INT, FLOAT)
 from pypy.jit.codewriter import heaptracker
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.module.support import LLSupport, OOSupport
 from pypy.rpython.llinterp import LLException
@@ -1065,11 +1066,18 @@ def cast_from_int(TYPE, x):
             x = heaptracker.adr2int(x)
         return lltype.cast_primitive(TYPE, x)
 
-def cast_to_ptr(x):
-    assert isinstance(lltype.typeOf(x), lltype.Ptr)
+def cast_to_ptr(x, may_be_hiddengcref32=False):
+    TYPE = lltype.typeOf(x)
+    assert isinstance(TYPE, lltype.Ptr)
+    if TYPE == llmemory.HiddenGcRef32:
+        assert may_be_hiddengcref32
+        return llop.show_from_ptr32(llmemory.GCREF, x)
     return lltype.cast_opaque_ptr(llmemory.GCREF, x)
 
-def cast_from_ptr(TYPE, x):
+def cast_from_ptr(TYPE, x, may_be_hiddengcref32=False):
+    if TYPE == llmemory.HiddenGcRef32:
+        assert may_be_hiddengcref32
+        return llop.hide_into_ptr32(TYPE, x)
     return lltype.cast_opaque_ptr(TYPE, x)
 
 def cast_to_floatstorage(x):
@@ -1302,7 +1310,7 @@ def do_getarrayitem_raw_float(array, index):
 
 def do_getarrayitem_gc_ptr(array, index):
     array = array._obj.container
-    return cast_to_ptr(array.getitem(index))
+    return cast_to_ptr(array.getitem(index), may_be_hiddengcref32=True)
 
 def _getfield_gc(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
@@ -1316,7 +1324,8 @@ def do_getfield_gc_float(struct, fieldnum):
     return cast_to_floatstorage(_getfield_gc(struct, fieldnum))
 
 def do_getfield_gc_ptr(struct, fieldnum):
-    return cast_to_ptr(_getfield_gc(struct, fieldnum))
+    return cast_to_ptr(_getfield_gc(struct, fieldnum),
+                       may_be_hiddengcref32=True)
 
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
@@ -1369,7 +1378,7 @@ def do_setarrayitem_raw_float(array, index, newvalue):
 def do_setarrayitem_gc_ptr(array, index, newvalue):
     array = array._obj.container
     ITEMTYPE = lltype.typeOf(array).OF
-    newvalue = cast_from_ptr(ITEMTYPE, newvalue)
+    newvalue = cast_from_ptr(ITEMTYPE, newvalue, may_be_hiddengcref32=True)
     array.setitem(index, newvalue)
 
 def do_setfield_gc_int(struct, fieldnum, newvalue):
@@ -1390,7 +1399,7 @@ def do_setfield_gc_ptr(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_ptr(FIELDTYPE, newvalue)
+    newvalue = cast_from_ptr(FIELDTYPE, newvalue, may_be_hiddengcref32=True)
     setattr(ptr, fieldname, newvalue)
 
 def do_setfield_raw_int(struct, fieldnum, newvalue):

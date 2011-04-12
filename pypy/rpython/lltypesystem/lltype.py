@@ -917,6 +917,14 @@ def cast_opaque_ptr(PTRTYPE, ptr):
                                                solid     = ptr._solid)
     elif (isinstance(CURTYPE.TO, OpaqueType)
           and isinstance(PTRTYPE.TO, OpaqueType)):
+        from pypy.rpython.lltypesystem import llmemory
+        if (CURTYPE == llmemory.HiddenGcRef32 or
+            PTRTYPE == llmemory.HiddenGcRef32):
+            OTHER = CURTYPE
+            if CURTYPE == llmemory.HiddenGcRef32: OTHER = PTRTYPE
+            raise InvalidCast("don't use cast_opaque_ptr() to cast between "
+                              "HiddenGcRef32 and %r; use explicitly "
+                              "show_from_ptr32 or hide_into_ptr32." % OTHER)
         if not ptr:
             return nullptr(PTRTYPE.TO)
         try:

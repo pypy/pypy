@@ -15,15 +15,10 @@ class TestRCompressed(LLJitMixin):
     def test_simple(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))
         SPTR = lltype.Ptr(S)
-        @jit.dont_look_inside
-        def escape(p):
-            assert lltype.typeOf(p) == llmemory.HiddenGcRef32
-            return p
         def f(n):
             y = lltype.malloc(S)
             y.n = n
             p = llop.hide_into_ptr32(llmemory.HiddenGcRef32, y)
-            p = escape(p)
             z = llop.show_from_ptr32(SPTR, p)
             return z.n
         res = self.interp_operations(f, [42])
