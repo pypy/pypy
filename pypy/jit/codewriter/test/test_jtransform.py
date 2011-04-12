@@ -779,6 +779,16 @@ def test_getfield_gc_greenfield():
     assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2
 
+def test_getfield_hiddengcref32_gives_r():
+    S = lltype.GcStruct('S', ('p', llmemory.HiddenGcRef32))
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(llmemory.HiddenGcRef32)
+    op = SpaceOperation('getfield', [v1, Constant('p', lltype.Void)], v2)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'getfield_gc_r'    # it gives directly an 'r'
+    assert op1.args == [v1, ('fielddescr', S, 'p')]
+    assert op1.result == v2
+
 def test_int_abs():
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Signed)
