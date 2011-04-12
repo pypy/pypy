@@ -42,7 +42,7 @@ def test_get_current_qmut_instance():
     assert qmut1 is qmut2
 
 
-class QuasiImmutTests:
+class QuasiImmutTests(object):
 
     def test_simple_1(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
