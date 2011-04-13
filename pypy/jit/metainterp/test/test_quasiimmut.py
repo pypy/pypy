@@ -175,6 +175,32 @@ class QuasiImmutTests(object):
         assert res == 700707
         self.check_loops(getfield_gc=0)
 
+    def test_invalidate_by_setfield(self):
+        py.test.skip("Not implemented")
+        jitdriver = JitDriver(greens=['bc', 'foo'], reds=['i', 'total'])
+
+        class Foo(object):
+            _immutable_fields_ = ['a?']
+            def __init__(self, a):
+                self.a = a
+
+        def f(foo, bc):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point(bc=bc, i=i, foo=foo, total=total)
+                if bc == 0:
+                    f(foo, 1)
+                if bc == 1:
+                    foo.a = int(i > 5)
+                i += 1
+                total += foo.a
+            return total
+
+        def g():
+            return f(Foo(1), 0)
+
+        assert self.meta_interp(g, []) == g()
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
     pass
