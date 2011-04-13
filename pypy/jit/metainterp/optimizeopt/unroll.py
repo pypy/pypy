@@ -165,7 +165,7 @@ class UnrollOptimizer(Optimization):
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
             short_boxes = preamble_optimizer.produce_short_preamble_ops(inputargs)
-            initial_inputargs_len = len(short_boxes)
+            initial_inputargs_len = len(inputargs)
 
             try:
                 inputargs, short = self.inline(self.cloned_operations,
@@ -199,6 +199,8 @@ class UnrollOptimizer(Optimization):
 
             #short = self.create_short_preamble(loop.preamble, loop)
             if short:
+                assert short[-1].getopnum() == rop.JUMP
+                short[-1].setdescr(loop.token)
                 if False:
                     # FIXME: This should save some memory but requires
                     # a lot of tests to be fixed...
@@ -248,6 +250,7 @@ class UnrollOptimizer(Optimization):
 
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values)
+        short_jumpargs = inputargs[:]
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -284,6 +287,7 @@ class UnrollOptimizer(Optimization):
                     if a not in inputargs:
                         short_op = short_boxes[a]
                         short.append(short_op)
+                        short_jumpargs.append(short_op.result)
                         newop = short_inliner.inline_op(short_op)
                         self.optimizer.send_extra_operation(newop)
                         inputargs.append(a)
@@ -294,6 +298,7 @@ class UnrollOptimizer(Optimization):
 
         jmp.initarglist(jumpargs)
         self.optimizer.newoperations.append(jmp)
+        short.append(ResOperation(rop.JUMP, short_jumpargs, None))
         return inputargs, short
 
     def sameop(self, op1, op2):
