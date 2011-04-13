@@ -1044,16 +1044,16 @@ class TestPyPyCNew(BaseTestPyPyC):
             import time
             from threading import Thread
             from _ffi import CDLL, types
-
+            ###
             libc = CDLL(libc_name)
             sleep = libc.getfunc('sleep', [types.uint], types.uint)
             delays = [0]*n + [1]
-
+            ###
             def loop_of_sleeps(i, delays):
                 import time
                 for delay in delays:
                     sleep(delay)    # ID: sleep
-
+            ###
             threads = [Thread(target=loop_of_sleeps, args=[i, delays]) for i in range(5)]
             start = time.time()
             for i, thread in enumerate(threads):
@@ -1061,9 +1061,9 @@ class TestPyPyCNew(BaseTestPyPyC):
             for thread in threads:
                 thread.join()
             end = time.time()
-            #
+            ###
             return end - start
-        #
+        ###
         log = self.run(main, [get_libc_name(), 200], threshold=150)
         assert 1 <= log.result <= 1.5 # at most 0.5 seconds of overhead
         loops = log.loops_by_id('sleep')
