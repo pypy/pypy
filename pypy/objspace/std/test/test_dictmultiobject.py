@@ -4,7 +4,7 @@ from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
      StringDictStrategy, ObjectDictStrategy
 
-from pypy.objspace.std.celldict import ModuleDictImplementation
+from pypy.objspace.std.celldict import ModuleDictStrategy
 from pypy.conftest import gettestobjspace
 
 
@@ -716,7 +716,7 @@ class AppTestModuleDict(object):
 
     def w_impl_used(self, obj):
         import __pypy__
-        assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
+        assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
         m = type(__builtins__)("abc")
@@ -725,8 +725,6 @@ class AppTestModuleDict(object):
     def test_key_not_there(self):
         d = type(__builtins__)("abc").__dict__
         raises(KeyError, "d['def']")
-
-
 
 class FakeString(str):
     hash_count = 0
@@ -958,10 +956,10 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
 ##     DevolvedClass = MeasuringDictImplementation
 
 class TestModuleDictImplementation(BaseTestRDictImplementation):
-    ImplementionClass = ModuleDictImplementation
+    StrategyClass = ModuleDictStrategy
 
 class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
-    ImplementionClass = ModuleDictImplementation
+    StrategyClass = ModuleDictStrategy
 
     string = "int"
     string2 = "isinstance"
@@ -979,10 +977,10 @@ class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
     StrategyClass = StringDictStrategy
 
 class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
-    ImplementionClass = ModuleDictImplementation
+    StrategyClass = ModuleDictStrategy
 
 class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictImplementation):
-    ImplementionClass = ModuleDictImplementation
+    StrategyClass = ModuleDictStrategy
 
     string = "int"
     string2 = "isinstance"

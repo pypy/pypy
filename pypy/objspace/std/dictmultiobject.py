@@ -80,7 +80,7 @@ class W_DictMultiObject(W_Object):
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        return "%s()" % (w_self.__class__.__name__, )
+        return "%s(%s)" % (w_self.__class__.__name__, w_self.strategy)
 
     def unwrap(w_dict, space):
         result = {}
