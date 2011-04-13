@@ -246,6 +246,24 @@ def test_get_array_descr_sign():
             arraydescr = get_array_descr(c2, RA)
             assert arraydescr.is_item_signed() == signed
 
+def test_get_array_descr_hiddengcref32():
+    if sys.maxint == 2147483647:
+        py.test.skip("HiddenGcRef32: for 64-bit only")
+    A = lltype.GcArray(llmemory.HiddenGcRef32)
+    c0 = GcCache(False)
+    descr = get_array_descr(c0, A)
+    assert not descr.is_array_of_floats()
+    assert descr.is_array_of_pointers()
+    assert descr.get_item_size(False) == 4
+    c1 = GcCache(True)
+    descr = get_array_descr(c1, A)
+    assert not descr.is_array_of_floats()
+    assert descr.is_array_of_pointers()
+    assert descr.get_item_size(False) == 4
+    sz = descr.get_item_size(True)
+    assert isinstance(sz, Symbolic)
+    assert sz.TYPE == llmemory.HiddenGcRef32
+
 
 def test_get_call_descr_not_translated():
     c0 = GcCache(False)

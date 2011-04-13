@@ -121,6 +121,7 @@ class GcPtrFieldDescr(NonGcPtrFieldDescr):
     _is_pointer_field = True
 
 class GcPtrHidden32FieldDescr(GcPtrFieldDescr):
+    _clsname = 'GcPtrHidden32FieldDescr'
     def get_field_size(self, translate_support_code):
         return symbolic.get_size(llmemory.HiddenGcRef32,translate_support_code)
 
@@ -191,6 +192,11 @@ class GcPtrArrayDescr(NonGcPtrArrayDescr):
     _clsname = 'GcPtrArrayDescr'
     _is_array_of_pointers = True
 
+class GcPtrHidden32ArrayDescr(GcPtrArrayDescr):
+    _clsname = 'GcPtrHidden32ArrayDescr'
+    def get_item_size(self, translate_support_code):
+        return symbolic.get_size(llmemory.HiddenGcRef32,translate_support_code)
+
 class FloatArrayDescr(BaseArrayDescr):
     _clsname = 'FloatArrayDescr'
     _is_array_of_floats = True
@@ -221,7 +227,8 @@ def getArrayDescrClass(ARRAY):
         return FloatArrayDescr
     return getDescrClass(ARRAY.OF, BaseArrayDescr, GcPtrArrayDescr,
                          NonGcPtrArrayDescr, 'Array', 'get_item_size',
-                         '_is_array_of_floats', '_is_item_signed')
+                         '_is_array_of_floats', '_is_item_signed',
+                         GcPtrHidden32ArrayDescr)
 
 def getArrayNoLengthDescrClass(ARRAY):
     return getDescrClass(ARRAY.OF, BaseArrayNoLengthDescr, GcPtrArrayNoLengthDescr,
