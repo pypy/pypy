@@ -166,17 +166,17 @@ class UnrollOptimizer(Optimization):
             inputargs = virtual_state.make_inputargs(values)
             short_boxes = preamble_optimizer.produce_short_preamble_ops(inputargs)
             initial_inputargs_len = len(inputargs)
+            
 
-            try:
-                inputargs, short = self.inline(self.cloned_operations,
-                                               loop.inputargs, jump_args,
-                                               virtual_state, short_boxes)
-            except KeyError:
-                debug_print("Unrolling failed.")
-                loop.preamble.operations = None
-                jumpop.initarglist(jump_args)
-                preamble_optimizer.send_extra_operation(jumpop)
-                return
+            inputargs, short = self.inline(self.cloned_operations,
+                                           loop.inputargs, jump_args,
+                                           virtual_state, short_boxes)
+            #except KeyError:
+            #    debug_print("Unrolling failed.")
+            #    loop.preamble.operations = None
+            #    jumpop.initarglist(jump_args)
+            #    preamble_optimizer.send_extra_operation(jumpop)
+            #    return
             loop.inputargs = inputargs
             jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
             jmp.setdescr(loop.token)
@@ -212,7 +212,9 @@ class UnrollOptimizer(Optimization):
                     if op.is_guard():
                         op = op.clone()
                         op.setfailargs(None)
-                        op.setdescr(start_resumedescr.clone_if_mutable())
+                        descr = start_resumedescr.clone_if_mutable()
+                        self.inliner.inline_descr_inplace(descr)
+                        op.setdescr(descr)
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')
@@ -291,6 +293,16 @@ class UnrollOptimizer(Optimization):
                         newop = short_inliner.inline_op(short_op)
                         self.optimizer.send_extra_operation(newop)
                         inputargs.append(a)
+                        if newop.is_ovf():
+                            # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
+                            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+                            short.append(guard)
+                            # FIXME: Emit a proper guard here in case it is not
+                            #        removed by the optimizer.
+                            #        add test_loop_variant_mul1_ovf
+                            self.optimizer.send_extra_operation(guard)
+                            assert self.optimizer.newoperations[-1] is not guard
+                        
                         box = newop.result
                         if box in self.optimizer.values:
                             box = self.optimizer.values[box].force_box()
