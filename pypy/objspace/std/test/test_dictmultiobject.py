@@ -983,7 +983,7 @@ class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def fill_impl(self):
         BaseTestRDictImplementation.fill_impl(self)
-        self.impl._as_rdict()
+        self.impl.strategy.switch_to_object_strategy(self.impl)
 
     def check_not_devolved(self):
         pass
@@ -1004,5 +1004,4 @@ class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictI
 def test_module_uses_strdict():
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
-    assert isinstance(d, StrDictImplementation)
-
+    assert type(d.strategy) is StringDictStrategy
