@@ -6,7 +6,7 @@ from pypy.rlib.jit import unroll_safe
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import BoxInt
 
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 

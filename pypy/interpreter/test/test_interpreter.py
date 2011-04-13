@@ -283,9 +283,14 @@ class AppTestInterpreter:
         sys.stdout = out = Out()
         try:
             raises(UnicodeError, "print unichr(0xa2)")
+            assert out.data == []
             out.encoding = "cp424"
             print unichr(0xa2)
             assert out.data == [unichr(0xa2).encode("cp424"), "\n"]
+            del out.data[:]
+            del out.encoding
+            print u"foo\t", u"bar\n", u"trick", u"baz\n"  # softspace handling
+            assert out.data == ["foo\t", "bar\n", "trick", " ", "baz\n", "\n"]
         finally:
             sys.stdout = save
 

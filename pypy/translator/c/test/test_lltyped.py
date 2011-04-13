@@ -895,3 +895,10 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn = self.getcompiled(llf)
         assert fn() == 45
 
+    def test_rstring_to_float(self):
+        from pypy.rlib.rfloat import rstring_to_float
+        def llf(i):
+            s = ['42.3', '123.4'][i]
+            return rstring_to_float(s)
+        fn = self.getcompiled(llf, [int])
+        assert fn(0) == 42.3

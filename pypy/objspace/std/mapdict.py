@@ -604,6 +604,18 @@ class MapDictImplementation(W_DictMultiObject):
         else:
             self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
+    def impl_setdefault(self,  w_key, w_default):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            key = space.str_w(w_key)
+            w_result = self.impl_getitem_str(key)
+            if w_result is not None:
+                return w_result
+            self.impl_setitem_str(key, w_default)
+            return w_default
+        else:
+            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
+
     def impl_delitem(self, w_key):
         space = self.space
         w_key_type = space.type(w_key)

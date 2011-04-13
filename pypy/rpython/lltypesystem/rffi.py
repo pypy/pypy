@@ -746,6 +746,7 @@ def make_string_mappings(strtype):
     def charpsize2str(cp, size):
         l = [cp[i] for i in range(size)]
         return emptystr.join(l)
+    charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,

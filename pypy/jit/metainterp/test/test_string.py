@@ -2,7 +2,7 @@ import py
 from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rpython.ootypesystem import ootype
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
 
 class StringTests:

@@ -135,7 +135,7 @@ def load_dynamic(space, w_modulename, filename, w_file=None):
     return importing.check_sys_modules(space, w_modulename)
 
 def new_module(space, w_name):
-    return space.wrap(Module(space, w_name))
+    return space.wrap(Module(space, w_name, add_package=False))
 
 def init_builtin(space, w_name):
     name = space.str_w(w_name)

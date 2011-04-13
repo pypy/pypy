@@ -29,7 +29,7 @@ from pypy.rpython.lltypesystem.llmemory import sizeof,\
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
+from pypy.rlib.objectmodel import specialize
 
 def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     func_name = posixfunc.__name__

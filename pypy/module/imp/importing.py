@@ -32,6 +32,7 @@ if sys.platform == 'win32':
 else:
     SO = ".so"
 DEFAULT_SOABI = 'pypy-14'
+CHECK_FOR_PYW = sys.platform == 'win32'
 
 @specialize.memo()
 def get_so_extension(space):
@@ -57,6 +58,12 @@ def find_modtype(space, filepart):
     pyfile = filepart + ".py"
     if os.path.exists(pyfile) and case_ok(pyfile):
         return PY_SOURCE, ".py", "U"
+
+    # on Windows, also check for a .pyw file
+    if CHECK_FOR_PYW:
+        pyfile = filepart + ".pyw"
+        if os.path.exists(pyfile) and case_ok(pyfile):
+            return PY_SOURCE, ".pyw", "U"
 
     # The .py file does not exist.  By default on PyPy, lonepycfiles
     # is False: if a .py file does not exist, we don't even try to
@@ -85,6 +92,9 @@ else:
     # XXX that's slow
     def case_ok(filename):
         index = filename.rfind(os.sep)
+        if os.altsep is not None:
+            index2 = filename.rfind(os.altsep)
+            index = max(index, index2)
         if index < 0:
             directory = os.curdir
         else:

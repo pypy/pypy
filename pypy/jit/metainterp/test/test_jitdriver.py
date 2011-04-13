@@ -1,6 +1,6 @@
 """Tests for multiple JitDrivers."""
 from pypy.rlib.jit import JitDriver, unroll_safe
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.warmspot import get_stats
 
 

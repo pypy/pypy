@@ -13,7 +13,8 @@ class TestFrame:
             
             def __init__(self, space, code, numlocals):
                 self.code = code
-                Frame.__init__(self, space, numlocals=numlocals)
+                Frame.__init__(self, space)
+                self.numlocals = numlocals
                 self.fastlocals_w = [None] * self.numlocals
 
             def getcode(self):
@@ -24,7 +25,10 @@ class TestFrame:
 
             def getfastscope(self):
                 return self.fastlocals_w
-        
+
+            def getfastscopelength(self):
+                return self.numlocals
+
         self.f = ConcreteFastscopeFrame(self.space, code, numlocals=5)
         
 

@@ -259,7 +259,7 @@ def get_L2cache_darwin():
 get_L2cache = globals().get('get_L2cache_' + sys.platform,
                             lambda: -1)     # implement me for other platforms
 
-NURSERY_SIZE_UNKNOWN_CACHE = 1024*1024*1024
+NURSERY_SIZE_UNKNOWN_CACHE = 1024*1024
 # arbitrary 1M. better than default of 131k for most cases
 # in case it didn't work
 

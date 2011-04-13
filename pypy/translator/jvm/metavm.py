@@ -1,4 +1,5 @@
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import rffi
 from pypy.translator.oosupport.metavm import MicroInstruction
 from pypy.translator.jvm.typesystem import JvmScalarType, JvmClassType
 import pypy.translator.jvm.typesystem as jvm
@@ -94,14 +95,20 @@ CASTS = {
     (ootype.SignedLongLong,   ootype.Signed):           jvm.L2I,
     (ootype.UnsignedLongLong, ootype.Unsigned):         jvm.L2I,
     (ootype.UnsignedLongLong, ootype.Signed):           jvm.L2I,
+    (ootype.Signed,           rffi.SHORT):              jvm.I2S,
+    (ootype.Unsigned,         ootype.SignedLongLong):   jvm.PYPYUINTTOLONG,
     (ootype.UnsignedLongLong, ootype.SignedLongLong):   None,
     (ootype.SignedLongLong,   ootype.UnsignedLongLong): None,
+    (ootype.Signed,           ootype.Unsigned):         None,
+    (ootype.Unsigned,         ootype.Signed):           None,
     }
 
 class _CastPrimitive(MicroInstruction):
     def render(self, generator, op):
         FROM = op.args[0].concretetype
         TO = op.result.concretetype
+        if TO == FROM:
+            return
         opcode = CASTS[(FROM, TO)]
         if opcode:
             generator.emit(opcode)
