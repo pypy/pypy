@@ -298,8 +298,7 @@ class UnrollOptimizer(Optimization):
                             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
                             short.append(guard)
                             # FIXME: Emit a proper guard here in case it is not
-                            #        removed by the optimizer.
-                            #        add test_loop_variant_mul1_ovf
+                            #        removed by the optimizer. Can that happen?
                             self.optimizer.send_extra_operation(guard)
                             assert self.optimizer.newoperations[-1] is not guard
                         

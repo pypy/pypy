@@ -107,6 +107,23 @@ class BasicTests:
         self.check_loop_count(1)
         self.check_loops(int_mul=1)
         
+    def test_loop_variant_mul_ovf(self):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                res += ovfcheck(x * x)
+                x += 1
+                res += ovfcheck(x * x)
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 7])
+        assert res == 1323
+        self.check_loop_count(1)
+        self.check_loops(int_mul_ovf=1)
+
     def test_loop_invariant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
