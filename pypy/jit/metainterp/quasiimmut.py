@@ -81,9 +81,7 @@ class QuasiImmut(object):
         for wref in wrefs:
             looptoken = wref()
             if looptoken is not None:
-                pass
-                #
-                # XXX tell the backend to mark the loop as invalid
+                self.cpu.invalidate_loop(looptoken)
 
 
 class QuasiImmutDescr(AbstractDescr):

@@ -1,3 +1,6 @@
+
+import py
+
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.rclass import FieldListAccessor, IR_QUASI_IMMUTABLE
 from pypy.jit.metainterp import typesystem

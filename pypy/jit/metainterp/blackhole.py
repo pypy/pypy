@@ -1292,6 +1292,8 @@ class BlackholeInterpreter(object):
             # We get here because it used to overflow, but now it no longer
             # does.
             pass
+        elif opnum == rop.GUARD_NOT_INVALIDATED:
+            pass
         else:
             from pypy.jit.metainterp.resoperation import opname
             raise NotImplementedError(opname[opnum])

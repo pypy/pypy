@@ -80,6 +80,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
     if loop.quasi_immutable_deps is not None:
         for qmut in loop.quasi_immutable_deps:
             qmut.register_loop_token(wref)
+        # XXX maybe we should clear the dictionary here
     # mostly for tests: make sure we don't keep a reference to the LoopToken
     loop.token = None
     if not we_are_translated():
@@ -397,6 +398,12 @@ class ResumeGuardDescr(ResumeDescr):
 
     def _clone_if_mutable(self):
         res = ResumeGuardDescr()
+        self.copy_all_attributes_into(res)
+        return res
+
+class ResumeGuardNotInvalidated(ResumeGuardDescr):
+    def _clone_if_mutable(self):
+        res = ResumeGuardNotInvalidated()
         self.copy_all_attributes_into(res)
         return res
 

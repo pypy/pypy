@@ -960,7 +960,7 @@ def test_quasi_immutable():
         op = SpaceOperation('getfield', [v_x, Constant('inst_x', lltype.Void)],
                             v2)
         tr = Transformer(FakeCPU())
-        [op1, op2] = tr.rewrite_operation(op)
+        [_, op1, op2] = tr.rewrite_operation(op)
         assert op1.opname == 'record_quasiimmut_field'
         assert len(op1.args) == 3
         assert op1.args[0] == v_x
