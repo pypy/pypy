@@ -726,6 +726,19 @@ class AppTestModuleDict(object):
         d = type(__builtins__)("abc").__dict__
         raises(KeyError, "d['def']")
 
+    def test_fallback_getitem(self):
+        class F(object):
+            def __hash__(self):
+                return hash("s")
+            def __eq__(self, other):
+                return other == "s"
+        d = type(__builtins__)("abc").__dict__
+        d["s"] = 12
+        assert d["s"] == 12
+        assert d[F()] == d["s"]
+
+    #XXX tests for fallbacks setdefault, delitem
+
 class FakeString(str):
     hash_count = 0
     def unwrap(self, space):
@@ -950,6 +963,8 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
         s = FakeString(self.string)
         assert self.impl.getitem(s) == 1000
         assert s.unwrapped
+
+    #XXX add tests for fallback getitem, delitem
 
 ## class TestMeasuringDictImplementation(BaseTestRDictImplementation):
 ##     ImplementionClass = MeasuringDictImplementation

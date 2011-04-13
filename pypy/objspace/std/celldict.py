@@ -100,7 +100,8 @@ class ModuleDictStrategy(DictStrategy):
         elif _is_sane_hash(space, w_lookup_type):
             return None
         else:
-            return self._as_rdict().impl_fallback_getitem(w_lookup)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.getitem(w_lookup)
 
     def getitem_str(self, w_dict, lookup):
         res = self.getcell(w_dict, lookup, False)
