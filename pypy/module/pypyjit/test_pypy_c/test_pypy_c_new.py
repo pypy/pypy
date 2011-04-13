@@ -1040,7 +1040,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test__ffi_call_releases_gil(self):
-        py.test.skip('fixme')
         from pypy.rlib.test.test_libffi import get_libc_name
         def main(libc_name, n):
             import time
@@ -1052,7 +1051,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             delays = [0]*n + [1]
             #
             def loop_of_sleeps(i, delays):
-                import time
                 for delay in delays:
                     sleep(delay)    # ID: sleep
             #
