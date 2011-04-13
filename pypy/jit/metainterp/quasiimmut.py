@@ -75,7 +75,7 @@ class QuasiImmut(object):
 
     def invalidate(self):
         # When this is called, all the loops that we record become
-        # become invalid and must not be called again, nor returned to.
+        # invalid and must not be called again, nor returned to.
         wrefs = self.looptokens_wrefs
         self.looptokens_wrefs = []
         for wref in wrefs:
