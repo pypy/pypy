@@ -4,6 +4,7 @@ from pypy.jit.metainterp import typesystem
 from pypy.jit.metainterp.quasiimmut import QuasiImmut
 from pypy.jit.metainterp.quasiimmut import get_current_qmut_instance
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rlib.jit import JitDriver, dont_look_inside
 
 
@@ -174,6 +175,33 @@ class QuasiImmutTests(object):
         res = self.meta_interp(g, [100, 7])
         assert res == 700707
         self.check_loops(getfield_gc=0)
+
+    def test_invalidate_while_running(self):
+        jitdriver = JitDriver(greens=['foo'], reds=['i', 'total'])
+
+        class Foo(object):
+            _immutable_fields_ = ['a?']
+            def __init__(self, a):
+                self.a = a
+
+        def external(foo, v):
+            if v:
+                foo.a = 2
+
+        def f(foo):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point(i=i, foo=foo, total=total)
+                external(foo, i > 7)
+                i += 1
+                total += foo.a
+            return total
+
+        def g():
+            return f(Foo(1))
+
+        assert self.meta_interp(g, [], policy=StopAtXPolicy(external)) == g()
 
     def test_invalidate_by_setfield(self):
         py.test.skip("Not implemented")
