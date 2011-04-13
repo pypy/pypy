@@ -10,6 +10,7 @@ from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
+from pypy.interpreter.pycode import PyCode
 from pypy.rlib import streamio, jit, rposix
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.rarithmetic import intmask
@@ -31,6 +32,7 @@ if sys.platform == 'win32':
 else:
     SO = ".so"
 DEFAULT_SOABI = 'pypy-14'
+CHECK_FOR_PYW = sys.platform == 'win32'
 
 @specialize.memo()
 def get_so_extension(space):
@@ -56,6 +58,12 @@ def find_modtype(space, filepart):
     pyfile = filepart + ".py"
     if os.path.exists(pyfile) and case_ok(pyfile):
         return PY_SOURCE, ".py", "U"
+
+    # on Windows, also check for a .pyw file
+    if CHECK_FOR_PYW:
+        pyfile = filepart + ".pyw"
+        if os.path.exists(pyfile) and case_ok(pyfile):
+            return PY_SOURCE, ".pyw", "U"
 
     # The .py file does not exist.  By default on PyPy, lonepycfiles
     # is False: if a .py file does not exist, we don't even try to
@@ -84,6 +92,9 @@ else:
     # XXX that's slow
     def case_ok(filename):
         index = filename.rfind(os.sep)
+        if os.altsep is not None:
+            index2 = filename.rfind(os.altsep)
+            index = max(index, index2)
         if index < 0:
             directory = os.curdir
         else:
@@ -774,9 +785,23 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
         if space.config.objspace.usepycfiles and write_pyc:
             write_compiled_module(space, code_w, cpathname, mode, mtime)
 
+    update_code_filenames(space, code_w, pathname)
     exec_code_module(space, w_mod, code_w)
 
     return w_mod
+
+def update_code_filenames(space, code_w, pathname, oldname=None):
+    assert isinstance(code_w, PyCode)
+    if oldname is None:
+        oldname = code_w.co_filename
+    elif code_w.co_filename != oldname:
+        return
+
+    code_w.co_filename = pathname
+    constants = code_w.co_consts_w
+    for const in constants:
+        if const is not None and isinstance(const, PyCode):
+            update_code_filenames(space, const, pathname, oldname)
 
 def _get_long(s):
     a = ord(s[0])

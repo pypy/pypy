@@ -191,6 +191,10 @@ class AppTestBufferedReader:
         f = _io.BufferedReader(raw)
         assert repr(f) == '<_io.BufferedReader name=%r>' % (self.tmpfile,)
 
+class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
+    spaceconfig = dict(usemodules=['_io', 'thread'])
+
+
 class AppTestBufferedWriter:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_io'])

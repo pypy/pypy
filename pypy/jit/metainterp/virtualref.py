@@ -13,7 +13,6 @@ class VirtualRefInfo:
         self.JIT_VIRTUAL_REF = lltype.GcStruct('JitVirtualRef',
             ('super', rclass.OBJECT),
             ('virtual_token', lltype.Signed),
-            ('virtualref_index', lltype.Signed),
             ('forced', rclass.OBJECTPTR))
         self.jit_virtual_ref_vtable = lltype.malloc(rclass.OBJECT_VTABLE,
                                                     zero=True, flavor='raw',
@@ -27,8 +26,6 @@ class VirtualRefInfo:
         fielddescrof = self.cpu.fielddescrof
         self.descr_virtual_token = fielddescrof(self.JIT_VIRTUAL_REF,
                                                 'virtual_token')
-        self.descr_virtualref_index = fielddescrof(self.JIT_VIRTUAL_REF,
-                                                   'virtualref_index')
         self.descr_forced = fielddescrof(self.JIT_VIRTUAL_REF, 'forced')
         #
         # record the type JIT_VIRTUAL_REF explicitly in the rtyper, too

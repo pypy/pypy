@@ -1,2 +1,0 @@
-greenlet = [svn]http://codespeak.net/svn/greenlet/trunk/c
-lib_pypy/pyrepl = [svn]http://codespeak.net/svn/pyrepl/trunk/pyrepl/pyrepl

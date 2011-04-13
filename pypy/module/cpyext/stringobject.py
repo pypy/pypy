@@ -15,7 +15,7 @@ from pypy.module.cpyext.pyobject import (
 ## The problem
 ## -----------
 ##
-## PyString_AsString() must returns a (non-movable) pointer to the underlying
+## PyString_AsString() must return a (non-movable) pointer to the underlying
 ## buffer, whereas pypy strings are movable.  C code may temporarily store
 ## this address and use it, as long as it owns a reference to the PyObject.
 ## There is no "release" function to specify that the pointer is not needed

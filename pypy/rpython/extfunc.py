@@ -249,6 +249,9 @@ def register_external(function, args, result=None, export_name=None,
     llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
     sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
     """
+    
+    if export_name is None:
+        export_name = function.__name__
 
     class FunEntry(ExtFuncEntry):
         _about_ = function

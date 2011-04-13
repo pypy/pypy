@@ -13,7 +13,7 @@ all_modules = [p.basename for p in modulepath.listdir()
                and not p.basename.startswith('test')]
 
 essential_modules = dict.fromkeys(
-    ["exceptions", "_file", "sys", "__builtin__", "posix", "signal"]
+    ["exceptions", "_file", "sys", "__builtin__", "posix"]
 )
 
 default_modules = essential_modules.copy()
@@ -40,8 +40,9 @@ translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
      "struct", "md5", "cStringIO", "array", "_ffi",
-     # the following are needed for pyrepl (and hence for the interactive prompt/pdb)
-     "termios", "_minimal_curses", "fcntl", "signal",
+     # the following are needed for pyrepl (and hence for the
+     # interactive prompt/pdb)
+     "termios", "_minimal_curses",
      ]))
 
 working_oo_modules = default_modules.copy()
@@ -161,6 +162,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                default=True,
                cmdline="--allworkingmodules",
                negation=True),
+
+    StrOption("extmodules",
+              "Comma-separated list of third-party builtin modules",
+              cmdline="--ext",
+              default=None),
 
     BoolOption("translationmodules",
           "use only those modules that are needed to run translate.py on pypy",
@@ -355,8 +361,8 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         config.objspace.std.suggest(newshortcut=True)
-        if not IS_64_BITS:
-            config.objspace.std.suggest(withsmalllong=True)
+        #if not IS_64_BITS:
+        #    config.objspace.std.suggest(withsmalllong=True)
 
     # extra costly optimizations only go in level 3
     if level == '3':

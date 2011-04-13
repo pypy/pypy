@@ -487,6 +487,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_range_iter(self):
+        py.test.skip("until we fix defaults")
         def main(n):
             def g(n):
                 return range(n)
@@ -539,7 +540,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         i12 = int_sub_ovf(i3, 1)
         guard_no_overflow(descr=<Guard5>)
         --TICK--
-        jump(p0, p1, p2, i12, p4, descr=<Loop0>)
+        jump(p0, p1, p2, i12, descr=<Loop0>)
         """)
 
     def test_exception_inside_loop_2(self):
@@ -585,7 +586,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             --EXC-TICK--
             i14 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i14, i5, p6, descr=<Loop0>)
+            jump(p0, p1, p2, p3, i14, i5, descr=<Loop0>)
         """)
 
     def test_chain_of_guards(self):
@@ -685,13 +686,13 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
-            p14 = call(ConstClass(ll_split_chr__GcStruct_listLlT_rpy_stringPtr_Char), p8, 46, descr=<GcPtrCallDescr>)
+            p14 = call(ConstClass(ll_split_chr), p8, 46, -1, descr=<GcPtrCallDescr>)
             guard_no_exception(descr=<Guard4>)
             guard_nonnull(p14, descr=<Guard5>)
             i15 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
             i16 = int_is_true(i15)
             guard_true(i16, descr=<Guard6>)
-            p18 = call(ConstClass(ll_pop_default__dum_nocheckConst_listPtr), p14, descr=<GcPtrCallDescr>)
+            p18 = call(ConstClass(ll_pop_default), p14, descr=<GcPtrCallDescr>)
             guard_no_exception(descr=<Guard7>)
             i19 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
             i20 = int_is_true(i19)
@@ -1009,10 +1010,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_func_defaults(self):
+        py.test.skip("skipped until we fix defaults")
         def main(n):
             i = 1
             while i < n:
-                i += len(xrange(i)) / i
+                i += len(xrange(i+1)) - i
             return i
 
         log = self.run(main, [10000])
@@ -1023,19 +1025,18 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_true(i10, descr=<Guard3>)
             # This can be improved if the JIT realized the lookup of i5 produces
             # a constant and thus can be removed entirely
-            i12 = int_sub(i5, 1)
-            i13 = uint_floordiv(i12, i7)
+            i120 = int_add(i5, 1)
+            i140 = int_lt(0, i120)
+            guard_true(i140, descr=<Guard4>)
+            i13 = uint_floordiv(i5, i7)
             i15 = int_add(i13, 1)
             i17 = int_lt(i15, 0)
-            guard_false(i17, descr=<Guard4>)
-            i18 = int_floordiv(i15, i5)
-            i19 = int_xor(i15, i5)
-            i20 = int_mod(i15, i5)
-            i21 = int_is_true(i20)
-            i22 = int_add_ovf(i5, i18)
-            guard_no_overflow(descr=<Guard5>)
+            guard_false(i17, descr=<Guard5>)
+            i20 = int_sub(i15, i5)
+            i21 = int_add_ovf(i5, i20)
+            guard_no_overflow(descr=<Guard6>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i22, i6, i7, p8, p9, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, descr=<Loop0>)
         """)
 
     def test__ffi_call_releases_gil(self):
@@ -1044,16 +1045,16 @@ class TestPyPyCNew(BaseTestPyPyC):
             import time
             from threading import Thread
             from _ffi import CDLL, types
-            ###
+            #
             libc = CDLL(libc_name)
             sleep = libc.getfunc('sleep', [types.uint], types.uint)
             delays = [0]*n + [1]
-            ###
+            #
             def loop_of_sleeps(i, delays):
                 import time
                 for delay in delays:
                     sleep(delay)    # ID: sleep
-            ###
+            #
             threads = [Thread(target=loop_of_sleeps, args=[i, delays]) for i in range(5)]
             start = time.time()
             for i, thread in enumerate(threads):
@@ -1061,10 +1062,42 @@ class TestPyPyCNew(BaseTestPyPyC):
             for thread in threads:
                 thread.join()
             end = time.time()
-            ###
             return end - start
-        ###
+        #
         log = self.run(main, [get_libc_name(), 200], threshold=150)
         assert 1 <= log.result <= 1.5 # at most 0.5 seconds of overhead
         loops = log.loops_by_id('sleep')
         assert len(loops) == 1 # make sure that we actually JITted the loop
+
+    def test_unpack_iterable_non_list_tuple(self):
+        def main(n):
+            import array
+
+            items = [array.array("i", [1])] * n
+            total = 0
+            for a, in items:
+                total += a
+            return total
+
+        log = self.run(main, [1000000])
+        assert log.result == 1000000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i16 = int_ge(i12, i13)
+            guard_false(i16, descr=<Guard3>)
+            p17 = getarrayitem_gc(p15, i12, descr=<GcPtrArrayDescr>)
+            i19 = int_add(i12, 1)
+            setfield_gc(p4, i19, descr=<SignedFieldDescr .*W_AbstractSeqIterObject.inst_index .*>)
+            guard_nonnull_class(p17, 146982464, descr=<Guard4>)
+            i21 = getfield_gc(p17, descr=<SignedFieldDescr .*W_ArrayTypei.inst_len .*>)
+            i23 = int_lt(0, i21)
+            guard_true(i23, descr=<Guard5>)
+            i24 = getfield_gc(p17, descr=<NonGcPtrFieldDescr .*W_ArrayTypei.inst_buffer .*>)
+            i25 = getarrayitem_raw(i24, 0, descr=<SignedArrayNoLengthDescr>)
+            i27 = int_lt(1, i21)
+            guard_false(i27, descr=<Guard6>)
+            i28 = int_add_ovf(i10, i25)
+            guard_no_overflow(descr=<Guard7>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
+        """)

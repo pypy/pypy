@@ -19,6 +19,8 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
+        if gcdescr is not None:
+            gcdescr.force_index_ofs = FORCE_INDEX_OFS
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
@@ -113,10 +115,11 @@ class AbstractX86CPU(AbstractLLCPU):
                 LLInterpreter.current_interpreter = prev_interpreter
         return res
 
-    @staticmethod
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return CPU386.cast_adr_to_int(adr)
+    cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
+    cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
     all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
                                        flavor='raw', zero=True,
@@ -127,7 +130,7 @@ class AbstractX86CPU(AbstractLLCPU):
         fail_index = rffi.cast(TP, addr_of_force_index)[0]
         assert fail_index >= 0, "already forced!"
         faildescr = self.get_fail_descr_from_number(fail_index)
-        rffi.cast(TP, addr_of_force_index)[0] = -1
+        rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
         frb = self.assembler._find_failure_recovery_bytecode(faildescr)
         bytecode = rffi.cast(rffi.UCHARP, frb)
         # start of "no gc operation!" block
@@ -147,7 +150,6 @@ class CPU386(AbstractX86CPU):
     WORD = 4
     NUM_REGS = 8
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi]
-    FRAME_FIXED_SIZE = len(CALLEE_SAVE_REGISTERS) + 2
 
     supports_longlong = True
 
@@ -163,7 +165,6 @@ class CPU_X86_64(AbstractX86CPU):
     WORD = 8
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
-    FRAME_FIXED_SIZE = len(CALLEE_SAVE_REGISTERS) + 2
 
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**63 - 1)
