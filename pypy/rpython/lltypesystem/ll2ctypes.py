@@ -265,6 +265,8 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = get_ctypes_type(T.TO.RESULT)
             return ctypes.CFUNCTYPE(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
+            if T == llmemory.HiddenGcRef32:
+                return ctypes.c_int
             return ctypes.c_void_p
         else:
             return ctypes.POINTER(get_ctypes_type(T.TO, delayed_builders))

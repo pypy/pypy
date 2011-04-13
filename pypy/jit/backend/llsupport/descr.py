@@ -120,10 +120,15 @@ class GcPtrFieldDescr(NonGcPtrFieldDescr):
     _clsname = 'GcPtrFieldDescr'
     _is_pointer_field = True
 
+class GcPtrHidden32FieldDescr(GcPtrFieldDescr):
+    def get_field_size(self, translate_support_code):
+        return symbolic.get_size(llmemory.HiddenGcRef32,translate_support_code)
+
 def getFieldDescrClass(TYPE):
     return getDescrClass(TYPE, BaseFieldDescr, GcPtrFieldDescr,
                          NonGcPtrFieldDescr, 'Field', 'get_field_size',
-                         '_is_float_field', '_is_field_signed')
+                         '_is_float_field', '_is_field_signed',
+                         GcPtrHidden32FieldDescr)
 
 def get_field_descr(gccache, STRUCT, fieldname):
     cache = gccache._cache_field
@@ -450,9 +455,12 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
 
 def getDescrClass(TYPE, BaseDescr, GcPtrDescr, NonGcPtrDescr,
                   nameprefix, methodname, floatattrname, signedattrname,
-                  _cache={}):
+                  GcPtrHidden32Descr=None, _cache={}):
     if isinstance(TYPE, lltype.Ptr):
         if TYPE.TO._gckind == 'gc':
+            if TYPE == llmemory.HiddenGcRef32:
+                assert GcPtrHidden32Descr is not None
+                return GcPtrHidden32Descr
             return GcPtrDescr
         else:
             return NonGcPtrDescr

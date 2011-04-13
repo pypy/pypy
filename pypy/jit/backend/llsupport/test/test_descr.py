@@ -127,6 +127,23 @@ def test_get_field_descr_longlong():
     assert descr.is_float_field()
     assert descr.get_field_size(False) == 8
 
+def test_get_field_descr_hiddengcref32():
+    if sys.maxint == 2147483647:
+        py.test.skip("HiddenGcRef32: for 64-bit only")
+    S = lltype.GcStruct('S', ('p', llmemory.HiddenGcRef32))
+    c0 = GcCache(False)
+    descr = get_field_descr(c0, S, 'p')
+    assert not descr.is_float_field()
+    assert descr.is_pointer_field()
+    assert descr.get_field_size(False) == 4
+    c1 = GcCache(True)
+    descr = get_field_descr(c1, S, 'p')
+    assert not descr.is_float_field()
+    assert descr.is_pointer_field()
+    sz = descr.get_field_size(True)
+    assert isinstance(sz, Symbolic)
+    assert sz.TYPE == llmemory.HiddenGcRef32
+
 
 def test_get_array_descr():
     U = lltype.Struct('U')
