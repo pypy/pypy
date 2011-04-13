@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     StringDictStrategy
+     StringDictStrategy, ObjectDictStrategy
 
 from pypy.objspace.std.celldict import ModuleDictImplementation
 from pypy.conftest import gettestobjspace
@@ -17,7 +17,7 @@ class TestW_DictObject:
         space = self.space
         d = self.space.newdict()
         assert not self.space.is_true(d)
-        assert d.r_dict_content is None
+        assert type(d.strategy) is not ObjectDictStrategy
 
     def test_nonempty(self):
         space = self.space
@@ -928,7 +928,7 @@ class BaseTestRDictImplementation:
         for x in xrange(100):
             impl.setitem(self.fakespace.str_w(str(x)), x)
             impl.setitem(x, x)
-        assert impl.r_dict_content is not None
+        assert type(impl.strategy) is ObjectDictStrategy
 
     def test_setdefault_fast(self):
         on_pypy = "__pypy__" in sys.builtin_module_names
@@ -976,8 +976,7 @@ class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
         pass
 
 class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
-    pass
-    #ImplementionClass = StrDictImplementation
+    StrategyClass = StringDictStrategy
 
 class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
     ImplementionClass = ModuleDictImplementation

@@ -38,7 +38,7 @@ class W_DictMultiObject(W_Object):
         if from_strdict_shared is not None:
             assert w_type is None
             assert not module and not instance and classofinstance is None
-            strategy = self.space.fromcache(StringDictStrategy)
+            strategy = space.fromcache(StringDictStrategy)
             storage = from_strdict_shared #XXX
             w_self = space.allocate_instance(W_DictMultiObject, w_type)
             return W_DictMultiObject.__init__(w_self, space, strategy, storage)
@@ -46,26 +46,26 @@ class W_DictMultiObject(W_Object):
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictImplementation
             assert w_type is None
-            strategy = self.space.fromcache(ModuleDictStrategy)
+            strategy = space.fromcache(ModuleDictStrategy)
             storage = strategy.get_empty_storage()
 
         elif space.config.objspace.opcodes.CALL_LIKELY_BUILTIN and module:
             assert w_type is None
-            strategy = self.space.fromcache(WaryDictStrategy)
+            strategy = space.fromcache(WaryDictStrategy)
 
         elif space.config.objspace.std.withdictmeasurement:
             assert w_type is None
-            strategy = self.space.fromcache(MeasuringDictStrategy)
+            strategy = space.fromcache(MeasuringDictStrategy)
 
         elif instance or strdict or module:
             assert w_type is None
-            strategy = self.space.fromcache(StringDictStrategy)
+            strategy = space.fromcache(StringDictStrategy)
 
         else:
-            if w_type is None:
-                w_type = space.w_dict
-            strategy = self.space.fromcache(EmptyDictStrategy)
+            strategy = space.fromcache(EmptyDictStrategy)
 
+        if w_type is None:
+            w_type = space.w_dict
         storage = strategy.get_empty_storage()
         w_self = space.allocate_instance(W_DictMultiObject, w_type)
         W_DictMultiObject.__init__(w_self, space, strategy, storage)
@@ -75,56 +75,6 @@ class W_DictMultiObject(W_Object):
         self.space = space
         self.strategy = strategy
         self.dstorage = storage
-
-    def setitem(self, key, value):
-        self.strategy.setitem(self, key, value)
-
-    def setitem_str(self, key, value):
-        self.strategy.setitem_str(self, key, value)
-
-    def getitem(self, key):
-        return self.strategy.getitem(self, key)
-
-    def getitem_str(self, key):
-        return self.strategy.getitem_str(self, key)
-
-    def delitem(self, key):
-        return self.strategy.delitem(self, key)
-
-    def length(self):
-        return self.strategy.length(self)
-
-    def clear(self):
-        return self.strategy.clear(self)
-
-    def keys(self):
-        return self.strategy.keys(self)
-
-    def values(self):
-        return self.strategy.values(self)
-
-    def items(self):
-        return self.strategy.items(self)
-
-    def iter(self):
-        return self.strategy.iter(self)
-
-class DictStrategy(object):
-
-    def __init__(self, space):
-        self.space = space
-
-    def get_empty_storage(self):
-        raise NotImplementedError
-
-    def initialize_as_rdict(self):
-        assert self.r_dict_content is None
-        self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
-        return self.r_dict_content
-
-    def initialize_content(w_self, list_pairs_w):
-        for w_k, w_v in list_pairs_w:
-            w_self.setitem(w_k, w_v)
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -147,38 +97,103 @@ class DictStrategy(object):
         else:
             return None
 
+def _add_indirections():
+    dict_methods = "setitem setitem_str getitem \
+                    getitem_str delitem length \
+                    clear keys values \
+                    items iter setdefault".split()
+
+    def make_method(method):
+        def f(self, *args):
+            return getattr(self.strategy, method)(self, *args)
+        f.func_name = method
+        return f
+
+    for method in dict_methods:
+        setattr(W_DictMultiObject, method, make_method(method))
+
+_add_indirections()
+
+class DictStrategy(object):
+
+    def __init__(self, space):
+        self.space = space
+
+    def get_empty_storage(self):
+        raise NotImplementedError
+
+    def initialize_as_rdict(self):
+        assert self.r_dict_content is None
+        self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
+        return self.r_dict_content
+
+    def initialize_content(w_self, list_pairs_w):
+        for w_k, w_v in list_pairs_w:
+            w_self.setitem(w_k, w_v)
+
     # _________________________________________________________________
     # implementation methods
 
 class EmptyDictStrategy(DictStrategy):
-    def impl_getitem(self, w_dict, w_key):
+
+    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("empty")
+    cast_to_void_star = staticmethod(cast_to_void_star)
+    cast_from_void_star = staticmethod(cast_from_void_star)
+
+    def __init__(self, space):
+        self.space = space
+
+    def get_empty_storage(self):
+       return self.cast_to_void_star(None)
+
+    def switch_to_correct_strategy(self, w_dict, w_key):
+        #XXX implement other strategies later
+        if type(w_key) is self.space.StringObjectCls:
+            self.switch_to_string_strategy(w_dict)
+            return
+
+        strategy = self.space.fromcache(ObjectDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def switch_to_string_strategy(self, w_dict):
+        strategy = self.space.fromcache(StringDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def getitem(self, w_dict, w_key):
         #return w_value or None
         # in case the key is unhashable, try to hash it
         self.space.hash(w_key)
         # return None anyway
         return None
 
-    def impl_getitem_str(self, w_dict, key):
+    def getitem_str(self, w_dict, key):
         #return w_value or None
         return None
 
-    def impl_setdefault(self, w_dict, w_key, w_default):
+    def setdefault(self, w_dict, w_key, w_default):
         # here the dict is always empty
-        self._as_rdict().impl_fallback_setitem(w_key, w_default)
+        self.switch_to_correct_strategy(w_dict, w_key)
+        w_dict.setitem(w_key, w_default)
         return w_default
 
-    def impl_setitem(self, w_dict, w_key, w_value):
-        self._as_rdict().impl_fallback_setitem(w_key, w_value)
+    def setitem(self, w_dict, w_key, w_value):
+        self.switch_to_correct_strategy(w_dict, w_key)
+        w_dict.setitem(w_key, w_value)
 
-    def impl_setitem_str(self, w_dict, key, w_value):
-        self._as_rdict().impl_fallback_setitem_str(key, w_value)
+    def setitem_str(self, w_dict, key, w_value):
+        self.switch_to_string_strategy(w_dict)
+        self.setitem_str(w_dict, key, w_value)
 
-    def impl_delitem(self, w_dict, w_key):
+    def delitem(self, w_dict, w_key):
         # in case the key is unhashable, try to hash it
         self.space.hash(w_key)
         raise KeyError
 
-    def impl_length(self, w_dict):
+    def length(self, w_dict):
         return 0
 
     def impl_iter(self, w_dict):
@@ -243,34 +258,44 @@ class EmptyDictStrategy(DictStrategy):
 
 class ObjectDictStrategy(DictStrategy):
 
-    def impl_setdefault(self, w_dict, w_key, w_default):
-        return self.r_dict_content.setdefault(w_key, w_default)
+    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("object")
+    cast_to_void_star = staticmethod(cast_to_void_star)
+    cast_from_void_star = staticmethod(cast_from_void_star)
 
-    def impl_setitem(self, w_dict, w_key, w_value):
-        self.r_dict_content[w_key] = w_value
+    def get_empty_storage(self):
+       new_dict = r_dict(self.space.eq_w, self.space.hash_w)
+       return self.cast_to_void_star(new_dict)
+
+    def setdefault(self, w_dict, w_key, w_default):
+        return self.cast_from_void_star(w_dict.dstorage).setdefault(w_key, w_default)
+
+    def setitem(self, w_dict, w_key, w_value):
+        self.cast_from_void_star(w_dict.dstorage)[w_key] = w_value
 
     def impl_setitem_str(self, w_dict, key, w_value):
-        return self.impl_fallback_setitem(self.space.wrap(key), w_value)
+        return w_dict.setitem(self.space.wrap(key), w_value)
 
     def impl_delitem(self, w_dict, w_key):
         del self.r_dict_content[w_key]
 
-    def impl_length(self, w_dict):
-        return len(self.r_dict_content)
+    def length(self, w_dict):
+        return len(self.cast_from_void_star(w_dict.dstorage))
 
-    def impl_getitem(self, w_dict, w_key):
-        return self.r_dict_content.get(w_key, None)
+    def getitem(self, w_dict, w_key):
+        return self.cast_from_void_star(w_dict.dstorage).get(w_key, None)
 
     def impl_getitem_str(self, w_dict, key):
         return self.r_dict_content.get(self.space.wrap(key), None)
 
-    def impl_iter(self, w_dict):
-        return RDictIteratorImplementation(self.space, self)
+    def iter(self, w_dict):
+        return RDictIteratorImplementation(self.space, w_dict)
 
     def impl_keys(self, w_dict):
         return self.r_dict_content.keys()
+
     def impl_values(self, w_dict):
         return self.r_dict_content.values()
+
     def impl_items(self, w_dict):
         return [self.space.newtuple([w_key, w_val])
                     for w_key, w_val in self.r_dict_content.iteritems()]
@@ -347,7 +372,8 @@ class StringDictStrategy(DictStrategy):
         if space.is_w(space.type(w_key), space.w_str):
             self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
         else:
-            self._as_rdict().impl_fallback_setitem(w_key, w_value)
+            self.switch_to_object_strategy(w_dict)
+            w_dict.setitem(w_key, w_value)
 
     def setitem_str(self, w_dict, key, w_value):
         self.cast_from_void_star(w_dict.dstorage)[key] = w_value
@@ -355,10 +381,10 @@ class StringDictStrategy(DictStrategy):
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
-            return self.content.setdefault(space.str_w(w_key), w_default)
+            return self.cast_from_void_star(w_dict.dstorage).setdefault(space.str_w(w_key), w_default)
         else:
-            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
-
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.setdefault(w_key, w_default)
 
     def delitem(self, w_dict, w_key):
         space = self.space
@@ -381,7 +407,7 @@ class StringDictStrategy(DictStrategy):
         space = self.space
         # -- This is called extremely often.  Hack for performance --
         if type(w_key) is space.StringObjectCls:
-            return self.getitem_str(w_key.unwrap(space))
+            return self.getitem_str(w_dict, w_key.unwrap(space))
         # -- End of performance hack --
         w_lookup_type = space.type(w_key)
         if space.is_w(w_lookup_type, space.w_str):
@@ -410,6 +436,14 @@ class StringDictStrategy(DictStrategy):
     def clear(self, w_dict):
         self.cast_from_void_star(w_dict.dstorage).clear()
 
+    def switch_to_object_strategy(self, w_dict):
+        d = self.cast_from_void_star(w_dict.dstorage)
+        strategy = self.space.fromcache(ObjectDictStrategy)
+        d_new = strategy.cast_from_void_star(strategy.get_empty_storage())
+        for key, value in d.iteritems():
+            d_new[self.space.wrap(key)] = value
+        w_dict.strategy = strategy
+        w_dict.dstorage = strategy.cast_to_void_star(d_new)
 
     def _as_rdict(self):
         r_dict_content = self.initialize_as_rdict()
@@ -467,7 +501,8 @@ class WaryDictStrategy(StringDictStrategy):
 class RDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        self.iterator = dictimplementation.r_dict_content.iteritems()
+        d = dictimplementation.strategy.cast_from_void_star(dictimplementation.dstorage)
+        self.iterator = d.iteritems()
 
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
