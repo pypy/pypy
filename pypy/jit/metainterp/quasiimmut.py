@@ -22,6 +22,7 @@ def get_current_qmut_instance(cpu, gcref, mutatefielddescr):
     """Returns the current QuasiImmut instance in the field,
     possibly creating one.
     """
+    # XXX this is broken on x86
     qmut_gcref = cpu.bh_getfield_gc_r(gcref, mutatefielddescr)
     if qmut_gcref:
         qmut = QuasiImmut.show(cpu, qmut_gcref)
