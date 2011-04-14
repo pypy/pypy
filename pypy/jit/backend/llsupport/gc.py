@@ -44,6 +44,8 @@ class GcLLDescription(GcCache):
         return None
     def freeing_block(self, start, stop):
         pass
+    def is_compressed_ptr(self, size):
+        return False
 
 # ____________________________________________________________
 
@@ -576,6 +578,9 @@ class GcLLDescr_framework(GcLLDescription):
         self.gcrootmap = gcrootmap
         self.gcrefs = GcRefList()
         self.single_gcref_descr = GcPtrFieldDescr('', 0)
+        self.compressptr = gcdescr.config.translation.compressptr
+        if self.compressptr:
+            assert rffi.sizeof(rffi.INT) == rffi.sizeof(llmemory.HiddenGcRef32)
 
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
@@ -863,6 +868,13 @@ class GcLLDescr_framework(GcLLDescription):
 
     def freeing_block(self, start, stop):
         self.gcrootmap.freeing_block(start, stop)
+
+    def is_compressed_ptr(self, size):
+        if self.compressptr:    # constant-folded away
+            ptrsize = symbolic.get_size_of_ptr(self.translate_support_code)
+            return size != ptrsize
+        else:
+            return False
 
 # ____________________________________________________________
 

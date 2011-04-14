@@ -435,6 +435,7 @@ def getCallDescrClass(RESULT):
 def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
     arg_classes = []
     for ARG in ARGS:
+        assert ARG != llmemory.HiddenGcRef32
         kind = getkind(ARG)
         if   kind == 'int': arg_classes.append('i')
         elif kind == 'ref': arg_classes.append('r')

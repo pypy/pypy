@@ -208,6 +208,11 @@ class AbstractLLCPU(AbstractCPU):
         return rffi.cast(llmemory.GCREF, x)
 
     @staticmethod
+    def _cast_hidden_int32_to_gcref(x):
+        hidden = rffi.cast(llmemory.HiddenGcRef32, x)
+        return llop.show_from_ptr32(llmemory.GCREF, hidden)
+
+    @staticmethod
     def cast_gcref_to_int(x):
         return rffi.cast(lltype.Signed, x)
 
@@ -227,16 +232,11 @@ class AbstractLLCPU(AbstractCPU):
 
     def unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
-        return fielddescr.offset
-    unpack_fielddescr._always_inline_ = True
-
-    def unpack_fielddescr_size(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
         ofs = fielddescr.offset
         size = fielddescr.get_field_size(self.translate_support_code)
         sign = fielddescr.is_field_signed()
         return ofs, size, sign
-    unpack_fielddescr_size._always_inline_ = True
+    unpack_fielddescr._always_inline_ = True
 
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
@@ -376,7 +376,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_getfield_i(self, struct, fielddescr):
-        ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+        ofs, size, sign = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
@@ -397,17 +397,22 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_getfield_r(self, struct, fielddescr):
-        ofs = self.unpack_fielddescr(fielddescr)
+        ofs, size, _ = self.unpack_fielddescr(fielddescr)
+        icp = self.gcdescr.is_compressed_ptr(size)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        pval = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)[0]
-        pval = self._cast_int_to_gcref(pval)
+        if 0:# icp:
+            pval = rffi.cast(rffi.CArrayPtr(rffi.INT), fieldptr)[0]
+            pval = self._cast_hidden_int32_to_gcref(pval)
+        else:
+            pval = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)[0]
+            pval = self._cast_int_to_gcref(pval)
         # --- end of GC unsafe code ---
         return pval
 
     @specialize.argtype(1)
     def _base_do_getfield_f(self, struct, fielddescr):
-        ofs = self.unpack_fielddescr(fielddescr)
+        ofs, _, _ = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         fval = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)[0]
@@ -423,7 +428,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_setfield_i(self, struct, fielddescr, newvalue):
-        ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+        ofs, size, sign = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         for TYPE, _, itemsize in unroll_basic_sizes:
@@ -437,7 +442,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_setfield_r(self, struct, fielddescr, newvalue):
-        ofs = self.unpack_fielddescr(fielddescr)
+        ofs, _, _ = self.unpack_fielddescr(fielddescr)
         assert lltype.typeOf(struct) is not lltype.Signed, (
             "can't handle write barriers for setfield_raw")
         self.gc_ll_descr.do_write_barrier(struct, newvalue)
@@ -449,7 +454,7 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_setfield_f(self, struct, fielddescr, newvalue):
-        ofs = self.unpack_fielddescr(fielddescr)
+        ofs, _, _ = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         fieldptr = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)
