@@ -1286,6 +1286,40 @@ class TestLL2Ctypes(object):
         rffi.cast(SP, p).x = 0
         lltype.free(chunk, flavor='raw')
 
+class TestHiddenGcRef32(object):
+    def setup_class(cls):
+        if sys.maxint == 2147483647:
+            py.test.skip("HiddenGcRef32: for 64-bit only")
+
+    def test_cast_hiddengcref32_numeric(self):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        PARENT = lltype.GcStruct('PARENT')
+        NODE = lltype.GcStruct('NODE', ('parent', PARENT))
+        null = lltype.nullptr(NODE)
+        null32 = llop.hide_into_ptr32(llmemory.HiddenGcRef32, null)
+        assert rffi.cast(lltype.Signed, rffi.cast(rffi.UINT, null32)) == 0
+        node = lltype.malloc(NODE)
+        node32 = llop.hide_into_ptr32(llmemory.HiddenGcRef32, node)
+        parent32 = llop.hide_into_ptr32(llmemory.HiddenGcRef32, node.parent)
+        num_node = rffi.cast(lltype.Signed, rffi.cast(rffi.UINT, node32))
+        num_parent = rffi.cast(lltype.Signed, rffi.cast(rffi.UINT, parent32))
+        assert num_node != 0
+        assert num_parent == num_node
+        othernode = lltype.malloc(NODE)
+        num_other = rffi.cast(lltype.Signed, rffi.cast(rffi.UINT, othernode))
+        assert num_other != 0
+        assert num_node != num_other
+
+    def test_cast_hiddengcref32_back_and_forth(self):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        NODE = lltype.GcStruct('NODE')
+        node = lltype.malloc(NODE)
+        ref32 = llop.hide_into_ptr32(llmemory.HiddenGcRef32, node)
+        back = rffi.cast(llmemory.HiddenGcRef32, rffi.cast(rffi.UINT, ref32))
+        assert llop.show_from_ptr32(lltype.Ptr(NODE), back) == node
+        back2 = rffi.cast(llmemory.HiddenGcRef32, rffi.cast(rffi.UINT, 0))
+        assert not llop.show_from_ptr32(lltype.Ptr(NODE), back2)
+
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
         from pypy.translator.platform import platform

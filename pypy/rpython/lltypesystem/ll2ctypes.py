@@ -266,7 +266,7 @@ def build_new_ctypes_type(T, delayed_builders):
             return ctypes.CFUNCTYPE(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             if T == llmemory.HiddenGcRef32:
-                return ctypes.c_int
+                return ctypes.c_uint32
             return ctypes.c_void_p
         else:
             return ctypes.POINTER(get_ctypes_type(T.TO, delayed_builders))
@@ -577,6 +577,8 @@ _all_callbacks = {}
 _all_callbacks_results = []
 _int2obj = {}
 _callback_exc_info = None
+_hiddengcref32 = {}
+_hiddengcref32back = {}
 
 def get_rtyper():
     llinterp = LLInterpreter.current_interpreter
@@ -608,6 +610,8 @@ def lltype2ctypes(llobj, normalize=True):
         if not llobj:   # NULL pointer
             if T == llmemory.GCREF:
                 return ctypes.c_void_p(0)
+            if T == llmemory.HiddenGcRef32:
+                return ctypes.c_uint32(0)
             return get_ctypes_type(T)()
 
         if T == llmemory.GCREF:
@@ -616,7 +620,18 @@ def lltype2ctypes(llobj, normalize=True):
             container = llobj._obj.container
             T = lltype.Ptr(lltype.typeOf(container))
             # otherwise it came from integer and we want a c_void_p with
-            # the same valu
+            # the same value
+        elif T == llmemory.HiddenGcRef32:
+            p = llobj._obj.container._as_ptr()
+            p = lltype.normalizeptr(p)
+            container = p._as_obj()
+            try:
+                result = _hiddengcref32[container]
+            except KeyError:
+                result = 1000 + len(_hiddengcref32)
+                _hiddengcref32[container] = result
+                _hiddengcref32back[result] = container
+            return ctypes.c_uint32(result)
         else:
             container = llobj._obj
         if isinstance(T.TO, lltype.FuncType):
@@ -1099,7 +1114,18 @@ def force_cast(RESTYPE, value):
     TYPE1 = lltype.typeOf(value)
     cvalue = lltype2ctypes(value)
     cresulttype = get_ctypes_type(RESTYPE)
+    if RESTYPE == llmemory.HiddenGcRef32 and isinstance(cvalue, long):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        if cvalue:
+            p = _hiddengcref32back[cvalue]._as_ptr()  # -> pointer
+            return llop.hide_into_ptr32(llmemory.HiddenGcRef32, p)
+        else:
+            return lltype.nullptr(llmemory.HiddenGcRef32.TO)
     if isinstance(TYPE1, lltype.Ptr):
+        if TYPE1 == llmemory.HiddenGcRef32:
+            assert isinstance(cvalue, ctypes.c_uint32)
+            cvalue = int(cvalue.value)
+            return ctypes2lltype(RESTYPE, cvalue)
         if isinstance(RESTYPE, lltype.Ptr):
             # shortcut: ptr->ptr cast
             cptr = ctypes.cast(cvalue, cresulttype)
