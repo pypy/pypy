@@ -622,6 +622,8 @@ def lltype2ctypes(llobj, normalize=True):
             # otherwise it came from integer and we want a c_void_p with
             # the same value
         elif T == llmemory.HiddenGcRef32:
+            if isinstance(llobj._obj, _llgcopaque32):
+                return ctypes.c_uint32(llobj._obj.uint32val)
             p = llobj._obj.container._as_ptr()
             p = lltype.normalizeptr(p)
             container = p._as_obj()
@@ -778,7 +780,9 @@ def ctypes2lltype(T, cobj):
     if T is lltype.Void:
         return None
     if isinstance(T, lltype.Ptr):
-        if not cobj or not ctypes.cast(cobj, ctypes.c_void_p).value:   # NULL pointer
+        if not cobj or (
+            not isinstance(cobj, ctypes.c_uint32)
+            and not ctypes.cast(cobj, ctypes.c_void_p).value):   # NULL pointer
             # CFunctionType.__nonzero__ is broken before Python 2.6
             return lltype.nullptr(T.TO)
         if isinstance(T.TO, lltype.Struct):
@@ -830,6 +834,8 @@ def ctypes2lltype(T, cobj):
         elif isinstance(T.TO, lltype.OpaqueType):
             if T == llmemory.GCREF:
                 container = _llgcopaque(cobj)
+            elif T == llmemory.HiddenGcRef32:
+                container = _llgcopaque32(cobj)
             else:
                 container = lltype._opaque(T.TO)
                 cbuf = ctypes.cast(cobj, ctypes.c_void_p)
@@ -1299,6 +1305,35 @@ class CastAdrToIntEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('cast_adr_to_int', [adr],
                          resulttype = lltype.Signed)
+
+class _llgcopaque32(lltype._container):
+    _TYPE = llmemory.HiddenGcRef32.TO
+    _name = "_llgcopaque32"
+
+    def __init__(self, uint32):
+        if not isinstance(uint32, int):
+            uint32 = int(uint32.value)
+            assert isinstance(uint32, int)
+        self.uint32val = uint32
+
+    def __eq__(self, other):
+        if isinstance(other, _llgcopaque32):
+            return self.uint32val == other.uint32val
+        storage = object()
+        if hasattr(other, 'container'):
+            storage = other.container._storage
+        else:
+            storage = other._storage
+
+        if storage in (None, True):
+            return False
+        return force_cast(rffi.UINT, other._as_ptr()) == self.uint32val
+
+    def __ne__(self, other):
+        return not self == other
+
+##    def _cast_to_ptr(self, PTRTYPE):
+##         return force_cast(PTRTYPE, self.intval)
 
 # ____________________________________________________________
 # errno

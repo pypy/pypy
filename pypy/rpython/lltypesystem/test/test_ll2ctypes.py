@@ -1320,6 +1320,57 @@ class TestHiddenGcRef32(object):
         back2 = rffi.cast(llmemory.HiddenGcRef32, rffi.cast(rffi.UINT, 0))
         assert not llop.show_from_ptr32(lltype.Ptr(NODE), back2)
 
+    def test_hiddengcref32_forth_and_back(self):
+        cp = ctypes.c_uint32(3 * 10**9)
+        v = ctypes2lltype(llmemory.HiddenGcRef32, cp)
+        assert lltype.typeOf(v) == llmemory.HiddenGcRef32
+        assert lltype2ctypes(v).value == cp.value
+        v1 = ctypes2lltype(llmemory.HiddenGcRef32, cp)
+        assert v == v1
+        assert v
+        v2 = ctypes2lltype(llmemory.HiddenGcRef32, ctypes.c_uint32(1234567))
+        assert v2 != v
+
+    def test_hiddengcref32_type(self):
+        NODE = lltype.GcStruct('NODE')
+        node = lltype.malloc(NODE)
+        ref = lltype.cast_opaque_ptr(llmemory.HiddenGcRef32, node)
+        v = lltype2ctypes(ref)
+        assert isinstance(v, ctypes.c_uint32)
+        assert v
+
+    def test_hiddengcref32_null(self):
+        ref = lltype.nullptr(llmemory.HiddenGcRef32.TO)
+        v = lltype2ctypes(ref)
+        assert isinstance(v, ctypes.c_uint32)
+        assert not v
+
+    def test_cast_null_hiddengcref32(self):
+        ref = lltype.nullptr(llmemory.HiddenGcRef32.TO)
+        value = rffi.cast(rffi.UINT, ref)
+        assert rffi.cast(lltype.Signed, value) == 0
+
+    def test_hiddengcref32_truth(self):
+        p0 = ctypes.c_uint32(0)
+        ref0 = ctypes2lltype(llmemory.HiddenGcRef32, p0)
+        assert not ref0
+
+        p1234567 = ctypes.c_uint32(1234567)
+        ref1234567 = ctypes2lltype(llmemory.HiddenGcRef32, p1234567)
+        assert p1234567
+
+    def test_hiddengcref32_casts(self):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        p0 = ctypes.c_uint32(0)
+        ref0 = ctypes2lltype(llmemory.HiddenGcRef32, p0)
+
+        NODE = lltype.GcStruct('NODE')
+        assert llop.show_from_ptr32(lltype.Ptr(NODE), ref0) == lltype.nullptr(NODE)
+
+        node = lltype.malloc(NODE)
+        ref1 = llop.hide_into_ptr32(llmemory.HiddenGcRef32, node)
+
+
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
         from pypy.translator.platform import platform
