@@ -147,10 +147,11 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def invalidate_loop(self, looptoken):
         from pypy.jit.backend.x86 import codebuf
+        
         for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
             mc = codebuf.MachineCodeBlockWrapper()
-            mc.writeimm32(tgt)
-            mc.copy_to_raw_memory(addr)
+            mc.JMP_l(tgt)
+            mc.copy_to_raw_memory(addr - 1)
 
 class CPU386(AbstractX86CPU):
     WORD = 4

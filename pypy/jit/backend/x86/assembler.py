@@ -451,7 +451,8 @@ class Assembler386(object):
             else:
                 # guard not invalidate, patch where it jumps
                 pos, _ = clt.invalidate_positions[inv_counter]
-                clt.invalidate_positions[inv_counter] = pos, relative_target
+                clt.invalidate_positions[inv_counter] = (pos + rawstart,
+                                                         relative_target)
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -1457,7 +1458,7 @@ class Assembler386(object):
 
     def genop_guard_guard_not_invalidated(self, ign_1, guard_op, guard_token,
                                      locs, ign_2):
-        pos = self.mc.get_relative_pos()
+        pos = self.mc.get_relative_pos() + 1 # after jmp
         guard_token.pos_jump_offset = pos
         self.current_clt.invalidate_positions.append((pos, 0))
         self.pending_guard_tokens.append(guard_token)
