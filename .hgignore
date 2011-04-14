@@ -5,6 +5,8 @@ syntax: glob
 syntax: regexp
 ^testresult$
 ^site-packages$
+^site-packages/.*$
+^site-packages/.*$
 ^bin$
 ^pypy/bin/pypy-c
 ^pypy/module/cpyext/src/.+\.o$
@@ -37,8 +39,6 @@ syntax: regexp
 ^pypy/translator/goal/.+\.dll$
 ^pypy/translator/goal/target.+-c$
 ^pypy/_cache$
-^site-packages/.+\.egg$
-^site-packages/.+\.pth$
 ^pypy/doc/statistic/.+\.html$
 ^pypy/doc/statistic/.+\.eps$
 ^pypy/doc/statistic/.+\.pdf$
