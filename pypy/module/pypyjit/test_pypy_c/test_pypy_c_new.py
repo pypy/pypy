@@ -838,7 +838,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     src = """
                         def main():
                             sa = 0
-                            for i in range(1000):
+                            for i in range(300):
                                 if i %s %d:
                                     sa += 1
                                 else:
@@ -849,7 +849,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, op2, b)
-                    self.run_and_check(src, threshold=400)
+                    self.run_and_check(src, threshold=200)
 
                     src = """
                         def main():
@@ -867,7 +867,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 i += 0.25
                             return sa
                     """ % (op1, float(a)/4.0, op2, float(b)/4.0)
-                    self.run_and_check(src, threshold=400)
+                    self.run_and_check(src, threshold=300)
 
 
     def test_boolrewrite_allcases_reflex(self):
@@ -888,7 +888,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     src = """
                         def main():
                             sa = 0
-                            for i in range(1000):
+                            for i in range(300):
                                 if i %s %d:
                                     sa += 1
                                 else:
@@ -899,7 +899,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, b, op2)
-                    self.run_and_check(src, threshold=400)
+                    self.run_and_check(src, threshold=200)
 
                     src = """
                         def main():
@@ -917,7 +917,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 i += 0.25
                             return sa
                     """ % (op1, float(a)/4.0, float(b)/4.0, op2)
-                    self.run_and_check(src, threshold=400)
+                    self.run_and_check(src, threshold=300)
 
     def test_boolrewrite_ptr(self):
         """
@@ -935,7 +935,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                         b = tst()
                         c = tst()
                         sa = 0
-                        for i in range(1000):
+                        for i in range(300):
                             if %s:
                                 sa += 1
                             else:
@@ -948,7 +948,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 a = b
                         return sa
                 """ % (e1, e2)
-                self.run_and_check(src, threshold=400)
+                self.run_and_check(src, threshold=200)
 
     def test_array_sum(self):
         def main():
@@ -1102,13 +1102,13 @@ class TestPyPyCNew(BaseTestPyPyC):
                             res = [0] * 4
                             idx = []
                             for i in range(15):
-                                idx.extend([i] * 500)
+                                idx.extend([i] * 15)
                             for i in idx:
                                 res[f(i)] += 1
                             return res
 
                         ''' % (o1, n1, o2, n2)
-                        self.run_and_check(src, threshold=400)
+                        self.run_and_check(src, threshold=200)
 
     def test_intbound_addsub_mix(self):
         """
@@ -1137,10 +1137,10 @@ class TestPyPyCNew(BaseTestPyPyC):
                     res = [0] * 4
                     idx = []
                     for i in range(15):
-                        idx.extend([i] * 500)
+                        idx.extend([i] * 15)
                     for i in idx:
                         res[f(i)] += 1
                     return res
 
                 ''' % (t1, t2)
-                self.run_and_check(src, threshold=400)
+                self.run_and_check(src, threshold=200)
