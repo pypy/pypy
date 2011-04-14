@@ -2482,6 +2482,12 @@ class LLtypeBackendTest(BaseBackendTest):
         x = cpu.bh_getfield_gc_r(lltype.cast_opaque_ptr(llmemory.GCREF, s),
                                  descrfld_y)
         assert lltype.cast_opaque_ptr(lltype.Ptr(S), x) == s
+        #
+        t = lltype.malloc(S)
+        cpu.bh_setfield_gc_r(lltype.cast_opaque_ptr(llmemory.GCREF, s),
+                             descrfld_y,
+                             lltype.cast_opaque_ptr(llmemory.GCREF, t))
+        assert llop.show_from_ptr32(lltype.Ptr(S), s.y) == t
 
 
 class OOtypeBackendTest(BaseBackendTest):

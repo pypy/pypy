@@ -217,6 +217,11 @@ class AbstractLLCPU(AbstractCPU):
         return rffi.cast(lltype.Signed, x)
 
     @staticmethod
+    def cast_gcref_to_hidden_uint32(x):
+        x = llop.hide_into_ptr32(llmemory.HiddenGcRef32, x)
+        return rffi.cast(rffi.UINT, x)
+
+    @staticmethod
     def cast_int_to_adr(x):
         return rffi.cast(llmemory.Address, x)
 
@@ -402,7 +407,7 @@ class AbstractLLCPU(AbstractCPU):
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         if icp:
-            pval = rffi.cast(rffi.CArrayPtr(rffi.INT), fieldptr)[0]
+            pval = rffi.cast(rffi.CArrayPtr(rffi.UINT), fieldptr)[0]
             pval = self._cast_hidden_int32_to_gcref(pval)
         else:
             pval = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)[0]
@@ -442,14 +447,19 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def _base_do_setfield_r(self, struct, fielddescr, newvalue):
-        ofs, _, _ = self.unpack_fielddescr(fielddescr)
+        ofs, size, _ = self.unpack_fielddescr(fielddescr)
         assert lltype.typeOf(struct) is not lltype.Signed, (
             "can't handle write barriers for setfield_raw")
+        icp = self.gcdescr.is_compressed_ptr(size)
         self.gc_ll_descr.do_write_barrier(struct, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        fieldptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)
-        fieldptr[0] = self.cast_gcref_to_int(newvalue)
+        if icp:
+            fieldptr = rffi.cast(rffi.CArrayPtr(rffi.UINT), fieldptr)
+            fieldptr[0] = self.cast_gcref_to_hidden_uint32(newvalue)
+        else:
+            fieldptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)
+            fieldptr[0] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
 
     @specialize.argtype(1)

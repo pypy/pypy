@@ -1311,9 +1311,11 @@ class _llgcopaque32(lltype._container):
     _name = "_llgcopaque32"
 
     def __init__(self, uint32):
-        if not isinstance(uint32, int):
+        if isinstance(uint32, (int, long)):
+            uint32 = int(uint32)
+        else:
             uint32 = int(uint32.value)
-            assert isinstance(uint32, int)
+        assert isinstance(uint32, int)
         self.uint32val = uint32
 
     def __eq__(self, other):
@@ -1332,8 +1334,11 @@ class _llgcopaque32(lltype._container):
     def __ne__(self, other):
         return not self == other
 
-##    def _cast_to_ptr(self, PTRTYPE):
-##         return force_cast(PTRTYPE, self.intval)
+    def _cast_to_ptr(self, PTRTYPE):
+        if self.uint32val == 0:
+            return lltype.nullptr(PTRTYPE.TO)
+        obj = _hiddengcref32back[self.uint32val]
+        return force_cast(PTRTYPE, obj._as_ptr())
 
 # ____________________________________________________________
 # errno
