@@ -48,6 +48,8 @@ def make_invalidation_function(STRUCT, mutatefieldname):
 
 
 class QuasiImmut(object):
+    llopaque = True
+    
     def __init__(self, cpu):
         self.cpu = cpu
         # list of weakrefs to the LoopTokens that must be invalidated if

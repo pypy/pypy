@@ -575,6 +575,7 @@ _all_callbacks = {}
 _all_callbacks_results = []
 _int2obj = {}
 _callback_exc_info = None
+_opaque_objs = [None]
 
 def get_rtyper():
     llinterp = LLInterpreter.current_interpreter
@@ -613,6 +614,10 @@ def lltype2ctypes(llobj, normalize=True):
             T = lltype.Ptr(lltype.typeOf(container))
             # otherwise it came from integer and we want a c_void_p with
             # the same valu
+            if getattr(container, 'llopaque', None):
+                no = len(_opaque_objs)
+                _opaque_objs.append(container)
+                return no * 2 + 1
         else:
             container = llobj._obj
         if isinstance(T.TO, lltype.FuncType):
@@ -1223,7 +1228,9 @@ class _llgcopaque(lltype._container):
         return not self == other
 
     def _cast_to_ptr(self, PTRTYPE):
-         return force_cast(PTRTYPE, self.intval)
+        if self.intval & 1:
+            return _opaque_objs[self.intval // 2]
+        return force_cast(PTRTYPE, self.intval)
 
 ##     def _cast_to_int(self):
 ##         return self.intval
