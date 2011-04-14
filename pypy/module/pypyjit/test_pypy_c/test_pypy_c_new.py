@@ -1144,3 +1144,29 @@ class TestPyPyCNew(BaseTestPyPyC):
 
                 ''' % (t1, t2)
                 self.run_and_check(src, threshold=200)
+
+    def test_intbound_gt(self):
+        def main(n):
+            i, a, b = 0, 0, 0
+            while i < n:
+                if i > -1:
+                    a += 1
+                if i > -2:
+                    b += 1
+                i += 1
+            return (a, b)
+        #
+        log = self.run(main, [300], threshold=200)
+        assert log.result == (300, 300)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i8, i9)
+            guard_true(i10, descr=...)
+            i12 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i14 = int_add_ovf(i6, 1)
+            guard_no_overflow(descr=...)
+            i17 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i14, i12, i17, i9, descr=<Loop0>)
+        """)

@@ -223,19 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
         
-    def test_intbound_gt(self):
-        self.run_source('''
-        def main():
-            i, a, b = 0, 0, 0
-            while i < 2000:
-                if i > -1:
-                    a += 1
-                if i > -2:
-                    b += 1
-                i += 1
-            return (a, b)
-        ''', 48, ([], (2000, 2000)))
-
     def test_intbound_sub_lt(self):
         self.run_source('''
         def main():
