@@ -1250,3 +1250,35 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i18, i14, i21, descr=<Loop0>)
         """)
+
+    def test_intbound_eq(self):
+        def main(a, n):
+            i, s = 0, 0
+            while i < 300:
+                if a == 7:
+                    s += a + 1
+                elif i == 10:
+                    s += i
+                else:
+                    s += 1
+                i += 1
+            return s
+        #
+        log = self.run(main, [7, 300], threshold=200)
+        assert log.result == main(7, 300)
+        log = self.run(main, [10, 300], threshold=200)
+        assert log.result == main(10, 300)
+        log = self.run(main, [42, 300], threshold=200)
+        assert log.result == main(42, 300)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i8, 300)
+            guard_true(i10, descr=...)
+            i12 = int_eq(i8, 10)
+            guard_false(i12, descr=...)
+            i14 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i16 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, i14, i16, descr=<Loop0>)
+        """)

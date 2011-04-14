@@ -224,20 +224,6 @@ class PyPyCJITTests(object):
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
 
-    def test_intbound_eq(self):
-        self.run_source('''
-        def main(a):
-            i, s = 0, 0
-            while i < 1500:
-                if a == 7:
-                    s += a + 1
-                elif i == 10:
-                    s += i
-                else:
-                    s += 1
-                i += 1
-            return s
-        ''', 69, ([7], 12000), ([42], 1509), ([10], 1509))
         
     def test_intbound_mul(self):
         self.run_source('''
