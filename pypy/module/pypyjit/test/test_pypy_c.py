@@ -223,28 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-    def test_circular(self):
-        self.run_source('''
-        from array import array
-        class Circular(array):
-            def __new__(cls):
-                self = array.__new__(cls, 'd', range(256))
-                return self
-            def __getitem__(self, i):
-                # assert self.__len__() == 256 (FIXME: does not improve)
-                return array.__getitem__(self, i & 255)
-
-        def main():
-            buf = Circular()
-            i = 10
-            sa = 0
-            while i < 2000 - 10:
-                sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
-                i += 1
-            return sa
-
-        ''', 170, ([], 1239690.0))
-
     def test_min_max(self):
         self.run_source('''
         def main():

@@ -1355,4 +1355,27 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 9895050.0
         loop, = log.loops_by_filename(self.filepath)
         # XXX: what do we want to check here?
-        
+
+    def test_circular(self):
+        def main():
+            from array import array
+            class Circular(array):
+                def __new__(cls):
+                    self = array.__new__(cls, 'd', range(256))
+                    return self
+                def __getitem__(self, i):
+                    # assert self.__len__() == 256 (FIXME: does not improve)
+                    return array.__getitem__(self, i & 255)
+            #
+            buf = Circular()
+            i = 10
+            sa = 0
+            while i < 2000 - 10:
+                sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
+                i += 1
+            return sa
+        #
+        log = self.run(main, [], threshold=200)
+        assert log.result == 1239690.0
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: what do we want to check here?
