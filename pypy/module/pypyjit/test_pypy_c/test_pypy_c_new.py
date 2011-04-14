@@ -1364,7 +1364,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     self = array.__new__(cls, 'd', range(256))
                     return self
                 def __getitem__(self, i):
-                    # assert self.__len__() == 256 (FIXME: does not improve)
+                    assert len(self) == 256
                     return array.__getitem__(self, i & 255)
             #
             buf = Circular()
@@ -1378,4 +1378,28 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [], threshold=200)
         assert log.result == 1239690.0
         loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            ...
+            i17 = int_and(i14, 255)
+            f18 = getarrayitem_raw(i8, i17, descr=...)
+            i19 = force_token()
+            f20 = getarrayitem_raw(i8, i9, descr=...)
+            f21 = float_add(f18, f20)
+            i22 = force_token()
+            f23 = getarrayitem_raw(i8, i10, descr=...)
+            f24 = float_add(f21, f23)
+            i26 = int_add(i6, 1)
+            i27 = force_token()
+            i29 = int_and(i26, 255)
+            f30 = getarrayitem_raw(i8, i29, descr=...)
+            f31 = float_add(f24, f30)
+            i33 = int_add(i6, 2)
+            i34 = force_token()
+            i36 = int_and(i33, 255)
+            f37 = getarrayitem_raw(i8, i36, descr=...)
+            ...
+        """)
         # XXX: what do we want to check here?
+        # We want to check that the array bound checks are removed,
+        # so it's this part of the trace. However we dont care about
+        # the force_token()'s. Can they be ignored?
