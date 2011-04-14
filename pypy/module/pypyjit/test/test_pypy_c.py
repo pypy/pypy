@@ -222,30 +222,6 @@ class PyPyCJITTests(object):
                 total += f(i, 5)
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
-        
-    def test_intbound_sub_lt(self):
-        self.run_source('''
-        def main():
-            i, a, b = 0, 0, 0
-            while i < 2000:
-                if i - 10 < 1995:
-                    a += 1
-                i += 1
-            return (a, b)
-        ''', 38, ([], (2000, 0)))
-
-    def test_intbound_addsub_ge(self):
-        self.run_source('''
-        def main():
-            i, a, b = 0, 0, 0
-            while i < 2000:
-                if i + 5 >= 5:
-                    a += 1
-                if i - 1 >= -1:
-                    b += 1
-                i += 1
-            return (a, b)
-        ''', 56, ([], (2000, 2000)))
 
     def test_intbound_addmul_ge(self):
         self.run_source('''
