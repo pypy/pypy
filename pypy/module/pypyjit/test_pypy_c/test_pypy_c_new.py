@@ -1212,8 +1212,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i8, i9)
             guard_true(i10, descr=...)
-        # XXX: why do we need ovf check here? If we put a literal "300"
-        # instead of "n", it disappears
             i12 = int_add_ovf(i8, 5)
             guard_no_overflow(descr=...)
             i14 = int_add_ovf(i7, 1)
