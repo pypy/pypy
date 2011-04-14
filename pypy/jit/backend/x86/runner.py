@@ -145,6 +145,13 @@ class AbstractX86CPU(AbstractLLCPU):
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
+    def invalidate_loop(self, looptoken):
+        from pypy.jit.backend.x86 import codebuf
+        for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
+            mc = codebuf.MachineCodeBlockWrapper()
+            mc.writeimm32(tgt)
+            mc.copy_to_raw_memory(addr)
+
 class CPU386(AbstractX86CPU):
     WORD = 4
     NUM_REGS = 8

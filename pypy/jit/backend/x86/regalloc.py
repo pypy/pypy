@@ -492,6 +492,8 @@ class RegAlloc(object):
     def consider_guard_no_exception(self, op):
         self.perform_guard(op, [], None)
 
+    consider_guard_not_invalidated = consider_guard_no_exception
+
     def consider_guard_exception(self, op):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
         box = TempBox()
