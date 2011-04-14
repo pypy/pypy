@@ -764,12 +764,13 @@ def ctypes2lltype(T, cobj):
     if T is lltype.Void:
         return None
     if isinstance(T, lltype.Ptr):
-        if not cobj or not ctypes.cast(cobj, ctypes.c_void_p).value:   # NULL pointer
+        ptrval = ctypes.cast(cobj, ctypes.c_void_p).value
+        if not cobj or not ptrval:   # NULL pointer
             # CFunctionType.__nonzero__ is broken before Python 2.6
             return lltype.nullptr(T.TO)
         if isinstance(T.TO, lltype.Struct):
-            if ctypes.addressof(cobj[0]) & 1: # a tagged pointer
-                gcref = _opaque_objs[ctypes.addressof(cobj[0]) // 2].hide()
+            if ptrval & 1: # a tagged pointer
+                gcref = _opaque_objs[ptrval // 2].hide()
                 return lltype.cast_opaque_ptr(T, gcref)
             REAL_TYPE = T.TO
             if T.TO._arrayfld is not None:
