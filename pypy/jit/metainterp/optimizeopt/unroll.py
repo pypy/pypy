@@ -164,13 +164,14 @@ class UnrollOptimizer(Optimization):
 
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
-            short_boxes = preamble_optimizer.produce_short_preamble_ops(inputargs)
+            sb = preamble_optimizer.produce_short_preamble_ops(inputargs)
+            self.short_boxes = sb
             initial_inputargs_len = len(inputargs)
             
 
             inputargs, short = self.inline(self.cloned_operations,
                                            loop.inputargs, jump_args,
-                                           virtual_state, short_boxes)
+                                           virtual_state)
             #except KeyError:
             #    debug_print("Unrolling failed.")
             #    loop.preamble.operations = None
@@ -246,8 +247,7 @@ class UnrollOptimizer(Optimization):
                     if op.result:
                         op.result.forget_value()
                 
-    def inline(self, loop_operations, loop_args, jump_args, virtual_state,
-               short_boxes):
+    def inline(self, loop_operations, loop_args, jump_args, virtual_state):
         self.inliner = inliner = Inliner(loop_args, jump_args)
 
         values = [self.getvalue(arg) for arg in jump_args]
@@ -271,47 +271,57 @@ class UnrollOptimizer(Optimization):
         assert jmp.getopnum() == rop.JUMP
         self.optimizer.newoperations = newoperations[:-1]
 
-        boxes_created_this_iteration = {}
+        self.boxes_created_this_iteration = {}
         jumpargs = jmp.getarglist()
 
-        short_inliner = Inliner(inputargs, jumpargs)
+        self.short_inliner = Inliner(inputargs, jumpargs)
         short = []
 
         # FIXME: Should also loop over operations added by forcing things in this loop
         for op in newoperations: 
-            boxes_created_this_iteration[op.result] = True
+            self.boxes_created_this_iteration[op.result] = True
             args = op.getarglist()
             if op.is_guard():
                 args = args + op.getfailargs()
             
             for a in args:
-                if not isinstance(a, Const) and not a in boxes_created_this_iteration:
-                    if a not in inputargs:
-                        short_op = short_boxes[a]
-                        short.append(short_op)
-                        short_jumpargs.append(short_op.result)
-                        newop = short_inliner.inline_op(short_op)
-                        self.optimizer.send_extra_operation(newop)
-                        inputargs.append(a)
-                        if newop.is_ovf():
-                            # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
-                            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-                            short.append(guard)
-                            # FIXME: Emit a proper guard here in case it is not
-                            #        removed by the optimizer. Can that happen?
-                            self.optimizer.send_extra_operation(guard)
-                            assert self.optimizer.newoperations[-1] is not guard
-                        
-                        box = newop.result
-                        if box in self.optimizer.values:
-                            box = self.optimizer.values[box].force_box()
-                        jumpargs.append(box)
+                self.import_box(a, inputargs, short, short_jumpargs, jumpargs)
 
         jmp.initarglist(jumpargs)
         self.optimizer.newoperations.append(jmp)
         short.append(ResOperation(rop.JUMP, short_jumpargs, None))
         return inputargs, short
 
+    def import_box(self, box, inputargs, short, short_jumpargs, jumpargs):
+        if isinstance(box, Const) or box in inputargs:
+            return
+        if box in self.boxes_created_this_iteration:
+            return
+
+        short_op = self.short_boxes[box]
+        import pdb; pdb.set_trace()
+        
+        for a in short_op.getarglist():
+            self.import_box(a, inputargs, short, short_jumpargs, jumpargs)
+        short.append(short_op)
+        short_jumpargs.append(short_op.result)
+        newop = self.short_inliner.inline_op(short_op)
+        self.optimizer.send_extra_operation(newop)
+        inputargs.append(box)
+        if newop.is_ovf():
+            # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
+            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+            short.append(guard)
+            # FIXME: Emit a proper guard here in case it is not
+            #        removed by the optimizer. Can that happen?
+            self.optimizer.send_extra_operation(guard)
+            assert self.optimizer.newoperations[-1] is not guard
+
+        box = newop.result
+        if box in self.optimizer.values:
+            box = self.optimizer.values[box].force_box()
+        jumpargs.append(box)
+        
     def sameop(self, op1, op2):
         if op1.getopnum() != op2.getopnum():
             return False
