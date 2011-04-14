@@ -1212,8 +1212,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i8, i9)
             guard_true(i10, descr=...)
-        # XXX: why do we need ovf check here? If we put a literal "300"
-        # instead of "n", it disappears
             i12 = int_add_ovf(i8, 5)
             guard_no_overflow(descr=...)
             i14 = int_add_ovf(i7, 1)
@@ -1224,3 +1222,160 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i16, i14, i19, i9, descr=<Loop0>)
         """)
+
+    def test_intbound_addmul_ge(self):
+        def main(n):
+            i, a, b = 0, 0, 0
+            while i < 300:
+                if i + 5 >= 5:
+                    a += 1
+                if 2 * i >= 0:
+                    b += 1
+                i += 1
+            return (a, b)
+        #
+        log = self.run(main, [300], threshold=200)
+        assert log.result == (300, 300)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i8, 300)
+            guard_true(i10, descr=...)
+            i12 = int_add(i8, 5)
+            i14 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i16 = int_lshift(i8, 1)
+            i18 = int_add_ovf(i6, 1)
+            guard_no_overflow(descr=...)
+            i21 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i18, i14, i21, descr=<Loop0>)
+        """)
+
+    def test_intbound_eq(self):
+        def main(a, n):
+            i, s = 0, 0
+            while i < 300:
+                if a == 7:
+                    s += a + 1
+                elif i == 10:
+                    s += i
+                else:
+                    s += 1
+                i += 1
+            return s
+        #
+        log = self.run(main, [7, 300], threshold=200)
+        assert log.result == main(7, 300)
+        log = self.run(main, [10, 300], threshold=200)
+        assert log.result == main(10, 300)
+        log = self.run(main, [42, 300], threshold=200)
+        assert log.result == main(42, 300)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i8, 300)
+            guard_true(i10, descr=...)
+            i12 = int_eq(i8, 10)
+            guard_false(i12, descr=...)
+            i14 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i16 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, i14, i16, descr=<Loop0>)
+        """)
+
+    def test_intbound_mul(self):
+        def main(a):
+            i, s = 0, 0
+            while i < 300:
+                assert i >= 0
+                if 2 * i < 30000:
+                    s += 1
+                else:
+                    s += a
+                i += 1
+            return s
+        #
+        log = self.run(main, [7], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = int_lt(i6, 300)
+            guard_true(i8, descr=...)
+            i10 = int_lshift(i6, 1)
+            i12 = int_add_ovf(i5, 1)
+            guard_no_overflow(descr=...)
+            i14 = int_add(i6, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i12, i14, descr=<Loop0>)
+        """)
+
+    def test_assert(self):
+        def main(a):
+            i, s = 0, 0
+            while i < 300:
+                assert a == 7
+                s += a + 1
+                i += 1
+            return s
+        log = self.run(main, [7], threshold=200)
+        assert log.result == 300*8
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = int_lt(i6, 300)
+            guard_true(i8, descr=...)
+            i10 = int_add_ovf(i5, 8)
+            guard_no_overflow(descr=...)
+            i12 = int_add(i6, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i10, i12, descr=<Loop0>)
+        """)
+
+    def test_zeropadded(self):
+        def main():
+            from array import array
+            class ZeroPadded(array):
+                def __new__(cls, l):
+                    self = array.__new__(cls, 'd', range(l))
+                    return self
+
+                def __getitem__(self, i):
+                    if i < 0 or i >= self.__len__():
+                        return 0
+                    return array.__getitem__(self, i) # ID: get
+            #
+            buf = ZeroPadded(2000)
+            i = 10
+            sa = 0
+            while i < 2000 - 10:
+                sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
+                i += 1
+            return sa
+
+        log = self.run(main, [], threshold=200)
+        assert log.result == 9895050.0
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: what do we want to check here?
+
+    def test_circular(self):
+        def main():
+            from array import array
+            class Circular(array):
+                def __new__(cls):
+                    self = array.__new__(cls, 'd', range(256))
+                    return self
+                def __getitem__(self, i):
+                    # assert self.__len__() == 256 (FIXME: does not improve)
+                    return array.__getitem__(self, i & 255)
+            #
+            buf = Circular()
+            i = 10
+            sa = 0
+            while i < 2000 - 10:
+                sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
+                i += 1
+            return sa
+        #
+        log = self.run(main, [], threshold=200)
+        assert log.result == 1239690.0
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: what do we want to check here?
