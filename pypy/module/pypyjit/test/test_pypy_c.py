@@ -223,31 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-    def test_zeropadded(self):
-        self.run_source('''
-        from array import array
-        class ZeroPadded(array):
-            def __new__(cls, l):
-                self = array.__new__(cls, 'd', range(l))
-                return self
-
-            def __getitem__(self, i):
-                if i < 0 or i >= self.__len__():
-                    return 0
-                return array.__getitem__(self, i)
-
-
-        def main():
-            buf = ZeroPadded(2000)
-            i = 10
-            sa = 0
-            while i < 2000 - 10:
-                sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
-                i += 1
-            return sa
-
-        ''', 232, ([], 9895050.0))
-
     def test_circular(self):
         self.run_source('''
         from array import array

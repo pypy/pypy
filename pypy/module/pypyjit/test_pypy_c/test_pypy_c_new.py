@@ -1329,3 +1329,30 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, i10, i12, descr=<Loop0>)
         """)
+
+    def test_zeropadded(self):
+        def main():
+            from array import array
+            class ZeroPadded(array):
+                def __new__(cls, l):
+                    self = array.__new__(cls, 'd', range(l))
+                    return self
+
+                def __getitem__(self, i):
+                    if i < 0 or i >= self.__len__():
+                        return 0
+                    return array.__getitem__(self, i) # ID: get
+            #
+            buf = ZeroPadded(2000)
+            i = 10
+            sa = 0
+            while i < 2000 - 10:
+                sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
+                i += 1
+            return sa
+
+        log = self.run(main, [], threshold=200)
+        assert log.result == 9895050.0
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: what do we want to check here?
+        
