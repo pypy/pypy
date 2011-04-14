@@ -223,18 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-    def test_intbound_addmul_ge(self):
-        self.run_source('''
-        def main():
-            i, a, b = 0, 0, 0
-            while i < 2000:
-                if i + 5 >= 5:
-                    a += 1
-                if 2 * i >= 0:
-                    b += 1
-                i += 1
-            return (a, b)
-        ''', 53, ([], (2000, 2000)))
 
     def test_intbound_eq(self):
         self.run_source('''
