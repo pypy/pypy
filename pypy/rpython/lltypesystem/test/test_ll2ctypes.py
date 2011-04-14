@@ -1014,7 +1014,7 @@ class TestLL2Ctypes(object):
         node = lltype.malloc(NODE)
         ref = lltype.cast_opaque_ptr(llmemory.GCREF, node)
         back = rffi.cast(llmemory.GCREF, rffi.cast(lltype.Signed, ref))
-        assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), ref) == node
+        assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), back) == node
 
     def test_gcref_forth_and_back(self):
         cp = ctypes.c_void_p(1234)
