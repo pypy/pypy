@@ -1339,7 +1339,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     return self
 
                 def __getitem__(self, i):
-                    if i < 0 or i >= self.__len__():
+                    if i < 0 or i >= len(self):
                         return 0
                     return array.__getitem__(self, i) # ID: get
             #
