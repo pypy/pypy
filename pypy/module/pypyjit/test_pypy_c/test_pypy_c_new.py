@@ -1170,3 +1170,27 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i14, i12, i17, i9, descr=<Loop0>)
         """)
+
+    def test_intbound_sub_lt(self):
+        def main():
+            i, a = 0, 0
+            while i < 300:
+                if i - 10 < 295:
+                    a += 1
+                i += 1
+            return a
+        #
+        log = self.run(main, [], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, 300)
+            guard_true(i7, descr=...)
+            i9 = int_sub_ovf(i5, 10)
+            guard_no_overflow(descr=...)
+            i11 = int_add_ovf(i4, 1)
+            guard_no_overflow(descr=...)
+            i13 = int_add(i5, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i11, i13, descr=<Loop0>)
+        """)
