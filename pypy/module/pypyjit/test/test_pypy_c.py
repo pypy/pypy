@@ -224,43 +224,6 @@ class PyPyCJITTests(object):
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
         
 
-    def test_intbound_simple(self):
-        ops = ('<', '>', '<=', '>=', '==', '!=')
-        nbr = (3, 7)
-        for o1 in ops:
-            for o2 in ops:
-                for n1 in nbr:
-                    for n2 in nbr:
-                        src = '''
-                        def f(i):
-                            a, b = 3, 3
-                            if i %s %d:
-                                a = 0
-                            else:
-                                a = 1
-                            if i %s %d:
-                                b = 0
-                            else:
-                                b = 1
-                            return a + b * 2
-
-                        def main():
-                            res = [0] * 4
-                            idx = []
-                            for i in range(15):
-                                idx.extend([i] * 1500)
-                            for i in idx:
-                                res[f(i)] += 1
-                            return res
-
-                        ''' % (o1, n1, o2, n2)
-
-                        exec(str(py.code.Source(src)))
-                        res = [0] * 4
-                        for i in range(15):
-                            res[f(i)] += 1500
-                        self.run_source(src, 268, ([], res))
-
     def test_intbound_addsub_mix(self):
         tests = ('i > 4', 'i > 2', 'i + 1 > 2', '1 + i > 4',
                  'i - 1 > 1', '1 - i > 1', '1 - i < -3',

@@ -920,8 +920,10 @@ class TestPyPyCNew(BaseTestPyPyC):
                     self.run_and_check(src, threshold=400)
 
     def test_boolrewrite_ptr(self):
-        # XXX this test is way too imprecise in what it is actually testing
-        # it should count the number of guards instead
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
         compares = ('a == b', 'b == a', 'a != b', 'b != a', 'a == c', 'c != b')
         for e1 in compares:
             for e2 in compares:
@@ -1071,3 +1073,39 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
         """)
+
+    def test_intbound_simple(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        ops = ('<', '>', '<=', '>=', '==', '!=')
+        nbr = (3, 7)
+        for o1 in ops:
+            for o2 in ops:
+                for n1 in nbr:
+                    for n2 in nbr:
+                        src = '''
+                        def f(i):
+                            a, b = 3, 3
+                            if i %s %d:
+                                a = 0
+                            else:
+                                a = 1
+                            if i %s %d:
+                                b = 0
+                            else:
+                                b = 1
+                            return a + b * 2
+
+                        def main():
+                            res = [0] * 4
+                            idx = []
+                            for i in range(15):
+                                idx.extend([i] * 500)
+                            for i in idx:
+                                res[f(i)] += 1
+                            return res
+
+                        ''' % (o1, n1, o2, n2)
+                        self.run_and_check(src, threshold=400)
