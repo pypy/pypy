@@ -2497,6 +2497,12 @@ class LLtypeBackendTest(BaseBackendTest):
                                      lltype.cast_opaque_ptr(llmemory.GCREF, a),
                                      4)
         assert lltype.cast_opaque_ptr(lltype.Ptr(S), x) == s
+        #
+        cpu.bh_setarrayitem_gc_r(descrarray,
+                                 lltype.cast_opaque_ptr(llmemory.GCREF, a),
+                                 4,
+                                 lltype.cast_opaque_ptr(llmemory.GCREF, t))
+        assert llop.show_from_ptr32(lltype.Ptr(S), a[4]) == t
 
 
 class OOtypeBackendTest(BaseBackendTest):

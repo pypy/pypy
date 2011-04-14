@@ -341,11 +341,16 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_setarrayitem_gc_r(self, arraydescr, gcref, itemindex, newvalue):
         ofs, size, _ = self.unpack_arraydescr(arraydescr)
+        icp = self.gcdescr.is_compressed_ptr(size)
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        items[itemindex] = self.cast_gcref_to_int(newvalue)
+        if icp:
+            items = rffi.cast(rffi.CArrayPtr(rffi.UINT), items)
+            items[itemindex] = self.cast_gcref_to_hidden_uint32(newvalue)
+        else:
+            items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+            items[itemindex] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
 
     @specialize.argtype(2)
