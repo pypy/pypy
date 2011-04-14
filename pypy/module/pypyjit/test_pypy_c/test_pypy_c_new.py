@@ -1308,4 +1308,24 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, i12, i14, descr=<Loop0>)
         """)
-        
+
+    def test_assert(self):
+        def main(a):
+            i, s = 0, 0
+            while i < 300:
+                assert a == 7
+                s += a + 1
+                i += 1
+            return s
+        log = self.run(main, [7], threshold=200)
+        assert log.result == 300*8
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = int_lt(i6, 300)
+            guard_true(i8, descr=...)
+            i10 = int_add_ovf(i5, 8)
+            guard_no_overflow(descr=...)
+            i12 = int_add(i6, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i10, i12, descr=<Loop0>)
+        """)

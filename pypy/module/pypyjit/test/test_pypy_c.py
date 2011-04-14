@@ -223,18 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-
-    def test_assert(self):
-        self.run_source('''
-        def main(a):
-            i, s = 0, 0
-            while i < 1500:
-                assert a == 7
-                s += a + 1
-                i += 1
-            return s
-        ''', 38, ([7], 8*1500))
-        
     def test_zeropadded(self):
         self.run_source('''
         from array import array
