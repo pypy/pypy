@@ -1354,7 +1354,33 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [], threshold=200)
         assert log.result == 9895050.0
         loop, = log.loops_by_filename(self.filepath)
-        # XXX: what do we want to check here?
+        assert loop.match("""
+            ...
+            i20 = int_ge(i18, i8)
+            guard_false(i20, descr=...)
+            f21 = getarrayitem_raw(i13, i18, descr=...)
+            i22 = force_token()
+            f23 = getarrayitem_raw(i13, i14, descr=...)
+            f24 = float_add(f21, f23)
+            i25 = force_token()
+            f26 = getarrayitem_raw(i13, i6, descr=...)
+            f27 = float_add(f24, f26)
+            i29 = int_add(i6, 1)
+            i30 = force_token()
+            i31 = int_ge(i29, i8)
+            guard_false(i31, descr=...)
+            f33 = getarrayitem_raw(i13, i29, descr=...)
+            f34 = float_add(f27, f33)
+            i36 = int_add(i6, 2)
+            i37 = force_token()
+            i38 = int_ge(i36, i8)
+            guard_false(i38, descr=...)
+            f39 = getarrayitem_raw(i13, i36, descr=...)
+            ...
+        """)
+        # XXX: what do we want to check here?        
+        # We want to make sure that the overloaded __getitem__
+        # not introduceds double array bound checks
 
     def test_circular(self):
         def main():
