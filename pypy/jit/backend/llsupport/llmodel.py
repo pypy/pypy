@@ -401,7 +401,7 @@ class AbstractLLCPU(AbstractCPU):
         icp = self.gcdescr.is_compressed_ptr(size)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
-        if 0:# icp:
+        if icp:
             pval = rffi.cast(rffi.CArrayPtr(rffi.INT), fieldptr)[0]
             pval = self._cast_hidden_int32_to_gcref(pval)
         else:

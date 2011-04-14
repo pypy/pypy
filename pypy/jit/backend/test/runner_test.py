@@ -11,6 +11,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
@@ -2468,6 +2469,19 @@ class LLtypeBackendTest(BaseBackendTest):
         mem2 = self.cpu.asmmemmgr.total_mallocs
         assert mem2 < mem1
         assert mem2 == mem0
+
+    def test_bh_hiddenptr32(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("HiddenGcRef32: for 64-bit only")
+        cpu = self.cpu
+        S = lltype.GcStruct('S', ('y', llmemory.HiddenGcRef32))
+        s = lltype.malloc(S)
+        s32 = llop.hide_into_ptr32(llmemory.HiddenGcRef32, s)
+        descrfld_y = cpu.fielddescrof(S, 'y')
+        s.y = s32
+        x = cpu.bh_getfield_gc_r(lltype.cast_opaque_ptr(llmemory.GCREF, s),
+                                 descrfld_y)
+        assert lltype.cast_opaque_ptr(lltype.Ptr(S), x) == s
 
 
 class OOtypeBackendTest(BaseBackendTest):
