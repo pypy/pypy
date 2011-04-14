@@ -220,5 +220,7 @@ class ErasedRepr(Repr):
         bk = self.rtyper.annotator.bookkeeper
         s_obj = value._identity.get_input_annotation(bk)
         r_obj = self.rtyper.getrepr(s_obj)
+        if r_obj.lowleveltype is lltype.Void:
+            return lltype.nullptr(self.lowleveltype.TO)
         v = r_obj.convert_const(value._x)
         return lltype.cast_opaque_ptr(self.lowleveltype, v)

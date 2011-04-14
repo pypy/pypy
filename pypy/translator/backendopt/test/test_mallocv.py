@@ -5,7 +5,7 @@ from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator import simplify
-from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
+from pypy.objspace.flow.model import checkgraph, Block, mkentrymap
 from pypy.objspace.flow.model import summary
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
@@ -33,8 +33,7 @@ class BaseMallocRemovalTest(object):
     def check_malloc_removed(cls, graph, expected_mallocs, expected_calls):
         count_mallocs = 0
         count_calls = 0
-        for node in flatten(graph):
-            if isinstance(node, Block):
+        for node in graph.iterblocks():
                 for op in node.operations:
                     if op.opname == 'malloc':
                         count_mallocs += 1
@@ -54,7 +53,7 @@ class BaseMallocRemovalTest(object):
         if option.view:
             t.view()
         self.original_graph_count = len(t.graphs)
-        # to detect missing keepalives and broken intermediate graphs,
+        # to detect broken intermediate graphs,
         # we do the loop ourselves instead of calling remove_simple_mallocs()
         maxiter = 100
         mallocv = MallocVirtualizer(t.graphs, t.rtyper, verbose=True)
@@ -557,36 +556,6 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
     type_system = 'lltype'
     #MallocRemover = LLTypeMallocRemover
 
-    def test_with_keepalive(self):
-        from pypy.rlib.objectmodel import keepalive_until_here
-        def fn1(x, y):
-            if x > 0:
-                t = x+y, x-y
-            else:
-                t = x-y, x+y
-            s, d = t
-            keepalive_until_here(t)
-            return s*d
-        self.check(fn1, [int, int], [15, 10], 125)
-
-    def test_add_keepalives(self):
-        class A:
-            pass
-        SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
-        BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
-        def fn7(i):
-            big = lltype.malloc(BIG)
-            a = A()
-            a.big = big
-            a.small = big.s
-            a.small.x = 0
-            while i > 0:
-                a.small.x += i
-                i -= 1
-            return a.small.x
-        self.check(fn7, [int], [10], 55,
-                   expected_mallocs=1)   # no support for interior structs
-
     def test_getsubstruct(self):
         SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
         BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
@@ -769,39 +738,6 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
             x.u2.b = 6
             return x.u1.b * x.u2.a
         self.check(fn, [], [], DONT_CHECK_RESULT)
-
-    def test_keep_all_keepalives(self):
-        SIZE = llmemory.sizeof(lltype.Signed)
-        PARRAY = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
-        class A:
-            def __init__(self):
-                self.addr = llmemory.raw_malloc(SIZE)
-            def __del__(self):
-                llmemory.raw_free(self.addr)
-        class B:
-            pass
-        def myfunc():
-            b = B()
-            b.keep = A()
-            b.data = llmemory.cast_adr_to_ptr(b.keep.addr, PARRAY)
-            b.data[0] = 42
-            ptr = b.data
-            # normally 'b' could go away as early as here, which would free
-            # the memory held by the instance of A in b.keep...
-            res = ptr[0]
-            # ...so we explicitly keep 'b' alive until here
-            objectmodel.keepalive_until_here(b)
-            return res
-        graph = self.check(myfunc, [], [], 42,
-                           expected_mallocs=1,    # 'A' instance left
-                           expected_calls=1)      # to A.__init__()
-
-        # there is a getarrayitem near the end of the graph of myfunc.
-        # However, the memory it accesses must still be protected by the
-        # following keepalive, even after malloc removal
-        entrymap = mkentrymap(graph)
-        [link] = entrymap[graph.returnblock]
-        assert link.prevblock.operations[-1].opname == 'keepalive'
 
     def test_nested_struct(self):
         S = lltype.GcStruct("S", ('x', lltype.Signed))

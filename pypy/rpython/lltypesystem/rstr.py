@@ -515,7 +515,6 @@ class LLHelpers(AbstractLLHelpers):
         return count
 
     @classmethod
-    @purefunction
     def ll_find(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -529,11 +528,10 @@ class LLHelpers(AbstractLLHelpers):
             return start
         elif m == 1:
             return cls.ll_find_char(s1, s2.chars[0], start, end)
-        
+
         return cls.ll_search(s1, s2, start, end, FAST_FIND)
 
     @classmethod
-    @purefunction
     def ll_rfind(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -547,11 +545,10 @@ class LLHelpers(AbstractLLHelpers):
             return end
         elif m == 1:
             return cls.ll_rfind_char(s1, s2.chars[0], start, end)
-        
+
         return cls.ll_search(s1, s2, start, end, FAST_RFIND)
 
     @classmethod
-    @purefunction
     def ll_count(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -565,7 +562,7 @@ class LLHelpers(AbstractLLHelpers):
             return end - start + 1
         elif m == 1:
             return cls.ll_count_char(s1, s2.chars[0], start, end)
-            
+
         res = cls.ll_search(s1, s2, start, end, FAST_COUNT)
         # For a few cases ll_search can return -1 to indicate an "impossible"
         # condition for a string match, count just returns 0 in these cases.
@@ -725,29 +722,73 @@ class LLHelpers(AbstractLLHelpers):
         newlen = len(s1.chars) - 1
         return LLHelpers._ll_stringslice(s1, 0, newlen)
 
-    def ll_split_chr(LIST, s, c):
+    def ll_split_chr(LIST, s, c, max):
         chars = s.chars
         strlen = len(chars)
         count = 1
         i = 0
+        if max == 0:
+            i = strlen
         while i < strlen:
             if chars[i] == c:
                 count += 1
+                if max >= 0 and count > max:
+                    break
             i += 1
         res = LIST.ll_newlist(count)
         items = res.ll_items()
         i = 0
         j = 0
         resindex = 0
+        if max == 0:
+            j = strlen
         while j < strlen:
             if chars[j] == c:
                 item = items[resindex] = s.malloc(j - i)
                 item.copy_contents(s, item, i, 0, j - i)
                 resindex += 1
                 i = j + 1
+                if max >= 0 and resindex >= max:
+                    j = strlen
+                    break
             j += 1
         item = items[resindex] = s.malloc(j - i)
         item.copy_contents(s, item, i, 0, j - i)
+        return res
+
+    def ll_rsplit_chr(LIST, s, c, max):
+        chars = s.chars
+        strlen = len(chars)
+        count = 1
+        i = 0
+        if max == 0:
+            i = strlen
+        while i < strlen:
+            if chars[i] == c:
+                count += 1
+                if max >= 0 and count > max:
+                    break
+            i += 1
+        res = LIST.ll_newlist(count)
+        items = res.ll_items()
+        i = strlen
+        j = strlen
+        resindex = count - 1
+        assert resindex >= 0
+        if max == 0:
+            j = 0
+        while j > 0:
+            j -= 1
+            if chars[j] == c:
+                item = items[resindex] = s.malloc(i - j - 1)
+                item.copy_contents(s, item, j + 1, 0, i - j - 1)
+                resindex -= 1
+                i = j
+                if resindex == 0:
+                    j = 0
+                    break
+        item = items[resindex] = s.malloc(i - j)
+        item.copy_contents(s, item, j, 0, i - j)
         return res
 
     @purefunction

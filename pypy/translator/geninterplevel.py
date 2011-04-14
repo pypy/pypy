@@ -124,7 +124,7 @@ def long_helper(self, name, value):
     self.initcode.append1('%s = %s(%r)' % (
         name, unique, repr(value) ) )
 
-def bltinmod_helper(self, mod):    
+def bltinmod_helper(self, mod):
     name = self.uniquename("mod_%s" % mod.__name__)
     unique = self.uniquenameofprebuilt("bltinmod_helper", bltinmod_helper)
     self.initcode.append1(
@@ -144,7 +144,7 @@ class GenRpy:
         self.modname = self.trans_funcname(modname or
                         uniquemodulename(entrypoint))
         self.moddict = moddict # the dict if we translate a module
-        
+
         def late_OperationError():
             self.initcode.append1(
                 'from pypy.interpreter.error import OperationError as gOperationError')
@@ -187,19 +187,19 @@ class GenRpy:
             def _issubtype(cls1, cls2):
                 raise TypeError, "this dummy should *not* be reached"
             __builtin__._issubtype = _issubtype
-        
+
         class bltinstub:
             def __init__(self, name):
                 self.__name__ = name
             def __repr__(self):
                 return '<%s>' % self.__name__
-            
+
         self.ibuiltin_ids = identity_dict()
         self.ibuiltin_ids.update([
             (value, bltinstub(key))
             for key, value in __builtin__.__dict__.items()
             if callable(value) and type(value) not in [types.ClassType, type] ] )
-        
+
         self.space = FlowObjSpace() # for introspection
 
         self.use_fast_call = True
@@ -210,7 +210,7 @@ class GenRpy:
 
         self._signature_cache = {}
         self._defaults_cache = {}
-        
+
     def expr(self, v, localscope, wrapped = True):
         if isinstance(v, Variable):
             return localscope.localname(v.name, wrapped)
@@ -250,7 +250,7 @@ class GenRpy:
                         isinstance(frm_lst, Constant) and frm_lst.value is None):
                         return "%s = space.getbuiltinmodule(%r)" % (self.expr(op.result, localscope),
                                                                     name.value)
-                exv = self.expr(v, localscope)                
+                exv = self.expr(v, localscope)
                 # default for a spacecall:
                 fmt = "%(res)s = space.call_function(%(func)s, %(args)s)"
                 # see if we can optimize for a fast call.
@@ -380,7 +380,7 @@ class GenRpy:
                 txt = func()
                 self.rpynames[key] = txt
             return txt
-            
+
         except KeyError:
             if debug:
                 stackentry = debug, obj
@@ -455,7 +455,7 @@ else:
         except KeyError:
             self.rpynames[key] = txt = self.uniquename(basename)
         return txt
-            
+
     def nameof_object(self, value):
         if type(value) is not object:
             # try to just wrap it?
@@ -517,7 +517,7 @@ else:
             self.initcode.append1('import %s as _tmp' % value.__name__)
         self.initcode.append1('%s = space.wrap(_tmp)' % (name))
         return name
-        
+
 
     def nameof_int(self, value):
         if value >= 0:
@@ -564,7 +564,7 @@ else:
         else:
             self.initcode.append('%s = space.wrap(%r)' % (name, value))
         return name
-    
+
     def nameof_str(self, value):
         if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\']:
             # non-printable string
@@ -623,11 +623,11 @@ else:
         positional, varargs, varkwds, defs = inspect.getargspec(func)
         if varargs is varkwds is defs is None:
             unwrap = ', '.join(['gateway.W_Root']*len(positional))
-            interp_name = 'fastf_' + name[6:]            
+            interp_name = 'fastf_' + name[6:]
         else:
             unwrap = 'gateway.Arguments'
             interp_name = 'f_' + name[6:]
-        
+
         self.initcode.append1('from pypy.interpreter import gateway')
         self.initcode.append1('%s = space.wrap(gateway.interp2app(%s, unwrap_spec=[gateway.ObjSpace, %s]))' %
                               (name, interp_name, unwrap))
@@ -642,7 +642,7 @@ else:
         self.initcode.append1('%s = space.wrap(%s)' % (name, functionname))
         return name
 
-    def nameof_instancemethod(self, meth):        
+    def nameof_instancemethod(self, meth):
         if (not hasattr(meth.im_func, 'func_globals') or
             meth.im_func.func_globals is None):
             # built-in methods (bound or not) on top of PyPy or possibly 2.4
@@ -706,7 +706,7 @@ else:
                 arities[name] = arity
             del arities["isinstance"]
         return self._space_arities
-        
+
     def try_space_shortcut_for_builtin(self, v, nargs, args):
         if isinstance(v, Constant) and v.value in self.ibuiltin_ids:
             name = self.ibuiltin_ids[v.value].__name__
@@ -714,7 +714,7 @@ else:
                 self.space_arities().get(name, -1) == nargs):
                 return "space.%s" % name
         return None
-        
+
     def nameof_builtin_function_or_method(self, func):
         if func.__self__ is None:
             return self.nameof_builtin_function(func)
@@ -739,7 +739,7 @@ else:
         #    return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
         if modname == 'sys':
             # be lazy
-            return "(space.sys.get(space.str_w(%s)))" % self.nameof(func.__name__)                
+            return "(space.sys.get(space.str_w(%s)))" % self.nameof(func.__name__)
         else:
             name = self.uniquename('gbltin_' + func.__name__)
             self.initcode.append1('%s = space.getattr(%s, %s)' % (
@@ -807,7 +807,7 @@ else:
                 if isinstance(value, MethodType) and value.im_self is cls:
                     log.WARNING("skipped classmethod: %s" % value)
                     continue
-                    
+
                 yield 'space.setattr(%s, %s, %s)' % (
                     name, self.nameof(key), self.nameof(value))
 
@@ -841,7 +841,7 @@ else:
                                 "klass": name,
                                 "name" : cls_name,
                                 "meta" : metaclass} )
-        
+
         self.later(initclassobj())
         return name
 
@@ -1058,7 +1058,7 @@ else:
         order_sections(fname)
         if self.ftmpname:
             copyfile(self.ftmpname, self.fname)
-        
+
     def gen_source_temp(self):
         f = self.f
 
@@ -1087,7 +1087,7 @@ else:
         # info.entrypoint must be done *after* __doc__ is handled,
         # because nameof(entrypoint) might touch __doc__ early.
         info["entrypoint"] = self.nameof(self.entrypoint)
-        
+
         # function implementations
         while self.pendingfunctions or self.latercode:
             if self.pendingfunctions:
@@ -1130,7 +1130,7 @@ else:
             # we should have an entrypoint function
             info['entrypointname'] = self.trans_funcname(self.entrypoint.__name__)
             print >> self.f, self.RPY_INIT_FOOTER % info
-       
+
     def gen_global_declarations(self):
         g = self.globaldecl
         if g:
@@ -1175,7 +1175,8 @@ else:
             pass
         defaultsname = self.uniquename('default')
         self._defaults_cache[key] = defaultsname
-        self.initcode.append("%s = [%s]" % (defaultsname, ', '.join(names)))
+        self.initcode.append("from pypy.interpreter.function import Defaults")
+        self.initcode.append("%s = Defaults([%s])" % (defaultsname, ', '.join(names)))
         return defaultsname
 
     def gen_rpyfunction(self, func):
@@ -1284,7 +1285,7 @@ else:
                 print >> f, line
 
             print >> f
-        
+
         print >> f, fast_function_header
         if docstr is not None:
             print >> f, docstr
@@ -1311,7 +1312,7 @@ else:
 
         yield "    goto = %s # startblock" % self.mklabel(blocknum[start])
         yield "    while True:"
-                
+
         def render_block(block):
             catch_exception = block.exitswitch == c_last_exception
             regular_op = len(block.operations) - catch_exception

@@ -207,6 +207,32 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         exc = raises(IOError, self.file, os.curdir, 'w')
         assert exc.value.filename == os.curdir
 
+    def test_encoding_errors(self):
+        import _file
+
+        with self.file(self.temppath, "w") as f:
+            _file.set_file_encoding(f, "utf-8")
+            f.write(u'15\u20ac')
+
+            assert f.encoding == "utf-8"
+            assert f.errors is None
+
+        with self.file(self.temppath, "r") as f:
+            data = f.read()
+            assert data == '15\xe2\x82\xac'
+
+        with self.file(self.temppath, "w") as f:
+            _file.set_file_encoding(f, "iso-8859-1", "ignore")
+            f.write(u'15\u20ac')
+
+            assert f.encoding == "iso-8859-1"
+            assert f.errors == "ignore"
+
+        with self.file(self.temppath, "r") as f:
+            data = f.read()
+            assert data == "15"
+
+
 
 class AppTestConcurrency(object):
     # these tests only really make sense on top of a translated pypy-c,

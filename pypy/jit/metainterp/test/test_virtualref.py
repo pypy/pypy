@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.virtualref import VirtualRefInfo
 
@@ -39,15 +39,19 @@ class VRefTests:
         if not isinstance(self, TestLLtype):
             py.test.skip("purely frontend test")
         #
+        class FooBarError(Exception):
+            pass
         class X:
             def __init__(self, n):
                 self.n = n
         class ExCtx:
-            pass
+            _frame = None
         exctx = ExCtx()
         #
         @dont_look_inside
         def external(n):
+            if exctx._frame is None:
+                raise FooBarError
             if n > 100:
                 return exctx.topframeref().n
             return n

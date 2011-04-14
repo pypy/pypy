@@ -22,7 +22,7 @@ assigned from Python must be kept.
 
 >>> array[4] = 'foo bar'
 >>> array._objects
-{'4': 'foo bar'}
+{'4': <CArgObject 'foo bar'>}
 >>> array[4]
 'foo bar'
 >>>
@@ -47,9 +47,9 @@ of 'x' ('_b_base_' is either None, or the root object owning the memory block):
 
 >>> x.array[0] = 'spam spam spam'
 >>> x._objects
-{'0:2': 'spam spam spam'}
+{'0:2': <CArgObject 'spam spam spam'>}
 >>> x.array._b_base_._objects
-{'0:2': 'spam spam spam'}
+{'0:2': <CArgObject 'spam spam spam'>}
 >>>
 
 '''

@@ -65,7 +65,7 @@ class W_ClassObject(Wrappable):
             w_inst = cache.cls_without_del(space, self)
         return w_inst
 
-    def getdict(self):
+    def getdict(self, space):
         return self.w_dict
 
     def setdict(self, space, w_dict):
@@ -378,7 +378,7 @@ class W_InstanceObject(Wrappable):
         name = space.str_w(w_attr)
         if len(name) >= 8 and name[0] == '_':
             if name == "__dict__":
-                return self.getdict()
+                return self.getdict(space)
             elif name == "__class__":
                 return self.w_class
         return self.getattr(space, name)

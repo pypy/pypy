@@ -305,6 +305,15 @@ class StackCounter:
 stackcounter = StackCounter()
 stackcounter._freeze_()
 
+def llexternal_use_eci(compilation_info):
+    """Return a dummy function that, if called in a RPython program,
+    adds the given ExternalCompilationInfo to it."""
+    eci = ExternalCompilationInfo(post_include_bits=['#define PYPY_NO_OP()'])
+    eci = eci.merge(compilation_info)
+    return llexternal('PYPY_NO_OP', [], lltype.Void,
+                      compilation_info=eci, sandboxsafe=True, _nowrapper=True,
+                      _callable=lambda: None)
+
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
 # this makes passing opaque objects possible (they don't even pass
@@ -648,6 +657,7 @@ def make_string_mappings(strtype):
             data_start = cast_ptr_to_adr(llstrtype(data)) + \
                 offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
             return cast(TYPEP, data_start)
+    get_nonmovingbuffer._annenforceargs_ = [strtype]
 
     # (str, char*) -> None
     def free_nonmovingbuffer(data, buf):
@@ -666,6 +676,7 @@ def make_string_mappings(strtype):
         keepalive_until_here(data)
         if not followed_2nd_path:
             lltype.free(buf, flavor='raw')
+    free_nonmovingbuffer._annenforceargs_ = [strtype, None]
 
     # int -> (char*, str)
     def alloc_buffer(count):
@@ -680,6 +691,7 @@ def make_string_mappings(strtype):
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
     alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
@@ -734,6 +746,7 @@ def make_string_mappings(strtype):
     def charpsize2str(cp, size):
         l = [cp[i] for i in range(size)]
         return emptystr.join(l)
+    charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,

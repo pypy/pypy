@@ -6,4 +6,6 @@ def pytest_addoption(parser):
         dest="pygame", default=False, 
         help="allow interactive tests using Pygame")
 
-option = py.test.config.option
+def pytest_configure(config):
+    global option
+    option = config.option

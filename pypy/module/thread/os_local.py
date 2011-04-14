@@ -10,18 +10,16 @@ class Local(Wrappable):
     """Thread-local data"""
 
     def __init__(self, space, initargs):
-        self.space = space
         self.initargs = initargs
         ident = thread.get_ident()
-        self.dicts = {ident: space.newdict()}
+        self.dicts = {ident: space.newdict(instance=True)}
 
-    def getdict(self):
+    def getdict(self, space):
         ident = thread.get_ident()
         try:
             w_dict = self.dicts[ident]
         except KeyError:
             # create a new dict for this thread
-            space = self.space
             w_dict = self.dicts[ident] = space.newdict(instance=True)
             # call __init__
             try:
@@ -52,10 +50,6 @@ Local.typedef = TypeDef("thread._local",
                         __init__ = interp2app(Local.descr_local__init__),
                         __dict__ = GetSetProperty(descr_get_dict, cls=Local),
                         )
-
-def getlocaltype(space):
-    return space.gettypeobject(Local.typedef)
-
 
 def finish_thread(w_obj):
     assert isinstance(w_obj, Local)

@@ -241,13 +241,12 @@ do_mkvalue(const char **p_format, va_list *p_va, int flags)
 
 		case 'I':
 		{
-      Py_FatalError("I unsupported so far");
-			//unsigned int n;
-			//n = va_arg(*p_va, unsigned int);
-			//if (n > (unsigned long)PyInt_GetMax())
-			//	return PyLong_FromUnsignedLong((unsigned long)n);
-			//else
-			//	return PyInt_FromLong(n);
+			unsigned int n;
+			n = va_arg(*p_va, unsigned int);
+			if (n > (unsigned long)PyInt_GetMax())
+				return PyLong_FromUnsignedLong((unsigned long)n);
+			else
+				return PyInt_FromLong(n);
 		}
 		
 		case 'n':
@@ -260,23 +259,20 @@ do_mkvalue(const char **p_format, va_list *p_va, int flags)
 
 		case 'k':
 		{
-      Py_FatalError("Py_BuildValue k unsupported so far\n");
-			/* unsigned long n; */
-			/* n = va_arg(*p_va, unsigned long); */
-			/* if (n > (unsigned long)PyInt_GetMax()) */
-			/* 	return PyLong_FromUnsignedLong(n); */
-			/* else */
-			/* 	return PyInt_FromLong(n); */
+			unsigned long n;
+			n = va_arg(*p_va, unsigned long);
+			if (n > (unsigned long)PyInt_GetMax())
+				return PyLong_FromUnsignedLong(n);
+			else
+				return PyInt_FromLong(n);
 		}
 
 #ifdef HAVE_LONG_LONG
 		case 'L':
-      Py_FatalError("Py_BuildValue L unsupported for now\n");
-			//return PyLong_FromLongLong((PY_LONG_LONG)va_arg(*p_va, PY_LONG_LONG));
+			return PyLong_FromLongLong((PY_LONG_LONG)va_arg(*p_va, PY_LONG_LONG));
 
 		case 'K':
-      Py_FatalError("Py_BuildValue K unsupported for now\n");
-			//return PyLong_FromUnsignedLongLong((PY_LONG_LONG)va_arg(*p_va, unsigned PY_LONG_LONG));
+			return PyLong_FromUnsignedLongLong((PY_LONG_LONG)va_arg(*p_va, unsigned PY_LONG_LONG));
 #endif
 #ifdef Py_USING_UNICODE
 		case 'u':
@@ -665,10 +661,12 @@ PyObject_CallMethodObjArgs(PyObject *callable, PyObject *name, ...)
 	return tmp;
 }
 
-int
-PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
+/* returns -1 in case of error, 0 if a new key was added, 1 if the key
+   was already there (and replaced) */
+static int
+_PyModule_AddObject_NoConsumeRef(PyObject *m, const char *name, PyObject *o)
 {
-	PyObject *dict;
+	PyObject *dict, *prev;
 	if (!PyModule_Check(m)) {
 		PyErr_SetString(PyExc_TypeError,
 			    "PyModule_AddObject() needs module as first arg");
@@ -688,32 +686,47 @@ PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
 			     PyModule_GetName(m));
 		return -1;
 	}
+	prev = PyDict_GetItemString(dict, name);
 	if (PyDict_SetItemString(dict, name, o))
 		return -1;
-	Py_DECREF(o);
-	return 0;
+	return prev != NULL;
+}
+
+int
+PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
+{
+	int result = _PyModule_AddObject_NoConsumeRef(m, name, o);
+	/* XXX WORKAROUND for a common misusage of PyModule_AddObject:
+	   for the common case of adding a new key, we don't consume a
+	   reference, but instead just leak it away.  The issue is that
+	   people generally don't realize that this function consumes a
+	   reference, because on CPython the reference is still stored
+	   on the dictionary. */
+	if (result != 0)
+		Py_DECREF(o);
+	return result < 0 ? -1 : 0;
 }
 
 int 
 PyModule_AddIntConstant(PyObject *m, const char *name, long value)
 {
+	int result;
 	PyObject *o = PyInt_FromLong(value);
 	if (!o)
 		return -1;
-	if (PyModule_AddObject(m, name, o) == 0)
-		return 0;
+	result = _PyModule_AddObject_NoConsumeRef(m, name, o);
 	Py_DECREF(o);
-	return -1;
+	return result < 0 ? -1 : 0;
 }
 
 int 
 PyModule_AddStringConstant(PyObject *m, const char *name, const char *value)
 {
+	int result;
 	PyObject *o = PyString_FromString(value);
 	if (!o)
 		return -1;
-	if (PyModule_AddObject(m, name, o) == 0)
-		return 0;
+	result = _PyModule_AddObject_NoConsumeRef(m, name, o);
 	Py_DECREF(o);
-	return -1;
+	return result < 0 ? -1 : 0;
 }

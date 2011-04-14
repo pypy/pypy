@@ -1,6 +1,6 @@
 
 
-class JitDriverStaticData:
+class JitDriverStaticData(object):
     """There is one instance of this class per JitDriver used in the program.
     """
     # This is just a container with the following attributes (... set by):

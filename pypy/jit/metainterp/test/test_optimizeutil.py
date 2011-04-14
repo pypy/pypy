@@ -68,6 +68,16 @@ class LLtypeMixin(object):
     nodeobjvalue = lltype.cast_opaque_ptr(llmemory.GCREF, nodeobj)
     refdescr = cpu.fielddescrof(NODEOBJ, 'ref')
 
+    INTOBJ_NOIMMUT = lltype.GcStruct('INTOBJ_NOIMMUT', ('parent', OBJECT),
+                                                ('intval', lltype.Signed))
+    INTOBJ_IMMUT = lltype.GcStruct('INTOBJ_IMMUT', ('parent', OBJECT),
+                                            ('intval', lltype.Signed),
+                                            hints={'immutable': True})
+    intobj_noimmut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    intobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    noimmut_intval = cpu.fielddescrof(INTOBJ_NOIMMUT, 'intval')
+    immut_intval = cpu.fielddescrof(INTOBJ_IMMUT, 'intval')
+
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
@@ -147,7 +157,6 @@ class LLtypeMixin(object):
     FakeWarmRunnerDesc.cpu = cpu
     vrefinfo = VirtualRefInfo(FakeWarmRunnerDesc)
     virtualtokendescr = vrefinfo.descr_virtual_token
-    virtualrefindexdescr = vrefinfo.descr_virtualref_index
     virtualforceddescr = vrefinfo.descr_forced
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
@@ -156,6 +165,8 @@ class LLtypeMixin(object):
     register_known_gctype(cpu, node_vtable2, NODE2)
     register_known_gctype(cpu, u_vtable,     U)
     register_known_gctype(cpu, jit_virtual_ref_vtable,vrefinfo.JIT_VIRTUAL_REF)
+    register_known_gctype(cpu, intobj_noimmut_vtable, INTOBJ_NOIMMUT)
+    register_known_gctype(cpu, intobj_immut_vtable,   INTOBJ_IMMUT)
 
     namespace = locals()
 

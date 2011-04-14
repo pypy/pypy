@@ -320,21 +320,22 @@ def w_descr__framestack(self, space):
     return space.newtuple(items)
 
 def makeStaticMethod(module, classname, funcname):
+    "NOT_RPYTHON"
     space = module.space
     w_klass = space.getattr(space.wrap(module), space.wrap(classname))
     # HACK HACK HACK
     # make the typeobject mutable for a while
-    from pypy.objspace.std.typeobject import _HEAPTYPE, W_TypeObject
+    from pypy.objspace.std.typeobject import W_TypeObject
     assert isinstance(w_klass, W_TypeObject)
-    old_flags = w_klass.__flags__
-    w_klass.__flags__ |= _HEAPTYPE
+    old_flag = w_klass.flag_heaptype
+    w_klass.flag_heaptype = True
     
     space.appexec([w_klass, space.wrap(funcname)], """
         (klass, funcname):
             func = getattr(klass, funcname)
             setattr(klass, funcname, staticmethod(func.im_func))
     """)
-    w_klass.__flags__ = old_flags
+    w_klass.flag_heaptype = old_flag
 
 def post_install(module):
     makeStaticMethod(module, 'coroutine', 'getcurrent')
@@ -371,6 +372,11 @@ class AppCoState(BaseCoState):
         BaseCoState.__init__(self)
         self.w_tempval = space.w_None
         self.space = space
+
+        # XXX Workaround: for now we need to instantiate these classes
+        # explicitly for translation to work
+        W_CoroutineExit(space)
+        W_TaskletExit(space)
 
         # Exporting new exception to space
         self.w_CoroutineExit = space.gettypefor(W_CoroutineExit)

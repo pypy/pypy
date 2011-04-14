@@ -87,7 +87,7 @@ class TestDictObject(BaseApiTest):
         assert space.unwrap(w_d) == dict(a='b', c='d', e='f')
 
     def test_iter(self, space, api):
-        w_dict = space.sys.getdict()
+        w_dict = space.sys.getdict(space)
         py_dict = make_ref(space, w_dict)
 
         ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')

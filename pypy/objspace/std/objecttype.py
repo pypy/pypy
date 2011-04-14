@@ -53,7 +53,7 @@ app = gateway.applevel("""
 def _abstract_method_error(typ):
     methods = ", ".join(sorted(typ.__abstractmethods__))
     err = "Can't instantiate abstract class %s with abstract methods %s"
-    raise TypeError(err % (methods, typ.__name__))
+    raise TypeError(err % (typ.__name__, methods))
 """)
 _abstract_method_error = app.interphook("_abstract_method_error")
 
@@ -78,7 +78,16 @@ def descr__new__(space, w_type, __args__):
     return w_obj
 
 def descr__init__(space, w_obj, __args__):
-    pass
+    # don't allow arguments unless __new__ is overridden
+    w_type = space.type(w_obj)
+    w_parent_new, _ = w_type.lookup_where('__new__')
+    if w_parent_new is space.w_object:
+        try:
+            __args__.fixedunpack(0)
+        except ValueError:
+            raise OperationError(space.w_TypeError,
+                space.wrap("object.__init__() takes no parameters"))
+
 
 @gateway.unwrap_spec(proto=int)
 def descr__reduce__(space, w_obj, proto=0):

@@ -1,7 +1,6 @@
 import py
-from pypy.rlib.jit import OPTIMIZER_SIMPLE
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.jit.metainterp.test.test_basic import OOJitMixin, LLJitMixin
+from pypy.jit.metainterp.test.support import OOJitMixin, LLJitMixin
 
 
 class ToyLanguageTests:
@@ -87,7 +86,6 @@ class ToyLanguageTests:
     def test_tl_call(self, listops=True, policy=None):
         from pypy.jit.tl.tl import interp
         from pypy.jit.tl.tlopcode import compile
-        from pypy.jit.metainterp import simple_optimize
 
         code = compile('''
               PUSHARG
@@ -119,7 +117,7 @@ class ToyLanguageTests:
         def main(num, arg):
             return interp(codes[num], inputarg=arg)
         
-        res = self.meta_interp(main, [0, 20], optimizer=OPTIMIZER_SIMPLE,
+        res = self.meta_interp(main, [0, 20], enable_opts='',
                                listops=listops, backendopt=True, policy=policy)
         assert res == 0
 

@@ -18,8 +18,9 @@ def test_portal_trace_positions():
     class FakeStaticData:
         cpu = None
         warmrunnerdesc = None
+        mainjitcode = portal
 
-    metainterp = pyjitpl.MetaInterp(FakeStaticData(), None)
+    metainterp = pyjitpl.MetaInterp(FakeStaticData(), FakeStaticData())
     metainterp.framestack = []
     class FakeHistory:
         operations = []

@@ -104,7 +104,7 @@ def makebytearraydata_w(space, w_source):
 def descr_bytearray__reduce__(space, w_self):
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
     assert isinstance(w_self, W_BytearrayObject)
-    w_dict = w_self.getdict()
+    w_dict = w_self.getdict(space)
     if w_dict is None:
         w_dict = space.w_None
     return space.newtuple([

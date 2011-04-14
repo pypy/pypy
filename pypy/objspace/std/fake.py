@@ -112,12 +112,12 @@ def really_build_fake_type(cpy_type):
         def __init__(w_self, space, val):
             w_self.val = val
             w_self.space = space
-        def getdict(w_self):
+        def getdict(w_self, space):
             try:
                 d = w_self.val.__dict__
             except AttributeError:
-                return W_Object.getdict(w_self)
-            return w_self.space.wrap(d)
+                return W_Object.getdict(w_self, space)
+            return space.wrap(d)
         def unwrap(w_self, space):
             return w_self.val
         if cpy_type is types.FunctionType:
@@ -144,16 +144,16 @@ class CPythonFakeCode(eval.Code):
         frame = func.space.createframe(self, func.w_func_globals,
                                         func.closure)
         sig = self.signature()
-        scope_w = args.parse_obj(None, func.name, sig, func.defs_w)
+        scope_w = args.parse_obj(None, func.name, sig, func.defs.getitems())
         frame.setfastscope(scope_w)
         return frame.run()
-    
+
 
 class CPythonFakeFrame(eval.Frame):
 
-    def __init__(self, space, code, w_globals=None, numlocals=-1):
+    def __init__(self, space, code, w_globals=None):
         self.fakecode = code
-        eval.Frame.__init__(self, space, w_globals, numlocals)
+        eval.Frame.__init__(self, space, w_globals)
 
     def getcode(self):
         return self.fakecode

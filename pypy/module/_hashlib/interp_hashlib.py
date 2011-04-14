@@ -13,9 +13,10 @@ from pypy.module.thread.os_lock import Lock
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
 class W_Hash(Wrappable):
+    ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
+
     def __init__(self, space, name):
         self.name = name
-        self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
 
         # Allocate a lock for each HASH object.
         # An optimization would be to not release the GIL on small requests,
@@ -26,12 +27,15 @@ class W_Hash(Wrappable):
         if not digest:
             raise OperationError(space.w_ValueError,
                                  space.wrap("unknown hash function"))
-        ropenssl.EVP_DigestInit(self.ctx, digest)
+        ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
+        ropenssl.EVP_DigestInit(ctx, digest)
+        self.ctx = ctx
 
     def __del__(self):
         # self.lock.free()
-        ropenssl.EVP_MD_CTX_cleanup(self.ctx)
-        lltype.free(self.ctx, flavor='raw')
+        if self.ctx:
+            ropenssl.EVP_MD_CTX_cleanup(self.ctx)
+            lltype.free(self.ctx, flavor='raw')
 
     def descr_repr(self, space):
         addrstring = self.getaddrstring(space)

@@ -77,13 +77,13 @@ class Signature(object):
         if i == 2:
             return self.kwargname
         raise IndexError
-        
+
 
 
 class Arguments(object):
     """
     Collects the arguments of a function call.
-    
+
     Instances should be considered immutable.
     """
 
@@ -146,7 +146,7 @@ class Arguments(object):
             self._combine_starstarargs_wrapped(w_starstararg)
 
     def _combine_starargs_wrapped(self, w_stararg):
-        # unpack the * arguments 
+        # unpack the * arguments
         space = self.space
         try:
             args_w = space.fixedview(w_stararg)
@@ -236,10 +236,10 @@ class Arguments(object):
         if self.arguments_w:
             return self.arguments_w[0]
         return None
-        
+
     ###  Parsing for function calls  ###
 
-    def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=[],
+    def _match_signature(self, w_firstarg, scope_w, signature, defaults=None,
                          blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
@@ -247,19 +247,19 @@ class Arguments(object):
         """
         if jit.we_are_jitted() and self._dont_jit:
             return self._match_signature_jit_opaque(w_firstarg, scope_w,
-                                                    signature, defaults_w,
+                                                    signature, defaults,
                                                     blindargs)
         return self._really_match_signature(w_firstarg, scope_w, signature,
-                                            defaults_w, blindargs)
+                                            defaults, blindargs)
 
     @jit.dont_look_inside
     def _match_signature_jit_opaque(self, w_firstarg, scope_w, signature,
-                                    defaults_w, blindargs):
+                                    defaults, blindargs):
         return self._really_match_signature(w_firstarg, scope_w, signature,
-                                            defaults_w, blindargs)
+                                            defaults, blindargs)
 
     @jit.unroll_safe
-    def _really_match_signature(self, w_firstarg, scope_w, signature, defaults_w=[],
+    def _really_match_signature(self, w_firstarg, scope_w, signature, defaults=None,
                                 blindargs=0):
         #
         #   args_w = list of the normal actual parameters, wrapped
@@ -283,10 +283,10 @@ class Arguments(object):
                 scope_w[0] = w_firstarg
                 input_argcount = 1
             else:
-                extravarargs = [ w_firstarg ]
+                extravarargs = [w_firstarg]
         else:
             upfront = 0
-        
+
         args_w = self.arguments_w
         num_args = len(args_w)
 
@@ -327,7 +327,7 @@ class Arguments(object):
         elif avail > co_argcount:
             raise ArgErrCount(avail, num_kwds,
                               co_argcount, has_vararg, has_kwarg,
-                              defaults_w, 0)
+                              defaults, 0)
 
         # the code assumes that keywords can potentially be large, but that
         # argnames is typically not too large
@@ -357,12 +357,12 @@ class Arguments(object):
                     num_remainingkwds -= 1
         missing = 0
         if input_argcount < co_argcount:
-            def_first = co_argcount - len(defaults_w)
+            def_first = co_argcount - (0 if defaults is None else defaults.getlen())
             for i in range(input_argcount, co_argcount):
                 if scope_w[i] is not None:
                     pass
                 elif i >= def_first:
-                    scope_w[i] = defaults_w[i-def_first]
+                    scope_w[i] = defaults.getitem(i - def_first)
                 else:
                     # error: not enough arguments.  Don't signal it immediately
                     # because it might be related to a problem with */** or
@@ -382,20 +382,20 @@ class Arguments(object):
             if co_argcount == 0:
                 raise ArgErrCount(avail, num_kwds,
                               co_argcount, has_vararg, has_kwarg,
-                              defaults_w, missing)
+                              defaults, missing)
             raise ArgErrUnknownKwds(num_remainingkwds, keywords, used_keywords)
 
         if missing:
             raise ArgErrCount(avail, num_kwds,
                               co_argcount, has_vararg, has_kwarg,
-                              defaults_w, missing)
+                              defaults, missing)
 
         return co_argcount + has_vararg + has_kwarg
-    
+
 
 
     def parse_into_scope(self, w_firstarg,
-                         scope_w, fnname, signature, defaults_w=[]):
+                         scope_w, fnname, signature, defaults=None):
         """Parse args and kwargs to initialize a frame
         according to the signature of code object.
         Store the argumentvalues into scope_w.
@@ -403,32 +403,32 @@ class Arguments(object):
         """
         try:
             return self._match_signature(w_firstarg,
-                                         scope_w, signature, defaults_w, 0)
+                                         scope_w, signature, defaults, 0)
         except ArgErr, e:
             raise OperationError(self.space.w_TypeError,
                                  self.space.wrap(e.getmsg(fnname)))
 
-    def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
+    def _parse(self, w_firstarg, signature, defaults, blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
         """
         scopelen = signature.scope_length()
         scope_w = [None] * scopelen
-        self._match_signature(w_firstarg, scope_w, signature, defaults_w,
+        self._match_signature(w_firstarg, scope_w, signature, defaults,
                               blindargs)
-        return scope_w    
+        return scope_w
 
 
     def parse_obj(self, w_firstarg,
-                  fnname, signature, defaults_w=[], blindargs=0):
+                  fnname, signature, defaults=None, blindargs=0):
         """Parse args and kwargs to initialize a frame
         according to the signature of code object.
         """
         try:
-            return self._parse(w_firstarg, signature, defaults_w, blindargs)
+            return self._parse(w_firstarg, signature, defaults, blindargs)
         except ArgErr, e:
             raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap(e.getmsg(fnname)))        
+                                 self.space.wrap(e.getmsg(fnname)))
 
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
@@ -473,24 +473,24 @@ class ArgumentsForTranslation(Arguments):
                                        self.w_starstararg)
 
 
-            
-    def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=[],
+
+    def _match_signature(self, w_firstarg, scope_w, signature, defaults=None,
                          blindargs=0):
         self.combine_if_necessary()
         # _match_signature is destructive
         return Arguments._match_signature(
                self, w_firstarg, scope_w, signature,
-               defaults_w, blindargs)
+               defaults, blindargs)
 
     def unpack(self):
         self.combine_if_necessary()
         return Arguments.unpack(self)
 
-    def match_signature(self, signature, defaults_w):
+    def match_signature(self, signature, defaults):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
         """
-        return self._parse(None, signature, defaults_w)
+        return self._parse(None, signature, defaults)
 
     def unmatch_signature(self, signature, data_w):
         """kind of inverse of match_signature"""
@@ -513,10 +513,10 @@ class ArgumentsForTranslation(Arguments):
             for w_key in space.unpackiterable(data_w_starargarg):
                 key = space.str_w(w_key)
                 w_value = space.getitem(data_w_starargarg, w_key)
-                unfiltered_kwds_w[key] = w_value            
+                unfiltered_kwds_w[key] = w_value
             cnt += 1
         assert len(data_w) == cnt
-        
+
         ndata_args_w = len(data_args_w)
         if ndata_args_w >= need_cnt:
             args_w = data_args_w[:need_cnt]
@@ -532,19 +532,19 @@ class ArgumentsForTranslation(Arguments):
             for i in range(0, len(stararg_w)):
                 args_w[i + datalen] = stararg_w[i]
             assert len(args_w) == need_cnt
-            
+
         keywords = []
         keywords_w = []
         for key in need_kwds:
             keywords.append(key)
             keywords_w.append(unfiltered_kwds_w[key])
-                    
+
         return ArgumentsForTranslation(self.space, args_w, keywords, keywords_w)
 
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
         raise NotImplementedError("go away")
-    
+
     @staticmethod
     def fromshape(space, (shape_cnt,shape_keys,shape_star,shape_stst), data_w):
         args_w = data_w[:shape_cnt]
@@ -596,23 +596,23 @@ def rawshape(args, nextra=0):
 #
 
 class ArgErr(Exception):
-    
+
     def getmsg(self, fnname):
         raise NotImplementedError
 
 class ArgErrCount(ArgErr):
 
     def __init__(self, got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
-                 defaults_w, missing_args):
+                 defaults, missing_args):
         self.expected_nargs = expected_nargs
         self.has_vararg = has_vararg
         self.has_kwarg = has_kwarg
-        
-        self.num_defaults = len(defaults_w)
+
+        self.num_defaults = 0 if defaults is None else defaults.getlen()
         self.missing_args = missing_args
         self.num_args = got_nargs
         self.num_kwds = nkwds
-        
+
     def getmsg(self, fnname):
         args = None
         #args_w, kwds_w = args.unpack()
@@ -620,7 +620,7 @@ class ArgErrCount(ArgErr):
         n = self.expected_nargs
         if n == 0:
             msg = "%s() takes no argument (%d given)" % (
-                fnname, 
+                fnname,
                 nargs)
         else:
             defcount = self.num_defaults

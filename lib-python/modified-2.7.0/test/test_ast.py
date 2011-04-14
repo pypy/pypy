@@ -195,22 +195,26 @@ class AST_Tests(unittest.TestCase):
                 self._assertTrueorder(value, parent_pos)
 
     def test_AST_objects(self):
-        x = ast.AST()
-        try:
-            x.foobar = 21
-        except AttributeError, e:
-            self.assertEquals(e.args[0],
-                              "'_ast.AST' object has no attribute 'foobar'")
-        else:
-            self.assert_(False)
+        if test_support.check_impl_detail():
+            # PyPy also provides a __dict__ to the ast.AST base class.
 
-        try:
-            ast.AST(lineno=2)
-        except AttributeError, e:
-            self.assertEquals(e.args[0],
-                              "'_ast.AST' object has no attribute 'lineno'")
-        else:
-            self.assert_(False)
+            x = ast.AST()
+            try:
+                x.foobar = 21
+            except AttributeError, e:
+                self.assertEquals(e.args[0],
+                                  "'_ast.AST' object has no attribute 'foobar'")
+            else:
+                self.assert_(False)
+
+            try:
+                ast.AST(lineno=2)
+            except AttributeError, e:
+                self.assertEquals(e.args[0],
+                                  "'_ast.AST' object has no attribute 'lineno'")
+            else:
+                self.assert_(False)
+
         try:
             ast.AST(2)
         except TypeError, e:

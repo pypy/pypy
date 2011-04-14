@@ -1,6 +1,6 @@
 """
-Like _assertion.py but using builtin AST.  It should replace _assertionold.py
-eventually.
+Find intermediate evalutation results in assert statements through builtin AST.
+This should replace _assertionold.py eventually.
 """
 
 import sys
@@ -108,7 +108,7 @@ unary_map = {
 
 
 class DebugInterpreter(ast.NodeVisitor):
-    """Interpret AST nodes to gleam useful debugging information."""
+    """Interpret AST nodes to gleam useful debugging information. """
 
     def __init__(self, frame):
         self.frame = frame
@@ -162,10 +162,7 @@ class DebugInterpreter(ast.NodeVisitor):
     def visit_Compare(self, comp):
         left = comp.left
         left_explanation, left_result = self.visit(left)
-        got_result = False
         for op, next_op in zip(comp.ops, comp.comparators):
-            if got_result and not result:
-                break
             next_explanation, next_result = self.visit(next_op)
             op_symbol = operator_map[op.__class__]
             explanation = "%s %s %s" % (left_explanation, op_symbol,
@@ -177,9 +174,20 @@ class DebugInterpreter(ast.NodeVisitor):
                                          __exprinfo_right=next_result)
             except Exception:
                 raise Failure(explanation)
-            else:
-                got_result = True
+            try:
+                if not result:
+                    break
+            except KeyboardInterrupt:
+                raise
+            except:
+                break
             left_explanation, left_result = next_explanation, next_result
+
+        rcomp = py.code._reprcompare
+        if rcomp:
+            res = rcomp(op_symbol, left_result, next_result)
+            if res:
+                explanation = res
         return explanation, result
 
     def visit_BoolOp(self, boolop):
@@ -259,20 +267,9 @@ class DebugInterpreter(ast.NodeVisitor):
             result = self.frame.eval(co, **ns)
         except Exception:
             raise Failure(explanation)
-        # Only show result explanation if it's not a builtin call or returns a
-        # bool.
-        if not isinstance(call.func, ast.Name) or \
-                not self._is_builtin_name(call.func):
-            source = "isinstance(__exprinfo_value, bool)"
-            co = self._compile(source)
-            try:
-                is_bool = self.frame.eval(co, __exprinfo_value=result)
-            except Exception:
-                is_bool = False
-            if not is_bool:
-                pattern = "%s\n{%s = %s\n}"
-                rep = self.frame.repr(result)
-                explanation = pattern % (rep, rep, explanation)
+        pattern = "%s\n{%s = %s\n}"
+        rep = self.frame.repr(result)
+        explanation = pattern % (rep, rep, explanation)
         return explanation, result
 
     def _is_builtin_name(self, name):
@@ -295,6 +292,9 @@ class DebugInterpreter(ast.NodeVisitor):
             result = self.frame.eval(co, __exprinfo_expr=source_result)
         except Exception:
             raise Failure(explanation)
+        explanation = "%s\n{%s = %s.%s\n}" % (self.frame.repr(result),
+                                              self.frame.repr(result),
+                                              source_explanation, attr.attr)
         # Check if the attr is from an instance.
         source = "%r in getattr(__exprinfo_expr, '__dict__', {})"
         source = source % (attr.attr,)
@@ -325,10 +325,11 @@ class DebugInterpreter(ast.NodeVisitor):
     def visit_Assign(self, assign):
         value_explanation, value_result = self.visit(assign.value)
         explanation = "... = %s" % (value_explanation,)
-        name = ast.Name("__exprinfo_expr", ast.Load(), assign.value.lineno,
-                        assign.value.col_offset)
-        new_assign = ast.Assign(assign.targets, name, assign.lineno,
-                                assign.col_offset)
+        name = ast.Name("__exprinfo_expr", ast.Load(),
+                        lineno=assign.value.lineno,
+                        col_offset=assign.value.col_offset)
+        new_assign = ast.Assign(assign.targets, name, lineno=assign.lineno,
+                                col_offset=assign.col_offset)
         mod = ast.Module([new_assign])
         co = self._compile(mod, "exec")
         try:

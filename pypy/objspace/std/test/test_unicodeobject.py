@@ -833,3 +833,5 @@ class AppTestUnicodeString:
         b = unicode(a)
         assert type(b) is unicode
         assert b == u'hello \u1234'
+
+        assert u'%s' % S(u'mar\xe7') == u'mar\xe7'

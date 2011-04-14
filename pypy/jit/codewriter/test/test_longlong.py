@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.codewriter.jtransform import Transformer, NotSupported
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.test.test_jtransform import const
+from pypy.jit.codewriter import longlong
 
 
 class FakeRTyper:
@@ -26,6 +27,12 @@ class FakeCPU:
     supports_longlong = True
     def __init__(self):
         self.rtyper = FakeRTyper()
+
+
+def test_functions():
+    xll = longlong.getfloatstorage(3.5)
+    assert longlong.getrealfloat(xll) == 3.5
+    assert isinstance(longlong.gethash(xll), int)
 
 
 class TestLongLong:

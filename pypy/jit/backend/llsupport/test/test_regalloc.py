@@ -34,15 +34,14 @@ class FakeFramePos(object):
         self.pos = pos
         self.box_type = box_type
 
-    def frame_size(self):
-        if self.box_type == FLOAT:
-            return 2
-        else:
-            return 1
-
 class TFrameManager(FrameManager):
     def frame_pos(self, i, box_type):
         return FakeFramePos(i, box_type)
+    def frame_size(self, box_type):
+        if box_type == FLOAT:
+            return 2
+        else:
+            return 1
 
 class MockAsm(object):
     def __init__(self):

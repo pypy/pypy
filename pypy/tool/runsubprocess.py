@@ -70,5 +70,5 @@ if sys.platform != 'win32' and hasattr(os, 'fork'):
         assert results.startswith('(')
         results = eval(results)
         if results[0] is None:
-            raise OSError('%s: %s' % (args[0], results[1]))
+            raise OSError('%s: %s\nargs=%r' % (args[0], results[1], args))
         return results

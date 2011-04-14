@@ -38,3 +38,42 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
             ])
         assert module.test_borrowing() # the test should not leak
 
+    def test_borrow_destroy(self):
+        module = self.import_extension('foo', [
+            ("test_borrow_destroy", "METH_NOARGS",
+             """
+                PyObject *i = PyInt_FromLong(42);
+                PyObject *j;
+                PyObject *t1 = PyTuple_Pack(1, i);
+                PyObject *t2 = PyTuple_Pack(1, i);
+                Py_DECREF(i);
+
+                i = PyTuple_GetItem(t1, 0);
+                PyTuple_GetItem(t2, 0);
+                Py_DECREF(t2);
+
+                j = PyInt_FromLong(PyInt_AsLong(i));
+                Py_DECREF(t1);
+                return j;
+             """),
+            ])
+        assert module.test_borrow_destroy() == 42
+
+    def test_double_borrow(self):
+        module = self.import_extension('foo', [
+            ("run", "METH_NOARGS",
+             """
+                PyObject *t = PyTuple_New(1);
+                PyObject *s = PyRun_String("set()", Py_eval_input,
+                                           Py_None, Py_None);
+                PyObject *w = PyWeakref_NewRef(s, Py_None);
+                PyTuple_SetItem(t, 0, s);
+                PyTuple_GetItem(t, 0);
+                PyTuple_GetItem(t, 0);
+                Py_DECREF(t);
+                return w;
+             """),
+            ])
+        wr = module.run()
+        # check that the set() object was deallocated
+        assert wr() is None

@@ -1,7 +1,7 @@
 
 # -*- coding: utf-8 -*-
 
-from pypy.objspace.std import StdObjSpace 
+from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
 from pypy.tool.autopath import pypydir
@@ -17,7 +17,7 @@ def setup_module(mod):
     else:
         # On windows, os.popen uses the subprocess module
         mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread'])
-    mod.path = udir.join('posixtestfile.txt') 
+    mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
     pdir = udir.ensure('posixtestdir', dir=True)
@@ -26,6 +26,9 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
+    unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+    unicode_dir.join('somefile').write('who cares?')
+    mod.unicode_dir = unicode_dir
 
     # in applevel tests, os.stat uses the CPython os.stat.
     # Be sure to return times with full precision
@@ -43,13 +46,19 @@ def need_sparse_files():
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
-class AppTestPosix: 
-    def setup_class(cls): 
-        cls.space = space 
+class AppTestPosix:
+    def setup_class(cls):
+        cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
         cls.w_pdir = space.wrap(str(pdir))
+        try:
+            cls.w_unicode_dir = space.wrap(
+                str(unicode_dir).decode(sys.getfilesystemencoding()))
+        except UnicodeDecodeError:
+            # filesystem encoding is not good enough
+            cls.w_unicode_dir = space.w_None
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())
@@ -76,16 +85,16 @@ class AppTestPosix:
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
             need_sparse_files()
-    
-    def test_posix_is_pypy_s(self): 
-        assert self.posix.__file__ 
 
-    def test_some_posix_basic_operation(self): 
-        path = self.path 
-        posix = self.posix 
+    def test_posix_is_pypy_s(self):
+        assert self.posix.__file__
+
+    def test_some_posix_basic_operation(self):
+        path = self.path
+        posix = self.posix
         fd = posix.open(path, posix.O_RDONLY, 0777)
         fd2 = posix.dup(fd)
-        assert not posix.isatty(fd2) 
+        assert not posix.isatty(fd2)
         s = posix.read(fd, 1)
         assert s == 't'
         posix.lseek(fd, 5, 0)
@@ -125,7 +134,7 @@ class AppTestPosix:
             assert hasattr(st, 'st_rdev')
 
     def test_stat_float_times(self):
-        path = self.path 
+        path = self.path
         posix = self.posix
         current = posix.stat_float_times()
         assert current is True
@@ -180,13 +189,13 @@ class AppTestPosix:
         assert new == st
         assert type(new) is type(st)
 
-    def test_open_exception(self): 
+    def test_open_exception(self):
         posix = self.posix
-        try: 
+        try:
             posix.open('qowieuqwoeiu', 0, 0)
         except OSError, e:
             assert e.filename == 'qowieuqwoeiu'
-        else: 
+        else:
             assert 0
 
     def test_filename_exception(self):
@@ -229,15 +238,15 @@ class AppTestPosix:
             else:
                 assert 0
 
-    def test_functions_raise_error(self): 
+    def test_functions_raise_error(self):
         def ex(func, *args):
             try:
                 func(*args)
-            except OSError: 
+            except OSError:
                 pass
             else:
                 raise AssertionError("%s(%s) did not raise" %(
-                                     func.__name__, 
+                                     func.__name__,
                                      ", ".join([str(x) for x in args])))
         UNUSEDFD = 123123
         ex(self.posix.open, "qweqwe", 0, 0)
@@ -249,7 +258,7 @@ class AppTestPosix:
         #UMPF cpython raises IOError ex(self.posix.ftruncate, UNUSEDFD, 123)
         ex(self.posix.fstat, UNUSEDFD)
         ex(self.posix.stat, "qweqwehello")
-        # how can getcwd() raise? 
+        # how can getcwd() raise?
         ex(self.posix.dup, UNUSEDFD)
 
     def test_fdopen(self):
@@ -286,13 +295,22 @@ class AppTestPosix:
 
     def test_listdir(self):
         pdir = self.pdir
-        posix = self.posix 
+        posix = self.posix
         result = posix.listdir(pdir)
         result.sort()
         assert result == ['another_longer_file_name',
                           'file1',
                           'file2']
 
+    def test_listdir_unicode(self):
+        unicode_dir = self.unicode_dir
+        if unicode_dir is None:
+            skip("encoding not good enough")
+        posix = self.posix
+        result = posix.listdir(unicode_dir)
+        result.sort()
+        assert result == [u'somefile']
+        assert type(result[0]) is unicode
 
     def test_access(self):
         pdir = self.pdir + '/file1'
@@ -373,7 +391,7 @@ class AppTestPosix:
             os.waitpid(pid, 0)
             assert open("onefile").read() == "1"
             os.unlink("onefile")
-        
+
         def test_execv_raising(self):
             os = self.posix
             raises(OSError, 'os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])')
@@ -495,7 +513,7 @@ class AppTestPosix:
         def test_os_getgid(self):
             os = self.posix
             assert os.getgid() == self.getgid
-            
+
     if hasattr(os, 'getgroups'):
         def test_os_getgroups(self):
             os = self.posix
@@ -768,6 +786,18 @@ class AppTestPosix:
             assert os.WIFEXITED(status1)
             assert os.WEXITSTATUS(status1) == myprio + 3
 
+    if hasattr(os, 'symlink'):
+        def test_symlink(self):
+            posix = self.posix
+            unicode_dir = self.unicode_dir
+            if unicode_dir is None:
+                skip("encoding not good enough")
+            dest = u"%s/file.txt" % unicode_dir
+            posix.symlink(u"%s/somefile" % unicode_dir, dest)
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+
     def test_tmpfile(self):
         os = self.posix
         f = os.tmpfile()
@@ -816,8 +846,8 @@ class AppTestPosix:
 
 
 class AppTestEnvironment(object):
-    def setup_class(cls): 
-        cls.space = space 
+    def setup_class(cls):
+        cls.space = space
         cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
         cls.w_os = space.appexec([], "(): import os; return os")
         cls.w_path = space.wrap(str(path))
@@ -919,7 +949,7 @@ class TestPexpect(object):
             import pexpect
         except ImportError:
             py.test.skip("pexpect not found")
-    
+
     def _spawn(self, *args, **kwds):
         import pexpect
         print 'SPAWN:', args, kwds

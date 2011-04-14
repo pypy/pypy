@@ -3,10 +3,10 @@ import py
 
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.metainterp.test import test_basic
+from pypy.jit.metainterp.test import support
 from pypy.rlib.jit import JitDriver
 
-class JitARMMixin(test_basic.LLJitMixin):
+class JitARMMixin(support.LLJitMixin):
     type_system = 'lltype'
     CPUClass = getcpuclass()
 

@@ -201,6 +201,23 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert cmpr == 3
         assert cmpr != 42
 
+    def test_richcompare(self):
+        module = self.import_module("comparisons")
+        cmpr = module.CmpType()
+
+        # should not crash
+        cmpr < 4
+        cmpr <= 4
+        cmpr > 4
+        cmpr >= 4
+
+        assert cmpr.__le__(4) is NotImplemented
+
+    def test_tpcompare(self):
+        module = self.import_module("comparisons")
+        cmpr = module.OldCmpType()
+        assert cmpr < cmpr
+
     def test_hash(self):
         module = self.import_module("comparisons")
         cmpr = module.CmpType()
@@ -245,6 +262,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
 
+    def test_custom_allocation(self):
+        foo = self.import_module("foo")
+        obj = foo.newCustom()
+        assert type(obj) is foo.Custom
+        assert type(foo.Custom) is foo.MetaType
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):

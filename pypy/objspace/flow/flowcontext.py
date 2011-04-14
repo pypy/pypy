@@ -148,14 +148,14 @@ class BlockRecorder(Recorder):
 
 
 class Replayer(Recorder):
-    
+
     def __init__(self, block, booloutcome, nextreplayer):
         self.crnt_block = block
         self.listtoreplay = block.operations
         self.booloutcome = booloutcome
         self.nextreplayer = nextreplayer
         self.index = 0
-        
+
     def append(self, operation):
         operation.result = self.listtoreplay[self.index].result
         assert operation == self.listtoreplay[self.index], (
@@ -188,9 +188,9 @@ class FlowExecutionContext(ExecutionContext):
                  name=None):
         ExecutionContext.__init__(self, space)
         self.code = code
-        
+
         self.w_globals = w_globals = space.wrap(globals)
-        
+
         self.crnt_offset = -1
         self.crnt_frame = None
         if closure is None:
@@ -311,8 +311,7 @@ class FlowExecutionContext(ExecutionContext):
         # EggBlocks reuse the variables of their previous block,
         # which is deemed not acceptable for simplicity of the operations
         # that will be performed later on the flow graph.
-        def fixegg(link):
-            if isinstance(link, Link):
+        for link in list(self.graph.iterlinks()):
                 block = link.target
                 if isinstance(block, EggBlock):
                     if (not block.operations and len(block.exits) == 1 and
@@ -324,15 +323,14 @@ class FlowExecutionContext(ExecutionContext):
                         link.args = list(link2.args)
                         link.target = link2.target
                         assert link2.exitcase is None
-                        fixegg(link)
                     else:
                         mapping = {}
                         for a in block.inputargs:
                             mapping[a] = Variable(a)
                         block.renamevariables(mapping)
-            elif isinstance(link, SpamBlock):
+        for block in self.graph.iterblocks():
+            if isinstance(link, SpamBlock):
                 del link.framestate     # memory saver
-        traverse(fixegg, self.graph)
 
     def mergeblock(self, currentblock, currentstate):
         next_instr = currentstate.next_instr
@@ -373,8 +371,7 @@ class FlowExecutionContext(ExecutionContext):
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
 
-    def sys_exc_info(self):
-        operr = ExecutionContext.sys_exc_info(self)
+    def _convert_exc(self, operr):
         if isinstance(operr, operation.ImplicitOperationError):
             # re-raising an implicit operation makes it an explicit one
             w_value = operr.get_w_value(self.space)

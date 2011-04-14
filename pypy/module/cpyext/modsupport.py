@@ -113,7 +113,7 @@ def PyModule_Check(space, w_obj):
 def PyModule_GetDict(space, w_mod):
     if PyModule_Check(space, w_mod):
         assert isinstance(w_mod, Module)
-        w_dict = w_mod.getdict()
+        w_dict = w_mod.getdict(space)
         return borrow_from(w_mod, w_dict)
     else:
         PyErr_BadInternalCall(space)

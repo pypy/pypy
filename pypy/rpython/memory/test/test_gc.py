@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib import rgc
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.rarithmetic import LONG_BIT

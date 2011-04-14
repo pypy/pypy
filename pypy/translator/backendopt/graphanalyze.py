@@ -27,7 +27,7 @@ class GraphAnalyzer(object):
         # only an optimization, safe to always return False
         return False
 
-    def analyze_simple_operation(self, op):
+    def analyze_simple_operation(self, op, graphinfo=None):
         raise NotImplementedError("abstract base class")
 
     # some sensible default methods, can also be overridden
@@ -64,7 +64,10 @@ class GraphAnalyzer(object):
             result = self.join_two_results(result, sub)
         return result
 
-    def analyze(self, op, seen=None):
+    def compute_graph_info(self, graph):
+        return None
+
+    def analyze(self, op, seen=None, graphinfo=None):
         if op.opname == "direct_call":
             graph = get_graph(op.args[0], self.translator)
             if graph is None:
@@ -82,7 +85,7 @@ class GraphAnalyzer(object):
             if graph is None:
                 return self.analyze_external_method(op, TYPE, meth)
             return self.analyze_oosend(TYPE, name, seen)
-        return self.analyze_simple_operation(op)
+        return self.analyze_simple_operation(op, graphinfo)
 
     def analyze_direct_call(self, graph, seen=None):
         if graph in self.analyzed_calls:
@@ -98,6 +101,7 @@ class GraphAnalyzer(object):
             started_here = False
             seen.add(graph)
         result = self.bottom_result()
+        graphinfo = self.compute_graph_info(graph)
         for block in graph.iterblocks():
             if block is graph.startblock:
                 result = self.join_two_results(
@@ -107,7 +111,7 @@ class GraphAnalyzer(object):
                         result, self.analyze_exceptblock(block, seen))
             for op in block.operations:
                 result = self.join_two_results(
-                        result, self.analyze(op, seen))
+                        result, self.analyze(op, seen, graphinfo))
             for exit in block.exits:
                 result = self.join_two_results(
                         result, self.analyze_link(exit, seen))

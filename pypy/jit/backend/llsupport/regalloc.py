@@ -1,5 +1,5 @@
 
-from pypy.jit.metainterp.history import Const, Box
+from pypy.jit.metainterp.history import Const, Box, REF
 from pypy.rlib.objectmodel import we_are_translated
 
 class TempBox(Box):
@@ -26,16 +26,24 @@ class FrameManager(object):
         res = self.get(box)
         if res is not None:
             return res
+        size = self.frame_size(box.type)
+        self.frame_depth += ((-self.frame_depth) & (size-1))
+        # ^^^ frame_depth is rounded up to a multiple of 'size', assuming
+        # that 'size' is a power of two.  The reason for doing so is to
+        # avoid obscure issues in jump.py with stack locations that try
+        # to move from position (6,7) to position (7,8).
         newloc = self.frame_pos(self.frame_depth, box.type)
         self.frame_bindings[box] = newloc
-        # Objects returned by frame_pos must support frame_size()
-        self.frame_depth += newloc.frame_size()
+        self.frame_depth += size
         return newloc
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
     def frame_pos(loc, type):
         raise NotImplementedError("Purely abstract")
+    @staticmethod
+    def frame_size(type):
+        return 1
 
 class RegisterManager(object):
     """ Class that keeps track of register allocations
@@ -317,11 +325,12 @@ class RegisterManager(object):
             self.assembler.regalloc_mov(reg, to)
         # otherwise it's clean
 
-    def before_call(self, force_store=[], save_all_regs=False):
+    def before_call(self, force_store=[], save_all_regs=0):
         """ Spill registers before a call, as described by
         'self.save_around_call_regs'.  Registers are not spilled if
         they don't survive past the current operation, unless they
-        are listed in 'force_store'.
+        are listed in 'force_store'.  'save_all_regs' can be 0 (default),
+        1 (save all), or 2 (save default+PTRs).
         """
         for v, reg in self.reg_bindings.items():
             if v not in force_store and self.longevity[v][1] <= self.position:
@@ -329,9 +338,11 @@ class RegisterManager(object):
                 del self.reg_bindings[v]
                 self.free_regs.append(reg)
                 continue
-            if not save_all_regs and reg not in self.save_around_call_regs:
-                # we don't have to
-                continue
+            if save_all_regs != 1 and reg not in self.save_around_call_regs:
+                if save_all_regs == 0:
+                    continue    # we don't have to
+                if v.type != REF:
+                    continue    # only save GC pointers
             self._sync_var(v)
             del self.reg_bindings[v]
             self.free_regs.append(reg)
