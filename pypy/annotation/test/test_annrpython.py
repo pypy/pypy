@@ -1060,9 +1060,11 @@ class TestAnnotateTestCase:
         assert s.const == True
 
     def test_alloc_like(self):
-        class C1(object):
+        class Base(object):
             pass
-        class C2(object):
+        class C1(Base):
+            pass
+        class C2(Base):
             pass
 
         def inst(cls):
@@ -3437,6 +3439,28 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         a.build_types(f, [int])
+
+    def test_call_classes_with_noarg_init(self):
+        class A:
+            foo = 21
+        class B(A):
+            foo = 22
+        class C(A):
+            def __init__(self):
+                self.foo = 42
+        class D(A):
+            def __init__(self):
+                self.foo = 43
+        def f(i):
+            if i == 1:
+                cls = B
+            elif i == 2:
+                cls = D
+            else:
+                cls = C
+            return cls().foo
+        a = self.RPythonAnnotator()
+        raises(Exception, a.build_types, f, [int])
 
 
 def g(n):

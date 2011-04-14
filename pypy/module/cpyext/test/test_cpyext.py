@@ -92,6 +92,8 @@ def freeze_refcnts(self):
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
 class LeakCheckingTest(object):
+    enable_leak_checking = True
+
     @staticmethod
     def cleanup_references(space):
         state = space.fromcache(RefcountState)
@@ -104,6 +106,11 @@ class LeakCheckingTest(object):
             del obj
         import gc; gc.collect()
 
+        try:
+            del space.getexecutioncontext().cpyext_threadstate
+        except AttributeError:
+            pass
+
         for w_obj in state.non_heaptypes_w:
             Py_DecRef(space, w_obj)
         state.non_heaptypes_w[:] = []
@@ -112,6 +119,10 @@ class LeakCheckingTest(object):
     def check_and_print_leaks(self):
         # check for sane refcnts
         import gc
+
+        if not self.enable_leak_checking:
+            leakfinder.stop_tracking_allocations(check=False)
+            return False
 
         leaking = False
         state = self.space.fromcache(RefcountState)
@@ -379,6 +390,19 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert module.__doc__ == "docstring"
         assert module.return_cookie() == 3.14
 
+    def test_load_dynamic(self):
+        import sys
+        init = """
+        if (Py_IsInitialized())
+            Py_InitModule("foo", NULL);
+        """
+        foo = self.import_module(name='foo', init=init)
+        assert 'foo' in sys.modules
+        del sys.modules['foo']
+        import imp
+        foo2 = imp.load_dynamic('foo', foo.__file__)
+        assert 'foo' in sys.modules
+        assert foo.__dict__ == foo2.__dict__
 
     def test_InitModule4_dotted(self):
         """

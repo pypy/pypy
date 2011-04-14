@@ -68,7 +68,7 @@ def test_inlined_call():
     assert isinstance(res.chunks[2], TraceForOpcode)
     assert res.chunks[1].path == "1"
     assert len(res.chunks[1].chunks) == 3
-    
+
 def test_name():
     ops = parse('''
     [i0]
@@ -114,11 +114,11 @@ def test_linerange():
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse('''
     [i0, i1]
-    debug_merge_point("<code object f, file '%(fname)s', line 5> #9 LOAD_FAST", 0)
-    debug_merge_point("<code object f, file '%(fname)s', line 5> #12 LOAD_CONST", 0)
-    debug_merge_point("<code object f, file '%(fname)s', line 5> #22 LOAD_CONST", 0)
-    debug_merge_point("<code object f, file '%(fname)s', line 5> #28 LOAD_CONST", 0)
-    debug_merge_point("<code object f, file '%(fname)s', line 5> #6 SETUP_LOOP", 0)
+    debug_merge_point("<code object g, file '%(fname)s', line 5> #9 LOAD_FAST", 0)
+    debug_merge_point("<code object g, file '%(fname)s', line 5> #12 LOAD_CONST", 0)
+    debug_merge_point("<code object g, file '%(fname)s', line 5> #22 LOAD_CONST", 0)
+    debug_merge_point("<code object g, file '%(fname)s', line 5> #28 LOAD_CONST", 0)
+    debug_merge_point("<code object g, file '%(fname)s', line 5> #6 SETUP_LOOP", 0)
     ''' % locals())
     res = Function.from_operations(ops.operations, LoopStorage())
     assert res.linerange == (7, 9)

@@ -149,6 +149,13 @@ def mknod(path, mode, device):
     else:
         os.mknod(path.as_bytes(), mode, device)
 
+@specialize.argtype(0, 1)
+def symlink(src, dest):
+    if isinstance(src, str):
+        os.symlink(src, dest)
+    else:
+        os.symlink(src.as_bytes(), dest.as_bytes())
+
 if os.name == 'nt':
     import nt
     def _getfullpathname(path):

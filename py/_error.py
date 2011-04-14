@@ -1,5 +1,5 @@
 """
-create errno-specific classes for IO or os calls. 
+create errno-specific classes for IO or os calls.
 
 """
 import sys, os, errno
@@ -20,8 +20,8 @@ class Error(EnvironmentError):
         return s
 
 _winerrnomap = {
-    2: errno.ENOENT, 
-    3: errno.ENOENT, 
+    2: errno.ENOENT,
+    3: errno.ENOENT,
     17: errno.EEXIST,
     22: errno.ENOTDIR,
     267: errno.ENOTDIR,
@@ -29,14 +29,16 @@ _winerrnomap = {
 }
 
 class ErrorMaker(object):
-    """ lazily provides Exception classes for each possible POSIX errno 
-        (as defined per the 'errno' module).  All such instances 
-        subclass EnvironmentError.  
+    """ lazily provides Exception classes for each possible POSIX errno
+        (as defined per the 'errno' module).  All such instances
+        subclass EnvironmentError.
     """
     Error = Error
     _errno2class = {}
 
     def __getattr__(self, name):
+        if name[0] == "_":
+            raise AttributeError(name)
         eno = getattr(errno, name)
         cls = self._geterrnoclass(eno)
         setattr(self, name, cls)
@@ -53,11 +55,11 @@ class ErrorMaker(object):
             self._errno2class[eno] = errorcls
             return errorcls
 
-    def checked_call(self, func, *args):
+    def checked_call(self, func, *args, **kwargs):
         """ call a function and raise an errno-exception if applicable. """
         __tracebackhide__ = True
         try:
-            return func(*args)
+            return func(*args, **kwargs)
         except self.Error:
             raise
         except EnvironmentError:
@@ -65,18 +67,18 @@ class ErrorMaker(object):
             if not hasattr(value, 'errno'):
                 raise
             __tracebackhide__ = False
-            errno = value.errno 
+            errno = value.errno
             try:
-                if not isinstance(value, WindowsError): 
+                if not isinstance(value, WindowsError):
                     raise NameError
-            except NameError: 
+            except NameError:
                 # we are not on Windows, or we got a proper OSError
                 cls = self._geterrnoclass(errno)
-            else: 
-                try: 
-                    cls = self._geterrnoclass(_winerrnomap[errno]) 
-                except KeyError:    
-                    raise value 
+            else:
+                try:
+                    cls = self._geterrnoclass(_winerrnomap[errno])
+                except KeyError:
+                    raise value
             raise cls("%s%r" % (func.__name__, args))
             __tracebackhide__ = True
 

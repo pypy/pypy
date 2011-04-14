@@ -38,11 +38,7 @@ memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
 if sys.platform == 'win32':
     ensure_sse2_floats = lambda : None
 else:
-    _sse2_eci = ExternalCompilationInfo(
+    ensure_sse2_floats = rffi.llexternal_use_eci(ExternalCompilationInfo(
         compile_extra = ['-msse2', '-mfpmath=sse',
                          '-DPYPY_CPU_HAS_STANDARD_PRECISION'],
-        separate_module_sources = ['void PYPY_NO_OP(void) {}'],
-        )
-    ensure_sse2_floats = rffi.llexternal('PYPY_NO_OP', [], lltype.Void,
-                                         compilation_info=_sse2_eci,
-                                         sandboxsafe=True)
+        ))

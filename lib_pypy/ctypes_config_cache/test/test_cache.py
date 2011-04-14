@@ -11,6 +11,7 @@ def run(filename, outputname):
                          dir=True)
     tmpdir.join('dumpcache.py').write(dirpath.join('dumpcache.py').read())
     path = sys.path[:]
+    sys.modules.pop('dumpcache', None)
     try:
         sys.path.insert(0, str(tmpdir))
         execfile(str(filepath), {})

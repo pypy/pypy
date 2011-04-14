@@ -17,8 +17,8 @@ class W_Tainted(baseobjspace.W_Root):
     def __init__(self, w_obj):
         self.w_obj = w_obj
 
-##    def getdict(self):
-##        return taint(self.w_obj.getdict())
+##    def getdict(self, space):
+##        return taint(self.w_obj.getdict(space))
 
 ##    def getdictvalue(self, space, attr):
 ##        return taint(self.w_obj.getdictvalue(space, attr))

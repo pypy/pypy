@@ -25,12 +25,13 @@ class MiniStats:
 class Descr(history.AbstractDescr):
 
     def __init__(self, ofs, typeinfo, extrainfo=None, name=None,
-                 arg_types=None):
+                 arg_types=None, count_fields_if_immut=-1):
         self.ofs = ofs
         self.typeinfo = typeinfo
         self.extrainfo = extrainfo
         self.name = name
         self.arg_types = arg_types
+        self.count_fields_if_immut = count_fields_if_immut
 
     def get_arg_types(self):
         return self.arg_types
@@ -62,6 +63,9 @@ class Descr(history.AbstractDescr):
 
     def as_vtable_size_descr(self):
         return self
+
+    def count_fields_if_immutable(self):
+        return self.count_fields_if_immut
 
     def __lt__(self, other):
         raise TypeError("cannot use comparison on Descrs")
@@ -109,12 +113,14 @@ class BaseCPU(model.AbstractCPU):
         return False
 
     def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
-                 arg_types=None):
-        key = (ofs, typeinfo, extrainfo, name, arg_types)
+                 arg_types=None, count_fields_if_immut=-1):
+        key = (ofs, typeinfo, extrainfo, name, arg_types,
+               count_fields_if_immut)
         try:
             return self._descrs[key]
         except KeyError:
-            descr = Descr(ofs, typeinfo, extrainfo, name, arg_types)
+            descr = Descr(ofs, typeinfo, extrainfo, name, arg_types,
+                          count_fields_if_immut)
             self._descrs[key] = descr
             return descr
 
@@ -284,7 +290,8 @@ class BaseCPU(model.AbstractCPU):
 
     def sizeof(self, S):
         assert not isinstance(S, lltype.Ptr)
-        return self.getdescr(symbolic.get_size(S))
+        count = heaptracker.count_fields_if_immutable(S)
+        return self.getdescr(symbolic.get_size(S), count_fields_if_immut=count)
 
 
 class LLtypeCPU(BaseCPU):

@@ -10,7 +10,7 @@ log = py.log.Producer("canraise")
 py.log.setconsumer("canraise", ansi_log) 
 
 class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):
-    def analyze_simple_operation(self, op):
+    def analyze_simple_operation(self, op, graphinfo):
         try:
             return bool(LL_OPERATIONS[op.opname].canraise)
         except KeyError:

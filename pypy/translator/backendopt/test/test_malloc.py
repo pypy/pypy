@@ -3,7 +3,7 @@ from pypy.translator.backendopt.malloc import LLTypeMallocRemover, OOTypeMallocR
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator import simplify
-from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
+from pypy.objspace.flow.model import checkgraph, Block, mkentrymap
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
@@ -22,8 +22,7 @@ class BaseMallocRemovalTest(object):
         remover = cls.MallocRemover()
         checkgraph(graph)
         count1 = count2 = 0
-        for node in flatten(graph):
-            if isinstance(node, Block):
+        for node in graph.iterblocks():
                 for op in node.operations:
                     if op.opname == cls.MallocRemover.MALLOC_OP:
                         S = op.args[0].value
@@ -47,7 +46,7 @@ class BaseMallocRemovalTest(object):
             auto_inline_graphs(t, t.graphs, inline)
         if option.view:
             t.view()
-        # to detect missing keepalives and broken intermediate graphs,
+        # to detect broken intermediate graphs,
         # we do the loop ourselves instead of calling remove_simple_mallocs()
         while True:
             progress = remover.remove_mallocs_once(graph)
@@ -158,18 +157,6 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
     type_system = 'lltype'
     MallocRemover = LLTypeMallocRemover
 
-    def test_with_keepalive(self):
-        from pypy.rlib.objectmodel import keepalive_until_here
-        def fn1(x, y):
-            if x > 0:
-                t = x+y, x-y
-            else:
-                t = x-y, x+y
-            s, d = t
-            keepalive_until_here(t)
-            return s*d
-        self.check(fn1, [int, int], [15, 10], 125)
-
     def test_dont_remove_with__del__(self):
         import os
         delcalls = [0]
@@ -198,50 +185,6 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
         backend_optimizations(t)
         op = graph.startblock.exits[0].target.exits[1].target.operations[0]
         assert op.opname == "malloc"
-
-    def test_add_keepalives(self):
-        class A:
-            pass
-        SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
-        BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
-        def fn7(i):
-            big = lltype.malloc(BIG)
-            a = A()
-            a.big = big
-            a.small = big.s
-            a.small.x = 0
-            while i > 0:
-                a.small.x += i
-                i -= 1
-            return a.small.x
-        self.check(fn7, [int], [10], 55, must_be_removed=False)
-
-    def test_getsubstruct(self):
-        py.test.skip("fails because of the interior structure changes")
-        SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
-        BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
-
-        def fn(n1, n2):
-            b = lltype.malloc(BIG)
-            b.z = n1
-            b.s.x = n2
-            return b.z - b.s.x
-
-        self.check(fn, [int, int], [100, 58], 42)
-
-    def test_fixedsizearray(self):
-        py.test.skip("fails because of the interior structure changes")
-        A = lltype.FixedSizeArray(lltype.Signed, 3)
-        S = lltype.GcStruct('S', ('a', A))
-
-        def fn(n1, n2):
-            s = lltype.malloc(S)
-            a = s.a
-            a[0] = n1
-            a[2] = n2
-            return a[0]-a[2]
-
-        self.check(fn, [int, int], [100, 42], 58)
 
     def test_wrapper_cannot_be_removed(self):
         SMALL = lltype.OpaqueType('SMALL')

@@ -12,7 +12,6 @@ from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
-from pypy.module.thread.os_lock import Lock
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
@@ -121,7 +120,7 @@ class BufferedMixin:
         ## XXX cannot free a Lock?
         ## if self.lock:
         ##     self.lock.free()
-        self.lock = Lock(space)
+        self.lock = space.allocate_lock()
 
         try:
             self._raw_tell(space)

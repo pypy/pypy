@@ -5,7 +5,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.libffi import ArgChain
 from pypy.rlib.test.test_libffi import TestLibffiCall as _TestLibffiCall
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin
 
 
 class TestFfiCall(LLJitMixin, _TestLibffiCall):
@@ -40,6 +40,6 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
                 n += 1
             return res
         #
-        res = self.meta_interp(f, [0], jit_ffi=True)
+        res = self.meta_interp(f, [0])
         return res
 

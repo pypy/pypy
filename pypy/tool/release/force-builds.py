@@ -31,11 +31,9 @@ BUILDERS = [
 ]
 
 def main():
+    #XXX: handle release tags
+    #XXX: handle validity checks
     branch = sys.argv[1]
-    if (not branch.startswith('/branch/') and not branch.startswith('/tag/') and
-        not branch.startswith('/release/')):
-        branch = '/branch/' + branch
-
     lock = defer.DeferredLock()
     requests = []
     def ebList(err):

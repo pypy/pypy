@@ -1,4 +1,5 @@
 from pypy.interpreter.argument import ArgumentsForTranslation, ArgErr
+from pypy.interpreter.function import Defaults
 from pypy.annotation import model as annmodel
 from pypy.rpython import rtuple
 from pypy.rpython.error import TyperError
@@ -52,7 +53,7 @@ def callparse(rtyper, graph, hop, opname, r_self=None):
         for x in graph.defaults:
             defs_h.append(ConstHolder(x))
     try:
-        holders = arguments.match_signature(signature, defs_h)
+        holders = arguments.match_signature(signature, Defaults(defs_h))
     except ArgErr, e:
         raise TyperError, "signature mismatch: %s" % e.getmsg(graph.name)
 
@@ -80,7 +81,7 @@ class Holder(object):
             v = self._emit(repr, hop)
             cache[repr] = v
             return v
-    
+
 
 class VarHolder(Holder):
 
@@ -95,7 +96,7 @@ class VarHolder(Holder):
         assert self.is_tuple()
         n = len(self.s_obj.items)
         return tuple([ItemHolder(self, i) for i in range(n)])
-        
+
     def _emit(self, repr, hop):
         return hop.inputarg(repr, arg=self.num)
 
@@ -186,4 +187,4 @@ class RPythonCallsSpace:
 
     def type(self, item):
         return type(item)
-    
+

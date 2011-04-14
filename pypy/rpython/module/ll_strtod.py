@@ -8,6 +8,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
+from pypy.annotation.model import SomeString
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
@@ -62,7 +63,9 @@ class RegisterStrtod(BaseLazyRegistering):
         def oofakeimpl(x, code, precision, flags):
             return ootype.oostring(rfloat.formatd(x, code, precision, flags), -1)
 
-        return extdef([float, lltype.Char, int, int], str, 'll_strtod.ll_strtod_formatd',
+        return extdef([float, lltype.Char, int, int],
+                      SomeString(can_be_None=True),
+                      'll_strtod.ll_strtod_formatd',
                       llimpl=llimpl, oofakeimpl=oofakeimpl,
                       sandboxsafe=True)
 
@@ -83,7 +86,8 @@ class RegisterStrtod(BaseLazyRegistering):
             return rfloat.parts_to_float(sign._str, beforept._str,
                                          afterpt._str, exponent._str)
 
-        return extdef([str, str, str, str], float,
+        tp = SomeString(can_be_None=True)
+        return extdef([tp, tp, tp, tp], float,
                       'll_strtod.ll_strtod_parts_to_float', llimpl=llimpl,
                       oofakeimpl=oofakeimpl, sandboxsafe=True)
 

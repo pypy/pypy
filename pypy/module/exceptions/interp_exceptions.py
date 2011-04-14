@@ -97,7 +97,6 @@ class W_BaseException(Wrappable):
     args_w = []
 
     def __init__(self, space):
-        self.space = space
         self.w_message = space.w_None
 
     def descr_init(self, space, args_w):
@@ -149,9 +148,9 @@ class W_BaseException(Wrappable):
     def descr_getitem(self, space, w_index):
         return space.getitem(space.newtuple(self.args_w), w_index)
 
-    def getdict(self):
+    def getdict(self, space):
         if self.w_dict is None:
-            self.w_dict = self.space.newdict(instance=True)
+            self.w_dict = space.newdict(instance=True)
         return self.w_dict
 
     def setdict(self, space, w_dict):
@@ -166,7 +165,7 @@ class W_BaseException(Wrappable):
         return space.newtuple(lst)
 
     def descr_setstate(self, space, w_dict):
-        w_olddict = self.getdict()
+        w_olddict = self.getdict(space)
         space.call_method(w_olddict, 'update', w_dict)
 
     def descr_message_get(self, space):
@@ -183,7 +182,7 @@ class W_BaseException(Wrappable):
         return self.w_message
 
     def descr_message_set(self, space, w_new):
-        space.setitem(self.getdict(), space.wrap("message"), w_new)
+        space.setitem(self.getdict(space), space.wrap("message"), w_new)
 
     def descr_message_del(self, space):
         w_dict = self.w_dict

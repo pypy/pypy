@@ -3,6 +3,8 @@ from pypy.conftest import gettestobjspace, option
 class AppTest_Stackless:
 
     def setup_class(cls):
+        import py.test
+        py.test.importorskip('greenlet')
         space = gettestobjspace(usemodules=('_stackless', '_socket'))
         cls.space = space
         # cannot test the unpickle part on top of py.py

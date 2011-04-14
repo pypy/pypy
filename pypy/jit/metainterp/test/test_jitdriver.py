@@ -1,6 +1,7 @@
 """Tests for multiple JitDrivers."""
-from pypy.rlib.jit import JitDriver
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.rlib.jit import JitDriver, unroll_safe
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.warmspot import get_stats
 
 
 def getloc1():
@@ -98,6 +99,43 @@ class MultipleJitDriversTests:
         assert res == loop2(4, 40)
         # we expect no int_sub, but a residual call
         self.check_loops(int_sub=0, call=1)
+
+    def test_multiple_jits_trace_too_long(self):
+        myjitdriver1 = JitDriver(greens=["n"], reds=["i", "box"])
+        myjitdriver2 = JitDriver(greens=["n"], reds=["i"])
+
+        class IntBox(object):
+            def __init__(self, val):
+                self.val = val
+
+        def loop1(n):
+            i = 0
+            box = IntBox(10)
+            while i < n:
+                myjitdriver1.can_enter_jit(n=n, i=i, box=box)
+                myjitdriver1.jit_merge_point(n=n, i=i, box=box)
+                i += 1
+                loop2(box)
+            return i
+
+        def loop2(n):
+            i = 0
+            f(10)
+            while i < n.val:
+                myjitdriver2.can_enter_jit(n=n, i=i)
+                myjitdriver2.jit_merge_point(n=n, i=i)
+                i += 1
+
+        @unroll_safe
+        def f(n):
+            i = 0
+            while i < n:
+                i += 1
+
+        res = self.meta_interp(loop1, [10], inline=True, trace_limit=6)
+        assert res == 10
+        stats = get_stats()
+        assert stats.aborted_keys == [None, None]
 
 
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):

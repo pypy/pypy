@@ -123,7 +123,7 @@ class StreamReaderWriter(AbstractReaderWriter):
 
 class DirectStreamWriter(StreamReaderWriter):
     def write(self, data):
-        self.file.direct_write(data)
+        self.file.do_direct_write(data)
 
 class DirectStreamReader(StreamReaderWriter):
     def read(self, n):
@@ -449,7 +449,7 @@ class Unmarshaller(_Base):
         res_w = [None] * lng
         idx = 0
         space = self.space
-        w_ret = space.w_None # something not 
+        w_ret = space.w_None # something not
         while idx < lng:
             tc = self.get1()
             w_ret = self._dispatch[ord(tc)](space, self, tc)

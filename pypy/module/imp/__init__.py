@@ -19,6 +19,7 @@ class Module(MixedModule):
         'load_module':     'interp_imp.load_module',
         'load_source':     'interp_imp.load_source',
         'load_compiled':   'interp_imp.load_compiled',
+        'load_dynamic':    'interp_imp.load_dynamic',
         '_run_compiled_module': 'interp_imp._run_compiled_module',   # pypy
         '_getimporter':    'importing._getimporter',                 # pypy
         #'run_module':      'interp_imp.run_module',
@@ -36,7 +37,6 @@ class Module(MixedModule):
         }
 
     appleveldefs = {
-        'load_dynamic':    'app_imp.load_dynamic',
         }
 
     def __init__(self, space, *args):

@@ -2,7 +2,7 @@ import py
 from pypy.rlib.jit import JitDriver, hint
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import ootype
@@ -740,6 +740,23 @@ class VirtualTests:
             return i.value + j.value
         assert self.meta_interp(f, []) == 20
                 
+    def test_virtual_skipped_by_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'x'])
+        def f(n, m):
+            x = self._new()
+            x.value = 0
+            i = 0
+            while i < n:
+                myjitdriver.can_enter_jit(n=n, m=m, i=i, x=x)
+                myjitdriver.jit_merge_point(n=n, m=m, i=i, x=x)
+                if i&m != m:
+                    newx = self._new()
+                    newx.value = x.value + i
+                    x = newx
+                i = i + 1
+            return x.value
+        res = self.meta_interp(f, [0x1F, 0x11])
+        assert res == f(0x1F, 0x11)
 
 class VirtualMiscTests:
 
@@ -826,6 +843,60 @@ class VirtualMiscTests:
         assert self.meta_interp(f, []) == 10
         self.check_loops(new_array=0)
 
+    def test_virtual_streq_bug(self):
+        mydriver = JitDriver(reds = ['i', 's', 'a'], greens = [])
+
+        class A(object):
+            def __init__(self, state):
+                self.state = state
+        
+        def f():
+            i = 0
+            s = 10000
+            a = A("data")
+            while i < 10:
+                mydriver.jit_merge_point(i=i, a=a, s=s)
+                if i > 1:
+                    if a.state == 'data':
+                        a.state = 'escaped'
+                        s += 1000
+                    else:
+                        s += 100
+                else:
+                    s += 10
+                i += 1
+            return s
+
+        res = self.meta_interp(f, [], repeat=7)
+        assert res == f()
+
+    def test_getfield_gc_pure_nobug(self):
+        mydriver = JitDriver(reds = ['i', 's', 'a'], greens = [])
+
+        class A(object):
+            _immutable_fields_ = ['foo']
+            def __init__(self, foo):
+                self.foo = foo
+
+        prebuilt42 = A(42)
+        prebuilt43 = A(43)
+
+        def f():
+            i = 0
+            s = 10000
+            a = prebuilt42
+            while i < 10:
+                mydriver.jit_merge_point(i=i, s=s, a=a)
+                if i > 1:
+                    s += a.foo
+                    a = prebuilt43
+                else:
+                    s += 10
+                i += 1
+            return s
+
+        res = self.meta_interp(f, [], repeat=7)
+        assert res == f()
 
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class

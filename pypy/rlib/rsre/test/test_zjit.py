@@ -1,5 +1,5 @@
 import py
-from pypy.jit.metainterp.test import test_basic
+from pypy.jit.metainterp.test import support
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rsre.test.test_match import get_code
 from pypy.rlib.rsre import rsre_core
@@ -45,7 +45,7 @@ def test_jit_unroll_safe():
         assert m._jit_unroll_safe_
 
 
-class TestJitRSre(test_basic.LLJitMixin):
+class TestJitRSre(support.LLJitMixin):
 
     def meta_interp_match(self, pattern, string, repeat=1):
         r = get_code(pattern)

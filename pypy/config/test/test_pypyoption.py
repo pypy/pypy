@@ -70,6 +70,6 @@ def test_check_documentation():
         prefix = descr._name
         c = Config(descr)
         for path in c.getpaths(include_groups=True):
-            fn = prefix + "." + path + ".txt"
+            fn = prefix + "." + path + ".rst"
             yield check_file_exists, fn
 

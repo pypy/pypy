@@ -4,7 +4,8 @@ PyPy Test runner interface
 --------------------------
 
 Running test_all.py is equivalent to running py.test
-(either installed from the py lib package, or from ../py/bin/).
+which you independently install, see
+http://pytest.org/getting-started.html
 
 For more information, use test_all.py -h.
 """
@@ -16,5 +17,5 @@ if len(sys.argv) == 1 and os.path.dirname(sys.argv[0]) in '.':
 
 if __name__ == '__main__':
     import tool.autopath
-    import py
-    py.cmdline.pytest()
+    import pytest
+    pytest.main()

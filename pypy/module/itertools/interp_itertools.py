@@ -486,6 +486,7 @@ W_Chain.typedef = TypeDef(
 
 class W_IMap(Wrappable):
     _error_name = "imap"
+    _immutable_fields_ = ["w_fun", "iterators_w"]
 
     def __init__(self, space, w_fun, args_w):
         self.space = space

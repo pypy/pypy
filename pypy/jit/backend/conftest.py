@@ -4,8 +4,6 @@ x86/test/test_zll_random.
 """
 import py, random
 
-option = py.test.config.option
-
 def pytest_addoption(parser):
     group = parser.getgroup('random test options')
     group.addoption('--random-seed', action="store", type="int",

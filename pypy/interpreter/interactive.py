@@ -27,7 +27,8 @@ class Completer:
         import keyword
         w_res = self.space.call_method(self.w_globals, "keys")
         namespace_keys = self.space.unwrap(w_res)
-        w_res = self.space.call_method(self.space.builtin.getdict(), "keys")
+        w_res = self.space.call_method(self.space.builtin.getdict(self.space),
+                                       "keys")
         builtin_keys = self.space.unwrap(w_res)
 
         matches = []
