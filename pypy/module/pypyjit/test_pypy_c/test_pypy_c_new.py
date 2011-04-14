@@ -1282,3 +1282,30 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, i14, i16, descr=<Loop0>)
         """)
+
+    def test_intbound_mul(self):
+        def main(a):
+            i, s = 0, 0
+            while i < 300:
+                assert i >= 0
+                if 2 * i < 30000:
+                    s += 1
+                else:
+                    s += a
+                i += 1
+            return s
+        #
+        log = self.run(main, [7], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = int_lt(i6, 300)
+            guard_true(i8, descr=...)
+            i10 = int_lshift(i6, 1)
+            i12 = int_add_ovf(i5, 1)
+            guard_no_overflow(descr=...)
+            i14 = int_add(i6, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i12, i14, descr=<Loop0>)
+        """)
+        

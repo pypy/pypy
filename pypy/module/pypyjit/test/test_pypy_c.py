@@ -224,21 +224,6 @@ class PyPyCJITTests(object):
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
 
-        
-    def test_intbound_mul(self):
-        self.run_source('''
-        def main(a):
-            i, s = 0, 0
-            while i < 1500:
-                assert i >= 0
-                if 2 * i < 30000:
-                    s += 1
-                else:
-                    s += a
-                i += 1
-            return s
-        ''', 43, ([7], 1500))
-        
     def test_assert(self):
         self.run_source('''
         def main(a):
