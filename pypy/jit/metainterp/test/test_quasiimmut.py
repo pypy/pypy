@@ -6,7 +6,7 @@ from pypy.rpython.rclass import FieldListAccessor, IR_QUASI_IMMUTABLE
 from pypy.jit.metainterp import typesystem
 from pypy.jit.metainterp.quasiimmut import QuasiImmut
 from pypy.jit.metainterp.quasiimmut import get_current_qmut_instance
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rlib.jit import JitDriver, dont_look_inside
 
