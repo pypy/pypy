@@ -20,8 +20,7 @@ if sys.platform == "win32":
         separate_module_files=[cdir.join('src', 'll_math.c')],
         export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
                         '_pypy_math_atanh',
-                        '_pypy_math_expm1', '_pypy_math_log1p',
-                        '_pypy_math_isinf'],
+                        '_pypy_math_expm1', '_pypy_math_log1p'],
         )
     math_prefix = '_pypy_math_'
 else:
@@ -95,9 +94,9 @@ def ll_math_isnan(y):
     # are awesome.
     return y != y
 
-@jit.purefunction
 def ll_math_isinf(y):
-    return bool(math_isinf(y))
+    # Use a bitwise OR so the JIT doesn't produce 2 different guards.
+    return (y == INFINITY) | (y == -INFINITY)
 
 
 ll_math_copysign = math_copysign

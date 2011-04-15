@@ -1354,6 +1354,12 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [], threshold=200)
         assert log.result == 9895050.0
         loop, = log.loops_by_filename(self.filepath)
+        #
+        # check that the overloaded __getitem__ does not introduce double
+        # array bound checks.
+        #
+        # The force_token()s are still there, but will be eliminated by the
+        # backend regalloc, so they are harmless
         assert loop.match("""
             ...
             i20 = int_ge(i18, i8)
@@ -1378,9 +1384,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             f39 = getarrayitem_raw(i13, i36, descr=...)
             ...
         """)
-        # XXX: what do we want to check here?        
-        # We want to make sure that the overloaded __getitem__
-        # not introduceds double array bound checks
 
     def test_circular(self):
         def main():
@@ -1404,6 +1407,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [], threshold=200)
         assert log.result == 1239690.0
         loop, = log.loops_by_filename(self.filepath)
+        #
+        # check that the array bound checks are removed
+        #
+        # The force_token()s are still there, but will be eliminated by the
+        # backend regalloc, so they are harmless
         assert loop.match("""
             ...
             i17 = int_and(i14, 255)
@@ -1425,7 +1433,50 @@ class TestPyPyCNew(BaseTestPyPyC):
             f37 = getarrayitem_raw(i8, i36, descr=...)
             ...
         """)
+
+    def test_min_max(self):
+        def main():
+            i=0
+            sa=0
+            while i < 300: 
+                sa+=min(max(i, 3000), 4000)
+                i+=1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == 300*3000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i4, 300)
+            guard_true(i7, descr=...)
+            i9 = int_add_ovf(i5, 3000)
+            guard_no_overflow(descr=...)
+            i11 = int_add(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i11, i9, descr=<Loop0>)
+        """)
+
+    def test_silly_max(self):
+        def main():
+            i=2
+            sa=0
+            while i < 300: 
+                sa+=max(*range(i))
+                i+=1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == main()
+        loop, = log.loops_by_filename(self.filepath)
         # XXX: what do we want to check here?
-        # We want to check that the array bound checks are removed,
-        # so it's this part of the trace. However we dont care about
-        # the force_token()'s. Can they be ignored?
+
+    def test_iter_max(self):
+        def main():
+            i=2
+            sa=0
+            while i < 300:
+                sa+=max(range(i))
+                i+=1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == main()
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: what do we want to check here?

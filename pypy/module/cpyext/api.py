@@ -37,7 +37,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 DEBUG_WRAPPER = True
 
 # update these for other platforms
-Py_ssize_t = lltype.Signed
+Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
@@ -192,14 +192,19 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
     - set `external` to False to get a C function pointer, but not exported by
       the API headers.
     """
+    if isinstance(restype, lltype.Typedef):
+        real_restype = restype.OF
+    else:
+        real_restype = restype
+
     if error is _NOT_SPECIFIED:
-        if isinstance(restype, lltype.Ptr):
-            error = lltype.nullptr(restype.TO)
-        elif restype is lltype.Void:
+        if isinstance(real_restype, lltype.Ptr):
+            error = lltype.nullptr(real_restype.TO)
+        elif real_restype is lltype.Void:
             error = CANNOT_FAIL
     if type(error) is int:
-        error = rffi.cast(restype, error)
-    expect_integer = (isinstance(restype, lltype.Primitive) and
+        error = rffi.cast(real_restype, error)
+    expect_integer = (isinstance(real_restype, lltype.Primitive) and
                       rffi.cast(restype, 0) == 0)
 
     def decorate(func):
