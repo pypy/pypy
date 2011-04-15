@@ -166,6 +166,11 @@ class DictStrategy(object):
         key = OPTIMIZED_BUILTINS[i]
         return self.getitem_str(w_dict, key)
 
+    def clear(self, w_dict):
+        strategy = self.space.fromcache(EmptyDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
 
     # _________________________________________________________________
     # implementation methods
@@ -313,10 +318,6 @@ class ObjectDictStrategy(DictStrategy):
     def items(self, w_dict):
         return [self.space.newtuple([w_key, w_val])
                     for w_key, w_val in self.cast_from_void_star(w_dict.dstorage).iteritems()]
-
-    def clear(self, w_dict):
-        #XXX switch to empty
-        self.cast_from_void_star(w_dict.dstorage).clear()
 
     def popitem(self, w_dict):
         return self.cast_from_void_star(w_dict.dstorage).popitem()
