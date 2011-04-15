@@ -30,8 +30,9 @@ class TestRCompressed(LLJitMixin):
                                  ('c', lltype.Char))
         SPTR = lltype.Ptr(S)
         @jit.dont_look_inside
-        def escape(p):
-            return p
+        def escape(ptr):
+            assert llop.show_from_ptr32(SPTR, ptr.p).n == 42
+            return ptr
         def f(n):
             y = lltype.malloc(S)
             y.n = n

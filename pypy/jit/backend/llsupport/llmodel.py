@@ -221,6 +221,12 @@ class AbstractLLCPU(AbstractCPU):
         x = llop.hide_into_ptr32(llmemory.HiddenGcRef32, x)
         return rffi.cast(rffi.UINT, x)
 
+    def is_compressed_ptr(self, size):
+        if we_are_translated():
+            if not self.gc_ll_descr.supports_compressed_ptrs:
+                return False     # nicely constant-foldable
+        return WORD == 8 and size == 4
+
     @staticmethod
     def cast_int_to_adr(x):
         return rffi.cast(llmemory.Address, x)
@@ -303,7 +309,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_getarrayitem_gc_r(self, arraydescr, gcref, itemindex):
         ofs, size, _ = self.unpack_arraydescr(arraydescr)
-        icp = self.gc_ll_descr.is_compressed_ptr(size)
+        icp = self.is_compressed_ptr(size)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         if icp:
@@ -341,7 +347,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_setarrayitem_gc_r(self, arraydescr, gcref, itemindex, newvalue):
         ofs, size, _ = self.unpack_arraydescr(arraydescr)
-        icp = self.gc_ll_descr.is_compressed_ptr(size)
+        icp = self.is_compressed_ptr(size)
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -408,7 +414,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def _base_do_getfield_r(self, struct, fielddescr):
         ofs, size, _ = self.unpack_fielddescr(fielddescr)
-        icp = self.gc_ll_descr.is_compressed_ptr(size)
+        icp = self.is_compressed_ptr(size)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         if icp:
@@ -455,7 +461,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs, size, _ = self.unpack_fielddescr(fielddescr)
         assert lltype.typeOf(struct) is not lltype.Signed, (
             "can't handle write barriers for setfield_raw")
-        icp = self.gc_ll_descr.is_compressed_ptr(size)
+        icp = self.is_compressed_ptr(size)
         self.gc_ll_descr.do_write_barrier(struct, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)

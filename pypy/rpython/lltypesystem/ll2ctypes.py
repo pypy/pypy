@@ -1271,11 +1271,14 @@ class _llgcopaque(lltype._container):
     def _cast_to_ptr(self, PTRTYPE):
          return force_cast(PTRTYPE, self.intval)
 
-##     def _cast_to_int(self):
-##         return self.intval
-
-##     def _cast_to_adr(self):
-##         return _lladdress(self.intval)
+    def _cast_to_hiddengcref32(self):
+        try:
+            result = _hiddengcref32[self]
+        except KeyError:
+            result = 1000 + len(_hiddengcref32)
+            _hiddengcref32[self] = result
+            _hiddengcref32back[result] = self
+        return _llgcopaque32(result)
 
 def cast_adr_to_int(addr):
     if isinstance(addr, llmemory.fakeaddress):
@@ -1335,10 +1338,19 @@ class _llgcopaque32(lltype._container):
         return not self == other
 
     def _cast_to_ptr(self, PTRTYPE):
+        # this is supposed to be cast back to GcStruct, not to a plain
+        # Struct or to any kind of Array, because HiddenGcRef32s are
+        # supposed to be taken only to GcStructs.
+        assert isinstance(PTRTYPE.TO, lltype.GcStruct)
         if self.uint32val == 0:
             return lltype.nullptr(PTRTYPE.TO)
         obj = _hiddengcref32back[self.uint32val]
         return force_cast(PTRTYPE, obj._as_ptr())
+
+    def _cast_to_gcref(self):
+        obj = _hiddengcref32back[self.uint32val]
+        assert isinstance(obj, _llgcopaque)
+        return obj
 
 # ____________________________________________________________
 # errno

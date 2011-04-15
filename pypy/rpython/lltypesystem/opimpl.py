@@ -579,15 +579,21 @@ def op_shrink_array(array, smallersize):
     return False
 
 def op_hide_into_ptr32(ptr):
+    if not ptr:
+        return lltype.nullptr(llmemory.HiddenGcRef32.TO)
     if lltype.typeOf(ptr) == llmemory.Address:
-        if not ptr:
-            return lltype.nullptr(llmemory.HiddenGcRef32.TO)
         ptr = ptr.ptr
     if isinstance(lltype.typeOf(ptr).TO, lltype.GcOpaqueType):
-        ptr = ptr._obj.container._as_ptr()
+        try:
+            ptr = ptr._obj.container._as_ptr()
+        except AttributeError:
+            # for _llgcopaque objects
+            return ptr._obj._cast_to_hiddengcref32()._as_ptr()
     return lltype.cast_opaque_ptr(llmemory.HiddenGcRef32, ptr)
 
 def op_show_from_ptr32(RESTYPE, ptr32):
+    if not ptr32:
+        return lltype.nullptr(RESTYPE.TO)
     if RESTYPE == llmemory.Address:
         if not ptr32:
             return llmemory.NULL
@@ -595,7 +601,11 @@ def op_show_from_ptr32(RESTYPE, ptr32):
         ptr = lltype.cast_opaque_ptr(PTRTYPE, ptr32)
         return llmemory.cast_ptr_to_adr(ptr)
     if isinstance(RESTYPE.TO, lltype.GcOpaqueType):
-        ptr32 = ptr32._obj.container._as_ptr()
+        try:
+            ptr32 = ptr32._obj.container._as_ptr()
+        except AttributeError:
+            # for _llgcopaque32 objects
+            return ptr32._obj._cast_to_gcref()._as_ptr()
     return lltype.cast_opaque_ptr(RESTYPE, ptr32)
 op_show_from_ptr32.need_result_type = True
 
