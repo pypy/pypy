@@ -50,7 +50,8 @@ class W_DictMultiObject(W_Object):
 
         elif space.config.objspace.opcodes.CALL_LIKELY_BUILTIN and module:
             assert w_type is None
-            strategy = space.fromcache(WaryDictStrategy)
+            # create new Strategy everytime, because each must have its own shadow-attribute
+            strategy = WaryDictStrategy(space)
 
         elif space.config.objspace.std.withdictmeasurement:
             assert w_type is None
@@ -105,7 +106,7 @@ def _add_indirections():
                     getitem_str delitem length \
                     clear keys values \
                     items iter setdefault \
-                    popitem".split()
+                    popitem get_builtin_indexed".split()
 
     def make_method(method):
         def f(self, *args):
@@ -160,6 +161,11 @@ class DictStrategy(object):
                 result.append(self.space.newtuple([w_key, w_value]))
             else:
                 return result
+
+    def get_builtin_indexed(self, w_dict, i):
+        key = OPTIMIZED_BUILTINS[i]
+        return self.getitem_str(w_dict, key)
+
 
     # _________________________________________________________________
     # implementation methods
@@ -231,6 +237,9 @@ class EmptyDictStrategy(DictStrategy):
 
     def impl_clear(self, w_dict):
         self.r_dict_content = None
+
+    def clear(self, w_dict):
+        return
 
     def _as_rdict(self):
         r_dict_content = self.initialize_as_rdict()
@@ -306,11 +315,8 @@ class ObjectDictStrategy(DictStrategy):
                     for w_key, w_val in self.cast_from_void_star(w_dict.dstorage).iteritems()]
 
     def clear(self, w_dict):
+        #XXX switch to empty
         self.cast_from_void_star(w_dict.dstorage).clear()
-
-    def impl_get_builtin_indexed(self, w_dict, i):
-        key = OPTIMIZED_BUILTINS[i]
-        return self.impl_fallback_getitem_str(key)
 
     def popitem(self, w_dict):
         return self.cast_from_void_star(w_dict.dstorage).popitem()
@@ -482,21 +488,22 @@ class StrIteratorImplementation(IteratorImplementation):
 
 class WaryDictStrategy(StringDictStrategy):
     def __init__(self, space):
-        StrDictImplementation.__init__(self, space)
+        StringDictStrategy.__init__(self, space)
         self.shadowed = [None] * len(BUILTIN_TO_INDEX)
 
-    def impl_setitem_str(self, w_dict, key, w_value):
+    def setitem_str(self, w_dict, key, w_value):
         i = BUILTIN_TO_INDEX.get(key, -1)
         if i != -1:
             self.shadowed[i] = w_value
-        self.content[key] = w_value
+        self.cast_from_void_star(w_dict.dstorage)[key] = w_value
+        #self.content[key] = w_value
 
-    def impl_delitem(self, w_dict, w_key):
+    def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
             key = space.str_w(w_key)
-            del self.content[key]
+            del self.cast_from_void_star(w_dict.dstorage)[key]
             i = BUILTIN_TO_INDEX.get(key, -1)
             if i != -1:
                 self.shadowed[i] = None
@@ -505,7 +512,7 @@ class WaryDictStrategy(StringDictStrategy):
         else:
             self._as_rdict().impl_fallback_delitem(w_key)
 
-    def impl_get_builtin_indexed(self, w_dict, i):
+    def get_builtin_indexed(self, w_dict, i):
         return self.shadowed[i]
 
 
