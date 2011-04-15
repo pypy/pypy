@@ -100,11 +100,11 @@ class TestLog(object):
 
 class TestOpMatcher(object):
 
-    def match(self, src1, src2):
+    def match(self, src1, src2, **kwds):
         from pypy.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
         matcher = OpMatcher(loop.operations, src=src1)
-        return matcher.match(src2)
+        return matcher.match(src2, **kwds)
 
     def test_match_var(self):
         match_var = OpMatcher([]).match_var
@@ -233,6 +233,21 @@ class TestOpMatcher(object):
             ...
         """
         assert self.match(loop, expected)
+
+    def test_ignore_opcodes(self):
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i4 = force_token()
+            i2 = int_sub(i1, 10)
+            jump(i4)
+        """
+        expected = """
+            i1 = int_add(i0, 1)
+            i2 = int_sub(i1, 10)
+            jump(i4, descr=...)
+        """
+        assert self.match(loop, expected, ignore_ops=['force_token'])
 
 
 class TestRunPyPyC(BaseTestPyPyC):
