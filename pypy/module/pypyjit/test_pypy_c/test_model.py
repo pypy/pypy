@@ -52,6 +52,8 @@ class BaseTestPyPyC(object):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
+        if stderr.startswith('SKIP:'):
+            py.test.skip(stderr)
         assert not stderr
         #
         # parse the JIT log
@@ -267,6 +269,14 @@ class TestRunPyPyC(BaseTestPyPyC):
         """
         log = self.run(src, [30, 12])
         assert log.result == 42
+
+    def test_skip(self):
+        import _pytest
+        def f():
+            import sys
+            print >> sys.stderr, 'SKIP: foobar'
+        #
+        raises(_pytest.runner.Skipped, "self.run(f, [])")
 
     def test_parse_jitlog(self):
         def f():
