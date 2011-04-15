@@ -131,6 +131,36 @@ class DictStrategy(object):
         self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
         return self.r_dict_content
 
+    def keys(self, w_dict):
+        iterator = self.iter(w_dict)
+        result = []
+        while 1:
+            w_key, w_value = iterator.next()
+            if w_key is not None:
+                result.append(w_key)
+            else:
+                return result
+
+    def values(self, w_dict):
+        iterator = self.iter(w_dict)
+        result = []
+        while 1:
+            w_key, w_value = iterator.next()
+            if w_value is not None:
+                result.append(w_value)
+            else:
+                return result
+
+    def items(self, w_dict):
+        iterator = self.iter(w_dict)
+        result = []
+        while 1:
+            w_key, w_value = iterator.next()
+            if w_key is not None:
+                result.append(self.space.newtuple([w_key, w_value]))
+            else:
+                return result
+
     # _________________________________________________________________
     # implementation methods
 
@@ -206,34 +236,6 @@ class EmptyDictStrategy(DictStrategy):
         r_dict_content = self.initialize_as_rdict()
         return self
 
-    def impl_keys(self, w_dict):
-        iterator = self.impl_iter()
-        result = []
-        while 1:
-            w_key, w_value = iterator.next()
-            if w_key is not None:
-                result.append(w_key)
-            else:
-                return result
-    def impl_values(self, w_dict):
-        iterator = self.impl_iter()
-        result = []
-        while 1:
-            w_key, w_value = iterator.next()
-            if w_value is not None:
-                result.append(w_value)
-            else:
-                return result
-    def impl_items(self, w_dict):
-        iterator = self.impl_iter()
-        result = []
-        while 1:
-            w_key, w_value = iterator.next()
-            if w_key is not None:
-                result.append(self.space.newtuple([w_key, w_value]))
-            else:
-                return result
-
     # the following method only makes sense when the option to use the
     # CALL_LIKELY_BUILTIN opcode is set. Otherwise it won't even be seen
     # by the annotator
@@ -288,7 +290,7 @@ class ObjectDictStrategy(DictStrategy):
         return self.cast_from_void_star(w_dict.dstorage).get(w_key, None)
 
     def getitem_str(self, w_dict, key):
-        return self.getitem(self.space.wrap(key), None)
+        return self.getitem(w_dict, self.space.wrap(key))
 
     def iter(self, w_dict):
         return RDictIteratorImplementation(self.space, w_dict)

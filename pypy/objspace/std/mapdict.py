@@ -4,7 +4,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib import rerased
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject, DictStrategy, ObjectDictStrategy
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
 from pypy.objspace.std.dictmultiobject import _is_sane_hash
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -153,7 +153,7 @@ class AbstractAttribute(object):
         obj._set_mapdict_map(attr)
         obj._mapdict_write_storage(attr.position, w_value)
 
-    def materialize_r_dict(self, space, obj, w_d):
+    def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
 
     def remove_dict_entries(self, obj):
@@ -204,7 +204,7 @@ class DictTerminator(Terminator):
         Terminator.__init__(self, space, w_cls)
         self.devolved_dict_terminator = DevolvedDictTerminator(space, w_cls)
 
-    def materialize_r_dict(self, space, obj, w_d):
+    def materialize_r_dict(self, space, obj, dict_w):
         result = Object()
         result.space = space
         result._init_empty(self.devolved_dict_terminator)
@@ -296,11 +296,11 @@ class PlainAttribute(AbstractAttribute):
             return self
         return self.back.search(attrtype)
 
-    def materialize_r_dict(self, space, obj, w_d):
-        new_obj = self.back.materialize_r_dict(space, obj, w_d)
+    def materialize_r_dict(self, space, obj, dict_w):
+        new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.selector[1] == DICT:
             w_attr = space.wrap(self.selector[0])
-            w_d.r_dict_content[w_attr] = obj._mapdict_read_storage(self.position)
+            dict_w[w_attr] = obj._mapdict_read_storage(self.position)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -381,7 +381,10 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         if w_dict is not None:
             assert isinstance(w_dict, W_DictMultiObject)
             return w_dict
-        w_dict = MapDictImplementation(space, self)
+
+        strategy = space.fromcache(MapDictStrategy)
+        storage = strategy.cast_to_void_star(self)
+        w_dict = W_DictMultiObject(space, strategy, storage)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag
         return w_dict
@@ -391,8 +394,10 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         w_dict = check_new_dictionary(space, w_dict)
         w_olddict = self.getdict(space)
         assert isinstance(w_dict, W_DictMultiObject)
-        if w_olddict.r_dict_content is None:
-            w_olddict._as_rdict()
+        #if w_olddict.rdict is None:
+        #    w_olddict._as_rdict()
+        if type(w_olddict.strategy) is not ObjectDictStrategy:
+            w_olddict.strategy.switch_to_object_strategy(w_olddict)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag
 
@@ -574,78 +579,96 @@ def _make_subclass_size_n(supercls, n):
 # ____________________________________________________________
 # dict implementation
 
+class MapDictStrategy(DictStrategy):
 
-class MapDictImplementation(W_DictMultiObject):
-    def __init__(self, space, w_obj):
+    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("map")
+    cast_to_void_star = staticmethod(cast_to_void_star)
+    cast_from_void_star = staticmethod(cast_from_void_star)
+
+    def __init__(self, space):
         self.space = space
-        self.w_obj = w_obj
 
-    def impl_getitem(self, w_lookup):
+    def switch_to_object_strategy(self, w_dict):
+        w_obj = self.cast_from_void_star(w_dict.dstorage)
+        strategy = self.space.fromcache(ObjectDictStrategy)
+        dict_w = strategy.cast_from_void_star(strategy.get_empty_storage())
+        w_dict.strategy = strategy
+        w_dict.dstorage = strategy.cast_to_void_star(dict_w)
+        materialize_r_dict(self.space, w_obj, dict_w)
+
+    def getitem(self, w_dict, w_lookup):
         space = self.space
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
-            return self.impl_getitem_str(space.str_w(w_lookup))
+            return self.getitem_str(w_dict, space.str_w(w_lookup))
         elif _is_sane_hash(space, w_lookup_type):
             return None
         else:
-            return self._as_rdict().impl_fallback_getitem(w_lookup)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.getitem(w_lookup)
 
-    def impl_getitem_str(self, key):
-        return self.w_obj.getdictvalue(self.space, key)
+    def getitem_str(self, w_dict, key):
+        w_obj = self.cast_from_void_star(w_dict.dstorage)
+        return w_obj.getdictvalue(self.space, key)
 
-    def impl_setitem_str(self,  key, w_value):
-        flag = self.w_obj.setdictvalue(self.space, key, w_value)
+    def setitem_str(self, w_dict, key, w_value):
+        w_obj = self.cast_from_void_star(w_dict.dstorage)
+        flag = w_obj.setdictvalue(self.space, key, w_value)
         assert flag
 
-    def impl_setitem(self,  w_key, w_value):
+    def setitem(self, w_dict, w_key, w_value):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
-            self.impl_setitem_str(self.space.str_w(w_key), w_value)
+            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
         else:
-            self._as_rdict().impl_fallback_setitem(w_key, w_value)
+            self.switch_to_object_strategy(w_dict)
+            w_dict.setitem(w_key, w_value)
 
-    def impl_setdefault(self,  w_key, w_default):
+    def setdefault(self, w_dict, w_key, w_default):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
             key = space.str_w(w_key)
-            w_result = self.impl_getitem_str(key)
+            w_result = self.getitem_str(w_dict, key)
             if w_result is not None:
                 return w_result
-            self.impl_setitem_str(key, w_default)
+            self.setitem_str(w_dict, key, w_default)
             return w_default
         else:
-            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.setdefault(w_key, w_default)
 
-    def impl_delitem(self, w_key):
+    def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
+        w_obj = self.cast_from_void_star(w_dict.dstorage)
         if space.is_w(w_key_type, space.w_str):
-            flag = self.w_obj.deldictvalue(space, w_key)
+            flag = w_obj.deldictvalue(space, w_key)
             if not flag:
                 raise KeyError
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:
-            self._as_rdict().impl_fallback_delitem(w_key)
+            self.switch_to_object_strategy(w_dict)
+            w_dict.delitem(w_key)
 
-    def impl_length(self):
+    def length(self, w_dict):
         res = 0
-        curr = self.w_obj._get_mapdict_map().search(DICT)
+        curr = self.cast_from_void_star(w_dict.dstorage)._get_mapdict_map().search(DICT)
         while curr is not None:
             curr = curr.back
             curr = curr.search(DICT)
             res += 1
         return res
 
-    def impl_iter(self):
-        return MapDictIteratorImplementation(self.space, self)
+    def iter(self, w_dict):
+        return MapDictIteratorImplementation(self.space, w_dict)
 
-    def impl_clear(self):
-        w_obj = self.w_obj
+    def clear(self, w_dict):
+        w_obj = self.cast_from_void_star(w_dict.dstorage)
         new_obj = w_obj._get_mapdict_map().remove_dict_entries(w_obj)
         _become(w_obj, new_obj)
 
-    def _clear_fields(self):
+    def _clear_fields(self, w_dict):
         self.w_obj = None
 
     def _as_rdict(self):
@@ -656,23 +679,23 @@ class MapDictImplementation(W_DictMultiObject):
         self._clear_fields()
         return self
 
-
-def materialize_r_dict(space, obj, w_d):
+def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
-    assert obj.getdict(space) is w_d
-    new_obj = map.materialize_r_dict(space, obj, w_d)
+    w_dict = obj.getdict(space)
+    assert w_dict.strategy.cast_from_void_star(w_dict.dstorage) is dict_w
+    new_obj = map.materialize_r_dict(space, obj, dict_w)
     _become(obj, new_obj)
 
 class MapDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        w_obj = dictimplementation.w_obj
+        w_obj = dictimplementation.strategy.cast_from_void_star(dictimplementation.dstorage)
         self.w_obj = w_obj
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
     def next_entry(self):
         implementation = self.dictimplementation
-        assert isinstance(implementation, MapDictImplementation)
+        assert isinstance(implementation.strategy, MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None, None
         if self.curr_map:
