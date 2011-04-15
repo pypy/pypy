@@ -119,13 +119,16 @@ copyrighted by one or more of the following people and organizations:
     Impara, Germany
     Change Maker, Sweden 
 
+The PyPy Logo as used by http://speed.pypy.org and others was created
+by Samuel Reis and is distributed on terms of Creative Commons Share Alike
+License.
  
-License for 'lib-python/2.5.2' and 'lib-python/2.5.2-modified'
+License for 'lib-python/2.7.0' and 'lib-python/2.7.0-modified'
 ============================================================== 
 
 Except when otherwise stated (look for LICENSE files or
 copyright/license information at the beginning of each file) the files
-in the 'lib-python/2.5.2' and 'lib-python/2.5.2-modified' directories
+in the 'lib-python/2.7.0' and 'lib-python/2.7.0-modified' directories
 are all copyrighted by the Python Software Foundation and licensed under
 the Python Software License of which you can find a copy here:
 http://www.python.org/doc/Copyright.html 
@@ -158,21 +161,12 @@ License for 'pypy/module/unicodedata/'
 ======================================
 
 The following files are from the website of The Unicode Consortium
-at http://www.unicode.org/. For the terms of use of these files, see
-http://www.unicode.org/terms_of_use.html
+at http://www.unicode.org/.  For the terms of use of these files, see
+http://www.unicode.org/terms_of_use.html .  Or they are derived from
+files from the above website, and the same terms of use apply.
 
-    CompositionExclusions-3.2.0.txt
-    CompositionExclusions-4.1.0.txt
-    CompositionExclusions-5.0.0.txt
-    EastAsianWidth-3.2.0.txt
-    EastAsianWidth-4.1.0.txt
-    EastAsianWidth-5.0.0.txt
-    UnicodeData-3.2.0.txt
-    UnicodeData-4.1.0.txt
-    UnicodeData-5.0.0.txt
-    
-The following files are derived from files from the above website. The same
-terms of use apply.
-    UnihanNumeric-3.2.0.txt
-    UnihanNumeric-4.1.0.txt
-    UnihanNumeric-5.0.0.txt
+    CompositionExclusions-*.txt
+    EastAsianWidth-*.txt
+    LineBreak-*.txt
+    UnicodeData-*.txt
+    UnihanNumeric-*.txt

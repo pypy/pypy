@@ -101,7 +101,7 @@ def test_run_translation():
 
     # first annotate, rtype, and backendoptimize PyPy
     try:
-        interp, graph = get_interpreter(entry_point, [], backendopt=True,
+        interp, graph = get_interpreter(entry_point, [], backendopt=False,
                                         config=config,
                                         type_system=config.translation.type_system,
                                         policy=PyPyAnnotatorPolicy(space))

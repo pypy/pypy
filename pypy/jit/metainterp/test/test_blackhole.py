@@ -1,6 +1,6 @@
 import py
 from pypy.rlib.jit import JitDriver
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.blackhole import BlackholeInterpBuilder
 from pypy.jit.metainterp.blackhole import BlackholeInterpreter
 from pypy.jit.metainterp.blackhole import convert_and_run_from_pyjitpl

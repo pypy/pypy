@@ -1645,7 +1645,7 @@ class GcRootTracker(object):
                      darwin64='')
             print >> output, "%s:" % _globalname('pypy_asm_stackwalk')
 
-            print >> output, """\
+            s = """\
             /* See description in asmgcroot.py */
             .cfi_startproc
             movq\t%rdi, %rdx\t/* 1st argument, which is the callback */
@@ -1691,6 +1691,12 @@ class GcRootTracker(object):
             ret
             .cfi_endproc
             """
+            if self.format == 'darwin64':
+                # obscure.  gcc there seems not to support .cfi_...
+                # hack it out...
+                s = re.sub(r'([.]cfi_[^/\n]+)([/\n])',
+                           r'/* \1 disabled on darwin */\2', s)
+            print >> output, s
             _variant(elf64='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
                      darwin64='')
         else:
