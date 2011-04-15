@@ -51,10 +51,9 @@ class ARMFrameManager(FrameManager):
 
     @staticmethod
     def frame_size(type):
-        num_words = 1
         if type == FLOAT:
-            num_words = 2
-        return num_words
+            return  2
+        return 1
 
 def void(self, op, fcond):
     return []

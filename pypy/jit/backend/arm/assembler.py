@@ -569,7 +569,7 @@ class AssemblerARM(ResOpAssembler):
         # manager
         if frame_depth == 1:
             return
-        n = (frame_depth)*WORD
+        n = (frame_depth-1)*WORD
         self._adjust_sp(n, cb, base_reg=r.fp)
 
     def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):

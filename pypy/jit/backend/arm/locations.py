@@ -103,9 +103,6 @@ class StackLocation(AssemblerLocation):
         self.width = num_words * WORD
         self.type = type
 
-    def frame_size(self):
-        return self.width // WORD
-
     def __repr__(self):
         return 'FP+%d' % (self.position,)
 
