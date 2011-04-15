@@ -1,6 +1,7 @@
 import py
 from pypy.conftest import gettestobjspace, option
-from pypy.objspace.std.celldict import ModuleCell, ModuleDictImplementation
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+from pypy.objspace.std.celldict import ModuleCell, ModuleDictStrategy
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace
 from pypy.interpreter import gateway
 
@@ -8,7 +9,15 @@ space = FakeSpace()
 
 class TestCellDict(object):
     def test_basic_property(self):
-        d = ModuleDictImplementation(space)
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        d = W_DictMultiObject(space, strategy, storage)
+
+        # replace getcell with getcell from strategy
+        def f(key, makenew):
+            return strategy.getcell(d, key, makenew)
+        d.getcell = f
+
         d.setitem("a", 1)
         assert d.getcell("a", False) is d.getcell("a", False)
         acell = d.getcell("a", False)
