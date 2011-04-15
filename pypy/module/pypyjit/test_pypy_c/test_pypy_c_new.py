@@ -1454,3 +1454,29 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, i11, i9, descr=<Loop0>)
         """)
+
+    def test_silly_max(self):
+        def main():
+            i=2
+            sa=0
+            while i < 300: 
+                sa+=max(*range(i))
+                i+=1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == main()
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: what do we want to check here?
+
+    def test_iter_max(self):
+        def main():
+            i=2
+            sa=0
+            while i < 300:
+                sa+=max(range(i))
+                i+=1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == main()
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: what do we want to check here?

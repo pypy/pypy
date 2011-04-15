@@ -223,29 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-
-    def test_silly_max(self):
-        self.run_source('''
-        def main():
-            i=2
-            sa=0
-            while i < 2000: 
-                sa+=max(*range(i))
-                i+=1
-            return sa
-        ''', 125, ([], 1997001))
-
-    def test_iter_max(self):
-        self.run_source('''
-        def main():
-            i=2
-            sa=0
-            while i < 2000: 
-                sa+=max(range(i))
-                i+=1
-            return sa
-        ''', 88, ([], 1997001))
-
     def test__ffi_call(self):
         from pypy.rlib.test.test_libffi import get_libm_name
         libm_name = get_libm_name(sys.platform)
