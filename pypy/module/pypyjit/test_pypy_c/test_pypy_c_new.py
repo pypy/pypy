@@ -1487,3 +1487,42 @@ class TestPyPyCNew(BaseTestPyPyC):
            p58 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
            ...
         """)
+
+    def test__ffi_call(self):
+        from pypy.rlib.test.test_libffi import get_libm_name
+        def main(libm_name):
+            try:
+                from _ffi import CDLL, types
+            except ImportError:
+                sys.stdout.write('SKIP: cannot import _ffi')
+                return 0
+
+            libm = CDLL(libm_name)
+            pow = libm.getfunc('pow', [types.double, types.double],
+                               types.double)
+            i = 0
+            res = 0
+            while i < 300:
+                res += pow(2, 3)
+                i += 1
+            return pow.getaddr(), res
+        #
+        libm_name = get_libm_name(sys.platform)
+        log = self.run(main, [libm_name], threshold=200)
+        pow_addr, res = log.result
+        assert res == 8.0 * 300
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: write the actual test when we merge this to jitypes2
+        ## ops = self.get_by_bytecode('CALL_FUNCTION')
+        ## assert len(ops) == 2 # we get two loops, because of specialization
+        ## call_function = ops[0]
+        ## last_ops = [op.getopname() for op in call_function[-5:]]
+        ## assert last_ops == ['force_token',
+        ##                     'setfield_gc',
+        ##                     'call_may_force',
+        ##                     'guard_not_forced',
+        ##                     'guard_no_exception']
+        ## call = call_function[-3]
+        ## assert call.getarg(0).value == pow_addr
+        ## assert call.getarg(1).value == 2.0
+        ## assert call.getarg(2).value == 3.0
