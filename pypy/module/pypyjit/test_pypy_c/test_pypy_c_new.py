@@ -1433,3 +1433,24 @@ class TestPyPyCNew(BaseTestPyPyC):
             f37 = getarrayitem_raw(i8, i36, descr=...)
             ...
         """)
+
+    def test_min_max(self):
+        def main():
+            i=0
+            sa=0
+            while i < 300: 
+                sa+=min(max(i, 3000), 4000)
+                i+=1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == 300*3000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i4, 300)
+            guard_true(i7, descr=...)
+            i9 = int_add_ovf(i5, 3000)
+            guard_no_overflow(descr=...)
+            i11 = int_add(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i11, i9, descr=<Loop0>)
+        """)

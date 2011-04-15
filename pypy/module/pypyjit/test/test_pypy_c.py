@@ -223,16 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-    def test_min_max(self):
-        self.run_source('''
-        def main():
-            i=0
-            sa=0
-            while i < 2000: 
-                sa+=min(max(i, 3000), 4000)
-                i+=1
-            return sa
-        ''', 51, ([], 2000*3000))
 
     def test_silly_max(self):
         self.run_source('''
