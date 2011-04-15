@@ -1452,26 +1452,41 @@ class TestPyPyCNew(BaseTestPyPyC):
 
     def test_silly_max(self):
         def main():
-            i=2
-            sa=0
-            while i < 300: 
-                sa+=max(*range(i))
-                i+=1
+            i = 2
+            sa = 0
+            while i < 300:
+                lst = range(i)
+                sa += max(*lst) # ID: max
+                i += 1
             return sa
         log = self.run(main, [], threshold=200)
         assert log.result == main()
         loop, = log.loops_by_filename(self.filepath)
-        # XXX: what do we want to check here?
+        # We dont want too many guards, but a residual call to min_max_loop
+        assert len([n for n in log.opnames(loop.ops_by_id("max")) if n.startswith('guard')]) < 20
+        assert loop.match_by_id('max',"""
+            ...
+            p76 = call_may_force(ConstClass(min_max_loop__max), p73, ConstPtr(ptr75), descr=...)
+            ...
+        """)
+        
 
     def test_iter_max(self):
         def main():
-            i=2
-            sa=0
+            i = 2
+            sa = 0
             while i < 300:
-                sa+=max(range(i))
-                i+=1
+                lst = range(i)
+                sa += max(lst) # ID: max
+                i += 1
             return sa
         log = self.run(main, [], threshold=200)
         assert log.result == main()
         loop, = log.loops_by_filename(self.filepath)
-        # XXX: what do we want to check here?
+        # We dont want too many guards, but a residual call to min_max_loop
+        assert len([n for n in log.opnames(loop.ops_by_id("max")) if n.startswith('guard')]) < 20
+        assert loop.match_by_id('max',"""
+            ...
+            p76 = call_may_force(ConstClass(min_max_loop__max), p73, ConstPtr(ptr75), descr=...)            
+            ...
+        """)
