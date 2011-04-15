@@ -797,6 +797,21 @@ def test_immutable_hint():
                  hints={'immutable_fields': FieldListAccessor({'x': 1234})})
     assert S._immutable_field('x') == 1234
 
+def test_typedef():
+    T = Typedef(Signed, 'T')
+    assert T == Signed
+    assert Signed == T
+    T2 = Typedef(T, 'T2')
+    assert T2 == T
+    assert T2.OF is Signed
+    py.test.raises(TypeError, Ptr, T)
+    assert rffi.CArrayPtr(T) == rffi.CArrayPtr(Signed)
+    assert rffi.CArrayPtr(Signed) == rffi.CArrayPtr(T)
+
+    F = FuncType((T,), T)
+    assert F.RESULT == Signed
+    assert F.ARGS == (Signed,)
+
 
 class TestTrackAllocation:
     def test_automatic_tracking(self):
