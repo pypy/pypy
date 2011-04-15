@@ -63,7 +63,8 @@ class ModuleDictStrategy(DictStrategy):
                 cell.w_value = w_default
             return cell.w_value
         else:
-            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.setdefault(w_key, w_default)
 
     def delitem(self, w_dict, w_key):
         space = self.space
@@ -81,7 +82,8 @@ class ModuleDictStrategy(DictStrategy):
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:
-            self._as_rdict().impl_fallback_delitem(w_key)
+            self.switch_to_object_strategy(w_dict)
+            w_dict.delitem(w_key)
 
     def length(self, w_dict):
         # inefficient, but do we care?

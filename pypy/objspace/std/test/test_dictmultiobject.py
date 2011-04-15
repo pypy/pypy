@@ -726,7 +726,7 @@ class AppTestModuleDict(object):
         d = type(__builtins__)("abc").__dict__
         raises(KeyError, "d['def']")
 
-    def test_fallback_getitem(self):
+    def test_fallback_evil_key(self):
         class F(object):
             def __hash__(self):
                 return hash("s")
@@ -737,7 +737,23 @@ class AppTestModuleDict(object):
         assert d["s"] == 12
         assert d[F()] == d["s"]
 
-    #XXX tests for fallbacks setdefault, delitem
+        d = type(__builtins__)("abc").__dict__
+        x = d.setdefault("s", 12)
+        assert x == 12
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = type(__builtins__)("abc").__dict__
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = type(__builtins__)("abc").__dict__
+        d["s"] = 12
+        del d[F()]
+
+        assert "s" not in d
+        assert F() not in d
+
 
 class FakeString(str):
     hash_count = 0
@@ -810,6 +826,10 @@ class FakeSpace:
 
     w_StopIteration = StopIteration
     w_None = None
+    w_NoneType = type(None, None)
+    w_int = int
+    w_bool = bool
+    w_float = float
     StringObjectCls = FakeString
     w_dict = W_DictMultiObject
     iter = iter
@@ -954,6 +974,35 @@ class BaseTestRDictImplementation:
         if on_pypy:
             assert key.hash_count == 2
 
+    def test_fallback_evil_key(self):
+        class F(object):
+            def __hash__(self):
+                return hash("s")
+            def __eq__(self, other):
+                return other == "s"
+
+        d = self.get_impl()
+        d.setitem("s", 12)
+        assert d.getitem("s") == 12
+        assert d.getitem(F()) == d.getitem("s")
+
+        d = self.get_impl()
+        x = d.setdefault("s", 12)
+        assert x == 12
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = self.get_impl()
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = self.get_impl()
+        d.setitem("s", 12)
+        d.delitem(F())
+
+        assert "s" not in d.keys()
+        assert F() not in d.keys()
+
 class TestStrDictImplementation(BaseTestRDictImplementation):
     StrategyClass = StringDictStrategy
     #ImplementionClass = StrDictImplementation
@@ -963,8 +1012,6 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
         s = FakeString(self.string)
         assert self.impl.getitem(s) == 1000
         assert s.unwrapped
-
-    #XXX add tests for fallback getitem, delitem
 
 ## class TestMeasuringDictImplementation(BaseTestRDictImplementation):
 ##     ImplementionClass = MeasuringDictImplementation

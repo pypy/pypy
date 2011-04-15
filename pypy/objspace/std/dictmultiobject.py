@@ -36,13 +36,10 @@ class W_DictMultiObject(W_Object):
                                    instance=False, classofinstance=None,
                                    from_strdict_shared=None, strdict=False):
         if from_strdict_shared is not None:
-            assert w_type is None
             assert not module and not instance and classofinstance is None
             strategy = space.fromcache(StringDictStrategy)
             storage = strategy.cast_to_void_star(from_strdict_shared)
-            w_type = space.w_dict #XXX is this right?
-            w_self = space.allocate_instance(W_DictMultiObject, w_type)
-            W_DictMultiObject.__init__(w_self, space, strategy, storage)
+            w_self = W_DictMultiObject(space, strategy, storage)
             return w_self
 
         if space.config.objspace.std.withcelldict and module:
@@ -401,7 +398,8 @@ class StringDictStrategy(DictStrategy):
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:
-            self._as_rdict().impl_fallback_delitem(w_key)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.delitem(w_key)
 
     def length(self, w_dict):
         return len(self.cast_from_void_star(w_dict.dstorage))
@@ -421,7 +419,8 @@ class StringDictStrategy(DictStrategy):
         elif _is_sane_hash(space, w_lookup_type):
             return None
         else:
-            return self._as_rdict().impl_fallback_getitem(w_key)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.getitem(w_key)
 
     def iter(self, w_dict):
         return StrIteratorImplementation(self.space, w_dict)
