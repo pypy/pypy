@@ -394,8 +394,6 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         w_dict = check_new_dictionary(space, w_dict)
         w_olddict = self.getdict(space)
         assert isinstance(w_dict, W_DictMultiObject)
-        #if w_olddict.rdict is None:
-        #    w_olddict._as_rdict()
         if type(w_olddict.strategy) is not ObjectDictStrategy:
             w_olddict.strategy.switch_to_object_strategy(w_olddict)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
