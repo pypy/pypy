@@ -228,10 +228,8 @@ class OpAssembler(object):
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
-        destlocs = descr._arm_arglocs
         assert fcond == c.AL
 
-        remap_frame_layout(self, arglocs, destlocs, r.ip)
         if descr._arm_bootstrap_code == 0:
             self.mc.B_offs(descr._arm_loop_code, fcond)
         else:
@@ -260,24 +258,12 @@ class OpAssembler(object):
             self._ensure_result_bit_extension(loc, size, signed)
         return cond
 
-    def _count_reg_args(self, args):
-        reg_args = 0
-        words = 0
-        for x in range(min(len(args), 4)):
-            if args[x].type == FLOAT:
-                words += 2
-            else:
-                words += 1
-            reg_args += 1
-            if words > 4:
-                reg_args = x
-                break
-        return reg_args
     # XXX improve this interface
     # emit_op_call_may_force
     # XXX improve freeing of stuff here
     def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None):
         n_args = len(args)
+        #XXX replace with _count_reg_args
         reg_args = 0
         words = 0
         for x in range(min(n_args, 4)):
@@ -727,7 +713,8 @@ class ForceOpAssembler(object):
 
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
-        assert op.numargs() == len(descr._arm_arglocs)
+        # XXX check this
+        assert op.numargs() == len(descr._arm_arglocs[0])
         resbox = TempInt()
         self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(),
                                 regalloc, fcond, result=resbox)

@@ -164,7 +164,9 @@ class AssemblerARM(ResOpAssembler):
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
             elif group == self.REF_TYPE:
-                self.fail_boxes_ptr.setitem(fail_index, rffi.cast(llmemory.GCREF, value))
+                tgt = self.fail_boxes_ptr.get_addr_for_num(fail_index)
+                rffi.cast(rffi.LONGP, tgt)[0] = value
+                #self.fail_boxes_ptr.setitem(fail_index, value)# rffi.cast(llmemory.GCREF, value))
             elif group == self.FLOAT_TYPE:
                 self.fail_boxes_float.setitem(fail_index, value)
             else:
@@ -345,41 +347,73 @@ class AssemblerARM(ResOpAssembler):
         self.mc.SUB_ri(r.sp.value, r.sp.value,  WORD)
         self.mc.MOV_rr(r.fp.value, r.sp.value)
 
-    def gen_bootstrap_code(self, inputargs, regalloc, looptoken):
-        for i in range(len(inputargs)):
-            loc = inputargs[i]
-            reg = regalloc.force_allocate_reg(loc)
-            if loc.type != FLOAT:
-                if loc.type == REF:
-                    addr = self.fail_boxes_ptr.get_addr_for_num(i)
-                elif loc.type == INT:
-                    addr = self.fail_boxes_int.get_addr_for_num(i)
-                else:
-                    assert 0
-                self.mc.gen_load_int(reg.value, addr)
-                self.mc.LDR_ri(reg.value, reg.value)
-            elif loc.type == FLOAT:
-                addr = self.fail_boxes_float.get_addr_for_num(i)
-                self.mc.gen_load_int(r.ip.value, addr)
-                self.mc.VLDR(reg.value, r.ip.value)
+    def gen_bootstrap_code(self, nonfloatlocs, floatlocs, inputargs):
+        for i in range(len(nonfloatlocs)):
+            loc = nonfloatlocs[i]
+            if loc is None:
+                continue
+            arg = inputargs[i]
+            assert arg.type != FLOAT
+            if arg.type == REF:
+                addr = self.fail_boxes_ptr.get_addr_for_num(i)
+            elif arg.type == INT:
+                addr = self.fail_boxes_int.get_addr_for_num(i)
             else:
                 assert 0
-            regalloc.possibly_free_var(loc)
-        arglocs = [regalloc.loc(arg) for arg in inputargs]
-        looptoken._arm_arglocs = arglocs
-        return arglocs
+            if loc.is_reg():
+                reg = loc
+            else:
+                reg = r.ip
+            self.mc.gen_load_int(reg.value, addr)
+            self.mc.LDR_ri(reg.value, reg.value)
+            if loc.is_stack():
+                self.mov_loc_loc(r.ip, loc)
+        for i in range(len(floatlocs)):
+            loc = floatlocs[i]
+            if loc is None:
+                continue
+            arg = inputargs[i]
+            assert arg.type == FLOAT
+            addr = self.fail_boxes_float.get_addr_for_num(i)
+            self.mc.gen_load_int(r.ip.value, addr)
+            if loc.is_vfp_reg():
+                self.mc.VLDR(loc.value, r.ip.value)
+            else:
+                tmpreg = r.d0
+                with saved_registers(self.mc, [], [tmpreg]):
+                    self.mc.VLDR(tmpreg.value, r.ip.value)
+                    self.mov_loc_loc(tmpreg, loc)
 
-    def gen_direct_bootstrap_code(self, arglocs, loop_head, looptoken):
+    def _count_reg_args(self, args):
+        reg_args = 0
+        words = 0
+        for x in range(min(len(args), 4)):
+            if args[x].type == FLOAT:
+                words += 2
+            else:
+                words += 1
+            reg_args += 1
+            if words > 4:
+                reg_args = x
+                break
+        return reg_args
+
+    def gen_direct_bootstrap_code(self, loop_head, looptoken, inputargs):
         self.gen_func_prolog()
-        #import pdb; pdb.set_trace()
-        reg_args = self._count_reg_args(arglocs)
+        nonfloatlocs, floatlocs = looptoken._arm_arglocs
 
-        stack_locs = len(arglocs) - reg_args
+        reg_args = self._count_reg_args(inputargs)
+
+        stack_locs = len(inputargs) - reg_args
         selected_reg = 0
         for i in range(reg_args):
-            loc = arglocs[i]
+            arg = inputargs[i]
+            if arg.type == FLOAT:
+                loc = floatlocs[i]
+            else:
+                loc = nonfloatlocs[i]
             self.mov_loc_loc(r.all_regs[selected_reg], loc)
-            if arglocs[i].type == FLOAT:
+            if inputargs[i].type == FLOAT:
                 selected_reg += 2
             else:
                 selected_reg += 1
@@ -387,8 +421,12 @@ class AssemblerARM(ResOpAssembler):
         stack_position = len(r.callee_saved_registers)*WORD + \
                             len(r.callee_saved_vfp_registers)*2*WORD + \
                             WORD # for the FAIL INDEX
-        for i in range(reg_args, len(arglocs)):
-            loc = arglocs[i]
+        for i in range(reg_args, len(inputargs)):
+            arg = inputargs[i]
+            if arg.type == FLOAT:
+                loc = floatlocs[i]
+            else:
+                loc = nonfloatlocs[i]
             if loc.is_reg():
                 self.mc.LDR_ri(loc.value, r.fp.value, stack_position)
             elif loc.is_vfp_reg():
@@ -434,9 +472,9 @@ class AssemblerARM(ResOpAssembler):
         self.align()
         self.gen_func_prolog()
         sp_patch_location = self._prepare_sp_patch_position()
-        arglocs = self.gen_bootstrap_code(inputargs, regalloc, looptoken)
-        #for x in range(5):
-        #    self.mc.NOP()
+        nonfloatlocs, floatlocs = regalloc.prepare_loop(inputargs, operations, looptoken)
+        self.gen_bootstrap_code(nonfloatlocs, floatlocs, inputargs)
+        looptoken._arm_arglocs = [nonfloatlocs, floatlocs]
         loop_head = self.mc.currpos()
 
         looptoken._arm_loop_code = loop_head
@@ -450,7 +488,7 @@ class AssemblerARM(ResOpAssembler):
         self.align()
 
         direct_bootstrap_code = self.mc.currpos()
-        self.gen_direct_bootstrap_code(arglocs, loop_head, looptoken)
+        self.gen_direct_bootstrap_code(loop_head, looptoken, inputargs)
 
         loop_start = self.materialize_loop(looptoken)
         looptoken._arm_bootstrap_code = loop_start
@@ -531,7 +569,7 @@ class AssemblerARM(ResOpAssembler):
         # manager
         if frame_depth == 1:
             return
-        n = (frame_depth-1)*WORD
+        n = (frame_depth)*WORD
         self._adjust_sp(n, cb, base_reg=r.fp)
 
     def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):

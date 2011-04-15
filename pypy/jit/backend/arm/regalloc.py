@@ -1,5 +1,5 @@
 from pypy.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, compute_vars_longevity, TempBox
+        RegisterManager, compute_vars_longevity, TempBox, compute_loop_consts
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm.locations import imm
@@ -9,6 +9,7 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_cmp_op,
                                                     prepare_float_op,
                                                     _check_imm_arg)
+from pypy.jit.backend.arm.jump import remap_frame_layout_mixed
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxInt, BoxPtr, AbstractFailDescr,
@@ -43,14 +44,17 @@ class ARMFrameManager(FrameManager):
     def __init__(self):
         FrameManager.__init__(self)
         self.frame_depth = 1
-
     @staticmethod
     def frame_pos(loc, type):
-        if type == INT or type == REF:
-            num_words = 1
-        else:
-            num_words = 2
+        num_words = ARMFrameManager.frame_size(type)
         return locations.StackLocation(loc, num_words=num_words, type=type)
+
+    @staticmethod
+    def frame_size(type):
+        num_words = 1
+        if type == FLOAT:
+            num_words = 2
+        return num_words
 
 def void(self, op, fcond):
     return []
@@ -204,6 +208,27 @@ class Regalloc(object):
         else:
             assert isinstance(value, ConstFloat)
             return self.vfprm.convert_to_imm(value)
+
+    def prepare_loop(self, inputargs, operations, looptoken):
+        loop_consts = compute_loop_consts(inputargs, operations[-1], looptoken)
+        floatlocs = [None] * len(inputargs)
+        nonfloatlocs = [None] * len(inputargs)
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert not isinstance(arg, Const)
+            reg = None
+            loc = inputargs[i]
+            if arg not in loop_consts and self.longevity[arg][1] > -1:
+                reg = self.try_allocate_reg(loc)
+
+            loc = self.loc(arg)
+            if arg.type == FLOAT:
+                floatlocs[i] = loc
+            else:
+                nonfloatlocs[i] = loc
+        self.possibly_free_vars(list(inputargs))
+        
+        return nonfloatlocs, floatlocs
 
     def update_bindings(self, locs, frame_depth, inputargs):
         used = {}
@@ -509,11 +534,33 @@ class Regalloc(object):
 
 
     def prepare_op_jump(self, op, fcond):
+        assembler = self.assembler
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
-        locs = [self.loc(op.getarg(i)) for i in range(op.numargs())]
-        return locs
+        nonfloatlocs, floatlocs = descr._arm_arglocs
 
+        # get temporary locs
+        tmploc = r.ip
+        box = TempFloat()
+        # compute 'vfptmploc' to be all_regs[0] by spilling what is there
+        vfptmp = self.vfprm.all_regs[0]
+        vfptmploc = self.vfprm.force_allocate_reg(box, selected_reg=vfptmp)
+
+        # Part about non-floats
+        # XXX we don't need a copy, we only just the original list
+        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs())
+                         if op.getarg(i).type != FLOAT]
+        assert tmploc not in nonfloatlocs
+        dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
+        # Part about floats
+        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs())
+                         if op.getarg(i).type == FLOAT]
+        dst_locations2 = [loc for loc in floatlocs if loc is not None]
+        remap_frame_layout_mixed(self.assembler,
+                                 src_locations1, dst_locations1, tmploc,
+                                 src_locations2, dst_locations2, vfptmploc)
+        self.possibly_free_var(box)
+        return []
 
     def prepare_op_setfield_gc(self, op, fcond):
         boxes = list(op.getarglist())

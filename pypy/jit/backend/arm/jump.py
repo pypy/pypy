@@ -8,7 +8,9 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     srccount = {}    # maps dst_locations to how many times the same
                      # location appears in src_locations
     for dst in dst_locations:
-        srccount[dst.as_key()] = 0
+        key = dst.as_key()
+        assert key not in srccount, "duplicate value in dst_locations!"
+        srccount[key] = 0
     for i in range(len(dst_locations)):
         src = src_locations[i]
         if src.is_imm():
@@ -68,3 +70,41 @@ def _move(assembler, src, dst, tmpreg):
         assembler.regalloc_mov(src, tmpreg)
         src = tmpreg
     assembler.regalloc_mov(src, dst)
+
+def remap_frame_layout_mixed(assembler,
+                             src_locations1, dst_locations1, tmpreg1,
+                             src_locations2, dst_locations2, tmpreg2):
+    # find and push the xmm stack locations from src_locations2 that
+    # are going to be overwritten by dst_locations1
+    from pypy.jit.backend.arm.arch import WORD
+    extrapushes = []
+    dst_keys = {}
+    for loc in dst_locations1:
+        dst_keys[loc.as_key()] = None
+    src_locations2red = []
+    dst_locations2red = []
+    for i in range(len(src_locations2)):
+        loc    = src_locations2[i]
+        dstloc = dst_locations2[i]
+        if loc.is_stack():
+            key = loc.as_key()
+            if (key in dst_keys or (loc.width > WORD and
+                                    (key + WORD) in dst_keys)):
+                assembler.regalloc_push(loc)
+                extrapushes.append(dstloc)
+                continue
+        src_locations2red.append(loc)
+        dst_locations2red.append(dstloc)
+    src_locations2 = src_locations2red
+    dst_locations2 = dst_locations2red
+    #
+    # remap the integer and pointer registers and stack locations
+    remap_frame_layout(assembler, src_locations1, dst_locations1, tmpreg1)
+    #
+    # remap the vfp registers and stack locations
+    remap_frame_layout(assembler, src_locations2, dst_locations2, tmpreg2)
+    #
+    # finally, pop the extra xmm stack locations
+    while len(extrapushes) > 0:
+        loc = extrapushes.pop()
+        assembler.regalloc_pop(loc)
