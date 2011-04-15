@@ -153,10 +153,10 @@ class LoopWithIds(Function):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
 
-    def match(self, expected_src):
+    def match(self, expected_src, **kwds):
         ops = list(self.allops())
         matcher = OpMatcher(ops, src=self.format_ops())
-        return matcher.match(expected_src)
+        return matcher.match(expected_src, **kwds)
 
     def match_by_id(self, id, expected_src, **kwds):
         ops = list(self.ops_by_id(id, **kwds))
