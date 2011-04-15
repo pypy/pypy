@@ -1455,23 +1455,35 @@ class TestPyPyCNew(BaseTestPyPyC):
             i=2
             sa=0
             while i < 300: 
-                sa+=max(*range(i))
+                sa+=max(*range(i))  # ID: max
                 i+=1
             return sa
         log = self.run(main, [], threshold=200)
         assert log.result == main()
         loop, = log.loops_by_filename(self.filepath)
-        # XXX: what do we want to check here?
+        # check that max() is turned into a residual call and not into 300
+        # individual guards
+        assert loop.match_by_id("max", """
+           ...
+           p58 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
+           ...
+        """)
 
     def test_iter_max(self):
         def main():
             i=2
             sa=0
             while i < 300:
-                sa+=max(range(i))
+                sa+=max(range(i))   # ID: max
                 i+=1
             return sa
         log = self.run(main, [], threshold=200)
         assert log.result == main()
         loop, = log.loops_by_filename(self.filepath)
-        # XXX: what do we want to check here?
+        # check that max() is turned into a residual call and not into 300
+        # individual guards
+        assert loop.match_by_id("max", """
+           ...
+           p58 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
+           ...
+        """)
