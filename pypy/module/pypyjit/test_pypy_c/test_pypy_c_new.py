@@ -1354,6 +1354,12 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [], threshold=200)
         assert log.result == 9895050.0
         loop, = log.loops_by_filename(self.filepath)
+        #
+        # check that the overloaded __getitem__ does not introduce double
+        # array bound checks.
+        #
+        # The force_token()s are still there, but will be eliminated by the
+        # backend regalloc, so they are harmless
         assert loop.match("""
             ...
             i20 = int_ge(i18, i8)
@@ -1378,9 +1384,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             f39 = getarrayitem_raw(i13, i36, descr=...)
             ...
         """)
-        # XXX: what do we want to check here?        
-        # We want to make sure that the overloaded __getitem__
-        # not introduceds double array bound checks
 
     def test_circular(self):
         def main():
@@ -1404,6 +1407,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [], threshold=200)
         assert log.result == 1239690.0
         loop, = log.loops_by_filename(self.filepath)
+        #
+        # check that the array bound checks are removed
+        #
+        # The force_token()s are still there, but will be eliminated by the
+        # backend regalloc, so they are harmless
         assert loop.match("""
             ...
             i17 = int_and(i14, 255)
@@ -1425,7 +1433,3 @@ class TestPyPyCNew(BaseTestPyPyC):
             f37 = getarrayitem_raw(i8, i36, descr=...)
             ...
         """)
-        # XXX: what do we want to check here?
-        # We want to check that the array bound checks are removed,
-        # so it's this part of the trace. However we dont care about
-        # the force_token()'s. Can they be ignored?
