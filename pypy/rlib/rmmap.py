@@ -101,7 +101,8 @@ def external(name, args, result):
                              compilation_info=CConfig._compilation_info_)
     safe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
-                           sandboxsafe=True, threadsafe=False)
+                           sandboxsafe=True, threadsafe=False,
+                           _nowrapper=True)
     return unsafe, safe
 
 def winexternal(name, args, result, **kwargs):
@@ -118,18 +119,31 @@ if _POSIX:
     has_mremap = cConfig['has_mremap']
     c_mmap, _c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
                                rffi.INT, off_t], PTR)
-    c_munmap, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
+    c_munmap, _c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
     if has_mremap:
         c_mremap, _ = external('mremap',
                                [PTR, size_t, size_t, rffi.ULONG], PTR)
 
     def c_mmap_safe(addr, length, prot, flags, fd, offset):
+        length = rffi.cast(rffi.SIZE_T, length)
+        prot = rffi.cast(rffi.INT, prot)
+        flags = rffi.cast(rffi.INT, flags)
+        fd = rffi.cast(rffi.INT, fd)
+        offset = rffi.cast(off_t, offset)
         return _c_mmap_safe(addr, length, prot, flags, fd, offset)
     c_mmap_safe._annenforceargs_ = (PTR, int, int, int, int, int)
 
+    def c_munmap_safe(addr, length):
+        length = rffi.cast(rffi.SIZE_T, length)
+        res = _c_munmap_safe(addr, length)
+        return rffi.cast(lltype.Signed, res)
+    c_munmap_safe._annenforceargs_ = (PTR, int)
+
     # this one is always safe
-    _, _get_page_size = external('getpagesize', [], rffi.INT)
+    _, _c_get_page_size = external('getpagesize', [], rffi.INT)
+    def _get_page_size():
+        return rffi.cast(lltype.Signed, _c_get_page_size())
     _get_allocation_granularity = _get_page_size
 
 elif _MS_WINDOWS:
