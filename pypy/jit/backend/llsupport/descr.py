@@ -332,6 +332,8 @@ class BaseCallDescr(AbstractDescr):
             result = 'rffi.cast(lltype.SignedLongLong, res)'
         elif self.get_return_type() == history.VOID:
             result = 'None'
+        elif self.get_return_type() == 'H':
+            result = 'llop.show_from_ptr32(llmemory.GCREF, res)'
         else:
             assert 0
         source = py.code.Source("""
@@ -409,6 +411,12 @@ class GcPtrCallDescr(BaseCallDescr):
     def get_result_size(self, translate_support_code):
         return symbolic.get_size_of_ptr(translate_support_code)
 
+class GcPtrHidden32CallDescr(BaseCallDescr):
+    _clsname = 'GcPtrHidden32CallDescr'
+    _return_type = 'H'
+    def get_result_size(self, translate_support_code):
+        return symbolic.get_size(llmemory.HiddenGcRef32,translate_support_code)
+
 class FloatCallDescr(BaseCallDescr):
     _clsname = 'FloatCallDescr'
     _return_type = history.FLOAT
@@ -437,7 +445,8 @@ def getCallDescrClass(RESULT):
     return getDescrClass(RESULT, BaseIntCallDescr, GcPtrCallDescr,
                          NonGcPtrCallDescr, 'Call', 'get_result_size',
                          Ellipsis,  # <= floatattrname should not be used here
-                         '_is_result_signed')
+                         '_is_result_signed',
+                         GcPtrHidden32CallDescr)
 
 def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
     arg_classes = []

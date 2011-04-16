@@ -346,6 +346,23 @@ def test_get_call_descr_sign():
             descr1 = get_call_descr(c2, [], RESTYPE)
             assert descr1.is_result_signed() == signed
 
+def test_call_descr_hiddengcref32():
+    if sys.maxint == 2147483647:
+        py.test.skip("HiddenGcRef32: for 64-bit only")
+    for tsc in [False, True]:
+        c0 = GcCache(tsc)
+        descr = get_call_descr(c0, [llmemory.HiddenGcRef32], lltype.Void)
+        assert descr.get_arg_types() == 'H'
+        #
+        descr = get_call_descr(c0, [], llmemory.HiddenGcRef32)
+        assert descr.get_return_type() == 'H'
+        sz = descr.get_result_size(tsc)
+        if not tsc:
+            assert sz == 4
+        else:
+            assert isinstance(sz, Symbolic)
+            assert sz.TYPE == llmemory.HiddenGcRef32
+
 
 def test_repr_of_descr():
     c0 = GcCache(False)

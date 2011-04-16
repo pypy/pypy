@@ -44,7 +44,8 @@ class GcLLDescription(GcCache):
                 if (isinstance(op.getdescr(), GcPtrHidden32FieldDescr) or
                     isinstance(op.getdescr(), GcPtrHidden32ArrayDescr) or
                     (isinstance(op.getdescr(), BaseCallDescr) and
-                     'H' in op.getdescr().get_arg_types())):
+                     ('H' in op.getdescr().get_arg_types() or
+                      op.getdescr().get_return_type() == 'H'))):
                     from pypy.jit.metainterp.test.support import SkipThisRun
                     raise SkipThisRun("non-translated test with compressptr")
     def can_inline_malloc(self, descr):
@@ -885,6 +886,11 @@ class GcLLDescr_framework(GcLLDescription):
                                                    [v1], v2))
                         args[i] = v2
                         op = op.copy_and_change(op.getopnum(), args=args)
+                if descr.get_return_type() == 'H':
+                    v1 = BoxInt()
+                    v2 = op.result
+                    newops.append(op.copy_and_change(op.getopnum(), result=v1))
+                    op = ResOperation(rop.SHOW_FROM_PTR32, [v1], v2)
             # ----------
             newops.append(op)
         del operations[:]
