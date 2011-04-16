@@ -1673,6 +1673,24 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
+    def test_duplicate_getfield_2(self):
+        ops = """
+        [p1, p2, i0]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        i2 = getfield_gc(p2, descr=valuedescr)
+        i3 = getfield_gc(p1, descr=valuedescr)
+        i4 = getfield_gc(p2, descr=valuedescr)
+        i5 = int_add(i3, i4)
+        i6 = int_add(i0, i5)
+        jump(p1, p2, i6)
+        """
+        expected = """
+        [p1, p2, i0, i5]
+        i6 = int_add(i0, i5)
+        jump(p1, p2, i6, i5)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_getfield_after_setfield(self):
         ops = """
         [p1, i1]

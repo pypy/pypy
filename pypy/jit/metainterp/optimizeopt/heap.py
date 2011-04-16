@@ -99,6 +99,14 @@ class CachedField(object):
             cf._cached_fields[structvalue2] = fieldvalue2
         return cf
 
+    def produce_potential_short_preamble_ops(self, potential_ops, descr):
+        for structvalue, fieldvalue in self._cached_fields.iteritems():
+            result = fieldvalue.get_key_box()
+            potential_ops[result] = ResOperation(rop.GETFIELD_GC,
+                                                 [structvalue.get_key_box()],
+                                                 result,
+                                                 descr)
+
 
 class CachedArrayItems(object):
     def __init__(self):
@@ -129,7 +137,7 @@ class OptHeap(Optimization):
             self.force_all_lazy_setfields()
         else:
             assert 0   # was: new.lazy_setfields = self.lazy_setfields
-        
+
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_cloned(optimizer, valuemap)
 
@@ -152,6 +160,10 @@ class OptHeap(Optimization):
                            fieldvalue.get_cloned(optimizer, valuemap)
 
         return new
+
+    def produce_potential_short_preamble_ops(self, potential_ops):        
+        for descr, d in self.cached_fields.items():
+            d.produce_potential_short_preamble_ops(potential_ops, descr)
 
     def clean_caches(self):
         del self._lazy_setfields[:]

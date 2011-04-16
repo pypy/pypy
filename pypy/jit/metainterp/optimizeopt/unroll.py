@@ -256,58 +256,63 @@ class UnrollOptimizer(Optimization):
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
+        jumpop = None
         for newop in loop_operations:
             newop = inliner.inline_op(newop, clone=False)
             if newop.getopnum() == rop.JUMP:
                 values = [self.getvalue(arg) for arg in newop.getarglist()]
                 newop.initarglist(virtual_state.make_inputargs(values))
+                jumpop = newop
+                break
 
             #self.optimizer.first_optimization.propagate_forward(newop)
             self.optimizer.send_extra_operation(newop)
-
-        # Remove jump to make sure forced code are placed before it
-        newoperations = self.optimizer.newoperations
-        jmp = newoperations[-1]
-        assert jmp.getopnum() == rop.JUMP
-        self.optimizer.newoperations = newoperations[:-1]
+        assert jumpop
 
         self.boxes_created_this_iteration = {}
-        jumpargs = jmp.getarglist()
+        jumpargs = jumpop.getarglist()
 
         self.short_inliner = Inliner(inputargs, jumpargs)
         short = []
 
-        # FIXME: Should also loop over operations added by forcing things in this loop
-        for op in newoperations: 
+        i = j = 0
+        while i < len(self.optimizer.newoperations):
+            op = self.optimizer.newoperations[i]
             self.boxes_created_this_iteration[op.result] = True
             args = op.getarglist()
             if op.is_guard():
                 args = args + op.getfailargs()
             
             for a in args:
-                self.import_box(a, inputargs, short, short_jumpargs, jumpargs)
+                self.import_box(a, inputargs, short, short_jumpargs,
+                                jumpargs, True)
+            i += 1
 
-        jmp.initarglist(jumpargs)
-        self.optimizer.newoperations.append(jmp)
+            if i == len(self.optimizer.newoperations):
+                while j < len(jumpargs):
+                    a = jumpargs[j]
+                    self.import_box(a, inputargs, short, short_jumpargs,
+                                    jumpargs, True)
+                    j += 1
+
+        jumpop.initarglist(jumpargs)
+        self.optimizer.send_extra_operation(jumpop)
         short.append(ResOperation(rop.JUMP, short_jumpargs, None))
         return inputargs, short
 
-    def import_box(self, box, inputargs, short, short_jumpargs, jumpargs):
+    def import_box(self, box, inputargs, short, short_jumpargs,
+                   jumpargs, extend_inputargs):
         if isinstance(box, Const) or box in inputargs:
             return
         if box in self.boxes_created_this_iteration:
             return
 
         short_op = self.short_boxes[box]
-        import pdb; pdb.set_trace()
-        
         for a in short_op.getarglist():
-            self.import_box(a, inputargs, short, short_jumpargs, jumpargs)
+            self.import_box(a, inputargs, short, short_jumpargs, jumpargs, False)
         short.append(short_op)
-        short_jumpargs.append(short_op.result)
         newop = self.short_inliner.inline_op(short_op)
         self.optimizer.send_extra_operation(newop)
-        inputargs.append(box)
         if newop.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
@@ -317,10 +322,13 @@ class UnrollOptimizer(Optimization):
             self.optimizer.send_extra_operation(guard)
             assert self.optimizer.newoperations[-1] is not guard
 
-        box = newop.result
-        if box in self.optimizer.values:
-            box = self.optimizer.values[box].force_box()
-        jumpargs.append(box)
+        if extend_inputargs:
+            short_jumpargs.append(short_op.result)
+            inputargs.append(box)
+            box = newop.result
+            if box in self.optimizer.values:
+                box = self.optimizer.values[box].force_box()
+            jumpargs.append(box)
         
     def sameop(self, op1, op2):
         if op1.getopnum() != op2.getopnum():
