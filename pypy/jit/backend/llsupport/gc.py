@@ -16,7 +16,7 @@ from pypy.jit.backend.llsupport.symbolic import WORD
 from pypy.jit.backend.llsupport.descr import BaseSizeDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
 from pypy.jit.backend.llsupport.descr import GcPtrFieldDescr
-from pypy.jit.backend.llsupport.descr import get_call_descr
+from pypy.jit.backend.llsupport.descr import get_call_descr, BaseCallDescr
 from pypy.jit.backend.llsupport.descr import GcPtrHidden32FieldDescr
 from pypy.jit.backend.llsupport.descr import GcPtrHidden32ArrayDescr
 from pypy.rpython.memory.gctransform import asmgcroot
@@ -42,7 +42,9 @@ class GcLLDescription(GcCache):
             # skip non-translated tests (using Boehm) if compressed ptrs
             for op in operations:
                 if (isinstance(op.getdescr(), GcPtrHidden32FieldDescr) or
-                    isinstance(op.getdescr(), GcPtrHidden32ArrayDescr)):
+                    isinstance(op.getdescr(), GcPtrHidden32ArrayDescr) or
+                    (isinstance(op.getdescr(), BaseCallDescr) and
+                     'H' in op.getdescr().get_arg_types())):
                     from pypy.jit.metainterp.test.support import SkipThisRun
                     raise SkipThisRun("non-translated test with compressptr")
     def can_inline_malloc(self, descr):
@@ -846,9 +848,10 @@ class GcLLDescr_framework(GcLLDescription):
                         self._gen_write_barrier(newops, op.getarg(0), v)
                         op = op.copy_and_change(rop.SETARRAYITEM_RAW)
             # ---------- compressptr support ----------
+            descr = op.getdescr()
             if (self.supports_compressed_ptrs and
-                (isinstance(op.getdescr(), GcPtrHidden32FieldDescr) or
-                 isinstance(op.getdescr(), GcPtrHidden32ArrayDescr))):
+                (isinstance(descr, GcPtrHidden32FieldDescr) or
+                 isinstance(descr, GcPtrHidden32ArrayDescr))):
                 num = op.getopnum()
                 if (num == rop.GETFIELD_GC or
                     num == rop.GETFIELD_GC_PURE or
@@ -869,6 +872,19 @@ class GcLLDescr_framework(GcLLDescription):
                     newops.append(ResOperation(rop.HIDE_INTO_PTR32, [v1], v2))
                     op = op.copy_and_change(num, args=[op.getarg(0),
                                                        op.getarg(1), v2])
+            elif (self.supports_compressed_ptrs and
+                  isinstance(descr, BaseCallDescr)):
+                args = op.getarglist()
+                arg_classes = descr.get_arg_types()
+                assert len(args) == len(arg_classes)
+                for i in range(len(arg_classes)):
+                    if arg_classes[i] == 'H':
+                        v1 = args[i]
+                        v2 = BoxInt()
+                        newops.append(ResOperation(rop.HIDE_INTO_PTR32,
+                                                   [v1], v2))
+                        args[i] = v2
+                        op = op.copy_and_change(op.getopnum(), args=args)
             # ----------
             newops.append(op)
         del operations[:]

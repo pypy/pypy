@@ -44,3 +44,9 @@ class TestRCompressed(LLJitMixin):
             return z.n * 1000 + ord(t.c)
         res = self.interp_operations(f, [42])
         assert res == 42063
+
+    def test_call_argument(self):
+        ...
+
+    def test_call_result(self):
+        ...

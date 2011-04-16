@@ -84,7 +84,7 @@ class Assembler(object):
                     return True
             constants = self.constants_i
         elif kind == 'ref':
-            value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
+            value = heaptracker.cast_to_gcref(value)
             constants = self.constants_r
         elif kind == 'float':
             if const.concretetype == lltype.Float:

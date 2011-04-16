@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 
 
@@ -33,6 +34,18 @@ def _count_fields(STRUCT):
         else:
             raise ValueError(TYPE)
     return result
+
+def cast_to_gcref(value):
+    TYPE = lltype.typeOf(value)
+    if isinstance(TYPE.TO, lltype.GcOpaqueType):
+        if TYPE == llmemory.GCREF:
+            return value
+        elif TYPE == llmemory.HiddenGcRef32:
+            return llop.show_from_ptr32(llmemory.GCREF, value)
+        else:
+            raise TypeError(TYPE)
+    else:
+        return lltype.cast_opaque_ptr(llmemory.GCREF, value)
 
 # ____________________________________________________________
 
