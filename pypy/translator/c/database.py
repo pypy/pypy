@@ -1,7 +1,7 @@
-from pypy.rpython.lltypesystem.lltype import \
-     Primitive, Ptr, typeOf, RuntimeTypeInfo, \
-     Struct, Array, FuncType, PyObject, Void, \
-     ContainerType, OpaqueType, FixedSizeArray, _uninitialized
+
+from pypy.rpython.lltypesystem.lltype import (
+    Primitive, Ptr, typeOf, RuntimeTypeInfo, Struct, Array, FuncType, PyObject,
+    Void, ContainerType, OpaqueType, FixedSizeArray, _uninitialized, Typedef)
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
 from pypy.rpython.lltypesystem.llmemory import HiddenGcRef32
@@ -102,6 +102,8 @@ class LowLevelDatabase(object):
     def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
         if isinstance(T, Primitive) or T == GCREF or T == HiddenGcRef32:
             return PrimitiveType[T]
+        elif isinstance(T, Typedef):
+            return '%s @' % T.c_name
         elif isinstance(T, Ptr):
             if (isinstance(T.TO, OpaqueType) and
                 T.TO.hints.get('c_pointer_typedef') is not None):

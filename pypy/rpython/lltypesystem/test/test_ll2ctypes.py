@@ -1000,6 +1000,13 @@ class TestLL2Ctypes(object):
         p = ctypes2lltype(lltype.Ptr(NODE), ctypes.pointer(pc))
         assert p.pong.ping == p
 
+    def test_typedef(self):
+        assert ctypes2lltype(lltype.Typedef(lltype.Signed, 'test'), 6) == 6
+        assert ctypes2lltype(lltype.Typedef(lltype.Float, 'test2'), 3.4) == 3.4
+
+        assert get_ctypes_type(lltype.Signed) == get_ctypes_type(
+            lltype.Typedef(lltype.Signed, 'test3'))
+
     def test_cast_adr_to_int(self):
         class someaddr(object):
             def _cast_to_int(self):
@@ -1014,7 +1021,7 @@ class TestLL2Ctypes(object):
         node = lltype.malloc(NODE)
         ref = lltype.cast_opaque_ptr(llmemory.GCREF, node)
         back = rffi.cast(llmemory.GCREF, rffi.cast(lltype.Signed, ref))
-        assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), ref) == node
+        assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), back) == node
 
     def test_gcref_forth_and_back(self):
         cp = ctypes.c_void_p(1234)

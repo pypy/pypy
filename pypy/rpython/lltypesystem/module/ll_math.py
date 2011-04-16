@@ -56,6 +56,7 @@ math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+math_isinf = math_llexternal('isinf', [rffi.DOUBLE], rffi.INT)
 
 # ____________________________________________________________
 #
@@ -94,7 +95,8 @@ def ll_math_isnan(y):
     return y != y
 
 def ll_math_isinf(y):
-    return y != 0 and y * .5 == y
+    # Use a bitwise OR so the JIT doesn't produce 2 different guards.
+    return (y == INFINITY) | (y == -INFINITY)
 
 
 ll_math_copysign = math_copysign
