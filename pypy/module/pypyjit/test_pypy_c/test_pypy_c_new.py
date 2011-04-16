@@ -1498,7 +1498,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             try:
                 from _ffi import CDLL, types
             except ImportError:
-                sys.stdout.write('SKIP: cannot import _ffi')
+                sys.stderr.write('SKIP: cannot import _ffi\n')
                 return 0
 
             libm = CDLL(libm_name)

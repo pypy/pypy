@@ -271,12 +271,12 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert log.result == 42
 
     def test_skip(self):
-        import _pytest
+        import pytest
         def f():
             import sys
             print >> sys.stderr, 'SKIP: foobar'
         #
-        raises(_pytest.runner.Skipped, "self.run(f, [])")
+        raises(pytest.skip.Exception, "self.run(f, [])")
 
     def test_parse_jitlog(self):
         def f():
