@@ -233,5 +233,34 @@ class QuasiImmutTests(object):
 
         assert self.meta_interp(g, []) == g()
 
+    def test_invalidate_bridge(self):
+        jitdriver = JitDriver(greens=['foo'], reds=['i', 'total'])
+
+        class Foo(object):
+            _immutable_fields_ = ['a?']
+
+        def f(foo):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point(i=i, total=total, foo=foo)
+                if i > 5:
+                    total += foo.a
+                else:
+                    total += 2*foo.a
+                i += 1
+            return total
+
+        def main():
+            foo = Foo()
+            foo.a = 1
+            total = f(foo)
+            foo.a = 2
+            total += f(foo)
+            return total
+
+        res = self.meta_interp(main, [])
+        assert res == main()
+
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
     pass

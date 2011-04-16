@@ -134,6 +134,7 @@ class Assembler386(object):
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
         self.current_clt = looptoken.compiled_loop_token
+        self.invalidate_positions = []
         self.pending_guard_tokens = []
         self.mc = codebuf.MachineCodeBlockWrapper()
         if self.datablockwrapper is None:
@@ -142,6 +143,7 @@ class Assembler386(object):
                                                             allblocks)
 
     def teardown(self):
+        self.invalidate_positions = None
         self.pending_guard_tokens = None
         self.mc = None
         self.looppos = -1
@@ -450,9 +452,10 @@ class Assembler386(object):
                 mc.copy_to_raw_memory(addr)
             else:
                 # guard not invalidate, patch where it jumps
-                pos, _ = clt.invalidate_positions[inv_counter]
-                clt.invalidate_positions[inv_counter] = (pos + rawstart,
-                                                         relative_target)
+                pos, _ = self.invalidate_positions[inv_counter]
+                clt.invalidate_positions.append((pos + rawstart,
+                                                 relative_target))
+                inv_counter += 1
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -1458,9 +1461,9 @@ class Assembler386(object):
 
     def genop_guard_guard_not_invalidated(self, ign_1, guard_op, guard_token,
                                      locs, ign_2):
-        pos = self.mc.get_relative_pos() + 1 # after jmp
+        pos = self.mc.get_relative_pos() + 1 # after potential jmp
         guard_token.pos_jump_offset = pos
-        self.current_clt.invalidate_positions.append((pos, 0))
+        self.invalidate_positions.append((pos, 0))
         self.pending_guard_tokens.append(guard_token)
 
     def genop_guard_guard_exception(self, ign_1, guard_op, guard_token,
