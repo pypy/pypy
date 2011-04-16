@@ -594,12 +594,15 @@ class FunctionCodeGenerator(object):
 
 
     def OP_PTR_NONZERO(self, op):
+        # equivalent to (%s != NULL), but works also for HiddenGcRef32
         return '%s = !!%s;' % (self.expr(op.result),
                                self.expr(op.args[0]))
+
     def OP_PTR_ISZERO(self, op):
+        # equivalent to (%s == NULL), but works also for HiddenGcRef32
         return '%s = !%s;' % (self.expr(op.result),
                               self.expr(op.args[0]))
-    
+
     def OP_PTR_EQ(self, op):
         return '%s = (%s == %s);' % (self.expr(op.result),
                                      self.expr(op.args[0]),
