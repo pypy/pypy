@@ -138,6 +138,7 @@ class AbstractDescr(AbstractValue):
     def get_arg_types(self):
         """ Implement in call descr.
         Must return a string of INT, REF and FLOAT ('i', 'r', 'f').
+        Can also contain 'L' or 'H'; see get_return_type().
         """
         raise NotImplementedError
 
@@ -145,6 +146,7 @@ class AbstractDescr(AbstractValue):
         """ Implement in call descr.
         Must return INT, REF, FLOAT, or 'v' for void.
         On 32-bit (hack) it can also be 'L' for longlongs.
+        On 64-bit (hack) it can also be 'H' for HiddenGcRef32.
         """
         raise NotImplementedError
 

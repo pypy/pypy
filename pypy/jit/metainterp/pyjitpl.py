@@ -1157,7 +1157,7 @@ class MIFrame(object):
                     src_i += 1
                     if box.type == history.INT:
                         break
-            elif kind == history.REF:
+            elif kind == history.REF or kind == 'H':    # HiddenGcRef32
                 while True:
                     box = argboxes[src_r]
                     src_r += 1

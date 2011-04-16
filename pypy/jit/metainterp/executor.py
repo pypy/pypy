@@ -56,7 +56,7 @@ def do_call(cpu, metainterp, argboxes, descr):
             metainterp.execute_raised(e)
             result = 0
         return BoxInt(result)
-    if rettype == REF:
+    if rettype == REF or rettype == 'H':
         try:
             result = cpu.bh_call_r(func, descr, args_i, args_r, args_f)
         except Exception, e:
