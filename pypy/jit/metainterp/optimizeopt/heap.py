@@ -4,7 +4,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
-
+from pypy.jit.metainterp.history import ConstInt
 
 class CachedField(object):
     def __init__(self):
@@ -104,9 +104,8 @@ class CachedField(object):
             result = fieldvalue.get_key_box()
             potential_ops[result] = ResOperation(rop.GETFIELD_GC,
                                                  [structvalue.get_key_box()],
-                                                 result,
-                                                 descr)
-
+                                                 result, descr)
+                    
 
 class CachedArrayItems(object):
     def __init__(self):
@@ -164,6 +163,22 @@ class OptHeap(Optimization):
     def produce_potential_short_preamble_ops(self, potential_ops):        
         for descr, d in self.cached_fields.items():
             d.produce_potential_short_preamble_ops(potential_ops, descr)
+        for descr, d in self.cached_arrayitems.items():
+            for value, cache in d.items():
+                for index, fieldvalue in cache.fixed_index_items.items():
+                    result = fieldvalue.get_key_box()
+                    op = ResOperation(rop.GETARRAYITEM_GC,
+                                      [value.get_key_box(), ConstInt(index)],
+                                      result, descr)
+                    potential_ops[result] = op
+                if cache.var_index_item and cache.var_index_indexvalue:
+                    result = cache.var_index_item.get_key_box()
+                    op = ResOperation(rop.GETARRAYITEM_GC,
+                                      [value.get_key_box(),
+                                       cache.var_index_indexvalue.get_key_box()],
+                                      result, descr)
+                    potential_ops[result] = op
+                    
 
     def clean_caches(self):
         del self._lazy_setfields[:]
