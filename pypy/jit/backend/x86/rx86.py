@@ -672,8 +672,8 @@ for insnname, rex_type in [('MOV', rex_w), ('MOV32', rex_nw)]:
     define_modrm_modes(insnname + '_r*', [rex_type, '\x8B', register(1, 8)])
     define_modrm_modes(insnname + '_*i', [rex_type, '\xC7', orbyte(0<<3)], [immediate(2)])
 
-define_modrm_modes('MOV8_*r', [rex_w, '\x88', byte_register(2, 8)], regtype='BYTE')
-define_modrm_modes('MOV8_*i', [rex_w, '\xC6', orbyte(0<<3)], [immediate(2, 'b')], regtype='BYTE')
+define_modrm_modes('MOV8_*r', [rex_nw, '\x88', byte_register(2, 8)], regtype='BYTE')
+define_modrm_modes('MOV8_*i', [rex_nw, '\xC6', orbyte(0<<3)], [immediate(2, 'b')], regtype='BYTE')
 
 define_modrm_modes('MOVZX8_r*', [rex_w, '\x0F\xB6', register(1, 8)], regtype='BYTE')
 define_modrm_modes('MOVSX8_r*', [rex_w, '\x0F\xBE', register(1, 8)], regtype='BYTE')
