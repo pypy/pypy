@@ -312,6 +312,8 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
+                         rop.HIDE_INTO_PTR32,
+                         rop.SHOW_FROM_PTR32,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))

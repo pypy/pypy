@@ -1,4 +1,4 @@
-import os
+import os, py
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
@@ -17,6 +17,8 @@ from pypy.jit.backend.llsupport.descr import BaseSizeDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
 from pypy.jit.backend.llsupport.descr import GcPtrFieldDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
+from pypy.jit.backend.llsupport.descr import GcPtrHidden32FieldDescr
+from pypy.jit.backend.llsupport.descr import GcPtrHidden32ArrayDescr
 from pypy.rpython.memory.gctransform import asmgcroot
 
 # ____________________________________________________________
@@ -36,7 +38,13 @@ class GcLLDescription(GcCache):
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
     def rewrite_assembler(self, cpu, operations):
-        pass
+        if not we_are_translated():
+            # skip non-translated tests (using Boehm) if compressed ptrs
+            for op in operations:
+                if (isinstance(op.getdescr(), GcPtrHidden32FieldDescr) or
+                    isinstance(op.getdescr(), GcPtrHidden32ArrayDescr)):
+                    from pypy.jit.metainterp.test.support import SkipThisRun
+                    raise SkipThisRun("non-translated test with compressptr")
     def can_inline_malloc(self, descr):
         return False
     def can_inline_malloc_varsize(self, descr, num_elem):
@@ -579,6 +587,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.single_gcref_descr = GcPtrFieldDescr('', 0)
         self.supports_compressed_ptrs = gcdescr.config.translation.compressptr
         if self.supports_compressed_ptrs:
+            assert WORD == 8
             assert rffi.sizeof(rffi.UINT)==rffi.sizeof(llmemory.HiddenGcRef32)
 
         # make a TransformerLayoutBuilder and save it on the translator
@@ -773,7 +782,7 @@ class GcLLDescr_framework(GcLLDescription):
                     llmemory.cast_ptr_to_adr(gcref_newptr))
 
     def rewrite_assembler(self, cpu, operations):
-        # Perform two kinds of rewrites in parallel:
+        # Perform three kinds of rewrites in parallel:
         #
         # - Add COND_CALLs to the write barrier before SETFIELD_GC and
         #   SETARRAYITEM_GC operations.
@@ -785,6 +794,9 @@ class GcLLDescr_framework(GcLLDescription):
         #   but nonmovable list; and here, we modify 'operations' to
         #   replace direct usage of ConstPtr with a BoxPtr loaded by a
         #   GETFIELD_RAW from the array 'gcrefs.list'.
+        #
+        # - For compressptr, add explicit HIDE_INTO_PTR32 and
+        #   SHOW_FROM_PTR32 operations.
         #
         newops = []
         # we can only remember one malloc since the next malloc can possibly
@@ -833,6 +845,30 @@ class GcLLDescr_framework(GcLLDescription):
                         # write_barrier_from_array
                         self._gen_write_barrier(newops, op.getarg(0), v)
                         op = op.copy_and_change(rop.SETARRAYITEM_RAW)
+            # ---------- compressptr support ----------
+            if (self.supports_compressed_ptrs and
+                (isinstance(op.getdescr(), GcPtrHidden32FieldDescr) or
+                 isinstance(op.getdescr(), GcPtrHidden32ArrayDescr))):
+                num = op.getopnum()
+                if (num == rop.GETFIELD_GC or
+                    num == rop.GETFIELD_GC_PURE or
+                    num == rop.GETARRAYITEM_GC or
+                    num == rop.GETARRAYITEM_GC_PURE):
+                    v1 = BoxInt()
+                    v2 = op.result
+                    newops.append(op.copy_and_change(num, result=v1))
+                    op = ResOperation(rop.SHOW_FROM_PTR32, [v1], v2)
+                elif num == rop.SETFIELD_GC or num == rop.SETFIELD_RAW:
+                    v1 = op.getarg(1)
+                    v2 = BoxInt()
+                    newops.append(ResOperation(rop.HIDE_INTO_PTR32, [v1], v2))
+                    op = op.copy_and_change(num, args=[op.getarg(0), v2])
+                elif num == rop.SETARRAYITEM_GC or num == rop.SETARRAYITEM_RAW:
+                    v1 = op.getarg(2)
+                    v2 = BoxInt()
+                    newops.append(ResOperation(rop.HIDE_INTO_PTR32, [v1], v2))
+                    op = op.copy_and_change(num, args=[op.getarg(0),
+                                                       op.getarg(1), v2])
             # ----------
             newops.append(op)
         del operations[:]

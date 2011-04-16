@@ -445,6 +445,9 @@ _oplist = [
     #'INSTANCEOF/1db',
     #'SUBCLASSOF/2b',
     #
+    # backend-only operations
+    'HIDE_INTO_PTR32/1',
+    'SHOW_FROM_PTR32/1',
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
     'GETARRAYITEM_GC/2d',

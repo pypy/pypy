@@ -1,4 +1,3 @@
-
 import py, sys
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
@@ -9,6 +8,9 @@ from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.codewriter import longlong
+
+class SkipThisRun(Exception):
+    pass
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, **kwds):
@@ -112,6 +114,8 @@ def _run_with_pyjitpl(testself, args):
         #if conftest.option.view:
         #    metainterp.stats.view()
         return e.args[0]
+    except SkipThisRun:
+        return NotImplemented
     else:
         raise Exception("FAILED")
 
@@ -180,10 +184,11 @@ class JitMixin:
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
         result2 = _run_with_pyjitpl(self, args)
-        assert result1 == result2
-        # try to run it by running the code compiled just before
-        result3 = _run_with_machine_code(self, args)
-        assert result1 == result3 or result3 == NotImplemented
+        if result2 != NotImplemented:
+            assert result1 == result2
+            # try to run it by running the code compiled just before
+            result3 = _run_with_machine_code(self, args)
+            assert result1 == result3 or result3 == NotImplemented
         #
         if (longlong.supports_longlong and
             isinstance(result1, longlong.r_float_storage)):
