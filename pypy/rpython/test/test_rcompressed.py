@@ -223,3 +223,11 @@ class TestLLtype64(MixinCompressed64, test_rclass.TestLLtype):
         assert res == True
         res = self.interpret(fn, [5, 6, 8])
         assert res == False
+
+    def test_str(self):
+        class A:
+            pass
+        def fn():
+            return str([A()])
+        res = self.interpret(fn, [])
+        assert 'HiddenGcRef32' in self.ll_to_string(res)

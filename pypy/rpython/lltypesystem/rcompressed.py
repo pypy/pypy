@@ -4,6 +4,7 @@ from pypy.config.translationoption import IS_64_BITS
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.error import TyperError
 
 
@@ -98,6 +99,11 @@ class CompressedGcRefRepr(Repr):
 
     def get_ll_dummyval_obj(self, rtyper, s_value):
         return DummyValueBuilder(rtyper)
+
+    def ll_str(self, i):
+        return hiddengcref32_str
+
+hiddengcref32_str = string_repr.convert_const("<HiddenGcRef32>")
 
 
 class DummyValueBuilder(object):
