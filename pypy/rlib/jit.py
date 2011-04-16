@@ -13,6 +13,8 @@ def purefunction(func):
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
     according to rule 1
+    (3) the function call can be moved around by optimizer,
+        but only so it'll be called earlier and not later.
 
     Most importantly it doesn't mean that pure function has no observable
     side effect, but those side effects can be ommited (ie caching).
