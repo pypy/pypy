@@ -2,7 +2,8 @@ import py
 from pypy.config.translationoption import IS_64_BITS
 from pypy.rpython.test import test_rclass
 from pypy.rpython import rmodel, rint, rclass
-from pypy.rpython.lltypesystem import llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem.lloperation import llop
 
 
 def setup_module(mod):
@@ -231,3 +232,27 @@ class TestLLtype64(MixinCompressed64, test_rclass.TestLLtype):
             return str([A()])
         res = self.interpret(fn, [])
         assert 'HiddenGcRef32' in self.ll_to_string(res)
+
+    def test_nonzero(self):
+        S = lltype.GcStruct('S')
+        def fn():
+            p = lltype.malloc(S)
+            r = llop.hide_into_ptr32(llmemory.HiddenGcRef32, p)
+            return bool(r)
+        res = self.interpret(fn, [])
+        assert res == True
+
+    def test_funccall_starargs(self):
+        def g(a, b):
+            return a.n - b.n
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
+        SPTR = lltype.Ptr(S)
+        GFUNC = lltype.FuncType([SPTR, SPTR], lltype.Signed)
+        gptr = lltype.functionptr(GFUNC, 'g', _callable=g)
+        def fn(x, y):
+            a = lltype.malloc(S); a.n = x
+            b = lltype.malloc(S); b.n = y
+            args = (a, b)
+            return gptr(*args)
+        res = self.interpret(fn, [45, 3])
+        assert res == 42
