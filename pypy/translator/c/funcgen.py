@@ -594,11 +594,11 @@ class FunctionCodeGenerator(object):
 
 
     def OP_PTR_NONZERO(self, op):
-        return '%s = (%s != NULL);' % (self.expr(op.result),
-                                       self.expr(op.args[0]))
+        return '%s = !!%s;' % (self.expr(op.result),
+                               self.expr(op.args[0]))
     def OP_PTR_ISZERO(self, op):
-        return '%s = (%s == NULL);' % (self.expr(op.result),
-                                       self.expr(op.args[0]))
+        return '%s = !%s;' % (self.expr(op.result),
+                              self.expr(op.args[0]))
     
     def OP_PTR_EQ(self, op):
         return '%s = (%s == %s);' % (self.expr(op.result),
