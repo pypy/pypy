@@ -1258,6 +1258,12 @@ class Assembler386(object):
         self.mc.SHR_ri(resloc.value, 7)
         self.mc.AND_ri(resloc.value, 1)
 
+    def genop_hide_into_ptr32(self, op, arglocs, resloc):
+        self.mc.SHR(resloc, imm(3))
+
+    def genop_show_from_ptr32(self, op, arglocs, resloc):
+        self.mc.SHL(resloc, imm(3))
+
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax
         loc_vtable = arglocs[-1]

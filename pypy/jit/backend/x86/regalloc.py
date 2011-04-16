@@ -556,6 +556,8 @@ class RegAlloc(object):
         self.Perform(op, [res], res)
 
     consider_int_invert = consider_int_neg
+    consider_hide_into_ptr32 = consider_int_neg     # SHR reg, 3
+    consider_show_from_ptr32 = consider_int_neg     # SHL reg, 3
 
     def consider_int_lshift(self, op):
         if isinstance(op.getarg(1), Const):
