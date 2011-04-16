@@ -1293,6 +1293,28 @@ class TestLL2Ctypes(object):
         rffi.cast(SP, p).x = 0
         lltype.free(chunk, flavor='raw')
 
+    def test_opaque_tagged_pointers(self):
+        from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+        from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+        from pypy.rpython.lltypesystem import rclass
+        
+        class Opaque(object):
+            llopaque = True
+
+            def hide(self):
+                ptr = cast_instance_to_base_ptr(self)
+                return lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+
+            @staticmethod
+            def show(gcref):
+                ptr = lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), gcref)
+                return cast_base_ptr_to_instance(Opaque, ptr)
+
+        opaque = Opaque()
+        round = ctypes2lltype(llmemory.GCREF, lltype2ctypes(opaque.hide()))
+        assert Opaque.show(round) is opaque
+
+
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
         from pypy.translator.platform import platform

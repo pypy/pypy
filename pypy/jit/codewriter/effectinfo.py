@@ -171,7 +171,8 @@ def consider_array(ARRAY):
 class VirtualizableAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         return op.opname in ('jit_force_virtualizable',
-                             'jit_force_virtual')
+                             'jit_force_virtual',
+                             'jit_force_quasi_immutable')
 
 # ____________________________________________________________
 
