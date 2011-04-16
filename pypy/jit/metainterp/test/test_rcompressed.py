@@ -46,7 +46,10 @@ class TestRCompressed(LLJitMixin):
         assert res == 42063
 
     def test_call_argument(self):
-        ...
+        # the issue here is that even if we wrote this test, for now, it's
+        # not going to really test the interesting parts, which are in
+        # GcLLDescr_framework.rewrite_assembler
+        py.test.skip("write me")
 
     def test_call_result(self):
-        ...
+        py.test.skip("write me")

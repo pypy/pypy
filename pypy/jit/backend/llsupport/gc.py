@@ -877,14 +877,15 @@ class GcLLDescr_framework(GcLLDescription):
                   isinstance(descr, BaseCallDescr)):
                 args = op.getarglist()
                 arg_classes = descr.get_arg_types()
-                assert len(args) == len(arg_classes)
+                fixed = 1
+                assert len(args) == fixed + len(arg_classes)
                 for i in range(len(arg_classes)):
                     if arg_classes[i] == 'H':
-                        v1 = args[i]
+                        v1 = args[fixed + i]
                         v2 = BoxInt()
                         newops.append(ResOperation(rop.HIDE_INTO_PTR32,
                                                    [v1], v2))
-                        args[i] = v2
+                        args[fixed + i] = v2
                         op = op.copy_and_change(op.getopnum(), args=args)
                 if descr.get_return_type() == 'H':
                     v1 = BoxInt()
