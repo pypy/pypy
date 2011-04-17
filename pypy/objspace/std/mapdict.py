@@ -520,7 +520,7 @@ def _make_subclass_size_n(supercls, n, use_erased=True):
         unerase = unerase_item
     else:
         erase = lambda x: x
-        unerase = lambda x, t: x
+        unerase = lambda x: x
     #
     class subcls(BaseMapdictObject, supercls):
         _nmin1 = nmin1

@@ -438,6 +438,14 @@ def test_specialized_class(compressptr=False):
         assert obj2.getdictvalue(space, "b") is w6
         assert obj2.map is abmap
 
+        extras = {}
+        for attr in "cdefghijklmnopqrstuvwxyz":
+            extras[attr] = W_Root()
+            obj2.setdictvalue(space, attr, extras[attr])
+            assert obj2.getdictvalue(space, attr) is extras[attr]
+        for attr in "cdefghijklmnopqrstuvwxyz":
+            assert obj2.getdictvalue(space, attr) is extras[attr]
+
 def test_specialized_class_compressptr():
     test_specialized_class(compressptr=True)
 
