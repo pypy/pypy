@@ -4,6 +4,7 @@ from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib import jit
+from pypy.rlib.jit import JitDriver
 
 
 class TestRCompressed(LLJitMixin):
@@ -45,6 +46,9 @@ class TestRCompressed(LLJitMixin):
         res = self.interp_operations(f, [42])
         assert res == 42063
 
+    def test_store_load_array(self):
+        py.test.skip("write me")
+
     def test_call_argument(self):
         # the issue here is that even if we wrote this test, for now, it's
         # not going to really test the interesting parts, which are in
@@ -53,3 +57,28 @@ class TestRCompressed(LLJitMixin):
 
     def test_call_result(self):
         py.test.skip("write me")
+
+    def test_jit_merge_point(self):
+        jitdriver = JitDriver(greens=[], reds=['total', 'a'])
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
+        def main(n):
+            a = f(n)
+            s = llop.show_from_ptr32(lltype.Ptr(S), a)
+            return s.n
+        def f(n):
+            s = lltype.malloc(S)
+            s.n = n
+            total = 0
+            while s.n > 0:
+                a = llop.hide_into_ptr32(llmemory.HiddenGcRef32, s)
+                jitdriver.jit_merge_point(a=a, total=total)
+                s = llop.show_from_ptr32(lltype.Ptr(S), a)
+                n = s.n
+                total += n
+                s = lltype.malloc(S)
+                s.n = n - 1
+            s = lltype.malloc(S)
+            s.n = total
+            return llop.hide_into_ptr32(llmemory.HiddenGcRef32, s)
+        res = self.meta_interp(main, [8])
+        assert res == 36

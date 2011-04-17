@@ -1,5 +1,6 @@
 import sys, weakref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import hlstr, llstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
@@ -30,21 +31,26 @@ def specialize_value(TYPE, x):
     elif INPUT is longlong.FLOATSTORAGE:
         assert TYPE is lltype.Float
         return longlong.getrealfloat(x)
+    elif TYPE == llmemory.HiddenGcRef32:
+        return llop.hide_into_ptr32(llmemory.HiddenGcRef32, x)
     else:
         return lltype.cast_opaque_ptr(TYPE, x)
 
 @specialize.ll()
 def unspecialize_value(value):
     """Casts 'value' to a Signed, a GCREF or a FLOATSTORAGE."""
-    if isinstance(lltype.typeOf(value), lltype.Ptr):
-        if lltype.typeOf(value).TO._gckind == 'gc':
+    TYPE = lltype.typeOf(value)
+    if isinstance(TYPE, lltype.Ptr):
+        if TYPE.TO._gckind == 'gc':
+            if TYPE == llmemory.HiddenGcRef32:
+                return llop.show_from_ptr32(llmemory.GCREF, value)
             return lltype.cast_opaque_ptr(llmemory.GCREF, value)
         else:
             adr = llmemory.cast_ptr_to_adr(value)
             return heaptracker.adr2int(adr)
-    elif isinstance(lltype.typeOf(value), ootype.OOType):
+    elif isinstance(TYPE, ootype.OOType):
         return ootype.cast_to_object(value)
-    elif isinstance(value, float):
+    elif TYPE == lltype.Float:
         return longlong.getfloatstorage(value)
     else:
         return lltype.cast_primitive(lltype.Signed, value)
@@ -64,34 +70,23 @@ def unwrap(TYPE, box):
 
 @specialize.ll()
 def wrap(cpu, value, in_const_box=False):
-    if isinstance(lltype.typeOf(value), lltype.Ptr):
-        if lltype.typeOf(value).TO._gckind == 'gc':
-            value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-            if in_const_box:
-                return history.ConstPtr(value)
-            else:
-                return history.BoxPtr(value)
+    value = unspecialize_value(value)
+    TYPE = lltype.typeOf(value)
+    if isinstance(TYPE, lltype.Ptr):
+        if in_const_box:
+            return history.ConstPtr(value)
         else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            value = heaptracker.adr2int(adr)
-            # fall through to the end of the function
-    elif isinstance(lltype.typeOf(value), ootype.OOType):
-        value = ootype.cast_to_object(value)
+            return history.BoxPtr(value)
+    if isinstance(TYPE, ootype.OOType):
         if in_const_box:
             return history.ConstObj(value)
         else:
             return history.BoxObj(value)
-    elif isinstance(value, float):
-        value = longlong.getfloatstorage(value)
+    if TYPE == lltype.Float:
         if in_const_box:
             return history.ConstFloat(value)
         else:
             return history.BoxFloat(value)
-    elif isinstance(value, str) or isinstance(value, unicode):
-        assert len(value) == 1     # must be a character
-        value = ord(value)
-    else:
-        value = intmask(value)
     if in_const_box:
         return history.ConstInt(value)
     else:
