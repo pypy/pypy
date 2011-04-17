@@ -119,7 +119,6 @@ class OptHeap(Optimization):
         self._lazy_setfields = []
         # cached array items:  {descr: CachedArrayItems}
         self.cached_arrayitems = {}
-        self._remove_guard_not_invalidated = False
 
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         new = OptHeap()
@@ -378,43 +377,6 @@ class OptHeap(Optimization):
         indexvalue = self.getvalue(op.getarg(1))
         self.cache_arrayitem_value(op.getdescr(), value, indexvalue, fieldvalue,
                                    write=True)
-
-    def optimize_QUASIIMMUT_FIELD(self, op):
-        # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
-        #          x = GETFIELD_GC(s, descr='inst_x')
-        # If 's' is a constant (after optimizations), then we make 's.inst_x'
-        # a constant too, and we rely on the rest of the optimizations to
-        # constant-fold the following getfield_gc.
-        structvalue = self.getvalue(op.getarg(0))
-        if not structvalue.is_constant():
-            self._remove_guard_not_invalidated = True
-            return    # not a constant at all; ignore QUASIIMMUT_FIELD
-        #
-        from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
-        qmutdescr = op.getdescr()
-        assert isinstance(qmutdescr, QuasiImmutDescr)
-        # check that the value is still correct; it could have changed
-        # already between the tracing and now.  In this case, we are
-        # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
-        # as a regular getfield.
-        if not qmutdescr.is_still_valid():
-            self._remove_guard_not_invalidated = True
-            return
-        # record as an out-of-line guard
-        if self.optimizer.quasi_immutable_deps is None:
-            self.optimizer.quasi_immutable_deps = {}
-        self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
-        # perform the replacement in the list of operations
-        fieldvalue = self.getvalue(qmutdescr.constantfieldbox)
-        cf = self.field_cache(qmutdescr.fielddescr)
-        cf.remember_field_value(structvalue, fieldvalue)
-        self._remove_guard_not_invalidated = False
-
-    def optimize_GUARD_NOT_INVALIDATED(self, op):
-        if self._remove_guard_not_invalidated:
-            return
-        self._remove_guard_not_invalidated = False
-        self.emit_operation(op)
 
     def propagate_forward(self, op):
         opnum = op.getopnum()

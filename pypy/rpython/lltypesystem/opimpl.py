@@ -525,9 +525,6 @@ def op_jit_force_virtualizable(*args):
 def op_jit_force_virtual(x):
     return x
 
-def op_jit_force_quasi_immutable(*args):
-    pass
-
 def op_get_group_member(TYPE, grpptr, memberoffset):
     from pypy.rpython.lltypesystem import llgroup
     assert isinstance(memberoffset, llgroup.GroupMemberOffset)

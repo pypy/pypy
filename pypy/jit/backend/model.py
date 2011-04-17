@@ -291,7 +291,6 @@ class CompiledLoopToken(object):
         # that belong to this loop or to a bridge attached to it.
         # Filled by the frontend calling record_faildescr_index().
         self.faildescr_indices = []
-        self.invalidate_positions = []
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")

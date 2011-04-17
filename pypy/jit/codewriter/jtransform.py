@@ -7,9 +7,8 @@ from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter import support, heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.codewriter.policy import log, check_skip_operation
+from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
-from pypy.jit.metainterp import quasiimmut
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
 from pypy.translator.simplify import get_funcobj
@@ -562,8 +561,7 @@ class Transformer(object):
                                                 arraydescr)
             return []
         # check for _immutable_fields_ hints
-        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
-        if immut:
+        if v_inst.concretetype.TO._immutable_field(c_fieldname.value):
             if (self.callcontrol is not None and
                 self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
                                                       c_fieldname.value)):
@@ -576,21 +574,10 @@ class Transformer(object):
         descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                       c_fieldname.value)
         kind = getkind(RESULT)[0]
-        op1 = SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
-                             [v_inst, descr], op.result)
-        #
-        if immut is quasiimmut.IR_QUASI_IMMUTABLE:
-            descr1 = self.cpu.fielddescrof(
-                v_inst.concretetype.TO,
-                quasiimmut.get_mutate_field_name(c_fieldname.value))
-            op1 = [SpaceOperation('-live-', [], None),
-                   SpaceOperation('record_quasiimmut_field',
-                                  [v_inst, descr, descr1], None),
-                   op1]
-        return op1
+        return SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
+                              [v_inst, descr], op.result)
 
     def rewrite_op_setfield(self, op):
-        check_skip_operation(op)        # just to check it doesn't raise
         if self.is_typeptr_getset(op):
             # ignore the operation completely -- instead, it's done by 'new'
             return

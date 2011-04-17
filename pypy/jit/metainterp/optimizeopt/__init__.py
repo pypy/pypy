@@ -41,8 +41,7 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
                 # during preamble but to keep it during the loop
                 optimizations.append(o)
 
-    if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
-        or 'heap' not in enable_opts):
+    if 'rewrite' not in enable_opts or 'virtualize' not in enable_opts:
         optimizations.append(OptSimplify())
 
     if inline_short_preamble:

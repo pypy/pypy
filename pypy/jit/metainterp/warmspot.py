@@ -131,16 +131,6 @@ def find_jit_merge_points(graphs):
 def find_set_param(graphs):
     return _find_jit_marker(graphs, 'set_param')
 
-def find_force_quasi_immutable(graphs):
-    results = []
-    for graph in graphs:
-        for block in graph.iterblocks():
-            for i in range(len(block.operations)):
-                op = block.operations[i]
-                if op.opname == 'jit_force_quasi_immutable':
-                    results.append((graph, block, i))
-    return results
-
 def get_stats():
     return pyjitpl._warmrunnerdesc.stats
 
@@ -197,7 +187,6 @@ class WarmRunnerDesc(object):
         self.rewrite_can_enter_jits()
         self.rewrite_set_param()
         self.rewrite_force_virtual(vrefinfo)
-        self.rewrite_force_quasi_immutable()
         self.add_finish()
         self.metainterp_sd.finish_setup(self.codewriter)
 
@@ -852,28 +841,6 @@ class WarmRunnerDesc(object):
             py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
         vrefinfo.replace_force_virtual_with_call(all_graphs)
-
-    def replace_force_quasiimmut_with_direct_call(self, op):
-        ARG = op.args[0].concretetype
-        mutatefieldname = op.args[1].value
-        key = (ARG, mutatefieldname)
-        if key in self._cache_force_quasiimmed_funcs:
-            cptr = self._cache_force_quasiimmed_funcs[key]
-        else:
-            from pypy.jit.metainterp import quasiimmut
-            func = quasiimmut.make_invalidation_function(ARG, mutatefieldname)
-            FUNC = lltype.Ptr(lltype.FuncType([ARG], lltype.Void))
-            llptr = self.helper_func(FUNC, func)
-            cptr = Constant(llptr, FUNC)
-            self._cache_force_quasiimmed_funcs[key] = cptr
-        op.opname = 'direct_call'
-        op.args = [cptr, op.args[0]]
-
-    def rewrite_force_quasi_immutable(self):
-        self._cache_force_quasiimmed_funcs = {}
-        graphs = self.translator.graphs
-        for graph, block, i in find_force_quasi_immutable(graphs):
-            self.replace_force_quasiimmut_with_direct_call(block.operations[i])
 
     # ____________________________________________________________
 

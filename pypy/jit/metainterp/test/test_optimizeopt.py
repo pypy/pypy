@@ -5717,35 +5717,8 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
-    def test_quasi_immut(self):
-        ops = """
-        [p0, p1, i0]
-        quasiimmut_field(p0, descr=quasiimmutdescr)
-        guard_not_invalidated() []
-        i1 = getfield_gc(p0, descr=quasifielddescr)
-        jump(p1, p0, i1)
-        """
-        expected = """
-        [p0, p1, i0]
-        i1 = getfield_gc(p0, descr=quasifielddescr)
-        jump(p1, p0, i1)
-        """
-        self.optimize_loop(ops, expected)
 
-    def test_quasi_immut_2(self):
-        ops = """
-        []
-        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
-        guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
-        jump()
-        """
-        expected = """
-        []
-        guard_not_invalidated() []        
-        jump()
-        """
-        self.optimize_loop(ops, expected, expected)
+
 
 ##class TestOOtype(OptimizeOptTest, OOtypeMixin):
 
