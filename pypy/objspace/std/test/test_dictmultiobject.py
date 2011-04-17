@@ -131,25 +131,6 @@ class TestW_DictObject:
         assert self.space.eq_w(space.call_function(get, w("33")), w(None))
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
-    def test_initialize_from_strdict_shared(self):
-        space = self.space
-        w = space.wrap
-        d = {"a": w(1), "b": w(2)}
-        w_d = space.newdict(from_strdict_shared=d)
-        assert self.space.eq_w(space.getitem(w_d, w("a")), w(1))
-        assert self.space.eq_w(space.getitem(w_d, w("b")), w(2))
-        
-    def test_initialize_from_strdict_really_shared(self):
-        space = self.space
-        w = space.wrap
-        d = {"a": w(1), "b": w(2)}
-        w_d = space.newdict(from_strdict_shared=d)
-        assert self.space.eq_w(space.getitem(w_d, w("a")), w(1))
-        assert self.space.eq_w(space.getitem(w_d, w("b")), w(2))
-        d["c"] = w(41)
-        assert self.space.eq_w(space.getitem(w_d, w("c")), w(41))
-
-
 
 class AppTest_DictObject:
 
@@ -766,12 +747,10 @@ class FakeSpace:
     def newtuple(self, l):
         return tuple(l)
 
-    def newdict(self, module=False, instance=False, classofinstance=None,
-                from_strdict_shared=None):
+    def newdict(self, module=False, instance=False, classofinstance=None):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
-                classofinstance=classofinstance,
-                from_strdict_shared=from_strdict_shared)
+                classofinstance=classofinstance)
 
     def finditem_str(self, w_dict, s):
         return w_dict.getitem_str(s) # assume it's a multidict
