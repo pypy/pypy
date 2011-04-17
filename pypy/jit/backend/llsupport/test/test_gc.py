@@ -298,6 +298,7 @@ class TestFramework(object):
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
+                compressptr = True
         class FakeTranslator(object):
             config = config_
         class FakeCPU(object):
@@ -305,6 +306,9 @@ class TestFramework(object):
                 ptr = llmemory.cast_adr_to_ptr(adr, gc_ll_descr.WB_FUNCPTR)
                 assert ptr._obj._callable == llop1._write_barrier_failing_case
                 return 42
+        class FakeWriteBarrierDescr(AbstractDescr):
+            def __eq__(self, other):
+                return 'WriteBarrierDescr' in repr(other)
         gcdescr = get_description(config_)
         translator = FakeTranslator()
         llop1 = FakeLLOp()
@@ -314,6 +318,7 @@ class TestFramework(object):
         self.llop1 = llop1
         self.gc_ll_descr = gc_ll_descr
         self.fake_cpu = FakeCPU()
+        self.writebarrierdescr = FakeWriteBarrierDescr()
 
     def test_args_for_new(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -592,6 +597,112 @@ class TestFramework(object):
         [p1]
         p0 = new_array(3, descr=arraydescr)
         setarrayitem_gc(p0, 0, p1, descr=arraydescr)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_hidden_getfield_gc(self):
+        S = lltype.GcStruct('S', ('x', llmemory.HiddenGcRef32))
+        xdescr = get_field_descr(self.gc_ll_descr, S, 'x')
+        ops = parse("""
+        [p0]
+        p1 = getfield_gc(p0, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p0]
+        i1 = getfield_gc(p0, descr=xdescr)
+        p1 = show_from_ptr32(i1)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_hidden_getfield_gc_pure(self):
+        S = lltype.GcStruct('S', ('x', llmemory.HiddenGcRef32))
+        xdescr = get_field_descr(self.gc_ll_descr, S, 'x')
+        ops = parse("""
+        [p0]
+        p1 = getfield_gc_pure(p0, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p0]
+        i1 = getfield_gc_pure(p0, descr=xdescr)
+        p1 = show_from_ptr32(i1)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_hidden_setfield_gc(self):
+        S = lltype.GcStruct('S', ('x', llmemory.HiddenGcRef32))
+        xdescr = get_field_descr(self.gc_ll_descr, S, 'x')
+        writebarrierdescr = self.writebarrierdescr
+        ops = parse("""
+        [p0, p1]
+        setfield_gc(p0, p1, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p0, p1]
+        cond_call_gc_wb(p0, p1, descr=writebarrierdescr)
+        i1 = hide_into_ptr32(p1)
+        setfield_raw(p0, i1, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_hidden_getarrayitem_gc(self):
+        A = lltype.GcArray(llmemory.HiddenGcRef32)
+        xdescr = get_array_descr(self.gc_ll_descr, A)
+        ops = parse("""
+        [p0, i2]
+        p1 = getarrayitem_gc(p0, i2, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p0, i2]
+        i1 = getarrayitem_gc(p0, i2, descr=xdescr)
+        p1 = show_from_ptr32(i1)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_hidden_getarrayitem_gc_pure(self):
+        A = lltype.GcArray(llmemory.HiddenGcRef32)
+        xdescr = get_array_descr(self.gc_ll_descr, A)
+        ops = parse("""
+        [p0, i2]
+        p1 = getarrayitem_gc_pure(p0, i2, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p0, i2]
+        i1 = getarrayitem_gc_pure(p0, i2, descr=xdescr)
+        p1 = show_from_ptr32(i1)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_hidden_setarrayitem_gc(self):
+        A = lltype.GcArray(llmemory.HiddenGcRef32)
+        xdescr = get_array_descr(self.gc_ll_descr, A)
+        writebarrierdescr = self.writebarrierdescr
+        ops = parse("""
+        [p0, p1, i2]
+        setarrayitem_gc(p0, i2, p1, descr=xdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p0, p1, i2]
+        cond_call_gc_wb(p0, p1, descr=writebarrierdescr)
+        i1 = hide_into_ptr32(p1)
+        setarrayitem_raw(p0, i2, i1, descr=xdescr)
         jump()
         """, namespace=locals())
         self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
