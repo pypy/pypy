@@ -31,22 +31,28 @@ class UnicodeTests(object):
 
     def checkdecode(self, s, encoding):
         decoder = self.getdecoder(encoding)
-        if isinstance(s, str):
-            trueresult = s.decode(encoding)
-        else:
-            trueresult = s
-            s = s.encode(encoding)
+        try:
+            if isinstance(s, str):
+                trueresult = s.decode(encoding)
+            else:
+                trueresult = s
+                s = s.encode(encoding)
+        except LookupError, e:
+            py.test.skip(e)
         result, consumed = decoder(s, len(s), True)
         assert consumed == len(s)
         self.typeequals(trueresult, result)
 
     def checkencode(self, s, encoding):
         encoder = self.getencoder(encoding)
-        if isinstance(s, unicode):
-            trueresult = s.encode(encoding)
-        else:
-            trueresult = s
-            s = s.decode(encoding)
+        try:
+            if isinstance(s, unicode):
+                trueresult = s.encode(encoding)
+            else:
+                trueresult = s
+                s = s.decode(encoding)
+        except LookupError, e:
+            py.test.skip(e)
         result = encoder(s, len(s), True)
         self.typeequals(trueresult, result)
 
