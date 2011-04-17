@@ -708,5 +708,50 @@ class TestFramework(object):
         self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
         equaloplists(ops.operations, expected.operations)
 
+    def test_rewrite_assembler_hidden_callarg(self):
+        cdescr = get_call_descr(self.gc_ll_descr, [llmemory.HiddenGcRef32],
+                                lltype.Void)
+        ops = parse("""
+        [p0]
+        call(100, p0, descr=cdescr)
+        call_assembler(101, p0, descr=cdescr)
+        call_may_force(102, p0, descr=cdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p0]
+        i0 = hide_into_ptr32(p0)
+        call(100, i0, descr=cdescr)
+        i1 = hide_into_ptr32(p0)
+        call_assembler(101, i1, descr=cdescr)
+        i2 = hide_into_ptr32(p0)
+        call_may_force(102, i2, descr=cdescr)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
+    def test_rewrite_assembler_hidden_callresult(self):
+        cdescr = get_call_descr(self.gc_ll_descr, [], llmemory.HiddenGcRef32)
+        ops = parse("""
+        []
+        p0 = call(100, descr=cdescr)
+        p1 = call_assembler(101, descr=cdescr)
+        p2 = call_may_force(102, descr=cdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        []
+        i0 = call(100, descr=cdescr)
+        p0 = show_from_ptr32(i0)
+        i1 = call_assembler(101, descr=cdescr)
+        p1 = show_from_ptr32(i1)
+        i2 = call_may_force(102, descr=cdescr)
+        p2 = show_from_ptr32(i2)
+        jump()
+        """, namespace=locals())
+        self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        equaloplists(ops.operations, expected.operations)
+
 class TestFrameworkMiniMark(TestFramework):
     gc = 'minimark'
