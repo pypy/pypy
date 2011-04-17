@@ -112,7 +112,7 @@ def str_decode_utf_8(s, size, errors, final=False,
             ordch2 = ord(s[pos+1])
             if n == 3:
                 # 3-bytes seq with only a continuation byte
-                if (ordch2>>6 != 0b10 or
+                if (ordch2>>6 != 0x2 or   # 0b10
                     (ordch1 == 0xe0 and ordch2 < 0xa0)):
                     # or (ordch1 == 0xed and ordch2 > 0x9f)
                     # second byte invalid, take the first and continue
@@ -130,7 +130,7 @@ def str_decode_utf_8(s, size, errors, final=False,
                     break
             elif n == 4:
                 # 4-bytes seq with 1 or 2 continuation bytes
-                if (ordch2>>6 != 0b10 or
+                if (ordch2>>6 != 0x2 or    # 0b10
                     (ordch1 == 0xf0 and ordch2 < 0x90) or
                     (ordch1 == 0xf4 and ordch2 > 0x8f)):
                     # second byte invalid, take the first and continue
@@ -139,7 +139,7 @@ def str_decode_utf_8(s, size, errors, final=False,
                                           s, pos, pos+1)
                     result.append(r)
                     continue
-                elif charsleft == 2 and ord(s[pos+2])>>6 != 0b10:
+                elif charsleft == 2 and ord(s[pos+2])>>6 != 0x2:   # 0b10
                     # third byte invalid, take the first two and continue
                     r, pos = errorhandler(errors, 'utf-8',
                                           'invalid continuation byte',
@@ -165,21 +165,21 @@ def str_decode_utf_8(s, size, errors, final=False,
 
         elif n == 2:
             ordch2 = ord(s[pos+1])
-            if ordch2>>6 != 0b10:
+            if ordch2>>6 != 0x2:   # 0b10
                 r, pos = errorhandler(errors, 'utf-8',
                                       'invalid continuation byte',
                                       s, pos, pos+1)
                 result.append(r)
                 continue
             # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
-            result.append(unichr(((ordch1 & 0b00011111) << 6) +
-                                 (ordch2 & 0b00111111)))
+            result.append(unichr(((ordch1 & 0x1F) << 6) +    # 0b00011111
+                                 (ordch2 & 0x3F)))           # 0b00111111
             pos += 2
 
         elif n == 3:
             ordch2 = ord(s[pos+1])
             ordch3 = ord(s[pos+2])
-            if (ordch2>>6 != 0b10 or
+            if (ordch2>>6 != 0x2 or    # 0b10
                 (ordch1 == 0xe0 and ordch2 < 0xa0)
                 # surrogates shouldn't be valid UTF-8!
                 # Uncomment the line below to make them invalid.
@@ -190,23 +190,23 @@ def str_decode_utf_8(s, size, errors, final=False,
                                       s, pos, pos+1)
                 result.append(r)
                 continue
-            elif ordch3>>6 != 0b10:
+            elif ordch3>>6 != 0x2:     # 0b10
                 r, pos = errorhandler(errors, 'utf-8',
                                       'invalid continuation byte',
                                       s, pos, pos+2)
                 result.append(r)
                 continue
             # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
-            result.append(unichr(((ordch1 & 0b00001111) << 12) +
-                                 ((ordch2 & 0b00111111) << 6) +
-                                 (ordch3 & 0b00111111)))
+            result.append(unichr(((ordch1 & 0x0F) << 12) +     # 0b00001111
+                                 ((ordch2 & 0x3F) << 6) +      # 0b00111111
+                                 (ordch3 & 0x3F)))             # 0b00111111
             pos += 3
 
         elif n == 4:
             ordch2 = ord(s[pos+1])
             ordch3 = ord(s[pos+2])
             ordch4 = ord(s[pos+3])
-            if (ordch2>>6 != 0b10 or
+            if (ordch2>>6 != 0x2 or     # 0b10
                 (ordch1 == 0xf0 and ordch2 < 0x90) or
                 (ordch1 == 0xf4 and ordch2 > 0x8f)):
                 r, pos = errorhandler(errors, 'utf-8',
@@ -214,23 +214,23 @@ def str_decode_utf_8(s, size, errors, final=False,
                                       s, pos, pos+1)
                 result.append(r)
                 continue
-            elif ordch3>>6 != 0b10:
+            elif ordch3>>6 != 0x2:     # 0b10
                 r, pos = errorhandler(errors, 'utf-8',
                                       'invalid continuation byte',
                                       s, pos, pos+2)
                 result.append(r)
                 continue
-            elif ordch4>>6 != 0b10:
+            elif ordch4>>6 != 0x2:     # 0b10
                 r, pos = errorhandler(errors, 'utf-8',
                                       'invalid continuation byte',
                                       s, pos, pos+3)
                 result.append(r)
                 continue
             # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
-            c = (((ordch1 & 0b00000111) << 18) +
-                 ((ordch2 & 0b00111111) << 12) +
-                 ((ordch3 & 0b00111111) << 6) +
-                 (ordch4 & 0b00111111))
+            c = (((ordch1 & 0x07) << 18) +      # 0b00000111
+                 ((ordch2 & 0x3F) << 12) +      # 0b00111111
+                 ((ordch3 & 0x3F) << 6) +       # 0b00111111
+                 (ordch4 & 0x3F))               # 0b00111111
             if c <= MAXUNICODE:
                 result.append(UNICHR(c))
             else:
