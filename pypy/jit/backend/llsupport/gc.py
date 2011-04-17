@@ -523,7 +523,7 @@ class GcRootMap_shadowstack(object):
             while i >= 0:
                 newarray[i] = self._callshapes[i]
                 i -= 1
-            lltype.free(self._callshapes, flavor='raw')
+            lltype.free(self._callshapes, flavor='raw', track_allocation=False)
         self._callshapes = newarray
         self._callshapes_maxlength = newlength
 
