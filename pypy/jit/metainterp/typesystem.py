@@ -123,13 +123,28 @@ class LLTypeHelper(TypeSystemHelper):
         return heaptracker.adr2int(adr)
 
     def cast_from_ref(self, TYPE, value):
+        if isinstance(TYPE.TO, lltype.GcOpaqueType):
+            if TYPE == llmemory.GCREF:
+                return value
+            elif TYPE == llmemory.HiddenGcRef32:
+                return llop.hide_into_ptr32(llmemory.HiddenGcRef32, value)
+            else:
+                raise TypeError(TYPE)
         return lltype.cast_opaque_ptr(TYPE, value)
     cast_from_ref._annspecialcase_ = 'specialize:arg(1)'
 
     def cast_to_ref(self, value):
+        TYPE = lltype.typeOf(value)
+        if isinstance(TYPE.TO, lltype.GcOpaqueType):
+            if TYPE == llmemory.GCREF:
+                return value
+            elif TYPE == llmemory.HiddenGcRef32:
+                return llop.show_from_ptr32(llmemory.GCREF, value)
+            else:
+                raise TypeError(TYPE)
         return lltype.cast_opaque_ptr(llmemory.GCREF, value)
     cast_to_ref._annspecialcase_ = 'specialize:ll'
-    
+
     def getaddr_for_box(self, box):
         return box.getaddr()
 

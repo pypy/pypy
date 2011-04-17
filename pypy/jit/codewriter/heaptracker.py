@@ -36,16 +36,10 @@ def _count_fields(STRUCT):
     return result
 
 def cast_to_gcref(value):
-    TYPE = lltype.typeOf(value)
-    if isinstance(TYPE.TO, lltype.GcOpaqueType):
-        if TYPE == llmemory.GCREF:
-            return value
-        elif TYPE == llmemory.HiddenGcRef32:
-            return llop.show_from_ptr32(llmemory.GCREF, value)
-        else:
-            raise TypeError(TYPE)
-    else:
-        return lltype.cast_opaque_ptr(llmemory.GCREF, value)
+    # XXX unify a bit more
+    from pypy.jit.metainterp.typesystem import llhelper
+    return llhelper.cast_to_ref(value)
+cast_to_gcref._annspecialcase_ = 'specialize:ll'
 
 # ____________________________________________________________
 

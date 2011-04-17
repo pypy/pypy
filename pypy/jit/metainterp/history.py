@@ -369,7 +369,8 @@ class ConstPtr(Const):
         return self.value
 
     def getref(self, PTR):
-        return lltype.cast_opaque_ptr(PTR, self.getref_base())
+        from pypy.jit.metainterp.typesystem import llhelper
+        return llhelper.cast_from_ref(PTR, self.value)
     getref._annspecialcase_ = 'specialize:arg(1)'
 
     def _get_hash_(self):
@@ -426,7 +427,8 @@ class ConstObj(Const):
        return self.value
 
     def getref(self, OBJ):
-        return ootype.cast_from_object(OBJ, self.getref_base())
+        from pypy.jit.metainterp.typesystem import oohelper
+        return oohelper.cast_from_ref(PTR, self.value)
     getref._annspecialcase_ = 'specialize:arg(1)'
 
     def _get_hash_(self):
@@ -611,7 +613,8 @@ class BoxPtr(Box):
         return self.value
 
     def getref(self, PTR):
-        return lltype.cast_opaque_ptr(PTR, self.getref_base())
+        from pypy.jit.metainterp.typesystem import llhelper
+        return llhelper.cast_from_ref(PTR, self.value)
     getref._annspecialcase_ = 'specialize:arg(1)'
 
     def getaddr(self):
@@ -658,7 +661,8 @@ class BoxObj(Box):
         return self.value
 
     def getref(self, OBJ):
-        return ootype.cast_from_object(OBJ, self.getref_base())
+        from pypy.jit.metainterp.typesystem import oohelper
+        return oohelper.cast_from_ref(PTR, self.value)
     getref._annspecialcase_ = 'specialize:arg(1)'
 
     def _get_hash_(self):
