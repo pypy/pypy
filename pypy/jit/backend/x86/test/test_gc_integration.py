@@ -56,6 +56,7 @@ class MockGcDescr(GcCache):
         self.single_gcref_descr = GcPtrFieldDescr('', 0)
         
     rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
+    supports_compressed_ptrs = False
 
 class TestRegallocDirectGcIntegration(object):
 
