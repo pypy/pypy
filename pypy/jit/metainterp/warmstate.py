@@ -64,34 +64,23 @@ def unwrap(TYPE, box):
 
 @specialize.ll()
 def wrap(cpu, value, in_const_box=False):
-    if isinstance(lltype.typeOf(value), lltype.Ptr):
-        if lltype.typeOf(value).TO._gckind == 'gc':
-            value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-            if in_const_box:
-                return history.ConstPtr(value)
-            else:
-                return history.BoxPtr(value)
+    value = unspecialize_value(value)
+    TYPE = lltype.typeOf(value)
+    if isinstance(TYPE, lltype.Ptr):
+        if in_const_box:
+            return history.ConstPtr(value)
         else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            value = heaptracker.adr2int(adr)
-            # fall through to the end of the function
-    elif isinstance(lltype.typeOf(value), ootype.OOType):
-        value = ootype.cast_to_object(value)
+            return history.BoxPtr(value)
+    if isinstance(TYPE, ootype.OOType):
         if in_const_box:
             return history.ConstObj(value)
         else:
             return history.BoxObj(value)
-    elif isinstance(value, float):
-        value = longlong.getfloatstorage(value)
+    if TYPE == lltype.Float:
         if in_const_box:
             return history.ConstFloat(value)
         else:
             return history.BoxFloat(value)
-    elif isinstance(value, str) or isinstance(value, unicode):
-        assert len(value) == 1     # must be a character
-        value = ord(value)
-    else:
-        value = intmask(value)
     if in_const_box:
         return history.ConstInt(value)
     else:
