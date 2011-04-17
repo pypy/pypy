@@ -1016,6 +1016,25 @@ class AppTestTypeObject:
             __weakref__ = 42
         assert B().__weakref__ == 42
 
+    def test_change_dict(self):
+        class A(object):
+            pass
+
+        a = A()
+        A.x = 1
+        assert A.__dict__["x"] == 1
+        raises(AttributeError, "del A.__dict__")
+        raises((AttributeError, TypeError), "A.__dict__ = {}")
+
+    def test_mutate_dict(self):
+        class A(object):
+            pass
+
+        a = A()
+        A.x = 1
+        assert A.__dict__["x"] == 1
+        A.__dict__['x'] = 5
+        assert A.x == 5
 
 class AppTestMutableBuiltintypes:
 
