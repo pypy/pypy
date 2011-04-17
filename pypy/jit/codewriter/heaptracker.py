@@ -1,5 +1,4 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 
 

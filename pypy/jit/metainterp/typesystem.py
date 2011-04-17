@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, llstr, oostr
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
