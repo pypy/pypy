@@ -3,7 +3,6 @@ import py, random
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
-from pypy.rpython.rclass import FieldListAccessor, IR_QUASI_IMMUTABLE
 
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
@@ -13,7 +12,6 @@ from pypy.jit.metainterp.optimizeutil import sort_descrs, InvalidLoop
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.heaptracker import register_known_gctype, adr2int
 from pypy.jit.tool.oparser import parse
-from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -63,18 +61,6 @@ class LLtypeMixin(object):
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
-
-    accessor = FieldListAccessor()
-    accessor.initialize(None, {'inst_field': IR_QUASI_IMMUTABLE})
-    QUASI = lltype.GcStruct('QUASIIMMUT', ('inst_field', lltype.Signed),
-                            ('mutate_field', rclass.OBJECTPTR),
-                            hints={'immutable_fields': accessor})
-    quasi = lltype.malloc(QUASI, immortal=True)
-    quasifielddescr = cpu.fielddescrof(QUASI, 'inst_field')
-    quasibox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, quasi))
-    quasiimmutdescr = QuasiImmutDescr(cpu, quasibox,
-                                      quasifielddescr,
-                                      cpu.fielddescrof(QUASI, 'mutate_field'))
 
     NODEOBJ = lltype.GcStruct('NODEOBJ', ('parent', OBJECT),
                                          ('ref', lltype.Ptr(OBJECT)))

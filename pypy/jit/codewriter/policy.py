@@ -1,5 +1,5 @@
 from pypy.translator.simplify import get_funcobj
-from pypy.jit.metainterp import history, quasiimmut
+from pypy.jit.metainterp import history
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.tool.udir import udir
 
@@ -85,19 +85,11 @@ def contains_unsupported_variable_type(graph, supports_floats,
                     getkind(v.concretetype, supports_floats, supports_longlong)
                 v = op.result
                 getkind(v.concretetype, supports_floats, supports_longlong)
-                check_skip_operation(op)
     except NotImplementedError, e:
         log.WARNING('%s, ignoring graph' % (e,))
         log.WARNING('  %s' % (graph,))
         return True
     return False
-
-def check_skip_operation(op):
-    if op.opname == 'setfield':
-        if quasiimmut.is_quasi_immutable(op.args[0].concretetype.TO,
-                                         op.args[1].value):
-            raise NotImplementedError("write to quasi-immutable field %r"
-                                      % (op.args[1].value,))
 
 # ____________________________________________________________
 

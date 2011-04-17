@@ -50,7 +50,7 @@ class AbstractVirtualizable2InstanceRepr(AbstractInstanceRepr):
 
     def hook_access_field(self, vinst, cname, llops, flags):
         #if not flags.get('access_directly'):
-        if self.my_redirected_fields.get(cname.value):
+        if cname.value in self.my_redirected_fields:
             cflags = inputconst(lltype.Void, flags)
             llops.genop('jit_force_virtualizable', [vinst, cname, cflags])
 

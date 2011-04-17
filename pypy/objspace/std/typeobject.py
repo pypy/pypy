@@ -85,7 +85,6 @@ class W_TypeObject(W_Object):
                           'nslots',
                           'instancetypedef',
                           'terminator',
-                          '_version_tag?',
                           ]
 
     # for config.objspace.std.getattributeshortcut
