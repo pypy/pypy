@@ -474,6 +474,9 @@ def PyFile_FromString(space, filename, mode):
 def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     view.c_buf = buf
     view.c_len = length
+    view.c_obj = obj
+    Py_IncRef(space, obj)
+    return 0
 
 
 @cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)

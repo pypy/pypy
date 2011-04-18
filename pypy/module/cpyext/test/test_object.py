@@ -4,7 +4,7 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import Py_LT, Py_LE, Py_NE, Py_EQ,\
-    Py_GE, Py_GT, fopen, fclose, fwrite
+    Py_GE, Py_GT, Py_buffer, fopen, fclose, fwrite
 from pypy.tool.udir import udir
 
 class TestObject(BaseApiTest):
@@ -267,3 +267,55 @@ class AppTestObject(AppTestCpythonExtensionBase):
              """)])
         assert module.dump(self.tmpname, None)
         assert open(self.tmpname).read() == 'None'
+
+
+
+class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
+    """
+    PyBuffer_FillInfo populates the fields of a Py_buffer from its arguments.
+    """
+    def test_nullObject(self):
+        """
+        PyBuffer_FillInfo populates the C{buf}, C{length}, and C{obj} fields of
+        the Py_buffer passed to it.
+        """
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *result;
+
+    if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13, 0, 0)) {
+        return NULL;
+    }
+
+    /* Get rid of our own reference to the object, but the Py_buffer should
+     * still have a reference.
+     */
+    Py_DECREF(str);
+
+    /* Give back a new string to the caller, constructed from data in the
+     * Py_buffer.  It better still be valid.
+     */
+    if (!(result = PyString_FromStringAndSize(buf.buf, buf.len))) {
+        return NULL;
+    }
+
+    /* Now the data in the Py_buffer is really no longer needed, get rid of it
+     *(could use PyBuffer_Release here, but that would drag in more code than
+     * necessary).
+     */
+    Py_DECREF(buf.obj);
+
+    /* Py_DECREF can't directly signal error to us, but if it makes a reference
+     * count go negative, it will set an error.
+     */
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    return result;
+                 """)])
+        result = module.fillinfo()
+        assert "hello, world." == result

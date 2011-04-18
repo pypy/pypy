@@ -123,4 +123,4 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             }
             return PyString_FromStringAndSize(buf.buf, buf.len);
             ''')
-        assert pybuffer('foo\0bar\0baz') == 'foo\0bar\0baz'
+        assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')

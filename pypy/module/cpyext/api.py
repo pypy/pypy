@@ -418,7 +418,7 @@ PyVarObject = lltype.Ptr(PyVarObjectStruct)
 Py_buffer = cpython_struct(
     "Py_buffer", (
         ('buf', rffi.VOIDP),
-        # ('obj', PyObject),
+        ('obj', PyObject),
         ('len', Py_ssize_t),
         # ('itemsize', Py_ssize_t),
 
