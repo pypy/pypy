@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
+    PyVarObject, Py_buffer,
+    Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, FILEP, fwrite, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
@@ -466,3 +467,15 @@ def PyFile_FromString(space, filename, mode):
     w_filename = space.wrap(rffi.charp2str(filename))
     w_mode = space.wrap(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'file', w_filename, w_mode)
+
+
+@cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
+              lltype.Signed, lltype.Signed], rffi.INT, error=CANNOT_FAIL)
+def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
+    view.c_buf = buf
+    view.c_len = length
+
+
+@cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
+def PyBuffer_Release(space, view):
+    pass

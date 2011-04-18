@@ -135,13 +135,11 @@ cleanup_ptr(void *ptr)
 	PyMem_FREE(ptr);
 }
 
-#if 0
 static void
 cleanup_buffer(void *ptr)
 {
 	PyBuffer_Release((Py_buffer *) ptr);
 }
-#endif
 
 static int
 addcleanup(void *ptr, PyObject **freelist, void (*destr)(void *))
@@ -775,16 +773,22 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		break;
 	}
 	case 's': {/* string */
+            printf("Hello, string\n");
 		if (*format == '*') {
-      Py_FatalError("* format unsupported for strings in PyArg_*\n");
-#if 0
+                    printf("hello, buffer\n");
 			Py_buffer *p = (Py_buffer *)va_arg(*p_va, Py_buffer *);
 
 			if (PyString_Check(arg)) {
 				PyBuffer_FillInfo(p, arg,
 						  PyString_AS_STRING(arg), PyString_GET_SIZE(arg),
 						  1, 0);
-			}
+			} else {
+                            PyErr_SetString(
+                                PyExc_NotImplementedError,
+                                "s* not implemented for non-string values");
+                            return NULL;
+                        }
+#if 0
 #ifdef Py_USING_UNICODE
 			else if (PyUnicode_Check(arg)) {
 				uarg = UNICODE_DEFAULT_ENCODING(arg);
@@ -801,13 +805,13 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 				if (getbuffer(arg, p, &buf) < 0)
 					return converterr(buf, arg, msgbuf, bufsize);
 			}
+#endif
 			if (addcleanup(p, freelist, cleanup_buffer)) {
 				return converterr(
 					"(cleanup problem)",
 					arg, msgbuf, bufsize);
 			}
 			format++;
-#endif
 		} else if (*format == '#') {
 			void **p = (void **)va_arg(*p_va, char **);
 			FETCH_SIZE;
@@ -1616,7 +1620,7 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 			int match = 0;
 			char *ks;
 			if (!PyString_Check(key)) {
-				PyErr_SetString(PyExc_TypeError, 
+                            PyErr_SetString(PyExc_TypeError, 
 					        "keywords must be strings");
 				return cleanreturn(0, freelist);
 			}

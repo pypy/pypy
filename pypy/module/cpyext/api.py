@@ -415,6 +415,23 @@ cpython_struct('PyBufferProcs', PyBufferProcsFields, PyBufferProcs)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
 
+Py_buffer = cpython_struct(
+    "Py_buffer", (
+        ('buf', rffi.VOIDP),
+        # ('obj', PyObject),
+        ('len', Py_ssize_t),
+        # ('itemsize', Py_ssize_t),
+
+        # ('readonly', lltype.Signed),
+        # ('ndim', lltype.Signed),
+        # ('format', rffi.CCHARP),
+        # ('shape', Py_ssize_tP),
+        # ('strides', Py_ssize_tP),
+        # ('suboffets', Py_ssize_tP),
+        # ('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
+        # ('internal', rffi.VOIDP)
+        ))
+
 @specialize.memo()
 def is_PyObject(TYPE):
     if not isinstance(TYPE, lltype.Ptr):
