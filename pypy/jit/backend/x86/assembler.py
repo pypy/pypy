@@ -2090,6 +2090,7 @@ class Assembler386(object):
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
         size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
+        size = (size + WORD-1) & ~(WORD-1)     # round up
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (eax.value, size))
         self.mc.CMP(edx, heap(nursery_top_adr))

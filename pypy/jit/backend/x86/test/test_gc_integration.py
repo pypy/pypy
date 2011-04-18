@@ -326,6 +326,8 @@ class TestMallocVarsizeFastpath(BaseTestRegalloc):
         ARRAY = lltype.GcArray(lltype.Signed)
         arraydescr = cpu.arraydescrof(ARRAY)
         self.arraydescr = arraydescr
+        ARRAYCHAR = lltype.GcArray(lltype.Char)
+        arraychardescr = cpu.arraydescrof(ARRAYCHAR)
 
         self.namespace = locals().copy()
 
@@ -388,3 +390,24 @@ class TestMallocVarsizeFastpath(BaseTestRegalloc):
         finish(p0)
         '''
         py.test.raises(Seen, self.interpret, ops, [])
+
+    def test_malloc_array_of_char(self):
+        # check that fastpath_malloc_varsize() respects the alignment
+        # of the pointer in the nursery
+        ops = '''
+        []
+        p1 = new_array(1, descr=arraychardescr)
+        p2 = new_array(2, descr=arraychardescr)
+        p3 = new_array(3, descr=arraychardescr)
+        p4 = new_array(4, descr=arraychardescr)
+        finish(p1, p2, p3, p4)
+        '''
+        self.interpret(ops, [])
+        p1 = self.getptr(0, llmemory.GCREF)
+        p2 = self.getptr(1, llmemory.GCREF)
+        p3 = self.getptr(2, llmemory.GCREF)
+        p4 = self.getptr(3, llmemory.GCREF)
+        assert p1._obj.intval & (WORD-1) == 0    # aligned
+        assert p2._obj.intval & (WORD-1) == 0    # aligned
+        assert p3._obj.intval & (WORD-1) == 0    # aligned
+        assert p4._obj.intval & (WORD-1) == 0    # aligned
