@@ -1,12 +1,12 @@
 from pypy.translator.backendopt.removenoops import remove_same_as, \
-        remove_unaryops, remove_duplicate_casts, remove_superfluous_keep_alive
+        remove_unaryops, remove_duplicate_casts
 from pypy.translator.backendopt.inline import simple_inline_function
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.memory.gctransform.test.test_transform import getops
 from pypy.translator.test.snippet import simple_method
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
-from pypy.objspace.flow.model import checkgraph, flatten, Block
+from pypy.objspace.flow.model import checkgraph, Block
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
@@ -114,20 +114,6 @@ def test_remove_unaryops():
     interp = LLInterpreter(t.rtyper)
     result = interp.eval_graph(f_graph, [-2])
     assert result == -1
-
-def test_remove_keepalive():
-    S = lltype.GcStruct("s", ("f", lltype.Signed))
-    def f():
-        s1 = lltype.malloc(S)
-        llop.keepalive(lltype.Void, s1)
-        s2 = lltype.malloc(S)
-        llop.keepalive(lltype.Void, s1)
-        llop.keepalive(lltype.Void, s2)
-        return lltype.cast_ptr_to_int(s1) + lltype.cast_ptr_to_int(s2)
-    graph, t = get_graph(f, [])
-    remove_superfluous_keep_alive(graph)
-    ops = getops(graph)
-    assert len(ops['keepalive']) == 2
 
 def test_remove_duplicate_casts():
     class A(object):

@@ -262,6 +262,8 @@ class AppTestSignalSocket:
             signal(SIGALRM, SIG_DFL)
 
 class AppTestItimer:
+    spaceconfig = dict(usemodules=['signal'])
+
     def test_itimer_real(self):
         import signal
 

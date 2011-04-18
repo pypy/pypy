@@ -1350,6 +1350,11 @@ class DummyLock(object):
         pass
     def _freeze_(self):
         return True
+    def __enter__(self):
+        pass
+    def __exit__(self, *args):
+        pass
+
 dummy_lock = DummyLock()
 
 ## Table describing the regular part of the interface of object spaces,

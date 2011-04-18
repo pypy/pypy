@@ -7,7 +7,10 @@ class TestCliList(CliTest, BaseTestRlist):
     def test_recursive(self):
         py.test.skip("CLI doesn't support recursive lists")
 
-    def test_getitem_exc(self):
+    def test_getitem_exc_1(self):
+        py.test.skip('fixme!')
+
+    def test_getitem_exc_2(self):
         py.test.skip('fixme!')
 
     def test_list_unsigned(self):

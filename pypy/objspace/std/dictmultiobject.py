@@ -798,7 +798,6 @@ def dict_get__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
         return w_default
 
 def dict_setdefault__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
-    # XXX should be more efficient, with only one dict lookup
     return w_dict.setdefault(w_key, w_default)
 
 def dict_pop__DictMulti_ANY(space, w_dict, w_key, defaults_w):

@@ -46,15 +46,15 @@ class PyFrame(eval.Frame):
     w_f_trace                = None
     # For tracing
     instr_lb                 = 0
-    instr_ub                 = -1
-    instr_prev               = -1
+    instr_ub                 = 0
+    instr_prev_plus_one      = 0
     is_being_profiled        = False
 
     def __init__(self, space, code, w_globals, closure):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.pycode = code
-        eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
+        eval.Frame.__init__(self, space, w_globals)
         self.valuestack_w = [None] * code.co_stacksize
         self.valuestackdepth = 0
         self.lastblock = None
@@ -63,7 +63,7 @@ class PyFrame(eval.Frame):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         self.initialize_frame_scopes(closure, code)
-        self.fastlocals_w = [None]*self.numlocals
+        self.fastlocals_w = [None] * code.co_nlocals
         make_sure_not_resized(self.fastlocals_w)
         self.f_lineno = code.co_firstlineno
 
@@ -335,7 +335,7 @@ class PyFrame(eval.Frame):
 
             w(self.instr_lb), #do we need these three (that are for tracing)
             w(self.instr_ub),
-            w(self.instr_prev),
+            w(self.instr_prev_plus_one),
             w_cells,
             ]
 
@@ -349,7 +349,7 @@ class PyFrame(eval.Frame):
         args_w = space.unpackiterable(w_args)
         w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_exc_value, w_tb,\
             w_globals, w_last_instr, w_finished, w_f_lineno, w_fastlocals, w_f_locals, \
-            w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev, w_cells = args_w
+            w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev_plus_one, w_cells = args_w
 
         new_frame = self
         pycode = space.interp_w(PyCode, w_pycode)
@@ -397,7 +397,7 @@ class PyFrame(eval.Frame):
 
         new_frame.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
         new_frame.instr_ub = space.int_w(w_instr_ub)
-        new_frame.instr_prev = space.int_w(w_instr_prev)
+        new_frame.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
 
         self._setcellvars(cellvars)
         # XXX what if the frame is in another thread??
@@ -430,7 +430,10 @@ class PyFrame(eval.Frame):
         """Initialize cellvars from self.fastlocals_w
         This is overridden in nestedscope.py"""
         pass
-    
+
+    def getfastscopelength(self):
+        return self.pycode.co_nlocals
+
     def getclosure(self):
         return None
 

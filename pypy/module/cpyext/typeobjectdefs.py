@@ -1,9 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.lltype import Ptr, FuncType, Void
-from pypy.module.cpyext.api import cpython_struct, \
-    PyVarObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, \
-    Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE, \
-    PyTypeObject, PyTypeObjectPtr, PyBufferProcs, FILEP
+from pypy.module.cpyext.api import (cpython_struct, Py_ssize_t, Py_ssize_tP,
+    PyVarObjectFields, PyTypeObject, PyTypeObjectPtr, FILEP,
+    Py_TPFLAGS_READYING, Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
 
@@ -54,6 +53,14 @@ setter = P(FT([PyO, PyO, rffi.VOIDP], rffi.INT_real))
 
 wrapperfunc = P(FT([PyO, PyO, rffi.VOIDP], PyO))
 wrapperfunc_kwds = P(FT([PyO, PyO, rffi.VOIDP, PyO], PyO))
+
+readbufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
+writebufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
+segcountproc = P(FT([PyO, Py_ssize_tP], Py_ssize_t))
+charbufferproc = P(FT([PyO, Py_ssize_t, rffi.CCHARPP], Py_ssize_t))
+## We don't support new buffer interface for now
+getbufferproc = rffi.VOIDP
+releasebufferproc = rffi.VOIDP
 
 
 PyGetSetDef = cpython_struct("PyGetSetDef", (
@@ -127,7 +134,6 @@ PyMappingMethods = cpython_struct("PyMappingMethods", (
     ("mp_ass_subscript", objobjargproc),
 ))
 
-"""
 PyBufferProcs = cpython_struct("PyBufferProcs", (
     ("bf_getreadbuffer", readbufferproc),
     ("bf_getwritebuffer", writebufferproc),
@@ -136,7 +142,6 @@ PyBufferProcs = cpython_struct("PyBufferProcs", (
     ("bf_getbuffer", getbufferproc),
     ("bf_releasebuffer", releasebufferproc),
 ))
-"""
 
 PyMemberDef = cpython_struct("PyMemberDef", (
     ("name", rffi.CCHARP),

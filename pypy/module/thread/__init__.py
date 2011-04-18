@@ -17,8 +17,8 @@ class Module(MixedModule):
         '_count':                 'os_thread._count',
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
-        'LockType':               'os_lock.getlocktype(space)',
-        '_local':                 'os_local.getlocaltype(space)',
+        'LockType':               'os_lock.Lock',
+        '_local':                 'os_local.Local',
         'error':                  'space.fromcache(error.Cache).w_error',
     }
 

@@ -12,7 +12,7 @@ class Local(Wrappable):
     def __init__(self, space, initargs):
         self.initargs = initargs
         ident = thread.get_ident()
-        self.dicts = {ident: space.newdict()}
+        self.dicts = {ident: space.newdict(instance=True)}
 
     def getdict(self, space):
         ident = thread.get_ident()
@@ -50,10 +50,6 @@ Local.typedef = TypeDef("thread._local",
                         __init__ = interp2app(Local.descr_local__init__),
                         __dict__ = GetSetProperty(descr_get_dict, cls=Local),
                         )
-
-def getlocaltype(space):
-    return space.gettypeobject(Local.typedef)
-
 
 def finish_thread(w_obj):
     assert isinstance(w_obj, Local)

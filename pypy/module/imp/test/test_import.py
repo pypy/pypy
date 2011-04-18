@@ -1007,7 +1007,8 @@ class AppTestImportHooks(object):
 
 class AppTestPyPyExtension(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['imp', 'zipimport'])
+        cls.space = gettestobjspace(usemodules=['imp', 'zipimport',
+                                                '__pypy__'])
         cls.w_udir = cls.space.wrap(str(udir))
 
     def test_run_compiled_module(self):

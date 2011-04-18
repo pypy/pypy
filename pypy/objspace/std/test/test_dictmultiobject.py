@@ -133,6 +133,8 @@ class TestW_DictObject:
 
 
 class AppTest_DictObject:
+    def setup_class(cls):
+        cls.w_on_pypy = cls.space.wrap("__pypy__" in sys.builtin_module_names)
 
     def test_equality(self):
         d = {1:2} 
@@ -252,10 +254,17 @@ class AppTest_DictObject:
         k = Key()
         d = {}
         d.setdefault(k, [])
-        assert k.calls == 1
+        if self.on_pypy:
+            assert k.calls == 1
 
         d.setdefault(k, 1)
-        assert k.calls == 2
+        if self.on_pypy:
+            assert k.calls == 2
+
+        k = Key()
+        d.setdefault(k, 42)
+        if self.on_pypy:
+            assert k.calls == 1
 
     def test_update(self):
         d = {1:2, 3:4}

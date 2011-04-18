@@ -69,11 +69,30 @@ PyTypeObject CmpType = {
 };
 
 
+static int cmp_compare(PyObject *self, PyObject *other) {
+    return -1;
+}
+
+PyTypeObject OldCmpType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "comparisons.OldCmpType",                       /* tp_name */
+    sizeof(CmpObject),                              /* tp_basicsize */
+    0,                                              /* tp_itemsize */
+    0,                                              /* tp_dealloc */
+    0,                                              /* tp_print */
+    0,                                              /* tp_getattr */
+    0,                                              /* tp_setattr */
+    (cmpfunc)cmp_compare,                           /* tp_compare */
+};
+
+
 void initcomparisons(void)
 {
     PyObject *m, *d;
 
     if (PyType_Ready(&CmpType) < 0)
+        return;
+    if (PyType_Ready(&OldCmpType) < 0)
         return;
     m = Py_InitModule("comparisons", NULL);
     if (m == NULL)
@@ -82,5 +101,7 @@ void initcomparisons(void)
     if (d == NULL)
         return;
     if (PyDict_SetItemString(d, "CmpType", (PyObject *)&CmpType) < 0)
+        return;
+    if (PyDict_SetItemString(d, "OldCmpType", (PyObject *)&OldCmpType) < 0)
         return;
 }

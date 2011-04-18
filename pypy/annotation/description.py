@@ -880,6 +880,11 @@ class FrozenDesc(Desc):
         except AttributeError:
             return False
 
+    def warn_missing_attribute(self, attr):
+        # only warn for missing attribute names whose name doesn't start
+        # with '$', to silence the warnings about '$memofield_xxx'.
+        return not self.has_attribute(attr) and not attr.startswith('$')
+
     def read_attribute(self, attr):
         try:
             return self.attrcache[attr]

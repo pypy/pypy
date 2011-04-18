@@ -3,7 +3,7 @@ from pypy.rlib.jit import JitDriver, we_are_jitted, hint
 from pypy.rlib.jit import unroll_safe, dont_look_inside
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rpython.annlowlevel import hlstr
 from pypy.jit.metainterp.warmspot import get_stats
