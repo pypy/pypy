@@ -274,10 +274,62 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """
     PyBuffer_FillInfo populates the fields of a Py_buffer from its arguments.
     """
-    def test_nullObject(self):
+    def test_fillWithoutObject(self):
+        """
+        PyBuffer_FillInfo populates the C{buf} and C{length}fields of the
+        Py_buffer passed to it.
+        """
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *result;
+
+    if (PyBuffer_FillInfo(&buf, NULL, PyString_AsString(str), 13, 0, 0)) {
+        return NULL;
+    }
+
+    /* Check a few things we want to have happened.
+     */
+    if (buf.buf != PyString_AsString(str)) {
+        PyErr_SetString(PyExc_ValueError, "buf field not initialized");
+        return NULL;
+    }
+
+    if (buf.len != 13) {
+        PyErr_SetString(PyExc_ValueError, "len field not initialized");
+        return NULL;
+    }
+
+    if (buf.obj != NULL) {
+        PyErr_SetString(PyExc_ValueError, "obj field not initialized");
+        return NULL;
+    }
+
+    /* Give back a new string to the caller, constructed from data in the
+     * Py_buffer.
+     */
+    if (!(result = PyString_FromStringAndSize(buf.buf, buf.len))) {
+        return NULL;
+    }
+
+    /* Free that string we allocated above.  result does not share storage with
+     * it.
+     */
+    Py_DECREF(str);
+
+    return result;
+                 """)])
+        result = module.fillinfo()
+        assert "hello, world." == result
+
+
+    def test_fillWithObject(self):
         """
         PyBuffer_FillInfo populates the C{buf}, C{length}, and C{obj} fields of
-        the Py_buffer passed to it.
+        the Py_buffer passed to it and increments the reference count of the
+        object.
         """
         module = self.import_extension('foo', [
                 ("fillinfo", "METH_VARARGS",
