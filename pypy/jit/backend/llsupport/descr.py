@@ -411,7 +411,7 @@ class GcPtrCallDescr(BaseCallDescr):
     def get_result_size(self, translate_support_code):
         return symbolic.get_size_of_ptr(translate_support_code)
 
-class GcPtrHidden32CallDescr(BaseCallDescr):
+class GcPtrHidden32CallDescr(GcPtrCallDescr):
     _clsname = 'GcPtrHidden32CallDescr'
     _return_type = 'H'
     def get_result_size(self, translate_support_code):
