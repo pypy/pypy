@@ -1530,3 +1530,45 @@ class TestPyPyCNew(BaseTestPyPyC):
         ## assert call.getarg(0).value == pow_addr
         ## assert call.getarg(1).value == 2.0
         ## assert call.getarg(2).value == 3.0
+
+    def test_xor(self):
+        def main(a, b):
+            i = sa = 0
+            while i < 300:
+                if a > 0: # Specialises the loop
+                    pass
+                if b > 10:
+                    pass
+                if a^b >= 0:
+                    sa += 1    # ID: add
+                i += 1
+            return sa
+
+        # if both are >=0, a^b is known to be >=0
+        log = self.run(main, [3, 14], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i9 = int_lt(i6, 300)
+            guard_true(i9, descr=...)
+            i11 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i13 = int_add(i6, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i13, i11, descr=<Loop0>)
+        """)
+
+        # XXX: I don't understand why this assert passes, because the
+        # optimizer doesn't know that b >=0
+        log = self.run(main, [3, 4], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i9 = int_lt(i6, 300)
+            guard_true(i9, descr=...)
+            i11 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i13 = int_add(i6, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i13, i11, descr=<Loop0>)
+        """)
