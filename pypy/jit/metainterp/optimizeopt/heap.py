@@ -120,6 +120,7 @@ class OptHeap(Optimization):
         # cached array items:  {descr: CachedArrayItems}
         self.cached_arrayitems = {}
         self._remove_guard_not_invalidated = False
+        self._seen_guard_not_invalidated = False
 
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         new = OptHeap()
@@ -239,6 +240,9 @@ class OptHeap(Optimization):
                 effectinfo = None
             else:
                 effectinfo = op.getdescr().get_extra_info()
+            if (effectinfo is None or effectinfo.extraeffect >=
+                effectinfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE):
+                self._seen_guard_not_invalidated = False
             if effectinfo is not None:
                 # XXX we can get the wrong complexity here, if the lists
                 # XXX stored on effectinfo are large
@@ -414,6 +418,9 @@ class OptHeap(Optimization):
         if self._remove_guard_not_invalidated:
             return
         self._remove_guard_not_invalidated = False
+        if self._seen_guard_not_invalidated:
+            return
+        self._seen_guard_not_invalidated = True
         self.emit_operation(op)
 
     def propagate_forward(self, op):

@@ -5747,6 +5747,37 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, expected)
 
+    def test_remove_extra_guards_not_invalidated(self):
+        ops = """
+        []
+        guard_not_invalidated() []
+        guard_not_invalidated() []
+        jump()
+        """
+        expected = """
+        []
+        guard_not_invalidated() []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_call_may_force_invalidated_guards(self):
+        ops = """
+        [i0]
+        guard_not_invalidated() []
+        call_may_force(i0, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        guard_not_invalidated() []
+        call_may_force(i0, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 ##class TestOOtype(OptimizeOptTest, OOtypeMixin):
 
 ##    def test_instanceof(self):
