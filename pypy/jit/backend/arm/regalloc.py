@@ -47,6 +47,8 @@ class ARMFrameManager(FrameManager):
     @staticmethod
     def frame_pos(loc, type):
         num_words = ARMFrameManager.frame_size(type)
+        if type == FLOAT:
+            return locations.StackLocation(loc+1, num_words=num_words, type=type)
         return locations.StackLocation(loc, num_words=num_words, type=type)
 
     @staticmethod
