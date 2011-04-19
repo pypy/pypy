@@ -6,7 +6,7 @@ from Tkinter import *
 from idlelib.Delegator import Delegator
 from idlelib.configHandler import idleConf
 
-DEBUG = True
+DEBUG = False
 
 def any(name, alternates):
     "Return a named group pattern matching list of alternates."
@@ -89,7 +89,6 @@ class ColorDelegator(Delegator):
     colorizing = False
 
     def notify_range(self, index1, index2=None):
-        print 'notify_range'
         self.tag_add("TODO", index1, index2)
         if self.after_id:
             if DEBUG: print "colorizing already scheduled"
