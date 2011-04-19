@@ -773,9 +773,7 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		break;
 	}
 	case 's': {/* string */
-            printf("Hello, string\n");
 		if (*format == '*') {
-                    printf("hello, buffer\n");
 			Py_buffer *p = (Py_buffer *)va_arg(*p_va, Py_buffer *);
 
 			if (PyString_Check(arg)) {
