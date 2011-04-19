@@ -590,9 +590,11 @@ class OptInlineShortPreamble(Optimization):
                 for sh in short:
                     ok = False
                     extra_guards = []
+                    
                     if sh.virtual_state.generalization_of(virtual_state):
                         ok = True
                     else:
+                        import pdb; pdb.set_trace()
                         try:
                             cpu = self.optimizer.cpu
                             sh.virtual_state.generate_guards(virtual_state,

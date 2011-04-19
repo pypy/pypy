@@ -2010,6 +2010,37 @@ class BasicTests:
         assert res == 12
         self.check_tree_loop_count(2)        
 
+    def test_caching_setfield(self):
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'node'])
+        class A:
+            pass
+        def f(n, a):
+            i = sa = 0
+            node = A()
+            while i < n:
+                myjitdriver.can_enter_jit(sa=sa, i=i, n=n, a=a, node=node)
+                myjitdriver.jit_merge_point(sa=sa, i=i, n=n, a=a, node=node)
+                if i < n/2:
+                    node.val1 = a
+                    node.val2 = a
+                sa += node.val1 + node.val2
+                i += 1
+            return n
+        res = self.meta_interp(f, [32, 7])
+        assert res == f(32, 7)
+
+        # write same val to 2 locations
+        # read them
+        # write 2 differnt values from branch
+
+        # r=getfield
+        # assert r<0
+        # bridge violating assert
+        
+
+        
+
+        
 
 
 class TestOOtype(BasicTests, OOJitMixin):

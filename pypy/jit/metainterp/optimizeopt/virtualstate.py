@@ -175,6 +175,7 @@ class VirtualState(object):
     def generalization_of(self, other):
         assert len(self.state) == len(other.state)
         for i in range(len(self.state)):
+            print 'ge: ', i
             if not self.state[i].generalization_of(other.state[i]):
                 return False
         return True
@@ -182,6 +183,7 @@ class VirtualState(object):
     def generate_guards(self, other, args, cpu, extra_guards):        
         assert len(self.state) == len(other.state) == len(args)
         for i in range(len(self.state)):
+            print 'gu: ', i
             self.state[i].generate_guards(other.state[i], args[i],
                                           cpu, extra_guards)
 
