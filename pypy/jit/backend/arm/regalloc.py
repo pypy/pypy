@@ -372,7 +372,6 @@ class Regalloc(object):
 
 
     def prepare_guard_int_add_ovf(self, op, guard, fcond):
-        import pdb; pdb.set_trace()
         boxes = self.prepare_op_int_add(op, fcond)
         locs = self._prepare_guard(guard, boxes)
         self.possibly_free_vars_for_op(op)

@@ -89,7 +89,6 @@ class IntOpAsslember(object):
         return fcond
 
     def emit_guard_int_add_ovf(self, op, guard, arglocs, regalloc, fcond):
-        import pdb; pdb.set_trace()
         self.emit_op_int_add(op, arglocs[0:3], regalloc, fcond, flags=True)
         self._emit_guard_overflow(guard, arglocs[3:], fcond)
         return fcond
