@@ -1,10 +1,9 @@
 import py
-
 from pypy.jit.backend.x86.test.test_jump import MockAssembler
 from pypy.jit.backend.arm.registers import *
 from pypy.jit.backend.arm.locations import *
 from pypy.jit.backend.arm.regalloc import ARMFrameManager
-from pypy.jit.backend.arm.jump import remap_frame_layout
+from pypy.jit.backend.arm.jump import remap_frame_layout, remap_frame_layout_mixed
 from pypy.jit.metainterp.history import INT
 
 frame_pos = ARMFrameManager.frame_pos
@@ -114,3 +113,61 @@ class TestJump(object):
                                  ('push', s12),
                                  ('mov', r5, s12),
                                  ('pop', r5)]
+    def test_mixed(self):
+        s23 = frame_pos(2, FLOAT)     # non-conflicting locations
+        s4  = frame_pos(4, INT)
+        remap_frame_layout_mixed(self.assembler, [r1], [s4], 'tmp',
+                                            [s23], [d5], 'xmmtmp')
+        assert self.assembler.ops == [('mov', r1, s4),
+                                 ('mov', s23, d5)]
+    def test_mixed2(self):
+        s23 = frame_pos(2, FLOAT)  # gets stored in pos 2 and 3, with value==3
+        s3  = frame_pos(3, INT)
+        remap_frame_layout_mixed(self.assembler, [r1], [s3], 'tmp',
+                                            [s23], [d5], 'xmmtmp')
+        assert self.assembler.ops == [('push', s23),
+                                 ('mov', r1, s3),
+                                 ('pop', d5)]
+    def test_mixed3(self):
+        s23 = frame_pos(2, FLOAT)
+        s2  = frame_pos(2, INT)
+        remap_frame_layout_mixed(self.assembler, [r1], [s2], 'tmp',
+                                            [s23], [d5], 'xmmtmp')
+        assert self.assembler.ops == [
+                                 ('push', s23),
+                                 ('mov', r1, s2),
+                                 ('pop', d5)]
+    def test_mixed4(self):
+        s23 = frame_pos(2, FLOAT)
+        s4  = frame_pos(4, INT)
+        s45 = frame_pos(4, FLOAT)
+        s1  = frame_pos(1, INT)
+        remap_frame_layout_mixed(self.assembler, [s4], [s1], r3,
+                                            [s23], [s45], d3)
+        assert self.assembler.ops == [('mov', s4, r3),
+                                 ('mov', r3, s1),
+                                 ('mov', s23, d3),
+                                 ('mov', d3, s45)]
+    def test_mixed5(self):
+        s2  = frame_pos(2, INT)
+        s23 = frame_pos(2, FLOAT)
+        s4  = frame_pos(4, INT)
+        s45 = frame_pos(4, FLOAT)
+        remap_frame_layout_mixed(self.assembler, [s4], [s2], r3,
+                                            [s23], [s45], d3)
+        assert self.assembler.ops == [('push', s23),
+                                 ('mov', s4, r3),
+                                 ('mov', r3, s2),
+                                 ('pop', s45)]
+    def test_mixed6(self):
+        s3  = frame_pos(3, INT)
+        s23 = frame_pos(2, FLOAT)
+        s4  = frame_pos(4, INT)
+        s45 = frame_pos(4, FLOAT)
+        remap_frame_layout_mixed(self.assembler, [s4], [s3], r3,
+                                     [s23], [s45], d3)
+        assert self.assembler.ops == [('push', s23),
+                                     ('mov', s4, r3),
+                                     ('mov', r3, s3),
+                                     ('pop', s45)]
+
