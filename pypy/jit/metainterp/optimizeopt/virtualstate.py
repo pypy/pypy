@@ -140,6 +140,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualStateInfo):
             raise InvalidLoop
+
         if self.level == LEVEL_KNOWNCLASS and \
            box.nonnull() and \
            self.known_class.same_constant(cpu.ts.cls_of_box(box)):
@@ -153,6 +154,39 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
             extra_guards.append(op)
             return
+        
+        if self.level == LEVEL_NONNULL and \
+               other.level == LEVEL_UNKNOWN and \
+               isinstance(box, BoxPtr) and \
+               box.nonnull():
+            op = ResOperation(rop.GUARD_NONNULL, [box], None)
+            extra_guards.append(op)
+            return
+        
+        if self.level == LEVEL_UNKNOWN and \
+               other.level == LEVEL_UNKNOWN and \
+               isinstance(box, BoxInt) and \
+               self.intbound.contains(box.getint()):
+            if self.intbound.has_lower:
+                bound = self.intbound.lower
+                if not (other.intbound.has_lower and \
+                        other.intbound.lower >= bound):
+                    res = BoxInt()
+                    op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
+                    extra_guards.append(op)
+                    op = ResOperation(rop.GUARD_TRUE, [res], None)
+                    extra_guards.append(op)
+            if self.intbound.has_upper:
+                bound = self.intbound.upper
+                if not (other.intbound.has_upper and \
+                        other.intbound.upper <= bound):
+                    res = BoxInt()
+                    op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
+                    extra_guards.append(op)
+                    op = ResOperation(rop.GUARD_TRUE, [res], None)
+                    extra_guards.append(op)
+            return
+        
         # Remaining cases are probably not interesting
         raise InvalidLoop
         if self.level == LEVEL_CONSTANT:
