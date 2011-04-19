@@ -2017,30 +2017,42 @@ class BasicTests:
         def f(n, a):
             i = sa = 0
             node = A()
+            node.val1 = node.val2 = 0
             while i < n:
                 myjitdriver.can_enter_jit(sa=sa, i=i, n=n, a=a, node=node)
                 myjitdriver.jit_merge_point(sa=sa, i=i, n=n, a=a, node=node)
+                sa += node.val1 + node.val2
                 if i < n/2:
                     node.val1 = a
                     node.val2 = a
-                sa += node.val1 + node.val2
+                else:
+                    node.val1 = a
+                    node.val2 = a + 1
                 i += 1
-            return n
+            return sa
         res = self.meta_interp(f, [32, 7])
         assert res == f(32, 7)
 
-        # write same val to 2 locations
-        # read them
-        # write 2 differnt values from branch
+    def test_getfield_result_with_intbound(self):
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'node'])
+        class A:
+            pass
+        def f(n, a):
+            i = sa = 0
+            node = A()
+            node.val1 = a
+            while i < n:
+                myjitdriver.can_enter_jit(sa=sa, i=i, n=n, a=a, node=node)
+                myjitdriver.jit_merge_point(sa=sa, i=i, n=n, a=a, node=node)
+                if node.val1 > 0:
+                    sa += 1
+                if i > n/2:
+                    node.val1 = -a
+                i += 1
+            return sa
+        res = self.meta_interp(f, [32, 7])
+        assert res == f(32, 7)
 
-        # r=getfield
-        # assert r<0
-        # bridge violating assert
-        
-
-        
-
-        
 
 
 class TestOOtype(BasicTests, OOJitMixin):
