@@ -16,9 +16,6 @@ we have it for compatibility with CPython.
 */
 #define staticforward static
 
-typedef void* Py_buffer;
-
-
 #define PyObject_HEAD  \
     long ob_refcnt;       \
     struct _typeobject *ob_type;
@@ -129,6 +126,29 @@ typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
 typedef int (*objobjproc)(PyObject *, PyObject *);
 typedef int (*visitproc)(PyObject *, void *);
 typedef int (*traverseproc)(PyObject *, visitproc, void *);
+
+/* Py3k buffer interface */
+typedef struct bufferinfo {
+    void *buf;
+    PyObject *obj;        /* owned reference */
+    Py_ssize_t len;
+
+    /* This is Py_ssize_t so it can be
+       pointed to by strides in simple case.*/
+    /* Py_ssize_t itemsize; */
+    /* int readonly; */
+    /* int ndim; */
+    /* char *format; */
+    /* Py_ssize_t *shape; */
+    /* Py_ssize_t *strides; */
+    /* Py_ssize_t *suboffsets; */
+
+    /* static store for shape and strides of
+       mono-dimensional buffers. */
+    /* Py_ssize_t smalltable[2]; */
+    /* void *internal; */
+} Py_buffer;
+
 
 typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);
 typedef void (*releasebufferproc)(PyObject *, Py_buffer *);

@@ -135,13 +135,11 @@ cleanup_ptr(void *ptr)
 	PyMem_FREE(ptr);
 }
 
-#if 0
 static void
 cleanup_buffer(void *ptr)
 {
 	PyBuffer_Release((Py_buffer *) ptr);
 }
-#endif
 
 static int
 addcleanup(void *ptr, PyObject **freelist, void (*destr)(void *))
@@ -776,15 +774,19 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 	}
 	case 's': {/* string */
 		if (*format == '*') {
-      Py_FatalError("* format unsupported for strings in PyArg_*\n");
-#if 0
 			Py_buffer *p = (Py_buffer *)va_arg(*p_va, Py_buffer *);
 
 			if (PyString_Check(arg)) {
 				PyBuffer_FillInfo(p, arg,
 						  PyString_AS_STRING(arg), PyString_GET_SIZE(arg),
 						  1, 0);
-			}
+			} else {
+                            PyErr_SetString(
+                                PyExc_NotImplementedError,
+                                "s* not implemented for non-string values");
+                            return NULL;
+                        }
+#if 0
 #ifdef Py_USING_UNICODE
 			else if (PyUnicode_Check(arg)) {
 				uarg = UNICODE_DEFAULT_ENCODING(arg);
@@ -801,13 +803,13 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 				if (getbuffer(arg, p, &buf) < 0)
 					return converterr(buf, arg, msgbuf, bufsize);
 			}
+#endif
 			if (addcleanup(p, freelist, cleanup_buffer)) {
 				return converterr(
 					"(cleanup problem)",
 					arg, msgbuf, bufsize);
 			}
 			format++;
-#endif
 		} else if (*format == '#') {
 			void **p = (void **)va_arg(*p_va, char **);
 			FETCH_SIZE;
@@ -1266,24 +1268,28 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 	}
 		
 	case 't': { /* 8-bit character buffer, read-only access */
-    Py_FatalError("'t' unsupported");
-#if 0
 		char **p = va_arg(*p_va, char **);
 		PyBufferProcs *pb = arg->ob_type->tp_as_buffer;
 		Py_ssize_t count;
-		
+                printf("this far\n");
+
+#if 0
 		if (*format++ != '#')
 			return converterr(
 				"invalid use of 't' format character", 
 				arg, msgbuf, bufsize);
+#endif
 		if (!PyType_HasFeature(arg->ob_type,
-				       Py_TPFLAGS_HAVE_GETCHARBUFFER) ||
-		    pb == NULL || pb->bf_getcharbuffer == NULL ||
-		    pb->bf_getsegcount == NULL)
+				       Py_TPFLAGS_HAVE_GETCHARBUFFER)
+#if 0
+		    || pb == NULL || pb->bf_getcharbuffer == NULL ||
+		    pb->bf_getsegcount == NULL
+#endif
+                    )
 			return converterr(
 				"string or read-only character buffer",
 				arg, msgbuf, bufsize);
-
+#if 0
 		if (pb->bf_getsegcount(arg, NULL) != 1)
 			return converterr(
 				"string or single-segment read-only buffer",
@@ -1293,16 +1299,23 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 			return converterr(
 				"string or pinned buffer",
 				arg, msgbuf, bufsize);
-
+#endif
+                printf("this far!\n");
+                printf("%p\n", pb->bf_getcharbuffer);
 		count = pb->bf_getcharbuffer(arg, 0, p);
+                printf("after\n");
+#if 0
 		if (count < 0)
 			return converterr("(unspecified)", arg, msgbuf, bufsize);
+#endif
 		{
+                    printf("fetch size\n");
 			FETCH_SIZE;
+                        printf("did that\n");
 			STORE_SIZE(count);
+                        printf("store size done\n");
 		}
 		break;
-#endif
 	}
 	default:
 		return converterr("impossible<bad format char>", arg, msgbuf, bufsize);
@@ -1616,7 +1629,7 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 			int match = 0;
 			char *ks;
 			if (!PyString_Check(key)) {
-				PyErr_SetString(PyExc_TypeError, 
+                            PyErr_SetString(PyExc_TypeError, 
 					        "keywords must be strings");
 				return cleanreturn(0, freelist);
 			}
