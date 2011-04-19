@@ -388,10 +388,8 @@ class AssemblerARM(ResOpAssembler):
             if loc.is_vfp_reg():
                 self.mc.VLDR(loc.value, r.ip.value)
             else:
-                tmpreg = r.d0
-                with saved_registers(self.mc, [], [tmpreg]):
-                    self.mc.VLDR(tmpreg.value, r.ip.value)
-                    self.mov_loc_loc(tmpreg, loc)
+                self.mc.VLDR(r.vfp_ip.value, r.ip.value)
+                self.mov_loc_loc(r.vfp_ip, loc)
 
     def _count_reg_args(self, args):
         reg_args = 0
@@ -442,9 +440,8 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.VLDR(loc.value, r.fp.value, stack_position)
             elif loc.is_stack():
                 if loc.type == FLOAT:
-                    with saved_registers(self.mc, [], [r.d0]):
-                        self.mc.VLDR(r.d0.value, r.fp.value, stack_position)
-                        self.mov_loc_loc(r.d0, loc)
+                    self.mc.VLDR(r.vfp_ip.value, r.fp.value, stack_position)
+                    self.mov_loc_loc(r.vfp_ip, loc)
                 elif loc.type == INT or loc.type == REF:
                     self.mc.LDR_ri(r.ip.value, r.fp.value, stack_position)
                     self.mov_loc_loc(r.ip, loc)

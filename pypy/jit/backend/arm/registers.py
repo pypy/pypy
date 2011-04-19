@@ -13,9 +13,10 @@ ip = r12
 sp = r13
 lr = r14
 pc = r15
+vfp_ip = d15
 
 all_regs = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10]
-all_vfp_regs = vfpregisters
+all_vfp_regs = vfpregisters[:-1]
 
 caller_resp = [r0, r1, r2, r3]
 callee_resp = [r4, r5, r6, r7, r8, r9, r10, fp]
