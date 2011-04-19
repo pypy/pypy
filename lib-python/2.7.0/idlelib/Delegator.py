@@ -6,6 +6,9 @@ class Delegator:
         self.delegate = delegate
         self.__cache = {}
 
+    def __nonzero__(self):
+        return True
+
     def __getattr__(self, name):
         attr = getattr(self.delegate, name) # May raise AttributeError
         setattr(self, name, attr)
