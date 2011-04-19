@@ -594,7 +594,6 @@ class OptInlineShortPreamble(Optimization):
                     if sh.virtual_state.generalization_of(virtual_state):
                         ok = True
                     else:
-                        import pdb; pdb.set_trace()
                         try:
                             cpu = self.optimizer.cpu
                             sh.virtual_state.generate_guards(virtual_state,
@@ -619,9 +618,10 @@ class OptInlineShortPreamble(Optimization):
                             jumpop = self.optimizer.newoperations.pop()
                             assert jumpop.getopnum() == rop.JUMP
                             for guard in extra_guards:
-                                descr = sh.start_resumedescr.clone_if_mutable()
-                                self.inliner.inline_descr_inplace(descr)
-                                guard.setdescr(descr)
+                                if guard.is_guard():
+                                    descr = sh.start_resumedescr.clone_if_mutable()
+                                    self.inliner.inline_descr_inplace(descr)
+                                    guard.setdescr(descr)
                                 self.emit_operation(guard)
                             self.optimizer.newoperations.append(jumpop)
                         return

@@ -2,7 +2,10 @@ from pypy.jit.metainterp import resume
 from pypy.jit.metainterp.optimizeopt import virtualize
 from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_CONSTANT, \
                                                       LEVEL_KNOWNCLASS, \
+                                                      LEVEL_NONNULL, \
+                                                      LEVEL_UNKNOWN, \
                                                       MININT, MAXINT
+from pypy.jit.metainterp.history import BoxInt, ConstInt
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.resoperation import rop, ResOperation
