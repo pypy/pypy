@@ -257,9 +257,12 @@ class QuasiImmutTests(object):
             total = f(foo)
             foo.a = 2
             total += f(foo)
+            foo.a = 1
+            total += f(foo)
             return total
 
         res = self.meta_interp(main, [])
+        self.check_loop_count(7)
         assert res == main()
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):

@@ -152,6 +152,8 @@ class AbstractX86CPU(AbstractLLCPU):
             mc = codebuf.MachineCodeBlockWrapper()
             mc.JMP_l(tgt)
             mc.copy_to_raw_memory(addr - 1)
+        # positions invalidated
+        looptoken.compiled_loop_token.invalidate_positions = []
 
 class CPU386(AbstractX86CPU):
     WORD = 4
