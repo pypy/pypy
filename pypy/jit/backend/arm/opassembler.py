@@ -31,30 +31,38 @@ class IntOpAsslember(object):
 
     _mixin_ = True
 
-    def emit_op_int_add(self, op, arglocs, regalloc, fcond):
+    def emit_op_int_add(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
+        if flags:
+            s = 1
+        else:
+            s = 0
         if l0.is_imm():
-            self.mc.ADD_ri(res.value, l1.value, imm=l0.value, s=1)
+            self.mc.ADD_ri(res.value, l1.value, imm=l0.value, s=s)
         elif l1.is_imm():
-            self.mc.ADD_ri(res.value, l0.value, imm=l1.value, s=1)
+            self.mc.ADD_ri(res.value, l0.value, imm=l1.value, s=s)
         else:
             self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
 
         return fcond
 
-    def emit_op_int_sub(self, op, arglocs, regalloc, fcond):
+    def emit_op_int_sub(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
+        if flags:
+            s = 1
+        else:
+            s = 0
         if l0.is_imm():
             value = l0.getint()
             assert value >= 0
             # reverse substract ftw
-            self.mc.RSB_ri(res.value, l1.value, value, s=1)
+            self.mc.RSB_ri(res.value, l1.value, value, s=s)
         elif l1.is_imm():
             value = l1.getint()
             assert value >= 0
-            self.mc.SUB_ri(res.value, l0.value, value, s=1)
+            self.mc.SUB_ri(res.value, l0.value, value, s=s)
         else:
-            self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
+            self.mc.SUB_rr(res.value, l0.value, l1.value, s=s)
 
         return fcond
 
@@ -78,6 +86,17 @@ class IntOpAsslember(object):
             fcond = self._emit_guard(guard, failargs, c.EQ)
         else:
             assert 0
+        return fcond
+
+    def emit_guard_int_add_ovf(self, op, guard, arglocs, regalloc, fcond):
+        import pdb; pdb.set_trace()
+        self.emit_op_int_add(op, arglocs[0:3], regalloc, fcond, flags=True)
+        self._emit_guard_overflow(guard, arglocs[3:], fcond)
+        return fcond
+    
+    def emit_guard_int_sub_ovf(self, op, guard, arglocs, regalloc, fcond):
+        self.emit_op_int_sub(op, arglocs[0:3], regalloc, fcond, flags=True)
+        self._emit_guard_overflow(guard, arglocs[3:], fcond)
         return fcond
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
@@ -148,6 +167,15 @@ class GuardOpAssembler(object):
                                             arglocs, save_exc=save_exc)
         descr._failure_recovery_code = memaddr
         return c.AL
+
+    def _emit_guard_overflow(self, guard, failargs, fcond):
+        if guard.getopnum() == rop.GUARD_OVERFLOW:
+            fcond = self._emit_guard(guard, failargs, c.VS)
+        elif guard.getopnum() == rop.GUARD_NO_OVERFLOW:
+            fcond = self._emit_guard(guard, failargs, c.VC)
+        else:
+            assert 0
+        return fcond
 
     def emit_op_guard_true(self, op, arglocs, regalloc, fcond):
         l0 = arglocs[0]

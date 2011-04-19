@@ -314,9 +314,7 @@ class Regalloc(object):
             boxes.append(box)
             l1, box = self._ensure_value_is_boxed(a1, [box])
             boxes.append(box)
-        self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
-        self.possibly_free_var(op.result)
         return [l0, l1, res]
 
     def prepare_op_int_sub(self, op, fcond):
@@ -337,9 +335,7 @@ class Regalloc(object):
             boxes.append(box)
             l1, box = self._ensure_value_is_boxed(a1, boxes)
             boxes.append(box)
-        self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
-        self.possibly_free_var(op.result)
         return [l0, l1, res]
 
     def prepare_op_int_mul(self, op, fcond):
@@ -374,6 +370,21 @@ class Regalloc(object):
         self.possibly_free_vars(guard.getfailargs())
         return args
 
+
+    def prepare_guard_int_add_ovf(self, op, guard, fcond):
+        import pdb; pdb.set_trace()
+        boxes = self.prepare_op_int_add(op, fcond)
+        locs = self._prepare_guard(guard, boxes)
+        self.possibly_free_vars_for_op(op)
+        self.possibly_free_vars(guard.getfailargs())
+        return locs
+
+    def prepare_guard_int_sub_ovf(self, op, guard, fcond):
+        boxes = self.prepare_op_int_sub(op, fcond)
+        locs = self._prepare_guard(guard, boxes)
+        self.possibly_free_vars_for_op(op)
+        self.possibly_free_vars(guard.getfailargs())
+        return locs
 
     prepare_op_int_floordiv = prepare_op_by_helper_call()
     prepare_op_int_mod = prepare_op_by_helper_call()

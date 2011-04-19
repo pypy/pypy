@@ -624,10 +624,11 @@ class AssemblerARM(ResOpAssembler):
             self._insert_checks()
 
     def can_merge_with_next_guard(self, op, i, operations):
-        if op.getopnum() == rop.CALL_MAY_FORCE or op.getopnum() == rop.CALL_ASSEMBLER:
+        num = op.getopnum()
+        if num == rop.CALL_MAY_FORCE or num == rop.CALL_ASSEMBLER:
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
             return True
-        if op.getopnum() == rop.INT_MUL_OVF:
+        if num == rop.INT_MUL_OVF or num == rop.INT_ADD_OVF or num == rop.INT_SUB_OVF:
             opnum = operations[i + 1].getopnum()
             assert opnum  == rop.GUARD_OVERFLOW or opnum == rop.GUARD_NO_OVERFLOW
             return True
