@@ -757,8 +757,12 @@ class AssemblerARM(ResOpAssembler):
 
     def regalloc_push(self, loc):
         if loc.is_stack():
-            self.regalloc_mov(loc, r.ip)
-            self.mc.PUSH([r.ip.value])
+            if loc.type != FLOAT:
+                scratch_reg = r.ip
+            else:
+                scratch_reg = r.vfp_ip
+            self.regalloc_mov(loc, scratch_reg)
+            self.regalloc_push(scratch_reg)
         elif loc.is_reg():
             self.mc.PUSH([loc.value])
         elif loc.is_vfp_reg():
@@ -771,8 +775,12 @@ class AssemblerARM(ResOpAssembler):
 
     def regalloc_pop(self, loc):
         if loc.is_stack():
-            self.mc.POP([r.ip.value])
-            self.regalloc_mov(r.ip, loc)
+            if loc.type != FLOAT:
+                scratch_reg = r.ip
+            else:
+                scratch_reg = r.vfp_ip
+            self.regalloc_pop(scratch_reg)
+            self.regalloc_mov(scratch_reg, loc)
         elif loc.is_reg():
             self.mc.POP([loc.value])
         elif loc.is_vfp_reg():
