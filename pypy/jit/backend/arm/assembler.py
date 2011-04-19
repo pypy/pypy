@@ -680,7 +680,6 @@ class AssemblerARM(ResOpAssembler):
             self.mc.gen_load_int(r.ip.value, value.getint())
             self.mc.VLDR(loc.value, r.ip.value)
 
-    # XXX needs float support
     def regalloc_mov(self, prev_loc, loc, cond=c.AL):
         if prev_loc.is_imm():
             if loc.is_reg():

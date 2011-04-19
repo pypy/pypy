@@ -296,7 +296,7 @@ class Regalloc(object):
         else:
             self.rm._sync_var(v)
 
-    def prepare_op_int_add(self, op, fcond):
+    def _prepare_op_int_add(self, op, fcond):
         boxes = list(op.getarglist())
         a0, a1 = boxes
         imm_a0 = _check_imm_arg(a0)
@@ -314,10 +314,15 @@ class Regalloc(object):
             boxes.append(box)
             l1, box = self._ensure_value_is_boxed(a1, [box])
             boxes.append(box)
-        res = self.force_allocate_reg(op.result)
-        return [l0, l1, res]
+        return [l0, l1], boxes
 
-    def prepare_op_int_sub(self, op, fcond):
+    def prepare_op_int_add(self, op, fcond):
+        locs, boxes = self._prepare_op_int_add(op, fcond)
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
+        return locs + [res]
+
+    def _prepare_op_int_sub(self, op, fcond):
         boxes = list(op.getarglist())
         a0, a1 = boxes
         imm_a0 = _check_imm_arg(a0)
@@ -335,8 +340,13 @@ class Regalloc(object):
             boxes.append(box)
             l1, box = self._ensure_value_is_boxed(a1, boxes)
             boxes.append(box)
+        return [l0, l1], boxes
+
+    def prepare_op_int_sub(self, op, fcond):
+        locs, boxes = self._prepare_op_int_sub(op, fcond)
+        self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
-        return [l0, l1, res]
+        return locs + [res]
 
     def prepare_op_int_mul(self, op, fcond):
         boxes = list(op.getarglist())
@@ -372,15 +382,21 @@ class Regalloc(object):
 
 
     def prepare_guard_int_add_ovf(self, op, guard, fcond):
-        boxes = self.prepare_op_int_add(op, fcond)
-        locs = self._prepare_guard(guard, boxes)
+        locs, boxes = self._prepare_op_int_add(op, fcond)
+        res = self.force_allocate_reg(op.result)
+        locs.append(res)
+        locs = self._prepare_guard(guard, locs)
+        self.possibly_free_vars(boxes)
         self.possibly_free_vars_for_op(op)
         self.possibly_free_vars(guard.getfailargs())
         return locs
 
     def prepare_guard_int_sub_ovf(self, op, guard, fcond):
-        boxes = self.prepare_op_int_sub(op, fcond)
-        locs = self._prepare_guard(guard, boxes)
+        locs, boxes = self._prepare_op_int_sub(op, fcond)
+        res = self.force_allocate_reg(op.result)
+        locs.append(res)
+        locs = self._prepare_guard(guard, locs)
+        self.possibly_free_vars(boxes)
         self.possibly_free_vars_for_op(op)
         self.possibly_free_vars(guard.getfailargs())
         return locs
