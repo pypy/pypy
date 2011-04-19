@@ -380,6 +380,11 @@ def compute_vars_longevity(inputargs, operations):
     last_used = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
+        if op.result:
+            if op.result not in last_used and op.has_no_side_effect():
+                continue
+            assert op.result not in produced
+            produced[op.result] = i
         for j in range(op.numargs()):
             arg = op.getarg(j)
             if isinstance(arg, Box) and arg not in last_used:
@@ -391,12 +396,7 @@ def compute_vars_longevity(inputargs, operations):
                 assert isinstance(arg, Box)
                 if arg not in last_used:
                     last_used[arg] = i
-        if op.result:
-            if op.result not in last_used and op.has_no_side_effect():
-                continue
-            assert op.result not in produced
-            produced[op.result] = i
-
+                    
     longevity = {}
     for arg in produced:
         if arg in last_used:
