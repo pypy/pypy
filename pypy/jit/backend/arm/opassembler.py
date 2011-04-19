@@ -230,6 +230,7 @@ class OpAssembler(object):
         assert isinstance(descr, LoopToken)
         assert fcond == c.AL
 
+        self._insert_checks()
         if descr._arm_bootstrap_code == 0:
             self.mc.B_offs(descr._arm_loop_code, fcond)
         else:

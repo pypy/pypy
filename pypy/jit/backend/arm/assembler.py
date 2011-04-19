@@ -123,10 +123,18 @@ class AssemblerARM(ResOpAssembler):
         the failboxes.
         Values for spilled vars and registers are stored on stack at frame_loc
         """
+        #XXX check if units are correct here, when comparing words and bytes and stuff
+        # assert 0, 'check if units are correct here, when comparing words and bytes and stuff'
+
         enc = rffi.cast(rffi.CCHARP, mem_loc)
         frame_depth = frame_loc - (regs_loc + len(r.all_regs)*WORD + len(r.all_vfp_regs)*2*WORD)
+        assert (frame_loc - frame_depth) % 4 == 0
         stack = rffi.cast(rffi.CCHARP, frame_loc - frame_depth)
+        assert regs_loc % 4 == 0
         vfp_regs = rffi.cast(rffi.CCHARP, regs_loc)
+        assert (regs_loc + len(r.all_vfp_regs)*2*WORD) % 4 == 0
+        assert frame_depth >= 0
+
         regs = rffi.cast(rffi.CCHARP, regs_loc + len(r.all_vfp_regs)*2*WORD)
         i = -1
         fail_index = -1
@@ -246,12 +254,13 @@ class AssemblerARM(ResOpAssembler):
     def _gen_exit_path(self):
         mc = ARMv7Builder()
         decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
-
+        
+        self._insert_checks(mc)
         with saved_registers(mc, r.all_regs, r.all_vfp_regs):
             mc.MOV_rr(r.r0.value, r.ip.value) # move mem block address, to r0 to pass as
             mc.MOV_rr(r.r1.value, r.fp.value) # pass the current frame pointer as second param
             mc.MOV_rr(r.r2.value, r.sp.value) # pass the current stack pointer as third param
-
+            self._insert_checks(mc)
             mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
             mc.MOV_rr(r.ip.value, r.r0.value)
         mc.MOV_rr(r.r0.value, r.ip.value)
@@ -594,6 +603,7 @@ class AssemblerARM(ResOpAssembler):
 
     def _walk_operations(self, operations, regalloc):
         fcond=c.AL
+        self._insert_checks()
         while regalloc.position() < len(operations) - 1:
             regalloc.next_instruction()
             i = regalloc.position()
@@ -614,6 +624,7 @@ class AssemblerARM(ResOpAssembler):
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
             regalloc._check_invariants()
+            self._insert_checks()
 
     def can_merge_with_next_guard(self, op, i, operations):
         if op.getopnum() == rop.CALL_MAY_FORCE or op.getopnum() == rop.CALL_ASSEMBLER:
@@ -626,6 +637,13 @@ class AssemblerARM(ResOpAssembler):
         return False
 
 
+    def _insert_checks(self, mc=None):
+        if not we_are_translated():
+            if mc is None:
+                mc = self.mc
+            mc.CMP_rr(r.fp.value, r.sp.value)
+            mc.MOV_rr(r.pc.value, r.pc.value, cond=c.GE)
+            mc.BKPT()
     def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 4:
             return
