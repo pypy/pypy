@@ -873,6 +873,13 @@ class GcLLDescr_framework(GcLLDescription):
                     newops.append(ResOperation(rop.HIDE_INTO_PTR32, [v1], v2))
                     op = op.copy_and_change(num, args=[op.getarg(0),
                                                        op.getarg(1), v2])
+                elif num == rop.ARRAYLEN_GC or num == rop.NEW_ARRAY:
+                    # although these operations operate on a
+                    # GcArray(HiddenGcRef32), there is no actual
+                    # HiddenGcRef32 argument or result
+                    pass
+                else:
+                    raise AssertionError(op)
             elif (self.supports_compressed_ptrs and
                   isinstance(descr, BaseCallDescr)):
                 args = op.getarglist()
