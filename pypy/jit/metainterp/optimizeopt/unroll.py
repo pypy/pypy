@@ -166,8 +166,8 @@ class UnrollOptimizer(Optimization):
             inputargs = virtual_state.make_inputargs(values)
             sb = preamble_optimizer.produce_short_preamble_ops(inputargs)
             self.short_boxes = sb
+        
             initial_inputargs_len = len(inputargs)
-            
 
             inputargs, short = self.inline(self.cloned_operations,
                                            loop.inputargs, jump_args,
@@ -274,10 +274,16 @@ class UnrollOptimizer(Optimization):
 
         self.short_inliner = Inliner(inputargs, jumpargs)
         short = []
+        short_seen = {}
+        for result, op in self.short_boxes.items():
+            if op is not None:
+                for op in self.getvalue(result).make_guards(result):
+                    self.add_op_to_short(op, short, short_seen)
 
         i = j = 0
         while i < len(self.optimizer.newoperations):
             op = self.optimizer.newoperations[i]
+            
             self.boxes_created_this_iteration[op.result] = True
             args = op.getarglist()
             if op.is_guard():
@@ -285,14 +291,14 @@ class UnrollOptimizer(Optimization):
             
             for a in args:
                 self.import_box(a, inputargs, short, short_jumpargs,
-                                jumpargs, True)
+                                jumpargs, short_seen)
             i += 1
 
             if i == len(self.optimizer.newoperations):
                 while j < len(jumpargs):
                     a = jumpargs[j]
                     self.import_box(a, inputargs, short, short_jumpargs,
-                                    jumpargs, True)
+                                    jumpargs, short_seen)
                     j += 1
 
         jumpop.initarglist(jumpargs)
@@ -300,35 +306,47 @@ class UnrollOptimizer(Optimization):
         short.append(ResOperation(rop.JUMP, short_jumpargs, None))
         return inputargs, short
 
+    def add_op_to_short(self, op, short, short_seen):
+        if op is None:
+            return 
+        if op.result is not None and op.result in short_seen:
+            return self.short_inliner.inline_arg(op.result)
+        for a in op.getarglist():
+            if not isinstance(a, Const) and a not in short_seen:
+                self.add_op_to_short(self.short_boxes[a], short, short_seen)
+        short.append(op)
+        short_seen[op.result] = True
+        newop = self.short_inliner.inline_op(op)
+        self.optimizer.send_extra_operation(newop)
+        assert self.optimizer.newoperations[-1] is not newop
+
+        if op.is_ovf():
+            # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
+            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+            short.append(guard)
+            self.optimizer.send_extra_operation(guard)
+            assert self.optimizer.newoperations[-1] is not guard
+
+        # FIXME: Emit a proper guards here in case it is not
+        #        removed by the optimizer. Can that happen?
+        return newop.result
+        
     def import_box(self, box, inputargs, short, short_jumpargs,
-                   jumpargs, extend_inputargs):
+                   jumpargs, short_seen):
         if isinstance(box, Const) or box in inputargs:
             return
         if box in self.boxes_created_this_iteration:
             return
 
         short_op = self.short_boxes[box]
-        for a in short_op.getarglist():
-            self.import_box(a, inputargs, short, short_jumpargs, jumpargs, False)
-        short.append(short_op)
-        newop = self.short_inliner.inline_op(short_op)
-        self.optimizer.send_extra_operation(newop)
-        if newop.is_ovf():
-            # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
-            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-            short.append(guard)
-            # FIXME: Emit a proper guard here in case it is not
-            #        removed by the optimizer. Can that happen?
-            self.optimizer.send_extra_operation(guard)
-            assert self.optimizer.newoperations[-1] is not guard
-
-        if extend_inputargs:
-            short_jumpargs.append(short_op.result)
-            inputargs.append(box)
-            box = newop.result
-            if box in self.optimizer.values:
-                box = self.optimizer.values[box].force_box()
-            jumpargs.append(box)
+        newresult = self.add_op_to_short(short_op, short, short_seen)
+        
+        short_jumpargs.append(short_op.result)
+        inputargs.append(box)
+        box = newresult
+        if box in self.optimizer.values:
+            box = self.optimizer.values[box].force_box()
+        jumpargs.append(box)
         
     def sameop(self, op1, op2):
         if op1.getopnum() != op2.getopnum():
@@ -652,7 +670,6 @@ class OptInlineShortPreamble(Optimization):
 
         for op in loop_operations:
             newop = inliner.inline_op(op)
-            
             if not dryrun:
                 self.emit_operation(newop)
             else:

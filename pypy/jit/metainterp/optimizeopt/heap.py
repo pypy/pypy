@@ -23,6 +23,7 @@ class CachedField(object):
         #      'cached_fields'.
         #
         self._cached_fields = {}
+        self._cached_fields_getfield_op = {}
         self._lazy_setfield = None
         self._lazy_setfield_registered = False
 
@@ -37,6 +38,10 @@ class CachedField(object):
         if cached_fieldvalue is not fieldvalue:
             # common case: store the 'op' as lazy_setfield, and register
             # myself in the optheap's _lazy_setfields list
+            try:
+                del self._cached_fields_getfield_op[structvalue]
+            except KeyError:
+                pass
             self._lazy_setfield = op
             if not self._lazy_setfield_registered:
                 optheap._lazy_setfields.append(self)
@@ -69,9 +74,10 @@ class CachedField(object):
         else:
             return self._cached_fields.get(structvalue, None)
 
-    def remember_field_value(self, structvalue, fieldvalue):
+    def remember_field_value(self, structvalue, fieldvalue, getfield_op=None):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
+        self._cached_fields_getfield_op[structvalue] = getfield_op
 
     def force_lazy_setfield(self, optheap):
         op = self._lazy_setfield
@@ -81,6 +87,7 @@ class CachedField(object):
             # setfield might impact any of the stored result (because of
             # possible aliasing).
             self._cached_fields.clear()
+            self._cached_fields_getfield_op.clear()
             self._lazy_setfield = None
             optheap.next_optimization.propagate_forward(op)
             # Once it is done, we can put at least one piece of information
@@ -94,17 +101,18 @@ class CachedField(object):
         assert self._lazy_setfield is None
         cf = CachedField()
         for structvalue, fieldvalue in self._cached_fields.iteritems():
-            structvalue2 = structvalue.get_cloned(optimizer, valuemap)
-            fieldvalue2  = fieldvalue .get_cloned(optimizer, valuemap)
-            cf._cached_fields[structvalue2] = fieldvalue2
+            op = self._cached_fields_getfield_op.get(structvalue, None)
+            if op:
+                structvalue2 = structvalue.get_cloned(optimizer, valuemap)
+                fieldvalue2  = fieldvalue .get_cloned(optimizer, valuemap)
+                cf._cached_fields[structvalue2] = fieldvalue2
         return cf
 
-    def produce_potential_short_preamble_ops(self, potential_ops, descr):
-        for structvalue, fieldvalue in self._cached_fields.iteritems():
-            result = fieldvalue.get_key_box()
-            potential_ops[result] = ResOperation(rop.GETFIELD_GC,
-                                                 [structvalue.get_key_box()],
-                                                 result, descr)
+    def produce_potential_short_preamble_ops(self, optimizer,
+                                             potential_ops, descr):
+        for structvalue, op in self._cached_fields_getfield_op.iteritems():
+            if op and structvalue in self._cached_fields:
+                potential_ops[op.result] = op
                     
 
 class CachedArrayItems(object):
@@ -140,6 +148,8 @@ class OptHeap(Optimization):
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_cloned(optimizer, valuemap)
 
+        return new
+
         new.cached_arrayitems = {}
         for descr, d in self.cached_arrayitems.items():
             newd = {}
@@ -162,7 +172,10 @@ class OptHeap(Optimization):
 
     def produce_potential_short_preamble_ops(self, potential_ops):        
         for descr, d in self.cached_fields.items():
-            d.produce_potential_short_preamble_ops(potential_ops, descr)
+            d.produce_potential_short_preamble_ops(self.optimizer,
+                                                   potential_ops, descr)
+
+        # FIXME
         for descr, d in self.cached_arrayitems.items():
             for value, cache in d.items():
                 for index, fieldvalue in cache.fixed_index_items.items():
@@ -278,6 +291,7 @@ class OptHeap(Optimization):
                     try:
                         cf = self.cached_fields[fielddescr]
                         cf._cached_fields.clear()
+                        cf._cached_fields_getfield_op.clear()
                     except KeyError:
                         pass
                 for arraydescr in effectinfo.write_descrs_arrays:
@@ -369,14 +383,14 @@ class OptHeap(Optimization):
         fieldvalue = cf.getfield_from_cache(self, structvalue)
         if fieldvalue is not None:
             self.make_equal_to(op.result, fieldvalue)
-            return
-        # default case: produce the operation
-        structvalue.ensure_nonnull()
-        ###self.optimizer.optimize_default(op)
-        self.emit_operation(op)
+        else:
+            # default case: produce the operation
+            structvalue.ensure_nonnull()
+            ###self.optimizer.optimize_default(op)
+            self.emit_operation(op)
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
-        cf.remember_field_value(structvalue, fieldvalue)
+        cf.remember_field_value(structvalue, fieldvalue, op)
 
     def optimize_SETFIELD_GC(self, op):
         if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],

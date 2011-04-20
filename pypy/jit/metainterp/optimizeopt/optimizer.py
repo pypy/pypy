@@ -46,6 +46,34 @@ class OptValue(object):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
 
+    def make_guards(self, box):
+        guards = []
+        if self.level == LEVEL_CONSTANT:
+            op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
+            guards.append(op)
+        elif self.level == LEVEL_KNOWNCLASS:
+            op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+            guards.append(op)
+        else:
+            if self.level == LEVEL_NONNULL:
+                op = ResOperation(rop.GUARD_NONNULL, [box], None)
+                guards.append(op)
+            if self.intbound.has_lower:
+                bound = self.intbound.lower
+                res = BoxInt()
+                op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
+                guards.append(op)
+                op = ResOperation(rop.GUARD_TRUE, [res], None)
+                guards.append(op)
+            if self.intbound.has_upper:
+                bound = self.intbound.upper
+                res = BoxInt()
+                op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
+                guards.append(op)
+                op = ResOperation(rop.GUARD_TRUE, [res], None)
+                guards.append(op)
+        return guards
+
     def force_box(self):
         return self.box
 
@@ -359,7 +387,7 @@ class Optimizer(Optimization):
     def produce_short_preamble_box(self, box, short_boxes, potential_ops):
         if box in short_boxes:
             return 
-        if self.getvalue(box).is_constant():
+        if isinstance(box, Const): #self.getvalue(box).is_constant():
             return 
         if box in potential_ops:
             op = potential_ops[box]

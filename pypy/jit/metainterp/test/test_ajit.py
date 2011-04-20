@@ -2053,6 +2053,26 @@ class BasicTests:
         res = self.meta_interp(f, [32, 7])
         assert res == f(32, 7)
 
+    def test_getfield_result_constant(self):
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'node'])
+        class A:
+            pass
+        def f(n, a):
+            i = sa = 0
+            node = A()
+            node.val1 = 7
+            while i < n:
+                myjitdriver.can_enter_jit(sa=sa, i=i, n=n, a=a, node=node)
+                myjitdriver.jit_merge_point(sa=sa, i=i, n=n, a=a, node=node)
+                if node.val1 == 7:
+                    sa += 1
+                if i > n/2:
+                    node.val1 = -7
+                i += 1
+            return sa
+        res = self.meta_interp(f, [32, 7])
+        assert res == f(32, 7)
+
 
 
 class TestOOtype(BasicTests, OOJitMixin):
