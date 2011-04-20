@@ -335,3 +335,31 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """)])
         result = module.fillinfo()
         assert "hello, world." == result
+
+
+class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
+    """
+    PyBuffer_Release releases the resources held by a Py_buffer.
+    """
+    def test_decrefObject(self):
+        """
+        The PyObject referenced by Py_buffer.obj has its reference count
+        decremented by PyBuffer_Release.
+        """
+        module = self.import_extension('foo', [
+                ("release", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    buf.obj = PyString_FromString("release me!");
+    buf.buf = PyString_AsString(buf.obj);
+    buf.len = PyString_Size(buf.obj);
+
+    /* The Py_buffer owns the only reference to that string.  Release the
+     * Py_buffer and the string should be released as well.
+     */
+    PyBuffer_Release(&buf);
+
+    Py_RETURN_NONE;
+                 """)])
+        assert module.release() is None
+
