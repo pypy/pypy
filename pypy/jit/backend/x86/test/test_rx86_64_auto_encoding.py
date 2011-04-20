@@ -18,6 +18,7 @@ class TestRx86_64(test_rx86_32_auto_encoding.TestRx86_32):
                    rx86.R.esi, rx86.R.edi,
                    rx86.R.r8,  rx86.R.r9,  rx86.R.r10, rx86.R.r11,
                    rx86.R.r12, rx86.R.r13, rx86.R.r14, rx86.R.r15]
+    accept_unnecessary_prefix = '\x40'
 
     def should_skip_instruction(self, instrname, argmodes):
         return (

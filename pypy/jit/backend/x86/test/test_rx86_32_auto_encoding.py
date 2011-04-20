@@ -10,8 +10,9 @@ BEGIN_TAG = '<<<rx86-test-begin>>>'
 END_TAG =   '<<<rx86-test-end>>>'
 
 class CodeCheckerMixin(object):
-    def __init__(self, expected):
+    def __init__(self, expected, accept_unnecessary_prefix):
         self.expected = expected
+        self.accept_unnecessary_prefix = accept_unnecessary_prefix
         self.index = 0
 
     def begin(self, op):
@@ -20,6 +21,9 @@ class CodeCheckerMixin(object):
 
     def writechar(self, char):
         if char != self.expected[self.index:self.index+1]:
+            if (char == self.accept_unnecessary_prefix
+                and self.index == self.instrindex):
+                return    # ignore the extra character '\x40'
             print self.op
             print "\x09from rx86.py:", hexdump(self.expected[self.instrindex:self.index] + char)+"..."
             print "\x09from 'as':   ", hexdump(self.expected[self.instrindex:self.index+15])+"..."
@@ -49,6 +53,7 @@ class TestRx86_32(object):
     REGS8 = [i|rx86.BYTE_REG_FLAG for i in range(8)]
     NONSPECREGS = [rx86.R.eax, rx86.R.ecx, rx86.R.edx, rx86.R.ebx,
                    rx86.R.esi, rx86.R.edi]
+    accept_unnecessary_prefix = None
     methname = '?'
 
     def reg_tests(self):
@@ -340,7 +345,8 @@ class TestRx86_32(object):
         ilist = self.make_all_tests(methname, argmodes)
         oplist, as_code = self.run_test(methname, instrname, argmodes, ilist,
                                         instr_suffix)
-        cc = self.get_code_checker_class()(as_code)
+        cls = self.get_code_checker_class()
+        cc = cls(as_code, self.accept_unnecessary_prefix)
         for op, args in zip(oplist, ilist):
             if op:
                 cc.begin(op)
