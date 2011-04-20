@@ -325,3 +325,8 @@ class TestW_ListStrategies(TestW_ListObject):
         l1.setitem(0, self.space.wrap(5))
         assert not self.space.eq_w(l1, l2)
 
+    def test_weird_rangelist_bug(self):
+        l = make_range_list(self.space, 1, 1, 3)
+        from pypy.objspace.std.listobject import getslice__List_ANY_ANY
+        # should not raise
+        assert getslice__List_ANY_ANY(self.space, l, self.space.wrap(15), self.space.wrap(2222)).strategy == self.space.fromcache(EmptyListStrategy)

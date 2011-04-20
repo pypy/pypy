@@ -514,6 +514,7 @@ class AbstractUnwrappedStrategy(object):
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
         else:
             subitems_w = [None] * length
+            # XXX wrap/unwrap
             for i in range(length):
                 subitems_w[i] = w_list.getitem(start)
                 start += step
@@ -806,6 +807,13 @@ def getitem__List_Slice(space, w_list, w_slice):
 def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     length = w_list.length()
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+
+    slicelength = stop - start
+    if slicelength == 0:
+        strategy = space.fromcache(EmptyListStrategy)
+        storage = strategy.cast_to_void_star(None)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
     return w_list.getslice(start, stop, 1, stop - start)
 
 def setslice__List_ANY_ANY_List(space, w_list, w_start, w_stop, w_other):
