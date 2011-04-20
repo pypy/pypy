@@ -118,10 +118,13 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
         pybuffer = self.import_parser(
             '''
             Py_buffer buf;
+            PyObject *result;
             if (!PyArg_ParseTuple(args, "s*", &buf)) {
                 return NULL;
             }
-            return PyString_FromStringAndSize(buf.buf, buf.len);
+            result = PyString_FromStringAndSize(buf.buf, buf.len);
+            PyBuffer_Release(&buf);
+            return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
 
