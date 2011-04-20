@@ -460,6 +460,7 @@ class AbstractX86CodeBuilder(object):
     # ------------------------------ MOV ------------------------------
 
     MOV_ri = insn(rex_w, register(1), '\xB8', immediate(2, 'q'))
+    MOV8_ri = insn(rex_w, byte_register(1), '\xB0', immediate(2, 'b'))
 
     # ------------------------------ Arithmetic ------------------------------
 

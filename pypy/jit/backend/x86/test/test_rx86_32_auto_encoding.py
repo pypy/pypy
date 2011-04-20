@@ -43,14 +43,19 @@ class TestRx86_32(object):
     TESTDIR = 'rx86_32'
     X86_CodeBuilder = rx86.X86_32_CodeBuilder
     REGNAMES = ['%eax', '%ecx', '%edx', '%ebx', '%esp', '%ebp', '%esi', '%edi']
+    REGNAMES8 = ['%al', '%cl', '%dl', '%bl', '%ah', '%ch', '%dh', '%bh']
     XMMREGNAMES = ['%%xmm%d' % i for i in range(16)]
     REGS = range(8)
+    REGS8 = [i|rx86.BYTE_REG_FLAG for i in range(8)]
     NONSPECREGS = [rx86.R.eax, rx86.R.ecx, rx86.R.edx, rx86.R.ebx,
                    rx86.R.esi, rx86.R.edi]
     methname = '?'
 
     def reg_tests(self):
         return self.REGS
+
+    def reg8_tests(self):
+        return self.REGS8
 
     def xmm_reg_tests(self):
         return self.reg_tests()
@@ -97,18 +102,24 @@ class TestRx86_32(object):
     def get_all_tests(self):
         return {
             'r': self.reg_tests,
+            'r8': self.reg8_tests,
             'x': self.xmm_reg_tests,
             'b': self.stack_bp_tests,
             's': self.stack_sp_tests,
             'm': self.memory_tests,
             'a': self.array_tests,
             'i': self.imm32_tests,
+            'i8': self.imm8_tests,
             'j': self.imm32_tests,
             'l': self.relative_tests,
             }
 
     def assembler_operand_reg(self, regnum):
         return self.REGNAMES[regnum]
+
+    def assembler_operand_reg8(self, regnum):
+        assert regnum & rx86.BYTE_REG_FLAG
+        return self.REGNAMES8[regnum &~ rx86.BYTE_REG_FLAG]
 
     def assembler_operand_xmm_reg(self, regnum):
         return self.XMMREGNAMES[regnum]
@@ -137,16 +148,19 @@ class TestRx86_32(object):
     def get_all_assembler_operands(self):
         return {
             'r': self.assembler_operand_reg,
+            'r8': self.assembler_operand_reg8,
             'x': self.assembler_operand_xmm_reg,
             'b': self.assembler_operand_stack_bp,
             's': self.assembler_operand_stack_sp,
             'm': self.assembler_operand_memory,
             'a': self.assembler_operand_array,
             'i': self.assembler_operand_imm,
+            'i8': self.assembler_operand_imm,
             'j': self.assembler_operand_imm_addr,
             }
 
-    def run_test(self, methname, instrname, argmodes, args_lists):
+    def run_test(self, methname, instrname, argmodes, args_lists,
+                 instr_suffix=None):
         global labelcount
         labelcount = 0
         oplist = []
@@ -168,6 +182,9 @@ class TestRx86_32(object):
             # indicate that with a suffix
             if (self.WORD == 8) and instrname.startswith('CVT'):
                 suffix = suffixes[self.WORD]
+
+            if instr_suffix is not None:
+                suffix = instr_suffix    # overwrite
 
             following = ""
             if False:   # instr.indirect:
@@ -196,11 +213,22 @@ class TestRx86_32(object):
             oplist.append(op)
         g.write('\t.string "%s"\n' % END_TAG)
         g.close()
-        os.system('as --%d "%s" -o "%s"' % (self.WORD*8, inputname, filename))
+        f, g = os.popen4('as --%d "%s" -o "%s"' %
+                         (self.WORD*8, inputname, filename), 'r')
+        f.close()
+        got = g.read()
+        g.close()
+        error = [line for line in got.splitlines() if 'error' in line.lower()]
+        if error:
+            raise Exception("Assembler got an error: %r" % error[0])
+        error = [line for line in got.splitlines()
+                 if 'warning' in line.lower()]
+        if error:
+            raise Exception("Assembler got a warning: %r" % error[0])
         try:
             f = open(filename, 'rb')
         except IOError:
-            raise Exception("Assembler error")
+            raise Exception("Assembler did not produce output?")
         data = f.read()
         f.close()
         i = data.find(BEGIN_TAG)
@@ -227,13 +255,20 @@ class TestRx86_32(object):
             if methname in ('ADD_ri', 'AND_ri', 'CMP_ri', 'OR_ri',
                             'SUB_ri', 'XOR_ri', 'SBB_ri'):
                 if args[0] == rx86.R.eax:
-                    return []     # ADD EAX, constant: there is a special encoding
+                    return []  # ADD EAX, constant: there is a special encoding
+            if methname in ('CMP8_ri',):
+                if args[0] == rx86.R.al:
+                    return []   # CMP AL, constant: there is a special encoding
             if methname == 'XCHG_rr' and rx86.R.eax in args:
                 return [] # special encoding
             if methname == 'MOV_rj' and args[0] == rx86.R.eax:
                 return []   # MOV EAX, [immediate]: there is a special encoding
             if methname == 'MOV_jr' and args[1] == rx86.R.eax:
                 return []   # MOV [immediate], EAX: there is a special encoding
+            if methname == 'MOV8_rj' and args[0] == rx86.R.al:
+                return []   # MOV AL, [immediate]: there is a special encoding
+            if methname == 'MOV8_jr' and args[1] == rx86.R.al:
+                return []   # MOV [immediate], AL: there is a special encoding
 
             return [args]
 
@@ -243,7 +278,9 @@ class TestRx86_32(object):
         return X86_CodeBuilder
 
     def should_skip_instruction(self, instrname, argmodes):
-        is_artificial_instruction = instrname[-1].isdigit() or (argmodes != '' and argmodes[-1].isdigit())
+        is_artificial_instruction = (argmodes != '' and argmodes[-1].isdigit())
+        is_artificial_instruction |= (instrname[-1].isdigit() and
+                                      instrname[-1] != '8')
         return (
                 is_artificial_instruction or
                 # XXX: Can't tests shifts automatically at the moment
@@ -274,13 +311,35 @@ class TestRx86_32(object):
         if methname == 'WORD':
             return
 
+        if instrname.endswith('8'):
+            instrname = instrname[:-1]
+            if instrname == 'MOVSX' or instrname == 'MOVZX':
+                instr_suffix = 'b' + suffixes[self.WORD]
+                instrname = instrname[:-1]
+                if argmodes[1] == 'r':
+                    argmodes = [argmodes[0], 'r8']
+            else:
+                instr_suffix = 'b'
+                realargmodes = []
+                for mode in argmodes:
+                    if mode == 'r':
+                        mode = 'r8'
+                    elif mode == 'i':
+                        mode = 'i8'
+                    realargmodes.append(mode)
+                argmodes = realargmodes
+        elif instrname == 'CALL' or instrname == 'JMP':
+            instr_suffix = suffixes[self.WORD] + ' *'
+        else:
+            instr_suffix = None
 
         print "Testing %s with argmodes=%r" % (instrname, argmodes)
         self.methname = methname
         self.is_xmm_insn = getattr(getattr(self.X86_CodeBuilder,
                                            methname), 'is_xmm_insn', False)
         ilist = self.make_all_tests(methname, argmodes)
-        oplist, as_code = self.run_test(methname, instrname, argmodes, ilist)
+        oplist, as_code = self.run_test(methname, instrname, argmodes, ilist,
+                                        instr_suffix)
         cc = self.get_code_checker_class()(as_code)
         for op, args in zip(oplist, ilist):
             if op:
