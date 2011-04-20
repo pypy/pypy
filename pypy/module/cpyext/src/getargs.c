@@ -1271,7 +1271,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 		char **p = va_arg(*p_va, char **);
 		PyBufferProcs *pb = arg->ob_type->tp_as_buffer;
 		Py_ssize_t count;
-                printf("this far\n");
 
 #if 0
 		if (*format++ != '#')
@@ -1279,7 +1278,7 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 				"invalid use of 't' format character", 
 				arg, msgbuf, bufsize);
 #endif
-		if (!PyType_HasFeature(arg->ob_type,
+               if (!PyType_HasFeature(arg->ob_type,
 				       Py_TPFLAGS_HAVE_GETCHARBUFFER)
 #if 0
 		    || pb == NULL || pb->bf_getcharbuffer == NULL ||
@@ -1300,20 +1299,15 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 				"string or pinned buffer",
 				arg, msgbuf, bufsize);
 #endif
-                printf("this far!\n");
-                printf("%p\n", pb->bf_getcharbuffer);
 		count = pb->bf_getcharbuffer(arg, 0, p);
-                printf("after\n");
 #if 0
 		if (count < 0)
 			return converterr("(unspecified)", arg, msgbuf, bufsize);
 #endif
 		{
-                    printf("fetch size\n");
 			FETCH_SIZE;
-                        printf("did that\n");
 			STORE_SIZE(count);
-                        printf("store size done\n");
+                        ++format;
 		}
 		break;
 	}
