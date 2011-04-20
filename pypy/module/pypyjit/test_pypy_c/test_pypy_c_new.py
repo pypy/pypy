@@ -68,7 +68,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             i7 = int_gt(i4, 1)
             guard_true(i7, descr=...)
             p9 = call(ConstClass(fromint), i4, descr=...)
-            guard_no_exception(descr=...)
             p11 = call(ConstClass(rbigint.mul), p5, p9, descr=...)
             guard_no_exception(descr=...)
             i13 = int_sub(i4, 1)
@@ -1532,43 +1531,37 @@ class TestPyPyCNew(BaseTestPyPyC):
         ## assert call.getarg(2).value == 3.0
 
     def test_xor(self):
-        def main(a, b):
-            i = sa = 0
-            while i < 300:
+        def main(b):
+            a = sa = 0
+            while a < 300:
                 if a > 0: # Specialises the loop
                     pass
                 if b > 10:
                     pass
-                if a^b >= 0:
-                    sa += 1    # ID: add
-                i += 1
+                if a^b >= 0:  # ID: guard
+                    sa += 1
+                sa += a^a     # ID: a_xor_a
+                a += 1
             return sa
 
+        log = self.run(main, [11], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
         # if both are >=0, a^b is known to be >=0
-        log = self.run(main, [3, 14], threshold=200)
-        assert log.result == 300
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            i9 = int_lt(i6, 300)
-            guard_true(i9, descr=...)
-            i11 = int_add_ovf(i7, 1)
-            guard_no_overflow(descr=...)
-            i13 = int_add(i6, 1)
-            --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i13, i11, descr=<Loop0>)
+        # note that we know that b>10
+        assert loop.match_by_id('guard', """
+            i10 = int_xor(i5, i7)
         """)
+        #
+        # x^x is always optimized to 0
+        assert loop.match_by_id('a_xor_a', "")
 
-        # XXX: I don't understand why this assert passes, because the
-        # optimizer doesn't know that b >=0
-        log = self.run(main, [3, 4], threshold=200)
+        log = self.run(main, [9], threshold=200)
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            i9 = int_lt(i6, 300)
-            guard_true(i9, descr=...)
-            i11 = int_add_ovf(i7, 1)
-            guard_no_overflow(descr=...)
-            i13 = int_add(i6, 1)
-            --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i13, i11, descr=<Loop0>)
+        # we don't know that b>10, hence we cannot optimize it
+        assert loop.match_by_id('guard', """
+            i10 = int_xor(i5, i7)
+            i12 = int_ge(i10, 0)
+            guard_true(i12, descr=...)
         """)
