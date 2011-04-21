@@ -715,6 +715,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         expected = """
         [p0]
+        setfield_gc(p0, 5, descr=valuedescr)        
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)
