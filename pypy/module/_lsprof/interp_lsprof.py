@@ -7,6 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rtimer import read_timestamp
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -115,8 +116,9 @@ class ProfilerSubEntry(object):
         return space.wrap(w_sse)
 
     def _stop(self, tt, it):
-        assert type(tt) is r_longlong
-        assert type(it) is r_longlong
+        if not we_are_translated():
+            assert type(tt) is r_longlong
+            assert type(it) is r_longlong
         self.recursionLevel -= 1
         if self.recursionLevel == 0:
             self.ll_tt += tt
