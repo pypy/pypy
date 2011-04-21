@@ -101,8 +101,8 @@ def stats(space, values, factor):
 class ProfilerSubEntry(object):
     def __init__(self, frame):
         self.frame = frame
-        self.tt = 0
-        self.it = 0
+        self.ll_tt = r_longlong(0)
+        self.ll_it = r_longlong(0)
         self.callcount = 0
         self.recursivecallcount = 0
         self.recursionLevel = 0
@@ -110,17 +110,19 @@ class ProfilerSubEntry(object):
     def stats(self, space, parent, factor):
         w_sse = W_StatsSubEntry(space, self.frame,
                                 self.callcount, self.recursivecallcount,
-                                factor * float(self.tt),
-                                factor * float(self.it))
+                                factor * float(self.ll_tt),
+                                factor * float(self.ll_it))
         return space.wrap(w_sse)
 
     def _stop(self, tt, it):
+        assert type(tt) is r_longlong
+        assert type(it) is r_longlong
         self.recursionLevel -= 1
         if self.recursionLevel == 0:
-            self.tt += tt
+            self.ll_tt += tt
         else:
             self.recursivecallcount += 1
-        self.it += it
+        self.ll_it += it
         self.callcount += 1
 
 class ProfilerEntry(ProfilerSubEntry):
@@ -136,8 +138,8 @@ class ProfilerEntry(ProfilerSubEntry):
             w_sublist = space.w_None
         w_se = W_StatsEntry(space, self.frame, self.callcount,
                             self.recursivecallcount,
-                            factor * float(self.tt),
-                            factor * float(self.it), w_sublist)
+                            factor * float(self.ll_tt),
+                            factor * float(self.ll_it), w_sublist)
         return space.wrap(w_se)
 
     @jit.purefunction
@@ -154,20 +156,20 @@ class ProfilerEntry(ProfilerSubEntry):
 class ProfilerContext(object):
     def __init__(self, profobj, entry):
         self.entry = entry
-        self.subt = 0
+        self.ll_subt = r_longlong(0)
         self.previous = profobj.current_context
         entry.recursionLevel += 1
         if profobj.subcalls and self.previous:
             caller = jit.hint(self.previous.entry, promote=True)
             subentry = caller._get_or_make_subentry(entry)
             subentry.recursionLevel += 1
-        self.t0 = profobj.timer()
+        self.ll_t0 = profobj.ll_timer()
 
     def _stop(self, profobj, entry):
-        tt = profobj.timer() - self.t0
-        it = tt - self.subt
+        tt = profobj.ll_timer() - self.ll_t0
+        it = tt - self.ll_subt
         if self.previous:
-            self.previous.subt += tt
+            self.previous.ll_subt += tt
         entry._stop(tt, it)
         if profobj.subcalls and self.previous:
             caller = jit.hint(self.previous.entry, promote=True)
@@ -238,18 +240,11 @@ class W_Profiler(Wrappable):
         self.builtin_data = {}
         self.space = space
 
-    def timer(self):
-        # XXX ignore for now casting of float to long long and instead
-        #     use float -> int -> long long
+    def ll_timer(self):
         if self.w_callable:
             space = self.space
             try:
-                if self.time_unit > 0.0:
-                    return r_longlong(
-                        space.int_w(space.call_function(self.w_callable)))
-                else:
-                    return r_longlong(int(space.float_w(
-                        space.call_function(self.w_callable))))
+                return space.r_longlong_w(space.call_function(self.w_callable))
             except OperationError, e:
                 e.write_unraisable(space, "timer function ",
                                    self.w_callable)
