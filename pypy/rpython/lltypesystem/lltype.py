@@ -95,6 +95,8 @@ class LowLevelType(object):
     __slots__ = ['__dict__', '__cached_hash']
 
     def __eq__(self, other):
+        if isinstance(other, Typedef):
+            return other.__eq__(self)
         return self.__class__ is other.__class__ and (
             self is other or safe_equal(self.__dict__, other.__dict__))
 
@@ -192,6 +194,36 @@ class ContainerType(LowLevelType):
 
     def _container_example(self):
         raise NotImplementedError
+
+
+class Typedef(LowLevelType):
+    """A typedef is just another name for an existing type"""
+    def __init__(self, OF, c_name):
+        """
+        @param OF: the equivalent rffi type
+        @param c_name: the name we want in C code
+        """
+        assert isinstance(OF, LowLevelType)
+        # Look through typedefs, so other places don't have to
+        if isinstance(OF, Typedef):
+            OF = OF.OF # haha
+        self.OF = OF
+        self.c_name = c_name
+
+    def __repr__(self):
+        return '<Typedef "%s" of %r>' % (self.c_name, self.OF)
+
+    def __eq__(self, other):
+        return other == self.OF
+
+    def __getattr__(self, name):
+        return self.OF.get(name)
+
+    def _defl(self, parent=None, parentindex=None):
+        return self.OF._defl()
+
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        return self.OF._allocate(initialization, parent, parentindex)
 
 
 class Struct(ContainerType):

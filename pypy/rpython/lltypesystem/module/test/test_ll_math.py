@@ -3,6 +3,7 @@
 
 from pypy.rpython.lltypesystem.module import ll_math
 from pypy.module.math.test.test_direct import MathTests, get_tester
+from pypy.translator.c.test.test_genc import compile
 
 
 class TestMath(MathTests):
@@ -11,6 +12,7 @@ class TestMath(MathTests):
         nan = inf / inf
         assert not ll_math.ll_math_isinf(0)
         assert ll_math.ll_math_isinf(inf)
+        assert ll_math.ll_math_isinf(-inf)
         assert not ll_math.ll_math_isinf(nan)
 
     def test_isnan(self):
@@ -19,6 +21,13 @@ class TestMath(MathTests):
         assert not ll_math.ll_math_isnan(0)
         assert ll_math.ll_math_isnan(nan)
         assert not ll_math.ll_math_isnan(inf)
+
+    def test_compiled_isinf(self):
+        def f(x):
+            return ll_math.ll_math_isinf(1. / x)
+        f = compile(f, [float], backendopt=False)
+        assert f(5.5e-309)
+
 
 def make_test_case((fnname, args, expected), dict):
     #

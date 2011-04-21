@@ -2757,7 +2757,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
-    def test_fold_partially_constant_ops(self):
+    def test_fold_partially_constant_add_sub(self):
         ops = """
         [i0]
         i1 = int_sub(i0, 0)
@@ -2791,7 +2791,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
-    def test_fold_partially_constant_ops_ovf(self):
+    def test_fold_partially_constant_add_sub_ovf(self):
         ops = """
         [i0]
         i1 = int_sub_ovf(i0, 0)
@@ -2821,6 +2821,21 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i1 = int_add_ovf(0, i0)
         guard_no_overflow() []
         jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_fold_partially_constant_shift(self):
+        ops = """
+        [i0]
+        i1 = int_lshift(i0, 0)
+        i2 = int_rshift(i1, 0)
+        i3 = int_eq(i2, i0)
+        guard_true(i3) []
+        jump(i2)
         """
         expected = """
         [i0]

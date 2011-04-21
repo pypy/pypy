@@ -1051,36 +1051,38 @@ Changing documentation and website
 documentation/website files in your local checkout
 ---------------------------------------------------
 
-Most of the PyPy's documentation and website is kept in
-`pypy/documentation` and `pypy/documentation/website` respectively.
-You can simply edit or add '.txt' files which contain ReST-markuped
+Most of the PyPy's documentation is kept in `pypy/doc`.
+You can simply edit or add '.rst' files which contain ReST-markuped
 files.  Here is a `ReST quickstart`_ but you can also just look
 at the existing documentation and see how things work.
 
 .. _`ReST quickstart`: http://docutils.sourceforge.net/docs/rst/quickref.html
 
+Note that the web site of http://pypy.org/ is maintained separately.
+For now it is in the repository https://bitbucket.org/pypy/extradoc
+in the directory ``pypy.org``.
+
 Automatically test documentation/website changes
 ------------------------------------------------
 
-.. _`docutils home page`:
-.. _`docutils`: http://docutils.sourceforge.net/
+.. _`sphinx home page`:
+.. _`sphinx`: http://sphinx.pocoo.org/
 
 We automatically check referential integrity and ReST-conformance.  In order to
-run the tests you need docutils_ installed.  Then go to the local checkout
-of the documentation directory and run the tests::
+run the tests you need sphinx_ installed.  Then go to the local checkout
+of the documentation directory and run the Makefile::
 
-    cd .../pypy/documentation
-    python ../test_all.py
+    cd pypy/doc
+    make html
 
 If you see no failures chances are high that your modifications at least
-don't produce ReST-errors or wrong local references.  A side effect of running
-the tests is that you have `.html` files in the documentation directory
-which you can point your browser to!
+don't produce ReST-errors or wrong local references. Now you will have `.html`
+files in the documentation directory which you can point your browser to!
 
 Additionally, if you also want to check for remote references inside
 the documentation issue::
 
-    python ../test_all.py --checkremote
+    make linkcheck
 
 which will check that remote URLs are reachable.
 

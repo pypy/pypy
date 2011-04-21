@@ -167,128 +167,132 @@ def double_to_string(value, tp, precision, flags):
     result = formatd(value, tp, precision, flags)
     return result, special
 
-if USE_SHORT_FLOAT_REPR:
-    def round_double(value, ndigits):
-        # The basic idea is very simple: convert and round the double to
-        # a decimal string using _Py_dg_dtoa, then convert that decimal
-        # string back to a double with _Py_dg_strtod.  There's one minor
-        # difficulty: Python 2.x expects round to do
-        # round-half-away-from-zero, while _Py_dg_dtoa does
-        # round-half-to-even.  So we need some way to detect and correct
-        # the halfway cases.
+def round_double(value, ndigits):
+    if USE_SHORT_FLOAT_REPR:
+        return round_double_short_repr(value, ndigits)
+    else:
+        return round_double_fallback_repr(value, ndigits)
 
-        # a halfway value has the form k * 0.5 * 10**-ndigits for some
-        # odd integer k.  Or in other words, a rational number x is
-        # exactly halfway between two multiples of 10**-ndigits if its
-        # 2-valuation is exactly -ndigits-1 and its 5-valuation is at
-        # least -ndigits.  For ndigits >= 0 the latter condition is
-        # automatically satisfied for a binary float x, since any such
-        # float has nonnegative 5-valuation.  For 0 > ndigits >= -22, x
-        # needs to be an integral multiple of 5**-ndigits; we can check
-        # this using fmod.  For -22 > ndigits, there are no halfway
-        # cases: 5**23 takes 54 bits to represent exactly, so any odd
-        # multiple of 0.5 * 10**n for n >= 23 takes at least 54 bits of
-        # precision to represent exactly.
+def round_double_short_repr(value, ndigits):
+    # The basic idea is very simple: convert and round the double to
+    # a decimal string using _Py_dg_dtoa, then convert that decimal
+    # string back to a double with _Py_dg_strtod.  There's one minor
+    # difficulty: Python 2.x expects round to do
+    # round-half-away-from-zero, while _Py_dg_dtoa does
+    # round-half-to-even.  So we need some way to detect and correct
+    # the halfway cases.
 
-        sign = copysign(1.0, value)
-        value = abs(value)
+    # a halfway value has the form k * 0.5 * 10**-ndigits for some
+    # odd integer k.  Or in other words, a rational number x is
+    # exactly halfway between two multiples of 10**-ndigits if its
+    # 2-valuation is exactly -ndigits-1 and its 5-valuation is at
+    # least -ndigits.  For ndigits >= 0 the latter condition is
+    # automatically satisfied for a binary float x, since any such
+    # float has nonnegative 5-valuation.  For 0 > ndigits >= -22, x
+    # needs to be an integral multiple of 5**-ndigits; we can check
+    # this using fmod.  For -22 > ndigits, there are no halfway
+    # cases: 5**23 takes 54 bits to represent exactly, so any odd
+    # multiple of 0.5 * 10**n for n >= 23 takes at least 54 bits of
+    # precision to represent exactly.
 
-        # find 2-valuation value
-        m, expo = math.frexp(value)
-        while m != math.floor(m):
-            m *= 2.0
-            expo -= 1
+    sign = copysign(1.0, value)
+    value = abs(value)
 
-        # determine whether this is a halfway case.
-        halfway_case = 0
-        if expo == -ndigits - 1:
-            if ndigits >= 0:
+    # find 2-valuation value
+    m, expo = math.frexp(value)
+    while m != math.floor(m):
+        m *= 2.0
+        expo -= 1
+
+    # determine whether this is a halfway case.
+    halfway_case = 0
+    if expo == -ndigits - 1:
+        if ndigits >= 0:
+            halfway_case = 1
+        elif ndigits >= -22:
+            # 22 is the largest k such that 5**k is exactly
+            # representable as a double
+            five_pow = 1.0
+            for i in range(-ndigits):
+                five_pow *= 5.0
+            if math.fmod(value, five_pow) == 0.0:
                 halfway_case = 1
-            elif ndigits >= -22:
-                # 22 is the largest k such that 5**k is exactly
-                # representable as a double
-                five_pow = 1.0
-                for i in range(-ndigits):
-                    five_pow *= 5.0
-                if math.fmod(value, five_pow) == 0.0:
-                    halfway_case = 1
 
-        # round to a decimal string; use an extra place for halfway case
-        strvalue = formatd(value, 'f', ndigits + halfway_case)
+    # round to a decimal string; use an extra place for halfway case
+    strvalue = formatd(value, 'f', ndigits + halfway_case)
 
-        if halfway_case:
-            buf = [c for c in strvalue]
-            if ndigits >= 0:
-                endpos = len(buf) - 1
-            else:
-                endpos = len(buf) + ndigits
-            # Sanity checks: there should be exactly ndigits+1 places
-            # following the decimal point, and the last digit in the
-            # buffer should be a '5'
-            if not objectmodel.we_are_translated():
-                assert buf[endpos] == '5'
-                if '.' in buf:
-                    assert endpos == len(buf) - 1
-                    assert buf.index('.') == len(buf) - ndigits - 2
+    if halfway_case:
+        buf = [c for c in strvalue]
+        if ndigits >= 0:
+            endpos = len(buf) - 1
+        else:
+            endpos = len(buf) + ndigits
+        # Sanity checks: there should be exactly ndigits+1 places
+        # following the decimal point, and the last digit in the
+        # buffer should be a '5'
+        if not objectmodel.we_are_translated():
+            assert buf[endpos] == '5'
+            if '.' in buf:
+                assert endpos == len(buf) - 1
+                assert buf.index('.') == len(buf) - ndigits - 2
 
-            # increment and shift right at the same time
-            i = endpos - 1
-            carry = 1
-            while i >= 0:
-                digit = ord(buf[i])
-                if digit == ord('.'):
-                    buf[i+1] = chr(digit)
-                    i -= 1
-                    digit = ord(buf[i])
-
-                carry += digit - ord('0')
-                buf[i+1] = chr(carry % 10 + ord('0'))
-                carry /= 10
+        # increment and shift right at the same time
+        i = endpos - 1
+        carry = 1
+        while i >= 0:
+            digit = ord(buf[i])
+            if digit == ord('.'):
+                buf[i+1] = chr(digit)
                 i -= 1
-            buf[0] = chr(carry + ord('0'))
-            if ndigits < 0:
-                buf.append('0')
+                digit = ord(buf[i])
 
-            strvalue = ''.join(buf)
+            carry += digit - ord('0')
+            buf[i+1] = chr(carry % 10 + ord('0'))
+            carry /= 10
+            i -= 1
+        buf[0] = chr(carry + ord('0'))
+        if ndigits < 0:
+            buf.append('0')
 
-        return sign * rstring_to_float(strvalue)
+        strvalue = ''.join(buf)
 
-else:
-    # fallback version, to be used when correctly rounded
-    # binary<->decimal conversions aren't available
-    def round_double(value, ndigits):
-        if ndigits >= 0:
-            if ndigits > 22:
-                # pow1 and pow2 are each safe from overflow, but
-                # pow1*pow2 ~= pow(10.0, ndigits) might overflow
-                pow1 = math.pow(10.0, ndigits - 22)
-                pow2 = 1e22
-            else:
-                pow1 = math.pow(10.0, ndigits)
-                pow2 = 1.0
+    return sign * rstring_to_float(strvalue)
 
-            y = (value * pow1) * pow2
-            # if y overflows, then rounded value is exactly x
-            if isinf(y):
-                return value
-
+# fallback version, to be used when correctly rounded
+# binary<->decimal conversions aren't available
+def round_double_fallback_repr(value, ndigits):
+    if ndigits >= 0:
+        if ndigits > 22:
+            # pow1 and pow2 are each safe from overflow, but
+            # pow1*pow2 ~= pow(10.0, ndigits) might overflow
+            pow1 = math.pow(10.0, ndigits - 22)
+            pow2 = 1e22
         else:
-            pow1 = math.pow(10.0, -ndigits);
-            pow2 = 1.0 # unused; for translation
-            y = value / pow1
+            pow1 = math.pow(10.0, ndigits)
+            pow2 = 1.0
 
-        if y >= 0.0:
-            z = math.floor(y + 0.5)
-        else:
-            z = math.ceil(y - 0.5)
-        if math.fabs(y-z) == 1.0:   # obscure case, see the test
-            z = y
+        y = (value * pow1) * pow2
+        # if y overflows, then rounded value is exactly x
+        if isinf(y):
+            return value
 
-        if ndigits >= 0:
-            z = (z / pow2) / pow1
-        else:
-            z *= pow1
-        return z
+    else:
+        pow1 = math.pow(10.0, -ndigits);
+        pow2 = 1.0 # unused; for translation
+        y = value / pow1
+
+    if y >= 0.0:
+        z = math.floor(y + 0.5)
+    else:
+        z = math.ceil(y - 0.5)
+    if math.fabs(y-z) == 1.0:   # obscure case, see the test
+        z = y
+
+    if ndigits >= 0:
+        z = (z / pow2) / pow1
+    else:
+        z *= pow1
+    return z
 
 INFINITY = 1e200 * 1e200
 NAN = INFINITY / INFINITY
