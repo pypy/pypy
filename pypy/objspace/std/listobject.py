@@ -186,7 +186,7 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def getstorage_copy(self, w_list):
-        return self.cast_to_void_star(self.getitems_copy(w_list))
+        raise NotImplementedError
 
     def append(self, w_list, w_item):
         raise NotImplementedError
@@ -252,6 +252,9 @@ class EmptyListStrategy(ListStrategy):
 
     def getitems_copy(self, w_list):
         return []
+
+    def getstorage_copy(self, w_list):
+        return self.cast_to_void_star(self.getitems_copy(w_list))
 
     def append(self, w_list, w_item):
         w_list.__init__(self.space, [w_item])
@@ -339,6 +342,9 @@ class RangeListStrategy(ListStrategy):
 
     def getitems(self, w_list):
         return self._getitems_range(w_list, True)
+
+    def getstorage_copy(self, w_list):
+        return self.cast_to_void_star(self.getitems_copy(w_list))
 
     getitems_copy = getitems
 
@@ -503,6 +509,9 @@ class AbstractUnwrappedStrategy(object):
 
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.cast_from_void_star(w_list.lstorage)]
+
+    def getstorage_copy(self, w_list):
+        return self.cast_to_void_star(self.getitems_copy(w_list))
 
     getitems = getitems_copy
 
