@@ -316,7 +316,6 @@ class W_Profiler(Wrappable):
             context._stop(self, entry)
         self.current_context = context.previous
 
-    @jit.unroll_safe
     def _flush_unmatched(self):
         context = self.current_context
         while context:
