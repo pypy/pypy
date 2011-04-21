@@ -1051,13 +1051,16 @@ Changing documentation and website
 documentation/website files in your local checkout
 ---------------------------------------------------
 
-Most of the PyPy's documentation and website is kept in
-`pypy/doc` respectively.
+Most of the PyPy's documentation is kept in `pypy/doc`.
 You can simply edit or add '.rst' files which contain ReST-markuped
 files.  Here is a `ReST quickstart`_ but you can also just look
 at the existing documentation and see how things work.
 
 .. _`ReST quickstart`: http://docutils.sourceforge.net/docs/rst/quickref.html
+
+Note that the web site of http://pypy.org/ is maintained separately.
+For now it is in the repository https://bitbucket.org/pypy/extradoc
+in the directory ``pypy.org``.
 
 Automatically test documentation/website changes
 ------------------------------------------------
