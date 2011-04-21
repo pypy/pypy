@@ -317,15 +317,17 @@ class UnrollOptimizer(Optimization):
         short.append(op)
         short_seen[op.result] = True
         newop = self.short_inliner.inline_op(op)
+        newoplen = len(self.optimizer.newoperations)
         self.optimizer.send_extra_operation(newop)
-        assert self.optimizer.newoperations[-1] is not newop
+        assert len(self.optimizer.newoperations) == newoplen
 
         if op.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             short.append(guard)
+            newoplen = len(self.optimizer.newoperations)
             self.optimizer.send_extra_operation(guard)
-            assert self.optimizer.newoperations[-1] is not guard
+            assert len(self.optimizer.newoperations) == newoplen
 
         # FIXME: Emit a proper guards here in case it is not
         #        removed by the optimizer. Can that happen?
