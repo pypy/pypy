@@ -241,6 +241,9 @@ class W_Profiler(Wrappable):
         self.data = {}
         self.builtin_data = {}
         self.space = space
+        self.is_enabled = False
+        self.total_timestamp = r_longlong(0)
+        self.total_real_time = 0.0
 
     def ll_timer(self):
         if self.w_callable:
@@ -255,10 +258,18 @@ class W_Profiler(Wrappable):
 
     def enable(self, space, w_subcalls=NoneNotWrapped,
                w_builtins=NoneNotWrapped):
+        if self.is_enabled:
+            return      # ignored
         if w_subcalls is not None:
             self.subcalls = space.bool_w(w_subcalls)
         if w_builtins is not None:
             self.builtins = space.bool_w(w_builtins)
+        # We want total_real_time and total_timestamp to end up containing
+        # (endtime - starttime).  Now we are at the start, so we first
+        # have to subtract the current time.
+        self.is_enabled = True
+        self.total_real_time -= time.time()
+        self.total_timestamp -= read_timestamp()
         # set profiler hook
         c_setup_profiling()
         space.getexecutioncontext().setllprofile(lsprof_call, space.wrap(self))
@@ -326,6 +337,14 @@ class W_Profiler(Wrappable):
         self.current_context = None
 
     def disable(self, space):
+        if not self.is_enabled:
+            return      # ignored
+        # We want total_real_time and total_timestamp to end up containing
+        # (endtime - starttime), or the sum of such intervals if
+        # enable() and disable() are called several times.
+        self.is_enabled = False
+        self.total_timestamp += read_timestamp()
+        self.total_real_time += time.time()
         # unset profiler hook
         space.getexecutioncontext().setllprofile(None, None)
         c_teardown_profiling()
@@ -333,8 +352,14 @@ class W_Profiler(Wrappable):
 
     def getstats(self, space):
         if self.w_callable is None:
-            # XXX find out a correct measurment freq
-            factor = 1. # we measure time.time in floats
+            if self.is_enabled:
+                raise OperationError(space.w_RuntimeError,
+                    space.wrap("Profiler instance must be disabled "
+                               "before getting the stats"))
+            if self.total_timestamp:
+                factor = self.total_real_time / float(self.total_timestamp)
+            else:
+                factor = 1.0     # probably not used
         elif self.time_unit > 0.0:
             factor = self.time_unit
         else:
