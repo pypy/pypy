@@ -223,44 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-    def test__ffi_call(self):
-        from pypy.rlib.test.test_libffi import get_libm_name
-        libm_name = get_libm_name(sys.platform)
-        out = self.run_source('''
-        def main():
-            try:
-                from _ffi import CDLL, types
-            except ImportError:
-                sys.stdout.write('SKIP: cannot import _ffi')
-                return 0
-
-            libm = CDLL('%(libm_name)s')
-            pow = libm.getfunc('pow', [types.double, types.double],
-                               types.double)
-            print pow.getaddr()
-            i = 0
-            res = 0
-            while i < 2000:
-                res += pow(2, 3)
-                i += 1
-            return res
-        ''' % locals(),
-                              76, ([], 8.0*2000), threshold=1000)
-        pow_addr = int(out.splitlines()[0])
-        ops = self.get_by_bytecode('CALL_FUNCTION')
-        assert len(ops) == 2 # we get two loops, because of specialization
-        call_function = ops[0]
-        last_ops = [op.getopname() for op in call_function[-5:]]
-        assert last_ops == ['force_token',
-                            'setfield_gc',
-                            'call_may_force',
-                            'guard_not_forced',
-                            'guard_no_exception']
-        call = call_function[-3]
-        assert call.getarg(0).value == pow_addr
-        assert call.getarg(1).value == 2.0
-        assert call.getarg(2).value == 3.0
-        
     def test_shift(self):
         from sys import maxint
         maxvals = (-maxint-1, -maxint, maxint-1, maxint)
