@@ -254,7 +254,7 @@ class EmptyListStrategy(ListStrategy):
         return []
 
     def getstorage_copy(self, w_list):
-        return self.cast_to_void_star(self.getitems_copy(w_list))
+        return self.cast_to_void_star([])
 
     def append(self, w_list, w_item):
         w_list.__init__(self.space, [w_item])
@@ -344,7 +344,8 @@ class RangeListStrategy(ListStrategy):
         return self._getitems_range(w_list, True)
 
     def getstorage_copy(self, w_list):
-        return self.cast_to_void_star(self.getitems_copy(w_list))
+        # tuple is unmutable
+        return w_list.lstorage
 
     getitems_copy = getitems
 
@@ -511,7 +512,8 @@ class AbstractUnwrappedStrategy(object):
         return [self.wrap(item) for item in self.cast_from_void_star(w_list.lstorage)]
 
     def getstorage_copy(self, w_list):
-        return self.cast_to_void_star(self.getitems_copy(w_list))
+        items = self.cast_from_void_star(w_list.lstorage)[:]
+        return self.cast_to_void_star(items)
 
     getitems = getitems_copy
 
