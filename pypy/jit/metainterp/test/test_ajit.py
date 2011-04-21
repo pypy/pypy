@@ -2032,6 +2032,46 @@ class BasicTests:
             return sa
         res = self.meta_interp(f, [32, 7])
         assert res == f(32, 7)
+        
+    def test_caching_setarrayitem_fixed(self):
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'node'])
+        def f(n, a):
+            i = sa = 0
+            node = [1, 2, 3]
+            while i < n:
+                myjitdriver.can_enter_jit(sa=sa, i=i, n=n, a=a, node=node)
+                myjitdriver.jit_merge_point(sa=sa, i=i, n=n, a=a, node=node)
+                sa += node[0] + node[1]
+                if i < n/2:
+                    node[0] = a
+                    node[1] = a
+                else:
+                    node[0] = a
+                    node[1] = a + 1
+                i += 1
+            return sa
+        res = self.meta_interp(f, [32, 7])
+        assert res == f(32, 7)
+        
+    def test_caching_setarrayitem_var(self):
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'b', 'node'])
+        def f(n, a, b):
+            i = sa = 0
+            node = [1, 2, 3]
+            while i < n:
+                myjitdriver.can_enter_jit(sa=sa, i=i, n=n, a=a, b=b, node=node)
+                myjitdriver.jit_merge_point(sa=sa, i=i, n=n, a=a, b=b, node=node)
+                sa += node[0] + node[b]
+                if i < n/2:
+                    node[0] = a
+                    node[b] = a
+                else:
+                    node[0] = a
+                    node[b] = a + 1
+                i += 1
+            return sa
+        res = self.meta_interp(f, [32, 7, 2])
+        assert res == f(32, 7, 2)
 
     def test_getfield_result_with_intbound(self):
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'node'])

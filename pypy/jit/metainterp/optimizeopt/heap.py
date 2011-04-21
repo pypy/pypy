@@ -118,8 +118,10 @@ class CachedField(object):
 class CachedArrayItems(object):
     def __init__(self):
         self.fixed_index_items = {}
+        self.fixed_index_getops = {}
         self.var_index_item = None
         self.var_index_indexvalue = None
+        self.var_index_getop = None
 
 class BogusPureField(JitException):
     pass
@@ -148,8 +150,6 @@ class OptHeap(Optimization):
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_cloned(optimizer, valuemap)
 
-        return new
-
         new.cached_arrayitems = {}
         for descr, d in self.cached_arrayitems.items():
             newd = {}
@@ -157,7 +157,7 @@ class OptHeap(Optimization):
             for value, cache in d.items():
                 newcache = CachedArrayItems()
                 newd[value.get_cloned(optimizer, valuemap)] = newcache
-                if cache.var_index_item:
+                if cache.var_index_item and cache.var_index_getop:
                     newcache.var_index_item = \
                           cache.var_index_item.get_cloned(optimizer, valuemap)
                 if cache.var_index_indexvalue:
@@ -165,7 +165,8 @@ class OptHeap(Optimization):
                           cache.var_index_indexvalue.get_cloned(optimizer,
                                                                 valuemap)
                 for index, fieldvalue in cache.fixed_index_items.items():
-                    newcache.fixed_index_items[index] = \
+                    if cache.fixed_index_getops.get(index, None):
+                        newcache.fixed_index_items[index] = \
                            fieldvalue.get_cloned(optimizer, valuemap)
 
         return new
@@ -175,22 +176,16 @@ class OptHeap(Optimization):
             d.produce_potential_short_preamble_ops(self.optimizer,
                                                    potential_ops, descr)
 
-        # FIXME
         for descr, d in self.cached_arrayitems.items():
             for value, cache in d.items():
-                for index, fieldvalue in cache.fixed_index_items.items():
-                    result = fieldvalue.get_key_box()
-                    op = ResOperation(rop.GETARRAYITEM_GC,
-                                      [value.get_key_box(), ConstInt(index)],
-                                      result, descr)
-                    potential_ops[result] = op
+                for index in cache.fixed_index_items.keys():
+                    op = cache.fixed_index_getops[index]
+                    if op:
+                        potential_ops[op.result] = op
                 if cache.var_index_item and cache.var_index_indexvalue:
-                    result = cache.var_index_item.get_key_box()
-                    op = ResOperation(rop.GETARRAYITEM_GC,
-                                      [value.get_key_box(),
-                                       cache.var_index_indexvalue.get_key_box()],
-                                      result, descr)
-                    potential_ops[result] = op
+                    op = cache.var_index_getop
+                    if op:
+                        potential_ops[op.result] = op
                     
 
     def clean_caches(self):
@@ -205,7 +200,8 @@ class OptHeap(Optimization):
             cf = self.cached_fields[descr] = CachedField()
         return cf
 
-    def cache_arrayitem_value(self, descr, value, indexvalue, fieldvalue, write=False):
+    def cache_arrayitem_value(self, descr, value, indexvalue, fieldvalue,
+                              write=False, getop=None):
         d = self.cached_arrayitems.get(descr, None)
         if d is None:
             d = self.cached_arrayitems[descr] = {}
@@ -223,9 +219,11 @@ class OptHeap(Optimization):
                     othercache.var_index_item = None
                     try:
                         del othercache.fixed_index_items[index]
+                        del othercache.fixed_index_getops[index]
                     except KeyError:
                         pass
             cache.fixed_index_items[index] = fieldvalue
+            cache.fixed_index_getops[index] = getop
         else:
             if write:
                 for value, othercache in d.iteritems():
@@ -233,8 +231,10 @@ class OptHeap(Optimization):
                     othercache.var_index_indexvalue = None
                     othercache.var_index_item = None
                     othercache.fixed_index_items.clear()
+                    othercache.fixed_index_getops.clear()
             cache.var_index_indexvalue = indexvalue
             cache.var_index_item = fieldvalue
+            cache.var_index_getop = getop
 
     def read_cached_arrayitem(self, descr, value, indexvalue):
         d = self.cached_arrayitems.get(descr, None)
@@ -388,9 +388,9 @@ class OptHeap(Optimization):
             structvalue.ensure_nonnull()
             ###self.optimizer.optimize_default(op)
             self.emit_operation(op)
-        # then remember the result of reading the field
-        fieldvalue = self.getvalue(op.result)
-        cf.remember_field_value(structvalue, fieldvalue, op)
+            # then remember the result of reading the field
+            fieldvalue = self.getvalue(op.result)
+            cf.remember_field_value(structvalue, fieldvalue, op)
 
     def optimize_SETFIELD_GC(self, op):
         if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],
@@ -412,7 +412,8 @@ class OptHeap(Optimization):
         ###self.optimizer.optimize_default(op)
         self.emit_operation(op)
         fieldvalue = self.getvalue(op.result)
-        self.cache_arrayitem_value(op.getdescr(), value, indexvalue, fieldvalue)
+        self.cache_arrayitem_value(op.getdescr(), value, indexvalue, fieldvalue,
+                                   getop=op)
 
     def optimize_SETARRAYITEM_GC(self, op):
         self.emit_operation(op)
