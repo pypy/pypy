@@ -185,6 +185,9 @@ class ListStrategy(object):
     def getitems_copy(self, w_list):
         raise NotImplementedError
 
+    def getstorage_copy(self, w_list):
+        return self.cast_to_void_star(self.getitems_copy(w_list))
+
     def append(self, w_list, w_item):
         raise NotImplementedError
 
@@ -272,9 +275,8 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def setslice(self, w_list, start, step, slicelength, w_other):
-        items = w_other.getitems_copy()
         strategy = w_other.strategy
-        storage = strategy.cast_to_void_star(items)
+        storage = strategy.getstorage_copy(w_other)
         w_list.strategy = strategy
         w_list.lstorage = storage
 
