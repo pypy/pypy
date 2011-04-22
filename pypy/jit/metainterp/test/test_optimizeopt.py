@@ -5001,6 +5001,8 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p0]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        setfield_gc(p0, p0, descr=valuedescr)
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)

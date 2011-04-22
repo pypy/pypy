@@ -38,10 +38,6 @@ class CachedField(object):
         if cached_fieldvalue is not fieldvalue:
             # common case: store the 'op' as lazy_setfield, and register
             # myself in the optheap's _lazy_setfields list
-            try:
-                del self._cached_fields_getfield_op[structvalue]
-            except KeyError:
-                pass
             self._lazy_setfield = op
             if not self._lazy_setfield_registered:
                 optheap._lazy_setfields.append(self)
@@ -110,6 +106,8 @@ class CachedField(object):
 
     def produce_potential_short_preamble_ops(self, optimizer,
                                              potential_ops, descr):
+        if self._lazy_setfield is not None:
+            return
         for structvalue, op in self._cached_fields_getfield_op.iteritems():
             if op and structvalue in self._cached_fields:
                 potential_ops[op.result] = op
