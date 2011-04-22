@@ -950,17 +950,18 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
-        jump(i1, p2, p2sub)
+        jump(i1, p2)
         """
         expected = """
-        [i1, p2, p2sub]
+        [i1, p2]
+        p2sub = getfield_gc(p2, descr=nextdescr)
         i3 = getfield_gc(p2sub, descr=valuedescr)
         escape(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         p3sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
-        jump(i1, p1, p3sub)
+        jump(i1, p1)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -1869,6 +1870,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         expected = """
         [p1, i1, i2]
+        setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
         # in this case, all setfields are removed, because we can prove
