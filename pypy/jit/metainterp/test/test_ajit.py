@@ -1282,8 +1282,8 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_value=2)        
-        self.check_loops(guard_class=0, guard_value=5, everywhere=True)
+        self.check_loops(guard_class=0, guard_value=3)        
+        self.check_loops(guard_class=0, guard_value=6, everywhere=True)
 
     def test_merge_guardnonnull_guardclass(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1437,8 +1437,8 @@ class BasicTests:
                 y.v = g(y.v) - y.v/y.v + lc/l[0] - 1
             return y.v
         res = self.meta_interp(f, [20], listops=True)
-        self.check_loops(getfield_gc=0, getarrayitem_gc=0)
-        self.check_loops(getfield_gc=1, getarrayitem_gc=0, everywhere=True)
+        self.check_loops(getfield_gc=1, getarrayitem_gc=0)
+        self.check_loops(getfield_gc=2, getarrayitem_gc=0, everywhere=True)
 
     def test_guard_isnull_nonnull(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])

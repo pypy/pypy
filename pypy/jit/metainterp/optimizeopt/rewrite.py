@@ -14,6 +14,7 @@ class OptRewrite(Optimization):
     """
     def __init__(self):
         self.loop_invariant_results = {}
+        self.loop_invariant_producer = {}        
 
     def reconstruct_for_next_iteration(self, surviving_boxes,
                                        optimizer, valuemap):
@@ -22,6 +23,11 @@ class OptRewrite(Optimization):
             new.loop_invariant_results[key] = \
                                  value.get_cloned(new, valuemap)
         return new
+
+    def produce_potential_short_preamble_ops(self, potential_ops):        
+        for op in self.loop_invariant_producer.values():
+            potential_ops[op.result] = op
+
     
     def propagate_forward(self, op):
         args = self.optimizer.make_args_key(op)
@@ -316,12 +322,14 @@ class OptRewrite(Optimization):
         # expects a compile-time constant
         assert isinstance(arg, Const)
         key = make_hashable_int(arg.getint())
+        
         resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)
             return
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
+        self.loop_invariant_producer[key] = op
         op = op.copy_and_change(rop.CALL)
         self.emit_operation(op)
         resvalue = self.getvalue(op.result)
