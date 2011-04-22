@@ -166,6 +166,12 @@ class UnrollOptimizer(Optimization):
             inputargs = virtual_state.make_inputargs(values)
             sb = preamble_optimizer.produce_short_preamble_ops(inputargs)
             self.short_boxes = sb
+
+            self.constant_inputargs = {}
+            for box in jump_args:
+                const = self.get_constant_box(box)
+                if const:
+                    self.constant_inputargs[box] = const
         
             initial_inputargs_len = len(inputargs)
 
@@ -225,6 +231,8 @@ class UnrollOptimizer(Optimization):
                 # Clone ops and boxes to get private versions and 
                 newargs = [a.clonebox() for a in short_loop.inputargs]
                 inliner = Inliner(short_loop.inputargs, newargs)
+                for box, const in self.constant_inputargs.items():
+                    inliner.argmap[box] = const
                 short_loop.inputargs = newargs
                 ops = [inliner.inline_op(op) for op in short_loop.operations]
                 short_loop.operations = ops
@@ -275,6 +283,10 @@ class UnrollOptimizer(Optimization):
         self.short_inliner = Inliner(inputargs, jumpargs)
         short = []
         short_seen = {}
+        for box, const in self.constant_inputargs.items():
+            short_seen[box] = True
+            self.short_inliner.argmap[box] = const
+        
         for result, op in self.short_boxes.items():
             if op is not None:
                 for op in self.getvalue(result).make_guards(result):
