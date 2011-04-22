@@ -1565,3 +1565,40 @@ class TestPyPyCNew(BaseTestPyPyC):
             i12 = int_ge(i10, 0)
             guard_true(i12, descr=...)
         """)
+
+    def test_shift_intbound(self):
+        def main(b):
+            res = 0
+            a = 0
+            while a < 300:
+                assert a >= 0
+                assert 0 <= b <= 10
+                val = a >> b
+                if val >= 0:    # ID: rshift
+                    res += 1
+                val = a << b
+                if val >= 0:    # ID: lshift
+                    res += 2
+                a += 1
+            return res
+        #
+        log = self.run(main, [2], threshold=200)
+        assert log.result == 300*3
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('rshift', "")  # guard optimized away
+        assert loop.match_by_id('lshift', "")  # guard optimized away
+
+    def test_lshift_and_then_rshift(self):
+        def main(a, b):
+            res = 0
+            while res < 300:
+                assert 0 <= a <= 10
+                assert 0 <= b <= 10
+                val = (a << b) >> b     # ID: shift
+                res += val
+            return res
+        #
+        log = self.run(main, [1, 2], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('shift', "")  # optimized away
