@@ -1589,16 +1589,18 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match_by_id('lshift', "")  # guard optimized away
 
     def test_lshift_and_then_rshift(self):
-        def main(a, b):
+        py.test.skip('fixme, this optimization is disabled')
+        def main(b):
             res = 0
+            a = 0
             while res < 300:
-                assert 0 <= a <= 10
+                assert a >= 0
                 assert 0 <= b <= 10
-                val = (a << b) >> b     # ID: shift
-                res += val
+                res = (a << b) >> b     # ID: shift
+                a += 1
             return res
         #
-        log = self.run(main, [1, 2], threshold=200)
+        log = self.run(main, [2], threshold=200)
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('shift', "")  # optimized away
