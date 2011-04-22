@@ -387,12 +387,11 @@ class Optimizer(Optimization):
     def produce_short_preamble_box(self, box, short_boxes, potential_ops):
         if box in short_boxes:
             return 
-        if isinstance(box, Const): #self.getvalue(box).is_constant():
+        if isinstance(box, Const):
             return 
         if box in potential_ops:
             op = potential_ops[box]
             for arg in op.getarglist():
-                arg = self.getvalue(arg).get_key_box()
                 self.produce_short_preamble_box(arg, short_boxes,
                                                 potential_ops)
             short_boxes[box] = op
