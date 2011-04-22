@@ -150,7 +150,6 @@ class Entry(ExtRegistryEntry):
         return hop.gendirectcall(ll_unerase_int, v)
 
 def ll_unerase_int(gcref):
-    from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rlib.debug import ll_assert
     x = llop.cast_ptr_to_int(lltype.Signed, gcref)
     ll_assert((x&1) != 0, "unerased_int(): not an integer")
