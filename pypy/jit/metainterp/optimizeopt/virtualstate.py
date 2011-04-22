@@ -5,7 +5,7 @@ from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_CONSTANT, \
                                                       LEVEL_NONNULL, \
                                                       LEVEL_UNKNOWN, \
                                                       MININT, MAXINT
-from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxPtr
+from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.resoperation import rop, ResOperation
@@ -222,13 +222,20 @@ class VirtualState(object):
             self.state[i].generate_guards(other.state[i], args[i],
                                           cpu, extra_guards)
 
-    def make_inputargs(self, values):
+    def make_inputargs(self, values, keyboxes=False):
         assert len(values) == len(self.state)
         inputargs = []
         seen_inputargs = {}
         for i in range(len(values)):
             self.state[i].enum_forced_boxes(inputargs, seen_inputargs,
                                             values[i])
+            
+        if keyboxes:
+            for value in values:
+                box = value.get_key_box()
+                if box not in inputargs and not isinstance(box, Const):
+                    inputargs.append(box)
+            
         return inputargs
         
 

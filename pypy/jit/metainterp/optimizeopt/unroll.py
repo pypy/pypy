@@ -175,7 +175,7 @@ class UnrollOptimizer(Optimization):
         
             initial_inputargs_len = len(inputargs)
 
-            inputargs, short = self.inline(self.cloned_operations,
+            inputargs, short_inputargs, short = self.inline(self.cloned_operations,
                                            loop.inputargs, jump_args,
                                            virtual_state)
             #except KeyError:
@@ -225,8 +225,9 @@ class UnrollOptimizer(Optimization):
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')
-                short_loop.inputargs = loop.inputargs[:initial_inputargs_len]
+                short_loop.inputargs = short_inputargs
                 short_loop.operations = short
+
 
                 # Clone ops and boxes to get private versions and 
                 newargs = [a.clonebox() for a in short_loop.inputargs]
@@ -261,6 +262,7 @@ class UnrollOptimizer(Optimization):
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values)
         short_jumpargs = inputargs[:]
+        short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -268,19 +270,21 @@ class UnrollOptimizer(Optimization):
         for newop in loop_operations:
             newop = inliner.inline_op(newop, clone=False)
             if newop.getopnum() == rop.JUMP:
-                values = [self.getvalue(arg) for arg in newop.getarglist()]
-                newop.initarglist(virtual_state.make_inputargs(values))
                 jumpop = newop
                 break
 
             #self.optimizer.first_optimization.propagate_forward(newop)
             self.optimizer.send_extra_operation(newop)
-        assert jumpop
 
         self.boxes_created_this_iteration = {}
-        jumpargs = jumpop.getarglist()
 
-        self.short_inliner = Inliner(inputargs, jumpargs)
+        assert jumpop
+        values = [self.getvalue(arg) for arg in jumpop.getarglist()]
+        jumpargs = virtual_state.make_inputargs(values)
+        newop.initarglist(jumpargs)
+        jmp_to_short_args = virtual_state.make_inputargs(values, keyboxes=True)
+        self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
+        
         short = []
         short_seen = {}
         for box, const in self.constant_inputargs.items():
@@ -316,7 +320,7 @@ class UnrollOptimizer(Optimization):
         jumpop.initarglist(jumpargs)
         self.optimizer.send_extra_operation(jumpop)
         short.append(ResOperation(rop.JUMP, short_jumpargs, None))
-        return inputargs, short
+        return inputargs, short_inputargs, short
 
     def add_op_to_short(self, op, short, short_seen):
         if op is None:
@@ -640,8 +644,11 @@ class OptInlineShortPreamble(Optimization):
                         #if self.inline(sh.operations, sh.inputargs,
                         #               op.getarglist(), dryrun=True):
                         try:
-                            self.inline(sh.operations, sh.inputargs,
-                                        op.getarglist())
+                            values = [self.getvalue(arg)
+                                      for arg in op.getarglist()]
+                            args = virtual_state.make_inputargs(values,
+                                                                keyboxes=True)
+                            self.inline(sh.operations, sh.inputargs, args)
                         except InvalidLoop:
                             debug_print("Inlining failed unexpectedly",
                                         "jumping to preamble instead")
