@@ -22,11 +22,39 @@ class TestMath(MathTests):
         assert ll_math.ll_math_isnan(nan)
         assert not ll_math.ll_math_isnan(inf)
 
+    def test_compiled_isnan(self):
+        def f(x, y):
+            n1 = normalize(x * x)
+            n2 = normalize(y * y * y)
+            return ll_math.ll_math_isnan(n1 / n2)
+        f = compile(f, [float, float], backendopt=False)
+        assert f(1e200, 1e200)     # nan
+        assert not f(1e200, 1.0)   # +inf
+        assert not f(1e200, -1.0)  # -inf
+        assert not f(42.5, 2.3)    # +finite
+        assert not f(42.5, -2.3)   # -finite
+
     def test_compiled_isinf(self):
-        def f(x):
-            return ll_math.ll_math_isinf(1. / x)
-        f = compile(f, [float], backendopt=False)
-        assert f(5.5e-309)
+        def f(x, y):
+            n1 = normalize(x * x)
+            n2 = normalize(y * y * y)
+            return ll_math.ll_math_isinf(n1 / n2)
+        f = compile(f, [float, float], backendopt=False)
+        assert f(1e200, 1.0)       # +inf
+        assert f(1e200, -1.0)      # -inf
+        assert not f(1e200, 1e200) # nan
+        assert not f(42.5, 2.3)    # +finite
+        assert not f(42.5, -2.3)   # -finite
+
+
+from pypy.rpython.lltypesystem import lltype
+_A = lltype.GcArray(lltype.Float)
+def normalize(x):
+    # workaround: force the C compiler to cast to a double
+    a = lltype.malloc(_A, 1)
+    a[0] = x
+    import time; time.time()
+    return a[0]
 
 
 def make_test_case((fnname, args, expected), dict):

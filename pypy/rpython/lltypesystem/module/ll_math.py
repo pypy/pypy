@@ -91,8 +91,8 @@ def _likely_raise(errno, x):
 # Custom implementations
 
 def ll_math_isnan(y):
-    # By not calling into the extenal function the JIT can inline this.  Floats
-    # are awesome.
+    # By not calling into the external function the JIT can inline this.
+    # Floats are awesome.
     return y != y
 
 def ll_math_isinf(y):
