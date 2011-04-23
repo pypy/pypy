@@ -22,6 +22,15 @@ class TestMath(MathTests):
         assert ll_math.ll_math_isnan(nan)
         assert not ll_math.ll_math_isnan(inf)
 
+    def test_isfinite(self):
+        inf = 1e200 * 1e200
+        nan = inf / inf
+        assert ll_math.ll_math_isfinite(0.0)
+        assert ll_math.ll_math_isfinite(-42.0)
+        assert not ll_math.ll_math_isfinite(nan)
+        assert not ll_math.ll_math_isnan(inf)
+        assert not ll_math.ll_math_isnan(-inf)
+
     def test_compiled_isnan(self):
         def f(x, y):
             n1 = normalize(x * x)
@@ -45,6 +54,18 @@ class TestMath(MathTests):
         assert not f(1e200, 1e200) # nan
         assert not f(42.5, 2.3)    # +finite
         assert not f(42.5, -2.3)   # -finite
+
+    def test_compiled_isfinite(self):
+        def f(x, y):
+            n1 = normalize(x * x)
+            n2 = normalize(y * y * y)
+            return ll_math.ll_math_isfinite(n1 / n2)
+        f = compile(f, [float, float], backendopt=False)
+        assert f(42.5, 2.3)        # +finite
+        assert f(42.5, -2.3)       # -finite
+        assert not f(1e200, 1.0)   # +inf
+        assert not f(1e200, -1.0)  # -inf
+        assert not f(1e200, 1e200) # nan
 
 
 from pypy.rpython.lltypesystem import lltype

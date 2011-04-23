@@ -195,6 +195,18 @@ class BaseTestRfloat(BaseRtypingTest):
         assert not self.interpret(fn, [42.5, 2.3])    # +finite
         assert not self.interpret(fn, [42.5, -2.3])   # -finite
 
+    def test_isfinite(self):
+        from pypy.rlib import rfloat
+        def fn(x, y):
+            n1 = x * x
+            n2 = y * y * y
+            return rfloat.isfinite(n1 / n2)
+        assert self.interpret(fn, [42.5, 2.3])        # +finite
+        assert self.interpret(fn, [42.5, -2.3])       # -finite
+        assert not self.interpret(fn, [1e200, 1.0])   # +inf
+        assert not self.interpret(fn, [1e200, -1.0])  # -inf
+        assert not self.interpret(fn, [1e200, 1e200]) # nan
+
 
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
