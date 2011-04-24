@@ -98,8 +98,9 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         if self in already_forced:
             return self
         already_forced[self] = self
-        for ofs in self._fields.keys():
-            self._fields[ofs] = self._fields[ofs].force_at_end_of_preamble(already_forced)
+        if self._fields:
+            for ofs in self._fields.keys():
+                self._fields[ofs] = self._fields[ofs].force_at_end_of_preamble(already_forced)
         return self
 
     def _really_force(self):
@@ -252,8 +253,13 @@ class VArrayValue(AbstractVirtualValue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
 
-    def force_at_end_of_preamble(self):
-        raise NotImplementedError
+    def force_at_end_of_preamble(self, already_forced):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for index in range(len(self._items)):
+            self._items[index] = self._items[index].force_at_end_of_preamble(already_forced)
+        return self
     
     def _really_force(self):
         assert self.source_op is not None
