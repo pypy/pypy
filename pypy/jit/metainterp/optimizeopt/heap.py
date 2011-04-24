@@ -93,12 +93,12 @@ class CachedField(object):
             fieldvalue  = optheap.getvalue(op.getarg(1))
             self.remember_field_value(structvalue, fieldvalue)
 
-    def get_cloned(self, optimizer, valuemap):
+    def get_cloned(self, optimizer, valuemap, short_boxes):
         assert self._lazy_setfield is None
         cf = CachedField()
         for structvalue, fieldvalue in self._cached_fields.iteritems():
             op = self._cached_fields_getfield_op.get(structvalue, None)
-            if op:
+            if op and op.result in short_boxes:
                 structvalue2 = structvalue.get_cloned(optimizer, valuemap)
                 fieldvalue2  = fieldvalue .get_cloned(optimizer, valuemap)
                 cf._cached_fields[structvalue2] = fieldvalue2
@@ -146,7 +146,7 @@ class OptHeap(Optimization):
             assert 0   # was: new.lazy_setfields = self.lazy_setfields
 
         for descr, d in self.cached_fields.items():
-            new.cached_fields[descr] = d.get_cloned(optimizer, valuemap)
+            new.cached_fields[descr] = d.get_cloned(optimizer, valuemap, short_boxes)
 
         new.cached_arrayitems = {}
         for descr, d in self.cached_arrayitems.items():
@@ -155,15 +155,17 @@ class OptHeap(Optimization):
             for value, cache in d.items():
                 newcache = CachedArrayItems()
                 newd[value.get_cloned(optimizer, valuemap)] = newcache
-                if cache.var_index_item and cache.var_index_getop:
-                    newcache.var_index_item = \
-                          cache.var_index_item.get_cloned(optimizer, valuemap)
-                if cache.var_index_indexvalue:
-                    newcache.var_index_indexvalue = \
-                          cache.var_index_indexvalue.get_cloned(optimizer,
-                                                                valuemap)
+                if cache.var_index_getop and cache.var_index_getop.result in short_boxes:
+                    if cache.var_index_item:
+                        newcache.var_index_item = \
+                              cache.var_index_item.get_cloned(optimizer, valuemap)
+                    if cache.var_index_indexvalue:
+                        newcache.var_index_indexvalue = \
+                              cache.var_index_indexvalue.get_cloned(optimizer,
+                                                                    valuemap)
                 for index, fieldvalue in cache.fixed_index_items.items():
-                    if cache.fixed_index_getops.get(index, None):
+                    op = cache.fixed_index_getops.get(index, None)
+                    if op and op.result in short_boxes:
                         newcache.fixed_index_items[index] = \
                            fieldvalue.get_cloned(optimizer, valuemap)
 
