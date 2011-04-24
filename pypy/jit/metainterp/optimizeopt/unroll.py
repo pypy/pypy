@@ -287,7 +287,7 @@ class UnrollOptimizer(Optimization):
         assert jumpop
         values = [self.getvalue(arg) for arg in jumpop.getarglist()]
         jumpargs = virtual_state.make_inputargs(values)
-        newop.initarglist(jumpargs)
+        jumpop.initarglist(jumpargs)
         jmp_to_short_args = virtual_state.make_inputargs(values, keyboxes=True)
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         
