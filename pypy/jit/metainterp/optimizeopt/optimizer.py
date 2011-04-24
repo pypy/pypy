@@ -80,13 +80,19 @@ class OptValue(object):
     def get_key_box(self):
         return self.box
 
+    def force_at_end_of_preamble(self):
+        pass
+
     def get_cloned(self, optimizer, valuemap, force_if_needed=True):
         if self in valuemap:
             return valuemap[self]
         new = self.clone_for_next_iteration(optimizer)
         if new is None:
             if force_if_needed:
-                new = OptValue(self.force_box())
+                # It is too late to force things here it must have been
+                # done already in force_at_end_of_preamble()
+                assert self.box
+                new = OptValue(self.box)
             else:
                 return None
         else:
@@ -271,13 +277,10 @@ class Optimization(object):
     def setup(self):
         pass
 
-    def force_at_end_of_preamble(self):
-        pass
-
     def turned_constant(self, value):
         pass
 
-    def reconstruct_for_next_iteration(self, surviving_boxes=None,
+    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
                                        optimizer=None, valuemap=None):
         #return self.__class__()
         raise NotImplementedError
@@ -325,12 +328,11 @@ class Optimizer(Optimization):
 
         self.optimizations  = optimizations
 
-    def force_at_end_of_preamble(self):
-        self.resumedata_memo = resume.ResumeDataLoopMemo(self.metainterp_sd)
-        for o in self.optimizations:
-            o.force_at_end_of_preamble()
+    def force_at_end_of_preamble(self, jumpargs):
+        for a in jumpargs:
+            self.getvalue(a).force_at_end_of_preamble()
 
-    def reconstruct_for_next_iteration(self, surviving_boxes=None,
+    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
                                        optimizer=None, valuemap=None):
         assert optimizer is None
         assert valuemap is None
@@ -339,7 +341,7 @@ class Optimizer(Optimization):
 
         valuemap = {}
         new = Optimizer(self.metainterp_sd, self.loop)
-        optimizations = [o.reconstruct_for_next_iteration(surviving_boxes,
+        optimizations = [o.reconstruct_for_next_iteration(short_boxes, surviving_boxes,
                                                           new, valuemap)
                          for o in self.optimizations]
         new.set_optimizations(optimizations)
@@ -349,7 +351,10 @@ class Optimizer(Optimization):
         for value in new.bool_boxes.keys():
             new.bool_boxes[value.get_cloned(new, valuemap)] = None
 
-        new.pure_operations = self.pure_operations
+        new.pure_operations = args_dict()
+        for key, op in self.pure_operations.items():
+            if op.result in short_boxes:
+                new.pure_operations[key] = op
         new.producer = self.producer
         assert self.posponedop is None
 

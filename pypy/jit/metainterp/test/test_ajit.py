@@ -2238,6 +2238,18 @@ class BasicTests:
         assert self.meta_interp(f, [5, 100]) == 0
         self.check_loops(int_rshift=1, everywhere=True)
 
+    def test_pure_op_not_to_be_propagated(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa'])
+        def f(n):
+            sa = 0
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, sa=sa)
+                sa += n + 1
+                n -= 1
+            return sa
+        assert self.meta_interp(f, [10]) == f(10)
+        
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 

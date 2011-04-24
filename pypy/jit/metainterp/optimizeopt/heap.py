@@ -136,7 +136,7 @@ class OptHeap(Optimization):
         self.cached_arrayitems = {}
         self.original_producer = {}
 
-    def reconstruct_for_next_iteration(self, surviving_boxes,
+    def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         new = OptHeap()
 

@@ -67,7 +67,7 @@ class OptFfiCall(Optimization):
     def __init__(self):
         self.funcinfo = None
 
-    def reconstruct_for_next_iteration(self, surviving_boxes,
+    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         return OptFfiCall()
         # FIXME: Should any status be saved for next iteration?

@@ -157,15 +157,18 @@ class UnrollOptimizer(Optimization):
             jumpop.initarglist([])
 
             loop.preamble.operations = self.optimizer.newoperations
-            preamble_optimizer = self.optimizer
-            self.optimizer = self.optimizer.reconstruct_for_next_iteration(jump_args)
+
+            self.optimizer.force_at_end_of_preamble(jump_args)
+
             modifier = VirtualStateAdder(self.optimizer)
             virtual_state = modifier.get_virtual_state(jump_args)
-
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
-            sb = preamble_optimizer.produce_short_preamble_ops(inputargs)
+            
+            sb = self.optimizer.produce_short_preamble_ops(inputargs)
             self.short_boxes = sb
+            preamble_optimizer = self.optimizer
+            self.optimizer = self.optimizer.reconstruct_for_next_iteration(sb, jump_args)
 
             self.constant_inputargs = {}
             for box in jump_args:
@@ -610,7 +613,7 @@ class OptInlineShortPreamble(Optimization):
         self.inliner = None
         
     
-    def reconstruct_for_next_iteration(self, surviving_boxes,
+    def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         return OptInlineShortPreamble(self.retraced)
     

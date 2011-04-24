@@ -31,6 +31,9 @@ class AbstractVirtualValue(optimizer.OptValue):
             self._really_force()
         return self.box
 
+    def force_at_end_of_preamble(self):
+        self.force_box()
+
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
             return self._make_virtual(modifier)
@@ -86,6 +89,9 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             if not isinstance(subbox, Const):
                 return False
         return True
+
+    def force_at_end_of_preamble(self):
+        pass
 
     def _really_force(self):
         op = self.source_op
@@ -237,6 +243,9 @@ class VArrayValue(AbstractVirtualValue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
 
+    def force_at_end_of_preamble(self):
+        pass
+    
     def _really_force(self):
         assert self.source_op is not None
         if not we_are_translated():
@@ -285,7 +294,7 @@ class VArrayValue(AbstractVirtualValue):
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def reconstruct_for_next_iteration(self, surviving_boxes,
+    def reconstruct_for_next_iteration(self, short_boxes,  surviving_boxes,
                                        optimizer, valuemap):
         return OptVirtualize()
 

@@ -16,7 +16,7 @@ class OptRewrite(Optimization):
         self.loop_invariant_results = {}
         self.loop_invariant_producer = {}        
 
-    def reconstruct_for_next_iteration(self, surviving_boxes,
+    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         new = OptRewrite()
         for key, value in self.loop_invariant_results.items():
