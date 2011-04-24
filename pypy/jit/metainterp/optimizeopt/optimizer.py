@@ -80,8 +80,8 @@ class OptValue(object):
     def get_key_box(self):
         return self.box
 
-    def force_at_end_of_preamble(self):
-        return None
+    def force_at_end_of_preamble(self, already_forced):
+        return self
 
     def get_cloned(self, optimizer, valuemap, force_if_needed=True):
         if self in valuemap:

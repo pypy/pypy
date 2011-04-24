@@ -4,6 +4,7 @@ from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
 from pypy.jit.metainterp.optimizeutil import descrlist_dict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.optimizeopt import optimizer
+from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.codewriter.heaptracker import vtable2descr
 
@@ -31,8 +32,11 @@ class AbstractVirtualValue(optimizer.OptValue):
             self._really_force()
         return self.box
 
-    def force_at_end_of_preamble(self):
-        return self.force_box()
+    def force_at_end_of_preamble(self, already_forced):
+        value = already_forced.get(self, None)
+        if value:
+            return value
+        return OptValue(self.force_box())
 
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
@@ -90,8 +94,13 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 return False
         return True
 
-    def force_at_end_of_preamble(self):
-        return None
+    def force_at_end_of_preamble(self, already_forced):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for ofs in self._fields.keys():
+            self._fields[ofs] = self._fields[ofs].force_at_end_of_preamble(already_forced)
+        return self
 
     def _really_force(self):
         op = self.source_op
@@ -244,7 +253,7 @@ class VArrayValue(AbstractVirtualValue):
         self._items[index] = itemvalue
 
     def force_at_end_of_preamble(self):
-        return None
+        raise NotImplementedError
     
     def _really_force(self):
         assert self.source_op is not None

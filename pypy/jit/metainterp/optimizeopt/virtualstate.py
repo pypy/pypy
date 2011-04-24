@@ -269,13 +269,11 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
         return info
 
     def get_virtual_state(self, jump_args):
+        already_forced = {}
         for box in jump_args:
             value = self.getvalue(box)
-            box = value.force_at_end_of_preamble()
-            if box:
-                self.make_not_virtual(OptValue(box))
-            else:
-                value.get_args_for_fail(self)
+            value = value.force_at_end_of_preamble(already_forced)
+            value.get_args_for_fail(self)
         return VirtualState([self.state(box) for box in jump_args])
 
 
