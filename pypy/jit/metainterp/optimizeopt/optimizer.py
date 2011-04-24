@@ -372,7 +372,7 @@ class Optimizer(Optimization):
     def produce_short_preamble_ops(self, inputargs):
         potential_ops = {}
         self.produce_potential_short_preamble_ops(potential_ops)
-        
+            
         short_boxes = {}
         for box in inputargs:
             short_boxes[box] = None

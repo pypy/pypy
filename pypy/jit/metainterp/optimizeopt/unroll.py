@@ -213,21 +213,27 @@ class UnrollOptimizer(Optimization):
                     # a lot of tests to be fixed...
                     loop.preamble.operations = short[:]
 
+                short_resumedescr = start_resumedescr.clone_if_mutable()
+                self.inliner.inline_descr_inplace(short_resumedescr)
+                snapshot = short_resumedescr.rd_snapshot
+                while snapshot:
+                    snapshot.boxes = [self.getvalue(b).get_key_box()
+                                      for b in snapshot.boxes]
+                    snapshot = snapshot.prev
+
                 # Turn guards into conditional jumps to the preamble
                 for i in range(len(short)):
                     op = short[i]
                     if op.is_guard():
                         op = op.clone()
                         op.setfailargs(None)
-                        descr = start_resumedescr.clone_if_mutable()
-                        self.inliner.inline_descr_inplace(descr)
+                        descr = short_resumedescr.clone_if_mutable()
                         op.setdescr(descr)
                         short[i] = op
 
                 short_loop = TreeLoop('short preamble')
                 short_loop.inputargs = short_inputargs
                 short_loop.operations = short
-
 
                 # Clone ops and boxes to get private versions and 
                 newargs = [a.clonebox() for a in short_loop.inputargs]
@@ -237,8 +243,7 @@ class UnrollOptimizer(Optimization):
                 short_loop.inputargs = newargs
                 ops = [inliner.inline_op(op) for op in short_loop.operations]
                 short_loop.operations = ops
-                descr = start_resumedescr.clone_if_mutable()
-                self.inliner.inline_descr_inplace(descr)
+                descr = short_resumedescr.clone_if_mutable()
                 inliner.inline_descr_inplace(descr)
                 short_loop.start_resumedescr = descr
 
