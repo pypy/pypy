@@ -619,11 +619,16 @@ class Assembler386(object):
         # and the address of the frame (ebp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
         assert rx86.fits_in_32bits(rst)
+        if IS_X86_64:
+            # cannot use rdx here, it's used to pass arguments!
+            tmp = X86_64_SCRATCH_REG
+        else:
+            tmp = edx
         self.mc.MOV_rj(eax.value, rst)                # MOV eax, [rootstacktop]
-        self.mc.LEA_rm(edx.value, (eax.value, 2*WORD))  # LEA edx, [eax+2*WORD]
+        self.mc.LEA_rm(tmp.value, (eax.value, 2*WORD))  # LEA edx, [eax+2*WORD]
         self.mc.MOV_mi((eax.value, 0), gcrootmap.MARKER)    # MOV [eax], MARKER
         self.mc.MOV_mr((eax.value, WORD), ebp.value)      # MOV [eax+WORD], ebp
-        self.mc.MOV_jr(rst, edx.value)                # MOV [rootstacktop], edx
+        self.mc.MOV_jr(rst, tmp.value)                # MOV [rootstacktop], edx
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
@@ -1634,10 +1639,6 @@ class Assembler386(object):
                             break
                 kind = code & 3
                 code = (code - self.CODE_FROMSTACK) >> 2
-                if kind == self.DESCR_FLOAT:
-                    size = 2
-                else:
-                    size = 1
                 loc = X86FrameManager.frame_pos(code, descr_to_box_type[kind])
             elif code == self.CODE_STOP:
                 break
@@ -2090,6 +2091,7 @@ class Assembler386(object):
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
         size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
+        size = (size + WORD-1) & ~(WORD-1)     # round up
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (eax.value, size))
         self.mc.CMP(edx, heap(nursery_top_adr))

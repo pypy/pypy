@@ -54,6 +54,11 @@ def getinitialpath(prefix):
     importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
     #
+    lib_tk_modified = os.path.join(python_std_lib_modified, 'lib-tk')
+    lib_tk = os.path.join(python_std_lib, 'lib-tk')
+    importlist.append(lib_tk_modified)
+    importlist.append(lib_tk)
+    #
     # List here the extra platform-specific paths.
     if platform != 'win32':
         importlist.append(os.path.join(python_std_lib, 'plat-'+platform))

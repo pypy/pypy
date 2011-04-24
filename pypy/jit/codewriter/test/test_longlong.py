@@ -82,6 +82,7 @@ class TestLongLong:
             assert list(oplist[0].args[4]) == []
             v_x = oplist[0].result
             assert isinstance(v_x, Variable)
+            assert v_x.concretetype is T
             assert oplist[1].opname == 'residual_call_irf_i'
             assert oplist[1].args[0].value == 'llong_ne'
             assert oplist[1].args[1] == 'calldescr-76'

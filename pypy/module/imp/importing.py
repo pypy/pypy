@@ -15,6 +15,7 @@ from pypy.rlib import streamio, jit, rposix
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.module.sys.version import PYPY_VERSION
 
 SEARCH_ERROR = 0
 PY_SOURCE = 1
@@ -31,7 +32,7 @@ if sys.platform == 'win32':
     SO = ".pyd"
 else:
     SO = ".so"
-DEFAULT_SOABI = 'pypy-14'
+DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
 CHECK_FOR_PYW = sys.platform == 'win32'
 
 @specialize.memo()
