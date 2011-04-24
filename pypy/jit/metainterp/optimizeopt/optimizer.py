@@ -264,7 +264,9 @@ class Optimization(object):
 
     def pure(self, opnum, args, result):
         op = ResOperation(opnum, args, result)
-        self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
+        key = self.optimizer.make_args_key(op)
+        if key not in self.optimizer.pure_operations:
+            self.optimizer.pure_operations[key] = op
 
     def has_pure_result(self, opnum, args, descr):
         op = ResOperation(opnum, args, None)
