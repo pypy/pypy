@@ -4,7 +4,7 @@ from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_CONSTANT, \
                                                       LEVEL_KNOWNCLASS, \
                                                       LEVEL_NONNULL, \
                                                       LEVEL_UNKNOWN, \
-                                                      MININT, MAXINT
+                                                      MININT, MAXINT, OptValue
 from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
@@ -271,7 +271,11 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def get_virtual_state(self, jump_args):
         for box in jump_args:
             value = self.getvalue(box)
-            value.get_args_for_fail(self)
+            box = value.force_at_end_of_preamble()
+            if box:
+                self.make_not_virtual(OptValue(box))
+            else:
+                value.get_args_for_fail(self)
         return VirtualState([self.state(box) for box in jump_args])
 
 

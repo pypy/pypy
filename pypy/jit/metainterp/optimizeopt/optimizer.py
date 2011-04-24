@@ -81,7 +81,7 @@ class OptValue(object):
         return self.box
 
     def force_at_end_of_preamble(self):
-        pass
+        return None
 
     def get_cloned(self, optimizer, valuemap, force_if_needed=True):
         if self in valuemap:
@@ -329,10 +329,6 @@ class Optimizer(Optimization):
             self.first_optimization = self
 
         self.optimizations  = optimizations
-
-    def force_at_end_of_preamble(self, jumpargs):
-        for a in jumpargs:
-            self.getvalue(a).force_at_end_of_preamble()
 
     def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
                                        optimizer=None, valuemap=None):

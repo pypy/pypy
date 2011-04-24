@@ -32,7 +32,7 @@ class AbstractVirtualValue(optimizer.OptValue):
         return self.box
 
     def force_at_end_of_preamble(self):
-        self.force_box()
+        return self.force_box()
 
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
@@ -91,7 +91,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         return True
 
     def force_at_end_of_preamble(self):
-        pass
+        return None
 
     def _really_force(self):
         op = self.source_op
@@ -244,7 +244,7 @@ class VArrayValue(AbstractVirtualValue):
         self._items[index] = itemvalue
 
     def force_at_end_of_preamble(self):
-        pass
+        return None
     
     def _really_force(self):
         assert self.source_op is not None

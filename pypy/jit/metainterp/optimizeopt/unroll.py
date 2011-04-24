@@ -158,8 +158,6 @@ class UnrollOptimizer(Optimization):
 
             loop.preamble.operations = self.optimizer.newoperations
 
-            self.optimizer.force_at_end_of_preamble(jump_args)
-
             modifier = VirtualStateAdder(self.optimizer)
             virtual_state = modifier.get_virtual_state(jump_args)
             values = [self.getvalue(arg) for arg in jump_args]
@@ -631,6 +629,7 @@ class OptInlineShortPreamble(Optimization):
                 args = op.getarglist()
                 modifier = VirtualStateAdder(self.optimizer)
                 virtual_state = modifier.get_virtual_state(args)
+
                 for sh in short:
                     ok = False
                     extra_guards = []
