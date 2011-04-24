@@ -651,8 +651,8 @@ class OptInlineShortPreamble(Optimization):
                         try:
                             values = [self.getvalue(arg)
                                       for arg in op.getarglist()]
-                            args = virtual_state.make_inputargs(values,
-                                                                keyboxes=True)
+                            args = sh.virtual_state.make_inputargs(values,
+                                                                   keyboxes=True)
                             self.inline(sh.operations, sh.inputargs, args)
                         except InvalidLoop:
                             debug_print("Inlining failed unexpectedly",
