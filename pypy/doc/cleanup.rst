@@ -10,7 +10,6 @@ Old documentation that needs review
 
 .. toctree::
 
-   buildtool.rst
    distribution.rst
 
    externaltools.rst
