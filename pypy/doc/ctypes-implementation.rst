@@ -1,5 +1,3 @@
-.. include:: crufty.rst
-
 =============================
 PyPy's ctypes implementation 
 =============================
@@ -71,8 +69,6 @@ its speed.  Furthermore the current layering and the current _rawffi
 interface require more object allocations and copying than strictly
 necessary; this too could be improved.
 
-The implementation was developed and has only been tested on x86-32 Linux.
-
 Here is a list of the limitations and missing features of the
 current implementation:
 
@@ -93,41 +89,6 @@ current implementation:
   - slight semantic differences that ctypes makes
     between its primitive types and user subclasses
     of its primitive types
-
-Getting the code and test suites
-=================================
-
-A stable revision of PyPy containing the ctypes implementation can be checked out with subversion from the tag: 
-
-http://codespeak.net/svn/pypy/tag/ctypes-stable
-
-The various tests and later examples can be run on x86-32 Linux. We tried them
-on an up-to-date Ubuntu 7.10 x86-32 system.
-
-If one goes inside the checkout it is possible to run ``_rawffi`` tests with::
-
-    $ cd pypy
-    $ python test_all.py module/_rawffi/
-
-The ctypes implementation test suite is derived from the tests for
-ctypes 1.0.2, we have skipped some tests corresponding to not
-implemented features or implementation details, we have also added
-some tests.
-
-To run the test suite a compiled pypy-c is required with the proper configuration. To build the required pypy-c  one should inside the checkout::
-
-   $ cd pypy/translator/goal
-   $ ./translate.py --text --batch --gc=generation targetpypystandalone.py 
-     --withmod-_rawffi --allworkingmodules
-
-this should produce a pypy-c executable in the ``goal`` directory.
-
-To run the tests then::
-
-   $ cd ../../.. # back to pypy-trunk
-   $ ./pypy/translator/goal/pypy-c pypy/test_all.py lib/pypy1.2/lib_pypy/pypy_test/ctypes_tests
-
-There should be 36 skipped tests and all other tests should pass.
 
 Running application examples
 ==============================
