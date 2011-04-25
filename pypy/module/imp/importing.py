@@ -121,11 +121,13 @@ def check_sys_modules_w(space, modulename):
     return space.finditem_str(space.sys.get('modules'), modulename)
 
 @jit.purefunction
-def _get_dot_position(ctxt_package, level):
-    result = len(ctxt_package)
-    while level > 1 and result >= 0:
-        level -= 1
-        result = ctxt_package.rfind('.', 0, result)
+def _get_dot_position(str, n):
+    # return the index in str of the '.' such that there are n '.'-separated
+    # strings after it
+    result = len(str)
+    while n > 0 and result >= 0:
+        n -= 1
+        result = str.rfind('.', 0, result)
     return result
 
 def _get_relative_name(space, modulename, level, w_globals):
@@ -149,7 +151,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         if ctxt_package == '' and level < 0:
             return None, 0
 
-        dot_position = _get_dot_position(ctxt_package, level)
+        dot_position = _get_dot_position(ctxt_package, level - 1)
         if dot_position < 0:
             if len(ctxt_package) == 0:
                 msg = "Attempted relative import in non-package"
@@ -182,6 +184,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_w_name = space.finditem_str(w_globals, '__name__')
         ctxt_w_path = space.finditem_str(w_globals, '__path__')
 
+        ctxt_w_name = jit.hint(ctxt_w_name, promote=True)
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
@@ -193,19 +196,19 @@ def _get_relative_name(space, modulename, level, w_globals):
         if not ctxt_name:
             return None, 0
 
-        ctxt_name_prefix_parts = ctxt_name.split('.')
-        if level > 0:
-            n = len(ctxt_name_prefix_parts)-level+1
-            assert n>=0
-            ctxt_name_prefix_parts = ctxt_name_prefix_parts[:n]
-        if ctxt_name_prefix_parts and ctxt_w_path is None: # plain module
-            ctxt_name_prefix_parts.pop()
-
-        if level > 0 and not ctxt_name_prefix_parts:
-            msg = "Attempted relative import in non-package"
-            raise OperationError(space.w_ValueError, w(msg))
-
-        rel_modulename = '.'.join(ctxt_name_prefix_parts)
+        m = max(level - 1, 0)
+        if ctxt_w_path is None:   # plain module
+            m += 1
+        dot_position = _get_dot_position(ctxt_name, m)
+        if dot_position < 0:
+            if level > 0:
+                msg = "Attempted relative import in non-package"
+                raise OperationError(space.w_ValueError, w(msg))
+            rel_modulename = ''
+            rel_level = 0
+        else:
+            rel_modulename = ctxt_name[:dot_position]
+            rel_level = rel_modulename.count('.') + 1
 
         if ctxt_w_path is not None:
             # __path__ is set, so __name__ is already the package name
@@ -222,8 +225,6 @@ def _get_relative_name(space, modulename, level, w_globals):
                 rel_modulename += '.' + modulename
             else:
                 rel_modulename = modulename
-
-        rel_level = len(ctxt_name_prefix_parts)
 
     return rel_modulename, rel_level
 
