@@ -2102,6 +2102,45 @@ class BasicTests:
         self.check_loops(int_rshift=1, everywhere=True)
 
 
+    def test_bug688_multiple_immutable_fields(self):
+        myjitdriver = JitDriver(greens=[], reds=['counter','context'])
+
+        class Tag:
+            pass
+        class InnerContext():
+            _immutable_fields_ = ['variables','local_names']
+            def __init__(self, variables):
+                self.variables = variables
+                self.local_names = [0]
+
+            def store(self):
+                self.local_names[0] = 1
+
+            def retrieve(self):
+                variables = hint(self.variables, promote=True)
+                result = self.local_names[0]
+                if result == 0:
+                    return -1
+                else:
+                    return -1
+        def build():
+            context = InnerContext(Tag())
+
+            context.store()
+
+            counter = 0
+            while True:
+                myjitdriver.jit_merge_point(context=context, counter = counter)
+                context.retrieve()
+                context.retrieve()
+
+                counter += 1
+                if counter > 10:
+                    return 7
+        assert self.meta_interp(build, []) == 7
+        self.check_loops(getfield_gc_pure=0)
+        self.check_loops(getfield_gc_pure=2, everywhere=True)
+        
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

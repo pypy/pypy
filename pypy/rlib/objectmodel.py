@@ -219,6 +219,7 @@ def compute_identity_hash(x):
     same before and after translation, except for RPython instances on the
     lltypesystem.
     """
+    assert x is not None
     result = object.__hash__(x)
     try:
         x.__dict__['__precomputed_identity_hash'] = result
