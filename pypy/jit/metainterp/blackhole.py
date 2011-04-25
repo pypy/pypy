@@ -1,4 +1,5 @@
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop
@@ -1205,6 +1206,10 @@ class BlackholeInterpreter(object):
     def bhimpl_unicodesetitem(cpu, unicode, index, newchr):
         cpu.bh_unicodesetitem(unicode, index, newchr)
 
+    @arguments(returns=(longlong.is_64_bit and "i" or "f"))
+    def bhimpl_ll_read_timestamp():
+        return read_timestamp()
+
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
 
@@ -1416,7 +1421,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
 
     current_exc = blackholeinterp._prepare_resume_from_failure(
         resumedescr.guard_opnum, dont_change_position)
-        
+
     try:
         _run_forever(blackholeinterp, current_exc)
     finally:

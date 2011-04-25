@@ -2100,6 +2100,23 @@ class BasicTests:
 
         assert self.meta_interp(f, [5, 100]) == 0
         self.check_loops(int_rshift=1, everywhere=True)
+    
+    def test_read_timestamp(self):
+        import time
+        from pypy.rlib.rtimer import read_timestamp
+        def busy_loop():
+            start = time.time()
+            while time.time() - start < 0.1:
+                # busy wait
+                pass
+
+        def f():
+            t1 = read_timestamp()
+            busy_loop()
+            t2 = read_timestamp()
+            return t2 - t1 > 1000
+        res = self.interp_operations(f, [])
+        assert res
 
 
 class TestOOtype(BasicTests, OOJitMixin):
