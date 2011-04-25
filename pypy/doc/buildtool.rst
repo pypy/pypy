@@ -2,7 +2,7 @@
 PyPyBuilder
 ============
 
-.. include:: crufty.rst
+.. include:: throwaway.rst
 
 What is this?
 =============

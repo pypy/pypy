@@ -1,6 +1,4 @@
-.. include:: crufty.rst
-
-     .. ^^ Incomplete and wrong,  superceded elsewhere
+.. include:: throwaway.rst
 
 External tools&programs needed by PyPy
 ======================================

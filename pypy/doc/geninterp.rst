@@ -1,6 +1,4 @@
-.. include:: crufty.rst
-
-     .. ^^ apparently dead
+.. include:: throwaway.rst
 
 The Interpreter-Level backend
 -----------------------------

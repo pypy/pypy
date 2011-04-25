@@ -1,5 +1,4 @@
-.. include:: crufty.rst
-.. ^^ old and needs updating
+.. include:: throwaway.rst
 
 ==========================================================================================
 Memory management and threading models as translation aspects -- solutions and challenges

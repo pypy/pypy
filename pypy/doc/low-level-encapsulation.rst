@@ -1,3 +1,5 @@
+.. include:: throwaway.rst
+
 ============================================================
       Encapsulating low-level implementation aspects
 ============================================================
