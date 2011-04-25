@@ -49,9 +49,6 @@ coding in RPython a bit).
 `papers, talks and related projects`_ lists presentations 
 and related projects as well as our published papers.
 
-`ideas for PyPy related projects`_ which might be a good way to get
-into PyPy.
-
 `PyPy video documentation`_ is a page linking to the videos (e.g. of talks and
 introductions) that are available.
 
@@ -163,7 +160,6 @@ from our Python interpreter.
 .. _`EU reports`: index-report.html
 .. _`Technical reports`: index-report.html
 .. _`summary`: http://codespeak.net:8099/summary
-.. _`ideas for PyPy related projects`: project-ideas.html
 .. _`Nightly builds and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
 .. _`directory reference`: 
 .. _`rlib`: rlib.html

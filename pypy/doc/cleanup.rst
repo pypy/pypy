@@ -16,8 +16,6 @@ Old documentation that needs review
 
    old_news.rst
 
-   project-ideas.rst
-
    rffi.rst
 
    sandbox.rst
