@@ -258,12 +258,10 @@ Directory                      explanation/links
 ``*/test/``                    many directories have a test subdirectory containing test 
                                modules (see `Testing in PyPy`_) 
 
-``_cache/``                    holds cache files from internally `translating application 
-                               level to interpreterlevel`_ code.   
+``_cache/``                    holds internal cache files 
 ============================   =========================================== 
 
 .. _`bytecode interpreter`: interpreter.html
-.. _`translating application level to interpreterlevel`: geninterp.html
 .. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
 .. _`mixed modules`: coding-guide.html#mixed-modules 
 .. _`modules`: coding-guide.html#modules 

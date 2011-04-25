@@ -12,8 +12,6 @@ Old documentation that needs review
 
    distribution.rst
 
-   geninterp.rst
-
    objspace-proxies.rst
 
    old_news.rst

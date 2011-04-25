@@ -10,7 +10,6 @@ translation toolchain
 
  - low level backends should share more code
  - all backends should have more consistent interfaces
- - geninterp is a hack
  - delegate finding type stuff like vtables etc to GC, cleaner interface for rtti,
    simplify translator/c/gc.py
  - clean up the tangle of including headers in the C backend
