@@ -11,7 +11,7 @@ based on proxying, extending, changing or otherwise controlling the
 behavior of all objects in a running program is easy to implement on
 top of PyPy.
 
-Here is what we implemented so far, in historical order:
+Here is what we have implemented so far, in historical order:
 
 * *Thunk Object Space*: lazily computed objects, computing only when an
   operation is performed on them; lazy functions, computing their result
