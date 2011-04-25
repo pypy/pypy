@@ -592,7 +592,7 @@ scale automatically to larger programs.
 
 
 .. _`Stackless Python`: http://www.stackless.com
-.. _`documentation of the greenlets`: http://codespeak.net/svn/greenlet/trunk/doc/greenlet.txt
+.. _`documentation of the greenlets`: http://packages.python.org/greenlet/
 .. _`Stackless Transform`: translation.html#the-stackless-transform
 
 .. include:: _ref.rst
