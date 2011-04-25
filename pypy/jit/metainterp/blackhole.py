@@ -238,6 +238,10 @@ class BlackholeInterpBuilder(object):
         interp.cleanup_registers()
         self.blackholeinterps.append(interp)
 
+def check_shift_count(b):
+    if not we_are_translated():
+        if b < 0 or b >= LONG_BIT:
+            raise ValueError("Shift count, %d,  not in valid range, 0 .. %d." % (b, LONG_BIT-1))
 
 class BlackholeInterpreter(object):
 
@@ -420,14 +424,17 @@ class BlackholeInterpreter(object):
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_rshift(a, b):
+        check_shift_count(b)
         return a >> b
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_lshift(a, b):
+        check_shift_count(b)
         return intmask(a << b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_uint_rshift(a, b):
+        check_shift_count(b)
         c = r_uint(a) >> r_uint(b)
         return intmask(c)
 
