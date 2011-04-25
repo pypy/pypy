@@ -485,7 +485,7 @@ Example of recording all operations on builtins
 ----------------------------------------------------
 
 Suppose we want to have a list which stores all operations performed on
-it for later analysis.  We can use the small `tputil`_ module to help
+it for later analysis.  We can use the small `lib_pypy/tputil.py`_ module to help
 with transparently proxying builtin instances::
 
    from tputil import make_proxy
@@ -534,10 +534,10 @@ the `__pypy__`_ module provides the following builtins:
 
 .. _tputil: 
 
-tputil help module 
+tputil helper module 
 ----------------------------
 
-The `tputil.py`_ module provides: 
+The `lib_pypy/tputil.py`_ module provides: 
 
 * ``make_proxy(controller, type, obj)``: function which 
   creates a transparent proxy controlled by the given 
@@ -595,8 +595,8 @@ Proxies use the architecture to provide control back
 to application level code. 
 
 Transparent proxies are implemented on top of the `standard object
-space`_, in `proxy_helpers.py`_, `proxyobject.py`_ and
-`transparent.py`_.  To use them you will need to pass a
+space`_, in `pypy/objspace/std/proxy_helpers.py`_, `pypy/objspace/std/proxyobject.py`_ and
+`pypy/objspace/std/transparent.py`_.  To use them you will need to pass a
 `--objspace-std-withtproxy`_ option to ``py.py`` or
 ``translate.py``.  This registers implementations named
 ``W_TransparentXxx`` - which usually correspond to an
@@ -607,10 +607,6 @@ be proxied this way are user created classes & functions,
 lists, dicts, exceptions, tracebacks and frames.
 
 .. _`standard object space`: objspace.html#the-standard-object-space
-.. _`proxy_helpers.py`: ../../../../pypy/objspace/std/proxy_helpers.py
-.. _`proxyobject.py`: ../../../../pypy/objspace/std/proxyobject.py
-.. _`transparent.py`: ../../../../pypy/objspace/std/transparent.py
-.. _`tputil.py`: ../../lib_pypy/tputil.py
 
 .. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
            EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf

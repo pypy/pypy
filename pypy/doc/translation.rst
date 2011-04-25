@@ -90,7 +90,7 @@ steps (see also the figure below):
 (although these steps are not quite as distinct as you might think from
 this presentation).
 
-There is an `interactive interface`_ called `translatorshell.py`_ to the
+There is an `interactive interface`_ called `pypy/bin/translatorshell.py`_ to the
 translation process which allows you to interactively work through these
 stages.
 
@@ -104,7 +104,6 @@ The following figure gives a simplified overview (`PDF color version`_):
 .. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`interactive interface`: getting-started-dev.html#try-out-the-translator
-.. _`translatorshell.py`: ../../../../pypy/bin/translatorshell.py
 
 .. _`flow model`:
 .. _`control flow graphs`: 
@@ -117,7 +116,7 @@ describing object spaces`_. Here we describe the data structures produced by it,
 which are the basic data structures of the translation
 process.
 
-All these types are defined in `pypy.objspace.flow.model`_ (which is a rather
+All these types are defined in `pypy/objspace/flow/model/`_ (which is a rather
 important module in the PyPy source base, to reinforce the point).
 
 The flow graph of a function is represented by the class ``FunctionGraph``.
@@ -271,7 +270,6 @@ the types and their attributes in some detail:
     should not attempt to actually mutate such Constants.
 
 .. _`document describing object spaces`: objspace.html
-.. _`pypy.objspace.flow.model`: ../../../../pypy/objspace/flow/model.py
 
 
 .. _Annotator:
@@ -295,7 +293,7 @@ whole-program analysis of all the flow graphs -- one per function.
 An "annotation" is an instance of a subclass of ``SomeObject``.  Each
 subclass that represents a specific family of objects.
 
-Here is an overview (see ``pypy.annotation.model``):
+Here is an overview (see ``pypy/annotation/model/``):
 
 * ``SomeObject`` is the base class.  An instance of ``SomeObject()``
   represents any Python object, and as such usually means that the input

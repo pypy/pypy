@@ -352,9 +352,6 @@ translation we get longs in case of overflow, and after translation we get a
 silent wrap-around.  Whenever we need more control, we use the following
 helpers (which live the `pypy/rlib/rarithmetic.py`_):
 
-.. _`pypy/rlib/rarithmetic.py`: ../../../../pypy/rlib/rarithmetic.py
-
-
 **ovfcheck()**
 
   This special function should only be used with a single arithmetic operation
@@ -886,6 +883,8 @@ We have a `development tracker`_, based on Richard Jones'
 feature requests or see what's going on
 for the next milestone, both from an E-Mail and from a
 web interface.
+
+.. _`development tracker`: https://codespeak.net/issue/pypy-dev/
 
 use your codespeak login or register
 ------------------------------------

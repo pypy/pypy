@@ -57,7 +57,7 @@ reports that we submitted to the European Union.
 
 `development methodology`_ describes our sprint-driven approach.
 
-`license`_ contains licensing details (basically a straight MIT-license). 
+`./LICENSE`_ contains licensing details (basically a straight MIT-license). 
 
 `Glossary`_ of PyPy words to help you align your inner self with
 the PyPy universe.
@@ -149,7 +149,6 @@ from our Python interpreter.
 .. _`development methodology`: dev_method.html
 .. _`sprint reports`: sprint-reports.html
 .. _`papers, talks and related projects`: extradoc.html
-.. _`license`: ../../LICENSE
 .. _`PyPy LOC statistics`: http://codespeak.net/~hpk/pypy-stat/
 .. _`PyPy statistics`: http://codespeak.net/pypy/trunk/pypy/doc/statistic
 .. _`object spaces`: objspace.html 
@@ -178,92 +177,92 @@ PyPy directory cross-reference
 Here is a fully referenced alphabetical two-level deep 
 directory overview of PyPy: 
 
-============================   =========================================== 
-Directory                      explanation/links
-============================   =========================================== 
-`annotation/`_                 `type inferencing code`_ for `RPython`_ programs 
+================================   =========================================== 
+Directory                          explanation/links
+================================   =========================================== 
+`pypy/annotation/`_                `type inferencing code`_ for `RPython`_ programs 
 
-`bin/`_                        command-line scripts, mainly `py.py`_ and `translatorshell.py`_
+`pypy/bin/`_                       command-line scripts, mainly `py.py`_ and `translatorshell.py`_
 
-`config/`_                     handles the numerous options for building and running PyPy
+`pypy/config/`_                    handles the numerous options for building and running PyPy
 
-`doc/`_                        text versions of PyPy developer documentation
+`pypy/doc/`_                       text versions of PyPy developer documentation
 
-`doc/config/`_                 documentation for the numerous translation options
+`pypy/doc/config/`_                documentation for the numerous translation options
 
-`doc/discussion/`_             drafts of ideas and documentation
+`pypy/doc/discussion/`_            drafts of ideas and documentation
 
-``doc/*/``                     other specific documentation topics or tools
+``doc/*/``                         other specific documentation topics or tools
 
-`interpreter/`_                `bytecode interpreter`_ and related objects
-                               (frames, functions, modules,...) 
+`pypy/interpreter/`_               `bytecode interpreter`_ and related objects
+                                   (frames, functions, modules,...) 
 
-`interpreter/pyparser/`_       interpreter-level Python source parser
+`pypy/interpreter/pyparser/`_      interpreter-level Python source parser
 
-`interpreter/astcompiler/`_    interpreter-level bytecode compiler, via an AST
-                               representation
+`pypy/interpreter/astcompiler/`_   interpreter-level bytecode compiler, via an AST
+                                   representation
 
-`module/`_                     contains `mixed modules`_ implementing core modules with 
-                               both application and interpreter level code.
-                               Not all are finished and working.  Use the ``--withmod-xxx``
-                               or ``--allworkingmodules`` translation options.
+`pypy/module/`_                    contains `mixed modules`_ implementing core modules with 
+                                   both application and interpreter level code.
+                                   Not all are finished and working.  Use the ``--withmod-xxx``
+                                   or ``--allworkingmodules`` translation options.
 
-`objspace/`_                   `object space`_ implementations
+`pypy/objspace/`_                  `object space`_ implementations
 
-`objspace/trace.py`_           the `trace object space`_ monitoring bytecode and space operations
+`pypy/objspace/trace.py`_          the `trace object space`_ monitoring bytecode and space operations
 
-`objspace/dump.py`_            the dump object space saves a large, searchable log file
-                               with all operations
+`pypy/objspace/dump.py`_           the dump object space saves a large, searchable log file
+                                   with all operations
 
-`objspace/taint.py`_           the `taint object space`_, providing object tainting
+`pypy/objspace/taint.py`_          the `taint object space`_, providing object tainting
 
-`objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
+`pypy/objspace/thunk.py`_          the `thunk object space`_, providing unique object features 
 
-`objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`_
+`pypy/objspace/flow/`_             the FlowObjSpace_ implementing `abstract interpretation`_
 
-`objspace/std/`_               the StdObjSpace_ implementing CPython's objects and types
+`pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's objects and types
 
-`rlib/`_                       a `"standard library"`_ for RPython_ programs
+`pypy/rlib/`_                      a `"standard library"`_ for RPython_ programs
 
-`rpython/`_                    the `RPython Typer`_ 
+`pypy/rpython/`_                   the `RPython Typer`_ 
 
-`rpython/lltypesystem/`_       the `low-level type system`_ for C-like backends
+`pypy/rpython/lltypesystem/`_      the `low-level type system`_ for C-like backends
 
-`rpython/ootypesystem/`_       the `object-oriented type system`_ for OO backends
+`pypy/rpython/ootypesystem/`_      the `object-oriented type system`_ for OO backends
 
-`rpython/memory/`_             the `garbage collector`_ construction framework
+`pypy/rpython/memory/`_            the `garbage collector`_ construction framework
 
-`tool/`_                       various utilities and hacks used from various places 
+`pypy/tool/`_                      various utilities and hacks used from various places 
 
-`tool/algo/`_                  general-purpose algorithmic and mathematic
-                               tools
+`pypy/tool/algo/`_                 general-purpose algorithmic and mathematic
+                                   tools
 
-`tool/pytest/`_                support code for our `testing methods`_
+`pypy/tool/pytest/`_               support code for our `testing methods`_
 
-`translator/`_                 translation_ backends and support code
+`pypy/translator/`_                translation_ backends and support code
 
-`translator/backendopt/`_      general optimizations that run before a backend generates code
+`pypy/translator/backendopt/`_     general optimizations that run before a backend generates code
 
-`translator/c/`_               the `GenC backend`_, producing C code from an
-                               RPython program (generally via the rtyper_)
+`pypy/translator/c/`_              the `GenC backend`_, producing C code from an
+                                   RPython program (generally via the rtyper_)
 
-`translator/cli/`_             the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
+`pypy/translator/cli/`_            the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
 
-`translator/goal/`_            our `main PyPy-translation scripts`_ live here
+`pypy/translator/goal/`_           our `main PyPy-translation scripts`_ live here
 
-`translator/jvm/`_             the Java backend
+`pypy/translator/jvm/`_            the Java backend
 
-`translator/stackless/`_       the `Stackless Transform`_
+`pypy/translator/stackless/`_      the `Stackless Transform`_
 
-`translator/tool/`_            helper tools for translation, including the Pygame
-                               `graph viewer`_
+`pypy/translator/tool/`_           helper tools for translation, including the Pygame
+                                   `graph viewer`_
 
-``*/test/``                    many directories have a test subdirectory containing test 
-                               modules (see `Testing in PyPy`_) 
+``*/test/``                        many directories have a test subdirectory containing test 
+                                   modules (see `Testing in PyPy`_) 
 
-``_cache/``                    holds cache files from internally `translating application 
-                               level to interpreterlevel`_ code.   
-============================   =========================================== 
+``_cache/``                        holds cache files from internally `translating application 
+                                   level to interpreterlevel`_ code.   
+================================   =========================================== 
 
 .. _`bytecode interpreter`: interpreter.html
 .. _`translating application level to interpreterlevel`: geninterp.html

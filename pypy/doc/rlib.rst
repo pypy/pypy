@@ -14,13 +14,11 @@ are not RPython). Most of these modules are somewhat rough still and are likely
 to change at some point.  Usually it is useful to look at the tests in
 `pypy/rlib/test`_ to get an impression of how to use a module.
 
-.. _`pypy/rlib`: ../../../../pypy/rlib
-.. _`pypy/rlib/test`: ../../../../pypy/rlib/test
 
 ``listsort``
 ============
 
-The listsort_ module contains an implementation of the timsort sorting algorithm
+The `pypy/rlib/listsort.py`_ module contains an implementation of the timsort sorting algorithm
 (the sort method of lists is not RPython). To use it, subclass from the
 ``listsort.TimSort`` class and override the ``lt`` method to change the
 comparison behaviour. The constructor of ``TimSort`` takes a list as an
@@ -29,19 +27,16 @@ argument, which will be sorted in place when the ``sort`` method of the
 be sorted using the ``listsort`` module in one program, otherwise the annotator
 will be confused.
 
-.. _listsort: ../../../../pypy/rlib/listsort.py
-
 ``nonconst``
 ============
 
-The nonconst_ module is useful mostly for tests. The `flow object space`_ and
+The `pypy/rlib/nonconst.py`_ module is useful mostly for tests. The `flow object space`_ and
 the `annotator`_ do quite some constant folding, which is sometimes not desired
 in a test. To prevent constant folding on a certain value, use the ``NonConst``
 class. The constructor of ``NonConst`` takes an arbitrary value. The instance of
 ``NonConst`` will behave during annotation like that value, but no constant
 folding will happen.
 
-.. _nonconst: ../../../../pypy/rlib/nonconst.py
 .. _`flow object space`: objspace.html#the-flow-object-space
 .. _`annotator`: translation.html#the-annotation-pass
 
@@ -49,7 +44,7 @@ folding will happen.
 ``objectmodel``
 ===============
 
-The objectmodel_ module is a mixed bag of various functionality. Some of the
+The `pypy/rlib/objectmodel.py`_ module is a mixed bag of various functionality. Some of the
 more useful ones are:
 
 ``ComputedIntSymbolic``:
@@ -95,24 +90,21 @@ more useful ones are:
     won't be allocated but represented by *tagged pointers**, that is pointers
     that have the lowest bit set.
 
-.. _objectmodel: ../../../../pypy/rlib/objectmodel.py
-
 
 ``rarithmetic``
 ===============
 
-The rarithmetic_ module contains functionality to handle the small differences
+The `pypy/rlib/rarithmetic.py`_ module contains functionality to handle the small differences
 in the behaviour of arithmetic code in regular Python and RPython code. Most of
 them are already described in the `coding guide`_
 
-.. _rarithmetic: ../../../../pypy/rlib/rarithmetic.py
 .. _`coding guide`: coding-guide.html
 
 
 ``rbigint``
 ===========
 
-The rbigint module contains a full RPython implementation of the Python ``long``
+The `pypy/rlib/rbigint.py`_ module contains a full RPython implementation of the Python ``long``
 type (which itself is not supported in RPython). The ``rbigint`` class contains
 that implementation. To construct ``rbigint`` instances use the static methods
 ``fromint``, ``frombool``, ``fromfloat`` and ``fromdecimalstr``. To convert back
@@ -122,36 +114,30 @@ special methods of ``rbigint`` that would normally start and end with "__" have
 these underscores left out for better readability (so ``a.add(b)`` can be used
 to add two rbigint instances).
 
-.. _rbigint: ../../../../pypy/rlib/rbigint.py
-
 
 ``rrandom``
 ===========
 
-The rrandom_ module contains an implementation of the mersenne twister random
+The `pypy/rlib/rrandom.py`_ module contains an implementation of the mersenne twister random
 number generator. It contains one class ``Random`` which most importantly has a
 ``random`` method which returns a pseudo-random floating point number between
 0.0 and 1.0.
 
-.. _rrandom: ../../../../pypy/rlib/rrandom.py
-
 ``rsocket``
 ===========
 
-The rsocket_ module contains an RPython implementation of the functionality of
+The `pypy/rlib/rsocket.py`_ module contains an RPython implementation of the functionality of
 the socket standard library with a slightly different interface.  The
 difficulty with the Python socket API is that addresses are not "well-typed"
 objects: depending on the address family they are tuples, or strings, and
 so on, which is not suitable for RPython.  Instead, ``rsocket`` contains
 a hierarchy of Address classes, in a typical static-OO-programming style.
 
-.. _rsocket: ../../../../pypy/rlib/rsocket.py
-
 
 ``rstack``
 ==========
 
-The rstack_ module allows an RPython program to control its own execution stack.
+The `pypy/rlib/rstack.py`_ module allows an RPython program to control its own execution stack.
 This is only useful if the program is translated using stackless. An old
 description of the exposed functions is below.
 
@@ -210,32 +196,28 @@ The following example would print the numbers from 1 to 7 in order::
 
     f()
 
-.. _rstack: ../../../../pypy/rlib/rstack.py
-
 
 ``streamio``
 ============
 
-The streamio_ contains an RPython stream I/O implementation (which was started
+The `pypy/rlib/streamio.py`_ contains an RPython stream I/O implementation (which was started
 by Guido van Rossum as `sio.py`_ in the CPython sandbox as a prototype for the
 upcoming new file implementation in Python 3000).
 
-.. _streamio: ../../../../pypy/rlib/streamio.py
 .. _`sio.py`: http://svn.python.org/view/sandbox/trunk/sio/sio.py
 
 ``unroll``
 ==========
 
-The unroll_ module most importantly contains the function ``unrolling_iterable``
+The `pypy/rlib/unroll.py`_ module most importantly contains the function ``unrolling_iterable``
 which wraps an iterator. Looping over the iterator in RPython code will not
 produce a loop in the resulting flow graph but will unroll the loop instead.
 
-.. _unroll: ../../../../pypy/rlib/unroll.py
 
 ``parsing``
 ===========
 
-The parsing_ module is a still in-development module to generate tokenizers and
+The `pypy/rlib/parsing/`_ module is a still in-development module to generate tokenizers and
 parsers in RPython. It is still highly experimental and only really used by the
 `Prolog interpreter`_ (although in slightly non-standard ways). The easiest way
 to specify a tokenizer/grammar is to write it down using regular expressions and
@@ -348,7 +330,7 @@ Parse Trees
 
 The parsing process builds up a tree consisting of instances of ``Symbol`` and
 ``Nonterminal``, the former corresponding to tokens, the latter to nonterminal
-symbols. Both classes live in the `pypy.rlib.parsing.tree`_ module. You can use
+symbols. Both classes live in the `pypy/rlib/parsing/tree.py`_ module. You can use
 the ``view()`` method ``Nonterminal`` instances to get a pygame view of the
 parse tree.
 
@@ -359,13 +341,11 @@ name of the token and ``additional_info`` which is the matched source.
 of the nonterminal and ``children`` which is a list of the children attributes.
 
 
-.. _`pypy.rlib.parsing.tree`: ../../../../pypy/rlib/parsing/tree.py
-
 Visitors
 ++++++++
 
 To write tree visitors for the parse trees that are RPython, there is a special
-baseclass ``RPythonVisitor`` in ``pypy.rlib.parsing.tree``_ to use. If your
+baseclass ``RPythonVisitor`` in `pypy/rlib/parsing/tree.py`_ to use. If your
 class uses this, it will grow a ``dispatch(node)`` method, that calls an
 appropriate ``visit_<symbol>`` method, depending on the ``node`` argument. Here
 the <symbol> is replaced by the ``symbol`` attribute of the visited node.
@@ -531,5 +511,6 @@ looks like this:
 
 
 .. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
-.. _parsing: ../../../../pypy/rlib/parsing/
 .. _`json format`: http://www.json.org
+
+.. include:: _ref.rst

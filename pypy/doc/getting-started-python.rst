@@ -147,14 +147,6 @@ To create a standalone .NET executable using the `CLI backend`_::
 
     ./translate.py --backend=cli targetpypystandalone.py
 
-Or better, try out the experimental `branch/cli-jit`_ described by
-Antonio Cuni's `Ph.D. thesis`_ and translate with the JIT::
-
-    ./translate.py -Ojit --backend=cli targetpypystandalone.py
-
-.. _`branch/cli-jit`: https://bitbucket.org/pypy/pypy/src/tip
-.. _`Ph.D. thesis`: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
-
 The executable and all its dependencies will be stored in the
 ./pypy-cli-data directory. To run pypy.NET, you can run
 ./pypy-cli-data/main.exe. If you are using Linux or Mac, you can use

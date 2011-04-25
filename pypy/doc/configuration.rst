@@ -186,9 +186,8 @@ The usage of config objects in PyPy
 The two large parts of PyPy, the standard interpreter and the translation
 toolchain, have two separate sets of options. The translation toolchain options
 can be found on the ``config`` attribute of all ``TranslationContext``
-instances and are described in translationoption.py_. The interpreter options
+instances and are described in `pypy/config/translationoption.py`_. The interpreter options
 are attached to the object space, also under the name ``config`` and are
-described in pypyoption.py_.
+described in `pypy/config/pypyoption.py`_.
 
-.. _translationoption.py: ../config/translationoption.py
-.. _pypyoption.py: ../config/pypyoption.py
+.. include:: _ref.rst

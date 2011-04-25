@@ -14,7 +14,7 @@ Bytecode Interpreter and related Virtual Machine functionalities.
 
 PyPy's bytecode interpreter has a structure reminiscent of CPython's
 Virtual Machine: It processes code objects parsed and compiled from
-Python source code.  It is implemented in the `interpreter/`_ directory.
+Python source code.  It is implemented in the `pypy/interpreter/`_ directory.
 People familiar with the CPython implementation will easily recognize
 similar concepts there.  The major differences are the overall usage of
 the `object space`_ indirection to perform operations on objects, and
@@ -27,7 +27,7 @@ implemented as a chain of flexible passes (tokenizer, lexer, parser,
 abstract syntax tree builder, bytecode generator).  The latter passes
 are based on the ``compiler`` package from the standard library of
 CPython, with various improvements and bug fixes. The bytecode compiler
-(living under `interpreter/astcompiler/`_) is now integrated and is
+(living under `pypy/interpreter/astcompiler/`_) is now integrated and is
 translated with the rest of PyPy.
 
 Code objects contain

@@ -152,11 +152,11 @@ relative to the PyPy top level directory).  You may look at our `directory refer
 or start off at one of the following points:
 
 *  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
-   in pyopcode.py_, frame and code objects in eval.py_ and pyframe.py_,
-   function objects and argument passing in function.py_ and argument.py_,
-   the object space interface definition in baseobjspace.py_, modules in
-   module.py_ and mixedmodule.py_.  Core types supporting the bytecode 
-   interpreter are defined in typedef.py_.
+   in `pypy/interpreter/pyopcode.py`_, frame and code objects in `pypy/interpreter/eval.py`_ and `pypy/interpreter/pyframe.py`_,
+   function objects and argument passing in `pypy/interpreter/function.py`_ and `pypy/interpreter/argument.py`_,
+   the object space interface definition in `pypy/interpreter/baseobjspace.py`_, modules in
+   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode 
+   interpreter are defined in `pypy/interpreter/typedef.py`_.
 
 *  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
    and input data files that allow it to parse both Python 2.3 and 2.4
@@ -170,17 +170,17 @@ or start off at one of the following points:
    resulting binary interactively much more pleasant.
 
 *  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
-   is objspace.py_.  For each type, the files ``xxxtype.py`` and
+   is `pypy/interpreter/objspace.py`_.  For each type, the files ``xxxtype.py`` and
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-*  `pypy/objspace`_ contains a few other object spaces: the thunk_,
-   trace_ and flow_ object spaces.  The latter is a relatively short piece
+*  `pypy/objspace`_ contains a few other object spaces: the `pypy/objspace/thunk.py`_,
+   `pypy/objspace/trace`_ and `pypy/objspace/flow`_ object spaces.  The latter is a relatively short piece
    of code that builds the control flow graphs when the bytecode interpreter
    runs in it.
 
 *  `pypy/translator`_ contains the code analysis and generation stuff.
-   Start reading from translator.py_, from which it should be easy to follow
+   Start reading from translator.py, from which it should be easy to follow
    the pieces of code involved in the various translation phases.
 
 *  `pypy/annotation`_ contains the data model for the type annotation that
@@ -397,21 +397,7 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
 .. _`Dot Graphviz`:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/
-.. _pyopcode.py:            https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/pyopcode.py
-.. _eval.py:                https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/eval.py
-.. _pyframe.py:             https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/pyframe.py
-.. _function.py:            https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/function.py
-.. _argument.py:            https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/argument.py
-.. _baseobjspace.py:        https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/baseobjspace.py
-.. _module.py:              https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/module.py
-.. _mixedmodule.py:          https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/mixedmodule.py
-.. _typedef.py:             https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/typedef.py
 .. _Standard object space:  objspace.html#the-standard-object-space
-.. _objspace.py:            ../../../../pypy/objspace/std/objspace.py
-.. _thunk:                  ../../../../pypy/objspace/thunk.py
-.. _trace:                  ../../../../pypy/objspace/trace.py
-.. _flow:                   ../../../../pypy/objspace/flow/
-.. _translator.py:          ../../../../pypy/translator/translator.py
 .. _mailing lists:          index.html
 .. _documentation:          docindex.html 
 .. _unit tests:             coding-guide.html#test-design
