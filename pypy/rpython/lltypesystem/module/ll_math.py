@@ -8,7 +8,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.tool.autopath import pypydir
 from pypy.rlib import jit, rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
+from pypy.rlib.rfloat import isinf, isnan, isfinite, INFINITY, NAN
 
 if sys.platform == "win32":
     eci = ExternalCompilationInfo()
@@ -91,13 +91,19 @@ def _likely_raise(errno, x):
 # Custom implementations
 
 def ll_math_isnan(y):
-    # By not calling into the extenal function the JIT can inline this.  Floats
-    # are awesome.
+    # By not calling into the external function the JIT can inline this.
+    # Floats are awesome.
     return y != y
 
 def ll_math_isinf(y):
     # Use a bitwise OR so the JIT doesn't produce 2 different guards.
     return (y == INFINITY) | (y == -INFINITY)
+
+def ll_math_isfinite(y):
+    # Use a custom hack that is reasonably well-suited to the JIT.
+    # Floats are awesome (bis).
+    z = 0.0 * y
+    return z == z       # i.e.: z is not a NaN
 
 
 ll_math_floor = math_floor

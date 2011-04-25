@@ -269,7 +269,7 @@ class Optimization(object):
             self.optimizer.pure_operations[key] = op
 
     def has_pure_result(self, opnum, args, descr):
-        op = ResOperation(opnum, args, None)
+        op = ResOperation(opnum, args, None, descr)
         key = self.optimizer.make_args_key(op)
         op = self.optimizer.pure_operations.get(key, None)
         if op is None:
@@ -571,7 +571,7 @@ class Optimizer(Optimization):
 
     def make_args_key(self, op):
         n = op.numargs()
-        args = [None] * (n + 1)
+        args = [None] * (n + 2)
         for i in range(n):
             arg = op.getarg(i)
             try:
@@ -582,6 +582,7 @@ class Optimizer(Optimization):
                 arg = value.get_key_box()
             args[i] = arg
         args[n] = ConstInt(op.getopnum())
+        args[n+1] = op.getdescr()
         return args
 
     def optimize_default(self, op):
