@@ -8,7 +8,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rtimer import read_timestamp
+from pypy.rlib.rtimer import read_timestamp, _is_64_bit
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
@@ -28,6 +28,11 @@ c_setup_profiling = rffi.llexternal('pypy_setup_profiling',
 c_teardown_profiling = rffi.llexternal('pypy_teardown_profiling',
                                        [], lltype.Void,
                                        compilation_info = eci)
+
+if _is_64_bit:
+    timer_size_int = int
+else:
+    timer_size_int = r_longlong
 
 class W_StatsEntry(Wrappable):
     def __init__(self, space, frame, callcount, reccallcount, tt, it,
@@ -117,8 +122,8 @@ class ProfilerSubEntry(object):
 
     def _stop(self, tt, it):
         if not we_are_translated():
-            assert type(tt) is r_longlong
-            assert type(it) is r_longlong
+            assert type(tt) is timer_size_int
+            assert type(it) is timer_size_int
         self.recursionLevel -= 1
         if self.recursionLevel == 0:
             self.ll_tt += tt
@@ -158,7 +163,7 @@ class ProfilerEntry(ProfilerSubEntry):
 class ProfilerContext(object):
     def __init__(self, profobj, entry):
         self.entry = entry
-        self.ll_subt = r_longlong(0)
+        self.ll_subt = timer_size_int(0)
         self.previous = profobj.current_context
         entry.recursionLevel += 1
         if profobj.subcalls and self.previous:
@@ -249,11 +254,14 @@ class W_Profiler(Wrappable):
         if self.w_callable:
             space = self.space
             try:
-                return space.r_longlong_w(space.call_function(self.w_callable))
+                if _is_64_bit:
+                    return space.int_w(space.call_function(self.w_callable))
+                else:
+                    return space.r_longlong_w(space.call_function(self.w_callable))
             except OperationError, e:
                 e.write_unraisable(space, "timer function ",
                                    self.w_callable)
-                return r_longlong(0)
+                return timer_size_int(0)
         return read_timestamp()
 
     def enable(self, space, w_subcalls=NoneNotWrapped,
