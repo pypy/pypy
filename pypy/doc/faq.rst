@@ -197,12 +197,10 @@ I am getting strange errors while playing with PyPy, what should I do?
 
 It seems that a lot of strange, unexplainable problems can be magically
 solved by removing all the \*.pyc files from the PyPy source tree
-(the script `py.cleanup`_ from py/bin will do that for you).
+(the script py.cleanup from pypy/tool will do that for you).
 Another thing you can do is removing the directory pypy/_cache
 completely. If the error is persistent and still annoys you after this
 treatment please send us a bug report (or even better, a fix :-)
-
-.. _`py.cleanup`: http://codespeak.net/py/current/doc/bin.html
 
 -------------------------------------------------------------
 OSError: ... cannot restore segment prot after reloc... Help?
@@ -258,7 +256,7 @@ section 3.
 
 .. [BRETT] Brett Cannon,
            Localized Type Inference of Atomic Types in Python,
-           http://www.ocf.berkeley.edu/~bac/thesis.pdf
+           http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.90.3231
 
 .. [D05.1] Compiling Dynamic Language Implementations,
            Report from the PyPy project to the E.U.,

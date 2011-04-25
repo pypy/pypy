@@ -20,14 +20,14 @@ have a video player that supports DivX AVI files (DivX 5, mp3 audio)
 such as `mplayer`_, `xine`_, `vlc`_ or the windows media player.
 
 .. _`mplayer`: http://www.mplayerhq.hu/design7/dload.html
-.. _`xine`: http://xinehq.de/index.php/releases
+.. _`xine`: http://www.xine-project.org
 .. _`vlc`: http://www.videolan.org/vlc/
 
 You can find the necessary codecs in the ffdshow-library:
-http://ffdshow.sourceforge.net/tikiwiki/tiki-index.php
+http://sourceforge.net/projects/ffdshow/
 
 or use the original divx codec (for Windows):
-http://www.divx.com/divx/windows/download/index.php
+http://www.divx.com/software/divx-plus
 
 
 Copyrights and Licensing 

@@ -65,7 +65,7 @@ Papers
 .. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`:  http://www.stups.uni-duesseldorf.de/thesis/final-master.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/Recent_abstracts.html#AACM-DLS07
 .. _`EU Reports`: index-report.html
-.. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://www.iam.unibe.ch/~verwaest/pygirl.pdf
+.. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
 .. _`Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _`Automatic generation of JIT compilers for dynamic languages in .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
@@ -342,8 +342,8 @@ Related projects
 .. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
 .. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html
 .. _LLVM: http://llvm.org/
-.. _IronPython: http://www.codeplex.com/Wiki/View.aspx?ProjectName=IronPython
-.. _`Dynamic Native Optimization of Native Interpreters`: http://www.ai.mit.edu/~gregs/dynamorio.html
-.. _JikesRVM: http://jikesrvm.sf.net
+.. _IronPython: http://ironpython.codeplex.com/
+.. _`Dynamic Native Optimization of Native Interpreters`: http://people.csail.mit.edu/gregs/dynamorio.html
+.. _JikesRVM: http://jikesrvm.org/
 .. _Tunes: http://tunes.org
 .. _`old Tunes Wiki`: http://codespeak.net/cliki.tunes.org/

@@ -146,7 +146,7 @@ interpreter.   When doing its work of interpreting bytecode our Python
 implementation must behave in a static way often referenced as
 "RPythonic".
 
-.. _Starkiller: http://www.python.org/pycon/dc2004/papers/1/paper.pdf
+.. _Starkiller: http://people.csail.mit.edu/jrb/Projects/starkiller.pdf
 .. _ShedSkin: http://shed-skin.blogspot.com/
 
 However, when the PyPy interpreter is started as a Python program, it
@@ -486,9 +486,9 @@ source. In that case, there are a couple of dependencies,
 logilab-common_ and astng_ that you will need to install too before
 you can use the tool. 
 
-.. _Pylint: http://www.logilab.org/projects/pylint
-.. _logilab-common: http://www.logilab.org/projects/common
-.. _astng: http://www.logilab.org/projects/astng
+.. _Pylint: http://www.logilab.org/project/pylint
+.. _logilab-common: http://www.logilab.org/project/logilab-common
+.. _astng: http://www.logilab.org/project/logilab-astng
 
 
 
@@ -903,7 +903,7 @@ XXX: to be written after migrating the issue tracker away from codespeak.net
 
 
 .. _`register with the tracker`: https://codespeak.net/issue/pypy-dev/user?@template=register
-.. _`roundup`: http://roundup.sf.net
+.. _`roundup`: http://roundup.sourceforge.net/
 
 
 .. _`testing in PyPy`:
@@ -931,7 +931,7 @@ which aims to implement unmodified Python semantics.
 
 .. _`standard object space`: objspace.html#standard-object-space
 .. _`objectspace`: objspace.html
-.. _`py.test`: http://codespeak.net/py/current/doc/test.html
+.. _`py.test`: http://pytest.org/
 
 Interpreter level tests
 -----------------------
@@ -1030,7 +1030,7 @@ You can simply edit or add '.rst' files which contain ReST-markuped
 files.  Here is a `ReST quickstart`_ but you can also just look
 at the existing documentation and see how things work.
 
-.. _`ReST quickstart`: http://docutils.sourceforge.net/docs/rst/quickref.html
+.. _`ReST quickstart`: http://docutils.sourceforge.net/docs/user/rst/quickref.html
 
 Note that the web site of http://pypy.org/ is maintained separately.
 For now it is in the repository https://bitbucket.org/pypy/extradoc

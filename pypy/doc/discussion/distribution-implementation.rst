@@ -88,4 +88,4 @@ be enough, but suppose I want to be more flexible), I would use `py.execnet`_,
 probably using some of the Armin's hacks to rewrite it using greenlets instead
 of threads.
 
-.. _`py.execnet`: http://codespeak.net/py/current/doc/execnet.html
+.. _`py.execnet`: http://codespeak.net/execnet/

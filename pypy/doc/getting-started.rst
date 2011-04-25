@@ -18,7 +18,7 @@ translation process - as opposed to encoding low level details into the
 language implementation itself. `more...`_
 
 
-.. _Python: http://docs.python.org/ref
+.. _Python: http://docs.python.org/reference/
 .. _`more...`: architecture.html
 
 Just the facts 

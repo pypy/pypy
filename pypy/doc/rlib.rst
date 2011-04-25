@@ -271,7 +271,7 @@ function ``make_runner(s)`` in the ``pypy.rlib.parsing.regexparse`` module.  It
 returns a object with a ``recognize(input)`` method that returns True or False
 depending on whether ``input`` matches the string or not.
 
-.. _`re`: http://docs.python.org/lib/module-re.html
+.. _`re`: http://docs.python.org/library/re.html
 
 EBNF
 ----
