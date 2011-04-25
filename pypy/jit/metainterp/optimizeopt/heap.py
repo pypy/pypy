@@ -136,14 +136,12 @@ class OptHeap(Optimization):
         self.cached_arrayitems = {}
         self.original_producer = {}
 
+    def force_at_end_of_preamble(self):
+        self.force_all_lazy_setfields()
+        
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         new = OptHeap()
-
-        if True:
-            self.force_all_lazy_setfields()
-        else:
-            assert 0   # was: new.lazy_setfields = self.lazy_setfields
 
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_cloned(optimizer, valuemap, short_boxes)

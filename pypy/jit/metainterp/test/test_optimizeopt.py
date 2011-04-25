@@ -1334,13 +1334,15 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         jump(i29, p45, p3)
         """
         preamble = """
-        [i, p0, i1]
-        jump(i, p0, i1)
+        [i0, p1, p3]
+        i28 = int_add(i0, 1)
+        i29 = int_add(i28, 1)
+        p30 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p30, i28, descr=nextdescr)
+        setfield_gc(p3, p30, descr=valuedescr)
+        jump(i29, p30, p3)
         """
-        expected = """
-        [i, p0, i1]
-        jump(i, p0, i1)
-        """
+        expected = preamble
         self.optimize_loop(ops, expected, preamble)
 
     def test_nonvirtual_1(self):

@@ -282,9 +282,12 @@ class Optimization(object):
     def turned_constant(self, value):
         pass
 
+    def force_at_end_of_preamble(self):
+        pass
+
+    # It is too late to force stuff here, it must be done in force_at_end_of_preamble
     def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
                                        optimizer=None, valuemap=None):
-        #return self.__class__()
         raise NotImplementedError
 
     def produce_potential_short_preamble_ops(self, potential_ops):
@@ -330,6 +333,10 @@ class Optimizer(Optimization):
 
         self.optimizations  = optimizations
 
+    def force_at_end_of_preamble(self):
+        for o in self.optimizations:
+            o.force_at_end_of_preamble()
+            
     def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
                                        optimizer=None, valuemap=None):
         assert optimizer is None
