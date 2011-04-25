@@ -214,8 +214,10 @@ class UnrollOptimizer(Optimization):
                     # a lot of tests to be fixed...
                     loop.preamble.operations = short[:]
 
+                # FIXME: combine with snapshot loop above
                 short_resumedescr = start_resumedescr.clone_if_mutable()
-                self.inliner.inline_descr_inplace(short_resumedescr)
+                assert isinstance(short_resumedescr, ResumeGuardDescr)                
+                self.inliner.inline_descr_inplace(short_resumedescr)                
                 snapshot = short_resumedescr.rd_snapshot
                 while snapshot:
                     snapshot.boxes = [self.getvalue(b).get_key_box()
