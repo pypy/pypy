@@ -1,3 +1,5 @@
+.. XXX fijal, can this be killed?
+
 ===================================================
 (Semi)-transparent distribution of RPython programs
 ===================================================

@@ -1,3 +1,5 @@
+.. XXX think more, some of this might be useful
+
 Designing thread pickling or "the Essence of Stackless Python"
 --------------------------------------------------------------
 

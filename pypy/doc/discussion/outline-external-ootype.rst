@@ -1,3 +1,5 @@
+.. XXX, anto, can this be killed?
+
 Some discussion about external objects in ootype
 ================================================
 
