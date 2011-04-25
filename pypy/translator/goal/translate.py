@@ -289,9 +289,11 @@ def main():
 
         # Double check to ensure we are not overwriting the current interpreter
         try:
-            exe_name = str(drv.compute_exe_name())
-            assert not os.path.samefile(exe_name, sys.executable), (
-                'Output file %r is the currently running '
+            this_exe = py.path.local(sys.executable).new(ext='')
+            exe_name = drv.compute_exe_name()
+            samefile = this_exe.samefile(exe_name)
+            assert not samefile, (
+                'Output file %s is the currently running '
                 'interpreter (use --output=...)'% exe_name)
         except OSError:
             pass
