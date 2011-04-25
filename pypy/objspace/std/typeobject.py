@@ -459,15 +459,15 @@ class W_TypeObject(W_Object):
     def get_module(w_self):
         space = w_self.space
         if w_self.is_heaptype() and '__module__' in w_self.dict_w:
-            return w_self.dict_w['__module__']
+            return w_self.getdictvalue(space, '__module__')
         else:
             # for non-heap types, CPython checks for a module.name in the
             # type name.  That's a hack, so we're allowed to use a different
             # hack...
             if ('__module__' in w_self.dict_w and
-                space.is_true(space.isinstance(w_self.dict_w['__module__'],
+                space.is_true(space.isinstance(w_self.getdictvalue(space, '__module__'),
                                                space.w_str))):
-                return w_self.dict_w['__module__']
+                return w_self.getdictvalue(space, '__module__')
             return space.wrap('__builtin__')
 
     def get_module_type_name(w_self):

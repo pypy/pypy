@@ -172,3 +172,8 @@ class AppTestMethodCaching(AppTestTypeObject):
             setattr(a, "a%s" % i, i)
         cache_counter = __pypy__.method_cache_counter("x")
         assert cache_counter[0] == 0 # 0 hits, because all the attributes are new
+
+    def test_get_module_from_namedtuple(self):
+        # this used to crash
+        from collections import namedtuple
+        assert namedtuple("a", "b").__module__
