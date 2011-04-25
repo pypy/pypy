@@ -4,8 +4,6 @@ Coding Guide
 
 .. contents::
 
-
-
 This document describes coding requirements and conventions for
 working with the PyPy code base.  Please read it carefully and
 ask back any questions you might have. The document does not talk
@@ -877,12 +875,6 @@ Committing & Branching to the repository
   self-contained working-copy for the branch.   Note that
   branching/copying is a cheap operation with subversion, as it
   takes constant time irrespective of the size of the tree.
-
-- To learn more about how to use subversion read `this document`_.
-
-.. _`this document`: svn-help.html
-
-
 
 .. _`using development tracker`:
 
