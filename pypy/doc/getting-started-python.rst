@@ -13,7 +13,7 @@ libraries such as Django_ and Twisted_. There are some small behavioral
 differences to CPython and some missing extensions, for details see `CPython
 differences`_.
 
-.. _Django: http://djangoproject.org
+.. _Django: http://djangoproject.com
 .. _Twisted: http://twistedmatrix.com
 
 .. _`CPython differences`: cpython_differences.html

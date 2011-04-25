@@ -2,7 +2,7 @@
 PyPy - a Python_ implementation written in Python 
 =================================================
 
-.. _Python: http://www.python.org/doc/2.5.2/
+.. _Python: http://docs.python.org/release/2.5.2/
 
 
 .. contents:: :depth: 1

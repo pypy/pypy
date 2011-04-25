@@ -99,9 +99,6 @@ pyglet
 -------
 
 We tried pyglet checking it out from its repository at revision 1984.
-For convenience a tarball of the checkout can also be found at:
-
-http://codespeak.net/~pedronis/pyglet-r1984.tgz
 
 From pyglet, the following examples are known to work:
   

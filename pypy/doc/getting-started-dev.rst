@@ -99,7 +99,7 @@ executable in one of the ``/tmp/usession-*`` directories::
     9
 
 To translate and run for the CLI you must have the SDK installed: Windows
-users need the `.NET Framework SDK 2.0`_, while Linux and Mac users
+users need the `.NET Framework SDK`_, while Linux and Mac users
 can use Mono_.  To translate and run for the JVM you must have a JDK 
 installed (at least version 5) and ``java``/``javac`` on your path.
 
@@ -354,7 +354,7 @@ CTypes on Python 2.4
 install it if they want to run low-level tests. See
 the `download page of ctypes`_.
 
-.. _`download page of ctypes`: http://sourceforge.net/project/showfiles.php?group_id=71702
+.. _`download page of ctypes`: https://sourceforge.net/projects/ctypes/files/
 .. _`ctypes`: http://starship.python.net/crew/theller/ctypes/
 
 .. _`py.test`:
@@ -390,7 +390,7 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 
-.. _`.NET Framework SDK 2.0`: http://msdn.microsoft.com/netframework/downloads/updates/default.aspx
+.. _`.NET Framework SDK`: http://msdn.microsoft.com/netframework/
 .. _Mono: http://www.mono-project.com/Main_Page
 .. _`CLI backend`: cli-backend.html
 .. _clr: clr-module.html

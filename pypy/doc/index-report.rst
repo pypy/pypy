@@ -96,8 +96,8 @@ to virtual machine construction`_. *(2007-02-28)*
 
 
 
-.. _`py-lib`: http://codespeak.net/py/current/doc/
-.. _`py.test`: http://codespeak.net/py/current/doc/test.html
+.. _`py-lib`: http://pylib.org/
+.. _`py.test`: http://pytest.org/
 .. _codespeak: http://codespeak.net/
 .. _`pypy-dev`: http://codespeak.net/mailman/listinfo/pypy-dev
 

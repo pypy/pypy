@@ -254,7 +254,7 @@ index`_.  Of particular interest after reading this document might be:
 
 .. _`RPython`: coding-guide.html#rpython
 
-.. _Python: http://docs.python.org/ref
+.. _Python: http://docs.python.org/reference/
 .. _Psyco: http://psyco.sourceforge.net
 .. _stackless: stackless.html
 .. _`generate Just-In-Time Compilers`: jit/index.html
