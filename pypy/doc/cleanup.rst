@@ -12,23 +12,15 @@ Old documentation that needs review
 
    distribution.rst
 
-   externaltools.rst
-
-   geninterp.rst
-
    objspace-proxies.rst
 
    old_news.rst
-
-   project-ideas.rst
 
    rffi.rst
 
    sandbox.rst
 
    statistic/index.rst
-
-   translation-aspects.rst
 
    docindex.rst
 

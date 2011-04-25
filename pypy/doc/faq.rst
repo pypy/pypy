@@ -183,13 +183,11 @@ Python experience and read some of the PyPy documentation before coming to a
 sprint.
 
 Coming to a sprint is usually also the best way to get into PyPy development.
-If you want to start on your own, take a look at the list of `project
-suggestions`_. If you get stuck or need advice, `contact us`_. Usually IRC is
+If you get stuck or need advice, `contact us`_. Usually IRC is
 the most immediate way to get feedback (at least during some parts of the day;
 many PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
-.. _`project suggestions`: project-ideas.html
 .. _`contact us`: index.html
 .. _`mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 

@@ -190,8 +190,7 @@ links to more information.
 .. _`transformation`:
 
 **transformation**
-   Code that modifies flowgraphs to weave in `translation-aspects`_
-
+   Code that modifies flowgraphs to weave in translation aspects
 .. _`translation-time`:
 
 **translation-time**
@@ -226,7 +225,6 @@ links to more information.
 .. _`The RPython Typer`: translation.html#the-rpython-typer
 .. _`backends`: getting-started-dev.html#trying-out-the-translator
 .. _Tool: getting-started-dev.html#trying-out-the-translator
-.. _`translation-aspects`: translation-aspects.html
 .. _`PyPy's garbage collectors`: garbage_collection.html
 .. _`Restricted Python`: coding-guide.html#restricted-python
 .. _PSF: http://www.python.org/psf/

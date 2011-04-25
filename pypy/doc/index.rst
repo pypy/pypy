@@ -89,7 +89,6 @@ Detailed Documentation
    architecture.rst
    coding-guide.rst
    cpython_differences.rst
-   cleanup-todo.rst
    garbage_collection.rst
    interpreter.rst
    objspace.rst
@@ -105,7 +104,6 @@ Detailed Documentation
 
    interpreter-optimizations.rst
    configuration.rst
-   low-level-encapsulation.rst
    parser.rst
    rlib.rst
    rtyper.rst

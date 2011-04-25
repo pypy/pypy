@@ -29,11 +29,8 @@ introduce them.
 
 As of the 1.2 release, RPython_ programs can be translated into the following
 languages/platforms: C/POSIX, CLI/.NET
-and Java/JVM (in addition, there's `a backend`_ that translates
-`application-level`_ into `interpreter-level`_ code, but this is a special
-case in several ways).
+and Java/JVM.
 
-.. _`a backend`: geninterp.html
 .. _`application-level`: coding-guide.html#application-level
 .. _`interpreter-level`: coding-guide.html#interpreter-level
 
@@ -632,10 +629,6 @@ The C Back-End
 
 http://codespeak.net/pypy/trunk/pypy/translator/c/
 
-GenC is not really documented at the moment.  The basic principle of creating
-code from flow graphs is similar to the `Python back-end`_.  See also
-"Generating C code" in our `EU report about translation`_.
-
 GenC is usually the most actively maintained backend -- everyone working on
 PyPy has a C compiler, for one thing -- and is usually where new features are
 implemented first.
@@ -709,21 +702,6 @@ richards benchmarks.
 
 GenJVM is almost entirely the work of Niko Matsakis, who worked on it
 also as part of the Summer of PyPy program.
-
-.. _`Python again`:
-.. _`Python back-end`:
-
-The Interpreter-Level backend
------------------------------
-
-http://codespeak.net/pypy/trunk/pypy/translator/geninterplevel.py
-
-Above, this backend was described as a "special case in several ways".  One of
-these ways is that the job it does is specific to PyPy's standard interpreter,
-and the other is that it does not even use the annotator -- it works directly
-the graphs produced by the Flow Object Space.
-
-See `geninterp's documentation <geninterp.html>`__.
 
 .. _extfunccalls:
 
