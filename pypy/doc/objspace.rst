@@ -469,7 +469,7 @@ temporarily copy is built), and the concatenation is performed on the
 resulting pair of basic strings.  This is similar to the C++ method
 overloading resolution mechanism (but occurs at runtime).
 
-.. _multimethods: theory.html#multimethods
+.. _multimethods: http://en.wikipedia.org/wiki/Multimethods
 
 
 Multimethod slicing
@@ -556,7 +556,7 @@ A number of options for configuration is here in `traceconfig.py`_.
 
 
 .. _`found here` : getting-started-dev.html#tracing-bytecode-and-operations-on-objects
-.. _`Abstract Interpretation`: theory.html#abstract-interpretation
+.. _`Abstract Interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`traceconfig.py`: ../tool/traceconfig.py
 
 
@@ -588,7 +588,7 @@ placeholder "wrapped objects" and give them to the interpreter, so that they
 appear in some next operation.  This technique is an example of `Abstract
 Interpretation`_.
 
-.. _`Abstract Interpretation`: theory.html#abstract-interpretation
+.. _`Abstract Interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 
 For example, if the placeholder ``v1`` is given as the argument to the above
 function, the bytecode interpreter will call ``v2 = space.mul(space.wrap(3),

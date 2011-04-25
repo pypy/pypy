@@ -104,7 +104,7 @@ The following figure gives a simplified overview (`PDF color version`_):
 
 .. _`PDF color version`: image/translation.pdf
 .. _`bytecode evaluator`: interpreter.html
-.. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`interactive interface`: getting-started-dev.html#try-out-the-translator
 .. _`translatorshell.py`: ../../../../pypy/bin/translatorshell.py

@@ -29,8 +29,6 @@ Old documentation that needs review
 
    statistic/index.rst
 
-   theory.rst
-
    translation-aspects.rst
 
    docindex.rst

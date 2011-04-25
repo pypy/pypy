@@ -165,7 +165,6 @@ from our Python interpreter.
 .. _`coding guide`: coding-guide.html 
 .. _`architecture`: architecture.html 
 .. _`getting started`: getting-started.html 
-.. _`theory`: theory.html
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
 .. _`Technical reports`: index-report.html
@@ -223,7 +222,7 @@ Directory                      explanation/links
 
 `objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
 
-`objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`
+`objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`_
 
 `objspace/std/`_               the StdObjSpace_ implementing CPython's objects and types
 
@@ -285,7 +284,7 @@ Directory                      explanation/links
 .. _`What PyPy can do for your objects`: objspace-proxies.html
 .. _`Stackless and coroutines`: stackless.html
 .. _StdObjSpace: objspace.html#the-standard-object-space 
-.. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`rpython`: coding-guide.html#rpython 
 .. _`type inferencing code`: translation.html#the-annotation-pass 
 .. _`RPython Typer`: translation.html#rpython-typer 
