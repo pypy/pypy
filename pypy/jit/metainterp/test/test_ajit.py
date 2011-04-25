@@ -2127,9 +2127,9 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if 0 < a < 10: pass
-                if 0 < b < 10: pass
-                sa += (a << b) >> b
+                if 0 < a <= 5: pass
+                if 0 < b <= 5: pass
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
                 n += 1
             return sa
 
@@ -2139,7 +2139,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if 0 < a < hint(sys.maxint/2, promote=True): pass
                 if 0 < b < 100: pass
-                sa += (a << b) >> b
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
                 n += 1
             return sa
         
@@ -2147,24 +2147,24 @@ class BasicTests:
         self.check_loops(int_rshift=0, everywhere=True)
 
         for f in (f1, f2):
-            assert self.meta_interp(f, [5, 10]) == 50
-            self.check_loops(int_rshift=1, everywhere=True)
+            assert self.meta_interp(f, [5, 6]) == 50
+            self.check_loops(int_rshift=3, everywhere=True)
 
             assert self.meta_interp(f, [10, 5]) == 100
-            self.check_loops(int_rshift=1, everywhere=True)
+            self.check_loops(int_rshift=3, everywhere=True)
 
-            assert self.meta_interp(f, [10, 10]) == 100
-            self.check_loops(int_rshift=1, everywhere=True)
+            assert self.meta_interp(f, [10, 6]) == 100
+            self.check_loops(int_rshift=3, everywhere=True)
 
-            assert self.meta_interp(f, [5, 100]) == 0
-            self.check_loops(int_rshift=1, everywhere=True)
+            assert self.meta_interp(f, [5, 31]) == 0
+            self.check_loops(int_rshift=3, everywhere=True)
 
             bigval = 1
             while (bigval << 3).__class__ is int:
                 bigval = bigval << 1
 
             assert self.meta_interp(f, [bigval, 5]) == 0
-            self.check_loops(int_rshift=1, everywhere=True)
+            self.check_loops(int_rshift=3, everywhere=True)
 
     def test_overflowing_shift_neg(self):
         myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'n', 'sa'])
@@ -2172,9 +2172,9 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if -10 < a < 0: pass
-                if 0 < b < 10: pass
-                sa += (a << b) >> b
+                if -5 <= a < 0: pass
+                if 0 < b <= 5: pass
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
                 n += 1
             return sa
 
@@ -2184,7 +2184,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if -hint(sys.maxint/2, promote=True) < a < 0: pass
                 if 0 < b < 100: pass
-                sa += (a << b) >> b
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
                 n += 1
             return sa
         
@@ -2192,51 +2192,25 @@ class BasicTests:
         self.check_loops(int_rshift=0, everywhere=True)
 
         for f in (f1, f2):
-            assert self.meta_interp(f, [-5, 10]) == -50
-            self.check_loops(int_rshift=1, everywhere=True)
+            assert self.meta_interp(f, [-5, 6]) == -50
+            self.check_loops(int_rshift=3, everywhere=True)
 
             assert self.meta_interp(f, [-10, 5]) == -100
-            self.check_loops(int_rshift=1, everywhere=True)
+            self.check_loops(int_rshift=3, everywhere=True)
 
-            assert self.meta_interp(f, [-10, 10]) == -100
-            self.check_loops(int_rshift=1, everywhere=True)
+            assert self.meta_interp(f, [-10, 6]) == -100
+            self.check_loops(int_rshift=3, everywhere=True)
 
-            assert self.meta_interp(f, [-5, 100]) == 0
-            self.check_loops(int_rshift=1, everywhere=True)
+            assert self.meta_interp(f, [-5, 31]) == 0
+            self.check_loops(int_rshift=3, everywhere=True)
 
             bigval = 1
             while (bigval << 3).__class__ is int:
                 bigval = bigval << 1
 
-            assert self.meta_interp(f, [-bigval, 5]) == 0
-            self.check_loops(int_rshift=1, everywhere=True)
+            assert self.meta_interp(f, [bigval, 5]) == 0
+            self.check_loops(int_rshift=3, everywhere=True)
 
-    def notest_overflowing_shift2(self):
-        myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'n', 'sa'])
-        def f(a, b):
-            n = sa = 0
-            while n < 10:
-                myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if 0 < a < hint(sys.maxint/2, promote=True): pass
-                if 0 < b < 100: pass
-                sa += (a << b) >> b
-                n += 1
-            return sa
-
-        assert self.meta_interp(f, [5, 5]) == 50
-        self.check_loops(int_rshift=0, everywhere=True)
-
-        assert self.meta_interp(f, [5, 10]) == 50
-        self.check_loops(int_rshift=1, everywhere=True)
-
-        assert self.meta_interp(f, [10, 5]) == 100
-        self.check_loops(int_rshift=1, everywhere=True)
-
-        assert self.meta_interp(f, [10, 10]) == 100
-        self.check_loops(int_rshift=1, everywhere=True)
-
-        assert self.meta_interp(f, [5, 100]) == 0
-        self.check_loops(int_rshift=1, everywhere=True)
 
     def test_pure_op_not_to_be_propagated(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'sa'])
@@ -2249,8 +2223,6 @@ class BasicTests:
             return sa
         assert self.meta_interp(f, [10]) == f(10)
         
-
-
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
