@@ -568,7 +568,10 @@ class AbstractUnwrappedStrategy(object):
         l = self.cast_from_void_star(w_list.lstorage)
 
         if self.is_correct_type(w_item):
-            l[index] = self.unwrap(w_item)
+            try:
+                l[index] = self.unwrap(w_item)
+            except IndexError:
+                raise
             return
 
         w_list.switch_to_object_strategy()
@@ -644,7 +647,10 @@ class AbstractUnwrappedStrategy(object):
 
     def deleteitem(self, w_list, index):
         l = self.cast_from_void_star(w_list.lstorage)
-        del l[index]
+        try:
+            del l[index]
+        except IndexError:
+            raise
         w_list.check_empty_strategy()
 
     def deleteslice(self, w_list, start, step, slicelength):
@@ -683,7 +689,14 @@ class AbstractUnwrappedStrategy(object):
 
     def pop(self, w_list, index):
         l = self.cast_from_void_star(w_list.lstorage)
-        w_item = self.wrap(l.pop(index))
+        # not sure if RPython raises IndexError on pop
+        # so check again here
+        try:
+            item = l.pop(index)
+        except IndexError:
+            raise
+
+        w_item = self.wrap(item)
 
         w_list.check_empty_strategy()
         return w_item
