@@ -12,10 +12,6 @@ Old documentation that needs review
 
    distribution.rst
 
-   objspace-proxies.rst
-
-   old_news.rst
-
    rffi.rst
 
    sandbox.rst
