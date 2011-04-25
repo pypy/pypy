@@ -1,10 +1,8 @@
-.. include:: crufty.rst
+.. include:: needswork.rst
 
-     .. ^^ Incomplete,  superceded elsewhere
-
-========================
-lib/distributed features
-========================
+=============================
+lib_pypy/distributed features
+=============================
 
 The 'distributed' library is an attempt to provide transparent, lazy
 access to remote objects. This is accomplished using

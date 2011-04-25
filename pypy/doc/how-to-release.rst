@@ -1,4 +1,6 @@
-.. include:: crufty.rst
+.. include:: needswork.rst
+
+.. needs work, it talks about svn. also, it is not really user documentation
 
 Making a PyPy Release
 =======================

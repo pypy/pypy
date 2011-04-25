@@ -1,3 +1,5 @@
+.. include:: needswork.rst
+
 .. _glossary:
 
 ********
@@ -11,12 +13,6 @@ links to more information.
 .. if you add new entries, keep the alphabetical sorting!
 
 .. glossary::
-
-**abstract interpretation**
-    The technique of interpreting the bytecode of a user program with
-    an interpreter that handles abstract objects instead of concrete ones.
-    It can be used to check the bytecode or see what it does, without
-    actually executing it with concrete values.  See Theory_.
 
 .. _annotator:
 
@@ -106,11 +102,6 @@ links to more information.
   `application level`_ and `interpreter level`_ code.
 
 .. _`object space`:
-
-**multimethod**
-   A callable object that invokes a different Python function based
-   on the type of all its arguments (instead of just the class of the
-   first argument, as with normal methods).  See Theory_.
 
 **object space**
    The `object space <objspace.html>`__ (often abbreviated to
@@ -242,6 +233,5 @@ links to more information.
 .. _Python: http://www.python.org
 .. _`RPython Typer`: rtyper.html
 .. _`subsystem implementing the Python language`: architecture.html#standard-interpreter
-.. _Theory: theory.html
 
 .. include:: _ref.rst
