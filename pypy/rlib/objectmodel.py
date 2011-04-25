@@ -267,14 +267,15 @@ def _hash_float(f):
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
     from pypy.rlib.rarithmetic import intmask
-    from pypy.rlib.rfloat import isinf, isnan
-    if isinf(f):
-        if f < 0.0:
-            return -271828
-        else:
-            return 314159
-    elif isnan(f):
-        return 0
+    from pypy.rlib.rfloat import isfinite, isinf
+    if not isfinite(f):
+        if isinf(f):
+            if f < 0.0:
+                return -271828
+            else:
+                return 314159
+        else: #isnan(f):
+            return 0
     v, expo = math.frexp(f)
     v *= TAKE_NEXT
     hipart = int(v)
