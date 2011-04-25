@@ -475,7 +475,7 @@ References
 
 .. [DLT] `Compiling dynamic language implementations`_,
          PyPy documentation (and EU deliverable D05.1), 2005
-.. _`Compiling dynamic language implementations`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _`Compiling dynamic language implementations`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 .. [PVE] `Simple and Efficient Subclass Tests`_, Jonathan Bachrach, Draft submission to ECOOP-02, 2001
 .. _`Simple and Efficient Subclass Tests`: http://people.csail.mit.edu/jrb/pve/pve.pdf

@@ -60,7 +60,7 @@ on the `development mailing list`_.
 .. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
 .. _here: http://tismerysoft.de/pypy/irc-logs/pypy
 .. _`sprint mailing list`: http://codespeak.net/mailman/listinfo/pypy-sprint 
-.. _`subversion commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
+.. _`commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
 .. _`development mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`FAQ`: faq.html
 .. _`Documentation`: docindex.html 

@@ -104,4 +104,3 @@
 .. _`translator/jvm/`: ../../../../pypy/translator/jvm
 .. _`translator/stackless/`: ../../../../pypy/translator/stackless
 .. _`translator/tool/`: ../../../../pypy/translator/tool
-.. _`translator/js/`: http://codespeak.net/svn/pypy/branch/oo-jit/pypy/translator/js/

@@ -152,7 +152,7 @@ Antonio Cuni's `Ph.D. thesis`_ and translate with the JIT::
 
     ./translate.py -Ojit --backend=cli targetpypystandalone.py
 
-.. _`branch/cli-jit`: http://codespeak.net/svn/pypy/branch/cli-jit/
+.. _`branch/cli-jit`: https://bitbucket.org/pypy/pypy/src/tip
 .. _`Ph.D. thesis`: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
 
 The executable and all its dependencies will be stored in the

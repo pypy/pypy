@@ -263,7 +263,7 @@ Interpreter-level console
 
 If you start an untranslated Python interpreter via::
 
-    python pypy-svn/pypy/bin/py.py
+    python pypy/bin/py.py
 
 If you press
 <Ctrl-C> on the console you enter the interpreter-level console, a
@@ -397,15 +397,15 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
 .. _`Dot Graphviz`:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/
-.. _pyopcode.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/pyopcode.py
-.. _eval.py:                http://codespeak.net/svn/pypy/trunk/pypy/interpreter/eval.py
-.. _pyframe.py:             http://codespeak.net/svn/pypy/trunk/pypy/interpreter/pyframe.py
-.. _function.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/function.py
-.. _argument.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/argument.py
-.. _baseobjspace.py:        http://codespeak.net/svn/pypy/trunk/pypy/interpreter/baseobjspace.py
-.. _module.py:              http://codespeak.net/svn/pypy/trunk/pypy/interpreter/module.py
-.. _mixedmodule.py:          http://codespeak.net/svn/pypy/trunk/pypy/interpreter/mixedmodule.py
-.. _typedef.py:             http://codespeak.net/svn/pypy/trunk/pypy/interpreter/typedef.py
+.. _pyopcode.py:            https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/pyopcode.py
+.. _eval.py:                https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/eval.py
+.. _pyframe.py:             https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/pyframe.py
+.. _function.py:            https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/function.py
+.. _argument.py:            https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/argument.py
+.. _baseobjspace.py:        https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/baseobjspace.py
+.. _module.py:              https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/module.py
+.. _mixedmodule.py:          https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/mixedmodule.py
+.. _typedef.py:             https://bitbucket.org/pypy/pypy/src/tip/pypy/interpreter/typedef.py
 .. _Standard object space:  objspace.html#the-standard-object-space
 .. _objspace.py:            ../../../../pypy/objspace/std/objspace.py
 .. _thunk:                  ../../../../pypy/objspace/thunk.py

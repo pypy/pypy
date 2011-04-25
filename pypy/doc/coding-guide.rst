@@ -707,9 +707,9 @@ on some classes being old-style.
 
 If you want to change a module or test contained in ``lib-python/2.5.2``
 then make sure that you copy the file to our ``lib-python/modified-2.5.2``
-directory first.  In subversion commandline terms this reads::
+directory first.  In mercurial commandline terms this reads::
 
-    svn cp lib-python/2.5.2/somemodule.py lib-python/modified-2.5.2/
+    hg cp lib-python/2.5.2/somemodule.py lib-python/modified-2.5.2/
 
 and subsequently you edit and commit
 ``lib-python/modified-2.5.2/somemodule.py``.  This copying operation is
@@ -860,29 +860,23 @@ Committing & Branching to the repository
 - write good log messages because several people
   are reading the diffs.
 
-- if you add (text/py) files to the repository then please run
-  pypy/tool/fixeol in that directory.  This will make sure
-  that the property 'svn:eol-style' is set to native which
-  allows checkin/checkout in native line-ending format.
+- What was previously called ``trunk`` is called the ``default`` branch in
+  mercurial. Branches in mercurial are always pushed together with the rest
+  of the repository. To create a ``try1`` branch (assuming that a branch named
+  ``try1`` doesn't already exists) you should do::
 
-- branching (aka "svn copy") of source code should usually
-  happen at ``svn/pypy/trunk`` level in order to have a full
-  self-contained pypy checkout for each branch.   For branching
-  a ``try1`` branch you would for example do::
+    hg branch try1
+    
+  The branch will be recorded in the repository only after a commit. To switch
+  back to the default branch::
+  
+    hg update default
+    
+  For further details use the help or refer to the `official wiki`_::
+  
+    hg help branch
 
-    svn cp http://codespeak.net/svn/pypy/trunk \
-           http://codespeak.net/svn/pypy/branch/try1
-
-  This allows to checkout the ``try1`` branch and receive a
-  self-contained working-copy for the branch.   Note that
-  branching/copying is a cheap operation with subversion, as it
-  takes constant time irrespective of the size of the tree.
-
-- To learn more about how to use subversion read `this document`_.
-
-.. _`this document`: svn-help.html
-
-
+.. _`official wiki`: http://mercurial.selenic.com/wiki/Branch
 
 .. _`using development tracker`:
 
@@ -905,30 +899,13 @@ you use for subversion or for shell access.
 If you are not a commiter then you can still `register with
 the tracker`_ easily.
 
-modifying Issues from svn commit messages
+modifying Issues from hg commit messages
 -----------------------------------------
 
-If you are committing something related to
-an issue in the development tracker you
-can correlate your login message to a tracker
-item by following these rules:
+XXX: to be written after migrating the issue tracker away from codespeak.net
 
-- put the content of ``issueN STATUS`` on a single
-  new line
-
-- `N` must be an existing issue number from the `development tracker`_.
-
-- STATUS is one of::
-
-    unread
-    chatting
-    in-progress
-    testing
-    duplicate
-    resolved
 
 .. _`register with the tracker`: https://codespeak.net/issue/pypy-dev/user?@template=register
-.. _`development tracker`: http://codespeak.net/issue/pypy-dev/
 .. _`roundup`: http://roundup.sf.net
 
 

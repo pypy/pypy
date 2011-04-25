@@ -640,7 +640,7 @@ GenC is usually the most actively maintained backend -- everyone working on
 PyPy has a C compiler, for one thing -- and is usually where new features are
 implemented first.
 
-.. _`EU report about translation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _`EU report about translation`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
 A Historical Note

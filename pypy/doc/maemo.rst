@@ -133,12 +133,12 @@ to compile pypy.  The scratchbox and its DIABLO_ARMEL target contains
 its own copies of GCC, various C libraries and header files
 which pypy needs for successful cross-compilation.  
 
-Now, on the host system, perform a subversion checkout of PyPy::
+Now, on the host system, perform a mercurial clone of PyPy::
 
-    svn co https://codespeak.net/svn/pypy/trunk pypy-trunk
+    hg clone ssh://hg@bitbucket.org/pypy/pypy
 
-Several svn revisions since the 60000's are known to work and
-the last manually tested one is currently 65011.  
+Several revisions since about 9d7b7ecb9144 are known to work and
+the last manually tested one is currently 7f267e4b7861.  
 
 Change to the ``pypy-trunk/pypy/translator/goal`` directory and execute::
 

@@ -530,6 +530,6 @@ looks like this:
 
 
 
-.. _`Prolog interpreter`: http://codespeak.net/svn/pypy/lang/prolog/
+.. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
 .. _parsing: ../../../../pypy/rlib/parsing/
 .. _`json format`: http://www.json.org

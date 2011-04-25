@@ -269,7 +269,7 @@ module's `pypy/module/__builtin__/__init__.py`_ file for an
 example and the higher level `chapter on Modules in the coding
 guide`_. 
 
-.. _`__builtin__ module`: http://codespeak.net/svn/pypy/trunk/pypy/module/ 
+.. _`__builtin__ module`: https://bitbucket.org/pypy/pypy/src/tip/pypy/module/__builtin__/
 .. _`chapter on Modules in the coding guide`: coding-guide.html#modules 
 
 .. _`Gateway classes`: 

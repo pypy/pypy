@@ -161,11 +161,12 @@ integers, etc.
 Currently, we have preliminary versions of a JavaScript interpreter
 (Leonardo Santagada as his Summer of PyPy project), a `Prolog interpreter`_
 (Carl Friedrich Bolz as his Bachelor thesis), and a `SmallTalk interpreter`_
-(produced during a sprint).  `All of them`_ are unfinished at the moment.
+(produced during a sprint).  On the `PyPy "user" main page`_ there are also a
+Scheme and Io implementation, all of these are unfinished at the moment.
 
-.. _`Prolog interpreter`: http://codespeak.net/svn/pypy/lang/prolog/
+.. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
 .. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
-.. _`All of them`: http://codespeak.net/svn/pypy/lang/
+.. _`PyPy "user" main page`: https://bitbucket.org/pypy/
 
 
 Development
@@ -263,7 +264,7 @@ section 3.
 
 .. [D05.1] Compiling Dynamic Language Implementations,
            Report from the PyPy project to the E.U.,
-           http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+           https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 .. _`PyPy's RPython`: 
 

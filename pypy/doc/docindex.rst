@@ -158,7 +158,7 @@ from our Python interpreter.
 .. _`object spaces`: objspace.html 
 .. _`interpreter optimizations`: interpreter-optimizations.html 
 .. _`translation`: translation.html 
-.. _`dynamic-language translation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _`dynamic-language translation`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 .. _`low-level encapsulation`: low-level-encapsulation.html
 .. _`translation aspects`: translation-aspects.html
 .. _`configuration documentation`: config/

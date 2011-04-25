@@ -241,9 +241,9 @@ index`_.  Of particular interest after reading this document might be:
 
 .. _`documentation index`: docindex.html
 .. _`getting-started`: getting-started.html
-.. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
+.. _`PyPy's approach to virtual machine construction`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
 .. _`the translation document`: translation.html
-.. _`Compiling dynamic language implementations`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _`Compiling dynamic language implementations`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 .. _`Technical reports`: index-report.html
 
 .. _`getting started`: getting-started.html

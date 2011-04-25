@@ -57,19 +57,19 @@ Papers
   for Python`_, A. Rigo
 
 
-.. _bibtex: http://codespeak.net/svn/pypy/extradoc/talk/bibtex.bib
+.. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
 .. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
-.. _`How to *not* write Virtual Machines for Dynamic Languages`: http://codespeak.net/svn/pypy/extradoc/talk/dyla2007/dyla.pdf
-.. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: http://codespeak.net/svn/pypy/extradoc/talk/icooolps2009/bolz-tracing-jit.pdf
-.. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: http://codespeak.net/svn/pypy/extradoc/talk/icooolps2009-dotnet/cli-jit.pdf
-.. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`: http://codespeak.net/svn/user/cfbolz/jitpl/thesis/final-master.pdf
+.. _`How to *not* write Virtual Machines for Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
+.. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
+.. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
+.. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`:  http://www.stups.uni-duesseldorf.de/thesis/final-master.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/Recent_abstracts.html#AACM-DLS07
 .. _`EU Reports`: index-report.html
 .. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://www.iam.unibe.ch/~verwaest/pygirl.pdf
 .. _`Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
-.. _`Automatic generation of JIT compilers for dynamic languages in .NET`: http://codespeak.net/svn/pypy/extradoc/talk/ecoop2009/main.pdf
-.. _`Core Object Optimization Results`: http://codespeak.net/svn/pypy/extradoc/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
+.. _`Automatic generation of JIT compilers for dynamic languages in .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
+.. _`Core Object Optimization Results`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
 .. _`Compiling Dynamic Language Implementations`: http://codespeak.net/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
@@ -122,7 +122,7 @@ Talks in 2008
 
 * `PyCon 2008`_.
 
-.. __: http://codespeak.net/svn/pypy/extradoc/talk/s3-2008/talk.pdf
+.. __: https://bitbucket.org/pypy/extradoc/raw/tip/talk/s3-2008/talk.pdf
 
 
 Talks in 2007
@@ -157,9 +157,9 @@ Talks in 2007
 
 * `Warsaw 2007`_.
 
-.. __: http://codespeak.net/svn/pypy/extradoc/talk/roadshow-ibm/
-.. __: http://codespeak.net/svn/pypy/extradoc/talk/roadshow-google/Pypy_architecture.pdf
-.. __: http://codespeak.net/svn/pypy/extradoc/talk/dls2007/rpython-talk.pdf
+.. __: https://bitbucket.org/pypy/extradoc/raw/tip/talk/roadshow-ibm/
+.. __: https://bitbucket.org/pypy/extradoc/raw/tip/talk/roadshow-google/Pypy_architecture.pdf
+.. __: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2007/rpython-talk.pdf
 
 
 Talks in 2006
@@ -257,36 +257,36 @@ Talks in 2003
 .. _`Kill -1`: http://codespeak.net/pypy/extradoc/talk/ep2006/kill_1_agiletalk.pdf
 .. _`Open Source, EU-Funding and Agile Methods`: http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
 .. _`PyPy Status`: http://codespeak.net/pypy/extradoc/talk/vancouver/talk.html
-.. _`Sprinting the PyPy way`: http://codespeak.net/svn/pypy/extradoc/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
+.. _`Sprinting the PyPy way`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
 .. _`PyPy's VM Approach`: http://codespeak.net/pypy/extradoc/talk/dls2006/talk.html
-.. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
-.. _`EuroPython talks 2009`: http://codespeak.net/svn/pypy/extradoc/talk/ep2009/
-.. _`PyCon talks 2009`: http://codespeak.net/svn/pypy/extradoc/talk/pycon2009/
-.. _`Wroclaw (Poland) presentation`: http://codespeak.net/svn/pypy/extradoc/talk/wroclaw2009/talk.pdf
+.. _`PyPy's approach to virtual machine construction`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
+.. _`EuroPython talks 2009`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2009/
+.. _`PyCon talks 2009`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2009/
+.. _`Wroclaw (Poland) presentation`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/wroclaw2009/talk.pdf
 .. _`PyPy talk at OpenBossa 09`: http://morepypy.blogspot.com/2009/03/pypy-talk-at-openbossa-09.html
-.. _`at SFI 08`: http://codespeak.net/svn/pypy/extradoc/talk/sfi2008/
-.. _`at PyCon Poland 08`: http://codespeak.net/svn/pypy/extradoc/talk/pyconpl-2008/talk.pdf
-.. _`The PyPy Project and You`: http://codespeak.net/svn/pypy/extradoc/talk/osdc2008/osdc08.pdf
-.. _`EuroPython talks 2008`: http://codespeak.net/svn/pypy/extradoc/talk/ep2008/
+.. _`at SFI 08`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/sfi2008/
+.. _`at PyCon Poland 08`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pyconpl-2008/talk.pdf
+.. _`The PyPy Project and You`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/osdc2008/osdc08.pdf
+.. _`EuroPython talks 2008`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2008/
 .. _`Maemo summit`: http://morepypy.blogspot.com/2008/09/pypypython-at-maemo-summit.html
-.. _`PyCon UK 2008 - JIT`: http://codespeak.net/svn/pypy/extradoc/talk/pycon-uk-2008/jit/pypy-vm.pdf
-.. _`PyCon UK 2008 - Status`: http://codespeak.net/svn/pypy/extradoc/talk/pycon-uk-2008/status/status.pdf
-.. _`PyCon Italy 2008`: http://codespeak.net/svn/pypy/extradoc/talk/pycon-italy-2008/pypy-vm.pdf
-.. _`RuPy 2008`: http://codespeak.net/svn/pypy/extradoc/talk/rupy2008/
-.. _`RuPy 2007`: http://codespeak.net/svn/pypy/extradoc/talk/rupy2007/
-.. _`PyCon 2008`: http://codespeak.net/svn/pypy/extradoc/talk/pycon2008/
-.. _`ESUG 2007`: http://codespeak.net/svn/pypy/extradoc/talk/esug2007/
-.. _`Bern (Switzerland) 2007`: http://codespeak.net/svn/pypy/extradoc/talk/bern2007/
-.. _`PyCon UK 2007`: http://codespeak.net/svn/pypy/extradoc/talk/pyconuk07/
-.. _Dresden: http://codespeak.net/svn/pypy/extradoc/talk/dresden/
-.. _`EuroPython 2007`: http://codespeak.net/svn/pypy/extradoc/talk/ep2007/
-.. _`Bad Honnef 2007`: http://codespeak.net/svn/pypy/extradoc/talk/badhonnef2007/talk.pdf
-.. _`Dzug talk`: http://codespeak.net/svn/pypy/extradoc/talk/dzug2007/dzug2007.txt
-.. _`PyCon 2007`: http://codespeak.net/svn/pypy/extradoc/talk/pycon2007/
-.. _`PyCon - Uno 2007`: http://codespeak.net/svn/pypy/extradoc/talk/pycon-uno2007/pycon07.pdf
-.. _`Warsaw 2007`: http://codespeak.net/svn/pypy/extradoc/talk/warsaw2007/
-.. _`Warsaw 2006`: http://codespeak.net/svn/pypy/extradoc/talk/warsaw2006/
-.. _`Tokyo 2006`: http://codespeak.net/svn/pypy/extradoc/talk/tokyo/
+.. _`PyCon UK 2008 - JIT`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uk-2008/jit/pypy-vm.pdf
+.. _`PyCon UK 2008 - Status`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uk-2008/status/status.pdf
+.. _`PyCon Italy 2008`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-italy-2008/pypy-vm.pdf
+.. _`RuPy 2008`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/rupy2008/
+.. _`RuPy 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/rupy2007/
+.. _`PyCon 2008`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2008/
+.. _`ESUG 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/esug2007/
+.. _`Bern (Switzerland) 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bern2007/
+.. _`PyCon UK 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pyconuk07/
+.. _Dresden: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dresden/
+.. _`EuroPython 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2007/
+.. _`Bad Honnef 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/badhonnef2007/talk.pdf
+.. _`Dzug talk`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dzug2007/dzug2007.txt
+.. _`PyCon 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2007/
+.. _`PyCon - Uno 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uno2007/pycon07.pdf
+.. _`Warsaw 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/warsaw2007/
+.. _`Warsaw 2006`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/warsaw2006/
+.. _`Tokyo 2006`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/tokyo/
 
 
 Related projects 
