@@ -26,8 +26,6 @@ Old documentation that needs review
 
    statistic/index.rst
 
-   translation-aspects.rst
-
    docindex.rst
 
    svn-help.rst

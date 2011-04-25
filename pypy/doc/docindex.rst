@@ -122,10 +122,6 @@ of the `EU reports`_.)
 away a lot of low level details. This document is also part
 of the `EU reports`_.
 
-`translation aspects`_ describes how we weave different
-properties into our interpreter during the translation
-process. This document is also part of the `EU reports`_.
-
 `garbage collector`_ strategies that can be used by the virtual
 machines produced by the translation process.
 
@@ -159,8 +155,6 @@ from our Python interpreter.
 .. _`interpreter optimizations`: interpreter-optimizations.html 
 .. _`translation`: translation.html 
 .. _`dynamic-language translation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
-.. _`low-level encapsulation`: low-level-encapsulation.html
-.. _`translation aspects`: translation-aspects.html
 .. _`configuration documentation`: config/
 .. _`coding guide`: coding-guide.html 
 .. _`architecture`: architecture.html 

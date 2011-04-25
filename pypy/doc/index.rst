@@ -105,7 +105,6 @@ Detailed Documentation
 
    interpreter-optimizations.rst
    configuration.rst
-   low-level-encapsulation.rst
    parser.rst
    rlib.rst
    rtyper.rst
