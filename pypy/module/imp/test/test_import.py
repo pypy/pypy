@@ -438,6 +438,38 @@ class AppTestImport:
         res = __import__('', mydict, None, ['bar'], 2)
         assert res is pkg
 
+    def test__package__(self):
+        # Regression test for http://bugs.python.org/issue3221.
+        def check_absolute():
+            exec "from os import path" in ns
+        def check_relative():
+            exec "from . import a" in ns
+
+        # Check both OK with __package__ and __name__ correct
+        ns = dict(__package__='pkg', __name__='pkg.notarealmodule')
+        check_absolute()
+        check_relative()
+
+        # Check both OK with only __name__ wrong
+        ns = dict(__package__='pkg', __name__='notarealpkg.notarealmodule')
+        check_absolute()
+        check_relative()
+
+        # Check relative fails with only __package__ wrong
+        ns = dict(__package__='foo', __name__='pkg.notarealmodule')
+        check_absolute() # XXX check warnings
+        raises(SystemError, check_relative)
+
+        # Check relative fails with __package__ and __name__ wrong
+        ns = dict(__package__='foo', __name__='notarealpkg.notarealmodule')
+        check_absolute() # XXX check warnings
+        raises(SystemError, check_relative)
+
+        # Check both fail with package set to a non-string
+        ns = dict(__package__=object())
+        raises(ValueError, check_absolute)
+        raises(ValueError, check_relative)
+
     def test_universal_newlines(self):
         import pkg_univnewlines
         assert pkg_univnewlines.a == 5
