@@ -2262,6 +2262,64 @@ class BasicTests:
         self.check_loops(getfield_gc_pure=0)
         self.check_loops(getfield_gc_pure=2, everywhere=True)
         
+    def test_args_becomming_equal(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a', 'b'])
+        def f(n, a, b):
+            sa = i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a, b=b)
+                sa += a
+                sa *= b
+                if i > n/2:
+                    a = b
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20, 1, 2]) == f(20, 1, 2)
+
+    def test_args_becomming_equal_boxed1(self):
+        class A(object):
+            def __init__(self, a, b):
+                self.a = a
+                self.b = b
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a', 'b', 'node'])
+
+        def f(n, a, b):
+            sa = i = 0
+            node = A(a,b)
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a, b=b, node=node)
+                sa += node.a
+                sa *= node.b
+                if i > n/2:
+                    node = A(b, b)
+                else:
+                    node = A(a, b)
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20, 1, 2]) == f(20, 1, 2)
+
+    def test_args_becomming_equal_boxed2(self):
+        class A(object):
+            def __init__(self, a, b):
+                self.a = a
+                self.b = b
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'node'])
+
+        def f(n, a, b):
+            sa = i = 0
+            node = A(a, b)
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, node=node)
+                sa += node.a
+                sa *= node.b
+                if i > n/2:
+                    node = A(node.b, node.b)
+                else:
+                    node = A(node.b, node.a)
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20, 1, 2]) == f(20, 1, 2)
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

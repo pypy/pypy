@@ -1290,6 +1290,27 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_field_forced_by_later_jumpargs(self):
+        ops = """
+        [i0, p1, p3]
+        i28 = int_add(i0, 1)
+        p30 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p30, i28, descr=nextdescr)
+        setfield_gc(p3, p30, descr=valuedescr)
+        p45 = getfield_gc(p3, descr=valuedescr)
+        i29 = int_add(i28, 1)
+        jump(i29, p45, p3)
+        """
+        preamble = """
+        [i, p0, i1]
+        jump(i, p0, i1)
+        """
+        expected = """
+        [i, p0, i1]
+        jump(i, p0, i1)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_nonvirtual_1(self):
         ops = """
         [i]
