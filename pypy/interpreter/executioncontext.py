@@ -298,8 +298,11 @@ class ExecutionContext(object):
 
         # Profile cases
         if self.profilefunc is not None:
-            if event not in ['leaveframe', 'call', 'c_call',
-                             'c_return', 'c_exception']:
+            if not (event == 'leaveframe' or
+                    event == 'call' or
+                    event == 'c_call' or
+                    event == 'c_return' or
+                    event == 'c_exception'):
                 return False
 
             last_exception = frame.last_exception

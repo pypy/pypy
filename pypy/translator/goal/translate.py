@@ -221,12 +221,14 @@ def main():
 
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
-    def debug(got_error):
+    def finish_profiling():
         if prof:
             prof.disable()
             statfilename = 'prof.dump'
             log.info('Dumping profiler stats to: %s' % statfilename)
-            prof.dump_stats(statfilename)
+            prof.dump_stats(statfilename)        
+
+    def debug(got_error):
         tb = None
         if got_error:
             import traceback
@@ -302,9 +304,11 @@ def main():
     except SystemExit:
         raise
     except:
+        finish_profiling()
         debug(True)
         raise SystemExit(1)
     else:
+        finish_profiling()
         if translateconfig.pdb:
             debug(False)
 
