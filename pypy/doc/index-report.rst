@@ -1,4 +1,7 @@
-.. include:: crufty.rst
+.. warning::
+
+   Some of these reports are interesting for historical reasons only.
+
 
 ============================================
 PyPy - Overview over the EU-reports
@@ -9,7 +12,7 @@ of the PyPy project during the EU funding period (Dez 2004 - March 2007).
 They also are very good documentation if you'd like to know in more
 detail about motivation and implementation of the various parts 
 and aspects of PyPy.  Feel free to send questions or comments
-to `pypy-dev`_, the development list. 
+to `pypy-dev`_, the development list.
 
 Reports of 2007
 ===============
