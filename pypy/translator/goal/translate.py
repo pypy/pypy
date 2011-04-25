@@ -295,7 +295,7 @@ def main():
             assert not samefile, (
                 'Output file %s is the currently running '
                 'interpreter (use --output=...)'% exe_name)
-        except OSError:
+        except EnvironmentError:
             pass
 
         goals = translateconfig.goals
