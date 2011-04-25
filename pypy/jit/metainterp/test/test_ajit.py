@@ -2074,34 +2074,6 @@ class BasicTests:
             assert self.meta_interp(f, [-bigval, 5]) == 0
             self.check_loops(int_rshift=1, everywhere=True)
 
-    def notest_overflowing_shift2(self):
-        myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'n', 'sa'])
-        def f(a, b):
-            n = sa = 0
-            while n < 10:
-                myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if 0 < a < hint(sys.maxint/2, promote=True): pass
-                if 0 < b < 100: pass
-                sa += (a << b) >> b
-                n += 1
-            return sa
-
-        assert self.meta_interp(f, [5, 5]) == 50
-        self.check_loops(int_rshift=0, everywhere=True)
-
-        assert self.meta_interp(f, [5, 10]) == 50
-        self.check_loops(int_rshift=1, everywhere=True)
-
-        assert self.meta_interp(f, [10, 5]) == 100
-        self.check_loops(int_rshift=1, everywhere=True)
-
-        assert self.meta_interp(f, [10, 10]) == 100
-        self.check_loops(int_rshift=1, everywhere=True)
-
-        assert self.meta_interp(f, [5, 100]) == 0
-        self.check_loops(int_rshift=1, everywhere=True)
-
-
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
