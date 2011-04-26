@@ -31,8 +31,8 @@ def makeref(docdir):
         for linkname in linkrex.findall(content): 
             if '/' in linkname:
                 found = True
+                assert distdir.join(linkname).check(), "link %s in %s is dead" % (linkname, textfile)
                 if not linkname.endswith("/") and distdir.join(linkname).check(dir=1):
-                    print linkname
                     linkname += "/"
                 addlink(linkname, bitbucket_url + linkname)
             elif linkname.startswith('issue'): 

@@ -175,7 +175,7 @@ or start off at one of the following points:
    (default) implementation.
 
 *  `pypy/objspace`_ contains a few other object spaces: the `pypy/objspace/thunk.py`_,
-   `pypy/objspace/trace`_ and `pypy/objspace/flow`_ object spaces.  The latter is a relatively short piece
+   `pypy/objspace/trace.py`_ and `pypy/objspace/flow`_ object spaces.  The latter is a relatively short piece
    of code that builds the control flow graphs when the bytecode interpreter
    runs in it.
 
