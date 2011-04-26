@@ -37,6 +37,10 @@ else:
     base_encoding = None
 
 def _getfilesystemencoding(space):
+    if (space.config.translation.type_system == 'ootype'):
+        # XXX: fix this for ootype
+        return base_encoding
+    #
     encoding = base_encoding
     if rlocale.HAVE_LANGINFO and rlocale.CODESET:
         oldlocale = rlocale.setlocale(rlocale.LC_CTYPE, None)

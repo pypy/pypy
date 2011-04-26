@@ -151,9 +151,9 @@ class CPythonFakeCode(eval.Code):
 
 class CPythonFakeFrame(eval.Frame):
 
-    def __init__(self, space, code, w_globals=None, numlocals=-1):
+    def __init__(self, space, code, w_globals=None):
         self.fakecode = code
-        eval.Frame.__init__(self, space, w_globals, numlocals)
+        eval.Frame.__init__(self, space, w_globals)
 
     def getcode(self):
         return self.fakecode

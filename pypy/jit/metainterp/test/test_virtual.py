@@ -2,7 +2,7 @@ import py
 from pypy.rlib.jit import JitDriver, hint
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import ootype

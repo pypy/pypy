@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
+    PyVarObject, Py_buffer,
+    Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
@@ -245,6 +246,16 @@ def PyObject_Compare(space, w_o1, w_o2):
     expression cmp(o1, o2)."""
     return space.int_w(space.cmp(w_o1, w_o2))
 
+@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
+def PyObject_Cmp(space, w_o1, w_o2, result):
+    """Compare the values of o1 and o2 using a routine provided by o1, if one
+    exists, otherwise with a routine provided by o2.  The result of the
+    comparison is returned in result.  Returns -1 on failure.  This is the
+    equivalent of the Python statement result = cmp(o1, o2)."""
+    res = space.int_w(space.cmp(w_o1, w_o2))
+    result[0] = rffi.cast(rffi.INT, res)
+    return 0
+
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,
@@ -385,7 +396,7 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a character buffer object"))
     if generic_cpy_call(space, pb.c_bf_getsegcount,
-                        obj, lltype.nullptr(rffi.INTP.TO)) != 1:
+                        obj, lltype.nullptr(Py_ssize_tP.TO)) != 1:
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a single-segment buffer object"))
     size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
@@ -418,3 +429,31 @@ def PyObject_Print(space, w_obj, fp, flags):
         rffi.free_nonmovingbuffer(data, buf)
     return 0
 
+
+@cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
+              lltype.Signed, lltype.Signed], rffi.INT, error=CANNOT_FAIL)
+def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
+    """
+    Fills in a buffer-info structure correctly for an exporter that can only
+    share a contiguous chunk of memory of "unsigned bytes" of the given
+    length. Returns 0 on success and -1 (with raising an error) on error.
+
+    This is not a complete re-implementation of the CPython API; it only
+    provides a subset of CPython's behavior.
+    """
+    view.c_buf = buf
+    view.c_len = length
+    view.c_obj = obj
+    Py_IncRef(space, obj)
+    return 0
+
+
+@cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
+def PyBuffer_Release(space, view):
+    """
+    Releases a Py_buffer obtained from getbuffer ParseTuple's s*.
+
+    This is not a complete re-implementation of the CPython API; it only
+    provides a subset of CPython's behavior.
+    """
+    Py_DecRef(space, view.c_obj)

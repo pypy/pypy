@@ -1,6 +1,7 @@
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
      IntLowerBound, IntUnbounded
 from copy import copy
+import sys
 
 def bound(a,b):
     if a is None and b is None:
@@ -221,6 +222,14 @@ def test_shift_bound():
                         assert bleft.contains(n1 << n2)
                         assert bright.contains(n1 >> n2)
 
+def test_shift_overflow():
+    b10 = IntBound(0, 10)
+    b100 = IntBound(0, 100)
+    bmax = IntBound(0, sys.maxint/2)
+    assert not b10.lshift_bound(b100).has_upper
+    assert not bmax.lshift_bound(b10).has_upper
+    assert b10.lshift_bound(b10).has_upper
+    
 def test_div_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():

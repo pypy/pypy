@@ -42,3 +42,13 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert arr[1:].tolist() == [2,3,4]
         assert arr[:2].tolist() == [1,2]
         assert arr[1:3].tolist() == [2,3]
+
+    def test_buffer(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        # XXX big-endian
+        assert str(buffer(arr)) == ('\x01\0\0\0'
+                                    '\x02\0\0\0'
+                                    '\x03\0\0\0'
+                                    '\x04\0\0\0')
+

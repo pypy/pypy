@@ -446,7 +446,6 @@ class FunctionGcRootTracker(object):
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
         'cmp', 'test', 'set', 'sahf', 'lahf', 'cltd', 'cld', 'std',
         'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'cwde', 'prefetch',
-        'pslld', 
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
@@ -457,6 +456,7 @@ class FunctionGcRootTracker(object):
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
         'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
+        'paddq', 'pinsr',
         # zero-extending moves should not produce GC pointers
         'movz', 
         ])
@@ -1443,6 +1443,7 @@ class DarwinAssemblerParser64(DarwinAssemblerParser):
 
 class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
+    r_sectionstart = re.compile(r"^_loc()")
     FunctionGcRootTracker = Mingw32FunctionGcRootTracker
 
 class MsvcAssemblerParser(AssemblerParser):
@@ -1645,7 +1646,7 @@ class GcRootTracker(object):
                      darwin64='')
             print >> output, "%s:" % _globalname('pypy_asm_stackwalk')
 
-            print >> output, """\
+            s = """\
             /* See description in asmgcroot.py */
             .cfi_startproc
             movq\t%rdi, %rdx\t/* 1st argument, which is the callback */
@@ -1691,6 +1692,12 @@ class GcRootTracker(object):
             ret
             .cfi_endproc
             """
+            if self.format == 'darwin64':
+                # obscure.  gcc there seems not to support .cfi_...
+                # hack it out...
+                s = re.sub(r'([.]cfi_[^/\n]+)([/\n])',
+                           r'/* \1 disabled on darwin */\2', s)
+            print >> output, s
             _variant(elf64='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
                      darwin64='')
         else:

@@ -91,6 +91,32 @@ class AppTestCProfile(object):
         assert spam2bar.inlinetime == 1.0
         assert spam2bar.totaltime == 1.0
 
+    def test_scale_of_result(self):
+        import _lsprof, time
+        prof = _lsprof.Profiler()
+        def foo(n):
+            t = time.time()
+            while abs(t - time.time()) < 1.0:
+                pass      # busy-wait for 1 second
+        def bar(n):
+            foo(n)
+        prof.enable()
+        bar(0)
+        prof.disable()
+        stats = prof.getstats()
+        entries = {}
+        for entry in stats:
+            entries[entry.code] = entry
+        efoo = entries[foo.func_code]
+        ebar = entries[bar.func_code]
+        assert 0.9 < efoo.totaltime < 2.9
+        # --- cannot test .inlinetime, because it does not include
+        # --- the time spent doing the call to time.time()
+        #assert 0.9 < efoo.inlinetime < 2.9
+        for subentry in ebar.calls:
+            assert 0.9 < subentry.totaltime < 2.9
+            #assert 0.9 < subentry.inlinetime < 2.9
+
     def test_cprofile(self):
         import sys, os
         # XXX this is evil trickery to walk around the fact that we don't

@@ -443,8 +443,8 @@ class CLIBaseGenerator(Generator):
             self.ilasm.opcode('newarr', clitype.itemtype.typename())
     
     def _array_suffix(self, ARRAY, erase_unsigned=False):
-        from pypy.translator.cli.metavm import OOTYPE_TO_MNEMONIC
-        suffix = OOTYPE_TO_MNEMONIC.get(ARRAY.ITEM, 'ref')
+        from pypy.translator.cli.metavm import ootype_to_mnemonic
+        suffix = ootype_to_mnemonic(ARRAY.ITEM, ARRAY.ITEM, 'ref')
         if erase_unsigned:
             suffix = suffix.replace('u', 'i')
         return suffix

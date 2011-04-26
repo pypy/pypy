@@ -41,9 +41,7 @@ def PyDict_DelItem(space, w_dict, w_key):
 def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
     if PyDict_Check(space, w_dict):
         key = rffi.charp2str(key_ptr)
-        # our dicts dont have a standardized interface, so we need
-        # to go through the space
-        space.setitem(w_dict, space.wrap(key), w_obj)
+        space.setitem_str(w_dict, key, w_obj)
         return 0
     else:
         PyErr_BadInternalCall(space)

@@ -2757,7 +2757,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
-    def test_fold_partially_constant_ops(self):
+    def test_fold_partially_constant_add_sub(self):
         ops = """
         [i0]
         i1 = int_sub(i0, 0)
@@ -2791,7 +2791,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
-    def test_fold_partially_constant_ops_ovf(self):
+    def test_fold_partially_constant_add_sub_ovf(self):
         ops = """
         [i0]
         i1 = int_sub_ovf(i0, 0)
@@ -2821,6 +2821,21 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i1 = int_add_ovf(0, i0)
         guard_no_overflow() []
         jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_fold_partially_constant_shift(self):
+        ops = """
+        [i0]
+        i1 = int_lshift(i0, 0)
+        i2 = int_rshift(i1, 0)
+        i3 = int_eq(i2, i0)
+        guard_true(i3) []
+        jump(i2)
         """
         expected = """
         [i0]
@@ -4383,6 +4398,8 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = int_rshift(i3, i2)
         i5 = int_lshift(i1, 2)
         i6 = int_rshift(i5, 2)
+        i6t= int_eq(i6, i1)
+        guard_true(i6t) []
         i7 = int_lshift(i1, 100)
         i8 = int_rshift(i7, 100)
         i9 = int_lt(i1b, 100)
@@ -4407,6 +4424,8 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = int_rshift(i3, i2)
         i5 = int_lshift(i1, 2)
         i6 = int_rshift(i5, 2)
+        i6t= int_eq(i6, i1)
+        guard_true(i6t) []
         i7 = int_lshift(i1, 100)
         i8 = int_rshift(i7, 100)
         i9 = int_lt(i1b, 100)
@@ -4416,11 +4435,8 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i13 = int_lshift(i1b, i2)
         i14 = int_rshift(i13, i2)
         i15 = int_lshift(i1b, 2)
-        i16 = int_rshift(i15, 2)
         i17 = int_lshift(i1b, 100)
         i18 = int_rshift(i17, 100)
-        i19 = int_eq(i1b, i16)
-        guard_true(i19) []
         jump(i2, i3, i1b, i2b)
         """
         self.optimize_loop(ops, expected)
@@ -4960,6 +4976,58 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         p2 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, i1, descr=nextdescr)
         """
+        py.test.skip("no test here")
+
+    def test_immutable_not(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_noimmut_vtable))
+        setfield_gc(p0, 42, descr=noimmut_intval)
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_variable(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p0, i0, descr=immut_intval)
+        escape(p0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_incomplete(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_constantfold(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p0, 1242, descr=immut_intval)
+        escape(p0)
+        jump()
+        """
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        class IntObj1242(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(self, other):
+                return other.container.intval == 1242
+        self.namespace['intobj1242'] = lltype._ptr(llmemory.GCREF,
+                                                   IntObj1242())
+        expected = """
+        []
+        escape(ConstPtr(intobj1242))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble=None):

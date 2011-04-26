@@ -1,6 +1,6 @@
 
 import py
-from pypy.jit.metainterp.test.test_basic import JitMixin
+from pypy.jit.metainterp.test.support import JitMixin
 from pypy.jit.tl.spli import interpreter, objects, serializer
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.backend.llgraph import runner

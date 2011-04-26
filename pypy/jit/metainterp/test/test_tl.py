@@ -1,6 +1,6 @@
 import py
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.jit.metainterp.test.test_basic import OOJitMixin, LLJitMixin
+from pypy.jit.metainterp.test.support import OOJitMixin, LLJitMixin
 
 
 class ToyLanguageTests:

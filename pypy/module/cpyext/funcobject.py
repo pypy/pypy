@@ -14,6 +14,10 @@ PyFunctionObjectFields = PyObjectFields + \
     (("func_name", PyObject),)
 cpython_struct("PyFunctionObject", PyFunctionObjectFields, PyFunctionObjectStruct)
 
+PyCodeObjectStruct = lltype.ForwardReference()
+PyCodeObject = lltype.Ptr(PyCodeObjectStruct)
+cpython_struct("PyCodeObject", PyObjectFields, PyCodeObjectStruct)
+
 @bootstrap_function
 def init_functionobject(space):
     make_typedescr(Function.typedef,
@@ -65,7 +69,36 @@ def PyMethod_Class(space, w_method):
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_class)
 
-@cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
+def unwrap_list_of_strings(space, w_list):
+    return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
+
+@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
+              PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
+              PyObject, PyObject, rffi.INT_real, PyObject], PyCodeObject)
+def PyCode_New(space, argcount, nlocals, stacksize, flags,
+               w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
+               w_filename, w_funcname, firstlineno, w_lnotab):
+    """Return a new code object.  If you need a dummy code object to
+    create a frame, use PyCode_NewEmpty() instead.  Calling
+    PyCode_New() directly can bind you to a precise Python
+    version since the definition of the bytecode changes often."""
+    return space.wrap(PyCode(space,
+                             argcount=rffi.cast(lltype.Signed, argcount),
+                             nlocals=rffi.cast(lltype.Signed, nlocals),
+                             stacksize=rffi.cast(lltype.Signed, stacksize),
+                             flags=rffi.cast(lltype.Signed, flags),
+                             code=space.str_w(w_code),
+                             consts=space.fixedview(w_consts),
+                             names=unwrap_list_of_strings(space, w_names),
+                             varnames=unwrap_list_of_strings(space, w_varnames),
+                             filename=space.str_w(w_filename),
+                             name=space.str_w(w_funcname),
+                             firstlineno=rffi.cast(lltype.Signed, firstlineno),
+                             lnotab=space.str_w(w_lnotab),
+                             freevars=unwrap_list_of_strings(space, w_freevars),
+                             cellvars=unwrap_list_of_strings(space, w_cellvars)))
+
+@cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyCodeObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
     return space.wrap(PyCode(space,

@@ -2,6 +2,7 @@ import os
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem import llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -22,6 +23,8 @@ from pypy.rpython.memory.gctransform import asmgcroot
 
 class GcLLDescription(GcCache):
     minimal_size_in_nursery = 0
+    get_malloc_slowpath_addr = None
+
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
         self.gcdescr = gcdescr
@@ -34,6 +37,8 @@ class GcLLDescription(GcCache):
     def rewrite_assembler(self, cpu, operations):
         pass
     def can_inline_malloc(self, descr):
+        return False
+    def can_inline_malloc_varsize(self, descr, num_elem):
         return False
     def has_write_barrier_class(self):
         return None
@@ -506,7 +511,7 @@ class GcRootMap_shadowstack(object):
             while i >= 0:
                 newarray[i] = self._callshapes[i]
                 i -= 1
-            lltype.free(self._callshapes, flavor='raw')
+            lltype.free(self._callshapes, flavor='raw', track_allocation=False)
         self._callshapes = newarray
         self._callshapes_maxlength = newlength
 
@@ -588,6 +593,10 @@ class GcLLDescr_framework(GcLLDescription):
         self.max_size_of_young_obj = self.GCClass.JIT_max_size_of_young_obj()
         self.minimal_size_in_nursery=self.GCClass.JIT_minimal_size_in_nursery()
 
+        # for the fast path of mallocs, the following must be true, at least
+        assert self.GCClass.inline_simple_malloc
+        assert self.GCClass.inline_simple_malloc_varsize
+
         # make a malloc function, with three arguments
         def malloc_basic(size, tid):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
@@ -666,20 +675,23 @@ class GcLLDescr_framework(GcLLDescription):
             x3 = x0 * 0.3
             for_test_only.x = x0 + x1 + x2 + x3
         #
-        def malloc_fixedsize_slowpath(size):
+        def malloc_slowpath(size):
             if self.DEBUG:
                 random_usage_of_xmm_registers()
             assert size >= self.minimal_size_in_nursery
             try:
+                # NB. although we call do_malloc_fixedsize_clear() here,
+                # it's a bit of a hack because we set tid to 0 and may
+                # also use it to allocate varsized objects.  The tid
+                # and possibly the length are both set afterward.
                 gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                             0, size, True, False, False)
             except MemoryError:
                 fatalerror("out of memory (from JITted code)")
                 return 0
             return rffi.cast(lltype.Signed, gcref)
-        self.malloc_fixedsize_slowpath = malloc_fixedsize_slowpath
-        self.MALLOC_FIXEDSIZE_SLOWPATH = lltype.FuncType([lltype.Signed],
-                                                         lltype.Signed)
+        self.malloc_slowpath = malloc_slowpath
+        self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed], lltype.Signed)
 
     def get_nursery_free_addr(self):
         nurs_addr = llop.gc_adr_of_nursery_free(llmemory.Address)
@@ -689,9 +701,8 @@ class GcLLDescr_framework(GcLLDescription):
         nurs_top_addr = llop.gc_adr_of_nursery_top(llmemory.Address)
         return rffi.cast(lltype.Signed, nurs_top_addr)
 
-    def get_malloc_fixedsize_slowpath_addr(self):
-        fptr = llhelper(lltype.Ptr(self.MALLOC_FIXEDSIZE_SLOWPATH),
-                        self.malloc_fixedsize_slowpath)
+    def get_malloc_slowpath_addr(self):
+        fptr = llhelper(lltype.Ptr(self.MALLOC_SLOWPATH), self.malloc_slowpath)
         return rffi.cast(lltype.Signed, fptr)
 
     def initialize(self):
@@ -836,6 +847,16 @@ class GcLLDescr_framework(GcLLDescription):
                 return False
             return True
         return False
+
+    def can_inline_malloc_varsize(self, arraydescr, num_elem):
+        assert isinstance(arraydescr, BaseArrayDescr)
+        basesize = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        try:
+            size = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
+            return size < self.max_size_of_young_obj
+        except OverflowError:
+            return False
 
     def has_write_barrier_class(self):
         return WriteBarrierDescr

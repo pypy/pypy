@@ -7,10 +7,11 @@ from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
+    cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    PyBufferProcs, build_type_checkers)
+    Py_TPFLAGS_HAVE_GETCHARBUFFER,
+    build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, RefcountState, borrow_from)
@@ -24,7 +25,7 @@ from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
-    PyNumberMethods, PySequenceMethods)
+    PyNumberMethods, PySequenceMethods, PyBufferProcs)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.interpreter.error import OperationError
@@ -361,14 +362,14 @@ def subtype_dealloc(space, obj):
     # hopefully this does not clash with the memory model assumed in
     # extension modules
 
-@cpython_api([PyObject, rffi.INTP], lltype.Signed, external=False,
+@cpython_api([PyObject, Py_ssize_tP], lltype.Signed, external=False,
              error=CANNOT_FAIL)
 def str_segcount(space, w_obj, ref):
     if ref:
-        ref[0] = rffi.cast(rffi.INT, space.len_w(w_obj))
+        ref[0] = space.len_w(w_obj)
     return 1
 
-@cpython_api([PyObject, lltype.Signed, rffi.VOIDPP], lltype.Signed,
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              external=False, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.stringobject import PyString_AsString
@@ -381,7 +382,7 @@ def str_getreadbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
-@cpython_api([PyObject, lltype.Signed, rffi.CCHARPP], lltype.Signed,
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              external=False, error=-1)
 def str_getcharbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.stringobject import PyString_AsString
@@ -403,6 +404,7 @@ def setup_string_buffer_procs(space, pto):
     c_buf.c_bf_getcharbuffer = llhelper(str_getcharbuffer.api_func.functype,
                                  str_getcharbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
+    pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def type_dealloc(space, obj):
@@ -443,7 +445,7 @@ def type_attach(space, py_obj, w_type):
     if space.is_w(w_type, space.w_str):
         setup_string_buffer_procs(space, pto)
 
-    pto.c_tp_flags = Py_TPFLAGS_HEAPTYPE
+    pto.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
     pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
             PyObject_Del.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,

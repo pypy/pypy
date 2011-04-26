@@ -15,6 +15,7 @@ from pypy.rlib import streamio, jit, rposix
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.module.sys.version import PYPY_VERSION
 
 SEARCH_ERROR = 0
 PY_SOURCE = 1
@@ -31,7 +32,7 @@ if sys.platform == 'win32':
     SO = ".pyd"
 else:
     SO = ".so"
-DEFAULT_SOABI = 'pypy-14'
+DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
 CHECK_FOR_PYW = sys.platform == 'win32'
 
 @specialize.memo()
@@ -91,9 +92,10 @@ if sys.platform == 'linux2' or 'freebsd' in sys.platform:
 else:
     # XXX that's slow
     def case_ok(filename):
-        index1 = filename.rfind(os.sep)
-        index2 = filename.rfind(os.altsep)
-        index = max(index1, index2)
+        index = filename.rfind(os.sep)
+        if os.altsep is not None:
+            index2 = filename.rfind(os.altsep)
+            index = max(index, index2)
         if index < 0:
             directory = os.curdir
         else:
@@ -118,9 +120,21 @@ def check_sys_modules(space, w_modulename):
 def check_sys_modules_w(space, modulename):
     return space.finditem_str(space.sys.get('modules'), modulename)
 
+@jit.purefunction
+def _get_dot_position(str, n):
+    # return the index in str of the '.' such that there are n '.'-separated
+    # strings after it
+    result = len(str)
+    while n > 0 and result >= 0:
+        n -= 1
+        result = str.rfind('.', 0, result)
+    return result
+
 def _get_relative_name(space, modulename, level, w_globals):
     w = space.wrap
-    ctxt_w_package = space.finditem(w_globals, w('__package__'))
+    ctxt_w_package = space.finditem_str(w_globals, '__package__')
+    ctxt_w_package = jit.hint(ctxt_w_package, promote=True)
+    level = jit.hint(level, promote=True)
 
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
@@ -137,11 +151,8 @@ def _get_relative_name(space, modulename, level, w_globals):
         if ctxt_package == '' and level < 0:
             return None, 0
 
-        package_parts = ctxt_package.split('.')
-        while level > 1 and package_parts:
-            level -= 1
-            package_parts.pop()
-        if not package_parts:
+        dot_position = _get_dot_position(ctxt_package, level - 1)
+        if dot_position < 0:
             if len(ctxt_package) == 0:
                 msg = "Attempted relative import in non-package"
             else:
@@ -164,15 +175,16 @@ def _get_relative_name(space, modulename, level, w_globals):
                            "while handling absolute import" % ctxt_package,
                            space.w_RuntimeWarning)
 
-        rel_level = len(package_parts)
+        rel_modulename = ctxt_package[:dot_position]
+        rel_level = rel_modulename.count('.') + 1
         if modulename:
-            package_parts.append(modulename)
-        rel_modulename = '.'.join(package_parts)
+            rel_modulename += '.' + modulename
     else:
         # __package__ not set, so figure it out and set it
-        ctxt_w_name = space.finditem(w_globals, w('__name__'))
-        ctxt_w_path = space.finditem(w_globals, w('__path__'))
+        ctxt_w_name = space.finditem_str(w_globals, '__name__')
+        ctxt_w_path = space.finditem_str(w_globals, '__path__')
 
+        ctxt_w_name = jit.hint(ctxt_w_name, promote=True)
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
@@ -184,37 +196,37 @@ def _get_relative_name(space, modulename, level, w_globals):
         if not ctxt_name:
             return None, 0
 
-        ctxt_name_prefix_parts = ctxt_name.split('.')
-        if level > 0:
-            n = len(ctxt_name_prefix_parts)-level+1
-            assert n>=0
-            ctxt_name_prefix_parts = ctxt_name_prefix_parts[:n]
-        if ctxt_name_prefix_parts and ctxt_w_path is None: # plain module
-            ctxt_name_prefix_parts.pop()
-
-        if level > 0 and not ctxt_name_prefix_parts:
-            msg = "Attempted relative import in non-package"
-            raise OperationError(space.w_ValueError, w(msg))
-
-        rel_modulename = '.'.join(ctxt_name_prefix_parts)
+        m = max(level - 1, 0)
+        if ctxt_w_path is None:   # plain module
+            m += 1
+        dot_position = _get_dot_position(ctxt_name, m)
+        if dot_position < 0:
+            if level > 0:
+                msg = "Attempted relative import in non-package"
+                raise OperationError(space.w_ValueError, w(msg))
+            rel_modulename = ''
+            rel_level = 0
+        else:
+            rel_modulename = ctxt_name[:dot_position]
+            rel_level = rel_modulename.count('.') + 1
 
         if ctxt_w_path is not None:
             # __path__ is set, so __name__ is already the package name
             space.setitem(w_globals, w("__package__"), ctxt_w_name)
         else:
             # Normal module, so work out the package name if any
-            if '.' not in ctxt_name:
+            last_dot_position = ctxt_name.rfind('.')
+            if last_dot_position < 0:
                 space.setitem(w_globals, w("__package__"), space.w_None)
-            elif rel_modulename:
-                space.setitem(w_globals, w("__package__"), w(rel_modulename))
+            else:
+                space.setitem(w_globals, w("__package__"),
+                              w(ctxt_name[:last_dot_position]))
 
         if modulename:
             if rel_modulename:
                 rel_modulename += '.' + modulename
             else:
                 rel_modulename = modulename
-
-        rel_level = len(ctxt_name_prefix_parts)
 
     return rel_modulename, rel_level
 
@@ -247,12 +259,20 @@ def importhook(space, name, w_globals=None,
             # fall back to absolute import at the end of the
             # function.
             if level == -1:
-                tentative = True
+                # This check is a fast path to avoid redoing the
+                # following absolute_import() in the common case
+                w_mod = check_sys_modules_w(space, rel_modulename)
+                if w_mod is not None and space.is_w(w_mod, space.w_None):
+                    # if we already find space.w_None, it means that we
+                    # already tried and failed and falled back to the
+                    # end of this function.
+                    w_mod = None
+                else:
+                    w_mod = absolute_import(space, rel_modulename, rel_level,
+                                            fromlist_w, tentative=True)
             else:
-                tentative = False
-
-            w_mod = absolute_import(space, rel_modulename, rel_level,
-                                    fromlist_w, tentative=tentative)
+                w_mod = absolute_import(space, rel_modulename, rel_level,
+                                        fromlist_w, tentative=False)
             if w_mod is not None:
                 space.timer.stop_name("importhook", modulename)
                 return w_mod
@@ -263,13 +283,17 @@ def importhook(space, name, w_globals=None,
     space.timer.stop_name("importhook", modulename)
     return w_mod
 
-@jit.dont_look_inside
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):
     # Short path: check in sys.modules
     w_mod = absolute_import_try(space, modulename, baselevel, fromlist_w)
     if w_mod is not None and not space.is_w(w_mod, space.w_None):
         return w_mod
+    return absolute_import_with_lock(space, modulename, baselevel,
+                                     fromlist_w, tentative)
 
+@jit.dont_look_inside
+def absolute_import_with_lock(space, modulename, baselevel,
+                              fromlist_w, tentative):
     lock = getimportlock(space)
     lock.acquire_lock()
     try:
@@ -644,7 +668,7 @@ def reload(space, w_module):
         parent_name = '.'.join(namepath[:-1])
         parent = None
         if parent_name:
-            w_parent = check_sys_modules(space, space.wrap(parent_name))
+            w_parent = check_sys_modules_w(space, parent_name)
             if w_parent is None:
                 raise operationerrfmt(
                     space.w_ImportError,
