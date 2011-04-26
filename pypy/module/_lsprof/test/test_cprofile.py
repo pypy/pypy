@@ -110,10 +110,12 @@ class AppTestCProfile(object):
         efoo = entries[foo.func_code]
         ebar = entries[bar.func_code]
         assert 0.9 < efoo.totaltime < 2.9
-        assert 0.9 < efoo.inlinetime < 2.9
+        # --- cannot test .inlinetime, because it does not include
+        # --- the time spent doing the call to time.time()
+        #assert 0.9 < efoo.inlinetime < 2.9
         for subentry in ebar.calls:
             assert 0.9 < subentry.totaltime < 2.9
-            assert 0.9 < subentry.inlinetime < 2.9
+            #assert 0.9 < subentry.inlinetime < 2.9
 
     def test_cprofile(self):
         import sys, os
