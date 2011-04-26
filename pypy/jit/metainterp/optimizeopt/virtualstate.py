@@ -9,6 +9,7 @@ from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.rlib.objectmodel import we_are_translated
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
@@ -24,7 +25,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def _generate_guards(self, other, box, cpu, extra_guards):
         raise InvalidLoop
 
-    def enum_forced_boxes(self, boxes, already_seen, value):
+    def enum_forced_boxes(self, boxes, value):
         raise NotImplementedError
 
     def enum(self, virtual_state):
@@ -63,18 +64,14 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def _generalization_of(self, other):
         raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, already_seen, value):
+    def enum_forced_boxes(self, boxes, value):
         assert isinstance(value, virtualize.AbstractVirtualStructValue)
-        key = value.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if value.box is None:
-            for i in range(len(self.fielddescrs)):
-                v = value._fields[self.fielddescrs[i]]
-                self.fieldstate[i].enum_forced_boxes(boxes, already_seen, v)
-        else:
-            boxes.append(value.box)
+        assert value.is_virtual()
+        for i in range(len(self.fielddescrs)):
+            v = value._fields[self.fielddescrs[i]]
+            s = self.fieldstate[i]
+            if s.position > self.position:
+                s.enum_forced_boxes(boxes, v)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -121,18 +118,14 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 return False
         return True
 
-    def enum_forced_boxes(self, boxes, already_seen, value):
+    def enum_forced_boxes(self, boxes, value):
         assert isinstance(value, virtualize.VArrayValue)
-        key = value.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if value.box is None:
-            for i in range(len(self.fieldstate)):
-                v = value._items[i]
-                self.fieldstate[i].enum_forced_boxes(boxes, already_seen, v)
-        else:
-            boxes.append(value.box)
+        assert value.is_virtual()
+        for i in range(len(self.fieldstate)):
+            v = value._items[i]
+            s = self.fieldstate[i]
+            if s.position > self.position:
+                s.enum_forced_boxes(boxes, v)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -150,6 +143,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             self.constbox = value.box
         else:
             self.constbox = None
+        self.position_in_notvirtuals = -1
 
     def generalization_of(self, other):
         # XXX This will always retrace instead of forcing anything which
@@ -225,22 +219,23 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             import pdb; pdb.set_trace()
             raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, already_seen, value):
+    def enum_forced_boxes(self, boxes, value):
         if self.level == LEVEL_CONSTANT:
             return
-        key = value.get_key_box()
-        if key not in already_seen:
-            boxes.append(value.force_box())
-            already_seen[value.get_key_box()] = None
+        assert 0 <= self.position_in_notvirtuals 
+        boxes[self.position_in_notvirtuals] = value.force_box()
 
     def _enum(self, virtual_state):
+        if self.level == LEVEL_CONSTANT:
+            return
+        self.position_in_notvirtuals = len(virtual_state.notvirtuals)
         virtual_state.notvirtuals.append(self)
 
 class VirtualState(object):
     def __init__(self, state):
         self.state = state
         self.info_counter = -1
-        self.notvirtuals = []
+        self.notvirtuals = [] # FIXME: We dont need this list, only it's length
         for s in state:
             s.enum(self)
 
@@ -259,17 +254,20 @@ class VirtualState(object):
 
     def make_inputargs(self, values, keyboxes=False):
         assert len(values) == len(self.state)
-        inputargs = []
-        seen_inputargs = {}
+        inputargs = [None] * len(self.notvirtuals)
         for i in range(len(values)):
-            self.state[i].enum_forced_boxes(inputargs, seen_inputargs,
-                                            values[i])
-            
+            self.state[i].enum_forced_boxes(inputargs, values[i])
+
         if keyboxes:
-            for value in values:
-                box = value.get_key_box()
-                if box not in inputargs and not isinstance(box, Const):
+            for i in range(len(values)):
+                if not isinstance(self.state[i], NotVirtualStateInfo):
+                    box = values[i].get_key_box()
+                    assert not isinstance(box, Const)
                     inputargs.append(box)
+
+        if not we_are_translated():
+            assert len(set(inputargs)) == len(inputargs)
+        assert None not in inputargs
             
         return inputargs
         
@@ -310,7 +308,10 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
                   for box in jump_args]
 
         for value in values:
-            value.get_args_for_fail(self)
+            if value.is_virtual():
+                value.get_args_for_fail(self)
+            else:
+                self.make_not_virtual(value)
         return VirtualState([self.state(box) for box in jump_args])
 
     def make_not_virtual(self, value):
