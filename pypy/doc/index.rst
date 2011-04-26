@@ -32,12 +32,12 @@ Mailing lists, bug tracker, IRC channel
 * `Development mailing list`_: development and conceptual
   discussions. 
 
-* `Subversion commit mailing list`_: updates to code and
+* `Mercurial commit mailing list`_: updates to code and
   documentation. 
 
-* `Development bug/feature tracker`_: filing bugs and feature requests. 
-
 * `Sprint mailing list`_: mailing list for organizing upcoming sprints. 
+
+* `Development bug/feature tracker`_: filing bugs and feature requests. 
 
 * **IRC channel #pypy on freenode**: Many of the core developers are hanging out 
   at #pypy on irc.freenode.net.  You are welcome to join and ask questions
@@ -60,7 +60,7 @@ on the `development mailing list`_.
 .. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
 .. _here: http://tismerysoft.de/pypy/irc-logs/pypy
 .. _`sprint mailing list`: http://codespeak.net/mailman/listinfo/pypy-sprint 
-.. _`commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
+.. _`Mercurial commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
 .. _`development mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`FAQ`: faq.html
 .. _`Documentation`: docindex.html 
@@ -134,7 +134,6 @@ Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
 * :ref:`glossary`
 
