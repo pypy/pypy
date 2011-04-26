@@ -170,7 +170,7 @@ or start off at one of the following points:
    resulting binary interactively much more pleasant.
 
 *  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
-   is `pypy/interpreter/objspace.py`_.  For each type, the files ``xxxtype.py`` and
+   is `pypy/objspace/std/objspace.py`_.  For each type, the files ``xxxtype.py`` and
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
