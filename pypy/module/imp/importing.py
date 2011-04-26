@@ -259,12 +259,20 @@ def importhook(space, name, w_globals=None,
             # fall back to absolute import at the end of the
             # function.
             if level == -1:
-                tentative = True
+                # This check is a fast path to avoid redoing the
+                # following absolute_import() in the common case
+                w_mod = check_sys_modules_w(space, rel_modulename)
+                if w_mod is not None and space.is_w(w_mod, space.w_None):
+                    # if we already find space.w_None, it means that we
+                    # already tried and failed and falled back to the
+                    # end of this function.
+                    w_mod = None
+                else:
+                    w_mod = absolute_import(space, rel_modulename, rel_level,
+                                            fromlist_w, tentative=True)
             else:
-                tentative = False
-
-            w_mod = absolute_import(space, rel_modulename, rel_level,
-                                    fromlist_w, tentative=tentative)
+                w_mod = absolute_import(space, rel_modulename, rel_level,
+                                        fromlist_w, tentative=False)
             if w_mod is not None:
                 space.timer.stop_name("importhook", modulename)
                 return w_mod
@@ -660,7 +668,7 @@ def reload(space, w_module):
         parent_name = '.'.join(namepath[:-1])
         parent = None
         if parent_name:
-            w_parent = check_sys_modules(space, space.wrap(parent_name))
+            w_parent = check_sys_modules_w(space, parent_name)
             if w_parent is None:
                 raise operationerrfmt(
                     space.w_ImportError,
