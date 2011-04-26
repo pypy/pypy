@@ -330,3 +330,11 @@ class TestW_ListStrategies(TestW_ListObject):
         from pypy.objspace.std.listobject import getslice__List_ANY_ANY
         # should not raise
         assert getslice__List_ANY_ANY(self.space, l, self.space.wrap(15), self.space.wrap(2222)).strategy == self.space.fromcache(EmptyListStrategy)
+
+
+    def test_add_to_rangelist(self):
+        l1 = make_range_list(self.space, 1, 1, 3)
+        l2 = W_ListObject(self.space, [self.space.wrap(4), self.space.wrap(5)])
+        from pypy.objspace.std.listobject import add__List_List
+        l3 = add__List_List(self.space, l1, l2)
+        assert self.space.eq_w(l3, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(4), self.space.wrap(5)]))

@@ -566,6 +566,16 @@ class AppTestW_ListObject(object):
         l1 += bar
         assert l1 == ('radd', bar, [1,2,3])
 
+    def test_add_lists(self):
+        l1 = [1,2,3]
+        l2 = [4,5,6]
+        l3 = l1 + l2
+        assert l3 == [1,2,3,4,5,6]
+
+        l4 = range(3)
+        l5 = l4 + l2
+        assert l5 == [0,1,2,4,5,6]
+
     def test_imul(self):
         l = l0 = [4,3]
         l *= 2
