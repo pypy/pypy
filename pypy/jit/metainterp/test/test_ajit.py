@@ -1864,7 +1864,7 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [3, 23])
         assert res == 7068153
-        self.check_loop_count(6)
+        self.check_loop_count(7)
         self.check_loops(guard_true=4, guard_class=0, int_add=2, int_mul=2,
                          guard_false=2)
 

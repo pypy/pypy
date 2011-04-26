@@ -785,7 +785,6 @@ class LoopToken(AbstractDescr):
     def repr_of_descr(self):
         return '<Loop%d>' % self.number
 
-
 class TreeLoop(object):
     inputargs = None
     operations = None
