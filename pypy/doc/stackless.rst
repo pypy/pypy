@@ -138,6 +138,11 @@ It provides the following methods and attributes:
     will come from any call to ``coro.switch()`` and can be caught. If the
     exception isn't caught, it will be propagated to the parent coroutine.
 
+When a coroutine is garbage-collected, it gets the ``.kill()`` method sent to
+it. This happens at the point the next ``.switch`` method is called, so the
+target coroutine of this call will be executed only after the ``.kill`` has
+finished.
+
 Example
 ~~~~~~~
 
