@@ -693,6 +693,25 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_isnull(p16, descr=<Guard6>)
         """)
 
+    def test_import_fast_path(self, tmpdir):
+        py.test.skip('in-progress')
+        pkg = tmpdir.join('mypkg').ensure(dir=True)
+        pkg.join('__init__.py').write("")
+        pkg.join('mod.py').write(str(py.code.Source("""
+            def do_the_import():
+                import sys
+        """)))
+        def main(path, n):
+            import sys
+            sys.path.append(path)
+            from mypkg.mod import do_the_import
+            for i in range(n):
+                do_the_import()
+        #
+        log = self.run(main, [str(tmpdir), 300], threshold=200)
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: check the loop
+
     def test_arraycopy_disappears(self):
         def main(n):
             i = 0

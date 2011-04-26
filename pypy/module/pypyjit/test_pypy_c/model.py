@@ -135,7 +135,7 @@ class LoopWithIds(Function):
 
     def format_ops(self, id=None, **kwds):
         if id is None:
-            ops = self.allops()
+            ops = self.allops(**kwds)
         else:
             ops = self.ops_by_id(id, **kwds)
         return '\n'.join(map(str, ops))
