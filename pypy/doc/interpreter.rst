@@ -37,7 +37,7 @@ instantiating and initializing a `Frame class`_ and then
 calling its ``frame.eval()`` method.  This main entry point 
 initialize appropriate namespaces and then interprets each 
 bytecode instruction.  Python's standard library contains
-the `lib-python/2.5.2/dis.py`_ module which allows to view
+the `lib-python/2.7.0/dis.py`_ module which allows to view
 the Virtual's machine bytecode instructions:: 
 
     >>> import dis
