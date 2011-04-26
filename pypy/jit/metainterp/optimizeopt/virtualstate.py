@@ -11,6 +11,8 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
+    position = -1
+    
     def generalization_of(self, other):
         raise NotImplementedError
 
@@ -24,12 +26,25 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
 
     def enum_forced_boxes(self, boxes, already_seen, value):
         raise NotImplementedError
+
+    def enum(self, virtual_state):
+        if self.position != -1:
+            return
+        virtual_state.info_counter += 1
+        self.position = virtual_state.info_counter
+        self._enum(virtual_state)
+
+    def _enum(self, virtual_state):
+        raise NotImplementedError
     
 class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
 
     def generalization_of(self, other):
+        assert self.position != -1
+        if self.position != other.position:
+            return False
         if not self._generalization_of(other):
             return False
         assert len(self.fielddescrs) == len(self.fieldstate)
@@ -60,6 +75,10 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 self.fieldstate[i].enum_forced_boxes(boxes, already_seen, v)
         else:
             boxes.append(value.box)
+
+    def _enum(self, virtual_state):
+        for s in self.fieldstate:
+            s.enum(virtual_state)
         
 class VirtualStateInfo(AbstractVirtualStructStateInfo):
     def __init__(self, known_class, fielddescrs):
@@ -90,6 +109,9 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         self.arraydescr = arraydescr
 
     def generalization_of(self, other):
+        assert self.position != -1
+        if self.position != other.position:
+            return False
         if self.arraydescr is not other.arraydescr:
             return False
         if len(self.fieldstate) != len(other.fieldstate):
@@ -112,6 +134,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         else:
             boxes.append(value.box)
 
+    def _enum(self, virtual_state):
+        for s in self.fieldstate:
+            s.enum(virtual_state)
+        
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value):
         self.known_class = value.known_class
@@ -128,6 +154,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def generalization_of(self, other):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
+        assert self.position != -1
+        if self.position != other.position:
+            return False
         if not isinstance(other, NotVirtualStateInfo):
             return False
         if other.level < self.level:
@@ -203,11 +232,17 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if key not in already_seen:
             boxes.append(value.force_box())
             already_seen[value.get_key_box()] = None
-        
+
+    def _enum(self, virtual_state):
+        virtual_state.notvirtuals.append(self)
 
 class VirtualState(object):
     def __init__(self, state):
         self.state = state
+        self.info_counter = -1
+        self.notvirtuals = []
+        for s in state:
+            s.enum(self)
 
     def generalization_of(self, other):
         assert len(self.state) == len(other.state)
