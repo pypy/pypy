@@ -2,6 +2,7 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
      IntLowerBound, IntUnbounded
 from copy import copy
 import sys
+from pypy.rlib.rarithmetic import LONG_BIT
 
 def bound(a,b):
     if a is None and b is None:
@@ -229,6 +230,12 @@ def test_shift_overflow():
     assert not b10.lshift_bound(b100).has_upper
     assert not bmax.lshift_bound(b10).has_upper
     assert b10.lshift_bound(b10).has_upper
+
+    for b in (b10, b100, bmax, IntBound(0, 0)):
+        for shift_count_bound in (IntBound(7, LONG_BIT), IntBound(-7, 7)):
+            #assert not b.lshift_bound(shift_count_bound).has_upper
+            assert not b.rshift_bound(shift_count_bound).has_upper
+        
     
 def test_div_bound():
     for _, _, b1 in some_bounds():
