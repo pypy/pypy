@@ -57,7 +57,7 @@ reports that we submitted to the European Union.
 
 `development methodology`_ describes our sprint-driven approach.
 
-`./LICENSE`_ contains licensing details (basically a straight MIT-license). 
+`LICENSE`_ contains licensing details (basically a straight MIT-license). 
 
 `Glossary`_ of PyPy words to help you align your inner self with
 the PyPy universe.
@@ -170,6 +170,7 @@ from our Python interpreter.
 .. _`directory reference`: 
 .. _`rlib`: rlib.html
 .. _`Sandboxing Python code`: sandbox.html
+.. _`LICENSE`: https://bitbucket.org/pypy/pypy/src/default/LICENSE
 
 PyPy directory cross-reference 
 ------------------------------
