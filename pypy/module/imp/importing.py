@@ -215,10 +215,12 @@ def _get_relative_name(space, modulename, level, w_globals):
             space.setitem(w_globals, w("__package__"), ctxt_w_name)
         else:
             # Normal module, so work out the package name if any
-            if '.' not in ctxt_name:
+            last_dot_position = ctxt_name.rfind('.')
+            if last_dot_position < 0:
                 space.setitem(w_globals, w("__package__"), space.w_None)
-            elif rel_modulename:
-                space.setitem(w_globals, w("__package__"), w(rel_modulename))
+            else:
+                space.setitem(w_globals, w("__package__"),
+                              w(ctxt_name[:last_dot_position]))
 
         if modulename:
             if rel_modulename:
