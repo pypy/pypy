@@ -694,7 +694,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_import_fast_path(self, tmpdir):
-        py.test.skip('in-progress')
         pkg = tmpdir.join('mypkg').ensure(dir=True)
         pkg.join('__init__.py').write("")
         pkg.join('mod.py').write(str(py.code.Source("""
@@ -710,7 +709,10 @@ class TestPyPyCNew(BaseTestPyPyC):
         #
         log = self.run(main, [str(tmpdir), 300], threshold=200)
         loop, = log.loops_by_filename(self.filepath)
-        # XXX: check the loop
+        # this is a check for a slow-down that introduced a
+        # call_may_force(absolute_import_with_lock).
+        for opname in log.opnames(loop.allops(opcode="IMPORT_NAME")):
+            assert 'call' not in opname    # no call-like opcode
 
     def test_arraycopy_disappears(self):
         def main(n):

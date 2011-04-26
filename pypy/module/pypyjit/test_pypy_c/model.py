@@ -128,10 +128,13 @@ class LoopWithIds(Function):
             if op.name != 'debug_merge_point' or include_debug_merge_points:
                 yield op
 
-    def allops(self, include_debug_merge_points=False):
+    def allops(self, include_debug_merge_points=False, opcode=None):
+        opcode_name = opcode
         for chunk in self.flatten_chunks():
-            for op in self._ops_for_chunk(chunk, include_debug_merge_points):
-                yield op
+            opcode = chunk.getopcode()                                                          
+            if opcode_name is None or opcode.__class__.__name__ == opcode_name:
+                for op in self._ops_for_chunk(chunk, include_debug_merge_points):
+                    yield op
 
     def format_ops(self, id=None, **kwds):
         if id is None:
