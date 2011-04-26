@@ -108,7 +108,6 @@ Detailed Documentation
    rlib.rst
    rtyper.rst
    translation.rst
-   jit/_ref.rst
    jit/index.rst
    jit/overview.rst
    jit/pyjitpl5.rst
