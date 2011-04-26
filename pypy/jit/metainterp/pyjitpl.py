@@ -1877,6 +1877,7 @@ class MetaInterp(object):
 
     def compile(self, original_boxes, live_arg_boxes, start, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
+        original_inputargs = self.history.inputargs
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         old_loop_tokens = self.get_compiled_merge_points(greenkey)
@@ -1885,7 +1886,11 @@ class MetaInterp(object):
                                               greenkey, start, start_resumedescr)
         if loop_token is not None: # raise if it *worked* correctly
             self.set_compiled_merge_points(greenkey, old_loop_tokens)
+            self.history.inputargs = None
+            self.history.operations = None
             raise GenerateMergePoint(live_arg_boxes, loop_token)
+
+        self.history.inputargs = original_inputargs
         self.history.operations.pop()     # remove the JUMP
         # FIXME: Why is self.history.inputargs not restored?
 
@@ -1902,10 +1907,12 @@ class MetaInterp(object):
             target_loop_token = compile.compile_new_bridge(self,
                                                            old_loop_tokens,
                                                            self.resumekey)
-            if target_loop_token is not None: # raise if it *worked* correctly
-                raise GenerateMergePoint(live_arg_boxes, target_loop_token)
         finally:
             self.history.operations.pop()     # remove the JUMP
+        if target_loop_token is not None: # raise if it *worked* correctly
+            self.history.inputargs = None
+            self.history.operations = None
+            raise GenerateMergePoint(live_arg_boxes, target_loop_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):
@@ -1940,7 +1947,8 @@ class MetaInterp(object):
             assert False
         assert target_loop_token is not None
 
-        self.history.operations = original_operations
+        self.history.inputargs = None
+        self.history.operations = None
         raise GenerateMergePoint(live_arg_boxes, old_loop_tokens[0])
 
     def compile_done_with_this_frame(self, exitbox):
