@@ -29,9 +29,9 @@ else:
     math_eci = eci
     math_prefix = ''
 
-def llexternal(name, ARGS, RESULT):
+def llexternal(name, ARGS, RESULT, **kwargs):
     return rffi.llexternal(name, ARGS, RESULT, compilation_info=eci,
-                           sandboxsafe=True)
+                           sandboxsafe=True, **kwargs)
 
 def math_llexternal(name, ARGS, RESULT):
     return rffi.llexternal(math_prefix + name, ARGS, RESULT,
@@ -47,7 +47,8 @@ math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
 math_copysign = llexternal(underscore + 'copysign',
-                           [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+                           [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+                           pure_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE)
 math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
@@ -56,6 +57,7 @@ math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, pure_function=True)
 
 # ____________________________________________________________
 #
@@ -94,8 +96,11 @@ def ll_math_isnan(y):
     return y != y
 
 def ll_math_isinf(y):
-    return y != 0 and y * .5 == y
+    # Use a bitwise OR so the JIT doesn't produce 2 different guards.
+    return (y == INFINITY) | (y == -INFINITY)
 
+
+ll_math_floor = math_floor
 
 ll_math_copysign = math_copysign
 
@@ -335,7 +340,7 @@ def new_unary_math_function(name, can_overflow, c99):
 
 unary_math_functions = [
     'acos', 'asin', 'atan',
-    'ceil', 'cos', 'cosh', 'exp', 'fabs', 'floor',
+    'ceil', 'cos', 'cosh', 'exp', 'fabs',
     'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
     'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
     ]

@@ -23,7 +23,7 @@ class AbstractResOp(object):
 
     # methods implemented by each concrete class
     # ------------------------------------------
-    
+
     def getopnum(self):
         raise NotImplementedError
 
@@ -234,7 +234,7 @@ class NullaryOp(object):
 
     def getarg(self, i):
         raise IndexError
-    
+
     def setarg(self, i, box):
         raise IndexError
 
@@ -258,7 +258,7 @@ class UnaryOp(object):
             return self._arg0
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -288,7 +288,7 @@ class BinaryOp(object):
             return self._arg1
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -326,7 +326,7 @@ class TernaryOp(object):
             return self._arg2
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -352,7 +352,7 @@ class N_aryOp(object):
 
     def getarg(self, i):
         return self._args[i]
-    
+
     def setarg(self, i, box):
         self._args[i] = box
 
@@ -460,6 +460,7 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
+    'READ_TIMESTAMP/0',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',
@@ -468,7 +469,7 @@ _oplist = [
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
-    #'RUNTIMENEW/1',     # ootype operation    
+    #'RUNTIMENEW/1',     # ootype operation
     'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
     'DEBUG_MERGE_POINT/2',      # debugging only
     'JIT_DEBUG/*',              # debugging only
@@ -554,7 +555,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
         2: BinaryOp,
         3: TernaryOp
         }
-    
+
     is_guard = name.startswith('GUARD')
     if is_guard:
         assert withdescr

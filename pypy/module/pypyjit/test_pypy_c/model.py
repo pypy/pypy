@@ -128,14 +128,17 @@ class LoopWithIds(Function):
             if op.name != 'debug_merge_point' or include_debug_merge_points:
                 yield op
 
-    def allops(self, include_debug_merge_points=False):
+    def allops(self, include_debug_merge_points=False, opcode=None):
+        opcode_name = opcode
         for chunk in self.flatten_chunks():
-            for op in self._ops_for_chunk(chunk, include_debug_merge_points):
-                yield op
+            opcode = chunk.getopcode()                                                          
+            if opcode_name is None or opcode.__class__.__name__ == opcode_name:
+                for op in self._ops_for_chunk(chunk, include_debug_merge_points):
+                    yield op
 
     def format_ops(self, id=None, **kwds):
         if id is None:
-            ops = self.allops()
+            ops = self.allops(**kwds)
         else:
             ops = self.ops_by_id(id, **kwds)
         return '\n'.join(map(str, ops))
@@ -153,10 +156,10 @@ class LoopWithIds(Function):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
 
-    def match(self, expected_src):
+    def match(self, expected_src, **kwds):
         ops = list(self.allops())
         matcher = OpMatcher(ops, src=self.format_ops())
-        return matcher.match(expected_src)
+        return matcher.match(expected_src, **kwds)
 
     def match_by_id(self, id, expected_src, **kwds):
         ops = list(self.ops_by_id(id, **kwds))
@@ -314,7 +317,7 @@ class OpMatcher(object):
                 # it matched! The '...' operator ends here
                 return op
 
-    def match_loop(self, expected_ops):
+    def match_loop(self, expected_ops, ignore_ops):
         """
         A note about partial matching: the '...' operator is non-greedy,
         i.e. it matches all the operations until it finds one that matches
@@ -333,13 +336,16 @@ class OpMatcher(object):
                     return
                 op = self.match_until(exp_op, iter_ops)
             else:
-                op = self._next_op(iter_ops)
+                while True:
+                    op = self._next_op(iter_ops)
+                    if op.name not in ignore_ops:
+                        break
             self.match_op(op, exp_op)
         #
         # make sure we exhausted iter_ops
         self._next_op(iter_ops, assert_raises=True)
 
-    def match(self, expected_src):
+    def match(self, expected_src, ignore_ops=[]):
         def format(src):
             if src is None:
                 return ''
@@ -348,7 +354,7 @@ class OpMatcher(object):
         expected_src = self.preprocess_expected_src(expected_src)
         expected_ops = self.parse_ops(expected_src)
         try:
-            self.match_loop(expected_ops)
+            self.match_loop(expected_ops, ignore_ops)
         except InvalidMatch, e:
             #raise # uncomment this and use py.test --pdb for better debugging
             print '@' * 40
@@ -357,6 +363,7 @@ class OpMatcher(object):
             print e.args
             print e.msg
             print
+            print "Ignore ops:", ignore_ops
             print "Got:"
             print format(self.src)
             print

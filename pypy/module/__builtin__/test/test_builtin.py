@@ -110,6 +110,13 @@ class AppTestBuiltinApp:
             __dict__ = 8
         raises(TypeError, dir, Foo("foo"))
 
+    def test_dir_broken_object(self):
+        class Foo(object):
+            x = 3
+            def __getattribute__(self, name):
+                return name
+        assert dir(Foo()) == []
+
     def test_dir_custom(self):
         class Foo(object):
             def __dir__(self):
