@@ -323,7 +323,35 @@ the literals "+", "*", "(" or ")". Any space will be ignored. The grammar
 produces a syntax tree that follows the precedence of the operators. For example
 the expression ``12 + 4 * 5`` is parsed into the following tree:
 
-.. graphviz:: image/parsing_example1.dot
+.. graphviz::
+
+    digraph G{
+    "-1213931828" [label="additive"];
+    "-1213931828" -> "-1213951956";
+    "-1213951956" [label="multitive"];
+    "-1213951956" -> "-1213949172";
+    "-1213949172" [label="primary"];
+    "-1213949172" -> "-1213949812";
+    "-1213949812" [shape=box,label="DECIMAL\l'12'"];
+    "-1213931828" -> "-1213935220";
+    "-1213935220" [shape=box,label="__0_+\l'+'"];
+    "-1213931828" -> "-1213951316";
+    "-1213951316" [label="additive"];
+    "-1213951316" -> "-1213948180";
+    "-1213948180" [label="multitive"];
+    "-1213948180" -> "-1213951380";
+    "-1213951380" [label="primary"];
+    "-1213951380" -> "-1213951508";
+    "-1213951508" [shape=box,label="DECIMAL\l'4'"];
+    "-1213948180" -> "-1213948788";
+    "-1213948788" [shape=box,label="__1_*\l'*'"];
+    "-1213948180" -> "-1213951060";
+    "-1213951060" [label="multitive"];
+    "-1213951060" -> "-1213948980";
+    "-1213948980" [label="primary"];
+    "-1213948980" -> "-1213950420";
+    "-1213950420" [shape=box,label="DECIMAL\l'5'"];
+    }
 
 Parse Trees
 -----------
@@ -380,11 +408,43 @@ Example::
 
 Parsing the string "A, A, A" gives the tree:
 
-.. graphviz:: image/parsing_example2.dot
+.. graphviz::
+
+    digraph G{
+    "-1213678004" [label="n"];
+    "-1213678004" -> "-1213681108";
+    "-1213681108" [shape=box,label="__0_A\n'A'"];
+    "-1213678004" -> "-1213681332";
+    "-1213681332" [shape=box,label="__1_,\n','"];
+    "-1213678004" -> "-1213837780";
+    "-1213837780" [label="n"];
+    "-1213837780" -> "-1213837716";
+    "-1213837716" [shape=box,label="__0_A\n'A'"];
+    "-1213837780" -> "-1213839476";
+    "-1213839476" [shape=box,label="__1_,\n','"];
+    "-1213837780" -> "-1213839956";
+    "-1213839956" [label="n"];
+    "-1213839956" -> "-1213840948";
+    "-1213840948" [shape=box,label="__0_A\n'A'"];
+    }
 
 After transformation the tree has the "," nodes removed:
 
-.. graphviz:: image/parsing_example3.dot
+.. graphviz::
+
+    digraph G{
+    "-1219325716" [label="n"];
+    "-1219325716" -> "-1219325844";
+    "-1219325844" [shape=box,label="__0_A\n'A'"];
+    "-1219325716" -> "-1219324372";
+    "-1219324372" [label="n"];
+    "-1219324372" -> "-1219325524";
+    "-1219325524" [shape=box,label="__0_A\n'A'"];
+    "-1219324372" -> "-1219324308";
+    "-1219324308" [label="n"];
+    "-1219324308" -> "-1219325492";
+    "-1219325492" [shape=box,label="__0_A\n'A'"];
+    }
 
 <symbol>
 ++++++++
@@ -401,12 +461,61 @@ Example::
 
 Parsing the string "a b c (a b c d)" gives the tree:
 
-.. graphviz:: image/parsing_example4.dot
+.. graphviz::
+
+    digraph G{
+    "-1214029460" [label="n"];
+    "-1214029460" -> "-1214026452";
+    "-1214026452" [shape=box,label="__0_a\n'a'"];
+    "-1214029460" -> "-1214028276";
+    "-1214028276" [shape=box,label="__1_b\n'b'"];
+    "-1214029460" -> "-1214027316";
+    "-1214027316" [shape=box,label="__2_c\n'c'"];
+    "-1214029460" -> "-1214026868";
+    "-1214026868" [label="m"];
+    "-1214026868" -> "-1214140436";
+    "-1214140436" [shape=box,label="__3_(\n'('"];
+    "-1214026868" -> "-1214143508";
+    "-1214143508" [label="n"];
+    "-1214143508" -> "-1214141364";
+    "-1214141364" [shape=box,label="__0_a\n'a'"];
+    "-1214143508" -> "-1214141748";
+    "-1214141748" [shape=box,label="__1_b\n'b'"];
+    "-1214143508" -> "-1214140756";
+    "-1214140756" [shape=box,label="__2_c\n'c'"];
+    "-1214143508" -> "-1214144468";
+    "-1214144468" [label="m"];
+    "-1214144468" -> "-1214414868";
+    "-1214414868" [shape=box,label="__5_d\n'd'"];
+    "-1214026868" -> "-1214141492";
+    "-1214141492" [shape=box,label="__4_)\n')'"];
+    }
 
 After transformation the tree looks like this:
 
-.. graphviz:: image/parsing_example5.dot
+.. graphviz::
 
+    digraph G{
+    "-1219949908" [label="n"];
+    "-1219949908" -> "-1214026452";
+    "-1214026452" [shape=box,label="__0_a\n'a'"];
+    "-1219949908" -> "-1214028276";
+    "-1214028276" [shape=box,label="__1_b\n'b'"];
+    "-1219949908" -> "-1214027316";
+    "-1214027316" [shape=box,label="__2_c\n'c'"];
+    "-1219949908" -> "-1219949876";
+    "-1219949876" [label="n"];
+    "-1219949876" -> "-1214141364";
+    "-1214141364" [shape=box,label="__0_a\n'a'"];
+    "-1219949876" -> "-1214141748";
+    "-1214141748" [shape=box,label="__1_b\n'b'"];
+    "-1219949876" -> "-1214140756";
+    "-1214140756" [shape=box,label="__2_c\n'c'"];
+    "-1219949876" -> "-1219949748";
+    "-1219949748" [label="m"];
+    "-1219949748" -> "-1214414868";
+    "-1214414868" [shape=box,label="__5_d\n'd'"];
+    }
 
 >nonterminal_1 nonterminal_2 ... nonterminal_n<
 +++++++++++++++++++++++++++++++++++++++++++++++
@@ -421,23 +530,76 @@ Example::
 
 Parsing the string "1 2" gives the tree:
 
-.. graphviz:: image/parsing_example6.dot
-    
+.. graphviz::
+
+    digraph G{
+    "-1213518708" [label="list"];
+    "-1213518708" -> "-1213518196";
+    "-1213518196" [shape=box,label="DECIMAL\n'1'"];
+    "-1213518708" -> "-1213518260";
+    "-1213518260" [label="list"];
+    "-1213518260" -> "-1213520308";
+    "-1213520308" [shape=box,label="DECIMAL\n'2'"];
+    }
+
 after the transformation the tree looks like:
 
-.. graphviz:: image/parsing_example7.dot
+.. graphviz::
+
+    digraph G{
+    "-1219505652" [label="list"];
+    "-1219505652" -> "-1213518196";
+    "-1213518196" [shape=box,label="DECIMAL\n'1'"];
+    "-1219505652" -> "-1213520308";
+    "-1213520308" [shape=box,label="DECIMAL\n'2'"];
+    }
 
 Note that the transformation works recursively. That means that the following
 also works: if the string "1 2 3 4 5" is parsed the tree at first looks like
 this:
 
-.. graphviz:: image/parsing_example8.dot
+.. graphviz::
+
+    digraph G{
+    "-1213611892" [label="list"];
+    "-1213611892" -> "-1213608980";
+    "-1213608980" [shape=box,label="DECIMAL\n'1'"];
+    "-1213611892" -> "-1213623476";
+    "-1213623476" [label="list"];
+    "-1213623476" -> "-1213623380";
+    "-1213623380" [shape=box,label="DECIMAL\n'2'"];
+    "-1213623476" -> "-1213442868";
+    "-1213442868" [label="list"];
+    "-1213442868" -> "-1213441652";
+    "-1213441652" [shape=box,label="DECIMAL\n'3'"];
+    "-1213442868" -> "-1213441332";
+    "-1213441332" [label="list"];
+    "-1213441332" -> "-1213441620";
+    "-1213441620" [shape=box,label="DECIMAL\n'4'"];
+    "-1213441332" -> "-1213443060";
+    "-1213443060" [label="list"];
+    "-1213443060" -> "-1213442100";
+    "-1213442100" [shape=box,label="DECIMAL\n'5'"];
+    }
 
 But after transformation the whole thing collapses to one node with a lot of
 children:
 
-.. graphviz:: image/parsing_example9.dot
+.. graphviz::
 
+    digraph G{
+    "-1219430228" [label="list"];
+    "-1219430228" -> "-1213608980";
+    "-1213608980" [shape=box,label="DECIMAL\n'1'"];
+    "-1219430228" -> "-1213623380";
+    "-1213623380" [shape=box,label="DECIMAL\n'2'"];
+    "-1219430228" -> "-1213441652";
+    "-1213441652" [shape=box,label="DECIMAL\n'3'"];
+    "-1219430228" -> "-1213441620";
+    "-1213441620" [shape=box,label="DECIMAL\n'4'"];
+    "-1219430228" -> "-1213442100";
+    "-1213442100" [shape=box,label="DECIMAL\n'5'"];
+    }
 
 Extensions to the EBNF grammar format
 -------------------------------------
@@ -506,8 +668,45 @@ The resulting tree for parsing the string::
 
 looks like this:
 
-.. graphviz:: image/parsing_example10.dot
+.. graphviz::
 
+    digraph G{
+    "-1220061652" [label="object"];
+    "-1220061652" -> "-1220127636";
+    "-1220127636" [label="entry"];
+    "-1220127636" -> "-1213915636";
+    "-1213915636" [shape=box,label="STRING\n'a'"];
+    "-1220127636" -> "-1214251156";
+    "-1214251156" [shape=box,label="STRING\n'5'"];
+    "-1220061652" -> "-1220063188";
+    "-1220063188" [label="entry"];
+    "-1220063188" -> "-1214253076";
+    "-1214253076" [shape=box,label="STRING\n'b'"];
+    "-1220063188" -> "-1220059444";
+    "-1220059444" [label="array"];
+    "-1220059444" -> "-1214253364";
+    "-1214253364" [shape=box,label="NUMBER\n'1'"];
+    "-1220059444" -> "-1214254292";
+    "-1214254292" [shape=box,label="__0_null\n'null'"];
+    "-1220059444" -> "-1214253268";
+    "-1214253268" [shape=box,label="NUMBER\n'3'"];
+    "-1220059444" -> "-1214252596";
+    "-1214252596" [shape=box,label="__1_true\n'true'"];
+    "-1220059444" -> "-1220062260";
+    "-1220062260" [label="object"];
+    "-1220062260" -> "-1220060116";
+    "-1220060116" [label="entry"];
+    "-1220060116" -> "-1214211860";
+    "-1214211860" [shape=box,label="STRING\n'f'"];
+    "-1220060116" -> "-1214210132";
+    "-1214210132" [shape=box,label="STRING\n'g'"];
+    "-1220062260" -> "-1220062868";
+    "-1220062868" [label="entry"];
+    "-1220062868" -> "-1214211956";
+    "-1214211956" [shape=box,label="STRING\n'h'"];
+    "-1220062868" -> "-1214212308";
+    "-1214212308" [shape=box,label="NUMBER\n'6'"];
+    }
 
 
 .. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
