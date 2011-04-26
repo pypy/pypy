@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT
 
 class IntBound(object):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
@@ -20,7 +20,7 @@ class IntBound(object):
 
     def make_lt(self, other):
         return self.make_le(other.add(-1))
-
+ 
     def make_ge(self, other):
         if other.has_lower:
             if not self.has_lower or other.lower > self.lower:
@@ -161,7 +161,8 @@ class IntBound(object):
     def lshift_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           other.known_ge(IntBound(0, 0)):
+           other.known_ge(IntBound(0, 0)) and \
+           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
             try:
                 vals = (ovfcheck_lshift(self.upper, other.upper),
                         ovfcheck_lshift(self.upper, other.lower),
@@ -176,7 +177,8 @@ class IntBound(object):
     def rshift_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           other.known_ge(IntBound(0, 0)):
+           other.known_ge(IntBound(0, 0)) and \
+           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
             vals = (self.upper >> other.upper,
                     self.upper >> other.lower,
                     self.lower >> other.upper,
