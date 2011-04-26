@@ -90,7 +90,8 @@ A somewhat silly example of things you can do with them is this::
 
 You can enable this feature with the :config:`objspace.std.withrope` option.
 
-.. _`"Ropes: An alternative to Strings."`: http://www.cs.ubc.ca/local/reading/proceedings/spe91-95/spe/vol25/issue12/spe986.pdf
+.. _`"Ropes: An alternative to Strings."`: http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.14.9450&rep=rep1&type=pdf
+
 
 Integer Optimizations
 ---------------------
