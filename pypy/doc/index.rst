@@ -92,11 +92,14 @@ Detailed Documentation
    garbage_collection.rst
    interpreter.rst
    objspace.rst
+   __pypy__-module.rst
+   objspace-proxies.rst
 
    dev_method.rst
    extending.rst
 
    extradoc.rst
+   video-index.rst
 
    glossary.rst
 
@@ -107,6 +110,8 @@ Detailed Documentation
    parser.rst
    rlib.rst
    rtyper.rst
+   rffi.rst
+   
    translation.rst
    jit/index.rst
    jit/overview.rst
@@ -121,6 +126,7 @@ Detailed Documentation
    index-report.rst
 
    stackless.rst
+   sandbox.rst
 
    discussions.rst
 
@@ -129,6 +135,7 @@ Detailed Documentation
    sprint-reports.rst
 
    eventhistory.rst
+   statistic/index.rst
 
 Indices and tables
 ==================
