@@ -629,7 +629,7 @@ class RSocket(object):
             _c.ioctlsocket(self.fd, _c.FIONBIO, flag)
             lltype.free(flag, flavor='raw')
 
-    if hasattr(_c, 'poll'):
+    if hasattr(_c, 'poll') and not _c.poll_may_be_broken:
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""

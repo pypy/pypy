@@ -15,6 +15,7 @@ _WIN32 = sys.platform == "win32"
 _MSVC  = target_platform.name == "msvc"
 _MINGW = target_platform.name == "mingw32"
 _SOLARIS = sys.platform == "sunos5"
+_MACOSX = sys.platform == "darwin"
 
 if _POSIX:
     includes = ('sys/types.h',
@@ -590,7 +591,11 @@ if _POSIX:
     pollfdarray = rffi.CArray(pollfd)
     poll = external('poll', [lltype.Ptr(pollfdarray), nfds_t, rffi.INT],
                     rffi.INT)
-    
+    # workaround for Mac OS/X on which poll() seems to behave a bit strangely
+    # (see test_recv_send_timeout in pypy.module._socket.test.test_sock_app)
+    # https://issues.apache.org/bugzilla/show_bug.cgi?id=34332
+    poll_may_be_broken = _MACOSX
+
 elif WIN32:
     from pypy.rlib import rwin32
     #
