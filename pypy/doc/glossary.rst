@@ -1,4 +1,4 @@
-.. include:: needswork.rst
+.. include:: needswork.txt
 
 .. _glossary:
 

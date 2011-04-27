@@ -1,4 +1,4 @@
-.. include:: needswork.rst
+.. include:: needswork.txt
 
 .. needs work, it talks about svn. also, it is not really user documentation
 

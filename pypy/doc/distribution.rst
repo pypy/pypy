@@ -1,4 +1,4 @@
-.. include:: needswork.rst
+.. include:: needswork.txt
 
 =============================
 lib_pypy/distributed features
