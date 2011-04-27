@@ -206,28 +206,11 @@ option.
 User Class Optimizations
 ------------------------
 
-Shadow Tracking
-+++++++++++++++
-
-Shadow tracking is a general optimization that speeds up method calls for user
-classes (that don't have special meta-class). For this a special dict
-representation is used together with multidicts. This dict representation is
-used only for instance dictionaries. The instance dictionary tracks whether an
-instance attribute shadows an attribute of its class. This makes method calls
-slightly faster in the following way: When calling a method the first thing that
-is checked is the class dictionary to find descriptors. Normally, when a method
-is found, the instance dictionary is then checked for instance attributes
-shadowing the class attribute. If we know that there is no shadowing (since
-instance dict tells us that) we can save this lookup on the instance dictionary.
-
-*This was deprecated and is no longer available.*
-
 
 Method Caching
 ++++++++++++++
 
-Shadow tracking is also an important building block for the method caching
-optimization. A method cache is introduced where the result of a method lookup
+A method cache is introduced where the result of a method lookup
 is stored (which involves potentially many lookups in the base classes of a
 class). Entries in the method cache are stored using a hash computed from
 the name being looked up, the call site (i.e. the bytecode object and
@@ -345,13 +328,11 @@ simply special cases string-keyed dictionaries is a clear win on all benchmarks,
 improving results by anything from 15-40 per cent.
 
 Another optimization, or rather set of optimizations, that has a uniformly good
-effect is the set of three 'method optimizations', i.e. shadow tracking, the
+effect are the two 'method optimizations', i.e. the
 method cache and the LOOKUP_METHOD and CALL_METHOD opcodes.  On a heavily
 object-oriented benchmark (richards) they combine to give a speed-up of nearly
 50%, and even on the extremely un-object-oriented pystone benchmark, the
 improvement is over 20%.
-
-.. waffles about ropes
 
 When building pypy, all generally useful optimizations are turned on by default
 unless you explicitly lower the translation optimization level with the
