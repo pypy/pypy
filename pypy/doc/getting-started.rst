@@ -121,4 +121,4 @@ more detailed information on specific features of the tracker.
 .. _bug reports:            https://codespeak.net/issue/pypy-dev/
 
 
-.. include:: _ref.rst
+.. include:: _ref.txt

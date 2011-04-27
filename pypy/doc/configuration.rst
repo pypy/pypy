@@ -190,4 +190,4 @@ instances and are described in `pypy/config/translationoption.py`_. The interpre
 are attached to the object space, also under the name ``config`` and are
 described in `pypy/config/pypyoption.py`_.
 
-.. include:: _ref.rst
+.. include:: _ref.txt

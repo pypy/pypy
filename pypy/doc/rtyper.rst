@@ -791,4 +791,5 @@ you have to set the ``type_system`` parameter to the string
         assert res == ~3
 
 .. _annotator: translation.html#the-annotation-pass
-.. include:: _ref.rst
+
+.. include:: _ref.txt

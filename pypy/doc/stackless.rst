@@ -600,4 +600,4 @@ scale automatically to larger programs.
 .. _`documentation of the greenlets`: http://packages.python.org/greenlet/
 .. _`Stackless Transform`: translation.html#the-stackless-transform
 
-.. include:: _ref.rst
+.. include:: _ref.txt

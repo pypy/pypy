@@ -11,7 +11,7 @@ import urllib2, posixpath
 
 
 def makeref(docdir):
-    reffile = docdir.join('_ref.rst') 
+    reffile = docdir.join('_ref.txt') 
 
     linkrex = py.std.re.compile('`(\S+)`_')
 
@@ -39,7 +39,7 @@ def makeref(docdir):
                 found = True
                 addlink(linkname, issue_url+linkname)
         if found:
-            assert ".. include:: _ref.rst" in content, "you need to include _ref.rst in %s" % (textfile, )
+            assert ".. include:: _ref.txt" in content, "you need to include _ref.txt in %s" % (textfile, )
 
     items = name2target.items() 
     items.sort() 

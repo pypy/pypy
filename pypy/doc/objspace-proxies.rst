@@ -611,4 +611,4 @@ lists, dicts, exceptions, tracebacks and frames.
 .. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
            EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
-.. include:: _ref.rst
+.. include:: _ref.txt

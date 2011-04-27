@@ -232,4 +232,4 @@ links to more information.
 .. _`RPython Typer`: rtyper.html
 .. _`subsystem implementing the Python language`: architecture.html#standard-interpreter
 
-.. include:: _ref.rst
+.. include:: _ref.txt

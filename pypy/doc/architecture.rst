@@ -260,5 +260,5 @@ index`_.  Of particular interest after reading this document might be:
 .. _`generate Just-In-Time Compilers`: jit/index.html
 .. _`JIT Generation in PyPy`: jit/index.html
 
-.. include:: _ref.rst
+.. include:: _ref.txt
 

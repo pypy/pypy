@@ -222,4 +222,4 @@ Miscellaneous
   *more* case on PyPy than on CPython 2.6/2.7.)
 
 
-.. include:: _ref.rst
+.. include:: _ref.txt

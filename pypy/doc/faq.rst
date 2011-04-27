@@ -321,5 +321,5 @@ Why does PyPy draw a Mandelbrot fractal while translating?
 
 Because it's fun.
 
-.. include:: _ref.rst
+.. include:: _ref.txt
 

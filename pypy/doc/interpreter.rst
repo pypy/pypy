@@ -408,4 +408,4 @@ end of `pypy/interpreter/typedef.py`_.  You can use these definitions
 as a reference for the exact attributes of interpreter classes visible 
 at application level. 
 
-.. include:: _ref.rst
+.. include:: _ref.txt

@@ -712,4 +712,4 @@ looks like this:
 .. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
 .. _`json format`: http://www.json.org
 
-.. include:: _ref.rst
+.. include:: _ref.txt
