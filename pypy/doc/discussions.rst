@@ -8,7 +8,6 @@ Help from domain experts would be welcome, since some of these documents probabl
 
 .. toctree::
 	
-	discussion/cli-optimizations.rst
 	discussion/distribution-implementation.rst
 	discussion/distribution-newattempt.rst
 	discussion/distribution-roadmap.rst
