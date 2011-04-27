@@ -1072,6 +1072,50 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
         """)
+        
+    def test_mutate_class(self):
+        def fn(n):
+            class A(object):
+                count = 1
+                def __init__(self, a):
+                    self.a = a
+                def f(self):
+                    return self.count
+            i = 0
+            a = A(1)
+            while i < n:
+                A.count += 1 # ID: mutate
+                i = a.f()    # ID: meth1
+            return i
+        #
+        log = self.run(fn, [1000], threshold=10)
+        assert log.result == 1000
+        #
+        # first, we test the entry bridge
+        # -------------------------------
+        entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
+        assert log.opnames(ops) == ['guard_value', 'getfield_gc', 'guard_value',
+                                    'getfield_gc', 'guard_nonnull_class']
+        # the STORE_ATTR is folded away
+        assert list(entry_bridge.ops_by_id('meth1', opcode='STORE_ATTR')) == []
+        #
+        # then, the actual loop
+        # ----------------------
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = getfield_gc_pure(p5, descr=<SignedFieldDescr .*W_IntObject.inst_intval.*>)
+            i9 = int_lt(i8, i7)
+            guard_true(i9, descr=.*)
+            i11 = int_add(i8, 1)
+            i12 = force_token()
+            --TICK--
+            p20 = new_with_vtable(ConstClass(W_IntObject))
+            setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
+            setfield_gc(ConstPtr(ptr21), p20, descr=<GcPtrFieldDescr .*TypeCell.inst_w_value .*>)
+            jump(p0, p1, p2, p3, p4, p20, p6, i7, descr=<Loop.>)
+        """)
+
 
     def test_intbound_simple(self):
         """

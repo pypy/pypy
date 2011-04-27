@@ -615,7 +615,7 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        w_dict = space.newdict(from_strdict_shared=w_obj.dict_w)
+        w_dict = w_obj.getdict(space)
         pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)

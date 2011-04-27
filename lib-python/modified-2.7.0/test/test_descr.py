@@ -3189,7 +3189,8 @@ order (MRO) for bases """
             except TypeError:
                 pass
             else:
-                self.fail("%r's __dict__ can be modified" % cls)
+                if test_support.check_impl_detail(pypy=False):
+                    self.fail("%r's __dict__ can be modified" % cls)
 
         # Modules also disallow __dict__ assignment
         class Module1(types.ModuleType, Base):
