@@ -28,9 +28,6 @@ class __extend__(Option):
         fullpath = get_fullpath(self, path)
         result = Rest(
             Title(fullpath, abovechar="=", belowchar="="),
-            Directive("contents"),
-            Paragraph(Link("back to parent", path + ".html")),
-            Title("Basic Option Information"),
             ListItem(Strong("name:"), self._name),
             ListItem(Strong("description:"), self.doc))
         if self.cmdline is not None:
@@ -132,36 +129,18 @@ class __extend__(OptionDescription):
     def make_rest_doc(self, path=""):
         fullpath = get_fullpath(self, path)
         content = Rest(
-            Title(fullpath, abovechar="=", belowchar="="),
-            Directive("contents"))
-        if path:
-            content.add(
-                Paragraph(Link("back to parent", path + ".html")))
+            Title(fullpath, abovechar="=", belowchar="="))
+        toctree = []
+        for child in self._children:
+            subpath = fullpath + "." + child._name
+            toctree.append(subpath)
+        content.add(Directive("toctree", *toctree, maxdepth=4))
         content.join(
-            Title("Basic Option Information"),
             ListItem(Strong("name:"), self._name),
-            ListItem(Strong("description:"), self.doc),
-            Title("Sub-Options"))
+            ListItem(Strong("description:"), self.doc))
         stack = []
-        prefix = fullpath
         curr = content
         config = Config(self)
-        for ending in self.getpaths(include_groups=True):
-            subpath = fullpath + "." + ending
-            while not (subpath.startswith(prefix) and
-                       subpath[len(prefix)] == "."):
-                curr, prefix = stack.pop()
-            print subpath, fullpath, ending, curr
-            sub, step = config._cfgimpl_get_home_by_path(ending)
-            doc = getattr(sub._cfgimpl_descr, step).doc
-            if doc:
-                new = curr.add(ListItem(Link(subpath + ":", subpath + ".html"),
-                                        Em(doc)))
-            else:
-                new = curr.add(ListItem(Link(subpath + ":", subpath + ".html")))
-            stack.append((curr, prefix))
-            prefix = subpath
-            curr = new
         return content
 
 
