@@ -2,6 +2,7 @@ import __builtin__
 import sys
 import types
 import unittest
+import popen2     # trigger early the warning from popen2.py
 
 from copy import deepcopy
 from test import test_support
