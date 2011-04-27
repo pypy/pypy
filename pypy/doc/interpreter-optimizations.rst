@@ -135,7 +135,6 @@ for string-keyed dictionaries. In addition there are more specialized dictionary
 implementations for various purposes (see below).
 
 This is now the default implementation of dictionaries in the Python interpreter.
-option.
 
 Sharing Dicts
 +++++++++++++
