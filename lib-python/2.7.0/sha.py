@@ -1,4 +1,4 @@
-# $Id: sha.py 58064 2007-09-09 20:25:00Z gregory.p.smith $
+# $Id$
 #
 #  Copyright (C) 2005   Gregory P. Smith (greg@krypto.org)
 #  Licensed to PSF under a Contributor Agreement.

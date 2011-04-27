@@ -3,6 +3,6 @@
 Module for using panels with curses.
 """
 
-__revision__ = "$Id: panel.py 36560 2004-07-18 06:16:08Z tim_one $"
+__revision__ = "$Id$"
 
 from _curses_panel import *

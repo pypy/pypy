@@ -3,7 +3,7 @@
 Package containing implementation of all the standard Distutils
 commands."""
 
-__revision__ = "$Id: __init__.py 71473 2009-04-11 14:55:07Z tarek.ziade $"
+__revision__ = "$Id$"
 
 __all__ = ['build',
            'build_py',

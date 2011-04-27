@@ -3,7 +3,7 @@
 Implements the Distutils 'bdist_wininst' command: create a windows installer
 exe-program."""
 
-__revision__ = "$Id: bdist_wininst.py 83593 2010-08-02 21:44:25Z georg.brandl $"
+__revision__ = "$Id$"
 
 import sys
 import os
@@ -356,5 +356,9 @@ class bdist_wininst (Command):
             sfix = ''
 
         filename = os.path.join(directory, "wininst-%.1f%s.exe" % (bv, sfix))
-        return open(filename, "rb").read()
+        f = open(filename, "rb")
+        try:
+            return f.read()
+        finally:
+            f.close()
 # class bdist_wininst

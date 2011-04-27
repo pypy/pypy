@@ -22,7 +22,7 @@ Public functions:       Internaldate2tuple
 
 __version__ = "2.58"
 
-import binascii, random, re, socket, subprocess, sys, time
+import binascii, errno, random, re, socket, subprocess, sys, time
 
 __all__ = ["IMAP4", "IMAP4_stream", "Internaldate2tuple",
            "Int2AP", "ParseFlags", "Time2Internaldate"]
@@ -248,7 +248,14 @@ class IMAP4:
     def shutdown(self):
         """Close I/O established in "open"."""
         self.file.close()
-        self.sock.close()
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except socket.error as e:
+            # The server might already have closed the connection
+            if e.errno != errno.ENOTCONN:
+                raise
+        finally:
+            self.sock.close()
 
 
     def socket(self):
@@ -883,14 +890,17 @@ class IMAP4:
 
 
     def _command_complete(self, name, tag):
-        self._check_bye()
+        # BYE is expected after LOGOUT
+        if name != 'LOGOUT':
+            self._check_bye()
         try:
             typ, data = self._get_tagged_response(tag)
         except self.abort, val:
             raise self.abort('command: %s => %s' % (name, val))
         except self.error, val:
             raise self.error('command: %s => %s' % (name, val))
-        self._check_bye()
+        if name != 'LOGOUT':
+            self._check_bye()
         if typ == 'BAD':
             raise self.error('%s command error: %s %s' % (name, typ, data))
         return typ, data

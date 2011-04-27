@@ -119,8 +119,12 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         self.assertTrue(os.path.exists(self.rc))
 
         # with the content similar to WANTED_PYPIRC
-        content = open(self.rc).read()
-        self.assertEquals(content, WANTED_PYPIRC)
+        f = open(self.rc)
+        try:
+            content = f.read()
+            self.assertEqual(content, WANTED_PYPIRC)
+        finally:
+            f.close()
 
         # now let's make sure the .pypirc file generated
         # really works : we shouldn't be asked anything
@@ -137,7 +141,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         self.assertTrue(self.conn.reqs, 2)
         req1 = dict(self.conn.reqs[0].headers)
         req2 = dict(self.conn.reqs[1].headers)
-        self.assertEquals(req2['Content-length'], req1['Content-length'])
+        self.assertEqual(req2['Content-length'], req1['Content-length'])
         self.assertTrue('xxx' in self.conn.reqs[1].data)
 
     def test_password_not_in_file(self):
@@ -150,7 +154,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
 
         # dist.password should be set
         # therefore used afterwards by other commands
-        self.assertEquals(cmd.distribution.password, 'password')
+        self.assertEqual(cmd.distribution.password, 'password')
 
     def test_registering(self):
         # this test runs choice 2
@@ -167,7 +171,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         self.assertTrue(self.conn.reqs, 1)
         req = self.conn.reqs[0]
         headers = dict(req.headers)
-        self.assertEquals(headers['Content-length'], '608')
+        self.assertEqual(headers['Content-length'], '608')
         self.assertTrue('tarek' in req.data)
 
     def test_password_reset(self):
@@ -185,7 +189,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         self.assertTrue(self.conn.reqs, 1)
         req = self.conn.reqs[0]
         headers = dict(req.headers)
-        self.assertEquals(headers['Content-length'], '290')
+        self.assertEqual(headers['Content-length'], '290')
         self.assertTrue('tarek' in req.data)
 
     def test_strict(self):
@@ -248,7 +252,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         with check_warnings() as w:
             warnings.simplefilter("always")
             cmd.check_metadata()
-            self.assertEquals(len(w.warnings), 1)
+            self.assertEqual(len(w.warnings), 1)
 
 def test_suite():
     return unittest.makeSuite(RegisterTestCase)

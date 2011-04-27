@@ -531,7 +531,7 @@ class LongTest(unittest.TestCase):
                     long(TruncReturnsNonIntegral())
                 except TypeError as e:
                     if test_support.check_impl_detail(cpython=True):
-                        self.assertEquals(str(e),
+                        self.assertEqual(str(e),
                                           "__trunc__ returned non-Integral"
                                           " (type NonIntegral)")
                 else:

@@ -47,7 +47,7 @@ cygwin in no-cygwin mode).
 
 # This module should be kept compatible with Python 2.1.
 
-__revision__ = "$Id: cygwinccompiler.py 78666 2010-03-05 00:16:02Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import os,sys,copy
 from distutils.ccompiler import gen_preprocess_options, gen_lib_options
@@ -382,8 +382,10 @@ def check_config_h():
         # It would probably better to read single lines to search.
         # But we do this only once, and it is fast enough
         f = open(fn)
-        s = f.read()
-        f.close()
+        try:
+            s = f.read()
+        finally:
+            f.close()
 
     except IOError, exc:
         # if we can't read this file, we cannot say it is wrong

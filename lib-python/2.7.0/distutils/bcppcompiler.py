@@ -11,7 +11,7 @@ for the Borland C++ compiler.
 # someone should sit down and factor out the common code as
 # WindowsCCompiler!  --GPW
 
-__revision__ = "$Id: bcppcompiler.py 76956 2009-12-21 01:22:46Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import os
 

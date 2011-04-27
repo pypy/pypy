@@ -8,12 +8,12 @@ used from a setup script as
    setup (...)
 """
 
-__revision__ = "$Id: __init__.py 82506 2010-07-03 14:51:25Z benjamin.peterson $"
+__revision__ = "$Id$"
 
 # Distutils version
 #
 # Updated automatically by the Python release process.
 #
 #--start constants--
-__version__ = "2.7.1a0"
+__version__ = "2.7.1"
 #--end constants--

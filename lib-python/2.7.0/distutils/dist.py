@@ -4,7 +4,7 @@ Provides the Distribution class, which represents the module distribution
 being built/installed/distributed.
 """
 
-__revision__ = "$Id: dist.py 77717 2010-01-24 00:33:32Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import sys, os, re
 from email import message_from_file
@@ -1101,9 +1101,11 @@ class DistributionMetadata:
     def write_pkg_info(self, base_dir):
         """Write the PKG-INFO file into the release tree.
         """
-        pkg_info = open( os.path.join(base_dir, 'PKG-INFO'), 'w')
-        self.write_pkg_file(pkg_info)
-        pkg_info.close()
+        pkg_info = open(os.path.join(base_dir, 'PKG-INFO'), 'w')
+        try:
+            self.write_pkg_file(pkg_info)
+        finally:
+            pkg_info.close()
 
     def write_pkg_file(self, file):
         """Write the PKG-INFO format data to a file object.

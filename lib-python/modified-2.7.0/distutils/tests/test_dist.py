@@ -70,13 +70,13 @@ class DistributionTestCase(support.TempdirManager,
         with captured_stdout() as stdout:
             self.create_distribution(files)
         stdout.seek(0)
-        self.assertEquals(stdout.read(), '')
+        self.assertEqual(stdout.read(), '')
         distutils.dist.DEBUG = True
         try:
             with captured_stdout() as stdout:
                 self.create_distribution(files)
             stdout.seek(0)
-            self.assertEquals(stdout.read(), '')
+            self.assertEqual(stdout.read(), '')
         finally:
             distutils.dist.DEBUG = False
 
@@ -102,29 +102,29 @@ class DistributionTestCase(support.TempdirManager,
 
     def test_command_packages_configfile(self):
         sys.argv.append("build")
+        self.addCleanup(os.unlink, TESTFN)
         f = open(TESTFN, "w")
         try:
             print >>f, "[global]"
             print >>f, "command_packages = foo.bar, splat"
-            f.close()
-            d = self.create_distribution([TESTFN])
-            self.assertEqual(d.get_command_packages(),
-                             ["distutils.command", "foo.bar", "splat"])
-
-            # ensure command line overrides config:
-            sys.argv[1:] = ["--command-packages", "spork", "build"]
-            d = self.create_distribution([TESTFN])
-            self.assertEqual(d.get_command_packages(),
-                             ["distutils.command", "spork"])
-
-            # Setting --command-packages to '' should cause the default to
-            # be used even if a config file specified something else:
-            sys.argv[1:] = ["--command-packages", "", "build"]
-            d = self.create_distribution([TESTFN])
-            self.assertEqual(d.get_command_packages(), ["distutils.command"])
-
         finally:
-            os.unlink(TESTFN)
+            f.close()
+
+        d = self.create_distribution([TESTFN])
+        self.assertEqual(d.get_command_packages(),
+                         ["distutils.command", "foo.bar", "splat"])
+
+        # ensure command line overrides config:
+        sys.argv[1:] = ["--command-packages", "spork", "build"]
+        d = self.create_distribution([TESTFN])
+        self.assertEqual(d.get_command_packages(),
+                         ["distutils.command", "spork"])
+
+        # Setting --command-packages to '' should cause the default to
+        # be used even if a config file specified something else:
+        sys.argv[1:] = ["--command-packages", "", "build"]
+        d = self.create_distribution([TESTFN])
+        self.assertEqual(d.get_command_packages(), ["distutils.command"])
 
     def test_write_pkg_file(self):
         # Check DistributionMetadata handling of Unicode fields
@@ -175,7 +175,7 @@ class DistributionTestCase(support.TempdirManager,
         finally:
             warnings.warn = old_warn
 
-        self.assertEquals(len(warns), 0)
+        self.assertEqual(len(warns), 0)
 
     def test_finalize_options(self):
 
@@ -186,20 +186,20 @@ class DistributionTestCase(support.TempdirManager,
         dist.finalize_options()
 
         # finalize_option splits platforms and keywords
-        self.assertEquals(dist.metadata.platforms, ['one', 'two'])
-        self.assertEquals(dist.metadata.keywords, ['one', 'two'])
+        self.assertEqual(dist.metadata.platforms, ['one', 'two'])
+        self.assertEqual(dist.metadata.keywords, ['one', 'two'])
 
     def test_get_command_packages(self):
         dist = Distribution()
-        self.assertEquals(dist.command_packages, None)
+        self.assertEqual(dist.command_packages, None)
         cmds = dist.get_command_packages()
-        self.assertEquals(cmds, ['distutils.command'])
-        self.assertEquals(dist.command_packages,
-                          ['distutils.command'])
+        self.assertEqual(cmds, ['distutils.command'])
+        self.assertEqual(dist.command_packages,
+                         ['distutils.command'])
 
         dist.command_packages = 'one,two'
         cmds = dist.get_command_packages()
-        self.assertEquals(cmds, ['distutils.command', 'one', 'two'])
+        self.assertEqual(cmds, ['distutils.command', 'one', 'two'])
 
 
     def test_announce(self):
@@ -236,7 +236,7 @@ class DistributionTestCase(support.TempdirManager,
             os.path.expanduser = old_expander
 
         # make sure --no-user-cfg disables the user cfg file
-        self.assertEquals(len(all_files)-1, len(files))
+        self.assertEqual(len(all_files)-1, len(files))
 
 
 class MetadataTestCase(support.TempdirManager, support.EnvironGuard,
@@ -341,8 +341,10 @@ class MetadataTestCase(support.TempdirManager, support.EnvironGuard,
         temp_dir = self.mkdtemp()
         user_filename = os.path.join(temp_dir, user_filename)
         f = open(user_filename, 'w')
-        f.write('.')
-        f.close()
+        try:
+            f.write('.')
+        finally:
+            f.close()
 
         try:
             dist = Distribution()
@@ -366,8 +368,8 @@ class MetadataTestCase(support.TempdirManager, support.EnvironGuard,
     def test_fix_help_options(self):
         help_tuples = [('a', 'b', 'c', 'd'), (1, 2, 3, 4)]
         fancy_options = fix_help_options(help_tuples)
-        self.assertEquals(fancy_options[0], ('a', 'b', 'c'))
-        self.assertEquals(fancy_options[1], (1, 2, 3))
+        self.assertEqual(fancy_options[0], ('a', 'b', 'c'))
+        self.assertEqual(fancy_options[1], (1, 2, 3))
 
     def test_show_help(self):
         # smoke test, just makes sure some help is displayed
@@ -415,14 +417,14 @@ class MetadataTestCase(support.TempdirManager, support.EnvironGuard,
         PKG_INFO.seek(0)
         metadata.read_pkg_file(PKG_INFO)
 
-        self.assertEquals(metadata.name, "package")
-        self.assertEquals(metadata.version, "1.0")
-        self.assertEquals(metadata.description, "xxx")
-        self.assertEquals(metadata.download_url, 'http://example.com')
-        self.assertEquals(metadata.keywords, ['one', 'two'])
-        self.assertEquals(metadata.platforms, ['UNKNOWN'])
-        self.assertEquals(metadata.obsoletes, None)
-        self.assertEquals(metadata.requires, ['foo'])
+        self.assertEqual(metadata.name, "package")
+        self.assertEqual(metadata.version, "1.0")
+        self.assertEqual(metadata.description, "xxx")
+        self.assertEqual(metadata.download_url, 'http://example.com')
+        self.assertEqual(metadata.keywords, ['one', 'two'])
+        self.assertEqual(metadata.platforms, ['UNKNOWN'])
+        self.assertEqual(metadata.obsoletes, None)
+        self.assertEqual(metadata.requires, ['foo'])
 
 def test_suite():
     suite = unittest.TestSuite()

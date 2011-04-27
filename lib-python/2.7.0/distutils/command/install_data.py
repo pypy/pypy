@@ -5,7 +5,7 @@ platform-independent data files."""
 
 # contributed by Bastian Kleineidam
 
-__revision__ = "$Id: install_data.py 76849 2009-12-15 06:29:19Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import os
 from distutils.core import Command

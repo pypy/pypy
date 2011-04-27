@@ -2,7 +2,7 @@
 
 Implements the Distutils 'sdist' command (create a source distribution)."""
 
-__revision__ = "$Id: sdist.py 84713 2010-09-11 15:31:13Z eric.araujo $"
+__revision__ = "$Id$"
 
 import os
 import string

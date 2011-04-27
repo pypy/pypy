@@ -4,7 +4,7 @@ Provides the FileList class, used for poking about the filesystem
 and building lists of files.
 """
 
-__revision__ = "$Id: filelist.py 75196 2009-10-03 00:07:35Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import os, re
 import fnmatch

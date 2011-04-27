@@ -6,7 +6,7 @@ from distutils import log
 
 # This module should be kept compatible with Python 2.1.
 
-__revision__ = "$Id: install.py 80804 2010-05-05 19:09:31Z ronald.oussoren $"
+__revision__ = "$Id$"
 
 import sys, os, string
 from types import *

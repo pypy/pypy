@@ -12,7 +12,7 @@ for older versions of VS in distutils.msvccompiler.
 #   finding DevStudio (through the registry)
 # ported to VS2005 and VS 2008 by Christian Heimes
 
-__revision__ = "$Id: msvc9compiler.py 82130 2010-06-21 15:27:46Z benjamin.peterson $"
+__revision__ = "$Id$"
 
 import os
 import subprocess
@@ -273,23 +273,27 @@ def query_vcvarsall(version, arch="x86"):
     popen = subprocess.Popen('"%s" %s & set' % (vcvarsall, arch),
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
+    try:
+        stdout, stderr = popen.communicate()
+        if popen.wait() != 0:
+            raise DistutilsPlatformError(stderr.decode("mbcs"))
 
-    stdout, stderr = popen.communicate()
-    if popen.wait() != 0:
-        raise DistutilsPlatformError(stderr.decode("mbcs"))
+        stdout = stdout.decode("mbcs")
+        for line in stdout.split("\n"):
+            line = Reg.convert_mbcs(line)
+            if '=' not in line:
+                continue
+            line = line.strip()
+            key, value = line.split('=', 1)
+            key = key.lower()
+            if key in interesting:
+                if value.endswith(os.pathsep):
+                    value = value[:-1]
+                result[key] = removeDuplicates(value)
 
-    stdout = stdout.decode("mbcs")
-    for line in stdout.split("\n"):
-        line = Reg.convert_mbcs(line)
-        if '=' not in line:
-            continue
-        line = line.strip()
-        key, value = line.split('=', 1)
-        key = key.lower()
-        if key in interesting:
-            if value.endswith(os.pathsep):
-                value = value[:-1]
-            result[key] = removeDuplicates(value)
+    finally:
+        popen.stdout.close()
+        popen.stderr.close()
 
     if len(result) != len(interesting):
         raise ValueError(str(list(result.keys())))

@@ -9,7 +9,7 @@ configure-like tasks: "try to compile this C code", or "figure out where
 this header file lives".
 """
 
-__revision__ = "$Id: config.py 77704 2010-01-23 09:23:15Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import os
 import re

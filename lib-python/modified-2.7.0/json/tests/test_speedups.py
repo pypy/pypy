@@ -7,12 +7,12 @@ from json import decoder, encoder, scanner
 class TestSpeedups(TestCase):
     @test_support.impl_detail()
     def test_scanstring(self):
-        self.assertEquals(decoder.scanstring.__module__, "_json")
+        self.assertEqual(decoder.scanstring.__module__, "_json")
         self.assertTrue(decoder.scanstring is decoder.c_scanstring)
 
     @test_support.impl_detail()
     def test_encode_basestring_ascii(self):
-        self.assertEquals(encoder.encode_basestring_ascii.__module__, "_json")
+        self.assertEqual(encoder.encode_basestring_ascii.__module__, "_json")
         self.assertTrue(encoder.encode_basestring_ascii is
                           encoder.c_encode_basestring_ascii)
 

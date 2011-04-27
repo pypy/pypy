@@ -1,6 +1,6 @@
 # Test hashlib module
 #
-# $Id: test_hashlib.py 80564 2010-04-27 22:59:35Z victor.stinner $
+# $Id$
 #
 #  Copyright (C) 2005-2010   Gregory P. Smith (greg@krypto.org)
 #  Licensed to PSF under a Contributor Agreement.

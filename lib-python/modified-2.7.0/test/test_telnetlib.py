@@ -39,6 +39,7 @@ def server(evt, serv, dataq=None):
         pass
     finally:
         serv.close()
+        conn.close()
         evt.set()
 
 class GeneralTests(TestCase):

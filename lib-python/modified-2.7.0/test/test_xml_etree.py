@@ -1101,6 +1101,11 @@ def qname():
     >>> elem = ET.Element(ET.QName("uri", "tag"))
     >>> serialize(elem) # 1.3
     '<ns0:tag xmlns:ns0="uri" />'
+    >>> elem = ET.Element(ET.QName("uri", "tag"))
+    >>> subelem = ET.SubElement(elem, ET.QName("uri", "tag1"))
+    >>> subelem = ET.SubElement(elem, ET.QName("uri", "tag2"))
+    >>> serialize(elem) # 1.4
+    '<ns0:tag xmlns:ns0="uri"><ns0:tag1 /><ns0:tag2 /></ns0:tag>'
 
     2) decorated attributes
 
@@ -1824,6 +1829,10 @@ class CleanContext(object):
     checkwarnings = None
 
     def __init__(self, quiet=False):
+        if sys.flags.optimize >= 2:
+            # under -OO, doctests cannot be run and therefore not all warnings
+            # will be emitted
+            quiet = True
         deprecations = (
             # Search behaviour is broken if search path starts with "/".
             ("This search is broken in 1.3 and earlier, and will be fixed "

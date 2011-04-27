@@ -103,7 +103,7 @@ class msvc9compilerTestCase(support.TempdirManager,
         import _winreg
         HKCU = _winreg.HKEY_CURRENT_USER
         keys = Reg.read_keys(HKCU, 'xxxx')
-        self.assertEquals(keys, None)
+        self.assertEqual(keys, None)
 
         keys = Reg.read_keys(HKCU, r'Control Panel')
         self.assertTrue('Desktop' in keys)
@@ -113,20 +113,24 @@ class msvc9compilerTestCase(support.TempdirManager,
         tempdir = self.mkdtemp()
         manifest = os.path.join(tempdir, 'manifest')
         f = open(manifest, 'w')
-        f.write(_MANIFEST)
-        f.close()
+        try:
+            f.write(_MANIFEST)
+        finally:
+            f.close()
 
         compiler = MSVCCompiler()
         compiler._remove_visual_c_ref(manifest)
 
         # see what we got
         f = open(manifest)
-        # removing trailing spaces
-        content = '\n'.join([line.rstrip() for line in f.readlines()])
-        f.close()
+        try:
+            # removing trailing spaces
+            content = '\n'.join([line.rstrip() for line in f.readlines()])
+        finally:
+            f.close()
 
         # makes sure the manifest was properly cleaned
-        self.assertEquals(content, _CLEANED_MANIFEST)
+        self.assertEqual(content, _CLEANED_MANIFEST)
 
 
 def test_suite():

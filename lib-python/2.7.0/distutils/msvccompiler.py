@@ -8,7 +8,7 @@ for the Microsoft Visual Studio.
 # hacked by Robin Becker and Thomas Heller to do a better job of
 #   finding DevStudio (through the registry)
 
-__revision__ = "$Id: msvccompiler.py 76956 2009-12-21 01:22:46Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import sys
 import os

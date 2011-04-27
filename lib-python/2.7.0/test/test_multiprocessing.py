@@ -183,30 +183,30 @@ class _TestProcess(BaseTestCase):
         current = self.current_process()
 
         if self.TYPE != 'threads':
-            self.assertEquals(p.authkey, current.authkey)
-        self.assertEquals(p.is_alive(), False)
-        self.assertEquals(p.daemon, True)
+            self.assertEqual(p.authkey, current.authkey)
+        self.assertEqual(p.is_alive(), False)
+        self.assertEqual(p.daemon, True)
         self.assertNotIn(p, self.active_children())
         self.assertTrue(type(self.active_children()) is list)
         self.assertEqual(p.exitcode, None)
 
         p.start()
 
-        self.assertEquals(p.exitcode, None)
-        self.assertEquals(p.is_alive(), True)
+        self.assertEqual(p.exitcode, None)
+        self.assertEqual(p.is_alive(), True)
         self.assertIn(p, self.active_children())
 
-        self.assertEquals(q.get(), args[1:])
-        self.assertEquals(q.get(), kwargs)
-        self.assertEquals(q.get(), p.name)
+        self.assertEqual(q.get(), args[1:])
+        self.assertEqual(q.get(), kwargs)
+        self.assertEqual(q.get(), p.name)
         if self.TYPE != 'threads':
-            self.assertEquals(q.get(), current.authkey)
-            self.assertEquals(q.get(), p.pid)
+            self.assertEqual(q.get(), current.authkey)
+            self.assertEqual(q.get(), p.pid)
 
         p.join()
 
-        self.assertEquals(p.exitcode, 0)
-        self.assertEquals(p.is_alive(), False)
+        self.assertEqual(p.exitcode, 0)
+        self.assertEqual(p.is_alive(), False)
         self.assertNotIn(p, self.active_children())
 
     @classmethod
@@ -812,8 +812,6 @@ class _TestEvent(BaseTestCase):
 #
 #
 
-@unittest.skipUnless(HAS_SHAREDCTYPES,
-                     "requires multiprocessing.sharedctypes")
 class _TestValue(BaseTestCase):
 
     ALLOWED_TYPES = ('processes',)
@@ -824,6 +822,10 @@ class _TestValue(BaseTestCase):
         ('h', -232, 234),
         ('c', latin('x'), latin('y'))
         ]
+
+    def setUp(self):
+        if not HAS_SHAREDCTYPES:
+            self.skipTest("requires multiprocessing.sharedctypes")
 
     @classmethod
     def _test(cls, values):
@@ -1614,11 +1616,13 @@ class _Foo(Structure):
         ('y', c_double)
         ]
 
-@unittest.skipUnless(HAS_SHAREDCTYPES,
-                     "requires multiprocessing.sharedctypes")
 class _TestSharedCTypes(BaseTestCase):
 
     ALLOWED_TYPES = ('processes',)
+
+    def setUp(self):
+        if not HAS_SHAREDCTYPES:
+            self.skipTest("requires multiprocessing.sharedctypes")
 
     @classmethod
     def _double(cls, x, y, foo, arr, string):

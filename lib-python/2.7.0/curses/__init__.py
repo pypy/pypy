@@ -10,7 +10,7 @@ the package, and perhaps a particular module inside it.
 
 """
 
-__revision__ = "$Id: __init__.py 61064 2008-02-25 16:29:58Z andrew.kuchling $"
+__revision__ = "$Id$"
 
 from _curses import *
 from curses.wrapper import wrapper

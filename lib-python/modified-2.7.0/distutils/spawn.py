@@ -6,7 +6,7 @@ Also provides the 'find_executable()' to search the path for a given
 executable name.
 """
 
-__revision__ = "$Id: spawn.py 73147 2009-06-02 15:58:43Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import sys
 import os

@@ -6,7 +6,7 @@ extensions ASAP)."""
 
 # This module should be kept compatible with Python 2.1.
 
-__revision__ = "$Id: build_ext.py 84683 2010-09-10 20:03:17Z antoine.pitrou $"
+__revision__ = "$Id$"
 
 import sys, os, string, re
 from types import *

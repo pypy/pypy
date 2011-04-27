@@ -3,7 +3,7 @@
 Utility functions for creating archive files (tarballs, zip files,
 that sort of thing)."""
 
-__revision__ = "$Id: archive_util.py 75659 2009-10-24 13:29:44Z tarek.ziade $"
+__revision__ = "$Id$"
 
 import os
 from warnings import warn

@@ -4,7 +4,7 @@ Miscellaneous utility functions -- anything that doesn't fit into
 one of the other *util.py modules.
 """
 
-__revision__ = "$Id: util.py 82791 2010-07-11 08:52:52Z ronald.oussoren $"
+__revision__ = "$Id$"
 
 import sys, os, string, re
 from distutils.errors import DistutilsPlatformError
@@ -116,13 +116,15 @@ def get_platform ():
                 # behaviour.
                 pass
             else:
-                m = re.search(
-                        r'<key>ProductUserVisibleVersion</key>\s*' +
-                        r'<string>(.*?)</string>', f.read())
-                f.close()
-                if m is not None:
-                    macrelease = '.'.join(m.group(1).split('.')[:2])
-                # else: fall back to the default behaviour
+                try:
+                    m = re.search(
+                            r'<key>ProductUserVisibleVersion</key>\s*' +
+                            r'<string>(.*?)</string>', f.read())
+                    if m is not None:
+                        macrelease = '.'.join(m.group(1).split('.')[:2])
+                    # else: fall back to the default behaviour
+                finally:
+                    f.close()
 
         if not macver:
             macver = macrelease

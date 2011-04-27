@@ -3,7 +3,7 @@
 Utility functions for operating on single files.
 """
 
-__revision__ = "$Id: file_util.py 80804 2010-05-05 19:09:31Z ronald.oussoren $"
+__revision__ = "$Id$"
 
 import os
 from distutils.errors import DistutilsFileError
@@ -224,6 +224,8 @@ def write_file (filename, contents):
     sequence of strings without line terminators) to it.
     """
     f = open(filename, "w")
-    for line in contents:
-        f.write(line + "\n")
-    f.close()
+    try:
+        for line in contents:
+            f.write(line + "\n")
+    finally:
+        f.close()
