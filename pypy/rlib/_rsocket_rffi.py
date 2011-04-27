@@ -464,7 +464,8 @@ addrinfo = cConfig.addrinfo
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
-    sockaddr_ll = cConfig.sockaddr_ll
+    if cConfig.sockaddr_ll is not None:
+        sockaddr_ll = cConfig.sockaddr_ll
     ifreq = cConfig.ifreq
 if WIN32:
     WSAEVENT = cConfig.WSAEVENT
