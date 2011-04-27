@@ -14,7 +14,7 @@ PYPY_VERSION               = (1, 5, 0, "alpha", 0)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
-elif platform.cc == 'gcc':
+elif platform.cc.startswith('gcc'):
     out = platform.execute(platform.cc, '--version').out
     match = re.search(' (\d+\.\d+(\.\d+)*)', out)
     if match:
