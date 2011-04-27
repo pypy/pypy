@@ -23,7 +23,7 @@ def makeref(docdir):
                 return
         name2target.setdefault(linktarget, []).append(linkname)
 
-    for textfile in docdir.listdir():  # for subdirs, see below
+    for textfile in sorted(docdir.listdir()):  # for subdirs, see below
         if textfile.ext != '.rst':
             continue
         content = textfile.read()
@@ -32,9 +32,10 @@ def makeref(docdir):
             if '/' in linkname:
                 found = True
                 assert distdir.join(linkname).check(), "link %s in %s is dead" % (linkname, textfile)
+                url = bitbucket_url + linkname
                 if not linkname.endswith("/") and distdir.join(linkname).check(dir=1):
-                    linkname += "/"
-                addlink(linkname, bitbucket_url + linkname)
+                    url += "/"
+                addlink(linkname, url)
             elif linkname.startswith('issue'): 
                 found = True
                 addlink(linkname, issue_url+linkname)
