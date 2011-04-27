@@ -1,6 +1,7 @@
 .. _`demo/`: https://bitbucket.org/pypy/pypy/src/default/demo/
 .. _`demo/pickle_coroutine.py`: https://bitbucket.org/pypy/pypy/src/default/demo/pickle_coroutine.py
 .. _`lib-python/`: https://bitbucket.org/pypy/pypy/src/default/lib-python/
+.. _`lib-python/2.7.0/dis.py`: https://bitbucket.org/pypy/pypy/src/default/lib-python/2.7.0/dis.py
 .. _`lib_pypy/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/
 .. _`lib_pypy/pypy_test/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/pypy_test/
 .. _`lib_pypy/stackless.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/stackless.py

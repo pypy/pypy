@@ -8,6 +8,18 @@ all_optiondescrs = [pypyoption.pypy_optiondescription,
                    ]
 start_to_descr = dict([(descr._name, descr) for descr in all_optiondescrs])
 
+def make_cmdline_overview():
+    result = []
+    txtpath = thisdir.join("commandline.txt")
+    for line in txtpath.read().splitlines():
+        if line.startswith('.. GENERATE:'):
+            start = line[len('.. GENERATE:'):].strip()
+            descr = start_to_descr[start]
+            line = makerestdoc.make_cmdline_overview(descr, title=False).text()
+        result.append(line)
+    rstpath = txtpath.new(ext=".rst")
+    rstpath.write("\n".join(result))
+
 def make_rst(basename):
     txtpath = thisdir.join(basename)
     txtpath.ensure()
@@ -46,3 +58,5 @@ for descr in all_optiondescrs:
     for p in c.getpaths(include_groups=True):
         basename = prefix + "." + p + ".txt"
         make_rst(basename)
+
+make_cmdline_overview()
