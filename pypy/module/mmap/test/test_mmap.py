@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 import os
