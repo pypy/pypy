@@ -201,6 +201,8 @@ class UnrollOptimizer(Optimization):
                 for a in snapshot_args:
                     if not isinstance(a, Const):
                         a = loop.preamble.inputargs[jump_args.index(a)]
+                    a = self.inliner.inline_arg(a)
+                    a = self.getvalue(a).get_key_box()
                     new_snapshot_args.append(a)
                 snapshot.boxes = new_snapshot_args
                 snapshot = snapshot.prev
@@ -209,20 +211,6 @@ class UnrollOptimizer(Optimization):
             if short:
                 assert short[-1].getopnum() == rop.JUMP
                 short[-1].setdescr(loop.token)
-                if False:
-                    # FIXME: This should save some memory but requires
-                    # a lot of tests to be fixed...
-                    loop.preamble.operations = short[:]
-
-                # FIXME: combine with snapshot loop above
-                short_resumedescr = start_resumedescr.clone_if_mutable()
-                assert isinstance(short_resumedescr, ResumeGuardDescr)                
-                self.inliner.inline_descr_inplace(short_resumedescr)                
-                snapshot = short_resumedescr.rd_snapshot
-                while snapshot:
-                    snapshot.boxes = [self.getvalue(b).get_key_box()
-                                      for b in snapshot.boxes]
-                    snapshot = snapshot.prev
 
                 # Turn guards into conditional jumps to the preamble
                 for i in range(len(short)):
@@ -230,7 +218,7 @@ class UnrollOptimizer(Optimization):
                     if op.is_guard():
                         op = op.clone()
                         op.setfailargs(None)
-                        descr = short_resumedescr.clone_if_mutable()
+                        descr = start_resumedescr.clone_if_mutable()
                         op.setdescr(descr)
                         short[i] = op
 
@@ -246,7 +234,7 @@ class UnrollOptimizer(Optimization):
                 short_loop.inputargs = newargs
                 ops = [inliner.inline_op(op) for op in short_loop.operations]
                 short_loop.operations = ops
-                descr = short_resumedescr.clone_if_mutable()
+                descr = start_resumedescr.clone_if_mutable()
                 inliner.inline_descr_inplace(descr)
                 short_loop.start_resumedescr = descr
 
