@@ -94,6 +94,7 @@ Detailed Documentation
    objspace.rst
    __pypy__-module.rst
    objspace-proxies.rst
+   config/index.rst
 
    dev_method.rst
    extending.rst

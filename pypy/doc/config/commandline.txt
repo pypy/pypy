@@ -1,6 +1,6 @@
 
 .. contents::
-    
+
 
 .. _objspace:
 .. _`overview-of-command-line-options-for-objspace`:

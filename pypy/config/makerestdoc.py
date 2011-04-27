@@ -147,11 +147,9 @@ class __extend__(OptionDescription):
 def _get_section_header(cmdline, fullpath, subdescr):
     # XXX:  pypy specific hack
     txtfile = configdocdir.join(fullpath + ".txt")
-    print txtfile,
     if not txtfile.check():
-        print "not found"
+        print txtfile, "not found"
         return ""
-    print "found"
     content = txtfile.read()
     if ".. internal" in content:
         return "Internal Options"
