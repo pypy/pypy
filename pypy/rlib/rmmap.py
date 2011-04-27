@@ -27,10 +27,6 @@ class ROverflowError(Exception):
     def __init__(self, message):
         self.message = message
 
-class RSystemError(Exception):
-    def __init__(self, message):
-        self.message = message
-
 includes = ["sys/types.h"]
 if _POSIX:
     includes += ['unistd.h', 'sys/mman.h']
@@ -515,7 +511,7 @@ class MMap(object):
         
         if _POSIX:
             if not has_mremap:
-                raise RSystemError("mmap: resizing not available--no mremap()")
+                raise RValueError("mmap: resizing not available--no mremap()")
             
             # resize the underlying file first
             os.ftruncate(self.fd, self.offset + newsize)

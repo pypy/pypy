@@ -5,7 +5,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.rlib import rmmap
-from pypy.rlib.rmmap import RValueError, RTypeError, ROverflowError, RSystemError
+from pypy.rlib.rmmap import RValueError, RTypeError, ROverflowError
 import sys
 import os
 import platform
@@ -123,7 +123,9 @@ class W_MMap(Wrappable):
             self.mmap.resize(newsize)
         except OSError, e:
             raise mmap_error(self.space, e)
-        except RSystemError, e:
+        except RValueError, e:
+            # obscure: in this case, RValueError translates to an app-level
+            # SystemError.
             raise OperationError(self.space.w_SystemError,
                                  self.space.wrap(e.message))
 
