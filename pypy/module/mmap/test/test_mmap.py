@@ -363,6 +363,28 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_resize_bsd(self):
+        import sys
+        if ("darwin" not in sys.platform) and ("freebsd" not in sys.platform):
+            skip("resize works under not OSX or FreeBSD")
+        
+        import mmap
+        import os
+        
+        f = open(self.tmpname + "p", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        raises(TypeError, m.resize, 1)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_COPY)
+        raises(TypeError, m.resize, 1)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
+        f_size = os.fstat(f.fileno()).st_size
+        assert m.size() == f_size == 6
+        raises(SystemError, m.resize, 10)
+        f_size = os.fstat(f.fileno()).st_size
+        assert m.size() == f_size == 6
+
     def test_len(self):
         from mmap import mmap
         
