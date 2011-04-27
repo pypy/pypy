@@ -164,9 +164,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         #
         assert entry_bridge.match_by_id('call', """
             p29 = getfield_gc(ConstPtr(ptr28), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value .*>)
-            guard_nonnull_class(p29, ConstClass(Function), descr=<Guard17>)
-            i32 = getfield_gc(p0, descr=<BoolFieldDescr pypy.interpreter.pyframe.PyFrame.inst_is_being_profiled .*>)
-            guard_false(i32, descr=<Guard18>)
+            guard_nonnull_class(p29, ConstClass(Function), descr=<Guard18>)
             p33 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_code .*>)
             guard_value(p33, ConstPtr(ptr34), descr=<Guard19>)
             p35 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_w_func_globals .*>)
