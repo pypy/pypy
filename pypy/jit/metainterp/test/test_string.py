@@ -444,6 +444,23 @@ class StringTests:
             return sa
         assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
 
+    def test_loop_invariant_string_slize_in_array(self):
+        _str = self._str
+        mydriver = JitDriver(reds = ['i', 'n', 'sa', 's', 's1'], greens = [])
+        def f(n, c):
+            s = s1 = [_str(c*10)]
+            sa = i = 0
+            while i < n:
+                mydriver.jit_merge_point(i=i, n=n, sa=sa, s=s, s1=s1)
+                sa += len(s[0])
+                if i < n/2:
+                    s = [s1[0][1:3]]
+                else:
+                    s = [s1[0][2:3]]
+                i += 1
+            return sa
+        assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
+
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
 #    CALL_PURE = "oosend_pure"
