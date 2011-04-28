@@ -7,6 +7,13 @@ Papers
 
 *Articles about PyPy published so far, most recent first:* (bibtex_ file)
 
+
+* `Allocation Removal by Partial Evaluation in a Tracing JIT`_,
+  C.F. Bolz, A. Cuni, M. Fijalkowski, M. Leuschel, S. Pedroni, A. Rigo
+
+* `Towards a Jitting VM for Prolog Execution`_,
+  C.F. Bolz, M. Leuschel, D, Schneider
+
 * `High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`_,
   A. Cuni, Ph.D. thesis
 
@@ -58,6 +65,8 @@ Papers
 
 
 .. _bibtex: http://codespeak.net/svn/pypy/extradoc/talk/bibtex.bib
+.. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: http://codespeak.net/svn/pypy/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
+.. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/publications/bolz-prolog-jit.pdf
 .. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
 .. _`How to *not* write Virtual Machines for Dynamic Languages`: http://codespeak.net/svn/pypy/extradoc/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: http://codespeak.net/svn/pypy/extradoc/talk/icooolps2009/bolz-tracing-jit.pdf

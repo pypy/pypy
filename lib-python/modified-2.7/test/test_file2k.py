@@ -529,6 +529,9 @@ class FileThreadingTests(unittest.TestCase):
                     pass
         self._create_file()
         self._run_workers(worker, nb_workers)
+        # make sure that all files can be closed now
+        del self.all_files
+        gc_collect()
         if test_support.verbose:
             # Useful verbose statistics when tuning this test to take
             # less time to run but still ensuring that its still useful.
