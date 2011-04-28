@@ -217,6 +217,7 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         CTP = CFUNCTYPE(None)
         cfunc = dll._testfunc_callback_void
         cfunc.argtypes = [CTP]
+        cfunc.restype = int
         cfunc(CTP(callback))
         out, err = capsys.readouterr()
         assert (out, err) == ("", "")
