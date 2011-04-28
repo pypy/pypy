@@ -10,7 +10,7 @@ interpreter implemented in Python.  When translated to C, it passes most of
 `CPythons core language regression tests`_ and comes with many of the extension
 modules included in the standard library including ``ctypes``. It can run large
 libraries such as Django_ and Twisted_. There are some small behavioral
-differences to CPython and some missing extensions, for details see `CPython
+differences with CPython and some missing extensions, for details see `CPython
 differences`_.
 
 .. _Django: http://djangoproject.com
@@ -58,7 +58,7 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    * ``libexpat1-dev`` (for the optional ``pyexpat`` module)
    * ``libssl-dev`` (for the optional ``_ssl`` module)
    * ``libgc-dev`` (for the Boehm garbage collector: only needed when translating with `--opt=0, 1` or `size`)
-   * ``python-sphinx`` (for the optional documentation build)
+   * ``python-sphinx`` (for the optional documentation build.  You need version 1.0.7 or later)
    * ``python-greenlet`` (for the optional stackless support in interpreted mode/testing)
 
 2. Translation is somewhat time-consuming (30 min to
