@@ -2,7 +2,7 @@
 
 def setup(app):
     import sys, os
-    sys.path.append(os.path.abspath("../../"))
+    sys.path.insert(0, os.path.abspath("../../"))
     from pypy.config import makerestdoc
     import py
     role = makerestdoc.register_config_role(py.path.local())
