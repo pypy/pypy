@@ -18,9 +18,19 @@ c_int = "c_int"
 
 # CPython 2.7 semantics are too messy to follow exactly,
 # e.g. setuid(-2) works on 32-bit but not on 64-bit.  As a result,
-# we decided to just accept any 'int', i.e. any C signed long.
+# we decided to just accept any 'int', i.e. any C signed long, and
+# check that they are in range(-2**31, 2**32).  In other words, we
+# accept any number that is either a signed or an unsigned C int.
 c_uid_t = int
 c_gid_t = int
+if sys.maxint == 2147483647:
+    def check_uid_range(space, num):
+        pass
+else:
+    def check_uid_range(space, num):
+        if num < -(1<<31) or num >= (1<<32):
+            raise OperationError(space.w_OverflowError,
+                                 space.wrap("integer out of range"))
 
 class FileEncoder(object):
     def __init__(self, space, w_obj):
@@ -828,12 +838,13 @@ def getuid(space):
     """
     return space.wrap(os.getuid())
 
-@unwrap_spec(arg=int)
+@unwrap_spec(arg=c_uid_t)
 def setuid(space, arg):
     """ setuid(uid)
 
     Set the current process's user id.
     """
+    check_uid_range(space, arg)
     try:
         os.setuid(arg)
     except OSError, e:
@@ -846,6 +857,7 @@ def seteuid(space, arg):
 
     Set the current process's effective user id.
     """
+    check_uid_range(space, arg)
     try:
         os.seteuid(arg)
     except OSError, e:
@@ -858,6 +870,7 @@ def setgid(space, arg):
 
     Set the current process's group id.
     """
+    check_uid_range(space, arg)
     try:
         os.setgid(arg)
     except OSError, e:
@@ -870,6 +883,7 @@ def setegid(space, arg):
 
     Set the current process's effective group id.
     """
+    check_uid_range(space, arg)
     try:
         os.setegid(arg)
     except OSError, e:
@@ -971,6 +985,8 @@ def setreuid(space, ruid, euid):
 
     Set the current process's real and effective user ids.
     """
+    check_uid_range(space, ruid)
+    check_uid_range(space, euid)
     try:
         os.setreuid(ruid, euid)
     except OSError, e:
@@ -983,6 +999,8 @@ def setregid(space, rgid, egid):
 
     Set the current process's real and effective group ids.
     """
+    check_uid_range(space, rgid)
+    check_uid_range(space, egid)
     try:
         os.setregid(rgid, egid)
     except OSError, e:
@@ -1063,6 +1081,8 @@ def fpathconf(space, fd, w_name):
 
 @unwrap_spec(path=str, uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
+    check_uid_range(space, uid)
+    check_uid_range(space, gid)
     try:
         os.chown(path, uid, gid)
     except OSError, e:
@@ -1071,6 +1091,8 @@ def chown(space, path, uid, gid):
 
 @unwrap_spec(path=str, uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
+    check_uid_range(space, uid)
+    check_uid_range(space, gid)
     try:
         os.lchown(path, uid, gid)
     except OSError, e:
