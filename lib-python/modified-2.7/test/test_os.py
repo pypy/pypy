@@ -626,32 +626,40 @@ if sys.platform != 'win32':
             def test_setuid(self):
                 if os.getuid() != 0:
                     self.assertRaises(os.error, os.setuid, 0)
-                self.assertRaises(OverflowError, os.setuid, 1<<32)
+                self.assertRaises((OverflowError, OSError), os.setuid, 1<<32)
+                self.assertRaises(OverflowError, os.setuid, sys.maxint*3)
 
         if hasattr(os, 'setgid'):
             def test_setgid(self):
                 if os.getuid() != 0:
                     self.assertRaises(os.error, os.setgid, 0)
-                self.assertRaises(OverflowError, os.setgid, 1<<32)
+                self.assertRaises((OverflowError, OSError), os.setgid, 1<<32)
+                self.assertRaises(OverflowError, os.setgid, sys.maxint*3)
 
         if hasattr(os, 'seteuid'):
             def test_seteuid(self):
                 if os.getuid() != 0:
                     self.assertRaises(os.error, os.seteuid, 0)
-                self.assertRaises(OverflowError, os.seteuid, 1<<32)
+                self.assertRaises((OverflowError, OSError), os.seteuid, 1<<32)
+                self.assertRaises(OverflowError, os.seteuid, sys.maxint*3)
 
         if hasattr(os, 'setegid'):
             def test_setegid(self):
                 if os.getuid() != 0:
                     self.assertRaises(os.error, os.setegid, 0)
-                self.assertRaises(OverflowError, os.setegid, 1<<32)
+                self.assertRaises((OverflowError, OSError), os.setegid, 1<<32)
+                self.assertRaises(OverflowError, os.setegid, sys.maxint*3)
 
         if hasattr(os, 'setreuid'):
             def test_setreuid(self):
                 if os.getuid() != 0:
                     self.assertRaises(os.error, os.setreuid, 0, 0)
-                self.assertRaises(OverflowError, os.setreuid, 1<<32, 0)
-                self.assertRaises(OverflowError, os.setreuid, 0, 1<<32)
+                self.assertRaises((OverflowError, OSError),
+                                  os.setreuid, 1<<32, 0)
+                self.assertRaises((OverflowError, OSError),
+                                  os.setreuid, 0, 1<<32)
+                self.assertRaises(OverflowError, os.setreuid, sys.maxint*3, 0)
+                self.assertRaises(OverflowError, os.setreuid, 0, sys.maxint*3)
 
             def test_setreuid_neg1(self):
                 # Needs to accept -1.  We run this in a subprocess to avoid
@@ -664,8 +672,12 @@ if sys.platform != 'win32':
             def test_setregid(self):
                 if os.getuid() != 0:
                     self.assertRaises(os.error, os.setregid, 0, 0)
-                self.assertRaises(OverflowError, os.setregid, 1<<32, 0)
-                self.assertRaises(OverflowError, os.setregid, 0, 1<<32)
+                self.assertRaises((OverflowError, OSError),
+                                  os.setregid, 1<<32, 0)
+                self.assertRaises((OverflowError, OSError),
+                                  os.setregid, 0, 1<<32)
+                self.assertRaises(OverflowError, os.setregid, sys.maxint*3, 0)
+                self.assertRaises(OverflowError, os.setregid, 0, sys.maxint*3)
 
             def test_setregid_neg1(self):
                 # Needs to accept -1.  We run this in a subprocess to avoid
