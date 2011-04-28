@@ -1,6 +1,7 @@
 
 # -*- coding: utf-8 -*-
 
+from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
@@ -506,6 +507,7 @@ class AppTestPosix:
 
     if hasattr(os, 'setuid'):
         def test_os_setuid_error(self):
+            skip("overflow checking disabled for now")
             os = self.posix
             raises((OSError, ValueError, OverflowError), os.setuid, -100000)
 
@@ -527,6 +529,7 @@ class AppTestPosix:
 
     if hasattr(os, 'setgid'):
         def test_os_setgid_error(self):
+            skip("overflow checking disabled for now")
             os = self.posix
             raises((OSError, ValueError, OverflowError), os.setgid, -100000)
 
@@ -534,7 +537,7 @@ class AppTestPosix:
         def test_os_getsid(self):
             os = self.posix
             assert os.getsid(0) == self.getsid0
-            raises((OSError, ValueError, OverflowError), os.getsid, -100000)
+            raises(OSError, os.getsid, -100000)
 
     if hasattr(os, 'sysconf'):
         def test_os_sysconf(self):

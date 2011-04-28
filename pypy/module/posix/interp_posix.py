@@ -15,7 +15,12 @@ import os, sys
 _WIN = sys.platform == 'win32'
 
 c_int = "c_int"
-c_nonnegint = "c_nonnegint"
+
+# CPython 2.7 semantics are too messy to follow exactly,
+# e.g. setuid(-2) works on 32-bit but not on 64-bit.  As a result,
+# we decided to just accept any 'int', i.e. any C signed long.
+c_uid_t = int
+c_gid_t = int
 
 class FileEncoder(object):
     def __init__(self, space, w_obj):
@@ -823,7 +828,7 @@ def getuid(space):
     """
     return space.wrap(os.getuid())
 
-@unwrap_spec(arg=c_nonnegint)
+@unwrap_spec(arg=int)
 def setuid(space, arg):
     """ setuid(uid)
 
@@ -835,7 +840,7 @@ def setuid(space, arg):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(arg=c_nonnegint)
+@unwrap_spec(arg=c_uid_t)
 def seteuid(space, arg):
     """ seteuid(uid)
 
@@ -847,7 +852,7 @@ def seteuid(space, arg):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(arg=c_nonnegint)
+@unwrap_spec(arg=c_gid_t)
 def setgid(space, arg):
     """ setgid(gid)
 
@@ -859,7 +864,7 @@ def setgid(space, arg):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(arg=c_nonnegint)
+@unwrap_spec(arg=c_gid_t)
 def setegid(space, arg):
     """ setegid(gid)
 
@@ -960,7 +965,7 @@ def setpgid(space, pid, pgrp):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(ruid=c_int, euid=c_int)
+@unwrap_spec(ruid=c_uid_t, euid=c_uid_t)
 def setreuid(space, ruid, euid):
     """ setreuid(ruid, euid)
 
@@ -972,7 +977,7 @@ def setreuid(space, ruid, euid):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(rgid=c_int, egid=c_int)
+@unwrap_spec(rgid=c_gid_t, egid=c_gid_t)
 def setregid(space, rgid, egid):
     """ setregid(rgid, egid)
 
@@ -1056,7 +1061,7 @@ def fpathconf(space, fd, w_name):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path=str, uid=c_int, gid=c_int)
+@unwrap_spec(path=str, uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
     try:
         os.chown(path, uid, gid)
@@ -1064,7 +1069,7 @@ def chown(space, path, uid, gid):
         raise wrap_oserror(space, e, path)
     return space.w_None
 
-@unwrap_spec(path=str, uid=c_int, gid=c_int)
+@unwrap_spec(path=str, uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
     try:
         os.lchown(path, uid, gid)
