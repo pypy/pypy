@@ -15,14 +15,14 @@ if sys.platform == 'win32':
     raise ImportError("No pwd module on Windows")
 
 from ctypes_support import standard_c_lib as libc
-from ctypes import Structure, POINTER, c_int, c_char_p, c_long, c_uint
+from ctypes import Structure, POINTER, c_int, c_char_p, c_long
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
 
-uid_t = c_uint
-gid_t = c_uint
+uid_t = c_int
+gid_t = c_int
 time_t = c_long
 
 if sys.platform == 'darwin':
