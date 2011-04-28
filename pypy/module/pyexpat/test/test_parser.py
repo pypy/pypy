@@ -33,10 +33,10 @@ class AppTestPyexpat:
         import sys
         if sys.platform == "darwin":
             skip("Fails with the version of expat on Mac OS 10.6.6")
-	import pyexpat
+        import pyexpat
         xml = "\0\r\n"
-	parser = pyexpat.ParserCreate()
-	raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
+        parser = pyexpat.ParserCreate()
+        raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
 
     def test_encoding(self):
         import pyexpat
