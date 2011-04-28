@@ -148,6 +148,9 @@ sqlite.sqlite3_value_double.restype = c_double
 sqlite.sqlite3_value_text.argtypes = [c_void_p]
 sqlite.sqlite3_value_text.restype = c_char_p
 
+sqlite.sqlite3_value_type.argtypes = [c_void_p]
+sqlite.sqlite3_value_type.restype = c_int
+
 sqlite.sqlite3_bind_int.argtypes = [c_void_p, c_int, c_int]
 sqlite.sqlite3_bind_parameter_count.argtypes = [c_void_p]
 sqlite.sqlite3_bind_parameter_count.restype = c_int
