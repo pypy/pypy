@@ -35,19 +35,10 @@ wants to access the current development.
 
 .. _`downloading them from the download page`: http://pypy.org/download.html
 
-If you choose to use mercurial,
-first make sure you have ``subversion`` installed.
 You must issue the following command on your
 command line, DOS box, or terminal::
 
     hg clone http://bitbucket.org/pypy/pypy pypy
-
-If you get an error like this::
-
-    abort: repository [svn]http://codespeak.net/svn/pypy/build/testrunner not found!
-
-it probably means that your mercurial version is too old. You need at least
-Mercurial 1.6 to clone the PyPy repository.
 
 This will clone the repository and place it into a directory
 named ``pypy``, and will get you the PyPy source in
