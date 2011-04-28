@@ -1,4 +1,9 @@
 # ctypes implementation of _locale module by Victor Stinner, 2008-03-27
+
+# ------------------------------------------------------------
+#  Note that we also have our own interp-level implementation
+# ------------------------------------------------------------
+
 """
 Support for POSIX locales.
 """
