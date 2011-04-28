@@ -105,7 +105,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('call_rec', """
             ...
-            p53 = call_assembler(p35, p7, ConstPtr(ptr21), ConstPtr(ptr49), 0, ConstPtr(ptr51), -1, ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr48), descr=...)
+            p53 = call_assembler(..., descr=...)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
             ...
