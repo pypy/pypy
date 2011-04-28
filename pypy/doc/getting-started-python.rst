@@ -116,11 +116,12 @@ interesting options (but for now incompatible with the JIT) are:
    * ``--stackless``: this produces a pypy-c that includes features
      inspired by `Stackless Python <http://www.stackless.com>`__.
 
-   * ``--gc=boehm|ref|marknsweep|semispace|generation|hybrid``:
+   * ``--gc=boehm|ref|marknsweep|semispace|generation|hybrid|minimark``:
      choose between using
      the `Boehm-Demers-Weiser garbage collector`_, our reference
-     counting implementation or four of own collector implementations
-     (the default depends on the optimization level).
+     counting implementation or one of own collector implementations
+     (the default depends on the optimization level but is usually
+     ``minimark``).
 
 Find a more detailed description of the various options in our `configuration
 sections`_.
