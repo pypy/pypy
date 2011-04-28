@@ -285,9 +285,10 @@ class OpMatcher(object):
     def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr)):
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
-        self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
-        for arg, exp_arg in zip(op.args, exp_args):
-            self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
+        if exp_args != ['...']:
+            self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
+            for arg, exp_arg in zip(op.args, exp_args):
+                self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
         self.match_descr(op.descr, exp_descr)
 
 
