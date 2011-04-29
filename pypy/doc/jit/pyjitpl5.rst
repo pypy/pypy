@@ -10,8 +10,8 @@ Implementation of the JIT
 
 The JIT's `theory`_ is great in principle, but the actual code is a different
 story. This section tries to give a high level overview of how PyPy's JIT is
-implemented.  It's helpful to have an understanding of how the PyPy `translation
-tool chain`_ works before digging into the sources.
+implemented.  It's helpful to have an understanding of how the `RPython translation
+toolchain`_ works before digging into the sources.
 
 Almost all JIT specific code is found in pypy/jit subdirectories.  Translation
 time code is in the codewriter directory.  The metainterp directory holds
@@ -19,7 +19,7 @@ platform independent code including the the tracer and the optimizer.  Code in
 the backend directory is responsible for generating machine code.
 
 .. _`theory`: overview.html
-.. _`translation tool chain`: ../translation.html
+.. _`RPython translation toolchain`: ../translation.html
 
 
 JIT hints
