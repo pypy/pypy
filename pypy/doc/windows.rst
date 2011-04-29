@@ -13,7 +13,7 @@ preferred, but can also use the mingw32 port of gcc.
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test the translation toolchain using Visual Studio .NET
+We routinely test the `RPython translation toolchain`_ using Visual Studio .NET
 2005, Professional Edition, and Visual Studio .NET 2008, Express
 Edition.  Other configurations may work as well.
 
@@ -122,3 +122,4 @@ them in the base directory.  Then run::
     cp .libs/libffi-5.dll <somewhere on the PATH>
 
 .. _`libffi source files`: http://sourceware.org/libffi/
+.. _`RPython translation toolchain`: translation.rst
