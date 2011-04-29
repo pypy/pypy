@@ -68,14 +68,17 @@ and not move the binary there, else PyPy would not be able to find its
 library.
 
 If you want to install 3rd party libraries, the most convenient way is to
-install setuptools_, which will bring ``easy_install`` to you::
+install distribute_ and pip_:
 
-    $ wget http://peak.telecommunity.com/dist/ez_setup.py
+    $ curl -O http://python-distribute.org/distribute_setup.py
 
-    $ ./pypy-1.5-linux/bin/pypy ez_setup.py
+    $ curl -O https://github.com/pypa/pip/raw/master/contrib/get-pip.py
 
-    $ ls ./pypy-1.5-linux/bin/
-    easy_install  easy_install-2.7  pypy
+    $ ./pypy-1.5-linux/bin/pypy distribute_setup.py
+
+    $ ./pypy-1.5-linux/bin/pypy get-pip.py
+
+    $ ./pypy-1.5-linux/bin/pip install pygments  # for example
 
 3rd party libraries will be installed in ``pypy-1.5-linux/site-packages``, and
 the scripts in ``pypy-1.5-linux/bin``.
