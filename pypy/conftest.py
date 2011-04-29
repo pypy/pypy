@@ -33,6 +33,10 @@ def _set_platform(opt, opt_str, value, parser):
         raise ValueError("%s not in %s" % (value, PLATFORMS))
     set_platform(value, None)
 
+def _set_compiler(opt, opt_str, value, parser):
+    from pypy.translator.platform import set_platform
+    set_platform('host', value)
+
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
     group.addoption('--view', action="store_true", dest="view", default=False,
@@ -46,6 +50,9 @@ def pytest_addoption(parser):
     group.addoption('-P', '--platform', action="callback", type="string",
            default="host", callback=_set_platform,
            help="set up tests to use specified platform as compile/run target")
+    group.addoption('--cc', action="callback", type="string",
+           default="host", callback=_set_compiler,
+           help="set up tests to use specified compiler")
 
 def pytest_sessionstart():
     # have python subprocesses avoid startup customizations by default
