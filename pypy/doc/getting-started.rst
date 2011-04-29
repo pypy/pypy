@@ -99,6 +99,9 @@ checkout::
 
 Note that bin/python is now a symlink to bin/pypy.
 
+.. _`distribute`: http://www.python-distribute.org/
+.. _`pip`: http://pypi.python.org/pypi/pip
+
 
 Clone the repository
 --------------------
