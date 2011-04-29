@@ -145,7 +145,7 @@ Minimark GC saves one word of memory per old object.
 There are a number of environment variables that can be tweaked to
 influence the GC.  (Their default value should be ok for most usages.)
 You can read more about them at the start of
-`rpython/memory/gc/minimark.py`_.
+`pypy/rpython/memory/gc/minimark.py`_.
 
 In more details:
 
@@ -162,7 +162,7 @@ In more details:
   to the old stage. The dying case 2 objects are immediately freed.
 
 - The old stage is an area of memory containing old (small) objects.  It
-  is handled by `rpython/memory/gc/minimarkpage.py`_.  It is organized
+  is handled by `pypy/rpython/memory/gc/minimarkpage.py`_.  It is organized
   as "arenas" of 256KB or 512KB, subdivided into "pages" of 4KB or 8KB.
   Each page can either be free, or contain small objects of all the same
   size.  Furthermore at any point in time each object location can be
