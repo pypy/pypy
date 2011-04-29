@@ -100,6 +100,8 @@
 .. _`pypy/rpython/memory/gc/hybrid.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/hybrid.py
 .. _`pypy/rpython/memory/gc/markcompact.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/markcompact.py
 .. _`pypy/rpython/memory/gc/marksweep.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/marksweep.py
+.. _`pypy/rpython/memory/gc/minimark.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/minimark.py
+.. _`pypy/rpython/memory/gc/minimarkpage.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/minimarkpage.py
 .. _`pypy/rpython/memory/gc/semispace.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/semispace.py
 .. _`pypy/rpython/ootypesystem/`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/ootypesystem/
 .. _`pypy/rpython/ootypesystem/ootype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/ootypesystem/ootype.py
