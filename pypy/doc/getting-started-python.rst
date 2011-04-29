@@ -18,11 +18,10 @@ differences`_.
 
 .. _`CPython differences`: cpython_differences.html
 
-To actually use PyPy's Python interpreter, the first thing you typically do is
-translate it to get a reasonably performing interpreter. This is described in
-the next section. If you just want to play around a bit, you can also try
-untranslated `py.py interpreter`_ (which is extremely slow, but still fast
-enough for tiny examples).
+To actually use PyPy's Python interpreter, the first thing to do is to 
+`download a pre-built PyPy`_ for your architecture.  
+
+.. `download a pre-built PyPy`:  http://pypy.org/download.html
 
 Translating the PyPy Python interpreter
 ---------------------------------------
@@ -35,7 +34,13 @@ Windows, see the `windows document`_)
 You can translate the whole of PyPy's Python interpreter to low level C code,
 `CLI code`_, or `JVM code`_.
 
-1. Install build-time dependencies.  On a Debian box these are::
+1. First `download a pre-built PyPy`_ for your architecture which you will
+use to translate your Python interpreter.  It is, of course, possible to
+translate with a CPython 2.6 or later, but this is not the preferred way,
+because it will take a lot longer to run -- depending on your architecture,
+between two and three times as long.
+
+2. Install build-time dependencies.  On a Debian box these are::
 
      [user@debian-box ~]$ sudo apt-get install \
      gcc make python-dev libffi-dev pkg-config \
@@ -61,26 +66,29 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    * ``python-sphinx`` (for the optional documentation build.  You need version 1.0.7 or later)
    * ``python-greenlet`` (for the optional stackless support in interpreted mode/testing)
 
-2. Translation is somewhat time-consuming (30 min to
-   over one hour) and RAM-hungry.  If you have less than 1.5 GB of
-   RAM (or a slow machine) you might want to pick the
+3. Translation is time-consuming -- 45 minutes on a very fast machine --
+   and RAM-hungry.  As of March 2011, you will need **at least** 2 GB of 
+   memory on a 
+   32-bit machine and 4GB on a 64-bit machine.  If your memory resources 
+   are constrained, or your machine is slow you might want to pick the
    `optimization level`_ `1` in the next step.  A level of
-   `2` or `3` or `jit` gives much better results, though.
+   `2` or `3` or `jit` gives much better results, though.  But if all
+    you want to do is to test that some new feature that you just wrote
+    translates, level 1 is enough.
 
-   Let me stress this another time: at ``--opt=1`` you get the Boehm
+   Let me stress this again: at ``--opt=1`` you get the Boehm
    GC, which is here mostly for historical and for testing reasons.
-   You really do not want to pick it.  The resulting ``pypy-c`` is
-   slow.
+   You really do not want to pick it for a program you intend to use.  
+   The resulting ``pypy-c`` is slow.
 
-3. Run::
+4. Run::
 
      cd pypy/translator/goal
      python translate.py --opt=jit targetpypystandalone.py
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
-   of your choice like ``--opt=2`` if you do not want the included JIT
-   compiler.  As of March 2011, Intel 32-bit environment needs **at
-   least** 2GB, and 64-bit needs 4GB.
+   of your choice like ``--opt=2`` if you do not want to include the JIT
+   compiler.  
 
 .. _`optimization level`: config/opt.html
 
