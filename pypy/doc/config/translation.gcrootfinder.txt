@@ -1,15 +1,16 @@
-Choose method how to find roots in the GC. Boehm and refcounting have their own
-methods, this is mostly only interesting for framework GCs. For those you have
-a choice of various alternatives:
+Choose the method used to find the roots in the GC.  This only
+applies to our framework GCs.  You have a choice of two
+alternatives:
 
- - use a shadow stack (XXX link to paper), e.g. explicitly maintaining a stack
-   of roots
+- ``--gcrootfinder=shadowstack``: use a so-called "shadow
+  stack", which is an explicitly maintained custom stack of
+  root pointers.  This is the most portable solution.
 
- - use stackless to find roots by unwinding the stack.  Requires
-   :config:`translation.stackless`.  Note that this turned out to
-   be slower than just using a shadow stack.
+- ``--gcrootfinder=asmgcc``: use assembler hackery to find the
+  roots directly from the normal stack.  This is a bit faster,
+  but platform specific.  It works so far with GCC or MSVC,
+  on i386 and x86-64.
 
- - use GCC and i386 specific assembler hackery to find the roots on the stack.
-   This is fastest but platform specific.
-
- - Use LLVM's GC facilities to find the roots.
+You may have to force the use of the shadowstack root finder if
+you are running into troubles or if you insist on translating
+PyPy with other compilers like clang.
