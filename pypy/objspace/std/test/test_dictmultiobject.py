@@ -138,7 +138,7 @@ class TestW_DictObject:
         w_d = space.newdict(from_strdict_shared=d)
         assert self.space.eq_w(space.getitem(w_d, w("a")), w(1))
         assert self.space.eq_w(space.getitem(w_d, w("b")), w(2))
-        
+
     def test_initialize_from_strdict_really_shared(self):
         space = self.space
         w = space.wrap
@@ -156,8 +156,8 @@ class AppTest_DictObject:
         cls.w_on_pypy = cls.space.wrap("__pypy__" in sys.builtin_module_names)
 
     def test_equality(self):
-        d = {1:2} 
-        f = {1:2} 
+        d = {1:2}
+        f = {1:2}
         assert d == f
         assert d != {1:3}
 
@@ -165,13 +165,13 @@ class AppTest_DictObject:
         d = {1:2, 3:4}
         d.clear()
         assert len(d) == 0
-                         
+
     def test_copy(self):
         d = {1:2, 3:4}
         dd = d.copy()
         assert d == dd
         assert not d is dd
-        
+
     def test_get(self):
         d = {1:2, 3:4}
         assert d.get(1) == 2
@@ -193,18 +193,18 @@ class AppTest_DictObject:
         assert result == 44
         assert len(dd) == 1
         raises(KeyError, dd.pop, 33)
-    
+
     def test_has_key(self):
         d = {1:2, 3:4}
         assert d.has_key(1)
         assert not d.has_key(33)
-    
+
     def test_items(self):
         d = {1:2, 3:4}
         its = d.items()
         its.sort()
         assert its == [(1,2),(3,4)]
-    
+
     def test_iteritems(self):
         d = {1:2, 3:4}
         dd = d.copy()
@@ -212,27 +212,27 @@ class AppTest_DictObject:
             assert v == dd[k]
             del dd[k]
         assert not dd
-    
+
     def test_iterkeys(self):
         d = {1:2, 3:4}
         dd = d.copy()
         for k in d.iterkeys():
             del dd[k]
         assert not dd
-    
+
     def test_itervalues(self):
         d = {1:2, 3:4}
         values = []
         for k in d.itervalues():
             values.append(k)
         assert values == d.values()
-    
+
     def test_keys(self):
         d = {1:2, 3:4}
         kys = d.keys()
         kys.sort()
         assert kys == [1,3]
-    
+
     def test_popitem(self):
         d = {1:2, 3:4}
         it = d.popitem()
@@ -393,7 +393,7 @@ class AppTest_DictObject:
         d = dict(a=33, b=44)
         assert d == {'a':33, 'b':44}
         d = dict({'a':33, 'b':44})
-        assert d == {'a':33, 'b':44}        
+        assert d == {'a':33, 'b':44}
         try: d = dict(23)
         except (TypeError, ValueError): pass
         else: self.fail("dict(23) should raise!")
@@ -445,7 +445,7 @@ class AppTest_DictObject:
         assert d3['x'] == 42
         assert d3['y'] == 42
 
-    def test_overridden_setitem_customkey(self):        
+    def test_overridden_setitem_customkey(self):
         class D(dict):
             def __setitem__(self, key, value):
                 dict.__setitem__(self, key, 42)
@@ -495,7 +495,7 @@ class AppTest_DictObject:
                 assert v1 == v2
             else:
                 assert False, 'Expected KeyError'
-        
+
     def test_del_keyerror_unpacking(self):
         d = {}
         for v1 in ['Q', (1,)]:
@@ -564,8 +564,20 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         setattr(a, s, 42)
         key = a.__dict__.keys()[0]
         assert key == s
+        assert key is not s
         assert type(key) is str
         assert getattr(a, s) == 42
+
+    def test_setattr_string_identify(self):
+        attrs = []
+        class A(object):
+            def __setattr__(self, attr, value):
+                attrs.append(attr)
+
+        a = A()
+        s = "abc"
+        setattr(a, s, 123)
+        assert attrs[0] is s
 
 class AppTestDictViews:
     def test_dictview(self):
