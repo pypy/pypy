@@ -9,8 +9,8 @@ contains additional performance improvements. You can download it here:
 
     http://pypy.org/download.html
 
-What is PyPy
-============
+What is PyPy?
+=============
 
 PyPy is a very compliant Python interpreter, almost a drop-in replacement for
 CPython 2.7.1. It's fast (`pypy 1.5 and cpython 2.6`_ performance comparison)
@@ -38,7 +38,9 @@ More highlights
 
 - These changes make it possible to support `Tkinter and IDLE`_.
 
-
+- The `cProfile`_ profiler is now working together with the JIT. However, it
+  skews the relative performance in not yet studied ways, so that it is not yet
+  a perfect tool to find subtle performance problems.
 
 Cheers,
 
@@ -56,3 +58,4 @@ Amaury Forgeot d'Arc, Armin Rigo and the PyPy team
 .. _`loop invariant code motion`: http://morepypy.blogspot.com/2011/01/loop-invariant-code-motion.html
 .. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _`Tkinter and IDLE`: http://morepypy.blogspot.com/2011/04/using-tkinter-and-idle-with-pypy.html
+.. _`cProfile`: http://docs.python.org/library/profile.html
