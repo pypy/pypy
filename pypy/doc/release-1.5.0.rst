@@ -42,6 +42,9 @@ More highlights
   skews the relative performance in not yet studied ways, so that it is not yet
   a perfect tool to find subtle performance problems.
 
+- There is an `external fork`_ which includes an RPython version of the
+  ``postgresql``.  However, there are no prebuilt binaries for this.
+
 Cheers,
 
 Carl Friedrich Bolz, Antonio Cuni, Maciej Fijalkowski,
@@ -59,3 +62,4 @@ Amaury Forgeot d'Arc, Armin Rigo and the PyPy team
 .. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _`Tkinter and IDLE`: http://morepypy.blogspot.com/2011/04/using-tkinter-and-idle-with-pypy.html
 .. _`cProfile`: http://docs.python.org/library/profile.html
+.. _`external fork`: https://bitbucket.org/alex_gaynor/pypy-postgresql
