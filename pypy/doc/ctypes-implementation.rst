@@ -93,7 +93,7 @@ current implementation:
 Running application examples
 ==============================
 
-`pyglet`_ is known to run. We had some success also with pygame-ctypes which is not maintained anymore and with a snapshot of the experimental pysqlite-ctypes. We will only describe how to run the pyglet examples.
+`pyglet`_ is known to run. We also had some success with pygame-ctypes (which is no longer maintained) and with a snapshot of the experimental pysqlite-ctypes. We will only describe how to run the pyglet examples.
 
 pyglet
 -------
