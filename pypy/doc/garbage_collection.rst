@@ -20,10 +20,6 @@ wrote in our framework.
 Garbage collectors currently written for the GC framework
 =========================================================
 
-XXX we need to add something about minimark
-
-(Very rough sketch only for now.)
-
 Reminder: to select which GC you want to include in a translated
 RPython program, use the ``--gc=NAME`` option of ``translate.py``.
 For more details, see the `overview of command line options for
