@@ -1,5 +1,5 @@
 from pypy.rlib.rsre import rsre_char
-from pypy.rlib.rsre.rsre_char import SRE_FLAG_UNICODE
+from pypy.rlib.rsre.rsre_char import SRE_FLAG_LOCALE, SRE_FLAG_UNICODE
 
 def setup_module(mod):
     from pypy.module.unicodedata import unicodedb
