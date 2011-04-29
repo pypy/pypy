@@ -122,4 +122,4 @@ them in the base directory.  Then run::
     cp .libs/libffi-5.dll <somewhere on the PATH>
 
 .. _`libffi source files`: http://sourceware.org/libffi/
-.. _`RPython translation toolchain`: translation.rst
+.. _`RPython translation toolchain`: translation.html
