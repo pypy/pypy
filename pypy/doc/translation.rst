@@ -5,14 +5,14 @@
 .. contents::
 
 
-This document describes the tool chain that we have developed to analyze
+This document describes the toolchain that we have developed to analyze
 and "compile" RPython_ programs (like PyPy itself) to various target
 platforms.
 
 .. _RPython: coding-guide.html#restricted-python
 
 It consists of three broad sections: a slightly simplified overview, a
-brief introduction to each of the major components of our tool chain and
+brief introduction to each of the major components of our toolchain and
 then a more comprehensive section describing how the pieces fit together.
 If you are reading this document for the first time, the Overview_ is
 likely to be most useful, if you are trying to refresh your PyPy memory
@@ -21,7 +21,7 @@ then the `How It Fits Together`_ is probably what you want.
 Overview
 ========
 
-The job of translation tool chain is to translate RPython_ programs into an
+The job of the translation toolchain is to translate RPython_ programs into an
 efficient version of that program for one of various target platforms,
 generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
@@ -40,7 +40,7 @@ C (which is the default and original target).
 
 .. _`initialization time`:
 
-The translation tool chain never sees Python source code or syntax
+The RPython translation toolchain never sees Python source code or syntax
 trees, but rather starts with the *code objects* that define the
 behaviour of the function objects one gives it as input.  The
 `bytecode evaluator`_ and the `Flow Object Space`_ work through these
@@ -706,17 +706,17 @@ also as part of the Summer of PyPy program.
 External Function Calls
 =======================
 
-External function call approach is described in `rffi`_ documentation.
+The external function call approach is described in `rffi`_ documentation.
 
 .. _`rffi`: rffi.html
 
 How It Fits Together
 ====================
 
-As should be clear by now, the translation tool chain of PyPy is a flexible
+As should be clear by now, the translation toolchain of PyPy is a flexible
 and complicated beast, formed from many separate components.
 
-The following image summarizes the various parts of the tool chain as of the
+The following image summarizes the various parts of the toolchain as of the
 0.9 release, with the default translation to C highlighted:
 
 .. image:: image/pypy-translation-0.9.png
