@@ -184,8 +184,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         api_library = state.api_lib
         if sys.platform == 'win32':
             kwds["libraries"] = [api_library]
-            # '%s' undefined; assuming extern returning int
-            kwds["compile_extra"] = ["/we4013"]
+            if platform.platform.name == "msvc":
+                # '%s' undefined; assuming extern returning int
+                kwds["compile_extra"] = ["/we4013"]
         else:
             kwds["link_files"] = [str(api_library + '.so')]
             if sys.platform == 'linux2':

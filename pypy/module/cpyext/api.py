@@ -843,9 +843,10 @@ def build_eci(building_bridge, export_symbols, code):
     compile_extra=['-DPy_BUILD_CORE']
 
     if building_bridge:
-        if sys.platform == "win32":
+        if platform.platform.name == "msvc":
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
+        if sys.platform == "win32":
             # Sometimes the library is wrapped into another DLL, ensure that
             # the correct bootstrap code is installed
             kwds["link_extra"] = ["msvcrt.lib"]
