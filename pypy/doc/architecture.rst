@@ -16,22 +16,20 @@ We aim to provide:
  * a common translation and support framework for producing
    implementations of dynamic languages, emphasizing a clean
    separation between language specification and implementation
-   aspects.
+   aspects.  We call this the `RPython toolchain`_.
 
  * a compliant, flexible and fast implementation of the Python_ Language 
-   using the above framework to enable new advanced features without having
-   to encode low level details into it.
+   which uses the above toolchain to enable new advanced high-level features 
+   without having to encode the low-level details.
 
-By separating concerns in this way, we intend for our implementation
-of Python - and other dynamic languages - to become robust against almost 
-all implementation decisions, including target platform, memory and 
-threading models, optimizations applied, up to to the point of being able to
-automatically *generate* Just-in-Time compilers for dynamic languages.
-
-Conversely, our implementation techniques, including the JIT compiler 
-generator, should become robust against changes in the languages 
-implemented. 
-
+By separating concerns in this way, our implementation
+of Python - and other dynamic languages - is able to automatically
+generate a Just-in-Time compiler for any dynamic language.  It also
+allows a mix-and-match approach to implementation decisions, including
+many that have historically been outside of a user's control, such as
+target platform, memory and 
+threading models, garbage collection strategies, and optimizations applied, 
+including whether or not to have a JIT in the first place.
 
 High Level Goals
 =============================
@@ -40,9 +38,10 @@ PyPy - the Translation Framework
 -----------------------------------------------
 
 Traditionally, language interpreters are written in a target platform language
-like C/Posix, Java or C#.  Each such implementation fundamentally provides 
-a mapping from application source code to the target environment.  One of 
-the goals of the "all-encompassing" environments, like the .NET framework
+such as C/Posix, Java or C#.  Each implementation provides 
+a fundamental mapping between application source code and the target 
+environment.  One of 
+the goals of the "all-encompassing" environments, such as the .NET framework
 and to some extent the Java virtual machine, is to provide standardized
 and higher level functionalities in order to support language implementers
 for writing language implementations. 
@@ -50,7 +49,7 @@ for writing language implementations.
 PyPy is experimenting with a more ambitious approach.  We are using a
 subset of the high-level language Python, called RPython_, in which we
 write languages as simple interpreters with few references to and
-dependencies on lower level details.  Our translation framework then
+dependencies on lower level details.  The `RPython toolchain`_
 produces a concrete virtual machine for the platform of our choice by
 inserting appropriate lower level aspects.  The result can be customized
 by selecting other feature and platform configurations.
@@ -58,8 +57,8 @@ by selecting other feature and platform configurations.
 Our goal is to provide a possible solution to the problem of language
 implementers: having to write ``l * o * p`` interpreters for ``l``
 dynamic languages and ``p`` platforms with ``o`` crucial design
-decisions.  PyPy aims at having any one of these parameters changeable
-independently from each other:
+decisions.  PyPy aims at making it possible to change each of these
+variables independently such that:
 
 * ``l``: the language that we analyze can be evolved or entirely replaced;
 
@@ -121,8 +120,8 @@ subsystems: the `Python Interpreter`_ and the `Translation Framework`_.
 The Translation Framework
 -------------------------
 
-The job of the translation tool chain is to translate RPython_ programs
-into an efficient version of that program for one of various target
+The job of the RPython toolchain is to translate RPython_ programs
+into an efficient version of that program for one of the various target
 platforms, generally one that is considerably lower-level than Python.
 
 The approach we have taken is to reduce the level of abstraction of the
@@ -133,7 +132,7 @@ C-like memory model with structures and pointers, and the ones that
 assume an object-oriented model with classes, instances and methods (as,
 for example, the Java and .NET virtual machines do).
 
-The translation tool chain never sees the RPython source code or syntax
+The RPython toolchain never sees the RPython source code or syntax
 trees, but rather starts with the *code objects* that define the
 behaviour of the function objects one gives it as input.  It can be
 considered as "freezing" a pre-imported RPython program into an
@@ -161,7 +160,7 @@ The steps of the translation process can be summarized as follows:
   and compiled into an executable.
 
 This process is described in much more detail in the `document about
-the translation process`_ and in the paper `Compiling dynamic language
+the RPython toolchain`_ and in the paper `Compiling dynamic language
 implementations`_.
 
 .. _`control flow graph`: translation.html#the-flow-model
@@ -169,10 +168,9 @@ implementations`_.
 .. _Annotator: translation.html#the-annotation-pass
 .. _RTyper: rtyper.html#overview
 .. _`various transformations`: translation.html#the-optional-transformations
-.. _`document about the translation process`: translation.html
+.. _`document about the RPython toolchain`: translation.html
 .. _`garbage collector`: garbage_collection.html
-
-
+.. _`RPython toolchain`: translation.html
 .. _`standard interpreter`: 
 .. _`python interpreter`: 
 
