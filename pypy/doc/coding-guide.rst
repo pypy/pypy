@@ -131,7 +131,7 @@ level code is usually preferable.  We have an abstraction (called the
 whether a particular function is implemented at application or
 interpreter level. 
 
-our runtime interpreter is "restricted python"
+Our runtime interpreter is "RPython"
 ----------------------------------------------
 
 In order to make a C code generator feasible all code on interpreter level has
@@ -172,7 +172,7 @@ performed, which makes use of the restrictions defined in RPython. This
 enables the code generator to emit efficient machine level replacements
 for pure integer objects, for instance.
 
-Restricted Python
+RPython
 =================
 
 RPython Definition, not
@@ -454,43 +454,6 @@ adhere to our implicit assertions.
 .. _`wrapped`:
 
 
-RPylint
--------
-
-Pylint_ is a static code checker for Python. Recent versions
-(>=0.13.0) can be run with the ``--rpython-mode`` command line option. This option
-enables the RPython checker which will checks for some of the
-restrictions RPython adds on standard Python code (and uses a 
-more aggressive type inference than the one used by default by
-pylint). The full list of checks is available in the documentation of
-Pylint. 
-
-RPylint can be a nice tool to get some information about how much work
-will be needed to convert a piece of Python code to RPython, or to get
-started with RPython.  While this tool will not guarantee that the
-code it checks will be translate successfully, it offers a few nice
-advantages over running a translation:
-
-* it is faster and therefore provides feedback faster than  ``translate.py``
-
-* it does not stop at the first problem it finds, so you can get more
-  feedback on the code in one run
-
-* the messages tend to be a bit less cryptic 
-
-* you can easily run it from emacs, vi, eclipse or visual studio.
-
-Note: if pylint is not prepackaged for your OS/distribution, or if
-only an older version is available, you will need to install from
-source. In that case, there are a couple of dependencies,
-logilab-common_ and astng_ that you will need to install too before
-you can use the tool. 
-
-.. _Pylint: http://www.logilab.org/project/pylint
-.. _logilab-common: http://www.logilab.org/project/logilab-common
-.. _astng: http://www.logilab.org/project/logilab-astng
-
-
 
 Wrapping rules
 ==============
@@ -644,21 +607,19 @@ here are examples for the possible locations::
 
     >>>> import sys
     >>>> sys.__file__
-    '/home/hpk/pypy-dist/pypy/module/sys/*.py'
+    '/home/hpk/pypy-dist/pypy/module/sys'
 
-    >>>> import operator
-    >>>> operator.__file__
-    '/home/hpk/pypy-dist/lib_pypy/operator.py'
+    >>>> import cPickle
+    >>>> cPickle.__file__
+    '/home/hpk/pypy-dist/lib_pypy/cPickle..py'
 
     >>>> import opcode
     >>>> opcode.__file__
-    '/home/hpk/pypy-dist/lib-python/modified-2.5.2/opcode.py'
+    '/home/hpk/pypy-dist/lib-python/modified-2.7/opcode.py'
 
     >>>> import os
-    faking <type 'posix.stat_result'>
-    faking <type 'posix.statvfs_result'>
     >>>> os.__file__
-    '/home/hpk/pypy-dist/lib-python/2.5.2/os.py'
+    '/home/hpk/pypy-dist/lib-python/2.7/os.py'
     >>>>
 
 Module directories / Import order
@@ -681,11 +642,11 @@ Here is the order in which PyPy looks up Python modules:
 
     contains pure Python reimplementation of modules.
 
-*lib-python/modified-2.5.2/*
+*lib-python/modified-2.7/*
 
     The files and tests that we have modified from the CPython library.
 
-*lib-python/2.5.2/*
+*lib-python/2.7/*
 
     The unmodified CPython library. **Never ever check anything in there**.
 
@@ -700,14 +661,14 @@ often due to the fact that PyPy works with all new-style classes
 by default and CPython has a number of places where it relies
 on some classes being old-style.
 
-If you want to change a module or test contained in ``lib-python/2.5.2``
-then make sure that you copy the file to our ``lib-python/modified-2.5.2``
+If you want to change a module or test contained in ``lib-python/2.7``
+then make sure that you copy the file to our ``lib-python/modified-2.7``
 directory first.  In mercurial commandline terms this reads::
 
-    hg cp lib-python/2.5.2/somemodule.py lib-python/modified-2.5.2/
+    $ hg cp lib-python/2.7/somemodule.py lib-python/modified-2.7/
 
 and subsequently you edit and commit
-``lib-python/modified-2.5.2/somemodule.py``.  This copying operation is
+``lib-python/modified-2.7/somemodule.py``.  This copying operation is
 important because it keeps the original CPython tree clean and makes it
 obvious what we had to change.
 
@@ -889,17 +850,8 @@ web interface.
 use your codespeak login or register
 ------------------------------------
 
-If you already committed to the PyPy source code, chances
-are that you can simply use your codespeak login that
-you use for subversion or for shell access.
-
-If you are not a commiter then you can still `register with
-the tracker`_ easily.
-
-modifying Issues from hg commit messages
------------------------------------------
-
-XXX: to be written after migrating the issue tracker away from codespeak.net
+If you have an existing codespeak account, you can use it to login within the
+tracker. Else, you can `register with the tracker`_ easily.
 
 
 .. _`register with the tracker`: https://codespeak.net/issue/pypy-dev/user?@template=register
@@ -912,7 +864,7 @@ XXX: to be written after migrating the issue tracker away from codespeak.net
 Testing in PyPy
 ===============
 
-Our tests are based on the new `py.test`_ tool which lets you write
+Our tests are based on the `py.test`_ tool which lets you write
 unittests without boilerplate.  All tests of modules
 in a directory usually reside in a subdirectory **test**.  There are
 basically two types of unit tests:
@@ -922,12 +874,6 @@ basically two types of unit tests:
 
 - **Application Level tests**. They run at application level which means
   that they look like straight python code but they are interpreted by PyPy.
-
-Both types of tests need an `objectspace`_ they can run with (the interpreter
-dispatches operations on objects to an objectspace).  If you run a test you
-can usually give the '-o' switch to select an object space.  E.g. '-o thunk'
-will select the thunk object space. The default is the `Standard Object Space`_
-which aims to implement unmodified Python semantics.
 
 .. _`standard object space`: objspace.html#standard-object-space
 .. _`objectspace`: objspace.html
@@ -999,7 +945,7 @@ You can run almost all of PyPy's tests by invoking::
   python test_all.py file_or_directory
 
 which is a synonym for the general `py.test`_ utility
-located in the ``pypy`` directory.  For switches to
+located in the ``py/bin/`` directory.  For switches to
 modify test execution pass the ``-h`` option.
 
 Test conventions
@@ -1012,10 +958,6 @@ Test conventions
 - All over the pypy source code there are test/ directories
   which contain unittests.  Such scripts can usually be executed
   directly or are collectively run by pypy/test_all.py
-
-- each test directory needs a copy of pypy/tool/autopath.py which
-  upon import will make sure that sys.path contains the directory
-  where 'pypy' is in.
 
 .. _`change documentation and website`:
 
@@ -1033,8 +975,7 @@ at the existing documentation and see how things work.
 .. _`ReST quickstart`: http://docutils.sourceforge.net/docs/user/rst/quickref.html
 
 Note that the web site of http://pypy.org/ is maintained separately.
-For now it is in the repository https://bitbucket.org/pypy/extradoc
-in the directory ``pypy.org``.
+For now it is in the repository https://bitbucket.org/pypy/pypy.org
 
 Automatically test documentation/website changes
 ------------------------------------------------
