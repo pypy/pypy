@@ -23,34 +23,54 @@ List of extension modules that we support:
     _ast
     _bisect
     _codecs
+    _collections
+    _ffi
+    _file
+    _hashlib
+    _io
+    _locale
     _lsprof
+    _md5
     `_minimal_curses`_
+    _multiprocessing
+    _pickle_support
     _random
     `_rawffi`_
-    _ssl
+    _sha
     _socket
     _sre
+    _ssl
+    _stackless
+    _warnings
     _weakref
+    _winreg
     array
+    binascii
     bz2
     cStringIO
+    clr
+    cmath
     `cpyext`_
     crypt
     errno
     exceptions
     fcntl
     gc
+    imp
     itertools
     marshal
     math
-    md5
+    micronumpy
     mmap
     operator
+    oracle
     parser
     posix
     pyexpat
+    pypyjit
+    rbench
+    rctime
     select
-    sha
     signal
     struct
     symbol
@@ -78,7 +98,7 @@ List of extension modules that we support:
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``,
-  ``cStringIO``, ``cmath``, ``dbm`` (?), ``datetime``, ``binascii``...  
+  ``cStringIO``, ``cmath``, ``dbm`` (?), ``datetime``...
   Note that some modules are both in there and in the list above;
   by default, the built-in module is used (but can be disabled
   at translation time).
