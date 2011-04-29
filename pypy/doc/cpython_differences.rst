@@ -24,8 +24,7 @@ List of extension modules that we support:
     _bisect
     _codecs
     _collections
-    _ffi
-    _file
+    `_ffi`_
     _hashlib
     _io
     _locale
@@ -33,14 +32,12 @@ List of extension modules that we support:
     _md5
     `_minimal_curses`_
     _multiprocessing
-    _pickle_support
     _random
     `_rawffi`_
     _sha
     _socket
     _sre
     _ssl
-    _stackless
     _warnings
     _weakref
     _winreg
@@ -60,16 +57,12 @@ List of extension modules that we support:
     itertools
     marshal
     math
-    micronumpy
     mmap
     operator
     oracle
     parser
     posix
     pyexpat
-    pypyjit
-    rbench
-    rctime
     select
     signal
     struct
@@ -108,6 +101,7 @@ that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
 
 .. the nonstandard modules are listed below...
 .. _`__pypy__`: __pypy__-module.html
+.. _`_ffi`: ctypes-implementation.html
 .. _`_rawffi`: ctypes-implementation.html
 .. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
 .. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
