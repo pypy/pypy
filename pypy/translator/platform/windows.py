@@ -145,11 +145,12 @@ class MsvcPlatform(Platform):
         # see src/thread_nt.h
         return False
 
-    def _link_args_from_eci(self, eci, standalone):
+    def _link_args_from_eci(self, eci, target, standalone):
         # Windows needs to resolve all symbols even for DLLs
-        return super(MsvcPlatform, self)._link_args_from_eci(eci, standalone=True)
+        return super(MsvcPlatform, self)._link_args_from_eci(eci, target,
+                                                             standalone=True)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
+    def _exportsymbols_link_flags(self, eci, target, relto=None):
         if not eci.export_symbols:
             return []
 
@@ -226,18 +227,17 @@ class MsvcPlatform(Platform):
         m.exe_name = exe_name
         m.eci = eci
 
-        linkflags = list(self.link_flags)
         if shared:
             linkflags = self._args_for_shared(linkflags) + [
                 '/EXPORT:$(PYPY_MAIN_FUNCTION)']
-        linkflags += self._exportsymbols_link_flags(eci, relto=path)
-
-        if shared:
             so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
                                    ext=self.so_ext)
             target_name = so_name.basename
         else:
+            linkflags = list(self.link_flags)
             target_name = exe_name.basename
+
+        linkflags += self._exportsymbols_link_flags(eci, target_name, relto=path)
 
         def pypyrel(fpath):
             rel = py.path.local(fpath).relto(pypypath)
@@ -367,3 +367,26 @@ class MingwPlatform(posix.BasePosix):
         # Mingw tools write compilation errors to stdout
         super(MingwPlatform, self)._handle_error(
             returncode, '', stderr + stdout, outname)
+
+    def _exportsymbols_link_flags(self, eci, target, relto=None):
+        if not eci.export_symbols:
+            return []
+
+        def_file = self._make_response_file("dynamic-symbols-")
+        f = def_file.open("w")
+        f.write("EXPORTS\n")
+        for sym in eci.export_symbols:
+            f.write("%s\n" % (sym,))
+        f.close()
+
+        exp_file = def_file.new(ext='.exp')
+        self._execute_c_compiler('dlltool',
+                                 ['--dllname', str(target),
+                                  '--output-exp', str(exp_file),
+                                  '--def', str(def_file)],
+                                 exp_file)
+
+        if relto:
+            exp_file = relto.bestrelpath(exp_file)
+        return ["-Wl,%s" % (exp_file,)]
+

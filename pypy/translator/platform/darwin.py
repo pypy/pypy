@@ -46,13 +46,13 @@ class Darwin(posix.BasePosix):
             args.append(f)
         return args
 
-    def _link_args_from_eci(self, eci, standalone):
-        args = super(Darwin, self)._link_args_from_eci(eci, standalone)
+    def _link_args_from_eci(self, eci, target, standalone):
+        args = super(Darwin, self)._link_args_from_eci(eci, target, standalone)
         frameworks = self._frameworks(eci.frameworks)
         include_dirs = self._includedirs(eci.include_dirs)
         return (args + frameworks + include_dirs)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
+    def _exportsymbols_link_flags(self, eci, target, relto=None):
         if not eci.export_symbols:
             return []
 

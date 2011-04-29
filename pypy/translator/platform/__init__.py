@@ -170,16 +170,16 @@ class Platform(object):
     def _preprocess_library_dirs(self, library_dirs):
         return library_dirs
 
-    def _link_args_from_eci(self, eci, standalone):
+    def _link_args_from_eci(self, eci, target, standalone):
         library_dirs = self.preprocess_library_dirs(eci.library_dirs)
         library_dirs = self._libdirs(library_dirs)
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
-        export_flags = self._exportsymbols_link_flags(eci)
+        export_flags = self._exportsymbols_link_flags(eci, target)
         return (library_dirs + list(self.link_flags) + export_flags +
                 link_files + list(eci.link_extra) + libraries)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
+    def _exportsymbols_link_flags(self, eci, target, relto=None):
         if eci.export_symbols:
             raise ValueError("This platform does not support export symbols")
         return []
@@ -201,7 +201,7 @@ class Platform(object):
             cc_link = 'g++'      # XXX hard-coded so far
         else:
             cc_link = self.cc
-        largs = self._link_args_from_eci(eci, standalone)
+        largs = self._link_args_from_eci(eci, exe_name, standalone)
         return self._link(cc_link, ofiles, largs, standalone, exe_name)
 
     # below are some detailed informations for platforms

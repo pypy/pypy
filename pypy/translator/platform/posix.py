@@ -38,10 +38,10 @@ class BasePosix(Platform):
                                  cwd=str(cfile.dirpath()))
         return oname
 
-    def _link_args_from_eci(self, eci, standalone):
-        return Platform._link_args_from_eci(self, eci, standalone)
+    def _link_args_from_eci(self, eci, target, standalone):
+        return Platform._link_args_from_eci(self, eci, target, standalone)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
+    def _exportsymbols_link_flags(self, eci, target, relto=None):
         if not eci.export_symbols:
             return []
 
@@ -95,13 +95,13 @@ class BasePosix(Platform):
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
-        linkflags += self._exportsymbols_link_flags(eci, relto=path)
-
         if shared:
             libname = exe_name.new(ext='').basename
             target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
         else:
             target_name = exe_name.basename
+
+        linkflags += self._exportsymbols_link_flags(eci, target_name, relto=path)
 
         if shared:
             cflags = self.cflags + self.shared_only
