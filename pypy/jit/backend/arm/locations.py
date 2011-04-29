@@ -24,6 +24,7 @@ class AssemblerLocation(object):
 
 class RegisterLocation(AssemblerLocation):
     _immutable_ = True
+    width = WORD
 
     def __init__(self, value):
         self.value = value
@@ -40,6 +41,7 @@ class RegisterLocation(AssemblerLocation):
 class VFPRegisterLocation(RegisterLocation):
     _immutable_ = True
     type = FLOAT 
+    width = 2*WORD
 
     def get_single_precision_regs(self):
         return [VFPRegisterLocation(i) for i in [self.value*2, self.value*2+1]]
@@ -58,6 +60,8 @@ class VFPRegisterLocation(RegisterLocation):
 
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
+    width = WORD
+
 
     def __init__(self, value):
         self.value = value
@@ -78,6 +82,7 @@ class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
     the address stored in the field value"""
     _immutable_ = True
+    width = 2*WORD
     type = FLOAT
 
     def __init__(self, value):
@@ -104,7 +109,7 @@ class StackLocation(AssemblerLocation):
         self.type = type
 
     def __repr__(self):
-        return 'FP+%d' % (self.position,)
+        return 'FP(%s)+%d' % (self.type, self.position,)
 
     def location_code(self):
         return 'b'

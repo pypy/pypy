@@ -1,3 +1,4 @@
+import random
 import py
 from pypy.jit.backend.x86.test.test_jump import MockAssembler
 from pypy.jit.backend.arm.registers import *
@@ -117,14 +118,14 @@ class TestJump(object):
         s23 = frame_pos(2, FLOAT)     # non-conflicting locations
         s4  = frame_pos(4, INT)
         remap_frame_layout_mixed(self.assembler, [r1], [s4], 'tmp',
-                                            [s23], [d5], 'xmmtmp')
+                                            [s23], [d5], 'vfptmp')
         assert self.assembler.ops == [('mov', r1, s4),
                                  ('mov', s23, d5)]
     def test_mixed2(self):
         s23 = frame_pos(2, FLOAT)  # gets stored in pos 2 and 3, with value==3
         s3  = frame_pos(3, INT)
         remap_frame_layout_mixed(self.assembler, [r1], [s3], 'tmp',
-                                            [s23], [d5], 'xmmtmp')
+                                            [s23], [d5], 'vfptmp')
         assert self.assembler.ops == [('push', s23),
                                  ('mov', r1, s3),
                                  ('pop', d5)]
@@ -132,7 +133,7 @@ class TestJump(object):
         s23 = frame_pos(2, FLOAT)
         s2  = frame_pos(2, INT)
         remap_frame_layout_mixed(self.assembler, [r1], [s2], 'tmp',
-                                            [s23], [d5], 'xmmtmp')
+                                            [s23], [d5], 'vfptmp')
         assert self.assembler.ops == [
                                  ('push', s23),
                                  ('mov', r1, s2),
@@ -171,3 +172,140 @@ class TestJump(object):
                                      ('mov', r3, s3),
                                      ('pop', s45)]
 
+def test_random_mixed():
+    assembler = MockAssembler()
+    registers1 = [r0, r1, r2]
+    registers2 = [d0, d1, d2]
+    VFPWORDS = 2
+    #
+    def pick1():
+        n = random.randrange(-3, 10)
+        if n < 0:
+            return registers1[n]
+        else:
+            return frame_pos(n, INT)
+    def pick2():
+        n = random.randrange(-3 , 10 // VFPWORDS)
+        if n < 0:
+            return registers2[n]
+        else:
+            return frame_pos(n*VFPWORDS, FLOAT)
+    #
+    def pick1c():
+        n = random.randrange(-2000, 500)
+        if n >= 0:
+            return imm(n)
+        else:
+            return pick1()
+    #
+    def pick_dst(fn, count, seen):
+        result = []
+        while len(result) < count:
+            x = fn()
+            keys = [x.as_key()]
+            if x.is_stack() and x.width > WORD:
+                keys.append(keys[0] + 1)
+            for key in keys:
+                if key in seen:
+                    break
+            else:
+                for key in keys:
+                    seen[key] = True
+                result.append(x)
+        return result
+    #
+    def get_state(locations):
+        regs1 = {}
+        regs2 = {}
+        stack = {}
+        for i, loc in enumerate(locations):
+            if loc.is_vfp_reg():
+                if loc.width > WORD:
+                    newvalue = ('value-vfp-%d' % i,
+                                'value-vfp-hiword-%d' % i)
+                else:
+                    newvalue = 'value-vfp-%d' % i
+                regs2[loc.value] = newvalue
+            elif loc.is_reg():
+                regs1[loc.value] = 'value-int-%d' % i
+            elif loc.is_stack():
+                stack[loc.position] = 'value-width%d-%d' % (loc.width, i)
+                if loc.width > WORD:
+                    stack[loc.position-1] = 'value-hiword-%d' % i
+            else:
+                assert loc.is_imm() or loc.is_imm_float()
+        return regs1, regs2, stack
+    #
+    for i in range(1):#range(500):
+        seen = {}
+        src_locations2 = [pick2() for i in range(4)]
+        dst_locations2 = pick_dst(pick2, 4, seen)
+        src_locations1 = [pick1c() for i in range(5)]
+        dst_locations1 = pick_dst(pick1, 5, seen)
+        #import pdb; pdb.set_trace()
+        assembler = MockAssembler()
+        remap_frame_layout_mixed(assembler,
+                                 src_locations1, dst_locations1, ip,
+                                 src_locations2, dst_locations2, vfp_ip)
+        #
+        regs1, regs2, stack = get_state(src_locations1 +
+                                        src_locations2)
+        #
+        def read(loc, expected_width=None):
+            if expected_width is not None:
+                assert loc.width == expected_width*WORD
+            if loc.is_vfp_reg():
+                return regs2[loc.value]
+            elif loc.is_reg():
+                return regs1[loc.value]
+            elif loc.is_stack():
+                got = stack[loc.position]
+                if loc.width > WORD:
+                    got = (got, stack[loc.position-1])
+                return got
+            if loc.is_imm() or loc.is_imm_float():
+                return 'const-%d' % loc.value
+            assert 0, loc
+        #
+        def write(loc, newvalue):
+            if loc.is_vfp_reg():
+                regs2[loc.value] = newvalue
+            elif loc.is_reg():
+                regs1[loc.value] = newvalue
+            elif loc.is_stack():
+                if loc.width > WORD:
+                    newval1, newval2 = newvalue
+                    stack[loc.position] = newval1
+                    stack[loc.position-1] = newval2
+                else:
+                    stack[loc.position] = newvalue
+            else:
+                assert 0, loc
+        #
+        src_values1 = [read(loc, 1) for loc in src_locations1]
+        src_values2 = [read(loc, 2)    for loc in src_locations2]
+        #
+        extrapushes = []
+        for op in assembler.ops:
+            if op[0] == 'mov':
+                src, dst = op[1:]
+                assert src.is_reg() or src.is_vfp_reg() or src.is_stack() or src.is_imm_float() or src.is_imm()
+                assert dst.is_reg() or dst.is_vfp_reg() or dst.is_stack()
+                assert not (src.is_stack() and dst.is_stack())
+                write(dst, read(src))
+            elif op[0] == 'push':
+                src, = op[1:]
+                assert src.is_reg() or src.is_vfp_reg() or src.is_stack()
+                extrapushes.append(read(src))
+            elif op[0] == 'pop':
+                dst, = op[1:]
+                assert dst.is_reg() or dst.is_vfp_reg() or dst.is_stack()
+                write(dst, extrapushes.pop())
+            else:
+                assert 0, "unknown op: %r" % (op,)
+        assert not extrapushes
+        #
+        for i, loc in enumerate(dst_locations1):
+            assert read(loc, 1) == src_values1[i]
+        for i, loc in enumerate(dst_locations2):
+            assert read(loc, 2) == src_values2[i]
