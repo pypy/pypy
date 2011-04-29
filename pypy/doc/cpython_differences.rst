@@ -97,8 +97,7 @@ List of extension modules that we support:
 
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
-  support this way: ``ctypes``, ``cPickle``,
-  ``cStringIO``, ``cmath``, ``dbm`` (?), ``datetime``...
+  support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
   Note that some modules are both in there and in the list above;
   by default, the built-in module is used (but can be disabled
   at translation time).
