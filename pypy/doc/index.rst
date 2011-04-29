@@ -27,7 +27,7 @@ Documentation for the PyPy Python Interpreter
 `getting started`_ provides hands-on instructions 
 including a two-liner to run the PyPy Python interpreter 
 on your system, examples on advanced features and 
-entry points for using PyPy's translation tool chain. 
+entry points for using the `RPython toolchain`_.
 
 `FAQ`_ contains some frequently asked questions.
 
@@ -86,7 +86,7 @@ on the `development mailing list`_.
 .. _`Videos`: video-index.html
 .. _`Release 1.4`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
-
+.. _`RPython toolchain`: translation.html
 
 
 Project Documentation

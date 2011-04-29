@@ -17,7 +17,6 @@ and threading models, as well as the JIT compiler itself, are aspects of the
 translation process - as opposed to encoding low level details into the
 language implementation itself. `more...`_
 
-
 .. _Python: http://docs.python.org/reference/
 .. _`more...`: architecture.html
 
@@ -132,6 +131,7 @@ After you successfully manage to get PyPy's source you can read more about:
 .. _`Building and using PyPy's Python interpreter`: getting-started-python.html
 .. _`Learning more about the translation toolchain and how to develop (with) PyPy`: getting-started-dev.html
 
+.. _setuptools: http://pypi.python.org/pypi/setuptools
 
 Understanding PyPy's architecture
 ---------------------------------

@@ -1,4 +1,4 @@
- =============================
+=============================
 PyPy's Configuration Handling
 =============================
 
@@ -184,12 +184,12 @@ creating the parser is updated automatically.
 The usage of config objects in PyPy
 ===================================
 
-The two large parts of PyPy, the Python interpreter_ and the `RPython 
+The two large parts of PyPy, the Python interpreter and the `RPython 
 toolchain`_ 
 toolchain, have two separate sets of options. The translation toolchain options
 can be found on the ``config`` attribute of all ``TranslationContext``
 instances and are described in `pypy/config/translationoption.py`_. The interpreter options
 are attached to the object space, also under the name ``config`` and are
 described in `pypy/config/pypyoption.py`_.
-_interpreter: interpreter.html
+
 .. include:: _ref.txt
