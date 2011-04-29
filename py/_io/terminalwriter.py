@@ -84,7 +84,8 @@ def ansi_print(text, esc, file=None, newline=True, flush=False):
         while len(text) > 32768:
             file.write(text[:32768])
             text = text[32768:]
-        file.write(text)
+        if text:
+            file.write(text)
         SetConsoleTextAttribute(handle, oldcolors)
     else:
         file.write(text)

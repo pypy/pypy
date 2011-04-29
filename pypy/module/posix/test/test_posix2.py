@@ -507,9 +507,9 @@ class AppTestPosix:
 
     if hasattr(os, 'setuid'):
         def test_os_setuid_error(self):
-            skip("overflow checking disabled for now")
             os = self.posix
-            raises((OSError, ValueError, OverflowError), os.setuid, -100000)
+            raises(OverflowError, os.setuid, -2**31-1)
+            raises(OverflowError, os.setuid, 2**32)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -529,9 +529,9 @@ class AppTestPosix:
 
     if hasattr(os, 'setgid'):
         def test_os_setgid_error(self):
-            skip("overflow checking disabled for now")
             os = self.posix
-            raises((OSError, ValueError, OverflowError), os.setgid, -100000)
+            raises(OverflowError, os.setgid, -2**31-1)
+            raises(OverflowError, os.setgid, 2**32)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):
