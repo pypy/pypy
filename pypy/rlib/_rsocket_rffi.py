@@ -17,6 +17,8 @@ _MINGW = target_platform.name == "mingw32"
 _SOLARIS = sys.platform == "sunos5"
 _MACOSX = sys.platform == "darwin"
 
+pre_include_bits = []
+
 if _POSIX:
     includes = ('sys/types.h',
                 'sys/socket.h',
@@ -69,11 +71,11 @@ if _WIN32:
             ])
     else: # MINGW
         includes = ('stdint.h',)
+        pre_include_bits = [
+            '#ifndef _WIN32_WINNT\n' +
+            '#define _WIN32_WINNT 0x0501\n' +
+            '#endif']
         header_lines.extend([
-            '''\
-            #ifndef _WIN32_WINNT
-            #define _WIN32_WINNT 0x0501
-            #endif''',
             '#define SIO_RCVALL             _WSAIOW(IOC_VENDOR,1)',
             '#define SIO_KEEPALIVE_VALS     _WSAIOW(IOC_VENDOR,4)',
             '#define RCVALL_OFF             0',
@@ -110,6 +112,7 @@ sources = ["""
     """]
 
 eci = ExternalCompilationInfo(
+    pre_include_bits = pre_include_bits,
     post_include_bits = [HEADER, COND_HEADER],
     includes = includes,
     libraries = libraries,
