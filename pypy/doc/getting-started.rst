@@ -24,14 +24,76 @@ language implementation itself. `more...`_
 Just the facts 
 ============== 
 
+Download a pre-built PyPy
+-------------------------
+
+The quickest way to start using PyPy is to download a prebuilt binary for your
+OS and architecture.  You can either use the `most recent release`_ or one of
+our `development nightly build`_.  Please note that the nightly builds are not
+guaranteed to be as stable as official releases, use them at your own risk.
+
+.. _`most recent release`: http://pypy.org/download.html
+.. _`development nightly build`: http://buildbot.pypy.org/nightly/trunk/
+
+Installing PyPy
+---------------
+
+PyPy is ready to be executed as soon as you unpack the tarball or the zip
+file, with no need install it in any specific location::
+
+    $ tar xf pypy-1.5-linux.tar.bz2
+
+    $ ./pypy-1.5-linux/bin/pypy
+    Python 2.7.1 (?, Apr 27 2011, 12:44:21)
+    [PyPy 1.5.0-alpha0 with GCC 4.4.3] on linux2
+    Type "help", "copyright", "credits" or "license" for more information.
+    And now for something completely different: ``implementing LOGO in LOGO:
+    "turtles all the way down"''
+    >>>>
+
+If you want to make PyPy available system-wide, you can put a symlink to the
+``pypy`` executable in ``/usr/local/bin``.  It is important to put a symlink
+and not move the binary there, else PyPy would not be able to find its
+library.
+
+If you want to install 3rd party libraries, the most convenient way is to
+install setuptools_, which will bring ``easy_install`` to you::
+
+    $ wget http://peak.telecommunity.com/dist/ez_setup.py
+
+    $ ./pypy-1.5-linux/bin/pypy ez_setup.py
+
+    $ ls ./pypy-1.5-linux/bin/
+    easy_install  easy_install-2.7  pypy
+
+3rd party libraries will be installed in ``pypy-1.5-linux/site-packages``, and
+the scripts in ``pypy-1.5-linux/bin``.
+
+Installing using virtualenv
+---------------------------
+
+It is often convenient to run pypy inside a virtualenv.  To do this
+you need a recent version of virtualenv -- 1.6.1 or greater.  You can
+then install PyPy both from a precompiled tarball or from a mercurial
+checkout::
+
+	# from a tarball
+	$ virtualenv -p /opt/pypy-c-jit-41718-3fb486695f20-linux/bin/pypy my-pypy-env
+
+	# from the mercurial checkout
+	$ virtualenv -p /path/to/pypy/pypy/translator/goal/pypy-c my-pypy-env
+
+Note that bin/python is now a symlink to bin/pypy.
+
+
 Clone the repository
 --------------------
 
-Before you can play with PyPy, you will need to obtain a copy
-of the sources.  This can be done either by `downloading them
-from the download page`_ or by checking them out from the
-repository using mercurial.  We suggest using mercurial if one
-wants to access the current development.
+If you prefer to `compile PyPy by yourself`_, or if you want to modify it, you
+will need to obtain a copy of the sources.  This can be done either by
+`downloading them from the download page`_ or by checking them out from the
+repository using mercurial.  We suggest using mercurial if one wants to access
+the current development.
 
 .. _`downloading them from the download page`: http://pypy.org/download.html
 
@@ -55,27 +117,9 @@ using::
 
 where XXXXX is the revision id.
 
+
+.. _`compile PyPy by yourself`: getting-started-python.html
 .. _`our nightly tests:`: http://buildbot.pypy.org/summary?branch=<trunk>
-
-If you want to commit to our repository on bitbucket, you will have to
-install subversion in addition to mercurial.
-
-Installing using virtualenv
----------------------------
-
-It is often convenient to run pypy inside a virtualenv.  To do this
-you need a recent version of virtualenv -- 1.5 or greater.  You can
-then install PyPy both from a precompiled tarball or from a mercurial
-checkout::
-
-	# from a tarball
-	$ virtualenv -p /opt/pypy-c-jit-41718-3fb486695f20-linux/bin/pypy my-pypy-env
-
-	# from the mercurial checkout
-	$ virtualenv -p /path/to/pypy/pypy/translator/goal/pypy-c my-pypy-env
-
-Note that bin/python is now a symlink to bin/pypy.
-
 
 Where to go from here
 ----------------------
