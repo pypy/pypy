@@ -15,7 +15,7 @@ links to more information.
 .. glossary::
 
     annotator
-        The component of the :term:`translator`\ 's :term:`toolchain` that performs a form
+        The component of the :term:`RPython toolchain` that performs a form
         of :term:`type inference` on the flow graph. See the `annotator pass`_
         in the documentation.
 
@@ -26,7 +26,7 @@ links to more information.
     backend
         Code generator that converts an `RPython
         <coding-guide.html#restricted-python>`__ program to a `target
-        language`_ using the PyPy :term:`toolchain`. A backend uses either the
+        language`_ using the :term:`RPython toolchain`. A backend uses either the
         :term:`lltypesystem` or the :term:`ootypesystem`.
 
     compile-time
@@ -100,11 +100,15 @@ links to more information.
        value at :term:`compile-time`, essentially by deferring compilation
        until the run-time value is known. See if `the jit docs`_ help.
 
-    rpython
+    RPython
        `Restricted Python`_, a limited subset of the Python_ language.
        The limitations make :term:`type inference` possible.
        It is also the language that the PyPy interpreter itself is written
        in.
+
+    RPython toolchain
+       The `annotator pass`_, `The RPython Typer`_, and various
+       :term:`backend`\ s.
 
     rtyper
        Based on the type annotations, the `RPython Typer`_ turns the flow
@@ -130,10 +134,6 @@ links to more information.
        It is the `subsystem implementing the Python language`_, composed
        of the bytecode interpreter and of the standard objectspace.
 
-    toolchain
-       The `annotator pass`_, `The RPython Typer`_, and various
-       :term:`backend`\ s.
-
     transformation
        Code that modifies flowgraphs to weave in translation aspects
 
@@ -151,7 +151,7 @@ links to more information.
     type inference
        Deduces either partially or fully the type of expressions as
        described in this `type inference article on Wikipedia`_.
-       PyPy's tool-chain own flavour of type inference is described
+       The :term:`RPython toolchain`'s flavour of type inference is described
        in the `annotator pass`_ section.
 
 .. _applevel: coding-guide.html#application-level
