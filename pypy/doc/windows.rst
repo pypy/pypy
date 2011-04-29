@@ -17,6 +17,17 @@ We routinely test the translation toolchain using Visual Studio .NET
 2005, Professional Edition, and Visual Studio .NET 2008, Express
 Edition.  Other configurations may work as well.
 
+The translation scripts will set up the appropriate environment variables
+for the compiler.  They will attempt to locate the same compiler version that
+was used to build the Python interpreter doing the
+translation.  Failing that, they will pick the most recent Visual Studio
+compiler they can find.  In addition, the target architecture
+(32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
+using a 32 bit Python and vice versa.
+
+**Note:** PyPy is currently not supported for 64 bit Windows, and translation
+will be aborted in this case.
+
 The compiler is all you need to build pypy-c, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
