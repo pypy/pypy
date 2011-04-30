@@ -47,8 +47,8 @@ More highlights
 - There is an `external fork`_ which includes an RPython version of the
   ``postgresql``.  However, there are no prebuilt binaries for this.
 
-- Our developer documentation was moved to Sphinx and cleaned up. It now lives
-  on http://pypy.readthedocs.org
+- Our developer documentation was moved to Sphinx and cleaned up.
+  (click 'Dev Site' on http://pypy.org/ .)
 
 - and many small things :-)
 
