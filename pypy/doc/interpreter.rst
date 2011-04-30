@@ -146,21 +146,15 @@ instances hold the following state:
   file location can be constructed for tracebacks 
 
 Moreover the Frame class itself has a number of methods which implement
-the actual bytecodes found in a code object.  In fact, PyPy already constructs 
-four specialized Frame class variants depending on the code object: 
+the actual bytecodes found in a code object.  The methods of the ``PyFrame``
+class are added in various files:
 
-- PyInterpFrame (in `pypy/interpreter/pyopcode.py`_)  for
-  basic simple code objects (not involving generators or nested scopes) 
+- the class ``PyFrame`` is defined in `pypy/interpreter/pyframe.py`_.
 
-- PyNestedScopeFrame (in `pypy/interpreter/nestedscope.py`_) 
-  for code objects that reference nested scopes, inherits from PyInterpFrame
+- the file `pypy/interpreter/pyopcode.py`_ add support for all Python opcode.
 
-- PyGeneratorFrame (in `pypy/interpreter/generator.py`_) 
-  for code objects that yield values to the caller, inherits from PyInterpFrame
-
-- PyNestedScopeGeneratorFrame for code objects that reference
-  nested scopes and yield values to the caller, inherits from both PyNestedScopeFrame
-  and PyGeneratorFrame 
+- nested scope support is added to the ``PyFrame`` class in
+  `pypy/interpreter/nestedscope.py`_.
 
 .. _Code: 
 

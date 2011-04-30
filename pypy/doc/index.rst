@@ -273,8 +273,6 @@ Directory                          explanation/links
 `pypy/objspace/dump.py`_           the dump object space saves a large, searchable log file
                                    with all operations
 
-`pypy/objspace/taint.py`_          the `taint object space`_, providing object tainting
-
 `pypy/objspace/thunk.py`_          the `thunk object space`_, providing unique object features 
 
 `pypy/objspace/flow/`_             the FlowObjSpace_ implementing `abstract interpretation`_
