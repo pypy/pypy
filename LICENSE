@@ -37,78 +37,154 @@ copyrighted by one or more of the following people and organizations:
     Armin Rigo
     Maciej Fijalkowski
     Carl Friedrich Bolz
-    Samuele Pedroni
+    Amaury Forgeot d'Arc
     Antonio Cuni
+    Samuele Pedroni
     Michael Hudson
-    Christian Tismer
     Holger Krekel
+    Christian Tismer
+    Benjamin Peterson
     Eric van Riet Paap
+    Anders Chrigström
+    Håkan Ardö
     Richard Emslie
-    Anders Chrigstrom
-    Amaury Forgeot d Arc
-    Aurelien Campeas
+    Dan Villiom Podlaski Christiansen
+    Alexander Schremmer
+    Alex Gaynor
+    David Schneider
+    Aurelién Campeas
     Anders Lehmann
+    Camillo Bruni
     Niklaus Haldimann
-    Seo Sanghyeon
     Leonardo Santagada
+    Toon Verwaest
+    Seo Sanghyeon
     Lawrence Oluyede
+    Bartosz Skowron
     Jakub Gustak
     Guido Wesdorp
-    Benjamin Peterson
-    Alexander Schremmer
-    Niko Matsakis
-    Ludovic Aubry
-    Alex Martelli
-    Toon Verwaest
-    Stephan Diehl
     Adrien Di Mascio
+    Laura Creighton
+    Ludovic Aubry
+    Niko Matsakis
+    Daniel Roberts
+    Jason Creighton
+    Jacob Hallén
+    Alex Martelli
+    Anders Hammarquist
+    Jan de Mooij
+    Stephan Diehl
+    Michael Foord
     Stefan Schwarzer
     Tomek Meka
     Patrick Maupin
-    Jacob Hallen
-    Laura Creighton
     Bob Ippolito
-    Camillo Bruni
-    Simon Burton
     Bruno Gola
     Alexandre Fayolle
     Marius Gedminas
+    Simon Burton
+    Jean-Paul Calderone
+    John Witulski
+    Wim Lavrijsen
+    Andreas Stührk
+    Jean-Philippe St. Pierre
     Guido van Rossum
+    Pavel Vinogradov
     Valentino Volonghi
-    Adrian Kuhn
     Paul deGrandis
+    Adrian Kuhn
+    tav
+    Georg Brandl
     Gerald Klix
     Wanja Saatkamp
-    Anders Hammarquist
+    Boris Feigin
     Oscar Nierstrasz
+    Dario Bertini
+    David Malcolm
     Eugene Oden
+    Henry Mason
     Lukas Renggli
     Guenter Jantzen
-    Dinu Gherman
-    Bartosz Skowron
-    Georg Brandl
-    Ben Young
-    Jean-Paul Calderone
-    Nicolas Chauvat
-    Rocco Moretti
-    Michael Twomey
-    boria
-    Jared Grubb
-    Olivier Dormond
-    Stuart Williams
-    Jens-Uwe Mager
-    Justas Sadzevicius
-    Mikael Schönenberg
-    Brian Dorsey
-    Jonathan David Riehl
-    Beatrice During
-    Elmo Mäntynen
-    Andreas Friedge
-    Alex Gaynor
-    Anders Qvist
-    Alan McIntyre
+    Ronny Pfannschmidt
     Bert Freudenberg
-    Tav
+    Amit Regmi
+    Ben Young
+    Nicolas Chauvat
+    Andrew Durdin
+    Michael Schneider
+    Nicholas Riley
+    Rocco Moretti
+    Gintautas Miliauskas
+    Michael Twomey
+    Igor Trindade Oliveira
+    Lucian Branescu Mihaila
+    Olivier Dormond
+    Jared Grubb
+    Karl Bartel
+    Gabriel Lavoie
+    Brian Dorsey
+    Victor Stinner
+    Stuart Williams
+    Toby Watson
+    Antoine Pitrou
+    Justas Sadzevicius
+    Neil Shepperd
+    Mikael Schönenberg
+    Gasper Zejn
+    Jonathan David Riehl
+    Elmo Mäntynen
+    Anders Qvist
+    Beatrice Düring
+    Alexander Sedov
+    Vincent Legoll
+    Alan McIntyre
+    Romain Guillebert
+    Alex Perry
+    Jens-Uwe Mager
+    Dan Stromberg
+    Lukas Diekmann
+    Carl Meyer
+    Pieter Zieschang
+    Alejandro J. Cura
+    Sylvain Thenault
+    Travis Francis Athougies
+    Henrik Vendelbo
+    Lutz Paelike
+    Jacob Oscarson
+    Martin Blais
+    Lucio Torre
+    Lene Wagner
+    Miguel de Val Borro
+    Ignas Mikalajunas
+    Artur Lisiecki
+    Joshua Gilbert
+    Godefroid Chappelle
+    Yusei Tahara
+    Christopher Armstrong
+    Stephan Busemann
+    Gustavo Niemeyer
+    William Leslie
+    Akira Li
+    Kristján Valur Jonsson
+    Bobby Impollonia
+    Andrew Thompson
+    Anders Sigfridsson
+    Jacek Generowicz
+    Dan Colish
+    Sven Hager
+    Zooko Wilcox-O Hearn
+    Anders Hammarquist
+    Dinu Gherman
+    Dan Colish
+    Daniel Neuhäuser
+    Michael Chermside
+    Konrad Delong
+    Anna Ravencroft
+    Greg Price
+    Armin Ronacher
+    Jim Baker
+    Philip Jenvey
+    Rodrigo Araújo
 
     Heinrich-Heine University, Germany 
     Open End AB (formerly AB Strakt), Sweden
