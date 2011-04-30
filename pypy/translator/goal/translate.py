@@ -89,7 +89,6 @@ OVERRIDES = {
     'translation.debug': False,
 }
 
-# we want 2.4 expand_default functionality
 import optparse
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
@@ -210,6 +209,10 @@ def main():
     from pypy.translator import translator
     from pypy.translator import driver
     from pypy.translator.tool.pdbplus import PdbPlusShow
+
+    if translateconfig.view:
+        translateconfig.pdb = True
+
     if translateconfig.profile:
         from cProfile import Profile
         prof = Profile()
