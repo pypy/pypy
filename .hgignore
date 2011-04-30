@@ -17,6 +17,7 @@ syntax: regexp
 ^pypy/module/cpyext/test/.+\.manifest$
 ^pypy/module/test_lib_pypy/ctypes_tests/.+\.o$
 ^pypy/doc/.+\.html$
+^pypy/doc/config/.+\.rst$
 ^pypy/doc/basicblock\.asc$
 ^pypy/doc/.+\.svninfo$
 ^pypy/translator/c/src/libffi_msvc/.+\.obj$

@@ -4,22 +4,23 @@ PyPy's Configuration Handling
 
 Due to more and more available configuration options it became quite annoying to
 hand the necessary options to where they are actually used and even more
-annoying to add new options. To circumvent these problems the configuration
-management was introduced. There all the necessary options are stored into an
-configuration object, which is available nearly everywhere in the translation
-toolchain and in the standard interpreter so that adding new options becomes
+annoying to add new options. To circumvent these problems configuration
+management was introduced. There all the necessary options are stored in a
+configuration object, which is available nearly everywhere in the `RPython 
+toolchain`_ and in the standard interpreter so that adding new options becomes
 trivial. Options are organized into a tree. Configuration objects can be
 created in different ways, there is support for creating an optparse command
 line parser automatically.
 
+_`RPython toolchain`: translation.html
 
 Main Assumption
 ===============
 
 Configuration objects are produced at the entry points  and handed down to
 where they are actually used. This keeps configuration local but available
-everywhere and consistent. The configuration values can be created using the
-command line (already implemented) or a file (still to be done).
+everywhere and consistent. The configuration values are created using the
+command line.
 
 
 API Details
@@ -183,12 +184,12 @@ creating the parser is updated automatically.
 The usage of config objects in PyPy
 ===================================
 
-The two large parts of PyPy, the standard interpreter and the translation
+The two large parts of PyPy, the Python interpreter and the `RPython 
+toolchain`_ 
 toolchain, have two separate sets of options. The translation toolchain options
 can be found on the ``config`` attribute of all ``TranslationContext``
-instances and are described in translationoption.py_. The interpreter options
+instances and are described in `pypy/config/translationoption.py`_. The interpreter options
 are attached to the object space, also under the name ``config`` and are
-described in pypyoption.py_.
+described in `pypy/config/pypyoption.py`_.
 
-.. _translationoption.py: ../config/translationoption.py
-.. _pypyoption.py: ../config/pypyoption.py
+.. include:: _ref.txt

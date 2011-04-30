@@ -7,10 +7,6 @@
 Introduction
 ================
 
-.. include:: crufty.rst
-
-   .. apparently this still works; needs JIT integration; hasn't been maintained for years
-
 PyPy can expose to its user language features similar to the ones
 present in `Stackless Python`_: **no recursion depth limit**, and the
 ability to write code in a **massively concurrent style**.  It actually
@@ -141,6 +137,11 @@ It provides the following methods and attributes:
     immediately to it. In the coroutine itself, this exception
     will come from any call to ``coro.switch()`` and can be caught. If the
     exception isn't caught, it will be propagated to the parent coroutine.
+
+When a coroutine is garbage-collected, it gets the ``.kill()`` method sent to
+it. This happens at the point the next ``.switch`` method is called, so the
+target coroutine of this call will be executed only after the ``.kill`` has
+finished.
 
 Example
 ~~~~~~~
@@ -430,32 +431,6 @@ back Python functions, signals can invoke signal handlers, and so on.
 These cases are not supported yet.
 
 
-Coroutine Cloning
-+++++++++++++++++
-
-In theory, coroutine pickling is general enough to allow coroutines to
-be *cloned* within a process; i.e. from one suspended coroutine, a copy
-can be made - simply by pickling and immediately unpickling it.  Both
-the original and the copy can then continue execution from the same
-point on.  Cloning gives much of the expressive power of full
-*continuations*.
-
-However, pickling has several problems in practice (besides a relatively
-high overhead).  It is not a completely general solution because not all
-kinds of objects can be pickled; moreover, which objects are pickled by
-value or by reference only depends on the type of the object.  For the
-purpose of cloning, this means that coroutines cannot be
-pickled/unpickled in all situations, and even when they can, the user
-does not have full control over which of the objects currently reachable
-from a coroutine will be duplicated, and which will be shared with the
-original coroutine.
-
-For this reason, we implemented a direct cloning operation.  It has been
-deprecated for some time, however, as it was slightly buggy and relied
-on a specific (and deprecated) garbage collector.  It is not available
-out of the box right now, so we will not talk any more about this.
-
-
 Composability
 +++++++++++++
 
@@ -622,7 +597,7 @@ scale automatically to larger programs.
 
 
 .. _`Stackless Python`: http://www.stackless.com
-.. _`documentation of the greenlets`: http://codespeak.net/svn/greenlet/trunk/doc/greenlet.txt
+.. _`documentation of the greenlets`: http://packages.python.org/greenlet/
 .. _`Stackless Transform`: translation.html#the-stackless-transform
 
-.. include:: _ref.rst
+.. include:: _ref.txt

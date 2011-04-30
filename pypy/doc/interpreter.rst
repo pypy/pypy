@@ -14,7 +14,7 @@ Bytecode Interpreter and related Virtual Machine functionalities.
 
 PyPy's bytecode interpreter has a structure reminiscent of CPython's
 Virtual Machine: It processes code objects parsed and compiled from
-Python source code.  It is implemented in the `interpreter/`_ directory.
+Python source code.  It is implemented in the `pypy/interpreter/`_ directory.
 People familiar with the CPython implementation will easily recognize
 similar concepts there.  The major differences are the overall usage of
 the `object space`_ indirection to perform operations on objects, and
@@ -22,12 +22,13 @@ the organization of the built-in modules (described `here`_).
 
 Code objects are a nicely preprocessed, structured representation of
 source code, and their main content is *bytecode*.  We use the same
-compact bytecode format as CPython 2.4.  Our bytecode compiler is
+compact bytecode format as CPython 2.7, with minor differences in the bytecode
+set.  Our bytecode compiler is
 implemented as a chain of flexible passes (tokenizer, lexer, parser,
 abstract syntax tree builder, bytecode generator).  The latter passes
 are based on the ``compiler`` package from the standard library of
 CPython, with various improvements and bug fixes. The bytecode compiler
-(living under `interpreter/astcompiler/`_) is now integrated and is
+(living under `pypy/interpreter/astcompiler/`_) is now integrated and is
 translated with the rest of PyPy.
 
 Code objects contain
@@ -37,7 +38,7 @@ instantiating and initializing a `Frame class`_ and then
 calling its ``frame.eval()`` method.  This main entry point 
 initialize appropriate namespaces and then interprets each 
 bytecode instruction.  Python's standard library contains
-the `lib-python/2.5.2/dis.py`_ module which allows to view
+the `lib-python/2.7.0/dis.py`_ module which allows to view
 the Virtual's machine bytecode instructions:: 
 
     >>> import dis
@@ -145,21 +146,15 @@ instances hold the following state:
   file location can be constructed for tracebacks 
 
 Moreover the Frame class itself has a number of methods which implement
-the actual bytecodes found in a code object.  In fact, PyPy already constructs 
-four specialized Frame class variants depending on the code object: 
+the actual bytecodes found in a code object.  The methods of the ``PyFrame``
+class are added in various files:
 
-- PyInterpFrame (in `pypy/interpreter/pyopcode.py`_)  for
-  basic simple code objects (not involving generators or nested scopes) 
+- the class ``PyFrame`` is defined in `pypy/interpreter/pyframe.py`_.
 
-- PyNestedScopeFrame (in `pypy/interpreter/nestedscope.py`_) 
-  for code objects that reference nested scopes, inherits from PyInterpFrame
+- the file `pypy/interpreter/pyopcode.py`_ add support for all Python opcode.
 
-- PyGeneratorFrame (in `pypy/interpreter/generator.py`_) 
-  for code objects that yield values to the caller, inherits from PyInterpFrame
-
-- PyNestedScopeGeneratorFrame for code objects that reference
-  nested scopes and yield values to the caller, inherits from both PyNestedScopeFrame
-  and PyGeneratorFrame 
+- nested scope support is added to the ``PyFrame`` class in
+  `pypy/interpreter/nestedscope.py`_.
 
 .. _Code: 
 
@@ -269,7 +264,7 @@ module's `pypy/module/__builtin__/__init__.py`_ file for an
 example and the higher level `chapter on Modules in the coding
 guide`_. 
 
-.. _`__builtin__ module`: http://codespeak.net/svn/pypy/trunk/pypy/module/ 
+.. _`__builtin__ module`: https://bitbucket.org/pypy/pypy/src/tip/pypy/module/__builtin__/
 .. _`chapter on Modules in the coding guide`: coding-guide.html#modules 
 
 .. _`Gateway classes`: 
@@ -407,4 +402,4 @@ end of `pypy/interpreter/typedef.py`_.  You can use these definitions
 as a reference for the exact attributes of interpreter classes visible 
 at application level. 
 
-.. include:: _ref.rst
+.. include:: _ref.txt
