@@ -160,8 +160,11 @@ A *virtualizable* is similar to a virtual in that its structure is optimized out
 in the machine code.  Virtualizables, however, can escape from JIT controlled
 code.
 
-Most of the JIT's optimizer is contained 2 files optimizefindnodes.py and
-optimizeopt.py.
+Other optimizations
+*******************
+
+Most of the JIT's optimizer is contained in the subdirectory
+``metainterp/optimizeopt/``.  Refer to it for more details.
 
 
 More resources
