@@ -1,7 +1,7 @@
 .. _`demo/`: https://bitbucket.org/pypy/pypy/src/default/demo/
 .. _`demo/pickle_coroutine.py`: https://bitbucket.org/pypy/pypy/src/default/demo/pickle_coroutine.py
 .. _`lib-python/`: https://bitbucket.org/pypy/pypy/src/default/lib-python/
-.. _`lib-python/2.7.0/dis.py`: https://bitbucket.org/pypy/pypy/src/default/lib-python/2.7.0/dis.py
+.. _`lib-python/2.7/dis.py`: https://bitbucket.org/pypy/pypy/src/default/lib-python/2.7/dis.py
 .. _`lib_pypy/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/
 .. _`lib_pypy/pypy_test/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/pypy_test/
 .. _`lib_pypy/stackless.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/stackless.py
@@ -38,7 +38,6 @@
 .. _`pypy/interpreter/executioncontext.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/executioncontext.py
 .. _`pypy/interpreter/function.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/function.py
 .. _`pypy/interpreter/gateway.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/gateway.py
-.. _`pypy/interpreter/generator.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/generator.py
 .. _`pypy/interpreter/mixedmodule.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/mixedmodule.py
 .. _`pypy/interpreter/module.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/module.py
 .. _`pypy/interpreter/nestedscope.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/nestedscope.py
@@ -73,7 +72,6 @@
 .. _`pypy/objspace/std/transparent.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/transparent.py
 .. _`pypy/objspace/std/tupleobject.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/tupleobject.py
 .. _`pypy/objspace/std/tupletype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/tupletype.py
-.. _`pypy/objspace/taint.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/taint.py
 .. _`pypy/objspace/thunk.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/thunk.py
 .. _`pypy/objspace/trace.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/trace.py
 .. _`pypy/rlib`:
