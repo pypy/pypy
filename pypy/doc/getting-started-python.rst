@@ -227,11 +227,11 @@ to find a ``PREFIX`` from which the directories
 ``PREFIX/lib_pypy`` can all be found.  The prefixes that are tried are::
 
     .
-    ./lib/pypy1.2
+    ./lib/pypy1.5
     ..
-    ../lib/pypy1.2
+    ../lib/pypy1.5
     ../..
-    ../../lib/pypy-1.2
+    ../../lib/pypy-1.5
     ../../..
     etc.
 
@@ -240,22 +240,6 @@ If the executable fails to find suitable libraries, it will report
 and then attempt to continue normally.  If the default path is usable,
 most code will be fine.  However, the ``sys.prefix`` will be unset
 and some existing libraries assume that this is never the case.
-
-In order to use ``distutils`` or ``setuptools`` a directory ``PREFIX/site-packages`` needs to be created. Here's an example session setting up and using ``easy_install``::
-
-    $ cd PREFIX
-    $ mkdir site-packages
-    $ curl -sO http://peak.telecommunity.com/dist/ez_setup.py
-    $ bin/pypy-c ez_setup.py
-    ...
-    $ bin/easy_install WebOb
-    $ bin/pypy-c           
-    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.5.0-alpha0 with GCC 4.4.3] on linux2
-    Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``PyPy doesn't have copolyvariadic dependently-monomorphed hyperfluxads''
-    >>>> import webob
-    >>>>               
 
 .. _`py.py interpreter`:
 
