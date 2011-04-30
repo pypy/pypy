@@ -385,7 +385,7 @@ parent class.
 The RPython Typer
 =================
 
-http://codespeak.net/pypy/trunk/pypy/rpython/
+https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/
 
 The RTyper is the first place where the choice of backend makes a
 difference; as outlined above we are assuming that ANSI C is the target.
@@ -451,7 +451,7 @@ the "backend optimizations" and the "stackless transform". See also
 `D07.1 Massive Parallelism and Translation Aspects`_ for further details.
 
 .. _`Technical report`: 
-.. _`D07.1 Massive Parallelism and Translation Aspects`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+.. _`D07.1 Massive Parallelism and Translation Aspects`: https://bitbucket.org/pypy/extradoc/raw/ee3059291497/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
 
 Backend Optimizations
 ---------------------
@@ -625,7 +625,7 @@ You can choose which garbage collection strategy to use with
 The C Back-End
 ==============
 
-http://codespeak.net/pypy/trunk/pypy/translator/c/
+https://bitbucket.org/pypy/pypy/src/default/pypy/translator/c/
 
 GenC is usually the most actively maintained backend -- everyone working on
 PyPy has a C compiler, for one thing -- and is usually where new features are

@@ -50,7 +50,7 @@ Do CPython Extension modules work with PyPy?
 --------------------------------------------
 
 We have experimental support for CPython extension modules, so
-they run with minor changes.  This has been a part of pypy since
+they run with minor changes.  This has been a part of PyPy since
 the 1.4 release, but support is still in beta phase.  CPython
 extension modules in PyPy are often much slower than in CPython due to
 the need to emulate refcounting.  It is often faster to take out your

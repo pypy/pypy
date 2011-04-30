@@ -128,9 +128,9 @@ PyPy can be used to run Python programs on Linux, OS/X,
 Windows, on top of .NET, and on top of Java.
 To dig into PyPy it is recommended to try out the current
 Subversion HEAD, which is always working or mostly working,
-instead of the latest release, which is `1.2.0`__.
+instead of the latest release, which is `1.5`__.
 
-.. __: release-1.2.0.html
+.. __: release-1.5.0.html
 
 PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
 but platform-specific bugs tend to take longer before we notice and fix

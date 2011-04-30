@@ -877,7 +877,7 @@ You can write test functions and methods like this::
     def test_something(space):
         # use space ...
 
-    class TestSomething:
+    class TestSomething(object):
         def test_some(self):
             # use 'self.space' here
 
@@ -898,7 +898,7 @@ use application level tests which usually look like this::
     def app_test_something():
         # application level test code
 
-    class AppTestSomething:
+    class AppTestSomething(object):
         def test_this(self):
             # application level test code
 
@@ -914,11 +914,8 @@ the ``setup_class`` method of the AppTest. All wrapped objects that are
 attached to the class there and start with ``w_`` can be accessed
 via self (but without the ``w_``) in the actual test method. An example::
 
-    from pypy.objspace.std import StdObjSpace 
-
-    class AppTestErrno: 
-        def setup_class(cls): 
-            cls.space = StdObjSpace()
+    class AppTestErrno(object):
+        def setup_class(cls):
             cls.w_d = cls.space.wrap({"a": 1, "b", 2})
 
         def test_dict(self):
@@ -946,7 +943,7 @@ Test conventions
   actually can fail.)
 
 - All over the pypy source code there are test/ directories
-  which contain unittests.  Such scripts can usually be executed
+  which contain unit tests.  Such scripts can usually be executed
   directly or are collectively run by pypy/test_all.py
 
 .. _`change documentation and website`:
