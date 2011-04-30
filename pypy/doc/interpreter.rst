@@ -22,7 +22,8 @@ the organization of the built-in modules (described `here`_).
 
 Code objects are a nicely preprocessed, structured representation of
 source code, and their main content is *bytecode*.  We use the same
-compact bytecode format as CPython 2.4.  Our bytecode compiler is
+compact bytecode format as CPython 2.7, with minor differences in the bytecode
+set.  Our bytecode compiler is
 implemented as a chain of flexible passes (tokenizer, lexer, parser,
 abstract syntax tree builder, bytecode generator).  The latter passes
 are based on the ``compiler`` package from the standard library of

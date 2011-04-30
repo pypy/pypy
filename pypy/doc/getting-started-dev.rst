@@ -159,8 +159,8 @@ or start off at one of the following points:
    interpreter are defined in `pypy/interpreter/typedef.py`_.
 
 *  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
-   and input data files that allow it to parse both Python 2.3 and 2.4
-   syntax.  Once the input data has been processed, the parser can be
+   and input data files that allow it to parse the syntax of various Python
+   versions. Once the input data has been processed, the parser can be
    translated by the above machinery into efficient code.
  
 *  `pypy/interpreter/astcompiler`_ contains the compiler.  This
@@ -346,18 +346,6 @@ want to look at generated flow graphs:
 	graphviz: http://www.graphviz.org/Download.php 
 
 	pygame: http://www.pygame.org/download.shtml
-
-CTypes on Python 2.4
-++++++++++++++++++++++++++++
-
-`ctypes`_ is included in CPython 2.5 and higher.  CPython 2.4 users needs to
-install it if they want to run low-level tests. See
-the `download page of ctypes`_.
-
-.. _`download page of ctypes`: https://sourceforge.net/projects/ctypes/files/
-.. _`ctypes`: http://starship.python.net/crew/theller/ctypes/
-
-.. _`py.test`:
 
 py.test and the py lib 
 +++++++++++++++++++++++

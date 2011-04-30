@@ -340,9 +340,8 @@ Integer Types
 -------------------------
 
 While implementing the integer type, we stumbled over the problem that
-integers are quite in flux in CPython right now. Starting on Python 2.2,
-integers mutate into longs on overflow.  However, shifting to the left
-truncates up to 2.3 but extends to longs as well in 2.4.  By contrast, we need
+integers are quite in flux in CPython right now. Starting with Python 2.4,
+integers mutate into longs on overflow.  In contrast, we need
 a way to perform wrap-around machine-sized arithmetic by default, while still
 being able to check for overflow when we need it explicitly.  Moreover, we need
 a consistent behavior before and after translation.
@@ -362,15 +361,6 @@ helpers (which live the `pypy/rlib/rarithmetic.py`_):
   and raises OverflowError if it is a ``long``.  But the code generators use
   ovfcheck() as a hint: they replace the whole ``ovfcheck(x+y)`` expression
   with a single overflow-checking addition in C.
-
-**ovfcheck_lshift()**
-
-  ovfcheck_lshift(x, y) is a workaround for ovfcheck(x<<y), because the
-  latter doesn't quite work in Python prior to 2.4, where the expression
-  ``x<<y`` will never return a long if the input arguments are ints.  There is
-  a specific function ovfcheck_lshift() to use instead of some convoluted
-  expression like ``x*2**y`` so that code generators can still recognize it as
-  a single simple operation.
 
 **intmask()**
 
@@ -584,7 +574,7 @@ Modules in PyPy
 
 Modules visible from application programs are imported from
 interpreter or application level files.  PyPy reuses almost all python
-modules of CPython's standard library, currently from version 2.5.2.  We
+modules of CPython's standard library, currently from version 2.7.1.  We
 sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.
 

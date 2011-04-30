@@ -11,7 +11,7 @@ nonsense, isn't it?  `more...`_
 Getting into PyPy ... 
 =============================================
 
-* `Release 1.4`_: the latest official release
+* `Release 1.5`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 
@@ -83,7 +83,7 @@ on the `development mailing list`_.
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
-.. _`Release 1.4`: http://pypy.org/download.html
+.. _`Release 1.5`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
 

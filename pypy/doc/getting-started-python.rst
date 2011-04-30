@@ -21,7 +21,7 @@ differences`_.
 To actually use PyPy's Python interpreter, the first thing to do is to 
 `download a pre-built PyPy`_ for your architecture.  
 
-.. `download a pre-built PyPy`:  http://pypy.org/download.html
+.. _`download a pre-built PyPy`:  http://pypy.org/download.html
 
 Translating the PyPy Python interpreter
 ---------------------------------------
@@ -32,13 +32,13 @@ Windows, see the `windows document`_)
 .. _`windows document`: windows.html
 
 You can translate the whole of PyPy's Python interpreter to low level C code,
-`CLI code`_, or `JVM code`_.
+or `CLI code`_.
 
 1. First `download a pre-built PyPy`_ for your architecture which you will
-use to translate your Python interpreter.  It is, of course, possible to
-translate with a CPython 2.6 or later, but this is not the preferred way,
-because it will take a lot longer to run -- depending on your architecture,
-between two and three times as long.
+   use to translate your Python interpreter.  It is, of course, possible to
+   translate with a CPython 2.6 or later, but this is not the preferred way,
+   because it will take a lot longer to run -- depending on your architecture,
+   between two and three times as long.
 
 2. Install build-time dependencies.  On a Debian box these are::
 
@@ -66,6 +66,7 @@ between two and three times as long.
    * ``python-sphinx`` (for the optional documentation build.  You need version 1.0.7 or later)
    * ``python-greenlet`` (for the optional stackless support in interpreted mode/testing)
 
+
 3. Translation is time-consuming -- 45 minutes on a very fast machine --
    and RAM-hungry.  As of March 2011, you will need **at least** 2 GB of 
    memory on a 
@@ -73,8 +74,8 @@ between two and three times as long.
    are constrained, or your machine is slow you might want to pick the
    `optimization level`_ `1` in the next step.  A level of
    `2` or `3` or `jit` gives much better results, though.  But if all
-    you want to do is to test that some new feature that you just wrote
-    translates, level 1 is enough.
+   you want to do is to test that some new feature that you just wrote
+   translates, level 1 is enough.
 
    Let me stress this again: at ``--opt=1`` you get the Boehm
    GC, which is here mostly for historical and for testing reasons.
@@ -88,7 +89,7 @@ between two and three times as long.
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want to include the JIT
-   compiler.  
+   compiler, which makes the Python interpreter much slower.  
 
 .. _`optimization level`: config/opt.html
 
@@ -100,22 +101,20 @@ translation options that where used to produce this particular
 executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
-    Python 2.5.2 (64177, Apr 16 2009, 16:33:13)
-    [PyPy 1.1.0] on linux2
+    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
+    [PyPy 1.5.0-alpha0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``this sentence is false''
     >>>> 46 - 4
     42
     >>>> from test import pystone
     >>>> pystone.main()
-    Pystone(1.1) time for 50000 passes = 2.57
-    This machine benchmarks at 19455.3 pystones/second
+    Pystone(1.1) time for 50000 passes = 0.280017
+    This machine benchmarks at 178561 pystones/second
     >>>>
 
 This executable can be moved around or copied on other machines; see
-Installation_ below.  For now a JIT-enabled ``pypy-c`` always produces
-debugging output to stderr when it exits, unless translated with
-``--jit-debug=off``.
+Installation_ below.
 
 The ``translate.py`` script takes a very large number of options controlling
 what to translate and how.  See ``translate.py -h``. Some of the more
@@ -142,7 +141,7 @@ Translating with non-standard options
 ++++++++++++++++++++++++++++++++++++++++
 
 It is possible to have non-standard features enabled for translation,
-but they are not really tested any more.  Look for example at the
+but they are not really tested any more.  Look, for example, at the
 `objspace proxies`_ document.
 
 .. _`objspace proxies`: objspace-proxies.html
@@ -162,8 +161,8 @@ The executable and all its dependencies will be stored in the
 the convenience ./pypy-cli script::
 
     $ ./pypy-cli
-    Python 2.5.2 (64219, Apr 17 2009, 13:54:38)
-    [PyPy 1.1.0] on linux2
+    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
+    [PyPy 1.5.0-alpha0] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``distopian and utopian chairs''
     >>>> 
@@ -183,29 +182,31 @@ executables.
 To try out the experimental .NET integration, check the documentation of the
 clr_ module.
 
-.. _`JVM code`: 
+..  not working now:
 
-Translating using the JVM backend
-+++++++++++++++++++++++++++++++++
+    .. _`JVM code`: 
 
-To create a standalone JVM executable::
+    Translating using the JVM backend
+    +++++++++++++++++++++++++++++++++
 
-    ./translate.py --backend=jvm targetpypystandalone.py
+    To create a standalone JVM executable::
 
-This will create a jar file ``pypy-jvm.jar`` as well as a convenience
-script ``pypy-jvm`` for executing it.  To try it out, simply run
-``./pypy-jvm``::
+        ./translate.py --backend=jvm targetpypystandalone.py
 
-    $ ./pypy-jvm 
-    Python 2.5.2 (64214, Apr 17 2009, 08:11:23)
-    [PyPy 1.1.0] on darwin
-    Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``# assert did not crash''
-    >>>> 
+    This will create a jar file ``pypy-jvm.jar`` as well as a convenience
+    script ``pypy-jvm`` for executing it.  To try it out, simply run
+    ``./pypy-jvm``::
 
-Alternatively, you can run it using ``java -jar pypy-jvm.jar``. At the moment
-the executable does not provide any interesting features, like integration with
-Java.
+        $ ./pypy-jvm 
+        Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
+        [PyPy 1.5.0-alpha0] on linux2
+        Type "help", "copyright", "credits" or "license" for more information.
+        And now for something completely different: ``# assert did not crash''
+        >>>> 
+
+    Alternatively, you can run it using ``java -jar pypy-jvm.jar``. At the moment
+    the executable does not provide any interesting features, like integration with
+    Java.
 
 Installation
 ++++++++++++
@@ -218,11 +219,11 @@ occurred might be hard-coded in the executable.
 
 For installation purposes, note that the executable needs to be able to
 find its version of the Python standard library in the following three
-directories: ``lib-python/2.5.2``, ``lib-python/modified-2.5.2`` and
+directories: ``lib-python/2.7``, ``lib-python/modified-2.7`` and
 ``lib_pypy``.  They are located by "looking around" starting from the
 directory in which the executable resides.  The current logic is to try
 to find a ``PREFIX`` from which the directories
-``PREFIX/lib-python/2.5.2`` and ``PREFIX/lib-python/modified.2.5.2`` and
+``PREFIX/lib-python/2.7`` and ``PREFIX/lib-python/modified.2.7`` and
 ``PREFIX/lib_pypy`` can all be found.  The prefixes that are tried are::
 
     .
@@ -249,8 +250,8 @@ In order to use ``distutils`` or ``setuptools`` a directory ``PREFIX/site-packag
     ...
     $ bin/easy_install WebOb
     $ bin/pypy-c           
-    Python 2.5.2 (64714, Apr 27 2009, 08:16:13)
-    [PyPy 1.1.0] on linux2
+    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
+    [PyPy 1.5.0-alpha0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``PyPy doesn't have copolyvariadic dependently-monomorphed hyperfluxads''
     >>>> import webob
@@ -265,7 +266,7 @@ The py.py interpreter
 +++++++++++++++++++++
 
 To start interpreting Python with PyPy, install a C compiler that is
-supported by distutils and use Python 2.4 or greater to run PyPy::
+supported by distutils and use Python 2.5 or greater to run PyPy::
 
     cd pypy
     python bin/py.py
@@ -305,7 +306,7 @@ As an example of using PyPy from the command line, you could type::
 Alternatively, as with regular Python, you can simply give a
 script name on the command line::
 
-    python py.py ../../lib-python/2.5.2/test/pystone.py 10
+    python py.py ../../lib-python/2.7/test/pystone.py 10
 
 See our  `configuration sections`_ for details about what all the commandline
 options do.

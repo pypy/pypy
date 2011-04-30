@@ -79,7 +79,7 @@ A somewhat silly example of things you can do with them is this::
 
     $ bin/py.py --objspace-std-withrope
     faking <type 'module'>
-    PyPy 0.99.0 in StdObjSpace on top of Python 2.4.4c1 (startuptime: 17.24 secs)
+    PyPy 1.5.0-alpha0 in StdObjSpace on top of Python 2.7.1+ (startuptime: 11.38 secs)
     >>>> import sys
     >>>> sys.maxint
     2147483647
