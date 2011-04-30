@@ -137,7 +137,7 @@ appropriate measure but it's something)::
     Gustavo Niemeyer
     William Leslie
     Akira Li
-    Kristján Valur Jonsson
+    Kristján Valur Jónsson
     Bobby Impollonia
     Andrew Thompson
     Anders Sigfridsson
