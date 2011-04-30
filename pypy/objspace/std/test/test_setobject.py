@@ -51,6 +51,13 @@ class TestW_SetObject:
         assert self.space.eq_w(s,u)
 
 class AppTestAppSetTest:
+    def test_simple(self):
+        a = set([1,2,3])
+        b = set()
+        b.add(4)
+        a.union(b)
+        assert a == set([1,2,3,4])
+
     def test_subtype(self):
         class subset(set):pass
         a = subset()
