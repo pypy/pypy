@@ -2,10 +2,10 @@
 PyPy 1.5: Catching Up
 ======================
 
-We're pleased to announce the 1.5 release of PyPy. This release is updating
-PyPy to the features of CPython 2.7.1, including the standard library. Thus the
-features of `CPython 2.6`_ and `CPython 2.7`_ are now supported. It also
-contains additional performance improvements. You can download it here:
+We're pleased to announce the 1.5 release of PyPy. This release updates
+PyPy with the features of CPython 2.7.1, including the standard library. Thus
+all the features of `CPython 2.6`_ and `CPython 2.7`_ are now supported. It
+also contains additional performance improvements. You can download it here:
 
     http://pypy.org/download.html
 
@@ -13,15 +13,16 @@ What is PyPy?
 =============
 
 PyPy is a very compliant Python interpreter, almost a drop-in replacement for
-CPython 2.7.1. It's fast (`pypy 1.5 and cpython 2.6`_ performance comparison)
+CPython 2.7.1. It's fast (`pypy 1.5 and cpython 2.6.2`_ performance comparison)
 due to its integrated tracing JIT compiler.
 
-Among its new features, this release includes the features of CPython 2.6 and
-2.7. It also includes a large number of small improvements to the tracing JIT
-compiler.
+This release includes the features of CPython 2.6 and 2.7. It also includes a
+large number of small improvements to the tracing JIT compiler. It supports
+Intel machines running Linux 32/64, Mac OS X, Windows. Windows 64 is not
+yet supported.
 
 Numerous speed achievements are described on `our blog`_. Normalized speed
-charts comparing `pypy 1.5 and pypy 1.4`_ as well as `pypy 1.4 and cpython
+charts comparing `pypy 1.5 and pypy 1.4`_ as well as `pypy 1.5 and cpython
 2.6.2`_ are available on our benchmark website. The speed improvement over 1.4
 seems to be around 25% on average.
 
@@ -38,17 +39,23 @@ More highlights
 
 - These changes make it possible to support `Tkinter and IDLE`_.
 
-- The `cProfile`_ profiler is now working together with the JIT. However, it
-  skews the relative performance in not yet studied ways, so that it is not yet
-  a perfect tool to find subtle performance problems.
+- The `cProfile`_ profiler is now working with the JIT. However, it skews the
+  performance in unstudied ways. Therefore it is not yet usable to analyze
+  subtle performance problems (the same is true for CPython of course).
 
 - There is an `external fork`_ which includes an RPython version of the
   ``postgresql``.  However, there are no prebuilt binaries for this.
 
+- Our developer documentation was moved to Sphinx and cleaned up. It now lives
+  on http://pypy.readthedocs.org
+
+- and many small things :-)
+
+
 Cheers,
 
-Carl Friedrich Bolz, Antonio Cuni, Maciej Fijalkowski,
-Amaury Forgeot d'Arc, Armin Rigo and the PyPy team
+Carl Friedrich Bolz, Laura Creighton, Antonio Cuni, Maciej Fijalkowski,
+Amaury Forgeot d'Arc, Alex Gaynor, Armin Rigo and the PyPy team
 
 
 .. _`CPython 2.6`: http://docs.python.org/dev/whatsnew/2.6.html
