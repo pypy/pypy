@@ -10,10 +10,9 @@ Trying out the translator
 ------------------------- 
 
 The translator is a tool based on the PyPy interpreter which can translate
-sufficiently static Python programs into low-level code (in particular it can
-be used to translate the `full Python interpreter`_). To be able to use it
-you need to (if you want to look at the flowgraphs, which you obviously
-should):
+sufficiently static RPython programs into low-level code (in particular it can
+be used to translate the `full Python interpreter`_). To be able to experiment with it
+you need to:
 
   * Download and install Pygame_.
 
@@ -146,7 +145,7 @@ own interpreters`_.
 Where to start reading the sources
 ---------------------------------- 
 
-PyPy is made from parts that are relatively independent from each other.
+PyPy is made from parts that are relatively independent of each other.
 You should start looking at the part that attracts you most (all paths are
 relative to the PyPy top level directory).  You may look at our `directory reference`_ 
 or start off at one of the following points:
@@ -159,15 +158,13 @@ or start off at one of the following points:
    interpreter are defined in `pypy/interpreter/typedef.py`_.
 
 *  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
-   and input data files that allow it to parse the syntax of various Python
-   versions. Once the input data has been processed, the parser can be
+   and grammar files that allow it to parse the syntax of various Python
+   versions. Once the grammar has been processed, the parser can be
    translated by the above machinery into efficient code.
  
 *  `pypy/interpreter/astcompiler`_ contains the compiler.  This
    contains a modified version of the compiler package from CPython
-   that fixes some bugs and is translatable.  That the compiler and
-   parser are translatable is new in 0.8.0 and it makes using the
-   resulting binary interactively much more pleasant.
+   that fixes some bugs and is translatable.
 
 *  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
    is `pypy/objspace/std/objspace.py`_.  For each type, the files ``xxxtype.py`` and
@@ -190,13 +187,15 @@ or start off at one of the following points:
 *  `pypy/rpython`_ contains the code of the RPython typer. The typer transforms
    annotated flow graphs in a way that makes them very similar to C code so
    that they can be easy translated. The graph transformations are controlled
-   by the stuff in `pypy/rpython/rtyper.py`_. The object model that is used can
+   by the code in `pypy/rpython/rtyper.py`_. The object model that is used can
    be found in `pypy/rpython/lltypesystem/lltype.py`_. For each RPython type
    there is a file rxxxx.py that contains the low level functions needed for
    this type.
 
-*  `pypy/rlib`_ contains the RPython standard library, things that you can
+*  `pypy/rlib`_ contains the `RPython standard library`_, things that you can
    use from rpython.
+
+.. _`RPython standard library`: rlib.html
 
 .. _optionaltool: 
 
@@ -204,10 +203,9 @@ or start off at one of the following points:
 Running PyPy's unit tests
 -------------------------
 
-PyPy development always was and is still thorougly test-driven. 
+PyPy development always was and is still thoroughly test-driven.
 We use the flexible `py.test testing tool`_ which you can `install independently
-<http://pytest.org/getting-started.html>`_ and use indepedently
-from PyPy for other projects.
+<http://pytest.org/getting-started.html>`_ and use for other projects.
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
@@ -355,7 +353,7 @@ The `py.test testing tool`_ drives all our testing needs.
 We use the `py library`_ for filesystem path manipulations, terminal
 writing, logging and some other support  functionality.
 
-You don't neccessarily need to install these two libraries because 
+You don't necessarily need to install these two libraries because
 we also ship them inlined in the PyPy source tree.
 
 Getting involved 
