@@ -399,9 +399,9 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 .. _Pygame:                 http://www.pygame.org/
 .. _Standard object space:  objspace.html#the-standard-object-space
 .. _mailing lists:          index.html
-.. _documentation:          docindex.html 
+.. _documentation:          index.html#project-documentation
 .. _unit tests:             coding-guide.html#test-design
 
-.. _`directory reference`: docindex.html#directory-reference
+.. _`directory reference`: index.html#pypy-directory-reference
 
 .. include:: _ref.txt

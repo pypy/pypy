@@ -80,7 +80,6 @@ on the `development mailing list`_.
 .. _`Mercurial commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
 .. _`development mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`FAQ`: faq.html
-.. _`Documentation`: docindex.html 
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
