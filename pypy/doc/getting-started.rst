@@ -8,6 +8,7 @@ Getting Started
 
 What is PyPy ?
 ==============
+
 In common parlance, PyPy has been used to mean two things.  The first is the
 `RPython translation toolchain`_, which is a framework for generating
 dynamic programming language implementations.  And the second is one
@@ -139,15 +140,19 @@ where XXXXX is the revision id.
 .. _`our nightly tests:`: http://buildbot.pypy.org/summary?branch=<trunk>
 
 Where to go from here
-----------------------
+======================
 
 After you successfully manage to get PyPy's source you can read more about:
 
  - `Building and using PyPy's Python interpreter`_
- - `Learning more about the translation toolchain and how to develop (with) PyPy`_
+ - `Learning more about the RPython toolchain and how to develop (with) PyPy`_
+ - `Tutorial for how to write an interpreter with the RPython toolchain and make it fast`_
+ - `Look at our benchmark results`_
 
 .. _`Building and using PyPy's Python interpreter`: getting-started-python.html
-.. _`Learning more about the translation toolchain and how to develop (with) PyPy`: getting-started-dev.html
+.. _`Learning more about the RPython toolchain and how to develop (with) PyPy`: getting-started-dev.html
+.. _`Tutorial for how to write an interpreter with the RPython toolchain and make it fast`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+.. _`Look at our benchmark results`: http://speed.pypy.org
 
 .. _setuptools: http://pypi.python.org/pypi/setuptools
 
@@ -159,7 +164,7 @@ head over to the `documentation section`_ where you'll find lots of
 interesting information.  Additionally, in true hacker spirit, you 
 may just `start reading sources`_ . 
 
-.. _`documentation section`: docindex.html 
+.. _`documentation section`: index.html#project-documentation
 .. _`start reading sources`: getting-started-dev.html#start-reading-sources
 
 Filing bugs or feature requests 
