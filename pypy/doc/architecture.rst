@@ -231,16 +231,17 @@ index`_.  Of particular interest after reading this document might be:
  * `The translation document`_: a detailed description of our
    translation process.
 
- * All our `Technical reports`_, including `Compiling dynamic language
-   implementations`_.
-
  * `JIT Generation in PyPy`_, describing how we produce a Just-in-time
    Compiler from an interpreter.
 
-.. _`documentation index`: docindex.html
+ * A tutorial of how to use the `RPython toolchain`_ to `implement your own
+   interpreter`_.
+
+.. _`documentation index`: index.html#project-documentation
 .. _`getting-started`: getting-started.html
 .. _`PyPy's approach to virtual machine construction`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
 .. _`the translation document`: translation.html
+.. _`RPython toolchain`: translation.html
 .. _`Compiling dynamic language implementations`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 .. _`Technical reports`: index-report.html
 
@@ -257,6 +258,7 @@ index`_.  Of particular interest after reading this document might be:
 .. _stackless: stackless.html
 .. _`generate Just-In-Time Compilers`: jit/index.html
 .. _`JIT Generation in PyPy`: jit/index.html
+.. _`implement your own interpreter`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
 
 .. include:: _ref.txt
 
