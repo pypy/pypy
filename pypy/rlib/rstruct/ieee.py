@@ -87,12 +87,13 @@ def float_pack(x, size):
         raise ValueError("invalid size value")
 
     sign = rfloat.copysign(1.0, x) < 0.0
-    if rfloat.isinf(x):
-        mant = r_ulonglong(0)
-        exp = MAX_EXP - MIN_EXP + 2
-    elif rfloat.isnan(x):
-        mant = r_ulonglong(1) << (MANT_DIG-2) # other values possible
-        exp = MAX_EXP - MIN_EXP + 2
+    if not rfloat.isfinite(x):
+        if rfloat.isinf(x):
+            mant = r_ulonglong(0)
+            exp = MAX_EXP - MIN_EXP + 2
+        else:  # rfloat.isnan(x):
+            mant = r_ulonglong(1) << (MANT_DIG-2) # other values possible
+            exp = MAX_EXP - MIN_EXP + 2
     elif x == 0.0:
         mant = r_ulonglong(0)
         exp = 0

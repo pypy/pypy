@@ -787,12 +787,10 @@ class FakeSpace:
     def newtuple(self, l):
         return tuple(l)
 
-    def newdict(self, module=False, instance=False, classofinstance=None,
-                from_strdict_shared=None):
+    def newdict(self, module=False, instance=False, classofinstance=None):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
-                classofinstance=classofinstance,
-                from_strdict_shared=from_strdict_shared)
+                classofinstance=classofinstance)
 
     def finditem_str(self, w_dict, s):
         return w_dict.getitem_str(s) # assume it's a multidict

@@ -65,7 +65,7 @@ class AppTestMethodCaching(AppTestTypeObject):
         cache_counter = __pypy__.method_cache_counter("f")
         # the cache hits come from A.f = ..., which first does a lookup on A as
         # well
-        assert cache_counter == (9, 11)
+        assert cache_counter == (17, 3)
 
     def test_subclasses(self):
         import __pypy__
@@ -148,3 +148,32 @@ class AppTestMethodCaching(AppTestTypeObject):
         assert cache_counter[0] >= 5
         assert cache_counter[1] >= 1 # should be (27, 3)
         assert sum(cache_counter) == 10
+
+    def test_mutate_class(self):
+        import __pypy__
+        class A(object):
+            x = 1
+            y = 2
+        __pypy__.reset_method_cache_counter()
+        a = A()
+        for i in range(100):
+            assert a.y == 2
+            assert a.x == i + 1
+            A.x += 1
+        cache_counter = __pypy__.method_cache_counter("x")
+        assert cache_counter[0] >= 350
+        assert cache_counter[1] >= 1
+        assert sum(cache_counter) == 400
+
+        __pypy__.reset_method_cache_counter()
+        a = A()
+        for i in range(100):
+            assert a.y == 2
+            setattr(a, "a%s" % i, i)
+        cache_counter = __pypy__.method_cache_counter("x")
+        assert cache_counter[0] == 0 # 0 hits, because all the attributes are new
+
+    def test_get_module_from_namedtuple(self):
+        # this used to crash
+        from collections import namedtuple
+        assert namedtuple("a", "b").__module__
