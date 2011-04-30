@@ -127,7 +127,7 @@ Status
 PyPy can be used to run Python programs on Linux, OS/X,
 Windows, on top of .NET, and on top of Java.
 To dig into PyPy it is recommended to try out the current
-Subversion HEAD, which is always working or mostly working,
+Mercurial default branch, which is always working or mostly working,
 instead of the latest release, which is `1.5`__.
 
 .. __: release-1.5.0.html
