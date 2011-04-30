@@ -18,8 +18,9 @@ due to its integrated tracing JIT compiler.
 
 This release includes the features of CPython 2.6 and 2.7. It also includes a
 large number of small improvements to the tracing JIT compiler. It supports
-Intel machines running Linux 32/64, Mac OS X, Windows. Windows 64 is not
-yet supported.
+Intel machines running Linux 32/64 or Mac OS X.  Windows is beta (it roughly
+works but a lot of small issues have not been fixed so far).  Windows 64 is
+not yet supported.
 
 Numerous speed achievements are described on `our blog`_. Normalized speed
 charts comparing `pypy 1.5 and pypy 1.4`_ as well as `pypy 1.5 and cpython
