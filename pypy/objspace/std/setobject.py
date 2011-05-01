@@ -208,6 +208,7 @@ class AbstractUnwrappedSetStrategy(object):
             w_set.add(w_key)
 
     def delitem(self, w_set, w_item):
+        # only used internally
         d = self.cast_from_void_star(w_set.sstorage)
         try:
             del d[self.unwrap(w_item)]
@@ -701,28 +702,6 @@ def _discard_from_set(space, w_left, w_item):
     """
     x = w_left.discard(w_item)
     return x
-
-    try:
-        del w_left.setdata[w_item]
-        return True
-    except KeyError:
-        return False
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_f = _convert_set_to_frozenset(space, w_item)
-        if w_f is None:
-            raise
-
-    try:
-        del w_left.setdata[w_f]
-        return True
-    except KeyError:
-        return False
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        return False
 
 def set_discard__Set_ANY(space, w_left, w_item):
     _discard_from_set(space, w_left, w_item)

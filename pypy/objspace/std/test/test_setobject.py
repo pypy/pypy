@@ -79,6 +79,15 @@ class AppTestAppSetTest:
         a - b == [1,5]
         a.__sub__(b) == [1,5]
 
+    def test_discard_remove(self):
+        a = set([1,2,3,4,5])
+        a.remove(1)
+        assert a == set([2,3,4,5])
+        a.discard(2)
+        assert a == set([3,4,5])
+
+        raises(KeyError, "a.remove(6)")
+
     def test_subtype(self):
         class subset(set):pass
         a = subset()
