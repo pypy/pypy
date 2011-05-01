@@ -88,6 +88,13 @@ class AppTestAppSetTest:
 
         raises(KeyError, "a.remove(6)")
 
+    def test_pop(self):
+        a = set([1,2,3,4,5])
+        for i in xrange(5):
+            a.pop()
+        assert a == set()
+        raises(KeyError, "a.pop()")
+
     def test_subtype(self):
         class subset(set):pass
         a = subset()

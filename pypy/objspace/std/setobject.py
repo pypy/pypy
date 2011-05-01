@@ -208,7 +208,7 @@ class AbstractUnwrappedSetStrategy(object):
             w_set.add(w_key)
 
     def delitem(self, w_set, w_item):
-        # only used internally
+        # not a normal set operation; only used internally
         d = self.cast_from_void_star(w_set.sstorage)
         try:
             del d[self.unwrap(w_item)]
@@ -729,12 +729,14 @@ def hash__Frozenset(space, w_set):
     return space.wrap(hash)
 
 def set_pop__Set(space, w_left):
-    for w_key in w_left.setdata:
+    #XXX move this to strategy so we don't have to
+    #    wrap all items only to get the first one
+    for w_key in w_left.getkeys():
         break
     else:
         raise OperationError(space.w_KeyError,
                                 space.wrap('pop from an empty set'))
-    del w_left.setdata[w_key]
+    w_left.delitem(w_key)
     return w_key
 
 def and__Set_Set(space, w_left, w_other):
