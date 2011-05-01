@@ -524,12 +524,10 @@ def frozenset_copy__Frozenset(space, w_left):
         return set_copy__Set(space, w_left)
 
 def set_clear__Set(space, w_left):
-    w_left.setdata.clear()
+    w_left.clear()
 
 def sub__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _difference_dict(space, ld, rd)
-    return w_left._newobj(space, new_ld)
+    return w_left.difference(w_other)
 
 sub__Set_Frozenset = sub__Set_Set
 sub__Frozenset_Set = sub__Set_Set

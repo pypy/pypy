@@ -68,6 +68,17 @@ class AppTestAppSetTest:
         a |= set([1,2,3])
         assert a == b
 
+    def test_clear(self):
+        a = set([1,2,3])
+        a.clear()
+        assert a == set()
+
+    def test_sub(self):
+        a = set([1,2,3,4,5])
+        b = set([2,3,4])
+        a - b == [1,5]
+        a.__sub__(b) == [1,5]
+
     def test_subtype(self):
         class subset(set):pass
         a = subset()
