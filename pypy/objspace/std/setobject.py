@@ -234,6 +234,7 @@ class AbstractUnwrappedSetStrategy(object):
             return False
         except OperationError, e:
             #XXX is this ever tested?
+            assert False
             if not e.match(space, space.w_TypeError):
                 raise
             return False
@@ -464,37 +465,10 @@ def _convert_set_to_frozenset(space, w_obj):
         w_frozen.strategy = w_obj.strategy
         w_frozen.sstorage = w_obj.sstorage
         return w_frozen
-        return W_FrozensetObject(space,
-                                 make_setdata_from_w_iterable(space, w_obj))
     else:
         return None
 
 # helper functions for set operation on dicts
-
-def _difference_dict(space, ld, rd):
-    result = newset(space)
-    for w_key in ld:
-        if w_key not in rd:
-            result[w_key] = None
-    return result
-
-def _difference_dict_update(space, ld, rd):
-    if ld is rd:
-        ld.clear()     # for the case 'a.difference_update(a)'
-    else:
-        for w_key in rd:
-            try:
-                del ld[w_key]
-            except KeyError:
-                pass
-
-def _isdisjoint_dict(ld, rd):
-    if len(ld) > len(rd):
-        ld, rd = rd, ld     # loop over the smaller dict
-    for w_key in ld:
-        if w_key in rd:
-            return False
-    return True
 
 def _symmetric_difference_dict(space, ld, rd):
     result = newset(space)
@@ -568,11 +542,6 @@ def set_difference__Set(space, w_left, others_w):
     result = w_left
     for w_other in others_w:
         result = result.difference(w_other)
-       #if isinstance(w_other, W_BaseSetObject):
-       #    rd = w_other.setdata     # optimization only
-       #else:
-       #    rd = make_setdata_from_w_iterable(space, w_other)
-       #result = _difference_dict(space, result, rd)
     return result
 
 frozenset_difference__Frozenset = set_difference__Set
@@ -583,7 +552,6 @@ def set_difference_update__Set(space, w_left, others_w):
         if isinstance(w_other, W_BaseSetObject):
             # optimization only
             w_left.difference_update(w_other)
-            #_difference_dict_update(space, ld, w_other.setdata)
         else:
             for w_key in space.listview(w_other):
                 try:
@@ -624,7 +592,6 @@ eq__Frozenset_ANY = eq__Set_ANY
 
 def ne__Set_Set(space, w_left, w_other):
     return space.wrap(not w_left.equals(w_other))
-    return space.wrap(not _is_eq(w_left.setdata, w_other.setdata))
 
 ne__Set_Frozenset = ne__Set_Set
 ne__Frozenset_Frozenset = ne__Set_Set
@@ -662,9 +629,6 @@ def set_issubset__Set_Set(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
     return space.wrap(w_left.issubset(w_other))
-    
-    ld, rd = w_left.setdata, w_other.setdata
-    return space.wrap(_issubset_dict(ld, rd))
 
 set_issubset__Set_Frozenset = set_issubset__Set_Set
 frozenset_issubset__Frozenset_Set = set_issubset__Set_Set
@@ -691,8 +655,6 @@ def set_issuperset__Set_Set(space, w_left, w_other):
         return space.w_True
 
     return space.wrap(w_other.issubset(w_left))
-    ld, rd = w_left.setdata, w_other.setdata
-    return space.wrap(_issubset_dict(rd, ld))
 
 set_issuperset__Set_Frozenset = set_issuperset__Set_Set
 set_issuperset__Frozenset_Set = set_issuperset__Set_Set
@@ -815,21 +777,6 @@ and__Frozenset_Frozenset = and__Set_Set
 def _intersection_multiple(space, w_left, others_w):
     return w_left.intersect_multiple(others_w)
 
-    result = w_left.setdata
-    for w_other in others_w:
-        if isinstance(w_other, W_BaseSetObject):
-            # optimization only
-            #XXX test this
-            assert False
-            result = _intersection_dict(space, result, w_other.setdata)
-        else:
-            result2 = newset(space)
-            for w_key in space.listview(w_other):
-                if w_key in result:
-                    result2[w_key] = None
-            result = result2
-    return result
-
 def set_intersection__Set(space, w_left, others_w):
     if len(others_w) == 0:
         return w_left.copy()
@@ -841,8 +788,6 @@ frozenset_intersection__Frozenset = set_intersection__Set
 def set_intersection_update__Set(space, w_left, others_w):
     w_left.intersect_multiple_update(others_w)
     return
-    result = _intersection_multiple(space, w_left, others_w)
-    w_left.setdata = result
 
 def inplace_and__Set_Set(space, w_left, w_other):
     ld, rd = w_left.setdata, w_other.setdata
@@ -855,9 +800,6 @@ inplace_and__Set_Frozenset = inplace_and__Set_Set
 def set_isdisjoint__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
     return space.newbool(w_left.isdisjoint(w_other))
-    ld, rd = w_left.setdata, w_other.setdata
-    disjoint = _isdisjoint_dict(ld, rd)
-    return space.newbool(disjoint)
 
 set_isdisjoint__Set_Frozenset = set_isdisjoint__Set_Set
 set_isdisjoint__Frozenset_Frozenset = set_isdisjoint__Set_Set
