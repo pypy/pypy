@@ -809,7 +809,7 @@ def _make_fre(checkerfn):
         def fre(ctx, ptr, end, ppos):
             return end
     elif checkerfn == match_IN:
-        install_jitdriver_spec('MatchIn', 
+        install_jitdriver_spec('MatchIn',
                                greens=['ppos', 'ctx.pattern'],
                                reds=['ptr', 'end', 'ctx'],
                                debugprint=(1, 0))
@@ -823,7 +823,7 @@ def _make_fre(checkerfn):
                 else:
                     return ptr
     elif checkerfn == match_IN_IGNORE:
-        install_jitdriver_spec('MatchInIgnore', 
+        install_jitdriver_spec('MatchInIgnore',
                                greens=['ppos', 'ctx.pattern'],
                                reds=['ptr', 'end', 'ctx'],
                                debugprint=(1, 0))
