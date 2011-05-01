@@ -369,10 +369,11 @@ def get_config_vars(*args):
                         # patched up as well.
                         'CFLAGS', 'PY_CFLAGS', 'BLDSHARED'):
 
-                        flags = _CONFIG_VARS[key]
-                        flags = re.sub('-arch\s+\w+\s', ' ', flags)
-                        flags = flags + ' ' + arch
-                        _CONFIG_VARS[key] = flags
+                        if key in _CONFIG_VARS: 
+                            flags = _CONFIG_VARS[key]
+                            flags = re.sub('-arch\s+\w+\s', ' ', flags)
+                            flags = flags + ' ' + arch
+                            _CONFIG_VARS[key] = flags
 
                 # If we're on OSX 10.5 or later and the user tries to
                 # compiles an extension using an SDK that is not present
