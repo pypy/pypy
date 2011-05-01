@@ -31,6 +31,7 @@ Release Steps
   necessary
 * update pypy/doc/contributor.txt (and possibly LICENSE)
 * update README
+* change the tracker to have a new release tag to file bugs against
 * go to pypy/tool/release and run:
   force-builds.py /release/<release branch>
 * wait for builds to complete, make sure there are no failures
