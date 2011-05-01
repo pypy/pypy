@@ -51,6 +51,7 @@ class TestW_SetObject:
         assert self.space.eq_w(s,u)
 
 class AppTestAppSetTest:
+
     def test_simple(self):
         a = set([1,2,3])
         b = set()
@@ -58,13 +59,19 @@ class AppTestAppSetTest:
         c = a.union(b)
         assert c == set([1,2,3,4])
 
+    def test_or(self):
+        a = set([0,1,2])
+        b = a | set([1,2,3])
+        assert b == set([0,1,2,3])
+
+        # test inplace or
+        a |= set([1,2,3])
+        assert a == b
+
     def test_subtype(self):
         class subset(set):pass
         a = subset()
-        print "a: ", type(a)
         b = a | set('abc')
-        print b
-        print "b: ", type(b)
         assert type(b) is subset
 
     def test_union(self):
@@ -354,3 +361,4 @@ class AppTestAppSetTest:
         assert s == set([2,3])
         s.difference_update(s)
         assert s == set([])
+

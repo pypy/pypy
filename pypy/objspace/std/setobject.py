@@ -502,8 +502,7 @@ def set_update__Set(space, w_left, others_w):
                 w_left.add(w_key)
 
 def inplace_or__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    ld.update(rd)
+    w_left.update(w_other)
     return w_left
 
 inplace_or__Set_Frozenset = inplace_or__Set_Set
