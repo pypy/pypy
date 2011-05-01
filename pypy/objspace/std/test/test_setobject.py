@@ -55,13 +55,16 @@ class AppTestAppSetTest:
         a = set([1,2,3])
         b = set()
         b.add(4)
-        a.union(b)
-        assert a == set([1,2,3,4])
+        c = a.union(b)
+        assert c == set([1,2,3,4])
 
     def test_subtype(self):
         class subset(set):pass
         a = subset()
+        print "a: ", type(a)
         b = a | set('abc')
+        print b
+        print "b: ", type(b)
         assert type(b) is subset
 
     def test_union(self):
