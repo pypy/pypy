@@ -171,7 +171,7 @@ Moreover, at the moment it's not possible to do the full translation
 using only the tools provided by the Microsoft .NET SDK, since
 ``ilasm`` crashes when trying to assemble the pypy-cli code due to its
 size.  Microsoft .NET SDK 2.0.50727.42 is affected by this bug; other
-version could be affected as well: if you find a version of the SDK
+versions could be affected as well: if you find a version of the SDK
 that works, please tell us.
 
 Windows users that want to compile their own pypy-cli can install
