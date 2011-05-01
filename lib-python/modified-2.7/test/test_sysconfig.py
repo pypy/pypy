@@ -210,13 +210,22 @@ class TestSysConfig(unittest.TestCase):
 
         self.assertEqual(get_platform(), 'macosx-10.4-fat64')
 
-        for arch in ('ppc', 'i386', 'x86_64', 'ppc64'):
+        for arch in ('ppc', 'i386', 'ppc64', 'x86_64'):
             get_config_vars()['CFLAGS'] = ('-arch %s -isysroot '
                                            '/Developer/SDKs/MacOSX10.4u.sdk  '
                                            '-fno-strict-aliasing -fno-common '
                                            '-dynamic -DNDEBUG -g -O3'%(arch,))
 
             self.assertEqual(get_platform(), 'macosx-10.4-%s'%(arch,))
+        
+        # macosx with ARCHFLAGS set and empty _CONFIG_VARS
+        os.environ['ARCHFLAGS'] = '-arch i386'
+        sysconfig._CONFIG_VARS = None
+        
+        # this will attempt to recreate the _CONFIG_VARS based on environment 
+        # variables; used to check a problem with the PyPy's _init_posix
+        # implementation; see: issue 705
+        get_config_vars() 
 
         # linux debian sarge
         os.name = 'posix'
