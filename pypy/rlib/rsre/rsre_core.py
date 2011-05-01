@@ -227,11 +227,12 @@ class MatchResult(object):
     subresult = None
 
     def move_to_next_result(self, ctx):
+        # returns either 'self' or None
         result = self.subresult
         if result is None:
             return
         if result.move_to_next_result(ctx):
-            return result
+            return self
         return self.find_next_result(ctx)
 
     def find_next_result(self, ctx):
