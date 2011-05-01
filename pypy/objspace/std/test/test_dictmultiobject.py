@@ -131,25 +131,6 @@ class TestW_DictObject:
         assert self.space.eq_w(space.call_function(get, w("33")), w(None))
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
-    def test_initialize_from_strdict_shared(self):
-        space = self.space
-        w = space.wrap
-        d = {"a": w(1), "b": w(2)}
-        w_d = space.newdict(from_strdict_shared=d)
-        assert self.space.eq_w(space.getitem(w_d, w("a")), w(1))
-        assert self.space.eq_w(space.getitem(w_d, w("b")), w(2))
-
-    def test_initialize_from_strdict_really_shared(self):
-        space = self.space
-        w = space.wrap
-        d = {"a": w(1), "b": w(2)}
-        w_d = space.newdict(from_strdict_shared=d)
-        assert self.space.eq_w(space.getitem(w_d, w("a")), w(1))
-        assert self.space.eq_w(space.getitem(w_d, w("b")), w(2))
-        d["c"] = w(41)
-        assert self.space.eq_w(space.getitem(w_d, w("c")), w(41))
-
-
 
 class AppTest_DictObject:
     def setup_class(cls):
