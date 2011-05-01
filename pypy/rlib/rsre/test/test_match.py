@@ -283,3 +283,7 @@ class TestMatch:
     def test_match_bug2(self):
         r = get_code(r'(x??)??$')
         assert rsre_core.match(r, "x")
+
+    def test_match_bug3(self):
+        r = get_code(r'([ax]*?x*)?$')
+        assert rsre_core.match(r, "aaxaa")
