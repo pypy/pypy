@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter import support, heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.codewriter.policy import log, check_skip_operation
+from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
 from pypy.jit.metainterp import quasiimmut
 from pypy.rlib import objectmodel
@@ -361,7 +361,7 @@ class Transformer(object):
         # If the resulting op1 is still a direct_call, turn it into a
         # residual_call.
         if isinstance(op1, SpaceOperation) and op1.opname == 'direct_call':
-            op1 = self.handle_residual_call(op1 or op)
+            op1 = self.handle_residual_call(op1)
         return op1
 
     def handle_recursive_call(self, op):
@@ -590,7 +590,6 @@ class Transformer(object):
         return op1
 
     def rewrite_op_setfield(self, op):
-        check_skip_operation(op)        # just to check it doesn't raise
         if self.is_typeptr_getset(op):
             # ignore the operation completely -- instead, it's done by 'new'
             return
@@ -1373,6 +1372,15 @@ class Transformer(object):
         assert vinfo is not None
         self.vable_flags[op.args[0]] = op.args[2].value
         return []
+
+    def rewrite_op_jit_force_quasi_immutable(self, op):
+        v_inst, c_fieldname = op.args
+        descr1 = self.cpu.fielddescrof(v_inst.concretetype.TO,
+                                       c_fieldname.value)
+        op0 = SpaceOperation('-live-', [], None)
+        op1 = SpaceOperation('jit_force_quasi_immutable', [v_inst, descr1],
+                             None)
+        return [op0, op1]
 
 # ____________________________________________________________
 

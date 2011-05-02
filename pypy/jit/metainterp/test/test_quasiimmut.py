@@ -207,7 +207,6 @@ class QuasiImmutTests(object):
         assert self.meta_interp(g, [], policy=StopAtXPolicy(external)) == g()
 
     def test_invalidate_by_setfield(self):
-        py.test.skip("Not implemented")
         jitdriver = JitDriver(greens=['bc', 'foo'], reds=['i', 'total'])
 
         class Foo(object):

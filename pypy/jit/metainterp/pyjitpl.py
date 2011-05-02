@@ -15,7 +15,7 @@ from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
-                                        ABORT_BAD_LOOP
+                                        ABORT_BAD_LOOP, ABORT_FORCE_QUASIIMMUT
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
@@ -564,6 +564,20 @@ class MIFrame(object):
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
         self.generate_guard(rop.GUARD_NOT_INVALIDATED, resumepc=orgpc)
+
+    @arguments("box", "descr", "orgpc")
+    def opimpl_jit_force_quasi_immutable(self, box, mutatefielddescr, orgpc):
+        # During tracing, a 'jit_force_quasi_immutable' usually turns into
+        # the operations that check that the content of 'mutate_xxx' is null.
+        # If it is actually not null already now, then we abort tracing.
+        mutatebox = self.execute_with_descr(rop.GETFIELD_GC,
+                                            mutatefielddescr, box)
+        if mutatebox.nonnull():
+            from pypy.jit.metainterp.quasiimmut import do_force_quasi_immutable
+            do_force_quasi_immutable(self.metainterp.cpu, box.getref_base(),
+                                     mutatefielddescr)
+            raise SwitchToBlackhole(ABORT_FORCE_QUASIIMMUT)
+        self.generate_guard(rop.GUARD_ISNULL, mutatebox, resumepc=orgpc)
 
     def _nonstandard_virtualizable(self, pc, box):
         # returns True if 'box' is actually not the "standard" virtualizable

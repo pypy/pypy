@@ -410,6 +410,7 @@ class OptHeap(Optimization):
         # perform the replacement in the list of operations
         fieldvalue = self.getvalue(qmutdescr.constantfieldbox)
         cf = self.field_cache(qmutdescr.fielddescr)
+        cf.force_lazy_setfield(self)
         cf.remember_field_value(structvalue, fieldvalue)
         self._remove_guard_not_invalidated = False
 

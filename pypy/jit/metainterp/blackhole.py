@@ -1174,10 +1174,14 @@ class BlackholeInterpreter(object):
     def bhimpl_setfield_raw_f(cpu, struct, fielddescr, newvalue):
         cpu.bh_setfield_raw_f(struct, fielddescr, newvalue)
 
-    @arguments("cpu", "r", "d", "d")
-    def bhimpl_record_quasiimmut_field(self, struct, fielddescr,
-                                       mutatefielddescr):
+    @arguments("r", "d", "d")
+    def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):
         pass
+
+    @arguments("cpu", "r", "d")
+    def bhimpl_jit_force_quasi_immutable(cpu, struct, mutatefielddescr):
+        from pypy.jit.metainterp import quasiimmut
+        quasiimmut.do_force_quasi_immutable(cpu, struct, mutatefielddescr)
 
     @arguments("cpu", "d", returns="r")
     def bhimpl_new(cpu, descr):

@@ -45,6 +45,14 @@ def make_invalidation_function(STRUCT, mutatefieldname):
     #
     return invalidation
 
+def do_force_quasi_immutable(cpu, p, mutatefielddescr):
+    qmut_ref = cpu.bh_getfield_gc_r(p, mutatefielddescr)
+    if qmut_ref:
+        cpu.bh_setfield_gc_r(p, mutatefielddescr, cpu.ts.NULLREF)
+        qmut_ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, qmut_ref)
+        qmut = cast_base_ptr_to_instance(QuasiImmut, qmut_ptr)
+        qmut.invalidate()
+
 
 class QuasiImmut(object):
     llopaque = True

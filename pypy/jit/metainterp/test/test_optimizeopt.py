@@ -5811,3 +5811,28 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i3, i4)
         """
         self.optimize_loop(ops, expected)
+
+    def test_call_may_force_invalidated_guards_virtual(self):
+        ops = """
+        [i0a, i0b]
+        p = new(descr=quasisize)
+        setfield_gc(p, 421, descr=quasifielddescr)
+        quasiimmut_field(p, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(p, descr=quasifielddescr)
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        quasiimmut_field(p, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i2 = getfield_gc(p, descr=quasifielddescr)
+        i3 = escape(i1)
+        i4 = escape(i2)
+        jump(i3, i4)
+        """
+        expected = """
+        [i0a, i0b]
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        i3 = escape(421)
+        i4 = escape(421)
+        jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)

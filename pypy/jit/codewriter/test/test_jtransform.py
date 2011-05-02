@@ -982,8 +982,13 @@ def test_quasi_immutable_setfield():
                              ('mutate_x', rclass.OBJECTPTR),
                              hints={'immutable_fields': accessor})
     for v_x in [const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
-        op = SpaceOperation('setfield',
-                            [v_x, Constant('inst_x', lltype.Void), v1],
+        op = SpaceOperation('jit_force_quasi_immutable',
+                            [v_x, Constant('mutate_x', lltype.Void)],
                             varoftype(lltype.Void))
-        tr = Transformer(FakeCPU())
-        raises(NotImplementedError, tr.rewrite_operation, op)
+        tr = Transformer(FakeCPU(), FakeRegularCallControl())
+        tr.graph = 'currentgraph'
+        op0, op1 = tr.rewrite_operation(op)
+        assert op0.opname == '-live-'
+        assert op1.opname == 'jit_force_quasi_immutable'
+        assert op1.args[0] == v_x
+        assert op1.args[1] == ('fielddescr', STRUCT, 'mutate_x')

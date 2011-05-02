@@ -69,6 +69,7 @@ class LLtypeMixin(object):
     QUASI = lltype.GcStruct('QUASIIMMUT', ('inst_field', lltype.Signed),
                             ('mutate_field', rclass.OBJECTPTR),
                             hints={'immutable_fields': accessor})
+    quasisize = cpu.sizeof(QUASI)
     quasi = lltype.malloc(QUASI, immortal=True)
     quasi.inst_field = -4247
     quasifielddescr = cpu.fielddescrof(QUASI, 'inst_field')
