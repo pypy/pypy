@@ -417,7 +417,7 @@ class OptHeap(Optimization):
     def optimize_GUARD_NOT_INVALIDATED(self, op):
         if self._remove_guard_not_invalidated:
             return
-        self._remove_guard_not_invalidated = False
+        self._remove_guard_not_invalidated = False        # XXX ???
         if self._seen_guard_not_invalidated:
             return
         self._seen_guard_not_invalidated = True

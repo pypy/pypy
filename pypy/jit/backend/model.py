@@ -136,6 +136,12 @@ class AbstractCPU(object):
         oldlooptoken so that from now own they will call newlooptoken."""
         raise NotImplementedError
 
+    def invalidate_loop(self, looptoken):
+        """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
+        bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
+        after this call, they all fail."""
+        raise NotImplementedError
+
     def free_loop_and_bridges(self, compiled_loop_token):
         """This method is called to free resources (machine code,
         references to resume guards, etc.) allocated by the compilation
