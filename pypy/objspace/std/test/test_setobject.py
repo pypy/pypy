@@ -79,6 +79,12 @@ class AppTestAppSetTest:
         a - b == [1,5]
         a.__sub__(b) == [1,5]
 
+        #inplace sub
+        a = set([1,2,3,4])
+        b = set([1,4])
+        a -= b
+        assert a == set([2,3])
+
     def test_discard_remove(self):
         a = set([1,2,3,4,5])
         a.remove(1)

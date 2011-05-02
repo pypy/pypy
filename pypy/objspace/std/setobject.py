@@ -558,8 +558,7 @@ def set_difference_update__Set(space, w_left, others_w):
                     pass
 
 def inplace_sub__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    _difference_dict_update(space, ld, rd)
+    w_left.difference_update(w_other)
     return w_left
 
 inplace_sub__Set_Frozenset = inplace_sub__Set_Set
