@@ -5786,3 +5786,28 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, expected)
+
+    def test_call_may_force_invalidated_guards_reload(self):
+        ops = """
+        [i0a, i0b]
+        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i2 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i3 = escape(i1)
+        i4 = escape(i2)
+        jump(i3, i4)
+        """
+        expected = """
+        [i0a, i0b]
+        guard_not_invalidated() []
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        i3 = escape(-4247)
+        i4 = escape(-4247)
+        jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)
