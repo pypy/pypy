@@ -322,6 +322,10 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.sstorage = result.sstorage
 
     def issubset(self, w_set, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            setdata = make_setdata_from_w_iterable(self.space, w_other)
+            w_other = w_set._newobj(self.space, setdata)
+
         if w_set.length() > w_other.length():
             return False
 
@@ -572,7 +576,7 @@ eq__Frozenset_Frozenset = eq__Set_Set
 eq__Frozenset_Set = eq__Set_Set
 
 def eq__Set_settypedef(space, w_left, w_other):
-    #XXX what is faster: wrapping w_left or creating set from w_other
+    #XXX dont know how to test this
     rd = make_setdata_from_w_iterable(space, w_other)
     return space.wrap(_is_eq(w_left.setdata, rd))
 
@@ -635,8 +639,7 @@ def set_issubset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_issubset_dict(ld, rd))
+    return space.wrap(w_left.issubset(w_other))
 
 frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
 
@@ -661,8 +664,11 @@ def set_issuperset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_issubset_dict(rd, ld))
+    #XXX BAD
+    setdata = make_setdata_from_w_iterable(space, w_other)
+    w_other = w_left._newobj(space, setdata)
+
+    return space.wrap(w_other.issubset(w_left))
 
 frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
 

@@ -85,6 +85,20 @@ class AppTestAppSetTest:
         a -= b
         assert a == set([2,3])
 
+    def test_issubset(self):
+        a = set([1,2,3,4])
+        b = set([2,3])
+        assert b.issubset(a)
+        c = [1,2,3,4]
+        assert b.issubset(c)
+
+    def test_issuperset(self):
+        a = set([1,2,3,4])
+        b = set([2,3])
+        assert a.issuperset(b)
+        c = [2,3]
+        assert a.issuperset(c)
+
     def test_discard_remove(self):
         a = set([1,2,3,4,5])
         a.remove(1)
