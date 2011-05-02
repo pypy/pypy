@@ -1835,6 +1835,8 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == 0
         assert self.cpu.get_latest_value_int(0) == -42
+        print 'step 1 ok'
+        print '-'*79
 
         # mark as failing
         self.cpu.invalidate_loop(looptoken)
@@ -1844,6 +1846,8 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr
         assert self.cpu.get_latest_value_int(0) == 9
+        print 'step 2 ok'
+        print '-'*79
 
         # attach a bridge
         i2 = BoxInt()
@@ -1860,6 +1864,8 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == 3
         assert self.cpu.get_latest_value_int(0) == 9
+        print 'step 3 ok'
+        print '-'*79
 
         # mark as failing again
         self.cpu.invalidate_loop(looptoken)
@@ -1868,6 +1874,8 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.set_future_value_int(1, 9)
         fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr2
+        print 'step 4 ok'
+        print '-'*79
 
     # pure do_ / descr features
 

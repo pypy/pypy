@@ -502,7 +502,7 @@ class Assembler386(object):
         if WORD == 4:
             adr_target += 5     # CALL imm
         else:
-            adr_target += 13    # MOV r11, imm; CALL *r11
+            adr_target += 13    # MOV r11, imm-as-8-bytes; CALL *r11 xxxxxxxxxx
         return adr_target
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
@@ -518,9 +518,9 @@ class Assembler386(object):
             mc.writeimm32(offset)
             mc.copy_to_raw_memory(adr_jump_offset)
         else:
-            # "mov r11, addr; jmp r11" is 13 bytes, which fits in there
-            # because we always write "mov r11, addr; call *r11" in the
-            # first place.
+            # "mov r11, addr; jmp r11" is up to 13 bytes, which fits in there
+            # because we always write "mov r11, imm-as-8-bytes; call *r11" in
+            # the first place.
             mc.MOV_ri(X86_64_SCRATCH_REG.value, adr_new_target)
             mc.JMP_r(X86_64_SCRATCH_REG.value)
             p = rffi.cast(rffi.INTP, adr_jump_offset)
@@ -1596,7 +1596,18 @@ class Assembler386(object):
                 withfloats = True
                 break
         exc = guardtok.exc
-        mc.CALL(imm(self.failure_recovery_code[exc + 2 * withfloats]))
+        target = self.failure_recovery_code[exc + 2 * withfloats]
+        if WORD == 4:
+            mc.CALL(imm(target))
+        else:
+            # Generate exactly 13 bytes:
+            #        MOV r11, target-as-8-bytes
+            #        CALL *r11
+            # Keep the number 13 in sync with _find_failure_recovery_bytecode.
+            start = mc.get_relative_pos()
+            mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
+            mc.CALL_r(X86_64_SCRATCH_REG.value)
+            assert mc.get_relative_pos() == start + 13
         # write tight data that describes the failure recovery
         self.write_failure_recovery_description(mc, guardtok.failargs,
                                                 guardtok.fail_locs)
