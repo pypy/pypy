@@ -5724,11 +5724,13 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         quasiimmut_field(p0, descr=quasiimmutdescr)
         guard_not_invalidated() []
         i1 = getfield_gc(p0, descr=quasifielddescr)
+        escape(i1)
         jump(p1, p0, i1)
         """
         expected = """
         [p0, p1, i0]
         i1 = getfield_gc(p0, descr=quasifielddescr)
+        escape(i1)
         jump(p1, p0, i1)
         """
         self.optimize_loop(ops, expected)
@@ -5739,11 +5741,13 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
         i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        escape(i1)
         jump()
         """
         expected = """
         []
         guard_not_invalidated() []        
+        escape(-4247)
         jump()
         """
         self.optimize_loop(ops, expected, expected)
@@ -5778,32 +5782,3 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i0)
         """
         self.optimize_loop(ops, expected)
-
-##class TestOOtype(OptimizeOptTest, OOtypeMixin):
-
-##    def test_instanceof(self):
-##        ops = """
-##        [i0]
-##        p0 = new_with_vtable(ConstClass(node_vtable))
-##        i1 = instanceof(p0, descr=nodesize)
-##        jump(i1)
-##        """
-##        expected = """
-##        [i0]
-##        jump(1)
-##        """
-##        self.optimize_loop(ops, expected)
-
-##    def test_instanceof_guard_class(self):
-##        ops = """
-##        [i0, p0]
-##        guard_class(p0, ConstClass(node_vtable)) []
-##        i1 = instanceof(p0, descr=nodesize)
-##        jump(i1, p0)
-##        """
-##        expected = """
-##        [i0, p0]
-##        guard_class(p0, ConstClass(node_vtable)) []
-##        jump(1, p0)
-##        """
-##        self.optimize_loop(ops, expected)

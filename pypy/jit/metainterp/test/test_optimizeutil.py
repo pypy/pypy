@@ -70,6 +70,7 @@ class LLtypeMixin(object):
                             ('mutate_field', rclass.OBJECTPTR),
                             hints={'immutable_fields': accessor})
     quasi = lltype.malloc(QUASI, immortal=True)
+    quasi.inst_field = -4247
     quasifielddescr = cpu.fielddescrof(QUASI, 'inst_field')
     quasibox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, quasi))
     quasiimmutdescr = QuasiImmutDescr(cpu, quasibox,
