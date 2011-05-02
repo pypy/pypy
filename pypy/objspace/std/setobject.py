@@ -37,13 +37,16 @@ class W_BaseSetObject(W_Object):
         #return space.call(space.type(w_self),W_SetIterObject(rdict_w))
         objtype = type(w_self)
         if objtype is W_SetObject:
-            obj = W_SetObject(space, rdict_w)
+            w_obj = W_SetObject(space, rdict_w)
         elif objtype is W_FrozensetObject:
-            obj = W_FrozensetObject(space, rdict_w)
+            w_obj = W_FrozensetObject(space, rdict_w)
         else:
-            itemiterator = space.iter(W_SetIterObject(rdict_w))
-            obj = space.call_function(space.type(w_self),itemiterator)
-        return obj
+            w_type = space.type(w_self)
+            _, w_newdescr = w_type.lookup_where('__new__')
+            w_newfunc = space.get(w_newdescr, w_type)
+            w_itemiterator = W_SetIterObject(rdict_w)
+            w_obj = space.call_function(w_newfunc, w_type, w_itemiterator)
+        return w_obj
 
     _lifeline_ = None
     def getweakref(self):
@@ -310,7 +313,7 @@ ne__Frozenset_Set = ne__Set_Set
 
 def ne__Set_settypedef(space, w_left, w_other):
     rd = make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_is_eq(w_left.setdata, rd))
+    return space.wrap(not _is_eq(w_left.setdata, rd))
 
 ne__Set_frozensettypedef = ne__Set_settypedef
 ne__Frozenset_settypedef = ne__Set_settypedef

@@ -90,8 +90,8 @@ else:
 
 
 constant_names = """
-Py_TPFLAGS_READY Py_TPFLAGS_READYING
-METH_COEXIST METH_STATIC METH_CLASS 
+Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
+METH_COEXIST METH_STATIC METH_CLASS
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
@@ -410,6 +410,23 @@ PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
 cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
+
+Py_buffer = cpython_struct(
+    "Py_buffer", (
+        ('buf', rffi.VOIDP),
+        ('obj', PyObject),
+        ('len', Py_ssize_t),
+        # ('itemsize', Py_ssize_t),
+
+        # ('readonly', lltype.Signed),
+        # ('ndim', lltype.Signed),
+        # ('format', rffi.CCHARP),
+        # ('shape', Py_ssize_tP),
+        # ('strides', Py_ssize_tP),
+        # ('suboffets', Py_ssize_tP),
+        # ('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
+        # ('internal', rffi.VOIDP)
+        ))
 
 @specialize.memo()
 def is_PyObject(TYPE):

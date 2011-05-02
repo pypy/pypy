@@ -23,7 +23,7 @@ def test_dir_structure(test='test'):
         builddir = package.package(py.path.local(pypydir).dirpath(), test,
                                    rename_pypy_c)
         prefix = builddir.join(test)
-        cpyver = '%d.%d.%d' % CPYTHON_VERSION[:3]
+        cpyver = '%d.%d' % CPYTHON_VERSION[:2]
         assert prefix.join('lib-python', cpyver, 'test').check()
         if sys.platform == 'win32':
             assert prefix.join('pypy-c.exe').check()

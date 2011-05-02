@@ -117,6 +117,7 @@ typedef long Py_ssize_t;
 #include "pycobject.h"
 #include "pycapsule.h"
 #include "bufferobject.h"
+#include "bytesobject.h"
 #include "sliceobject.h"
 #include "datetime.h"
 #include "pystate.h"

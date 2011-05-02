@@ -128,14 +128,17 @@ class LoopWithIds(Function):
             if op.name != 'debug_merge_point' or include_debug_merge_points:
                 yield op
 
-    def allops(self, include_debug_merge_points=False):
+    def allops(self, include_debug_merge_points=False, opcode=None):
+        opcode_name = opcode
         for chunk in self.flatten_chunks():
-            for op in self._ops_for_chunk(chunk, include_debug_merge_points):
-                yield op
+            opcode = chunk.getopcode()                                                          
+            if opcode_name is None or opcode.__class__.__name__ == opcode_name:
+                for op in self._ops_for_chunk(chunk, include_debug_merge_points):
+                    yield op
 
     def format_ops(self, id=None, **kwds):
         if id is None:
-            ops = self.allops()
+            ops = self.allops(**kwds)
         else:
             ops = self.ops_by_id(id, **kwds)
         return '\n'.join(map(str, ops))
@@ -282,9 +285,10 @@ class OpMatcher(object):
     def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr)):
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
-        self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
-        for arg, exp_arg in zip(op.args, exp_args):
-            self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
+        if exp_args != ['...']:
+            self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
+            for arg, exp_arg in zip(op.args, exp_args):
+                self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
         self.match_descr(op.descr, exp_descr)
 
 

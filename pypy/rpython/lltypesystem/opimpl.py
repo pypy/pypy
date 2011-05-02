@@ -380,7 +380,7 @@ def op_cast_unichar_to_int(b):
     return ord(b)
 
 def op_cast_int_to_unichar(b):
-    assert type(b) is int 
+    assert type(b) is int
     return unichr(b)
 
 def op_cast_int_to_uint(b):
@@ -580,6 +580,10 @@ def op_gc_assume_young_pointers(addr):
 
 def op_shrink_array(array, smallersize):
     return False
+
+def op_ll_read_timestamp():
+    from pypy.rlib.rtimer import read_timestamp
+    return read_timestamp()
 
 # ____________________________________________________________
 

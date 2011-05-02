@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT
 
 class IntBound(object):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
@@ -20,7 +20,7 @@ class IntBound(object):
 
     def make_lt(self, other):
         return self.make_le(other.add(-1))
-
+ 
     def make_ge(self, other):
         if other.has_lower:
             if not self.has_lower or other.lower > self.lower:
@@ -161,14 +161,15 @@ class IntBound(object):
     def lshift_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           other.known_ge(IntBound(0, 0)):
+           other.known_ge(IntBound(0, 0)) and \
+           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
             try:
-                vals = (ovfcheck(self.upper * pow2(other.upper)),
-                        ovfcheck(self.upper * pow2(other.lower)),
-                        ovfcheck(self.lower * pow2(other.upper)),
-                        ovfcheck(self.lower * pow2(other.lower)))
+                vals = (ovfcheck_lshift(self.upper, other.upper),
+                        ovfcheck_lshift(self.upper, other.lower),
+                        ovfcheck_lshift(self.lower, other.upper),
+                        ovfcheck_lshift(self.lower, other.lower))
                 return IntBound(min4(vals), max4(vals))
-            except OverflowError:
+            except (OverflowError, ValueError):
                 return IntUnbounded()
         else:
             return IntUnbounded()
@@ -176,15 +177,13 @@ class IntBound(object):
     def rshift_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           other.known_ge(IntBound(0, 0)):
-            try:
-                vals = (ovfcheck(self.upper / pow2(other.upper)),
-                        ovfcheck(self.upper / pow2(other.lower)),
-                        ovfcheck(self.lower / pow2(other.upper)),
-                        ovfcheck(self.lower / pow2(other.lower)))
-                return IntBound(min4(vals), max4(vals))
-            except OverflowError:
-                return IntUnbounded()
+           other.known_ge(IntBound(0, 0)) and \
+           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
+            vals = (self.upper >> other.upper,
+                    self.upper >> other.lower,
+                    self.lower >> other.upper,
+                    self.lower >> other.lower)
+            return IntBound(min4(vals), max4(vals))
         else:
             return IntUnbounded()
 
@@ -252,11 +251,3 @@ def min4(t):
 
 def max4(t):
     return max(max(t[0], t[1]), max(t[2], t[3]))
-
-def pow2(x):
-    y = 1 << x
-    if y < 1:
-        raise OverflowError, "pow2 did overflow"
-    return y
-
-        

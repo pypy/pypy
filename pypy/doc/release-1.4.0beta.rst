@@ -33,4 +33,4 @@ Highlights:
 Cheers,
 The PyPy team
 
-.. _`list of patches`: http://codespeak.net/svn/pypy/trunk/pypy/module/cpyext/patches/
+.. _`list of patches`: https://bitbucket.org/pypy/pypy/src/tip/pypy/module/cpyext/patches/

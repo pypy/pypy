@@ -68,7 +68,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             i7 = int_gt(i4, 1)
             guard_true(i7, descr=...)
             p9 = call(ConstClass(fromint), i4, descr=...)
-            guard_no_exception(descr=...)
             p11 = call(ConstClass(rbigint.mul), p5, p9, descr=...)
             guard_no_exception(descr=...)
             i13 = int_sub(i4, 1)
@@ -106,7 +105,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('call_rec', """
             ...
-            p53 = call_assembler(p35, p7, ConstPtr(ptr21), ConstPtr(ptr49), 0, ConstPtr(ptr51), -1, ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr48), descr=...)
+            p53 = call_assembler(..., descr=...)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
             ...
@@ -165,9 +164,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         #
         assert entry_bridge.match_by_id('call', """
             p29 = getfield_gc(ConstPtr(ptr28), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value .*>)
-            guard_nonnull_class(p29, ConstClass(Function), descr=<Guard17>)
-            i32 = getfield_gc(p0, descr=<BoolFieldDescr pypy.interpreter.pyframe.PyFrame.inst_is_being_profiled .*>)
-            guard_false(i32, descr=<Guard18>)
+            guard_nonnull_class(p29, ConstClass(Function), descr=<Guard18>)
             p33 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_code .*>)
             guard_value(p33, ConstPtr(ptr34), descr=<Guard19>)
             p35 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_w_func_globals .*>)
@@ -686,18 +683,34 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
-            p14 = call(ConstClass(ll_split_chr), p8, 46, -1, descr=<GcPtrCallDescr>)
-            guard_no_exception(descr=<Guard4>)
-            guard_nonnull(p14, descr=<Guard5>)
-            i15 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
-            i16 = int_is_true(i15)
-            guard_true(i16, descr=<Guard6>)
-            p18 = call(ConstClass(ll_pop_default), p14, descr=<GcPtrCallDescr>)
-            guard_no_exception(descr=<Guard7>)
-            i19 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
-            i20 = int_is_true(i19)
-            guard_false(i20, descr=<Guard8>)
+            p11 = getfield_gc(ConstPtr(ptr10), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
+            guard_value(p11, ConstPtr(ptr12), descr=<Guard4>)
+            p14 = getfield_gc(ConstPtr(ptr13), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
+            p16 = getfield_gc(ConstPtr(ptr15), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
+            guard_value(p14, ConstPtr(ptr17), descr=<Guard5>)
+            guard_isnull(p16, descr=<Guard6>)
         """)
+
+    def test_import_fast_path(self, tmpdir):
+        pkg = tmpdir.join('mypkg').ensure(dir=True)
+        pkg.join('__init__.py').write("")
+        pkg.join('mod.py').write(str(py.code.Source("""
+            def do_the_import():
+                import sys
+        """)))
+        def main(path, n):
+            import sys
+            sys.path.append(path)
+            from mypkg.mod import do_the_import
+            for i in range(n):
+                do_the_import()
+        #
+        log = self.run(main, [str(tmpdir), 300], threshold=200)
+        loop, = log.loops_by_filename(self.filepath)
+        # this is a check for a slow-down that introduced a
+        # call_may_force(absolute_import_with_lock).
+        for opname in log.opnames(loop.allops(opcode="IMPORT_NAME")):
+            assert 'call' not in opname    # no call-like opcode
 
     def test_arraycopy_disappears(self):
         def main(n):
@@ -1073,6 +1086,50 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
         """)
+        
+    def test_mutate_class(self):
+        def fn(n):
+            class A(object):
+                count = 1
+                def __init__(self, a):
+                    self.a = a
+                def f(self):
+                    return self.count
+            i = 0
+            a = A(1)
+            while i < n:
+                A.count += 1 # ID: mutate
+                i = a.f()    # ID: meth1
+            return i
+        #
+        log = self.run(fn, [1000], threshold=10)
+        assert log.result == 1000
+        #
+        # first, we test the entry bridge
+        # -------------------------------
+        entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
+        assert log.opnames(ops) == ['guard_value', 'getfield_gc', 'guard_value',
+                                    'getfield_gc', 'guard_nonnull_class']
+        # the STORE_ATTR is folded away
+        assert list(entry_bridge.ops_by_id('meth1', opcode='STORE_ATTR')) == []
+        #
+        # then, the actual loop
+        # ----------------------
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = getfield_gc_pure(p5, descr=<SignedFieldDescr .*W_IntObject.inst_intval.*>)
+            i9 = int_lt(i8, i7)
+            guard_true(i9, descr=.*)
+            i11 = int_add(i8, 1)
+            i12 = force_token()
+            --TICK--
+            p20 = new_with_vtable(ConstClass(W_IntObject))
+            setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
+            setfield_gc(ConstPtr(ptr21), p20, descr=<GcPtrFieldDescr .*TypeCell.inst_w_value .*>)
+            jump(p0, p1, p2, p3, p4, p20, p6, i7, descr=<Loop.>)
+        """)
+
 
     def test_intbound_simple(self):
         """
@@ -1498,7 +1555,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             try:
                 from _ffi import CDLL, types
             except ImportError:
-                sys.stdout.write('SKIP: cannot import _ffi')
+                sys.stderr.write('SKIP: cannot import _ffi\n')
                 return 0
 
             libm = CDLL(libm_name)
@@ -1530,3 +1587,78 @@ class TestPyPyCNew(BaseTestPyPyC):
         ## assert call.getarg(0).value == pow_addr
         ## assert call.getarg(1).value == 2.0
         ## assert call.getarg(2).value == 3.0
+
+    def test_xor(self):
+        def main(b):
+            a = sa = 0
+            while a < 300:
+                if a > 0: # Specialises the loop
+                    pass
+                if b > 10:
+                    pass
+                if a^b >= 0:  # ID: guard
+                    sa += 1
+                sa += a^a     # ID: a_xor_a
+                a += 1
+            return sa
+
+        log = self.run(main, [11], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        # if both are >=0, a^b is known to be >=0
+        # note that we know that b>10
+        assert loop.match_by_id('guard', """
+            i10 = int_xor(i5, i7)
+        """)
+        #
+        # x^x is always optimized to 0
+        assert loop.match_by_id('a_xor_a', "")
+
+        log = self.run(main, [9], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        # we don't know that b>10, hence we cannot optimize it
+        assert loop.match_by_id('guard', """
+            i10 = int_xor(i5, i7)
+            i12 = int_ge(i10, 0)
+            guard_true(i12, descr=...)
+        """)
+
+    def test_shift_intbound(self):
+        def main(b):
+            res = 0
+            a = 0
+            while a < 300:
+                assert a >= 0
+                assert 0 <= b <= 10
+                val = a >> b
+                if val >= 0:    # ID: rshift
+                    res += 1
+                val = a << b
+                if val >= 0:    # ID: lshift
+                    res += 2
+                a += 1
+            return res
+        #
+        log = self.run(main, [2], threshold=200)
+        assert log.result == 300*3
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('rshift', "")  # guard optimized away
+        assert loop.match_by_id('lshift', "")  # guard optimized away
+
+    def test_lshift_and_then_rshift(self):
+        py.test.skip('fixme, this optimization is disabled')
+        def main(b):
+            res = 0
+            a = 0
+            while res < 300:
+                assert a >= 0
+                assert 0 <= b <= 10
+                res = (a << b) >> b     # ID: shift
+                a += 1
+            return res
+        #
+        log = self.run(main, [2], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('shift', "")  # optimized away

@@ -217,3 +217,16 @@ class TestBlackhole(LLJitMixin):
                            for x in range(1, 8)])
         builder = pyjitpl._warmrunnerdesc.metainterp_sd.blackholeinterpbuilder
         assert builder.num_interpreters == 2
+
+def test_bad_shift():
+    py.test.raises(ValueError, BlackholeInterpreter.bhimpl_int_lshift.im_func, 7, 100)
+    py.test.raises(ValueError, BlackholeInterpreter.bhimpl_int_rshift.im_func, 7, 100)
+    py.test.raises(ValueError, BlackholeInterpreter.bhimpl_uint_rshift.im_func, 7, 100)
+    py.test.raises(ValueError, BlackholeInterpreter.bhimpl_int_lshift.im_func, 7, -1)
+    py.test.raises(ValueError, BlackholeInterpreter.bhimpl_int_rshift.im_func, 7, -1)
+    py.test.raises(ValueError, BlackholeInterpreter.bhimpl_uint_rshift.im_func, 7, -1)
+
+    assert BlackholeInterpreter.bhimpl_int_lshift.im_func(100, 3) == 100<<3
+    assert BlackholeInterpreter.bhimpl_int_rshift.im_func(100, 3) == 100>>3
+    assert BlackholeInterpreter.bhimpl_uint_rshift.im_func(100, 3) == 100>>3        
+    

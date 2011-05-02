@@ -10,6 +10,7 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
+    Py_TPFLAGS_HAVE_GETCHARBUFFER,
     build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
@@ -403,6 +404,7 @@ def setup_string_buffer_procs(space, pto):
     c_buf.c_bf_getcharbuffer = llhelper(str_getcharbuffer.api_func.functype,
                                  str_getcharbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
+    pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def type_dealloc(space, obj):
@@ -443,7 +445,7 @@ def type_attach(space, py_obj, w_type):
     if space.is_w(w_type, space.w_str):
         setup_string_buffer_procs(space, pto)
 
-    pto.c_tp_flags = Py_TPFLAGS_HEAPTYPE
+    pto.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
     pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
             PyObject_Del.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
@@ -615,7 +617,7 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        w_dict = space.newdict(from_strdict_shared=w_obj.dict_w)
+        w_dict = w_obj.getdict(space)
         pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)

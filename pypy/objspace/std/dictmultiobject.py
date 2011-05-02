@@ -34,13 +34,7 @@ class W_DictMultiObject(W_Object):
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, classofinstance=None,
-                                   from_strdict_shared=None, strdict=False):
-        if from_strdict_shared is not None:
-            assert w_type is None
-            assert not module and not instance and classofinstance is None
-            w_self = StrDictImplementation(space)
-            w_self.content = from_strdict_shared
-            return w_self
+                                   strdict=False):
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictImplementation
             assert w_type is None

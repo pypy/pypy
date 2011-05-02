@@ -223,68 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-    def test__ffi_call(self):
-        from pypy.rlib.test.test_libffi import get_libm_name
-        libm_name = get_libm_name(sys.platform)
-        out = self.run_source('''
-        def main():
-            try:
-                from _ffi import CDLL, types
-            except ImportError:
-                sys.stdout.write('SKIP: cannot import _ffi')
-                return 0
-
-            libm = CDLL('%(libm_name)s')
-            pow = libm.getfunc('pow', [types.double, types.double],
-                               types.double)
-            print pow.getaddr()
-            i = 0
-            res = 0
-            while i < 2000:
-                res += pow(2, 3)
-                i += 1
-            return res
-        ''' % locals(),
-                              76, ([], 8.0*2000), threshold=1000)
-        pow_addr = int(out.splitlines()[0])
-        ops = self.get_by_bytecode('CALL_FUNCTION')
-        assert len(ops) == 2 # we get two loops, because of specialization
-        call_function = ops[0]
-        last_ops = [op.getopname() for op in call_function[-5:]]
-        assert last_ops == ['force_token',
-                            'setfield_gc',
-                            'call_may_force',
-                            'guard_not_forced',
-                            'guard_no_exception']
-        call = call_function[-3]
-        assert call.getarg(0).value == pow_addr
-        assert call.getarg(1).value == 2.0
-        assert call.getarg(2).value == 3.0
-
-    def test_xor(self):
-        values = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
-        for a in values:
-            for b in values:
-                if a^b >= 0:
-                    r = 2000
-                else:
-                    r = 0
-                ops = 46
-                
-                self.run_source('''
-                def main(a, b):
-                    i = sa = 0
-                    while i < 2000:
-                        if a > 0: # Specialises the loop
-                            pass
-                        if b > 1:
-                            pass
-                        if a^b >= 0:
-                            sa += 1
-                        i += 1
-                    return sa
-                ''', ops, ([a, b], r))
-        
     def test_shift(self):
         from sys import maxint
         maxvals = (-maxint-1, -maxint, maxint-1, maxint)
