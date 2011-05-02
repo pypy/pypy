@@ -116,6 +116,9 @@ class W_BaseSetObject(W_Object):
     def intersect(self, w_other):
         return self.strategy.intersect(self, w_other)
 
+    def intersect_update(self, w_other):
+        return self.strategy.intersect_update(self, w_other)
+
     def intersect_multiple(self, others_w):
         return self.strategy.intersect_multiple(self, others_w)
 
@@ -298,6 +301,22 @@ class AbstractUnwrappedSetStrategy(object):
             if w_other.has_key(w_key):
                 result.add(w_key)
         return result
+
+    def intersect_update(self, w_set, w_other):
+        if w_set.length() > w_other.length():
+            return w_other.intersect(w_set)
+
+        setdata = newset(self.space)
+        items = self.cast_from_void_star(w_set.sstorage).keys()
+        for key in items:
+            w_key = self.wrap(key)
+            if w_other.has_key(w_key):
+                setdata[w_key] = None
+
+        # do not switch strategy here if other items match
+        w_set.strategy = strategy = self.space.fromcache(ObjectSetStrategy)
+        w_set.sstorage = strategy.cast_to_void_star(setdata)
+        return w_set
 
     def intersect_multiple(self, w_set, others_w):
         result = w_set
@@ -747,11 +766,6 @@ def set_pop__Set(space, w_left):
 def and__Set_Set(space, w_left, w_other):
     new_set = w_left.intersect(w_other)
     return new_set
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _intersection_dict(space, ld, rd)
-    #XXX when both have same strategy, ini new set from storage
-    # therefore this must be moved to strategies
-    return w_left._newobj(space, new_ld)
 
 and__Set_Frozenset = and__Set_Set
 and__Frozenset_Set = and__Set_Set
@@ -773,10 +787,7 @@ def set_intersection_update__Set(space, w_left, others_w):
     return
 
 def inplace_and__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _intersection_dict(space, ld, rd)
-    w_left.setdata = new_ld
-    return w_left
+    return w_left.intersect_update(w_other)
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set
 

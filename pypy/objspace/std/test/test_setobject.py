@@ -99,6 +99,12 @@ class AppTestAppSetTest:
         c = [2,3]
         assert a.issuperset(c)
 
+    def test_inplace_and(test):
+        a = set([1,2,3,4])
+        b = set([0,2,3,5,6])
+        a &= b
+        assert a == set([2,3])
+
     def test_discard_remove(self):
         a = set([1,2,3,4,5])
         a.remove(1)
