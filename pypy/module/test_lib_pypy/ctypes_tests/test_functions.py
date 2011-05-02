@@ -446,6 +446,17 @@ class TestFunctions(BaseCTypesTestChecker):
         assert tf_b(-126) == -42
         assert tf_b._ptr is ptr
 
+    def test_warnings(self):
+        import warnings
+        warnings.simplefilter("always")
+        with warnings.catch_warnings(record=True) as w:
+            dll.get_an_integer()
+            assert len(w) == 2
+            assert issubclass(w[0].category, RuntimeWarning)
+            assert issubclass(w[1].category, RuntimeWarning)
+            assert "C function without declared arguments called" in str(w[0].message)
+            assert "C function without declared return type called" in str(w[1].message)
+
     def test_errcheck(self):
         py.test.skip('fixme')
         def errcheck(result, func, args):
@@ -462,3 +473,16 @@ class TestFunctions(BaseCTypesTestChecker):
         tf_b.errcheck = errcheck
         assert tf_b(-126) == -42
         del tf_b.errcheck
+        with warnings.catch_warnings(record=True) as w:
+            dll.get_an_integer.argtypes = []
+            dll.get_an_integer()
+            assert len(w) == 1
+            assert issubclass(w[0].category, RuntimeWarning)
+            assert "C function without declared return type called" in str(w[0].message)
+            
+        with warnings.catch_warnings(record=True) as w:
+            dll.get_an_integer.restype = None
+            dll.get_an_integer()
+            assert len(w) == 0
+            
+        warnings.resetwarnings()

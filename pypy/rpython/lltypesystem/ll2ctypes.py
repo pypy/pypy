@@ -255,6 +255,9 @@ def get_ctypes_type(T, delayed_builders=None):
         return cls
 
 def build_new_ctypes_type(T, delayed_builders):
+    if isinstance(T, lltype.Typedef):
+        T = T.OF
+
     if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.FuncType):
             argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS
@@ -761,6 +764,8 @@ def ctypes2lltype(T, cobj):
     """
     if T is lltype.Void:
         return None
+    if isinstance(T, lltype.Typedef):
+        T = T.OF
     if isinstance(T, lltype.Ptr):
         if not cobj or not ctypes.cast(cobj, ctypes.c_void_p).value:   # NULL pointer
             # CFunctionType.__nonzero__ is broken before Python 2.6

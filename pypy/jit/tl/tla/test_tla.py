@@ -155,7 +155,7 @@ def test_div_float():
 
 # ____________________________________________________________
 
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin
 
 class TestLLtype(LLJitMixin):
     def test_loop(self):

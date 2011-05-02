@@ -308,14 +308,17 @@ def encode_rex(mc, rexbyte, basevalue, orbyte):
         # XXX: Hack. Ignore REX.W if we are using 16-bit operands
         if mc._use_16_bit_immediate:
             basevalue &= ~REX_W
-        if basevalue != 0x40 or rexbyte != 0:
+        if basevalue != 0 or rexbyte != 0:
+            if basevalue == 0:
+                basevalue = 0x40
             mc.writechar(chr(basevalue | rexbyte))
     else:
         assert rexbyte == 0
     return 0
 
-rex_w  = encode_rex, 0, (0x40 | REX_W), None
-rex_nw = encode_rex, 0, 0x40, None
+rex_w  = encode_rex, 0, (0x40 | REX_W), None      # a REX.W prefix
+rex_nw = encode_rex, 0, 0, None                   # an optional REX prefix
+rex_fw = encode_rex, 0, 0x40, None                # a forced REX prefix
 
 # ____________________________________________________________
 
@@ -419,12 +422,12 @@ def shifts(mod_field):
 
 
 # Method names take the form of
-# 
+#
 #     <instruction name>_<operand type codes>
 #
 # For example, the method name for "mov reg, immed" is MOV_ri. Operand order
 # is Intel-style, with the destination first.
-# 
+#
 # The operand type codes are:
 #     r - register
 #     b - ebp/rbp offset
@@ -460,6 +463,7 @@ class AbstractX86CodeBuilder(object):
     # ------------------------------ MOV ------------------------------
 
     MOV_ri = insn(rex_w, register(1), '\xB8', immediate(2, 'q'))
+    MOV8_ri = insn(rex_fw, byte_register(1), '\xB0', immediate(2, 'b'))
 
     # ------------------------------ Arithmetic ------------------------------
 
@@ -485,11 +489,11 @@ class AbstractX86CodeBuilder(object):
 
     CMP32_mi = insn(rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
 
-    CMP8_ri = insn(rex_nw, '\x80', byte_register(1), '\xF8', immediate(2, 'b'))
+    CMP8_ri = insn(rex_fw, '\x80', byte_register(1), '\xF8', immediate(2, 'b'))
 
-    AND8_rr = insn(rex_w, '\x20', byte_register(1), byte_register(2,8), '\xC0')
+    AND8_rr = insn(rex_fw, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 
-    OR8_rr = insn(rex_w, '\x08', byte_register(1), byte_register(2,8), '\xC0')
+    OR8_rr = insn(rex_fw, '\x08', byte_register(1), byte_register(2,8), '\xC0')
 
     NEG_r = insn(rex_w, '\xF7', register(1), '\xD8')
 
@@ -561,6 +565,9 @@ class AbstractX86CodeBuilder(object):
 
     # x87 instructions
     FSTP_b = insn('\xDD', orbyte(3<<3), stack_bp(1))
+
+    # ------------------------------ Random mess -----------------------
+    RDTSC = insn('\x0F\x31')
 
     # reserved as an illegal instruction
     UD2 = insn('\x0F\x0B')
@@ -673,8 +680,8 @@ for insnname, rex_type in [('MOV', rex_w), ('MOV32', rex_nw)]:
     define_modrm_modes(insnname + '_r*', [rex_type, '\x8B', register(1, 8)])
     define_modrm_modes(insnname + '_*i', [rex_type, '\xC7', orbyte(0<<3)], [immediate(2)])
 
-define_modrm_modes('MOV8_*r', [rex_w, '\x88', byte_register(2, 8)], regtype='BYTE')
-define_modrm_modes('MOV8_*i', [rex_w, '\xC6', orbyte(0<<3)], [immediate(2, 'b')], regtype='BYTE')
+define_modrm_modes('MOV8_*r', [rex_fw, '\x88', byte_register(2, 8)], regtype='BYTE')
+define_modrm_modes('MOV8_*i', [rex_fw, '\xC6', orbyte(0<<3)], [immediate(2, 'b')], regtype='BYTE')
 
 define_modrm_modes('MOVZX8_r*', [rex_w, '\x0F\xB6', register(1, 8)], regtype='BYTE')
 define_modrm_modes('MOVSX8_r*', [rex_w, '\x0F\xBE', register(1, 8)], regtype='BYTE')

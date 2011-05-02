@@ -1,11 +1,9 @@
 from pypy.conftest import gettestobjspace
-import sys, random
+import sys
 import py
 from pypy.tool.udir import udir
 from pypy.rlib import rsocket
 from pypy.rpython.lltypesystem import lltype, rffi
-
-PORT_NUMBER = random.randrange(40000, 60000)
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket', 'array'])
@@ -299,7 +297,6 @@ class AppTestSocket:
     def setup_class(cls):
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
-        cls.w_PORT = space.wrap(PORT_NUMBER)
 
     def test_ntoa_exception(self):
         import _socket
@@ -500,8 +497,7 @@ class AppTestSocket:
         if not hasattr(socket.socket, 'dup'):
             skip('No dup() on this platform')
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('localhost', self.PORT))
+        s.bind(('localhost', 0))
         s2 = s.dup()
         assert s.fileno() != s2.fileno()
         assert s.getsockname() == s2.getsockname()
@@ -557,17 +553,14 @@ class AppTestSocketTCP:
     def setup_class(cls):
         cls.space = space
 
-    PORT = PORT_NUMBER
     HOST = 'localhost'
         
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
-        w_PORT = space.wrap(self.PORT)
-        self.w_serv = space.appexec([w_socket, w_HOST, w_PORT],
-            '''(_socket, HOST, PORT):
+        self.w_serv = space.appexec([w_socket, w_HOST],
+            '''(_socket, HOST):
             serv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-            serv.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
-            serv.bind((HOST, PORT))
+            serv.bind((HOST, 0))
             serv.listen(1)
             return serv
             ''')

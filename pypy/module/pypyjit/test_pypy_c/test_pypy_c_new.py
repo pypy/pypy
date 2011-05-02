@@ -68,7 +68,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             i7 = int_gt(i4, 1)
             guard_true(i7, descr=...)
             p9 = call(ConstClass(fromint), i4, descr=...)
-            guard_no_exception(descr=...)
             p11 = call(ConstClass(rbigint.mul), p5, p9, descr=...)
             guard_no_exception(descr=...)
             i13 = int_sub(i4, 1)
@@ -106,7 +105,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('call_rec', """
             ...
-            p53 = call_assembler(p35, p7, ConstPtr(ptr21), ConstPtr(ptr49), 0, ConstPtr(ptr51), -1, ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr48), descr=...)
+            p53 = call_assembler(..., descr=...)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
             ...
@@ -165,9 +164,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         #
         assert entry_bridge.match_by_id('call', """
             p29 = getfield_gc(ConstPtr(ptr28), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value .*>)
-            guard_nonnull_class(p29, ConstClass(Function), descr=<Guard17>)
-            i32 = getfield_gc(p0, descr=<BoolFieldDescr pypy.interpreter.pyframe.PyFrame.inst_is_being_profiled .*>)
-            guard_false(i32, descr=<Guard18>)
+            guard_nonnull_class(p29, ConstClass(Function), descr=<Guard18>)
             p33 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_code .*>)
             guard_value(p33, ConstPtr(ptr34), descr=<Guard19>)
             p35 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_w_func_globals .*>)
@@ -277,6 +274,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_default_and_kw(self):
+        py.test.skip("Wait until we have saner defaults strat")
         def main(n):
             def f(i, j=1):
                 return i + j
@@ -487,7 +485,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_range_iter(self):
-        py.test.skip("until we fix defaults")
         def main(n):
             def g(n):
                 return range(n)
@@ -686,18 +683,34 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
-            p14 = call(ConstClass(ll_split_chr), p8, 46, -1, descr=<GcPtrCallDescr>)
-            guard_no_exception(descr=<Guard4>)
-            guard_nonnull(p14, descr=<Guard5>)
-            i15 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
-            i16 = int_is_true(i15)
-            guard_true(i16, descr=<Guard6>)
-            p18 = call(ConstClass(ll_pop_default), p14, descr=<GcPtrCallDescr>)
-            guard_no_exception(descr=<Guard7>)
-            i19 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
-            i20 = int_is_true(i19)
-            guard_false(i20, descr=<Guard8>)
+            p11 = getfield_gc(ConstPtr(ptr10), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
+            guard_value(p11, ConstPtr(ptr12), descr=<Guard4>)
+            p14 = getfield_gc(ConstPtr(ptr13), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
+            p16 = getfield_gc(ConstPtr(ptr15), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
+            guard_value(p14, ConstPtr(ptr17), descr=<Guard5>)
+            guard_isnull(p16, descr=<Guard6>)
         """)
+
+    def test_import_fast_path(self, tmpdir):
+        pkg = tmpdir.join('mypkg').ensure(dir=True)
+        pkg.join('__init__.py').write("")
+        pkg.join('mod.py').write(str(py.code.Source("""
+            def do_the_import():
+                import sys
+        """)))
+        def main(path, n):
+            import sys
+            sys.path.append(path)
+            from mypkg.mod import do_the_import
+            for i in range(n):
+                do_the_import()
+        #
+        log = self.run(main, [str(tmpdir), 300], threshold=200)
+        loop, = log.loops_by_filename(self.filepath)
+        # this is a check for a slow-down that introduced a
+        # call_may_force(absolute_import_with_lock).
+        for opname in log.opnames(loop.allops(opcode="IMPORT_NAME")):
+            assert 'call' not in opname    # no call-like opcode
 
     def test_arraycopy_disappears(self):
         def main(n):
@@ -838,7 +851,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     src = """
                         def main():
                             sa = 0
-                            for i in range(1000):
+                            for i in range(300):
                                 if i %s %d:
                                     sa += 1
                                 else:
@@ -849,7 +862,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, op2, b)
-                    self.run_and_check(src, threshold=400)
+                    self.run_and_check(src, threshold=200)
 
                     src = """
                         def main():
@@ -867,7 +880,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 i += 0.25
                             return sa
                     """ % (op1, float(a)/4.0, op2, float(b)/4.0)
-                    self.run_and_check(src, threshold=400)
+                    self.run_and_check(src, threshold=300)
 
 
     def test_boolrewrite_allcases_reflex(self):
@@ -888,7 +901,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     src = """
                         def main():
                             sa = 0
-                            for i in range(1000):
+                            for i in range(300):
                                 if i %s %d:
                                     sa += 1
                                 else:
@@ -899,7 +912,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, b, op2)
-                    self.run_and_check(src, threshold=400)
+                    self.run_and_check(src, threshold=200)
 
                     src = """
                         def main():
@@ -917,11 +930,13 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 i += 0.25
                             return sa
                     """ % (op1, float(a)/4.0, float(b)/4.0, op2)
-                    self.run_and_check(src, threshold=400)
+                    self.run_and_check(src, threshold=300)
 
     def test_boolrewrite_ptr(self):
-        # XXX this test is way too imprecise in what it is actually testing
-        # it should count the number of guards instead
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
         compares = ('a == b', 'b == a', 'a != b', 'b != a', 'a == c', 'c != b')
         for e1 in compares:
             for e2 in compares:
@@ -933,7 +948,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                         b = tst()
                         c = tst()
                         sa = 0
-                        for i in range(1000):
+                        for i in range(300):
                             if %s:
                                 sa += 1
                             else:
@@ -946,7 +961,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 a = b
                         return sa
                 """ % (e1, e2)
-                self.run_and_check(src, threshold=400)
+                self.run_and_check(src, threshold=200)
 
     def test_array_sum(self):
         def main():
@@ -1010,7 +1025,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_func_defaults(self):
-        py.test.skip("skipped until we fix defaults")
+        py.test.skip("until we fix defaults")
         def main(n):
             i = 1
             while i < n:
@@ -1092,7 +1107,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             i23 = int_lt(0, i21)
             guard_true(i23, descr=<Guard5>)
             i24 = getfield_gc(p17, descr=<NonGcPtrFieldDescr .*W_ArrayTypei.inst_buffer .*>)
-            i25 = getarrayitem_raw(i24, 0, descr=<SignedArrayNoLengthDescr>)
+            i25 = getarrayitem_raw(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=<Guard6>)
             i28 = int_add_ovf(i10, i25)
@@ -1100,3 +1115,579 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
         """)
+        
+    def test_mutate_class(self):
+        def fn(n):
+            class A(object):
+                count = 1
+                def __init__(self, a):
+                    self.a = a
+                def f(self):
+                    return self.count
+            i = 0
+            a = A(1)
+            while i < n:
+                A.count += 1 # ID: mutate
+                i = a.f()    # ID: meth1
+            return i
+        #
+        log = self.run(fn, [1000], threshold=10)
+        assert log.result == 1000
+        #
+        # first, we test the entry bridge
+        # -------------------------------
+        entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
+        assert log.opnames(ops) == ['guard_value', 'getfield_gc', 'guard_value',
+                                    'getfield_gc', 'guard_nonnull_class']
+        # the STORE_ATTR is folded away
+        assert list(entry_bridge.ops_by_id('meth1', opcode='STORE_ATTR')) == []
+        #
+        # then, the actual loop
+        # ----------------------
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = getfield_gc_pure(p5, descr=<SignedFieldDescr .*W_IntObject.inst_intval.*>)
+            i9 = int_lt(i8, i7)
+            guard_true(i9, descr=.*)
+            i11 = int_add(i8, 1)
+            i12 = force_token()
+            --TICK--
+            p20 = new_with_vtable(ConstClass(W_IntObject))
+            setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
+            setfield_gc(ConstPtr(ptr21), p20, descr=<GcPtrFieldDescr .*TypeCell.inst_w_value .*>)
+            jump(p0, p1, p2, p3, p4, p20, p6, i7, descr=<Loop.>)
+        """)
+
+
+    def test_intbound_simple(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        ops = ('<', '>', '<=', '>=', '==', '!=')
+        nbr = (3, 7)
+        for o1 in ops:
+            for o2 in ops:
+                for n1 in nbr:
+                    for n2 in nbr:
+                        src = '''
+                        def f(i):
+                            a, b = 3, 3
+                            if i %s %d:
+                                a = 0
+                            else:
+                                a = 1
+                            if i %s %d:
+                                b = 0
+                            else:
+                                b = 1
+                            return a + b * 2
+
+                        def main():
+                            res = [0] * 4
+                            idx = []
+                            for i in range(15):
+                                idx.extend([i] * 15)
+                            for i in idx:
+                                res[f(i)] += 1
+                            return res
+
+                        ''' % (o1, n1, o2, n2)
+                        self.run_and_check(src, threshold=200)
+
+    def test_intbound_addsub_mix(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        tests = ('i > 4', 'i > 2', 'i + 1 > 2', '1 + i > 4',
+                 'i - 1 > 1', '1 - i > 1', '1 - i < -3',
+                 'i == 1', 'i == 5', 'i != 1', '-2 * i < -4')
+        for t1 in tests:
+            for t2 in tests:
+                src = '''
+                def f(i):
+                    a, b = 3, 3
+                    if %s:
+                        a = 0
+                    else:
+                        a = 1
+                    if %s:
+                        b = 0
+                    else:
+                        b = 1
+                    return a + b * 2
+
+                def main():
+                    res = [0] * 4
+                    idx = []
+                    for i in range(15):
+                        idx.extend([i] * 15)
+                    for i in idx:
+                        res[f(i)] += 1
+                    return res
+
+                ''' % (t1, t2)
+                self.run_and_check(src, threshold=200)
+
+    def test_intbound_gt(self):
+        def main(n):
+            i, a, b = 0, 0, 0
+            while i < n:
+                if i > -1:
+                    a += 1
+                if i > -2:
+                    b += 1
+                i += 1
+            return (a, b)
+        #
+        log = self.run(main, [300], threshold=200)
+        assert log.result == (300, 300)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i8, i9)
+            guard_true(i10, descr=...)
+            i12 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i14 = int_add_ovf(i6, 1)
+            guard_no_overflow(descr=...)
+            i17 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i14, i12, i17, i9, descr=<Loop0>)
+        """)
+
+    def test_intbound_sub_lt(self):
+        def main():
+            i, a = 0, 0
+            while i < 300:
+                if i - 10 < 295:
+                    a += 1
+                i += 1
+            return a
+        #
+        log = self.run(main, [], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, 300)
+            guard_true(i7, descr=...)
+            i9 = int_sub_ovf(i5, 10)
+            guard_no_overflow(descr=...)
+            i11 = int_add_ovf(i4, 1)
+            guard_no_overflow(descr=...)
+            i13 = int_add(i5, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i11, i13, descr=<Loop0>)
+        """)
+
+    def test_intbound_addsub_ge(self):
+        def main(n):
+            i, a, b = 0, 0, 0
+            while i < n:
+                if i + 5 >= 5:
+                    a += 1
+                if i - 1 >= -1:
+                    b += 1
+                i += 1
+            return (a, b)
+        #
+        log = self.run(main, [300], threshold=200)
+        assert log.result == (300, 300)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i8, i9)
+            guard_true(i10, descr=...)
+            i12 = int_add_ovf(i8, 5)
+            guard_no_overflow(descr=...)
+            i14 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i16 = int_add_ovf(i6, 1)
+            guard_no_overflow(descr=...)
+            i19 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i16, i14, i19, i9, descr=<Loop0>)
+        """)
+
+    def test_intbound_addmul_ge(self):
+        def main(n):
+            i, a, b = 0, 0, 0
+            while i < 300:
+                if i + 5 >= 5:
+                    a += 1
+                if 2 * i >= 0:
+                    b += 1
+                i += 1
+            return (a, b)
+        #
+        log = self.run(main, [300], threshold=200)
+        assert log.result == (300, 300)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i8, 300)
+            guard_true(i10, descr=...)
+            i12 = int_add(i8, 5)
+            i14 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i16 = int_lshift(i8, 1)
+            i18 = int_add_ovf(i6, 1)
+            guard_no_overflow(descr=...)
+            i21 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, i18, i14, i21, descr=<Loop0>)
+        """)
+
+    def test_intbound_eq(self):
+        def main(a, n):
+            i, s = 0, 0
+            while i < 300:
+                if a == 7:
+                    s += a + 1
+                elif i == 10:
+                    s += i
+                else:
+                    s += 1
+                i += 1
+            return s
+        #
+        log = self.run(main, [7, 300], threshold=200)
+        assert log.result == main(7, 300)
+        log = self.run(main, [10, 300], threshold=200)
+        assert log.result == main(10, 300)
+        log = self.run(main, [42, 300], threshold=200)
+        assert log.result == main(42, 300)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i8, 300)
+            guard_true(i10, descr=...)
+            i12 = int_eq(i8, 10)
+            guard_false(i12, descr=...)
+            i14 = int_add_ovf(i7, 1)
+            guard_no_overflow(descr=...)
+            i16 = int_add(i8, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, i14, i16, descr=<Loop0>)
+        """)
+
+    def test_intbound_mul(self):
+        def main(a):
+            i, s = 0, 0
+            while i < 300:
+                assert i >= 0
+                if 2 * i < 30000:
+                    s += 1
+                else:
+                    s += a
+                i += 1
+            return s
+        #
+        log = self.run(main, [7], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = int_lt(i6, 300)
+            guard_true(i8, descr=...)
+            i10 = int_lshift(i6, 1)
+            i12 = int_add_ovf(i5, 1)
+            guard_no_overflow(descr=...)
+            i14 = int_add(i6, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i12, i14, descr=<Loop0>)
+        """)
+
+    def test_assert(self):
+        def main(a):
+            i, s = 0, 0
+            while i < 300:
+                assert a == 7
+                s += a + 1
+                i += 1
+            return s
+        log = self.run(main, [7], threshold=200)
+        assert log.result == 300*8
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = int_lt(i6, 300)
+            guard_true(i8, descr=...)
+            i10 = int_add_ovf(i5, 8)
+            guard_no_overflow(descr=...)
+            i12 = int_add(i6, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i10, i12, descr=<Loop0>)
+        """)
+
+    def test_zeropadded(self):
+        def main():
+            from array import array
+            class ZeroPadded(array):
+                def __new__(cls, l):
+                    self = array.__new__(cls, 'd', range(l))
+                    return self
+
+                def __getitem__(self, i):
+                    if i < 0 or i >= len(self):
+                        return 0
+                    return array.__getitem__(self, i) # ID: get
+            #
+            buf = ZeroPadded(2000)
+            i = 10
+            sa = 0
+            while i < 2000 - 10:
+                sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
+                i += 1
+            return sa
+
+        log = self.run(main, [], threshold=200)
+        assert log.result == 9895050.0
+        loop, = log.loops_by_filename(self.filepath)
+        #
+        # check that the overloaded __getitem__ does not introduce double
+        # array bound checks.
+        #
+        # The force_token()s are still there, but will be eliminated by the
+        # backend regalloc, so they are harmless
+        assert loop.match(ignore_ops=['force_token'],
+                          expected_src="""
+            ...
+            i20 = int_ge(i18, i8)
+            guard_false(i20, descr=...)
+            f21 = getarrayitem_raw(i13, i18, descr=...)
+            f23 = getarrayitem_raw(i13, i14, descr=...)
+            f24 = float_add(f21, f23)
+            f26 = getarrayitem_raw(i13, i6, descr=...)
+            f27 = float_add(f24, f26)
+            i29 = int_add(i6, 1)
+            i31 = int_ge(i29, i8)
+            guard_false(i31, descr=...)
+            f33 = getarrayitem_raw(i13, i29, descr=...)
+            f34 = float_add(f27, f33)
+            i36 = int_add(i6, 2)
+            i38 = int_ge(i36, i8)
+            guard_false(i38, descr=...)
+            f39 = getarrayitem_raw(i13, i36, descr=...)
+            ...
+        """)
+
+
+    def test_circular(self):
+        def main():
+            from array import array
+            class Circular(array):
+                def __new__(cls):
+                    self = array.__new__(cls, 'd', range(256))
+                    return self
+                def __getitem__(self, i):
+                    assert len(self) == 256
+                    return array.__getitem__(self, i & 255)
+            #
+            buf = Circular()
+            i = 10
+            sa = 0
+            while i < 2000 - 10:
+                sa += buf[i-2] + buf[i-1] + buf[i] + buf[i+1] + buf[i+2]
+                i += 1
+            return sa
+        #
+        log = self.run(main, [], threshold=200)
+        assert log.result == 1239690.0
+        loop, = log.loops_by_filename(self.filepath)
+        #
+        # check that the array bound checks are removed
+        #
+        # The force_token()s are still there, but will be eliminated by the
+        # backend regalloc, so they are harmless
+        assert loop.match(ignore_ops=['force_token'],
+                          expected_src="""
+            ...
+            i17 = int_and(i14, 255)
+            f18 = getarrayitem_raw(i8, i17, descr=...)
+            f20 = getarrayitem_raw(i8, i9, descr=...)
+            f21 = float_add(f18, f20)
+            f23 = getarrayitem_raw(i8, i10, descr=...)
+            f24 = float_add(f21, f23)
+            i26 = int_add(i6, 1)
+            i29 = int_and(i26, 255)
+            f30 = getarrayitem_raw(i8, i29, descr=...)
+            f31 = float_add(f24, f30)
+            i33 = int_add(i6, 2)
+            i36 = int_and(i33, 255)
+            f37 = getarrayitem_raw(i8, i36, descr=...)
+            ...
+        """)
+
+    def test_min_max(self):
+        def main():
+            i=0
+            sa=0
+            while i < 300: 
+                sa+=min(max(i, 3000), 4000)
+                i+=1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == 300*3000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i4, 300)
+            guard_true(i7, descr=...)
+            i9 = int_add_ovf(i5, 3000)
+            guard_no_overflow(descr=...)
+            i11 = int_add(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i11, i9, descr=<Loop0>)
+        """)
+
+    def test_silly_max(self):
+        def main():
+            i = 2
+            sa = 0
+            while i < 300:
+                lst = range(i)
+                sa += max(*lst) # ID: max
+                i += 1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == main()
+        loop, = log.loops_by_filename(self.filepath)
+        # We dont want too many guards, but a residual call to min_max_loop
+        guards = [n for n in log.opnames(loop.ops_by_id("max")) if n.startswith('guard')]
+        assert len(guards) < 20
+        assert loop.match_by_id('max',"""
+            ...
+            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
+            ...
+        """)
+        
+    def test_iter_max(self):
+        def main():
+            i = 2
+            sa = 0
+            while i < 300:
+                lst = range(i)
+                sa += max(lst) # ID: max
+                i += 1
+            return sa
+        log = self.run(main, [], threshold=200)
+        assert log.result == main()
+        loop, = log.loops_by_filename(self.filepath)
+        # We dont want too many guards, but a residual call to min_max_loop
+        guards = [n for n in log.opnames(loop.ops_by_id("max")) if n.startswith('guard')]
+        assert len(guards) < 20
+        assert loop.match_by_id('max',"""
+            ...
+            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)            
+            ...
+        """)
+
+    def test__ffi_call(self):
+        from pypy.rlib.test.test_libffi import get_libm_name
+        def main(libm_name):
+            try:
+                from _ffi import CDLL, types
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _ffi\n')
+                return 0
+
+            libm = CDLL(libm_name)
+            pow = libm.getfunc('pow', [types.double, types.double],
+                               types.double)
+            i = 0
+            res = 0
+            while i < 300:
+                res += pow(2, 3)
+                i += 1
+            return pow.getaddr(), res
+        #
+        libm_name = get_libm_name(sys.platform)
+        log = self.run(main, [libm_name], threshold=200)
+        pow_addr, res = log.result
+        assert res == 8.0 * 300
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: write the actual test when we merge this to jitypes2
+        ## ops = self.get_by_bytecode('CALL_FUNCTION')
+        ## assert len(ops) == 2 # we get two loops, because of specialization
+        ## call_function = ops[0]
+        ## last_ops = [op.getopname() for op in call_function[-5:]]
+        ## assert last_ops == ['force_token',
+        ##                     'setfield_gc',
+        ##                     'call_may_force',
+        ##                     'guard_not_forced',
+        ##                     'guard_no_exception']
+        ## call = call_function[-3]
+        ## assert call.getarg(0).value == pow_addr
+        ## assert call.getarg(1).value == 2.0
+        ## assert call.getarg(2).value == 3.0
+
+    def test_xor(self):
+        def main(b):
+            a = sa = 0
+            while a < 300:
+                if a > 0: # Specialises the loop
+                    pass
+                if b > 10:
+                    pass
+                if a^b >= 0:  # ID: guard
+                    sa += 1
+                sa += a^a     # ID: a_xor_a
+                a += 1
+            return sa
+
+        log = self.run(main, [11], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        # if both are >=0, a^b is known to be >=0
+        # note that we know that b>10
+        assert loop.match_by_id('guard', """
+            i10 = int_xor(i5, i7)
+        """)
+        #
+        # x^x is always optimized to 0
+        assert loop.match_by_id('a_xor_a', "")
+
+        log = self.run(main, [9], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        # we don't know that b>10, hence we cannot optimize it
+        assert loop.match_by_id('guard', """
+            i10 = int_xor(i5, i7)
+            i12 = int_ge(i10, 0)
+            guard_true(i12, descr=...)
+        """)
+
+    def test_shift_intbound(self):
+        def main(b):
+            res = 0
+            a = 0
+            while a < 300:
+                assert a >= 0
+                assert 0 <= b <= 10
+                val = a >> b
+                if val >= 0:    # ID: rshift
+                    res += 1
+                val = a << b
+                if val >= 0:    # ID: lshift
+                    res += 2
+                a += 1
+            return res
+        #
+        log = self.run(main, [2], threshold=200)
+        assert log.result == 300*3
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('rshift', "")  # guard optimized away
+        assert loop.match_by_id('lshift', "")  # guard optimized away
+
+    def test_lshift_and_then_rshift(self):
+        py.test.skip('fixme, this optimization is disabled')
+        def main(b):
+            res = 0
+            a = 0
+            while res < 300:
+                assert a >= 0
+                assert 0 <= b <= 10
+                res = (a << b) >> b     # ID: shift
+                a += 1
+            return res
+        #
+        log = self.run(main, [2], threshold=200)
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('shift', "")  # optimized away

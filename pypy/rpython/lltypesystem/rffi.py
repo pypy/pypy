@@ -819,6 +819,8 @@ def sizeof(tp):
     """Similar to llmemory.sizeof() but tries hard to return a integer
     instead of a symbolic value.
     """
+    if isinstance(tp, lltype.Typedef):
+        tp = tp.OF
     if isinstance(tp, lltype.FixedSizeArray):
         return sizeof(tp.OF) * tp.length
     if isinstance(tp, lltype.Struct):

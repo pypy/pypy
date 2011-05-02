@@ -534,7 +534,7 @@ class LLFrame(object):
     def op_debug_llinterpcall(self, pythonfunction, *args_ll):
         try:
             return pythonfunction(*args_ll)
-        except Exception, e:
+        except:
             self.make_llexception()
 
     def op_debug_start_traceback(self, *args):

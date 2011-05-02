@@ -8,6 +8,7 @@ import _rawffi
 import _ffi
 import sys
 import traceback
+import warnings
 
 
 # XXX this file needs huge refactoring I fear
@@ -76,6 +77,8 @@ class CFuncPtr(_CData):
     _com_index = None
     _com_iid = None
     _is_fastpath = False
+
+    __restype_set = False
 
     def _getargtypes(self):
         return self._argtypes_
@@ -146,6 +149,7 @@ class CFuncPtr(_CData):
         return self._restype_
 
     def _setrestype(self, restype):
+        self.__restype_set = True
         self._ptr = None
         if restype is int:
             from ctypes import c_int
@@ -309,7 +313,13 @@ class CFuncPtr(_CData):
             return
 
         if argtypes is None:
+            warnings.warn('C function without declared arguments called',
+                          RuntimeWarning, stacklevel=2)
             argtypes = []
+            
+        if not self.__restype_set:
+            warnings.warn('C function without declared return type called',
+                          RuntimeWarning, stacklevel=2)
 
         if self._com_index:
             assert False, 'TODO2'

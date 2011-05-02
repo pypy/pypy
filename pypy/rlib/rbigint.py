@@ -1,9 +1,10 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
-from pypy.rlib.rfloat import isinf, isnan
+from pypy.rlib.rfloat import isfinite
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython import extregistry
 
@@ -122,7 +123,11 @@ class rbigint(object):
     def numdigits(self):
         return len(self._digits)
 
+    @staticmethod
+    @jit.purefunction
     def fromint(intval):
+        # This function is marked as pure, so you must not call it and
+        # then modify the result.
         check_regular_int(intval)
         if intval < 0:
             sign = -1
@@ -149,23 +154,34 @@ class rbigint(object):
             t >>= SHIFT
             p += 1
         return v
-    fromint = staticmethod(fromint)
 
+    @staticmethod
+    @jit.purefunction
     def frombool(b):
+        # This function is marked as pure, so you must not call it and
+        # then modify the result.
         if b:
             return rbigint([ONEDIGIT], 1)
         return rbigint()
-    frombool = staticmethod(frombool)
 
+    @staticmethod
     def fromlong(l):
+        "NOT_RPYTHON"
         return rbigint(*args_from_long(l))
-    fromlong = staticmethod(fromlong)
 
+    @staticmethod
     def fromfloat(dval):
         """ Create a new bigint object from a float """
-        sign = 1
-        if isinf(dval) or isnan(dval):
+        # This function is not marked as pure because it can raise
+        if isfinite(dval):
+            return rbigint._fromfloat_finite(dval)
+        else:
             raise OverflowError
+
+    @staticmethod
+    @jit.purefunction
+    def _fromfloat_finite(dval):
+        sign = 1
         if dval < 0.0:
             sign = -1
             dval = -dval
@@ -183,16 +199,21 @@ class rbigint(object):
             frac -= float(bits)
             frac = math.ldexp(frac, SHIFT)
         return v
-    fromfloat = staticmethod(fromfloat)
 
+    @staticmethod
+    @jit.purefunction
+    @specialize.argtype(0)
     def fromrarith_int(i):
+        # This function is marked as pure, so you must not call it and
+        # then modify the result.
         return rbigint(*args_from_rarith_int(i))
-    fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
-    fromrarith_int = staticmethod(fromrarith_int)
 
+    @staticmethod
+    @jit.purefunction
     def fromdecimalstr(s):
+        # This function is marked as pure, so you must not call it and
+        # then modify the result.
         return _decimalstr_to_bigint(s)
-    fromdecimalstr = staticmethod(fromdecimalstr)
 
     def toint(self):
         """
@@ -1841,7 +1862,7 @@ def _decimalstr_to_bigint(s):
     elif s[p] == '+':
         p += 1
 
-    a = rbigint.fromint(0)
+    a = rbigint()
     tens = 1
     dig = 0
     ord0 = ord('0')
@@ -1859,7 +1880,7 @@ def _decimalstr_to_bigint(s):
 
 def parse_digit_string(parser):
     # helper for objspace.std.strutil
-    a = rbigint.fromint(0)
+    a = rbigint()
     base = parser.base
     digitmax = BASE_MAX[base]
     tens, dig = 1, 0

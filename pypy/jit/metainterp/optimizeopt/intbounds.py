@@ -138,12 +138,12 @@ class OptIntBounds(Optimization):
         r = self.getvalue(op.result)
         b = v1.intbound.lshift_bound(v2.intbound)
         r.intbound.intersect(b)
-        # --- The following is actually wrong if the INT_LSHIFT overflowed.
-        # --- It is precisely the pattern we use to detect overflows of the
-        # --- app-level '<<' operator: INT_LSHIFT/INT_RSHIFT/INT_EQ
-        #if b.has_lower and b.has_upper:
-        #    # Synthesize the reverse op for optimize_default to reuse
-        #    self.pure(rop.INT_RSHIFT, [op.result, op.getarg(1)], op.getarg(0))
+        # intbound.lshift_bound checks for an overflow and if the
+        # lshift can be proven not to overflow sets b.has_upper and
+        # b.has_lower
+        if b.has_lower and b.has_upper:
+            # Synthesize the reverse op for optimize_default to reuse
+            self.pure(rop.INT_RSHIFT, [op.result, op.getarg(1)], op.getarg(0))
 
     def optimize_INT_RSHIFT(self, op):
         v1 = self.getvalue(op.getarg(0))

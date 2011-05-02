@@ -11,16 +11,12 @@ based on proxying, extending, changing or otherwise controlling the
 behavior of all objects in a running program is easy to implement on
 top of PyPy.
 
-Here is what we implemented so far, in historical order:
+Here is what we have implemented so far, in historical order:
 
 * *Thunk Object Space*: lazily computed objects, computing only when an
   operation is performed on them; lazy functions, computing their result
   only if and when needed; and a way to globally replace an object with
   another.
-
-* *Taint Object Space*: a soft security system; your application cannot
-  accidentally compute results based on tainted objects unless it
-  explicitly untaints them first.
 
 * *Dump Object Space*: dumps all operations performed on all the objects
   into a large log file.  For debugging your applications.
@@ -133,293 +129,295 @@ the ``__pypy__`` module exposes the following interface:
    function behaves lazily: all calls to it return a thunk object.
 
 
-.. _taint:
+.. broken right now:
 
-The Taint Object Space
-======================
+    .. _taint:
 
-Motivation
-----------
+    The Taint Object Space
+    ======================
 
-The Taint Object Space provides a form of security: "tainted objects",
-inspired by various sources, see [D12.1]_ for a more detailed discussion. 
+    Motivation
+    ----------
 
-The basic idea of this kind of security is not to protect against
-malicious code but to help with handling and boxing sensitive data. 
-It covers two kinds of sensitive data: secret data which should not leak, 
-and untrusted data coming from an external source and that must be 
-validated before it is used.
+    The Taint Object Space provides a form of security: "tainted objects",
+    inspired by various sources, see [D12.1]_ for a more detailed discussion. 
 
-The idea is that, considering a large application that handles these
-kinds of sensitive data, there are typically only a small number of
-places that need to explicitly manipulate that sensitive data; all the
-other places merely pass it around, or do entirely unrelated things.
+    The basic idea of this kind of security is not to protect against
+    malicious code but to help with handling and boxing sensitive data. 
+    It covers two kinds of sensitive data: secret data which should not leak, 
+    and untrusted data coming from an external source and that must be 
+    validated before it is used.
 
-Nevertheless, if a large application needs to be reviewed for security,
-it must be entirely carefully checked, because it is possible that a
-bug at some apparently unrelated place could lead to a leak of sensitive
-information in a way that an external attacker could exploit.  For
-example, if any part of the application provides web services, an
-attacker might be able to issue unexpected requests with a regular web
-browser and deduce secret information from the details of the answers he
-gets.  Another example is the common CGI attack where an attacker sends
-malformed inputs and causes the CGI script to do unintended things.
+    The idea is that, considering a large application that handles these
+    kinds of sensitive data, there are typically only a small number of
+    places that need to explicitly manipulate that sensitive data; all the
+    other places merely pass it around, or do entirely unrelated things.
 
-An approach like that of the Taint Object Space allows the small parts
-of the program that manipulate sensitive data to be explicitly marked.
-The effect of this is that although these small parts still need a
-careful security review, the rest of the application no longer does,
-because even a bug would be unable to leak the information.
+    Nevertheless, if a large application needs to be reviewed for security,
+    it must be entirely carefully checked, because it is possible that a
+    bug at some apparently unrelated place could lead to a leak of sensitive
+    information in a way that an external attacker could exploit.  For
+    example, if any part of the application provides web services, an
+    attacker might be able to issue unexpected requests with a regular web
+    browser and deduce secret information from the details of the answers he
+    gets.  Another example is the common CGI attack where an attacker sends
+    malformed inputs and causes the CGI script to do unintended things.
 
-We have implemented a simple two-level model: objects are either
-regular (untainted), or sensitive (tainted).  Objects are marked as
-sensitive if they are secret or untrusted, and only declassified at
-carefully-checked positions (e.g. where the secret data is needed, or
-after the untrusted data has been fully validated).
+    An approach like that of the Taint Object Space allows the small parts
+    of the program that manipulate sensitive data to be explicitly marked.
+    The effect of this is that although these small parts still need a
+    careful security review, the rest of the application no longer does,
+    because even a bug would be unable to leak the information.
 
-It would be simple to extend the code for more fine-grained scales of
-secrecy.  For example it is typical in the literature to consider
-user-specified lattices of secrecy levels, corresponding to multiple
-"owners" that cannot access data belonging to another "owner" unless
-explicitly authorized to do so.
+    We have implemented a simple two-level model: objects are either
+    regular (untainted), or sensitive (tainted).  Objects are marked as
+    sensitive if they are secret or untrusted, and only declassified at
+    carefully-checked positions (e.g. where the secret data is needed, or
+    after the untrusted data has been fully validated).
 
-Tainting and untainting
------------------------
+    It would be simple to extend the code for more fine-grained scales of
+    secrecy.  For example it is typical in the literature to consider
+    user-specified lattices of secrecy levels, corresponding to multiple
+    "owners" that cannot access data belonging to another "owner" unless
+    explicitly authorized to do so.
 
-Start a py.py with the Taint Object Space and try the following example::
+    Tainting and untainting
+    -----------------------
 
-    $ py.py -o taint
-    >>>> from __pypy__ import taint
-    >>>> x = taint(6)
+    Start a py.py with the Taint Object Space and try the following example::
 
-    # x is hidden from now on.  We can pass it around and
-    # even operate on it, but not inspect it.  Taintness
-    # is propagated to operation results.
+        $ py.py -o taint
+        >>>> from __pypy__ import taint
+        >>>> x = taint(6)
 
-    >>>> x
-    TaintError
+        # x is hidden from now on.  We can pass it around and
+        # even operate on it, but not inspect it.  Taintness
+        # is propagated to operation results.
 
-    >>>> if x > 5: y = 2   # see below
-    TaintError
+        >>>> x
+        TaintError
 
-    >>>> y = x + 5         # ok
-    >>>> lst = [x, y]
-    >>>> z = lst.pop()
-    >>>> t = type(z)       # type() works too, tainted answer
-    >>>> t
-    TaintError
-    >>>> u = t is int      # even 'is' works
-    >>>> u
-    TaintError
+        >>>> if x > 5: y = 2   # see below
+        TaintError
 
-Notice that using a tainted boolean like ``x > 5`` in an ``if``
-statement is forbidden.  This is because knowing which path is followed
-would give away a hint about ``x``; in the example above, if the
-statement ``if x > 5: y = 2`` was allowed to run, we would know
-something about the value of ``x`` by looking at the (untainted) value
-in the variable ``y``.
+        >>>> y = x + 5         # ok
+        >>>> lst = [x, y]
+        >>>> z = lst.pop()
+        >>>> t = type(z)       # type() works too, tainted answer
+        >>>> t
+        TaintError
+        >>>> u = t is int      # even 'is' works
+        >>>> u
+        TaintError
 
-Of course, there is a way to inspect tainted objects.  The basic way is
-to explicitly "declassify" it with the ``untaint()`` function.  In an
-application, the places that use ``untaint()`` are the places that need
-careful security review.  To avoid unexpected objects showing up, the
-``untaint()`` function must be called with the exact type of the object
-to declassify.  It will raise ``TaintError`` if the type doesn't match::
+    Notice that using a tainted boolean like ``x > 5`` in an ``if``
+    statement is forbidden.  This is because knowing which path is followed
+    would give away a hint about ``x``; in the example above, if the
+    statement ``if x > 5: y = 2`` was allowed to run, we would know
+    something about the value of ``x`` by looking at the (untainted) value
+    in the variable ``y``.
 
-    >>>> from __pypy__ import taint
-    >>>> untaint(int, x)
-    6
-    >>>> untaint(int, z)
-    11
-    >>>> untaint(bool, x > 5)
-    True
-    >>>> untaint(int, x > 5)
-    TaintError
+    Of course, there is a way to inspect tainted objects.  The basic way is
+    to explicitly "declassify" it with the ``untaint()`` function.  In an
+    application, the places that use ``untaint()`` are the places that need
+    careful security review.  To avoid unexpected objects showing up, the
+    ``untaint()`` function must be called with the exact type of the object
+    to declassify.  It will raise ``TaintError`` if the type doesn't match::
 
-
-Taint Bombs
------------
-
-In this area, a common problem is what to do about failing operations.
-If an operation raises an exception when manipulating a tainted object,
-then the very presence of the exception can leak information about the
-tainted object itself.  Consider::
-
-    >>>> 5 / (x-6)
-
-By checking if this raises ``ZeroDivisionError`` or not, we would know
-if ``x`` was equal to 6 or not.  The solution to this problem in the
-Taint Object Space is to introduce *Taint Bombs*.  They are a kind of
-tainted object that doesn't contain a real object, but a pending
-exception.  Taint Bombs are indistinguishable from normal tainted
-objects to unprivileged code. See::
-
-    >>>> x = taint(6)
-    >>>> i = 5 / (x-6)     # no exception here
-    >>>> j = i + 1         # nor here
-    >>>> k = j + 5         # nor here
-    >>>> untaint(int, k)
-    TaintError
-
-In the above example, all of ``i``, ``j`` and ``k`` contain a Taint
-Bomb.  Trying to untaint it raises an exception - a generic
-``TaintError``.  What we win is that the exception gives little away,
-and most importantly it occurs at the point where ``untaint()`` is
-called, not where the operation failed.  This means that all calls to
-``untaint()`` - but not the rest of the code - must be carefully
-reviewed for what occurs if they receive a Taint Bomb; they might catch
-the ``TaintError`` and give the user a generic message that something
-went wrong, if we are reasonably careful that the message or even its
-presence doesn't give information away.  This might be a
-problem by itself, but there is no satisfying general solution here:
-it must be considered on a case-by-case basis.  Again, what the
-Taint Object Space approach achieves is not solving these problems, but
-localizing them to well-defined small parts of the application - namely,
-around calls to ``untaint()``.
-
-The ``TaintError`` exception deliberately does not include any
-useful error messages, because they might give information away.
-Of course, this makes debugging quite a bit harder; a difficult
-problem to solve properly.  So far we have implemented a way to peek in a Taint
-Box or Bomb, ``__pypy__._taint_look(x)``, and a "debug mode" that
-prints the exception as soon as a Bomb is created - both write
-information to the low-level stderr of the application, where we hope
-that it is unlikely to be seen by anyone but the application
-developer.
+        >>>> from __pypy__ import taint
+        >>>> untaint(int, x)
+        6
+        >>>> untaint(int, z)
+        11
+        >>>> untaint(bool, x > 5)
+        True
+        >>>> untaint(int, x > 5)
+        TaintError
 
 
-Taint Atomic functions
-----------------------
+    Taint Bombs
+    -----------
 
-Occasionally, a more complicated computation must be performed on a
-tainted object.  This requires first untainting the object, performing the
-computations, and then carefully tainting the result again (including
-hiding all exceptions into Bombs).
+    In this area, a common problem is what to do about failing operations.
+    If an operation raises an exception when manipulating a tainted object,
+    then the very presence of the exception can leak information about the
+    tainted object itself.  Consider::
 
-There is a built-in decorator that does this for you::
+        >>>> 5 / (x-6)
 
-    >>>> @__pypy__.taint_atomic
-    >>>> def myop(x, y):
-    ....     while x > 0:
-    ....         x -= y
-    ....     return x
-    ....
-    >>>> myop(42, 10)
-    -8
-    >>>> z = myop(taint(42), 10)
-    >>>> z
-    TaintError
-    >>>> untaint(int, z)
-    -8
+    By checking if this raises ``ZeroDivisionError`` or not, we would know
+    if ``x`` was equal to 6 or not.  The solution to this problem in the
+    Taint Object Space is to introduce *Taint Bombs*.  They are a kind of
+    tainted object that doesn't contain a real object, but a pending
+    exception.  Taint Bombs are indistinguishable from normal tainted
+    objects to unprivileged code. See::
 
-The decorator makes a whole function behave like a built-in operation.
-If no tainted argument is passed in, the function behaves normally.  But
-if any of the arguments is tainted, it is automatically untainted - so
-the function body always sees untainted arguments - and the eventual
-result is tainted again (possibly in a Taint Bomb).
+        >>>> x = taint(6)
+        >>>> i = 5 / (x-6)     # no exception here
+        >>>> j = i + 1         # nor here
+        >>>> k = j + 5         # nor here
+        >>>> untaint(int, k)
+        TaintError
 
-It is important for the function marked as ``taint_atomic`` to have no
-visible side effects, as these could cause information leakage.
-This is currently not enforced, which means that all ``taint_atomic``
-functions have to be carefully reviewed for security (but not the
-callers of ``taint_atomic`` functions).
+    In the above example, all of ``i``, ``j`` and ``k`` contain a Taint
+    Bomb.  Trying to untaint it raises an exception - a generic
+    ``TaintError``.  What we win is that the exception gives little away,
+    and most importantly it occurs at the point where ``untaint()`` is
+    called, not where the operation failed.  This means that all calls to
+    ``untaint()`` - but not the rest of the code - must be carefully
+    reviewed for what occurs if they receive a Taint Bomb; they might catch
+    the ``TaintError`` and give the user a generic message that something
+    went wrong, if we are reasonably careful that the message or even its
+    presence doesn't give information away.  This might be a
+    problem by itself, but there is no satisfying general solution here:
+    it must be considered on a case-by-case basis.  Again, what the
+    Taint Object Space approach achieves is not solving these problems, but
+    localizing them to well-defined small parts of the application - namely,
+    around calls to ``untaint()``.
 
-A possible future extension would be to forbid side-effects on
-non-tainted objects from all ``taint_atomic`` functions.
-
-An example of usage: given a tainted object ``passwords_db`` that
-references a database of passwords, we can write a function
-that checks if a password is valid as follows::
-
-    @taint_atomic
-    def validate(passwords_db, username, password):
-        assert type(passwords_db) is PasswordDatabase
-        assert type(username) is str
-        assert type(password) is str
-        ...load username entry from passwords_db...
-        return expected_password == password
-
-It returns a tainted boolean answer, or a Taint Bomb if something
-went wrong.  A caller can do::
-
-    ok = validate(passwords_db, 'john', '1234')
-    ok = untaint(bool, ok)
-
-This can give three outcomes: ``True``, ``False``, or a ``TaintError``
-exception (with no information on it) if anything went wrong.  If even
-this is considered giving too much information away, the ``False`` case
-can be made indistinguishable from the ``TaintError`` case (simply by
-raising an exception in ``validate()`` if the password is wrong).
-
-In the above example, the security results achieved are the following:
-as long as ``validate()`` does not leak information, no other part of
-the code can obtain more information about a passwords database than a
-Yes/No answer to a precise query.
-
-A possible extension of the ``taint_atomic`` decorator would be to check
-the argument types, as ``untaint()`` does, for the same reason: to
-prevent bugs where a function like ``validate()`` above is accidentally
-called with the wrong kind of tainted object, which would make it
-misbehave.  For now, all ``taint_atomic`` functions should be
-conservative and carefully check all assumptions on their input
-arguments.
+    The ``TaintError`` exception deliberately does not include any
+    useful error messages, because they might give information away.
+    Of course, this makes debugging quite a bit harder; a difficult
+    problem to solve properly.  So far we have implemented a way to peek in a Taint
+    Box or Bomb, ``__pypy__._taint_look(x)``, and a "debug mode" that
+    prints the exception as soon as a Bomb is created - both write
+    information to the low-level stderr of the application, where we hope
+    that it is unlikely to be seen by anyone but the application
+    developer.
 
 
-.. _`taint-interface`:
+    Taint Atomic functions
+    ----------------------
 
-Interface
----------
+    Occasionally, a more complicated computation must be performed on a
+    tainted object.  This requires first untainting the object, performing the
+    computations, and then carefully tainting the result again (including
+    hiding all exceptions into Bombs).
 
-.. _`like a built-in operation`:
+    There is a built-in decorator that does this for you::
 
-The basic rule of the Tainted Object Space is that it introduces two new
-kinds of objects, Tainted Boxes and Tainted Bombs (which are not types
-in the Python sense).  Each box internally contains a regular object;
-each bomb internally contains an exception object.  An operation
-involving Tainted Boxes is performed on the objects contained in the
-boxes, and gives a Tainted Box or a Tainted Bomb as a result (such an
-operation does not let an exception be raised).  An operation called
-with a Tainted Bomb argument immediately returns the same Tainted Bomb.
+        >>>> @__pypy__.taint_atomic
+        >>>> def myop(x, y):
+        ....     while x > 0:
+        ....         x -= y
+        ....     return x
+        ....
+        >>>> myop(42, 10)
+        -8
+        >>>> z = myop(taint(42), 10)
+        >>>> z
+        TaintError
+        >>>> untaint(int, z)
+        -8
 
-In a PyPy running with (or translated with) the Taint Object Space,
-the ``__pypy__`` module exposes the following interface:
+    The decorator makes a whole function behave like a built-in operation.
+    If no tainted argument is passed in, the function behaves normally.  But
+    if any of the arguments is tainted, it is automatically untainted - so
+    the function body always sees untainted arguments - and the eventual
+    result is tainted again (possibly in a Taint Bomb).
 
-* ``taint(obj)``
+    It is important for the function marked as ``taint_atomic`` to have no
+    visible side effects, as these could cause information leakage.
+    This is currently not enforced, which means that all ``taint_atomic``
+    functions have to be carefully reviewed for security (but not the
+    callers of ``taint_atomic`` functions).
 
-    Return a new Tainted Box wrapping ``obj``.  Return ``obj`` itself
-    if it is already tainted (a Box or a Bomb).
+    A possible future extension would be to forbid side-effects on
+    non-tainted objects from all ``taint_atomic`` functions.
 
-* ``is_tainted(obj)``
+    An example of usage: given a tainted object ``passwords_db`` that
+    references a database of passwords, we can write a function
+    that checks if a password is valid as follows::
 
-    Check if ``obj`` is tainted (a Box or a Bomb).
+        @taint_atomic
+        def validate(passwords_db, username, password):
+            assert type(passwords_db) is PasswordDatabase
+            assert type(username) is str
+            assert type(password) is str
+            ...load username entry from passwords_db...
+            return expected_password == password
 
-* ``untaint(type, obj)``
+    It returns a tainted boolean answer, or a Taint Bomb if something
+    went wrong.  A caller can do::
 
-    Untaints ``obj`` if it is tainted.  Raise ``TaintError`` if the type
-    of the untainted object is not exactly ``type``, or if ``obj`` is a
-    Bomb.
+        ok = validate(passwords_db, 'john', '1234')
+        ok = untaint(bool, ok)
 
-* ``taint_atomic(func)``
+    This can give three outcomes: ``True``, ``False``, or a ``TaintError``
+    exception (with no information on it) if anything went wrong.  If even
+    this is considered giving too much information away, the ``False`` case
+    can be made indistinguishable from the ``TaintError`` case (simply by
+    raising an exception in ``validate()`` if the password is wrong).
 
-    Return a wrapper function around the callable ``func``.  The wrapper
-    behaves `like a built-in operation`_ with respect to untainting the
-    arguments, tainting the result, and returning a Bomb.
+    In the above example, the security results achieved are the following:
+    as long as ``validate()`` does not leak information, no other part of
+    the code can obtain more information about a passwords database than a
+    Yes/No answer to a precise query.
 
-* ``TaintError``
+    A possible extension of the ``taint_atomic`` decorator would be to check
+    the argument types, as ``untaint()`` does, for the same reason: to
+    prevent bugs where a function like ``validate()`` above is accidentally
+    called with the wrong kind of tainted object, which would make it
+    misbehave.  For now, all ``taint_atomic`` functions should be
+    conservative and carefully check all assumptions on their input
+    arguments.
 
-    Exception.  On purpose, it provides no attribute or error message.
 
-* ``_taint_debug(level)``
+    .. _`taint-interface`:
 
-    Set the debugging level to ``level`` (0=off).  At level 1 or above,
-    all Taint Bombs print a diagnostic message to stderr when they are
-    created.
+    Interface
+    ---------
 
-* ``_taint_look(obj)``
+    .. _`like a built-in operation`:
 
-    For debugging purposes: prints (to stderr) the type and address of
-    the object in a Tainted Box, or prints the exception if ``obj`` is
-    a Taint Bomb.
+    The basic rule of the Tainted Object Space is that it introduces two new
+    kinds of objects, Tainted Boxes and Tainted Bombs (which are not types
+    in the Python sense).  Each box internally contains a regular object;
+    each bomb internally contains an exception object.  An operation
+    involving Tainted Boxes is performed on the objects contained in the
+    boxes, and gives a Tainted Box or a Tainted Bomb as a result (such an
+    operation does not let an exception be raised).  An operation called
+    with a Tainted Bomb argument immediately returns the same Tainted Bomb.
+
+    In a PyPy running with (or translated with) the Taint Object Space,
+    the ``__pypy__`` module exposes the following interface:
+
+    * ``taint(obj)``
+
+        Return a new Tainted Box wrapping ``obj``.  Return ``obj`` itself
+        if it is already tainted (a Box or a Bomb).
+
+    * ``is_tainted(obj)``
+
+        Check if ``obj`` is tainted (a Box or a Bomb).
+
+    * ``untaint(type, obj)``
+
+        Untaints ``obj`` if it is tainted.  Raise ``TaintError`` if the type
+        of the untainted object is not exactly ``type``, or if ``obj`` is a
+        Bomb.
+
+    * ``taint_atomic(func)``
+
+        Return a wrapper function around the callable ``func``.  The wrapper
+        behaves `like a built-in operation`_ with respect to untainting the
+        arguments, tainting the result, and returning a Bomb.
+
+    * ``TaintError``
+
+        Exception.  On purpose, it provides no attribute or error message.
+
+    * ``_taint_debug(level)``
+
+        Set the debugging level to ``level`` (0=off).  At level 1 or above,
+        all Taint Bombs print a diagnostic message to stderr when they are
+        created.
+
+    * ``_taint_look(obj)``
+
+        For debugging purposes: prints (to stderr) the type and address of
+        the object in a Tainted Box, or prints the exception if ``obj`` is
+        a Taint Bomb.
 
 
 .. _dump:
@@ -485,7 +483,7 @@ Example of recording all operations on builtins
 ----------------------------------------------------
 
 Suppose we want to have a list which stores all operations performed on
-it for later analysis.  We can use the small `tputil`_ module to help
+it for later analysis.  We can use the small `lib_pypy/tputil.py`_ module to help
 with transparently proxying builtin instances::
 
    from tputil import make_proxy
@@ -534,10 +532,10 @@ the `__pypy__`_ module provides the following builtins:
 
 .. _tputil: 
 
-tputil help module 
+tputil helper module 
 ----------------------------
 
-The `tputil.py`_ module provides: 
+The `lib_pypy/tputil.py`_ module provides: 
 
 * ``make_proxy(controller, type, obj)``: function which 
   creates a transparent proxy controlled by the given 
@@ -595,8 +593,8 @@ Proxies use the architecture to provide control back
 to application level code. 
 
 Transparent proxies are implemented on top of the `standard object
-space`_, in `proxy_helpers.py`_, `proxyobject.py`_ and
-`transparent.py`_.  To use them you will need to pass a
+space`_, in `pypy/objspace/std/proxy_helpers.py`_, `pypy/objspace/std/proxyobject.py`_ and
+`pypy/objspace/std/transparent.py`_.  To use them you will need to pass a
 `--objspace-std-withtproxy`_ option to ``py.py`` or
 ``translate.py``.  This registers implementations named
 ``W_TransparentXxx`` - which usually correspond to an
@@ -607,12 +605,8 @@ be proxied this way are user created classes & functions,
 lists, dicts, exceptions, tracebacks and frames.
 
 .. _`standard object space`: objspace.html#the-standard-object-space
-.. _`proxy_helpers.py`: ../../../../pypy/objspace/std/proxy_helpers.py
-.. _`proxyobject.py`: ../../../../pypy/objspace/std/proxyobject.py
-.. _`transparent.py`: ../../../../pypy/objspace/std/transparent.py
-.. _`tputil.py`: ../../lib_pypy/tputil.py
 
 .. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
            EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
-.. include:: _ref.rst
+.. include:: _ref.txt

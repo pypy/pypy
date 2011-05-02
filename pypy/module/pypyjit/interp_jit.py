@@ -20,33 +20,33 @@ PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'fastlocals_w[*]',
                             'last_exception',
                             'lastblock',
+                            'is_being_profiled',
                             ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
-def get_printable_location(next_instr, bytecode):
+def get_printable_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
-def get_jitcell_at(next_instr, bytecode):
-    return bytecode.jit_cells.get(next_instr, None)
+def get_jitcell_at(next_instr, is_being_profiled, bytecode):
+    return bytecode.jit_cells.get((next_instr, is_being_profiled), None)
 
-def set_jitcell_at(newcell, next_instr, bytecode):
-    bytecode.jit_cells[next_instr] = newcell
+def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode):
+    bytecode.jit_cells[next_instr, is_being_profiled] = newcell
 
-def confirm_enter_jit(next_instr, bytecode, frame, ec):
+def confirm_enter_jit(next_instr, is_being_profiled, bytecode, frame, ec):
     return (frame.w_f_trace is None and
-            ec.profilefunc is None and
             ec.w_tracefunc is None)
 
-def can_never_inline(next_instr, bytecode):
+def can_never_inline(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
-    greens = ['next_instr', 'pycode']
+    greens = ['next_instr', 'is_being_profiled', 'pycode']
     virtualizables = ['frame']
 
 ##    def compute_invariants(self, reds, next_instr, pycode):
@@ -68,13 +68,16 @@ class __extend__(PyFrame):
     def dispatch(self, pycode, next_instr, ec):
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
+        is_being_profiled = self.is_being_profiled
         try:
             while True:
                 pypyjitdriver.jit_merge_point(ec=ec,
-                    frame=self, next_instr=next_instr, pycode=pycode)
+                    frame=self, next_instr=next_instr, pycode=pycode,
+                    is_being_profiled=is_being_profiled)
                 co_code = pycode.co_code
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
+                is_being_profiled = self.is_being_profiled
         except ExitFrame:
             return self.popvalue()
 
@@ -97,7 +100,8 @@ class __extend__(PyFrame):
             jumpto = r_uint(self.last_instr)
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
-                                    pycode=self.getcode())
+                                    pycode=self.getcode(),
+                                    is_being_profiled=self.is_being_profiled)
         return jumpto
 
 

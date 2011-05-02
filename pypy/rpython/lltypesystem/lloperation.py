@@ -32,7 +32,7 @@ class LLOp(object):
         assert isinstance(canraise, tuple)
 
         assert not canraise or not canfold
-        
+
         # The operation manipulates PyObjects
         self.pyobj = pyobj
 
@@ -440,6 +440,7 @@ LL_OPERATIONS = {
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
+    'll_read_timestamp': LLOp(canrun=True),
 
     # __________ GC operations __________
 
@@ -482,7 +483,7 @@ LL_OPERATIONS = {
     'gc_typeids_z'        : LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
-    
+
     'gc_adr_of_nursery_free' : LLOp(),
     # ^^^ returns an address of nursery free pointer, for later modifications
     'gc_adr_of_nursery_top' : LLOp(),
@@ -554,8 +555,9 @@ LL_OPERATIONS = {
     'debug_pdb':            LLOp(),
     'debug_assert':         LLOp(tryfold=True),
     'debug_fatalerror':     LLOp(),
-    'debug_llinterpcall':   LLOp(canraise=(Exception,)), # Python func call 'res=arg[0](*arg[1:])'
-                                                         # in backends, abort() or whatever is fine
+    'debug_llinterpcall':   LLOp(canraise=(Exception,)),
+                                    # Python func call 'res=arg[0](*arg[1:])'
+                                    # in backends, abort() or whatever is fine
     'debug_start_traceback':   LLOp(),
     'debug_record_traceback':  LLOp(),
     'debug_catch_exception':   LLOp(),

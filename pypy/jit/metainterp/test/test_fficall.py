@@ -7,9 +7,9 @@ from pypy.rlib.libffi import ArgChain, longlong2float, float2longlong
 from pypy.rlib.libffi import IS_32_BIT
 from pypy.rlib.test.test_libffi import TestLibffiCall as _TestLibffiCall
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
 from pypy.rlib.objectmodel import specialize
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.jit.metainterp.test.support import LLJitMixin
 
 class TestFfiCall(LLJitMixin, _TestLibffiCall):
 

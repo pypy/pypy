@@ -368,7 +368,7 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               current_depths)
-        self.possibly_free_vars(guard_op.getfailargs())        
+        self.possibly_free_vars(guard_op.getfailargs())
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -446,7 +446,7 @@ class RegAlloc(object):
                     assert isinstance(arg, Box)
                     if arg not in last_used:
                         last_used[arg] = i
-                        
+
         longevity = {}
         for arg in produced:
             if arg in last_used:
@@ -849,7 +849,7 @@ class RegAlloc(object):
         self._call(op, [imm(size), vable] +
                    [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_op)
-        
+
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
@@ -1228,6 +1228,29 @@ class RegAlloc(object):
             return 1
         else:
             raise AssertionError("bad unicode item size")
+
+    def consider_read_timestamp(self, op):
+        tmpbox_high = TempBox()
+        self.rm.force_allocate_reg(tmpbox_high, selected_reg=eax)
+        if longlong.is_64_bit:
+            # on 64-bit, use rax as temporary register and returns the
+            # result in rdx
+            result_loc = self.rm.force_allocate_reg(op.result,
+                                                    selected_reg=edx)
+            self.Perform(op, [], result_loc)
+        else:
+            # on 32-bit, use both eax and edx as temporary registers,
+            # use a temporary xmm register, and returns the result in
+            # another xmm register.
+            tmpbox_low = TempBox()
+            self.rm.force_allocate_reg(tmpbox_low, selected_reg=edx)
+            xmmtmpbox = TempBox()
+            xmmtmploc = self.xrm.force_allocate_reg(xmmtmpbox)
+            result_loc = self.xrm.force_allocate_reg(op.result)
+            self.Perform(op, [xmmtmploc], result_loc)
+            self.xrm.possibly_free_var(xmmtmpbox)
+            self.rm.possibly_free_var(tmpbox_low)
+        self.rm.possibly_free_var(tmpbox_high)
 
     def consider_jump(self, op):
         assembler = self.assembler

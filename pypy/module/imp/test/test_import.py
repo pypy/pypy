@@ -53,10 +53,13 @@ def setup_directory_structure(space):
              relative_f = "from .imp import get_magic",
              relative_g = "import imp; from .imp import get_magic",
              )
-    setuppkg("pkg.pkg1", 
+    setuppkg("pkg.pkg1",
+             __init__   = 'from . import a',
              a          = '',
              relative_d = "from __future__ import absolute_import\nfrom ..string import inpackage",
              relative_e = "from __future__ import absolute_import\nfrom .. import string",
+             relative_g = "from .. import pkg1\nfrom ..pkg1 import b",
+             b          = "insubpackage = 1",
              )
     setuppkg("pkg.pkg2", a='', b='')
     setuppkg("pkg_r", inpkg = "import x.y")
@@ -402,6 +405,12 @@ class AppTestImport:
         from pkg.pkg1 import relative_e
         assert relative_e.string.inpackage == 1
 
+    def test_future_relative_import_level_3(self):
+        from pkg.pkg1 import relative_g
+        assert relative_g.b.insubpackage == 1
+        import pkg.pkg1
+        assert pkg.pkg1.__package__ == 'pkg.pkg1'
+
     def test_future_relative_import_error_when_in_non_package(self):
         exec """def imp():
                     from .string import inpackage
@@ -437,6 +446,38 @@ class AppTestImport:
         mydict = {'__name__': 'newpkg.foo', '__path__': '/some/path'}
         res = __import__('', mydict, None, ['bar'], 2)
         assert res is pkg
+
+    def test__package__(self):
+        # Regression test for http://bugs.python.org/issue3221.
+        def check_absolute():
+            exec "from os import path" in ns
+        def check_relative():
+            exec "from . import a" in ns
+
+        # Check both OK with __package__ and __name__ correct
+        ns = dict(__package__='pkg', __name__='pkg.notarealmodule')
+        check_absolute()
+        check_relative()
+
+        # Check both OK with only __name__ wrong
+        ns = dict(__package__='pkg', __name__='notarealpkg.notarealmodule')
+        check_absolute()
+        check_relative()
+
+        # Check relative fails with only __package__ wrong
+        ns = dict(__package__='foo', __name__='pkg.notarealmodule')
+        check_absolute() # XXX check warnings
+        raises(SystemError, check_relative)
+
+        # Check relative fails with __package__ and __name__ wrong
+        ns = dict(__package__='foo', __name__='notarealpkg.notarealmodule')
+        check_absolute() # XXX check warnings
+        raises(SystemError, check_relative)
+
+        # Check both fail with package set to a non-string
+        ns = dict(__package__=object())
+        raises(ValueError, check_absolute)
+        raises(ValueError, check_relative)
 
     def test_universal_newlines(self):
         import pkg_univnewlines

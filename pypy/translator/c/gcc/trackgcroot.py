@@ -446,7 +446,6 @@ class FunctionGcRootTracker(object):
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
         'cmp', 'test', 'set', 'sahf', 'lahf', 'cltd', 'cld', 'std',
         'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'cwde', 'prefetch',
-        'pslld', 
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
@@ -457,6 +456,7 @@ class FunctionGcRootTracker(object):
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
         'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
+        'paddq', 'pinsr',
         # zero-extending moves should not produce GC pointers
         'movz', 
         ])
@@ -1443,6 +1443,7 @@ class DarwinAssemblerParser64(DarwinAssemblerParser):
 
 class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
+    r_sectionstart = re.compile(r"^_loc()")
     FunctionGcRootTracker = Mingw32FunctionGcRootTracker
 
 class MsvcAssemblerParser(AssemblerParser):

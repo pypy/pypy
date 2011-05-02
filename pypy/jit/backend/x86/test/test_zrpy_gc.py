@@ -5,7 +5,7 @@ however, is the correct handling of GC, i.e. if objects are freed as
 soon as possible (at least in a simple case).
 """
 
-import weakref, random
+import weakref
 import py, os
 from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
