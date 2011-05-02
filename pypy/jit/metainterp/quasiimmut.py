@@ -88,6 +88,8 @@ class QuasiImmut(object):
 
 
 class QuasiImmutDescr(AbstractDescr):
+    structbox = None
+
     def __init__(self, cpu, structbox, fielddescr, mutatefielddescr):
         self.cpu = cpu
         self.structbox = structbox
@@ -105,6 +107,7 @@ class QuasiImmutDescr(AbstractDescr):
         return fieldbox.constbox()
 
     def is_still_valid(self):
+        assert self.structbox is not None
         cpu = self.cpu
         gcref = self.structbox.getref_base()
         qmut = get_current_qmut_instance(cpu, gcref, self.mutatefielddescr)
