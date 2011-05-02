@@ -241,13 +241,12 @@ do_mkvalue(const char **p_format, va_list *p_va, int flags)
 
 		case 'I':
 		{
-      Py_FatalError("I unsupported so far");
-			//unsigned int n;
-			//n = va_arg(*p_va, unsigned int);
-			//if (n > (unsigned long)PyInt_GetMax())
-			//	return PyLong_FromUnsignedLong((unsigned long)n);
-			//else
-			//	return PyInt_FromLong(n);
+			unsigned int n;
+			n = va_arg(*p_va, unsigned int);
+			if (n > (unsigned long)PyInt_GetMax())
+				return PyLong_FromUnsignedLong((unsigned long)n);
+			else
+				return PyInt_FromLong(n);
 		}
 		
 		case 'n':
@@ -260,23 +259,20 @@ do_mkvalue(const char **p_format, va_list *p_va, int flags)
 
 		case 'k':
 		{
-      Py_FatalError("Py_BuildValue k unsupported so far\n");
-			/* unsigned long n; */
-			/* n = va_arg(*p_va, unsigned long); */
-			/* if (n > (unsigned long)PyInt_GetMax()) */
-			/* 	return PyLong_FromUnsignedLong(n); */
-			/* else */
-			/* 	return PyInt_FromLong(n); */
+			unsigned long n;
+			n = va_arg(*p_va, unsigned long);
+			if (n > (unsigned long)PyInt_GetMax())
+				return PyLong_FromUnsignedLong(n);
+			else
+				return PyInt_FromLong(n);
 		}
 
 #ifdef HAVE_LONG_LONG
 		case 'L':
-      Py_FatalError("Py_BuildValue L unsupported for now\n");
-			//return PyLong_FromLongLong((PY_LONG_LONG)va_arg(*p_va, PY_LONG_LONG));
+			return PyLong_FromLongLong((PY_LONG_LONG)va_arg(*p_va, PY_LONG_LONG));
 
 		case 'K':
-      Py_FatalError("Py_BuildValue K unsupported for now\n");
-			//return PyLong_FromUnsignedLongLong((PY_LONG_LONG)va_arg(*p_va, unsigned PY_LONG_LONG));
+			return PyLong_FromUnsignedLongLong((PY_LONG_LONG)va_arg(*p_va, unsigned PY_LONG_LONG));
 #endif
 #ifdef Py_USING_UNICODE
 		case 'u':

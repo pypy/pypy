@@ -174,7 +174,7 @@ class Optimization(object):
 
     def __init__(self):
         pass # make rpython happy
-    
+
     def propagate_forward(self, op):
         raise NotImplementedError
 
@@ -183,7 +183,7 @@ class Optimization(object):
 
     def test_emittable(self, op):
         return self.is_emittable(op)
-    
+
     def is_emittable(self, op):
         return self.next_optimization.test_emittable(op)
 
@@ -239,7 +239,7 @@ class Optimization(object):
     def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
         #return self.__class__()
         raise NotImplementedError
-    
+
 
 class Optimizer(Optimization):
 
@@ -275,20 +275,20 @@ class Optimizer(Optimization):
         else:
             optimizations = []
             self.first_optimization = self
-            
-        self.optimizations  = optimizations 
+
+        self.optimizations  = optimizations
 
     def force_at_end_of_preamble(self):
         self.resumedata_memo = resume.ResumeDataLoopMemo(self.metainterp_sd)
         for o in self.optimizations:
             o.force_at_end_of_preamble()
-            
+
     def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
         assert optimizer is None
         assert valuemap is None
         valuemap = {}
         new = Optimizer(self.metainterp_sd, self.loop)
-        optimizations = [o.reconstruct_for_next_iteration(new, valuemap) for o in 
+        optimizations = [o.reconstruct_for_next_iteration(new, valuemap) for o in
                          self.optimizations]
         new.set_optimizations(optimizations)
 
@@ -305,7 +305,7 @@ class Optimizer(Optimization):
         for key, value in self.loop_invariant_results.items():
             new.loop_invariant_results[key] = \
                                  value.get_reconstructed(new, valuemap)
-            
+
         new.pure_operations = self.pure_operations
         new.producer = self.producer
         assert self.posponedop is None
@@ -429,7 +429,7 @@ class Optimizer(Optimization):
 
     def test_emittable(self, op):
         return True
-    
+
     def emit_operation(self, op):
         ###self.heap_op_optimizer.emitting_operation(op)
         self._emit_operation(op)
@@ -507,7 +507,7 @@ class Optimizer(Optimization):
             canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
         else:
             nextop = None
-            
+
         if canfold:
             for i in range(op.numargs()):
                 if self.get_constant_box(op.getarg(i)) is None:

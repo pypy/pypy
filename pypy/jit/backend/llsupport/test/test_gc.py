@@ -9,7 +9,6 @@ from pypy.jit.metainterp.gc import get_description
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
-from pypy.rpython.memory.gctransform import asmgcroot
 
 def test_boehm():
     gc_ll_descr = GcLLDescr_boehm(None, None, None)
@@ -75,8 +74,8 @@ class TestGcRootMapAsmGcc:
         num2a = ((-num2|3) >> 7) | 128
         num2b = (-num2|3) & 127
         shape = gcrootmap.get_basic_shape()
-        gcrootmap.add_ebp_offset(shape, num1)
-        gcrootmap.add_ebp_offset(shape, num2)
+        gcrootmap.add_frame_offset(shape, num1)
+        gcrootmap.add_frame_offset(shape, num2)
         assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a])
         gcrootmap.add_callee_save_reg(shape, 1)
         assert shape == map(chr, [6, 7, 11, 15, 2, 0, num1a, num2b, num2a,
@@ -226,6 +225,33 @@ class TestGcRootMapAsmGcc:
         #
         finally:
             gc.asmgcroot = saved
+
+
+class TestGcRootMapShadowStack:
+    class FakeGcDescr:
+        force_index_ofs = 92
+
+    def test_make_shapes(self):
+        gcrootmap = GcRootMap_shadowstack(self.FakeGcDescr())
+        shape = gcrootmap.get_basic_shape()
+        gcrootmap.add_frame_offset(shape, 16)
+        gcrootmap.add_frame_offset(shape, -24)
+        assert shape == [16, -24]
+
+    def test_compress_callshape(self):
+        class FakeDataBlockWrapper:
+            def malloc_aligned(self, size, alignment):
+                assert alignment == 4    # even on 64-bits
+                assert size == 12        # 4*3, even on 64-bits
+                return rffi.cast(lltype.Signed, p)
+        datablockwrapper = FakeDataBlockWrapper()
+        p = lltype.malloc(rffi.CArray(rffi.INT), 3, immortal=True)
+        gcrootmap = GcRootMap_shadowstack(self.FakeGcDescr())
+        shape = [16, -24]
+        gcrootmap.compress_callshape(shape, datablockwrapper)
+        assert rffi.cast(lltype.Signed, p[0]) == 16
+        assert rffi.cast(lltype.Signed, p[1]) == -24
+        assert rffi.cast(lltype.Signed, p[2]) == 0
 
 
 class FakeLLOp(object):

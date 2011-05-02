@@ -500,24 +500,24 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [1000], threshold=400)
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match_by_id('getitem', opcode='BINARY_SUBSCR', expected_src="""
-            i43 = int_lt(i25, 0)
-            guard_false(i43, descr=<Guard9>)
-            i44 = int_ge(i25, i39)
-            guard_false(i44, descr=<Guard10>)
-            i45 = int_mul(i25, i33)
+        assert loop.match("""
+            i16 = int_ge(i11, i12)
+            guard_false(i16, descr=<Guard3>)
+            i17 = int_mul(i11, i14)
+            i18 = int_add(i15, i17)
+            i20 = int_add(i11, 1)
+            i21 = force_token()
+            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            i23 = int_lt(i18, 0)
+            guard_false(i23, descr=<Guard4>)
+            i25 = int_ge(i18, i9)
+            guard_false(i25, descr=<Guard5>)
+            i26 = int_mul(i18, i10)
+            i27 = int_add_ovf(i7, i26)
+            guard_no_overflow(descr=<Guard6>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, i27, i18, i9, i10, i20, i12, p13, i14, i15, descr=<Loop0>)
         """)
-        assert loop.match_by_id('for', opcode='FOR_ITER', expected_src="""
-            i23 = int_ge(i11, i12)
-            guard_false(i23, descr=<Guard3>)
-            i24 = int_mul(i11, i14)
-            i25 = int_add(i15, i24)
-            i27 = int_add(i11, 1)
-            # even if it's a the end of the loop, the jump still belongs to
-            # the FOR_ITER opcode
-            jump(p0, p1, p2, p3, p4, p5, p6, i46, i25, i39, i33, i27, i12, p13, i14, i15, p16, i17, i18, p19, p20, i21, i22, descr=<Loop0>)
-        """)
-
 
     def test_exception_inside_loop_1(self):
         def main(n):
@@ -685,7 +685,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
-            p14 = call(ConstClass(ll_split_chr__GcStruct_listLlT_rpy_stringPtr_Char), p8, 46, descr=<GcPtrCallDescr>)
+            p14 = call(ConstClass(ll_split_chr__GcStruct_listLlT_rpy_stringPtr_Char), p8, 46, -1, descr=<GcPtrCallDescr>)
             guard_no_exception(descr=<Guard4>)
             guard_nonnull(p14, descr=<Guard5>)
             i15 = getfield_gc(p14, descr=<SignedFieldDescr list.length .*>)
@@ -730,7 +730,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         where x and y can be either constants or variables. There are cases in
         which the second guard is proven to be always true.
         """
-        
+
         for a, b, res, opt_expected in (('2000', '2000', 20001000, True),
                                         ( '500',  '500', 15001500, True),
                                         ( '300',  '600', 16001700, False),
@@ -830,7 +830,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         test only checks that we get the expected result, not that any
         optimization has been applied.
         """
-        ops = ('<', '>', '<=', '>=', '==', '!=')        
+        ops = ('<', '>', '<=', '>=', '==', '!=')
         for op1 in ops:
             for op2 in ops:
                 for a,b in ((500, 500), (300, 600)):
@@ -880,7 +880,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         test only checks that we get the expected result, not that any
         optimization has been applied.
         """
-        ops = ('<', '>', '<=', '>=', '==', '!=')        
+        ops = ('<', '>', '<=', '>=', '==', '!=')
         for op1 in ops:
             for op2 in ops:
                 for a,b in ((500, 500), (300, 600)):
@@ -980,7 +980,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             while i < 640 * 480:
                 assert len(img) == 3*350*480
                 assert len(intimg) == 640*480
-                assert i >= 0
                 l = l + img[i]
                 intimg[i] = (intimg[i-640] + l)
                 i += 1
@@ -992,12 +991,12 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i13 = int_lt(i8, 307200)
             guard_true(i13, descr=<Guard3>)
-        # the bound check guard on img has been killed (thanks to the 1st and 2nd asserts)
+        # the bound check guard on img has been killed (thanks to the asserts)
             i14 = getarrayitem_raw(i10, i8, descr=<.*ArrayNoLengthDescr>)
             i15 = int_add_ovf(i9, i14)
             guard_no_overflow(descr=<Guard4>)
             i17 = int_sub(i8, 640)
-        # the bound check guard on intimg has been killed (thanks to the 3rd assert)
+        # the bound check guard on intimg has been killed (thanks to the asserts)
             i18 = getarrayitem_raw(i11, i17, descr=<.*ArrayNoLengthDescr>)
             i19 = int_add_ovf(i18, i15)
             guard_no_overflow(descr=<Guard5>)
@@ -1007,4 +1006,66 @@ class TestPyPyCNew(BaseTestPyPyC):
             i28 = int_add(i8, 1)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, i28, i15, i10, i11, descr=<Loop0>)
+        """)
+
+    def test_func_defaults(self):
+        def main(n):
+            i = 1
+            while i < n:
+                i += len(xrange(i+1)) - i
+            return i
+
+        log = self.run(main, [10000])
+        assert log.result == 10000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i5, i6)
+            guard_true(i10, descr=<Guard3>)
+            # This can be improved if the JIT realized the lookup of i5 produces
+            # a constant and thus can be removed entirely
+            i120 = int_add(i5, 1)
+            i140 = int_lt(0, i120)
+            guard_true(i140, descr=<Guard4>)
+            i13 = uint_floordiv(i5, i7)
+            i15 = int_add(i13, 1)
+            i17 = int_lt(i15, 0)
+            guard_false(i17, descr=<Guard5>)
+            i20 = int_sub(i15, i5)
+            i21 = int_add_ovf(i5, i20)
+            guard_no_overflow(descr=<Guard6>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, descr=<Loop0>)
+        """)
+
+    def test_unpack_iterable_non_list_tuple(self):
+        def main(n):
+            import array
+
+            items = [array.array("i", [1])] * n
+            total = 0
+            for a, in items:
+                total += a
+            return total
+
+        log = self.run(main, [1000000])
+        assert log.result == 1000000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i16 = int_ge(i12, i13)
+            guard_false(i16, descr=<Guard3>)
+            p17 = getarrayitem_gc(p15, i12, descr=<GcPtrArrayDescr>)
+            i19 = int_add(i12, 1)
+            setfield_gc(p4, i19, descr=<SignedFieldDescr .*W_AbstractSeqIterObject.inst_index .*>)
+            guard_nonnull_class(p17, 146982464, descr=<Guard4>)
+            i21 = getfield_gc(p17, descr=<SignedFieldDescr .*W_ArrayTypei.inst_len .*>)
+            i23 = int_lt(0, i21)
+            guard_true(i23, descr=<Guard5>)
+            i24 = getfield_gc(p17, descr=<NonGcPtrFieldDescr .*W_ArrayTypei.inst_buffer .*>)
+            i25 = getarrayitem_raw(i24, 0, descr=<SignedArrayNoLengthDescr>)
+            i27 = int_lt(1, i21)
+            guard_false(i27, descr=<Guard6>)
+            i28 = int_add_ovf(i10, i25)
+            guard_no_overflow(descr=<Guard7>)
+            --TICK--
+            jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
         """)

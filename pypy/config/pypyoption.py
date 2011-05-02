@@ -159,6 +159,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--allworkingmodules",
                negation=True),
 
+    StrOption("extmodules",
+              "Comma-separated list of third-party builtin modules",
+              cmdline="--ext",
+              default=None),
+
     BoolOption("translationmodules",
           "use only those modules that are needed to run translate.py on pypy",
                default=False,
@@ -352,8 +357,8 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         config.objspace.std.suggest(newshortcut=True)
-        if not IS_64_BITS:
-            config.objspace.std.suggest(withsmalllong=True)
+        #if not IS_64_BITS:
+        #    config.objspace.std.suggest(withsmalllong=True)
 
     # extra costly optimizations only go in level 3
     if level == '3':

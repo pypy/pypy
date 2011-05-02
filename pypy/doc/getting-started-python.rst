@@ -39,13 +39,15 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
 
      [user@debian-box ~]$ sudo apt-get install \
      gcc make python-dev libffi-dev pkg-config \
-     libz-dev libbz2-dev libncurses-dev libexpat1-dev libssl-dev libgc-dev python-sphinx
+     libz-dev libbz2-dev libncurses-dev libexpat1-dev \
+     libssl-dev libgc-dev python-sphinx python-greenlet
 
    On a Fedora box these are::
 
      [user@fedora-or-rh-box ~]$ sudo yum install \
      gcc make python-devel libffi-devel pkg-config \
-     zlib-devel bzip2-devel ncurses-devel expat-devel openssl-devel gc-devel python-sphinx
+     zlib-devel bzip2-devel ncurses-devel expat-devel \
+     openssl-devel gc-devel python-sphinx python-greenlet
 
    The above command lines are split with continuation characters, giving the necessary dependencies first, then the optional ones.
 
@@ -57,6 +59,7 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
    * ``libssl-dev`` (for the optional ``_ssl`` module)
    * ``libgc-dev`` (for the Boehm garbage collector: only needed when translating with `--opt=0, 1` or `size`)
    * ``python-sphinx`` (for the optional documentation build)
+   * ``python-greenlet`` (for the optional stackless support in interpreted mode/testing)
 
 2. Translation is somewhat time-consuming (30 min to
    over one hour) and RAM-hungry.  If you have less than 1.5 GB of
@@ -76,7 +79,8 @@ You can translate the whole of PyPy's Python interpreter to low level C code,
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want the included JIT
-   compiler.  As of March 2011, Intel **32-bit** environment needs ``4GB``.
+   compiler.  As of March 2011, Intel 32-bit environment needs **at
+   least** 2GB, and 64-bit needs 4GB.
 
 .. _`optimization level`: config/opt.html
 
@@ -228,6 +232,12 @@ to find a ``PREFIX`` from which the directories
     ../../lib/pypy-1.2
     ../../..
     etc.
+
+If the executable fails to find suitable libraries, it will report
+``debug: WARNING: library path not found, using compiled-in sys.path``
+and then attempt to continue normally.  If the default path is usable,
+most code will be fine.  However, the ``sys.prefix`` will be unset
+and some existing libraries assume that this is never the case.
 
 In order to use ``distutils`` or ``setuptools`` a directory ``PREFIX/site-packages`` needs to be created. Here's an example session setting up and using ``easy_install``::
 

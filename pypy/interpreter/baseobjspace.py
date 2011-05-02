@@ -365,7 +365,11 @@ class ObjSpace(object):
 
     def setbuiltinmodule(self, importname):
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
-        fullname = "pypy.module.%s" % importname
+        if '.' in importname:
+            fullname = importname
+            importname = fullname.rsplit('.', 1)[1]
+        else:
+            fullname = "pypy.module.%s" % importname
 
         Module = __import__(fullname,
                             None, None, ["Module"]).Module
@@ -427,6 +431,11 @@ class ObjSpace(object):
         for name, value in self.config.objspace.usemodules:
             if value and name not in modules:
                 modules.append(name)
+
+        if self.config.objspace.extmodules:
+            for name in self.config.objspace.extmodules.split(','):
+                if name not in modules:
+                    modules.append(name)
 
         # a bit of custom logic: time2 or rctime take precedence over time
         # XXX this could probably be done as a "requires" in the config
@@ -745,7 +754,12 @@ class ObjSpace(object):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
-        items = []
+        # If we know the expected length we can preallocate.
+        if expected_length == -1:
+            items = []
+        else:
+            items = [None] * expected_length
+        idx = 0
         while True:
             try:
                 w_item = self.next(w_iterator)
@@ -753,19 +767,22 @@ class ObjSpace(object):
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break  # done
-            if expected_length != -1 and len(items) == expected_length:
+            if expected_length != -1 and idx == expected_length:
                 raise OperationError(self.w_ValueError,
                                      self.wrap("too many values to unpack"))
-            items.append(w_item)
-        if expected_length != -1 and len(items) < expected_length:
-            i = len(items)
-            if i == 1:
+            if expected_length == -1:
+                items.append(w_item)
+            else:
+                items[idx] = w_item
+            idx += 1
+        if expected_length != -1 and idx < expected_length:
+            if idx == 1:
                 plural = ""
             else:
                 plural = "s"
             raise OperationError(self.w_ValueError,
                       self.wrap("need more than %d value%s to unpack" %
-                                (i, plural)))
+                                (idx, plural)))
         return items
 
     unpackiterable_unroll = jit.unroll_safe(func_with_new_name(unpackiterable,

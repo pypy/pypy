@@ -1,6 +1,7 @@
 import py
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver
+from pypy.rlib import objectmodel
 
 class DictTests:
 
@@ -68,6 +69,66 @@ class DictTests:
             assert f(10) == expected
             res = self.meta_interp(f, [10], listops=True)
             assert res == expected
+
+    def test_dict_trace_hash(self):
+        myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
+        def key(x):
+            return x % 2
+        def eq(x, y):
+            return (x % 2) == (y % 2)
+
+        def f(n):
+            dct = objectmodel.r_dict(eq, key)
+            total = n
+            while total:
+                myjitdriver.jit_merge_point(total=total, dct=dct)
+                if total not in dct:
+                    dct[total] = []
+                dct[total].append(total)
+                total -= 1
+            return len(dct[0])
+
+        res1 = f(100)
+        res2 = self.meta_interp(f, [100], listops=True)
+        assert res1 == res2
+        self.check_loops(int_mod=1) # the hash was traced
+
+    def test_dict_setdefault(self):
+        myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
+        def f(n):
+            dct = {}
+            total = n
+            while total:
+                myjitdriver.jit_merge_point(total=total, dct=dct)
+                dct.setdefault(total % 2, []).append(total)
+                total -= 1
+            return len(dct[0])
+
+        assert f(100) == 50
+        res = self.meta_interp(f, [100], listops=True)
+        assert res == 50
+        self.check_loops(new=0, new_with_vtable=0)
+
+    def test_dict_as_counter(self):
+        myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
+        def key(x):
+            return x % 2
+        def eq(x, y):
+            return (x % 2) == (y % 2)
+
+        def f(n):
+            dct = objectmodel.r_dict(eq, key)
+            total = n
+            while total:
+                myjitdriver.jit_merge_point(total=total, dct=dct)
+                dct[total] = dct.get(total, 0) + 1
+                total -= 1
+            return dct[0]
+
+        assert f(100) == 50
+        res = self.meta_interp(f, [100], listops=True)
+        assert res == 50
+        self.check_loops(int_mod=1)
 
 
 class TestOOtype(DictTests, OOJitMixin):
