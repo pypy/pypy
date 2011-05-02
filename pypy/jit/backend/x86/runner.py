@@ -151,6 +151,7 @@ class AbstractX86CPU(AbstractLLCPU):
         for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
             mc = codebuf.MachineCodeBlockWrapper()
             mc.JMP_l(tgt)
+            assert mc.get_relative_pos() == 5      # [JMP] [tgt 4 bytes]
             mc.copy_to_raw_memory(addr - 1)
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
