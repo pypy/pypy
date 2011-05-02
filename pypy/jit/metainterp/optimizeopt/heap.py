@@ -240,8 +240,7 @@ class OptHeap(Optimization):
                 effectinfo = None
             else:
                 effectinfo = op.getdescr().get_extra_info()
-            if (effectinfo is None or effectinfo.extraeffect >=
-                effectinfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE):
+            if effectinfo is None or effectinfo.check_can_invalidate():
                 self._seen_guard_not_invalidated = False
             if effectinfo is not None:
                 # XXX we can get the wrong complexity here, if the lists

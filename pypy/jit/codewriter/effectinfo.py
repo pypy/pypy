@@ -13,7 +13,8 @@ class EffectInfo(object):
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
     EF_CAN_RAISE                       = 3 #normal function (can raise)
-    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 4 #can raise and force virtualizables
+    EF_CAN_INVALIDATE                  = 4 #can force all GUARD_NOT_INVALIDATED
+    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
 
     # the 'oopspecindex' field is one of the following values:
     OS_NONE                     = 0    # normal case, no oopspec
@@ -98,6 +99,9 @@ class EffectInfo(object):
         cls._cache[key] = result
         return result
 
+    def check_can_invalidate(self):
+        return self.extraeffect >= self.EF_CAN_INVALIDATE
+
     def check_forces_virtual_or_virtualizable(self):
         return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
 
@@ -171,8 +175,11 @@ def consider_array(ARRAY):
 class VirtualizableAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         return op.opname in ('jit_force_virtualizable',
-                             'jit_force_virtual',
-                             'jit_force_quasi_immutable')
+                             'jit_force_virtual')
+
+class QuasiImmutAnalyzer(BoolGraphAnalyzer):
+    def analyze_simple_operation(self, op, graphinfo):
+        return op.opname == 'jit_force_quasi_immutable'
 
 # ____________________________________________________________
 

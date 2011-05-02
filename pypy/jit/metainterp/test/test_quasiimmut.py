@@ -290,7 +290,8 @@ class QuasiImmutTests(object):
         assert f(100, 15) == 3009
         res = self.meta_interp(f, [100, 15])
         assert res == 3009
-        self.check_loops(guard_not_invalidated=2)
+        self.check_loops(guard_not_invalidated=2,
+                         call_may_force=0, guard_not_forced=0)
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
     pass
