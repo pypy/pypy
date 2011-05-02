@@ -265,5 +265,32 @@ class QuasiImmutTests(object):
         self.check_loop_count(7)
         assert res == main()
 
+    def test_change_during_running(self):
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
+        class Foo:
+            _immutable_fields_ = ['a?']
+            def __init__(self, a):
+                self.a = a
+        @dont_look_inside
+        def residual_call(foo, x):
+            if x == 5:
+                foo.a += 1
+        def f(a, x):
+            foo = Foo(a)
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x, total=total)
+                # read a quasi-immutable field out of a Constant
+                total += foo.a
+                residual_call(foo, x)
+                total += foo.a
+                x -= 1
+            return total
+        #
+        assert f(100, 15) == 3009
+        res = self.meta_interp(f, [100, 15])
+        assert res == 3009
+        self.check_loops(guard_not_invalidated=2)
+
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
     pass
