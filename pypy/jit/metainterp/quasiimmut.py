@@ -22,7 +22,6 @@ def get_current_qmut_instance(cpu, gcref, mutatefielddescr):
     """Returns the current QuasiImmut instance in the field,
     possibly creating one.
     """
-    # XXX this is broken on x86
     qmut_gcref = cpu.bh_getfield_gc_r(gcref, mutatefielddescr)
     if qmut_gcref:
         qmut = QuasiImmut.show(cpu, qmut_gcref)
@@ -78,7 +77,8 @@ class QuasiImmut(object):
 
     def invalidate(self):
         # When this is called, all the loops that we record become
-        # invalid and must not be called again, nor returned to.
+        # invalid: all GUARD_NOT_INVALIDATED in these loops (and
+        # in attached bridges) must now fail.
         wrefs = self.looptokens_wrefs
         self.looptokens_wrefs = []
         for wref in wrefs:

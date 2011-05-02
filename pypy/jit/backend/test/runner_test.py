@@ -1817,6 +1817,58 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_latest_value_int(2) == 10
         assert values == [1, 10]
 
+    def test_guard_not_invalidated(self):
+        cpu = self.cpu
+        i0 = BoxInt()
+        i1 = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+            ResOperation(rop.GUARD_NOT_INVALIDATED, [], None, descr=faildescr),
+            ResOperation(rop.FINISH, [i0], None, descr=BasicFailDescr(0))
+        ]
+        ops[0].setfailargs([i1])
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i0, i1], ops, looptoken)
+
+        self.cpu.set_future_value_int(0, -42)
+        self.cpu.set_future_value_int(1, 9)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert self.cpu.get_latest_value_int(0) == -42
+
+        # mark as failing
+        self.cpu.invalidate_loop(looptoken)
+
+        self.cpu.set_future_value_int(0, -42)
+        self.cpu.set_future_value_int(1, 9)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail is faildescr
+        assert self.cpu.get_latest_value_int(0) == 9
+
+        # attach a bridge
+        i2 = BoxInt()
+        faildescr2 = BasicFailDescr(2)
+        ops = [
+            ResOperation(rop.GUARD_NOT_INVALIDATED, [],None, descr=faildescr2),
+            ResOperation(rop.FINISH, [i2], None, descr=BasicFailDescr(3))
+        ]
+        ops[0].setfailargs([])
+        self.cpu.compile_bridge(faildescr, [i2], ops, looptoken)
+
+        self.cpu.set_future_value_int(0, -42)
+        self.cpu.set_future_value_int(1, 9)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 3
+        assert self.cpu.get_latest_value_int(0) == 9
+
+        # mark as failing again
+        self.cpu.invalidate_loop(looptoken)
+
+        self.cpu.set_future_value_int(0, -42)
+        self.cpu.set_future_value_int(1, 9)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail is faildescr2
+
     # pure do_ / descr features
 
     def test_do_operations(self):

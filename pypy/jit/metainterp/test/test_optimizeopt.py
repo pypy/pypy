@@ -5754,15 +5754,19 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
 
     def test_remove_extra_guards_not_invalidated(self):
         ops = """
-        []
+        [i0]
         guard_not_invalidated() []
         guard_not_invalidated() []
-        jump()
+        i1 = int_add(i0, 1)
+        guard_not_invalidated() []
+        guard_not_invalidated() []
+        jump(i1)
         """
         expected = """
-        []
+        [i0]
         guard_not_invalidated() []
-        jump()
+        i1 = int_add(i0, 1)
+        jump(i1)
         """
         self.optimize_loop(ops, expected)
 

@@ -139,7 +139,11 @@ class AbstractCPU(object):
     def invalidate_loop(self, looptoken):
         """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
         bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
-        after this call, they all fail."""
+        after this call, they all fail.  Note that afterwards, if one such
+        guard fails often enough, it has a bridge attached to it; it is
+        possible then to re-call invalidate_loop() on the same looptoken,
+        which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
+        old one that already has a bridge attached to it."""
         raise NotImplementedError
 
     def free_loop_and_bridges(self, compiled_loop_token):
