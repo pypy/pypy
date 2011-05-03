@@ -10,6 +10,7 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
 from pypy.jit.metainterp import quasiimmut
+from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
 from pypy.translator.simplify import get_funcobj
@@ -114,7 +115,7 @@ class Transformer(object):
                     "known non-negative, or catching IndexError, or\n"
                     "not inlining at all (for tests: use listops=True).\n"
                     "Occurred in: %r" % self.graph)
-            # extra expanation: with the way things are organized in
+            # extra explanation: with the way things are organized in
             # rpython/rlist.py, the ll_getitem becomes a function call
             # that is typically meant to be inlined by the JIT, but
             # this does not work with vable arrays because
@@ -579,7 +580,7 @@ class Transformer(object):
         op1 = SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
                              [v_inst, descr], op.result)
         #
-        if immut is quasiimmut.IR_QUASI_IMMUTABLE:
+        if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
             descr1 = self.cpu.fielddescrof(
                 v_inst.concretetype.TO,
                 quasiimmut.get_mutate_field_name(c_fieldname.value))

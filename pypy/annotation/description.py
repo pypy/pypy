@@ -638,16 +638,19 @@ class ClassDesc(Desc):
         return None
 
     def maybe_return_immutable_list(self, attr, s_result):
-        # hack: 'x.lst' where lst is listed in _immutable_fields_ as 'lst[*]'
+        # hack: 'x.lst' where lst is listed in _immutable_fields_ as
+        # either 'lst[*]' or 'lst?[*]'
         # should really return an immutable list as a result.  Implemented
         # by changing the result's annotation (but not, of course, doing an
         # actual copy in the rtyper).  Tested in pypy.rpython.test.test_rlist,
         # test_immutable_list_out_of_instance.
-        search = '%s[*]' % (attr,)
+        search1 = '%s[*]' % (attr,)
+        search2 = '%s?[*]' % (attr,)
         cdesc = self
         while cdesc is not None:
             if '_immutable_fields_' in cdesc.classdict:
-                if search in cdesc.classdict['_immutable_fields_'].value:
+                if (search1 in cdesc.classdict['_immutable_fields_'].value or
+                    search2 in cdesc.classdict['_immutable_fields_'].value):
                     s_result.listdef.never_resize()
                     s_copy = s_result.listdef.offspring()
                     s_copy.listdef.mark_as_immutable()

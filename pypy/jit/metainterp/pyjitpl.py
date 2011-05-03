@@ -570,6 +570,11 @@ class MIFrame(object):
         # During tracing, a 'jit_force_quasi_immutable' usually turns into
         # the operations that check that the content of 'mutate_xxx' is null.
         # If it is actually not null already now, then we abort tracing.
+        # The idea is that if we use 'jit_force_quasi_immutable' on a freshly
+        # allocated object, then the GETFIELD_GC will know that the answer is
+        # null, and the guard will be removed.  So the fact that the field is
+        # quasi-immutable will have no effect, and instead it will work as a
+        # regular, probably virtual, structure.
         mutatebox = self.execute_with_descr(rop.GETFIELD_GC,
                                             mutatefielddescr, box)
         if mutatebox.nonnull():

@@ -87,7 +87,8 @@ def test_is_pure():
     assert llop.getarraysize.is_pure([v_a2])
     #
     for kind in [rclass.IR_MUTABLE, rclass.IR_IMMUTABLE,
-                 rclass.IR_ARRAY_IMMUTABLE, rclass.IR_QUASI_IMMUTABLE]:
+                 rclass.IR_IMMUTABLE_ARRAY, rclass.IR_QUASIIMMUTABLE,
+                 rclass.IR_QUASIIMMUTABLE_ARRAY]:
         accessor = rclass.FieldListAccessor()
         S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
                              hints={'immutable_fields': accessor})
@@ -114,13 +115,14 @@ def test_getfield_pure():
     assert llop.getinteriorfield(lltype.Signed, s2, 'x') == 45
     #
     for kind in [rclass.IR_MUTABLE, rclass.IR_IMMUTABLE,
-                 rclass.IR_ARRAY_IMMUTABLE, rclass.IR_QUASI_IMMUTABLE]:
+                 rclass.IR_IMMUTABLE_ARRAY, rclass.IR_QUASIIMMUTABLE,
+                 rclass.IR_QUASIIMMUTABLE_ARRAY]:
         #
         S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
                              hints={'immutable_fields': accessor})
         accessor.initialize(S3, {'x': kind})
         s3 = lltype.malloc(S3); s3.x = 46; s3.y = 47
-        if kind in [rclass.IR_IMMUTABLE, rclass.IR_ARRAY_IMMUTABLE]:
+        if kind in [rclass.IR_IMMUTABLE, rclass.IR_IMMUTABLE_ARRAY]:
             assert llop.getfield(lltype.Signed, s3, 'x') == 46
             assert llop.getinteriorfield(lltype.Signed, s3, 'x') == 46
         else:

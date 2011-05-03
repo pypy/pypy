@@ -3,7 +3,7 @@ import py, random
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
-from pypy.rpython.rclass import FieldListAccessor, IR_QUASI_IMMUTABLE
+from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
@@ -65,7 +65,7 @@ class LLtypeMixin(object):
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
     accessor = FieldListAccessor()
-    accessor.initialize(None, {'inst_field': IR_QUASI_IMMUTABLE})
+    accessor.initialize(None, {'inst_field': IR_QUASIIMMUTABLE})
     QUASI = lltype.GcStruct('QUASIIMMUT', ('inst_field', lltype.Signed),
                             ('mutate_field', rclass.OBJECTPTR),
                             hints={'immutable_fields': accessor})

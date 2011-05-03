@@ -949,9 +949,9 @@ def test_list_ll_arraycopy():
     assert op1.args[3] == ListOfKind('ref', [v1, v2])
 
 def test_quasi_immutable():
-    from pypy.rpython.rclass import FieldListAccessor, IR_QUASI_IMMUTABLE
+    from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
     accessor = FieldListAccessor()
-    accessor.initialize(None, {'inst_x': IR_QUASI_IMMUTABLE})
+    accessor.initialize(None, {'inst_x': IR_QUASIIMMUTABLE})
     v2 = varoftype(lltype.Signed)
     STRUCT = lltype.GcStruct('struct', ('inst_x', lltype.Signed),
                              ('mutate_x', rclass.OBJECTPTR),
@@ -974,9 +974,9 @@ def test_quasi_immutable():
         assert op2.result is op.result
 
 def test_quasi_immutable_setfield():
-    from pypy.rpython.rclass import FieldListAccessor, IR_QUASI_IMMUTABLE
+    from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
     accessor = FieldListAccessor()
-    accessor.initialize(None, {'inst_x': IR_QUASI_IMMUTABLE})
+    accessor.initialize(None, {'inst_x': IR_QUASIIMMUTABLE})
     v1 = varoftype(lltype.Signed)
     STRUCT = lltype.GcStruct('struct', ('inst_x', lltype.Signed),
                              ('mutate_x', rclass.OBJECTPTR),

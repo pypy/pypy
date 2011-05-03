@@ -1,14 +1,8 @@
 import weakref
-from pypy.rpython.rclass import IR_QUASI_IMMUTABLE
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.jit.metainterp.history import AbstractDescr
 
-
-def is_quasi_immutable(STRUCT, fieldname):
-    imm_fields = STRUCT._hints.get('immutable_fields')
-    return (imm_fields is not None and
-            imm_fields.fields.get(fieldname) is IR_QUASI_IMMUTABLE)
 
 def get_mutate_field_name(fieldname):
     if fieldname.startswith('inst_'):    # lltype

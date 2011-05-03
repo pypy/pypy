@@ -5,8 +5,8 @@ from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.rarithmetic import intmask, r_longlong
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.rclass import IR_IMMUTABLE, IR_ARRAY_IMMUTABLE
-from pypy.rpython.rclass import IR_QUASI_IMMUTABLE
+from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
+from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.objspace.flow.model import summary
 
 class EmptyBase(object):
@@ -749,9 +749,9 @@ class BaseTestRclass(BaseRtypingTest):
         A_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = A_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_x": IR_IMMUTABLE,
-                                   "inst_y": IR_ARRAY_IMMUTABLE} or \
+                                   "inst_y": IR_IMMUTABLE_ARRAY} or \
                accessor.fields == {"ox": IR_IMMUTABLE,
-                                   "oy": IR_ARRAY_IMMUTABLE} # for ootype
+                                   "oy": IR_IMMUTABLE_ARRAY} # for ootype
 
     def test_immutable_fields_subclass_1(self):
         from pypy.jit.metainterp.typesystem import deref
@@ -921,16 +921,37 @@ class BaseTestRclass(BaseRtypingTest):
         B_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = B_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_y": IR_IMMUTABLE,
-                                   "inst_b": IR_QUASI_IMMUTABLE} or \
+                                   "inst_b": IR_QUASIIMMUTABLE} or \
                accessor.fields == {"ox": IR_IMMUTABLE,
                                    "oy": IR_IMMUTABLE,
-                                   "oa": IR_QUASI_IMMUTABLE,
-                                   "ob": IR_QUASI_IMMUTABLE} # for ootype
+                                   "oa": IR_QUASIIMMUTABLE,
+                                   "ob": IR_QUASIIMMUTABLE} # for ootype
         found = []
         for op in graph.startblock.operations:
             if op.opname == 'jit_force_quasi_immutable':
                 found.append(op.args[1].value)
         assert found == ['mutate_a', 'mutate_a', 'mutate_b']
+
+    def test_quasi_immutable_array(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ['c?[*]']
+        class B(A):
+            pass
+        def f():
+            a = A()
+            a.c = [3, 4, 5]
+            return A()
+        t, typer, graph = self.gengraph(f, [])
+        A_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = A_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_c": IR_QUASIIMMUTABLE_ARRAY} or \
+               accessor.fields == {"oc": IR_QUASIIMMUTABLE_ARRAY} # for ootype
+        found = []
+        for op in graph.startblock.operations:
+            if op.opname == 'jit_force_quasi_immutable':
+                found.append(op.args[1].value)
+        assert found == ['mutate_c']
 
 
 class TestLLtype(BaseTestRclass, LLRtypeMixin):

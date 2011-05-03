@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-from pypy.rpython.rclass import IR_ARRAY_IMMUTABLE, IR_IMMUTABLE
+from pypy.rpython.rclass import IR_IMMUTABLE_ARRAY, IR_IMMUTABLE
 from pypy.rpython import rvirtualizable2
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
@@ -35,7 +35,7 @@ class VirtualizableInfo(object):
         static_fields = []
         array_fields = []
         for name, tp in all_fields.iteritems():
-            if tp == IR_ARRAY_IMMUTABLE:
+            if tp == IR_IMMUTABLE_ARRAY:
                 array_fields.append(name)
             elif tp == IR_IMMUTABLE:
                 static_fields.append(name)

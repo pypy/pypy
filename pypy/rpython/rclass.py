@@ -31,10 +31,11 @@ class ImmutableRanking(object):
     def __repr__(self):
         return '<%s>' % self.name
 
-IR_MUTABLE         = ImmutableRanking('mutable', False)
-IR_IMMUTABLE       = ImmutableRanking('immutable', True)
-IR_ARRAY_IMMUTABLE = ImmutableRanking('array_immutable', True)
-IR_QUASI_IMMUTABLE = ImmutableRanking('quasi_immutable', False)
+IR_MUTABLE              = ImmutableRanking('mutable', False)
+IR_IMMUTABLE            = ImmutableRanking('immutable', True)
+IR_IMMUTABLE_ARRAY      = ImmutableRanking('immutable_array', True)
+IR_QUASIIMMUTABLE       = ImmutableRanking('quasiimmutable', False)
+IR_QUASIIMMUTABLE_ARRAY = ImmutableRanking('quasiimmutable_array', False)
 
 class ImmutableConflictError(Exception):
     """Raised when the _immutable_ or _immutable_fields_ hints are
@@ -229,12 +230,15 @@ class AbstractInstanceRepr(Repr):
     def _parse_field_list(self, fields, accessor):
         ranking = {}
         for name in fields:
-            if name.endswith('[*]'):    # for virtualizables' lists
+            if name.endswith('?[*]'):   # a quasi-immutable field pointing to
+                name = name[:-4]        # an immutable array
+                rank = IR_QUASIIMMUTABLE_ARRAY
+            elif name.endswith('[*]'):    # for virtualizables' lists
                 name = name[:-3]
-                rank = IR_ARRAY_IMMUTABLE
+                rank = IR_IMMUTABLE_ARRAY
             elif name.endswith('?'):    # a quasi-immutable field
                 name = name[:-1]
-                rank = IR_QUASI_IMMUTABLE
+                rank = IR_QUASIIMMUTABLE
             else:                       # a regular immutable/green field
                 rank = IR_IMMUTABLE
             try:
@@ -284,10 +288,12 @@ class AbstractInstanceRepr(Repr):
             llops.genop('jit_force_quasi_immutable', [vinst, c_fieldname])
 
     def is_quasi_immutable(self, fieldname):
-        search = fieldname + '?'
+        search1 = fieldname + '?'
+        search2 = fieldname + '?[*]'
         rbase = self
         while rbase.classdef is not None:
-            if search in rbase.immutable_field_set:
+            if (search1 in rbase.immutable_field_set or
+                search2 in rbase.immutable_field_set):
                 return True
             rbase = rbase.rbase
         return False
