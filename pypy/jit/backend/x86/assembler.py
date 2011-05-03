@@ -1843,8 +1843,9 @@ class Assembler386(object):
         for i in range(len(locs)):
             loc = locs[i]
             if not isinstance(loc, RegLoc):
-                if isinstance(loc, StackLoc) and loc.type == FLOAT:
-                    self.mc.MOVSD_xb(xmm0.value, loc.value)
+                if ((isinstance(loc, StackLoc) and loc.type == FLOAT) or
+                        isinstance(loc, ConstFloatLoc)):
+                    self.mc.MOVSD(xmm0, loc)
                     adr = self.fail_boxes_float.get_addr_for_num(i)
                     self.mc.MOVSD(heap(adr), xmm0)
                 else:
