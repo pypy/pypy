@@ -199,6 +199,16 @@ class SSLObject(Wrappable):
         else:
             raise _ssl_seterror(self.space, self, num_bytes)
 
+    def pending(self):
+        """pending() -> count
+
+        Returns the number of already decrypted bytes available for read,
+        pending on the connection."""
+        count = libssl_SSL_pending(self.ssl)
+        if count < 0:
+            raise _ssl_seterror(self.space, self, count)
+        return self.space.wrap(count)
+
     @unwrap_spec(num_bytes=int)
     def read(self, num_bytes=1024):
         """read([len]) -> string
@@ -374,6 +384,7 @@ SSLObject.typedef = TypeDef("SSLObject",
     server = interp2app(SSLObject.server),
     issuer = interp2app(SSLObject.issuer),
     write = interp2app(SSLObject.write),
+    pending = interp2app(SSLObject.pending),
     read = interp2app(SSLObject.read),
     do_handshake=interp2app(SSLObject.do_handshake),
     shutdown=interp2app(SSLObject.shutdown),

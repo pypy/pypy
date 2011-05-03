@@ -146,6 +146,7 @@ class AppTestConnectedSSL:
         data = ss.read(10)
         assert isinstance(data, str)
         assert len(data) == 10
+        assert ss.pending() > 50 # many more bytes to read
         self.s.close()
 
     def test_shutdown(self):
