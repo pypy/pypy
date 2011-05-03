@@ -17,7 +17,7 @@ class AppTestBuiltinApp:
         assert d.f("abc", "def") == "abcdef"
         assert D.f("abc", "def") == "abcdef"
 
-    def test_staticmethod(self):
+    def test_staticmethod_subclass(self):
         class Static(staticmethod):
             pass
         x = Static(1)
@@ -37,6 +37,12 @@ class AppTestBuiltinApp:
         assert C.f("abc") == (C, "abc")
         assert d.f("abc") == (D, "abc")
         assert D.f("abc") == (D, "abc")
+
+    def test_classmethod_subclass(self):
+        class Classm(classmethod):
+            pass
+        x = Classm(1)
+        assert isinstance(x, Classm)
 
     def test_property_simple(self):
         
