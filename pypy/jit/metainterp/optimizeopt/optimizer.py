@@ -363,8 +363,9 @@ class Optimizer(Optimization):
         new.producer = self.producer
         assert self.posponedop is None
 
-        for box, value in self.values.items():
+        for box in short_boxes.keys() + surviving_boxes:
             box = new.getinterned(box)
+            value = self.getvalue(box)
             force = box in surviving_boxes
             value = value.get_cloned(new, valuemap,
                                      force_if_needed=force)

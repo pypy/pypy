@@ -461,6 +461,26 @@ class StringTests:
             return sa
         assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
 
+    def test_boxed_virtual_string_not_surviving(self):
+        class StrBox(object):
+            def __init__(self, val):
+                self.val = val
+        class IntBox(object):
+            def __init__(self, val):
+                self.val = val
+        _str = self._str
+        mydriver = JitDriver(reds = ['i', 'nt', 'sa'], greens = [])
+        def f(c):
+            nt = StrBox(_str(c*16))
+            sa = StrBox(_str(''))
+            i = IntBox(0)
+            while i.val < len(nt.val):
+                mydriver.jit_merge_point(i=i, nt=nt, sa=sa)
+                sa = StrBox(sa.val + StrBox(nt.val[i.val]).val)
+                i = IntBox(i.val + 1)
+            return len(sa.val)
+        assert self.meta_interp(f, ['a']) == f('a')
+
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
 #    CALL_PURE = "oosend_pure"
