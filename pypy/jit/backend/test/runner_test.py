@@ -1366,6 +1366,8 @@ class BaseBackendTest(Runner):
                                                c_nest, c_nest], 'void')
 
     def test_read_timestamp(self):
+        if not self.cpu.supports_longlong:
+            py.test.skip("longlong test")
         if longlong.is_64_bit:
             got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
             got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
