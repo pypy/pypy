@@ -128,13 +128,16 @@ class LoopWithIds(Function):
             if op.name != 'debug_merge_point' or include_debug_merge_points:
                 yield op
 
-    def allops(self, include_debug_merge_points=False, opcode=None):
+    def _allops(self, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         for chunk in self.flatten_chunks():
             opcode = chunk.getopcode()                                                          
             if opcode_name is None or opcode.__class__.__name__ == opcode_name:
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
+
+    def allops(self, *args, **kwds):
+        return list(self._allops(*args, **kwds))
 
     def format_ops(self, id=None, **kwds):
         if id is None:
@@ -146,7 +149,7 @@ class LoopWithIds(Function):
     def print_ops(self, *args, **kwds):
         print self.format_ops(*args, **kwds)
 
-    def ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
+    def _ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         target_opcodes = self.ids[id]
         for chunk in self.flatten_chunks():
@@ -155,6 +158,9 @@ class LoopWithIds(Function):
                                              opcode.__class__.__name__ == opcode_name):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
+
+    def ops_by_id(self, *args, **kwds):
+        return list(self._ops_by_id(*args, **kwds))
 
     def match(self, expected_src, **kwds):
         ops = list(self.allops())
