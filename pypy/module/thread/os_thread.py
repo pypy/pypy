@@ -150,6 +150,7 @@ def reinit_threads(space):
     "Called in the child process after a fork()"
     space.threadlocals.reinit_threads(space)
     bootstrapper.reinit()
+    thread.thread_after_fork()
 
     # Clean the threading module after a fork()
     w_modules = space.sys.get('modules')

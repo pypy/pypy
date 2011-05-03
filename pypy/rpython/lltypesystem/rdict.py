@@ -521,6 +521,7 @@ def ll_dict_resize(d):
             ll_dict_insertclean(d, entry.key, entry.value, hash)
         i += 1
     old_entries.delete()
+ll_dict_resize.oopspec = 'dict.resize(d)'
 
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5

@@ -1365,6 +1365,19 @@ class BaseBackendTest(Runner):
         self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
                                                c_nest, c_nest], 'void')
 
+    def test_read_timestamp(self):
+        if longlong.is_64_bit:
+            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            res1 = got1.getint()
+            res2 = got2.getint()
+        else:
+            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            res1 = got1.getlonglong()
+            res2 = got2.getlonglong()
+        assert res1 < res2 < res1 + 2**32
+
 
 class LLtypeBackendTest(BaseBackendTest):
 

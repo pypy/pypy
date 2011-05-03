@@ -20,14 +20,14 @@ have a video player that supports DivX AVI files (DivX 5, mp3 audio)
 such as `mplayer`_, `xine`_, `vlc`_ or the windows media player.
 
 .. _`mplayer`: http://www.mplayerhq.hu/design7/dload.html
-.. _`xine`: http://xinehq.de/index.php/releases
+.. _`xine`: http://www.xine-project.org
 .. _`vlc`: http://www.videolan.org/vlc/
 
 You can find the necessary codecs in the ffdshow-library:
-http://ffdshow.sourceforge.net/tikiwiki/tiki-index.php
+http://sourceforge.net/projects/ffdshow/
 
 or use the original divx codec (for Windows):
-http://www.divx.com/divx/windows/download/index.php
+http://www.divx.com/software/divx-plus
 
 
 Copyrights and Licensing 
@@ -162,7 +162,7 @@ This architecture session is given by core developers Holger Krekel and Armin Ri
 PAL, 48 min, divx AVI
 
 Holger Krekel and Armin Rigo talk about the basic implementation,
-implementation level aspects and the translation toolchain. This
+implementation level aspects and the RPython translation toolchain. This
 talk also gives an insight into how a developer works with these tools on
 a daily basis, and pays special attention to flow graphs.
 
@@ -184,7 +184,7 @@ Sprint tutorial by core developer Michael Hudson at PyCon 2006, Dallas, US. (200
 
 PAL, 44 min, divx AVI
 
-Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. The film provides a detailed and hands-on overview about the architecture of PyPy, especially the translation toolchain.
+Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. The film provides a detailed and hands-on overview about the architecture of PyPy, especially the RPython translation toolchain.
 
 
 Scripting .NET with IronPython by Jim Hugunin
@@ -292,5 +292,5 @@ Technical talk on the PyPy project at the University of Palma de Mallorca, Spain
 
 PAL 72 min, DivX AVI
 
-Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving an overview of the PyPy architecture, the standard interpreter, the translation toolchain and the just-in-time compiler.
+Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving an overview of the PyPy architecture, the standard interpreter, the RPython translation toolchain and the just-in-time compiler.
 

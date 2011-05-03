@@ -99,7 +99,9 @@ def args_hash(args):
     make_sure_not_resized(args)
     res = 0x345678
     for arg in args:
-        if isinstance(arg, history.Const):
+        if arg is None:
+            y = 17
+        elif isinstance(arg, history.Const):
             y = arg._get_hash_()
         else:
             y = compute_identity_hash(arg)

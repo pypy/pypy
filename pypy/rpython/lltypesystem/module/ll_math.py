@@ -8,10 +8,20 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.tool.autopath import pypydir
 from pypy.rlib import jit, rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform
 from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
 if sys.platform == "win32":
-    eci = ExternalCompilationInfo()
+    if platform.name == "msvc":
+        # When compiled with /O2 or /Oi (enable intrinsic functions)
+        # It's no more possible to take the address of some math functions.
+        # Ensure that the compiler chooses real functions instead.
+        eci = ExternalCompilationInfo(
+            includes = ['math.h'],
+            post_include_bits = ['#pragma function(floor)'],
+            )
+    else:
+        eci = ExternalCompilationInfo()
     # Some math functions are C99 and not defined by the Microsoft compiler
     cdir = py.path.local(pypydir).join('translator', 'c')
     math_eci = ExternalCompilationInfo(
@@ -20,8 +30,7 @@ if sys.platform == "win32":
         separate_module_files=[cdir.join('src', 'll_math.c')],
         export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
                         '_pypy_math_atanh',
-                        '_pypy_math_expm1', '_pypy_math_log1p',
-                        '_pypy_math_isinf'],
+                        '_pypy_math_expm1', '_pypy_math_log1p'],
         )
     math_prefix = '_pypy_math_'
 else:
@@ -30,9 +39,9 @@ else:
     math_eci = eci
     math_prefix = ''
 
-def llexternal(name, ARGS, RESULT):
+def llexternal(name, ARGS, RESULT, **kwargs):
     return rffi.llexternal(name, ARGS, RESULT, compilation_info=eci,
-                           sandboxsafe=True)
+                           sandboxsafe=True, **kwargs)
 
 def math_llexternal(name, ARGS, RESULT):
     return rffi.llexternal(math_prefix + name, ARGS, RESULT,
@@ -48,7 +57,8 @@ math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
 math_copysign = llexternal(underscore + 'copysign',
-                           [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+                           [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+                           pure_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE)
 math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
@@ -57,7 +67,7 @@ math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-math_isinf = math_llexternal('isinf', [rffi.DOUBLE], rffi.INT)
+math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, pure_function=True)
 
 # ____________________________________________________________
 #
@@ -91,14 +101,22 @@ def _likely_raise(errno, x):
 # Custom implementations
 
 def ll_math_isnan(y):
-    # By not calling into the extenal function the JIT can inline this.  Floats
-    # are awesome.
+    # By not calling into the external function the JIT can inline this.
+    # Floats are awesome.
     return y != y
 
-@jit.purefunction
 def ll_math_isinf(y):
-    return bool(math_isinf(y))
+    # Use a bitwise OR so the JIT doesn't produce 2 different guards.
+    return (y == INFINITY) | (y == -INFINITY)
 
+def ll_math_isfinite(y):
+    # Use a custom hack that is reasonably well-suited to the JIT.
+    # Floats are awesome (bis).
+    z = 0.0 * y
+    return z == z       # i.e.: z is not a NaN
+
+
+ll_math_floor = math_floor
 
 ll_math_copysign = math_copysign
 
@@ -338,7 +356,7 @@ def new_unary_math_function(name, can_overflow, c99):
 
 unary_math_functions = [
     'acos', 'asin', 'atan',
-    'ceil', 'cos', 'cosh', 'exp', 'fabs', 'floor',
+    'ceil', 'cos', 'cosh', 'exp', 'fabs',
     'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
     'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
     ]
