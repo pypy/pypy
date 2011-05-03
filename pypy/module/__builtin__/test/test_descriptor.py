@@ -17,6 +17,12 @@ class AppTestBuiltinApp:
         assert d.f("abc", "def") == "abcdef"
         assert D.f("abc", "def") == "abcdef"
 
+    def test_staticmethod(self):
+        class Static(staticmethod):
+            pass
+        x = Static(1)
+        assert isinstance(x, Static)
+
     def test_classmethod(self):
         class C(object):
             def f(cls, stuff):
