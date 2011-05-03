@@ -144,7 +144,7 @@ class CPythonFakeCode(eval.Code):
         frame = func.space.createframe(self, func.w_func_globals,
                                         func.closure)
         sig = self.signature()
-        scope_w = args.parse_obj(None, func.name, sig, func.defs.getitems())
+        scope_w = args.parse_obj(None, func.name, sig, func.defs_w)
         frame.setfastscope(scope_w)
         return frame.run()
 

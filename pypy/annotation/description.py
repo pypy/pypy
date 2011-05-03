@@ -3,7 +3,6 @@ from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
 from pypy.interpreter.argument import ArgErr
-from pypy.interpreter.function import Defaults
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
@@ -251,7 +250,7 @@ class FunctionDesc(Desc):
             for x in defaults:
                 defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
-            inputcells = args.match_signature(signature, Defaults(defs_s))
+            inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
             raise TypeError, "signature mismatch: %s" % e.getmsg(self.name)
         return inputcells

@@ -5,7 +5,6 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
-from pypy.interpreter.function import Defaults
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 
@@ -623,7 +622,7 @@ cmp__Frozenset_settypedef = cmp__Set_settypedef
 cmp__Frozenset_frozensettypedef = cmp__Set_settypedef
 
 init_signature = Signature(['some_iterable'], None, None)
-init_defaults = Defaults([None])
+init_defaults = [None]
 def init__Set(space, w_set, __args__):
     w_iterable, = __args__.parse_obj(
             None, 'set',
