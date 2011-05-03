@@ -1664,6 +1664,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match_by_id('shift', "")  # optimized away
 
     def test_division_to_rshift(self):
+        py.test.skip('in-progress')
         def main(b):
             res = 0
             a = 0
