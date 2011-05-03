@@ -28,7 +28,10 @@ class Function(Wrappable):
     and an arbitrary 'closure' passed to the code object."""
 
     can_change_code = True
-    _immutable_fields_ = ['defs?[*]']
+    _immutable_fields_ = ['code?',
+                          'w_func_globals?',
+                          'closure?',
+                          'defs?[*]']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
                  forcename=None):
@@ -425,6 +428,7 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
 
 class Method(Wrappable):
     """A method is a function bound to a specific instance or class."""
+    _immutable_fields_ = ['w_function', 'w_instance', 'w_class']
 
     def __init__(self, space, w_function, w_instance, w_class):
         self.space = space
