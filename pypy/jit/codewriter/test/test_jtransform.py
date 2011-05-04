@@ -947,7 +947,3 @@ def test_list_ll_arraycopy():
     assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_ARRAYCOPY
     assert op1.args[2] == ListOfKind('int', [v3, v4, v5])
     assert op1.args[3] == ListOfKind('ref', [v1, v2])
-
-def test_vector_ops():
-    TP = lltype.Array(lltype.Float, hints={'nolength': True})
-    

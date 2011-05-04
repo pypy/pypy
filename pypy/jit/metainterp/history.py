@@ -15,7 +15,6 @@ from pypy.jit.codewriter import heaptracker, longlong
 INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
-VECTOR = 'F'
 HOLE  = '_'
 VOID  = 'v'
 
@@ -511,9 +510,6 @@ class Box(AbstractValue):
 
     def forget_value(self):
         raise NotImplementedError
-
-class BoxVector(Box):
-    _attrs_ = ()
 
 class BoxInt(Box):
     type = INT

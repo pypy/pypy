@@ -351,8 +351,6 @@ class Transformer(object):
             prepare = self._handle_jit_call
         elif oopspec_name.startswith('libffi_'):
             prepare = self._handle_libffi_call
-        elif oopspec_name.startswith('vector_'):
-            prepare = self._handle_vector_op
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -1352,17 +1350,6 @@ class Transformer(object):
         else:
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
-
-    # ----------
-    # vector ops
-
-    def _handle_vector_op(self, op, oopspec_name, args):
-        if oopspec_name in ['vector_float_read',
-                            'vector_float_write',
-                            'vector_float_add']:
-            return SpaceOperation(oopspec_name, op.args, op.result)
-        else:
-            raise NotSupported(oopspec_name)
 
     def rewrite_op_jit_force_virtual(self, op):
         return self._do_builtin_call(op)
