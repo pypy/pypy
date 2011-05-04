@@ -239,11 +239,11 @@ def descr_new_numarray(space, w_type, w_size_or_iterable):
         arr.storage[i] = space.float_w(space.float(w_elem))
         i += 1
     return space.wrap(arr)
-descr_new_numarray.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 @unwrap_spec(ObjSpace, int)
 def zeros(space, size):
     return space.wrap(SingleDimArray(size))
+
 
 SingleDimArray.typedef = TypeDef(
     'numarray',
