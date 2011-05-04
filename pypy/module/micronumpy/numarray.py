@@ -145,6 +145,9 @@ def compute(code):
 JITCODES = {}
 
 class BaseArray(Wrappable):
+    def __init__(self):
+        self.invalidates = []
+
     def force(self):
         code = self.compile()
         try:
@@ -156,16 +159,24 @@ class BaseArray(Wrappable):
         # (we still have to compile new bytecode, but too bad)
         return compute(code)
 
+    def invalidated(self):
+        for arr in self.invalidates:
+            arr.force_if_needed()
+        self.invalidates = []
+
     def _binop_impl(bytecode):
         def impl(self, space, w_other):
             if isinstance(w_other, BaseArray):
-                return space.wrap(BinOp(bytecode, self, w_other))
+                res = space.wrap(BinOp(bytecode, self, w_other))
+                w_other.invalidates.append(res)
             else:
-                return space.wrap(BinOp(
+                res = space.wrap(BinOp(
                     bytecode,
                     self,
                     FloatWrapper(space.float_w(w_other))
                 ))
+            self.invalidates.append(res)
+            return res
         return func_with_new_name(impl, "binop_%s_impl" % bytecode)
 
     descr_add = _binop_impl("a")
@@ -182,6 +193,7 @@ class FloatWrapper(BaseArray):
     """
 
     def __init__(self, float_value):
+        BaseArray.__init__(self)
         self.float_value = float_value
 
     def compile(self):
@@ -193,18 +205,39 @@ class BinOp(BaseArray):
     """
 
     def __init__(self, opcode, left, right):
+        BaseArray.__init__(self)
         self.opcode = opcode
         self.left = left
         self.right = right
+
+        self.forced_result = None
 
     def compile(self):
         left_code = self.left.compile()
         right_code = self.right.compile()
         return left_code.merge(self.opcode, right_code)
 
-BaseArray.typedef = TypeDef(
+    def force_if_needed(self):
+        if self.forced_result is None:
+            self.forced_result = self.force()
+
+    @unwrap_spec(item=int)
+    def descr_getitem(self, space, item):
+        self.force_if_needed()
+        return self.forced_result.descr_getitem(space, item)
+
+    @unwrap_spec(item=int, value=float)
+    def descr_setitem(self, space, item, value):
+        self.forced_if_needed()
+        self.invalidated()
+        return self.forced_result.descr_setitem(space, item, value)
+
+
+BinOp.typedef = TypeDef(
     'Operation',
-    force = interp2app(BaseArray.force),
+    __getitem__ = interp2app(BinOp.descr_getitem),
+    __setitem__ = interp2app(BinOp.descr_setitem),
+
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
@@ -213,6 +246,7 @@ BaseArray.typedef = TypeDef(
 
 class SingleDimArray(BaseArray):
     def __init__(self, size):
+        BaseArray.__init__(self)
         self.size = size
         self.storage = lltype.malloc(TP, size, zero=True,
                                      flavor='raw', track_allocation=False)
@@ -239,10 +273,8 @@ class SingleDimArray(BaseArray):
         if item > self.size:
             raise operationerrfmt(space.w_TypeError,
               '%d above array size', item)
+        self.invalidated()
         self.storage[item] = value
-
-    def force(self):
-        return self
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw')
@@ -270,5 +302,4 @@ SingleDimArray.typedef = TypeDef(
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
-    force = interp2app(SingleDimArray.force),
 )

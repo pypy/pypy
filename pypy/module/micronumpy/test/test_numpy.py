@@ -23,7 +23,6 @@ class AppTestNumpyLike(object):
         from numpy import array
         a = array(range(5))
         b = a + a
-        b = b.force()
         for i in range(5):
             assert b[i] == i + i
 
@@ -32,7 +31,6 @@ class AppTestNumpyLike(object):
         a = array(range(5))
         b = array(reversed(range(5)))
         c = a + b
-        c = c.force()
         for i in range(5):
             assert c[i] == 4
 
@@ -40,14 +38,13 @@ class AppTestNumpyLike(object):
         from numpy import array
         a = array(range(5))
         b = a + 5
-        b = b.force()
         for i in range(5):
             assert b[i] == i + 5
 
     def test_subtract(self):
         from numpy import array
         a = array(range(5))
-        b = (a - a).force()
+        b = a - a
         for i in range(5):
             assert b[i] == 0
 
@@ -55,14 +52,14 @@ class AppTestNumpyLike(object):
         from numpy import array
         a = array(range(5))
         b = array([1, 1, 1, 1, 1])
-        c = (a - b).force()
+        c = a - b
         for i in range(5):
             assert c[i] == i - 1
 
     def test_subtract_constant(self):
         from numpy import array
         a = array(range(5))
-        b = (a - 5).force()
+        b = a - 5
         for i in range(5):
             assert b[i] == i - 5
 
@@ -70,7 +67,6 @@ class AppTestNumpyLike(object):
         from numpy import array
         a = array(range(5))
         b = a * a
-        b = b.force()
         for i in range(5):
             assert b[i] == i * i
 
@@ -78,14 +74,13 @@ class AppTestNumpyLike(object):
         from numpy import array
         a = array(range(5))
         b = a * 5
-        b = b.force()
         for i in range(5):
             assert b[i] == i * 5
 
     def test_div(self):
         from numpy import array
         a = array(range(1, 6))
-        b = (a / a).force()
+        b = a / a
         for i in range(5):
             assert b[i] == 1
 
@@ -93,16 +88,24 @@ class AppTestNumpyLike(object):
         from numpy import array
         a = array(range(5))
         b = array([2, 2, 2, 2, 2])
-        c = (a / b).force()
+        c = a / b
         for i in range(5):
             assert c[i] == i / 2.0
 
     def test_div_constant(self):
         from numpy import array
         a = array(range(5))
-        b = (a / 5.0).force()
+        b = a / 5.0
         for i in range(5):
             assert b[i] == i / 5.0
+
+    def test_auto_force(self):
+        from numpy import array
+        a = array(range(5))
+        b = a - 1
+        a[2] = 3
+        for i in range(5):
+            assert b[i] == i - 1
 
 class AppTestNumpy(object):
     def setup_class(cls):
