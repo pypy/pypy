@@ -79,6 +79,7 @@ struct RPyOpaque_ThreadLock {
 	/* a <cond, mutex> pair to handle an acquire of a locked lock */
 	pthread_cond_t   lock_released;
 	pthread_mutex_t  mut;
+	struct RPyOpaque_ThreadLock *prev, *next;
 };
 
 #define RPyOpaque_INITEXPR_ThreadLock  {        \
@@ -98,6 +99,7 @@ int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
 long RPyThreadGetStackSize(void);
 long RPyThreadSetStackSize(long);
+void RPyThreadAfterFork(void);
 
 
 /* implementations */
@@ -241,6 +243,10 @@ long RPyThreadSetStackSize(long newsize)
 
 #include <semaphore.h>
 
+void RPyThreadAfterFork(void)
+{
+}
+
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
@@ -312,6 +318,29 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 #else                                      /* no semaphores */
 /************************************************************/
 
+struct RPyOpaque_ThreadLock *alllocks;   /* doubly-linked list */
+
+void RPyThreadAfterFork(void)
+{
+	/* Mess.  We have no clue about how it works on CPython on OSX,
+	   but the issue is that the state of mutexes is not really
+	   preserved across a fork().  So we need to walk over all lock
+	   objects here, and rebuild their mutex and condition variable.
+
+	   See e.g. http://hackage.haskell.org/trac/ghc/ticket/1391 for
+	   a similar bug about GHC.
+	*/
+	struct RPyOpaque_ThreadLock *p = alllocks;
+	alllocks = NULL;
+	while (p) {
+		struct RPyOpaque_ThreadLock *next = p->next;
+		int was_locked = p->locked;
+		RPyThreadLockInit(p);
+		p->locked = was_locked;
+		p = next;
+	}
+}
+
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
@@ -330,6 +359,12 @@ int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 	if (error)
 		return 0;
 	lock->initialized = 1;
+	/* add 'lock' in the doubly-linked list */
+	if (alllocks)
+		alllocks->prev = lock;
+	lock->next = alllocks;
+	lock->prev = NULL;
+	alllocks = lock;
 	return 1;
 }
 
@@ -337,6 +372,16 @@ void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
 	if (lock->initialized) {
+		/* remove 'lock' from the doubly-linked list */
+		if (lock->prev)
+			lock->prev->next = lock->next;
+		else {
+			assert(alllocks == lock);
+			alllocks = lock->next;
+		}
+		if (lock->next)
+			lock->next->prev = lock->prev;
+
 		status = pthread_mutex_destroy(&lock->mut);
 		CHECK_STATUS("pthread_mutex_destroy");
 

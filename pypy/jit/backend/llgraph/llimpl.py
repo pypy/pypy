@@ -25,6 +25,7 @@ from pypy.jit.codewriter import longlong
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
+from pypy.rlib.rtimer import read_timestamp
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -407,6 +408,13 @@ def compile_redirect_fail(old_loop, old_index, new_loop):
     guard_op = old_loop.operations[old_index]
     assert guard_op.is_guard()
     guard_op.jump_target = new_loop
+    # check that the bridge's inputargs are of the correct number and
+    # kind for the guard
+    if guard_op.fail_args is not None:
+        argkinds = [v.concretetype for v in guard_op.fail_args if v]
+    else:
+        argkinds = []
+    assert argkinds == [v.concretetype for v in new_loop.inputargs]
 
 # ------------------------------
 
@@ -506,7 +514,7 @@ class Frame(object):
                         ', '.join(map(str, args)),))
                 self.fail_args = args
                 return op.fail_index
- 
+
             else:
                 assert 0, "unknown final operation %d" % (op.opnum,)
 
@@ -856,6 +864,9 @@ class Frame(object):
         opaque_frame = _to_opaque(self)
         return llmemory.cast_ptr_to_adr(opaque_frame)
 
+    def op_read_timestamp(self, descr):
+        return read_timestamp()
+
     def op_call_may_force(self, calldescr, func, *args):
         assert not self._forced
         self._may_force = self.opindex
@@ -937,7 +948,7 @@ class Frame(object):
 class OOFrame(Frame):
 
     OPHANDLERS = [None] * (rop._LAST+1)
-    
+
     def op_new_with_vtable(self, descr, vtable):
         assert descr is None
         typedescr = get_class_size(self.memocast, vtable)
@@ -958,7 +969,7 @@ class OOFrame(Frame):
         return res
 
     op_getfield_gc_pure = op_getfield_gc
-    
+
     def op_setfield_gc(self, fielddescr, obj, newvalue):
         TYPE = fielddescr.TYPE
         fieldname = fielddescr.fieldname

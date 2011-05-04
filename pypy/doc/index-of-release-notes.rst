@@ -15,3 +15,4 @@ Historical release notes
    release-1.4.0.rst
    release-1.4.0beta.rst
    release-1.4.1.rst
+   release-1.5.0.rst

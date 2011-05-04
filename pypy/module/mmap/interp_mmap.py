@@ -123,6 +123,11 @@ class W_MMap(Wrappable):
             self.mmap.resize(newsize)
         except OSError, e:
             raise mmap_error(self.space, e)
+        except RValueError, e:
+            # obscure: in this case, RValueError translates to an app-level
+            # SystemError.
+            raise OperationError(self.space.w_SystemError,
+                                 self.space.wrap(e.message))
 
     def __len__(self):
         return self.space.wrap(self.mmap.size)

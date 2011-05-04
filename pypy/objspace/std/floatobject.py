@@ -10,7 +10,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
 from pypy.rlib.rfloat import (
-    isinf, isnan, INFINITY, NAN, copysign, formatd,
+    isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
@@ -102,7 +102,7 @@ TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
 
 def float_hex__Float(space, w_float):
     value = w_float.floatval
-    if isinf(value) or isnan(value):
+    if not isfinite(value):
         return str__Float(space, w_float)
     if value == 0.0:
         if copysign(1., value) == -1.:
@@ -136,15 +136,15 @@ def float_hex__Float(space, w_float):
 def float2string(space, w_float, code, precision):
     x = w_float.floatval
     # we special-case explicitly inf and nan here
-    if isinf(x):
+    if isfinite(x):
+        s = formatd(x, code, precision, DTSF_ADD_DOT_0)
+    elif isinf(x):
         if x > 0.0:
             s = "inf"
         else:
             s = "-inf"
-    elif isnan(x):
+    else:  # isnan(x):
         s = "nan"
-    else:
-        s = formatd(x, code, precision, DTSF_ADD_DOT_0)
     return space.wrap(s)
 
 def repr__Float(space, w_float):
@@ -179,7 +179,7 @@ def declare_compare_bigint(opname):
     if opname == 'eq' or opname == 'ne':
         def do_compare_bigint(f1, b2):
             """f1 is a float.  b2 is a bigint."""
-            if isinf(f1) or isnan(f1) or math.floor(f1) != f1:
+            if not isfinite(f1) or math.floor(f1) != f1:
                 return opname == 'ne'
             b1 = rbigint.fromfloat(f1)
             res = b1.eq(b2)
@@ -189,7 +189,7 @@ def declare_compare_bigint(opname):
     else:
         def do_compare_bigint(f1, b2):
             """f1 is a float.  b2 is a bigint."""
-            if isinf(f1) or isnan(f1):
+            if not isfinite(f1):
                 return op(f1, 0.0)
             if opname == 'gt' or opname == 'le':
                 # 'float > long'   <==>  'ceil(float) > long'
@@ -457,8 +457,6 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
 
     if x == 0.0:
         if y < 0.0:
-            if isinf(y):
-                return space.wrap(INFINITY)
             raise OperationError(space.w_ZeroDivisionError,
                                  space.wrap("0.0 cannot be raised to "
                                             "a negative power"))

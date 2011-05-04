@@ -18,4 +18,4 @@ if len(sys.argv) == 1 and os.path.dirname(sys.argv[0]) in '.':
 if __name__ == '__main__':
     import tool.autopath
     import pytest
-    pytest.main()
+    sys.exit(pytest.main())

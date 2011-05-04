@@ -1,5 +1,6 @@
 from pypy.conftest import gettestobjspace
 from pypy.module.pyexpat.interp_pyexpat import global_storage
+from pytest import skip
 
 class AppTestPyexpat:
     def setup_class(cls):
@@ -27,6 +28,15 @@ class AppTestPyexpat:
         assert pyexpat.EXPAT_VERSION.startswith('expat_')
         assert isinstance(pyexpat.version_info, tuple)
         assert isinstance(pyexpat.version_info[0], int)
+
+    def test_malformed_xml(self):
+        import sys
+        if sys.platform == "darwin":
+            skip("Fails with the version of expat on Mac OS 10.6.6")
+        import pyexpat
+        xml = "\0\r\n"
+        parser = pyexpat.ParserCreate()
+        raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
 
     def test_encoding(self):
         import pyexpat

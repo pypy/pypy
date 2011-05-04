@@ -37,9 +37,8 @@ platform = sys.platform
 
 def getinitialpath(prefix):
     from pypy.module.sys.version import CPYTHON_VERSION
-    dirname = '%d.%d.%d' % (CPYTHON_VERSION[0],
-                            CPYTHON_VERSION[1],
-                            CPYTHON_VERSION[2])
+    dirname = '%d.%d' % (CPYTHON_VERSION[0],
+                         CPYTHON_VERSION[1])
     lib_python = os.path.join(prefix, 'lib-python')
     python_std_lib = os.path.join(lib_python, dirname)
     checkdir(python_std_lib)
@@ -53,6 +52,11 @@ def getinitialpath(prefix):
     importlist.append(lib_pypy)
     importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
+    #
+    lib_tk_modified = os.path.join(python_std_lib_modified, 'lib-tk')
+    lib_tk = os.path.join(python_std_lib, 'lib-tk')
+    importlist.append(lib_tk_modified)
+    importlist.append(lib_tk)
     #
     # List here the extra platform-specific paths.
     if platform != 'win32':
