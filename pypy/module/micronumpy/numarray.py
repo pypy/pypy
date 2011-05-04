@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib import jit
 
@@ -13,21 +13,37 @@ numpy_driver = jit.JitDriver(greens = ['bytecode_pos', 'bytecode'],
                              virtualizables = ['frame'])
 
 class ComputationFrame(object):
-    _virtualizable2_ = ['valuestackdepth', 'valuestack[*]', 'local_pos',
-                        'locals[*]']
+    _virtualizable2_ = ['valuestackdepth', 'valuestack[*]',
+                        'array_pos', 'arrays[*]',
+                        'float_pos', 'floats[*]',
+                        ]
 
-    def __init__(self, input):
+    def __init__(self, arrays, floats):
         self = jit.hint(self, access_directly=True, fresh_virtualizable=True)
         self.valuestackdepth = 0
-        self.valuestack = [0.0] * len(input)
-        self.locals = input[:]
-        self.local_pos = len(input)
+        self.arrays = arrays
+        self.array_pos = len(arrays)
+        self.floats = floats
+        self.float_pos = len(floats)
+        self.valuestack = [0.0] * (len(arrays) + len(floats))
 
-    def getlocal(self):
-        p = self.local_pos - 1
+    def reset(self):
+        self.valuestackdepth = 0
+        self.array_pos = len(self.arrays)
+        self.float_pos = len(self.floats)
+
+    def getarray(self):
+        p = self.array_pos - 1
         assert p >= 0
-        res = self.locals[p]
-        self.local_pos = p
+        res = self.arrays[p]
+        self.array_pos = p
+        return res
+
+    def getfloat(self):
+        p = self.float_pos - 1
+        assert p >= 0
+        res = self.floats[p]
+        self.float_pos = p
         return res
 
     def popvalue(self):
@@ -41,12 +57,37 @@ class ComputationFrame(object):
         self.valuestack[self.valuestackdepth] = v
         self.valuestackdepth += 1
 
-def compute(bytecode, input):
-    result_size = input[0].size
+class Code(object):
+    """
+    A chunk of bytecode.
+    """
+
+    def __init__(self, bytecode, arrays, floats):
+        self.bytecode = bytecode
+        self.arrays = arrays
+        self.floats = floats
+
+    def merge(self, code, other):
+        """
+        Merge this bytecode with the other bytecode, using ``code`` as the
+        bytecode instruction for performing the merge.
+        """
+
+        return Code(code + self.bytecode + other.bytecode,
+            self.arrays + other.arrays,
+            self.floats + other.floats)
+
+def compute(code):
+    """
+    Crunch a ``Code`` full of bytecode.
+    """
+
+    bytecode = code.bytecode
+    result_size = code.arrays[0].size
     result = SingleDimArray(result_size)
     bytecode_pos = len(bytecode) - 1
     i = 0
-    frame = ComputationFrame(input)
+    frame = ComputationFrame(code.arrays, code.floats)
     while i < result_size:
         numpy_driver.jit_merge_point(bytecode=bytecode, result=result,
                                      result_size=result_size,
@@ -54,9 +95,8 @@ def compute(bytecode, input):
                                      bytecode_pos=bytecode_pos)
         if bytecode_pos == -1:
             bytecode_pos = len(bytecode) - 1
-            frame.local_pos = len(frame.locals)
+            frame.reset()
             result.storage[i] = frame.valuestack[0]
-            frame.valuestackdepth = 0
             i += 1
             numpy_driver.can_enter_jit(bytecode=bytecode, result=result,
                                        result_size=result_size,
@@ -65,15 +105,26 @@ def compute(bytecode, input):
         else:
             opcode = bytecode[bytecode_pos]
             if opcode == 'l':
-                val = frame.getlocal().storage[i]
-                frame.valuestack[frame.valuestackdepth] = val
-                frame.valuestackdepth += 1
+                # Load array.
+                val = frame.getarray().storage[i]
+                frame.pushvalue(val)
+            elif opcode == 'f':
+                # Load float.
+                val = frame.getfloat()
+                frame.pushvalue(val)
             elif opcode == 'a':
+                # Add.
                 b = frame.popvalue()
                 a = frame.popvalue()
                 frame.pushvalue(a + b)
+            elif opcode == 'm':
+                # Multiply.
+                b = frame.popvalue()
+                a = frame.popvalue()
+                frame.pushvalue(a * b)
             else:
-                raise NotImplementedError
+                raise NotImplementedError(
+                    "Can't handle bytecode instruction %s" % opcode)
             bytecode_pos -= 1
     return result
 
@@ -81,38 +132,64 @@ JITCODES = {}
 
 class BaseArray(Wrappable):
     def force(self):
-        bytecode, stack = self.compile()
+        code = self.compile()
         try:
-            bytecode = JITCODES[bytecode]
+            code.bytecode = JITCODES[code.bytecode]
         except KeyError:
-            JITCODES[bytecode] = bytecode
+            JITCODES[code.bytecode] = code.bytecode
         # the point of above hacks is to intern the bytecode string
         # otherwise we have to compile new assembler each time, which sucks
         # (we still have to compile new bytecode, but too bad)
-        return compute(bytecode, stack)
+        return compute(code)
 
     def descr_add(self, space, w_other):
-        return space.wrap(Add(self, w_other))
+        if isinstance(w_other, BaseArray):
+            return space.wrap(BinOp('a', self, w_other))
+        else:
+            return space.wrap(BinOp('a', self,
+                FloatWrapper(space.float_w(w_other))))
+
+    def descr_mul(self, space, w_other):
+        if isinstance(w_other, BaseArray):
+            return space.wrap(BinOp('m', self, w_other))
+        else:
+            return space.wrap(BinOp('m', self,
+                FloatWrapper(space.float_w(w_other))))
 
     def compile(self):
         raise NotImplementedError("abstract base class")
 
-class Add(BaseArray):
-    def __init__(self, left, right):
-        assert isinstance(left, BaseArray)
-        assert isinstance(right, BaseArray)
+class FloatWrapper(BaseArray):
+    """
+    Intermediate class representing a float literal.
+    """
+
+    def __init__(self, float_value):
+        self.float_value = float_value
+
+    def compile(self):
+        return Code('f', [], [self.float_value])
+
+class BinOp(BaseArray):
+    """
+    Intermediate class for performing binary operations.
+    """
+
+    def __init__(self, opcode, left, right):
+        self.opcode = opcode
         self.left = left
         self.right = right
 
     def compile(self):
-        left_bc, left_stack = self.left.compile()
-        right_bc, right_stack = self.right.compile()
-        return 'a' + left_bc + right_bc, left_stack + right_stack
+        left_code = self.left.compile()
+        right_code = self.right.compile()
+        return left_code.merge(self.opcode, right_code)
 
 BaseArray.typedef = TypeDef(
     'Operation',
-    force=interp2app(BaseArray.force),
+    force = interp2app(BaseArray.force),
     __add__ = interp2app(BaseArray.descr_add),
+    __mul__ = interp2app(BaseArray.descr_mul),
 )
 
 class SingleDimArray(BaseArray):
@@ -123,7 +200,7 @@ class SingleDimArray(BaseArray):
         # XXX find out why test_jit explodes with trackign of allocations
 
     def compile(self):
-        return "l", [self]
+        return Code('l', [self], [])
 
     @unwrap_spec(item=int)
     def descr_getitem(self, space, item):
@@ -171,6 +248,6 @@ SingleDimArray.typedef = TypeDef(
     __getitem__ = interp2app(SingleDimArray.descr_getitem),
     __setitem__ = interp2app(SingleDimArray.descr_setitem),
     __add__ = interp2app(BaseArray.descr_add),
+    __mul__ = interp2app(BaseArray.descr_mul),
     force = interp2app(SingleDimArray.force),
 )
-
