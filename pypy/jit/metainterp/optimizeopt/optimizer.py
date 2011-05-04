@@ -344,17 +344,21 @@ class Optimizer(Optimization):
         if surviving_boxes is None:
             surviving_boxes = []
 
+        for box in surviving_boxes:
+            if box not in short_boxes:
+                short_boxes[box] = None
+
         valuemap = {}
         new = Optimizer(self.metainterp_sd, self.loop)
-        optimizations = [o.reconstruct_for_next_iteration(short_boxes, surviving_boxes,
+        optimizations = [o.reconstruct_for_next_iteration(short_boxes,
+                                                          surviving_boxes,
                                                           new, valuemap)
                          for o in self.optimizations]
         new.set_optimizations(optimizations)
 
-        new.interned_refs = self.interned_refs # Constants
-        new.bool_boxes = {} # Flags values as bools
-        for value in new.bool_boxes.keys():
-            new.bool_boxes[value.get_cloned(new, valuemap)] = None
+        for value, box in self.interned_refs.items():
+            if box in short_boxes:
+                new.interned_refs[value] = box
 
         new.pure_operations = args_dict()
         for key, op in self.pure_operations.items():
@@ -363,15 +367,18 @@ class Optimizer(Optimization):
         new.producer = self.producer
         assert self.posponedop is None
 
-        for box in short_boxes.keys() + surviving_boxes:
+        for box in short_boxes:
             box = new.getinterned(box)
             value = self.getvalue(box)
+            bool_box = value in self.bool_boxes
             force = box in surviving_boxes
             value = value.get_cloned(new, valuemap,
                                      force_if_needed=force)
             if value is not None:
                 new.values[box] = value
-                
+                if bool_box:
+                    new.bool_boxes[value] = None
+
         return new
 
     def produce_potential_short_preamble_ops(self, potential_ops):
@@ -387,6 +394,7 @@ class Optimizer(Optimization):
         short_boxes = {}
         for box in inputargs:
             short_boxes[box] = None
+        
         for box in potential_ops.keys():
             try:
                 self.produce_short_preamble_box(box, short_boxes,
