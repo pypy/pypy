@@ -1,7 +1,7 @@
 
 from pypy.jit.metainterp.warmspot import ll_meta_interp
 from pypy.rlib.jit import JitDriver, dont_look_inside, purefunction
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.jitprof import *
 

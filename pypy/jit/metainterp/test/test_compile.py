@@ -86,6 +86,8 @@ def test_compile_new_loop():
     metainterp.history = History()
     metainterp.history.operations = loop.operations[:]
     metainterp.history.inputargs = loop.inputargs[:]
+    cpu._all_size_descrs_with_vtable = (
+        LLtypeMixin.cpu._all_size_descrs_with_vtable)
     #
     loop_tokens = []
     loop_token = compile_new_loop(metainterp, loop_tokens, [], 0, None)

@@ -284,6 +284,18 @@ class AppTestAppSetTest:
         # All empty frozenset subclass instances should have different ids
         assert len(set(map(id, efs))) == len(efs)
 
+    def test_subclass_union(self):
+        for base in [set, frozenset]:
+            class subset(base):
+                def __init__(self, *args):
+                    self.x = args
+            s = subset([2])
+            assert s.x == ([2],)
+            t = s | base([5])
+            # obscure CPython behavior:
+            assert type(t) is subset
+            assert not hasattr(t, 'x')
+
     def test_isdisjoint(self):
         assert set([1,2,3]).isdisjoint(set([4,5,6]))
         assert set([1,2,3]).isdisjoint(frozenset([4,5,6]))

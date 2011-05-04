@@ -30,18 +30,18 @@ class LoopStorage(object):
             self.codes[fname] = res
             return res
 
-    def disassemble_code(self, fname, startlineno):
+    def disassemble_code(self, fname, startlineno, name):
         try:
             if py.path.local(fname).check(file=False):
                 return None # cannot find source file
         except py.error.EACCES:
             return None # cannot open the file
-        key = (fname, startlineno)
+        key = (fname, startlineno, name)
         try:
             return self.disassembled_codes[key]
         except KeyError:
             codeobjs = self.load_code(fname)
-            if startlineno not in codeobjs:
+            if (startlineno, name) not in codeobjs:
                 # cannot find the code obj at this line: this can happen for
                 # various reasons, e.g. because the .py files changed since
                 # the log was produced, or because the co_firstlineno
@@ -49,7 +49,7 @@ class LoopStorage(object):
                 # produced by gateway.applevel(), such as the ones found in
                 # nanos.py)
                 return None
-            code = codeobjs[startlineno]
+            code = codeobjs[(startlineno, name)]
             res = dis(code)
             self.disassembled_codes[key] = res
             return res

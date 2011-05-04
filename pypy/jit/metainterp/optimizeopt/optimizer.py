@@ -220,7 +220,7 @@ class Optimization(object):
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
     def has_pure_result(self, opnum, args, descr):
-        op = ResOperation(opnum, args, None)
+        op = ResOperation(opnum, args, None, descr)
         key = self.optimizer.make_args_key(op)
         op = self.optimizer.pure_operations.get(key, None)
         if op is None:
@@ -482,7 +482,7 @@ class Optimizer(Optimization):
 
     def make_args_key(self, op):
         n = op.numargs()
-        args = [None] * (n + 1)
+        args = [None] * (n + 2)
         for i in range(n):
             arg = op.getarg(i)
             try:
@@ -493,6 +493,7 @@ class Optimizer(Optimization):
                 arg = value.get_key_box()
             args[i] = arg
         args[n] = ConstInt(op.getopnum())
+        args[n+1] = op.getdescr()
         return args
 
     def optimize_default(self, op):
@@ -514,12 +515,10 @@ class Optimizer(Optimization):
                     break
             else:
                 # all constant arguments: constant-fold away
-                argboxes = [self.get_constant_box(op.getarg(i))
-                            for i in range(op.numargs())]
-                resbox = execute_nonspec(self.cpu, None,
-                                         op.getopnum(), argboxes, op.getdescr())
-                # FIXME: Don't we need to check for an overflow here?
-                self.make_constant(op.result, resbox.constbox())
+                resbox = self.constant_fold(op)
+                # note that INT_xxx_OVF is not done from here, and the
+                # overflows in the INT_xxx operations are ignored
+                self.make_constant(op.result, resbox)
                 return
 
             # did we do the exact same operation already?
@@ -537,6 +536,13 @@ class Optimizer(Optimization):
         self.emit_operation(op)
         if nextop:
             self.emit_operation(nextop)
+
+    def constant_fold(self, op):
+        argboxes = [self.get_constant_box(op.getarg(i))
+                    for i in range(op.numargs())]
+        resbox = execute_nonspec(self.cpu, None,
+                                 op.getopnum(), argboxes, op.getdescr())
+        return resbox.constbox()
 
     #def optimize_GUARD_NO_OVERFLOW(self, op):
     #    # otherwise the default optimizer will clear fields, which is unwanted

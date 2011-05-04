@@ -170,6 +170,10 @@ BOOL LeaveNonRecursiveMutex(PNRMUTEX mutex)
 
 /************************************************************/
 
+void RPyThreadAfterFork(void)
+{
+}
+
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock * lock)
 {
   return InitializeNonRecursiveMutex(lock);

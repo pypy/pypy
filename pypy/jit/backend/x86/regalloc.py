@@ -367,7 +367,7 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               current_depths)
-        self.possibly_free_vars(guard_op.getfailargs())        
+        self.possibly_free_vars(guard_op.getfailargs())
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -443,7 +443,7 @@ class RegAlloc(object):
                     assert isinstance(arg, Box)
                     if arg not in last_used:
                         last_used[arg] = i
-                        
+
         longevity = {}
         for arg in produced:
             if arg in last_used:
@@ -837,7 +837,7 @@ class RegAlloc(object):
         self._call(op, [imm(size), vable] +
                    [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_op)
-        
+
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
@@ -860,15 +860,27 @@ class RegAlloc(object):
         self.PerformDiscard(op, arglocs)
         self.rm.possibly_free_vars_for_op(op)
 
-    def _fastpath_malloc(self, op, descr):
+    def fastpath_malloc_fixedsize(self, op, descr):
         assert isinstance(descr, BaseSizeDescr)
+        self._do_fastpath_malloc(op, descr.size, descr.tid)
+
+    def fastpath_malloc_varsize(self, op, arraydescr, num_elem):
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
+        basesize = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        size = basesize + itemsize * num_elem
+        self._do_fastpath_malloc(op, size, arraydescr.tid)
+        self.assembler.set_new_array_length(eax, ofs_length, imm(num_elem))
+
+    def _do_fastpath_malloc(self, op, size, tid):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
 
         if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
             # ---- shadowstack ----
             # We need edx as a temporary, but otherwise don't save any more
-            # register.  See comments in _build_malloc_fixedsize_slowpath().
+            # register.  See comments in _build_malloc_slowpath().
             tmp_box = TempBox()
             self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
             self.rm.possibly_free_var(tmp_box)
@@ -885,16 +897,16 @@ class RegAlloc(object):
                     self.rm.force_allocate_reg(tmp_box, selected_reg=reg)
                     self.rm.possibly_free_var(tmp_box)
 
-        self.assembler.malloc_cond_fixedsize(
+        self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            descr.size, descr.tid,
+            size, tid,
             )
 
     def consider_new(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         if gc_ll_descr.can_inline_malloc(op.getdescr()):
-            self._fastpath_malloc(op, op.getdescr())
+            self.fastpath_malloc_fixedsize(op, op.getdescr())
         else:
             args = gc_ll_descr.args_for_new(op.getdescr())
             arglocs = [imm(x) for x in args]
@@ -904,7 +916,7 @@ class RegAlloc(object):
         classint = op.getarg(0).getint()
         descrsize = heaptracker.vtable2descr(self.assembler.cpu, classint)
         if self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize):
-            self._fastpath_malloc(op, descrsize)
+            self.fastpath_malloc_fixedsize(op, descrsize)
             self.assembler.set_vtable(eax, imm(classint))
             # result of fastpath malloc is in eax
         else:
@@ -963,16 +975,25 @@ class RegAlloc(object):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newarray is not None:
             # framework GC
-            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(op.getdescr())
+            box_num_elem = op.getarg(0)
+            if isinstance(box_num_elem, ConstInt):
+                num_elem = box_num_elem.value
+                if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
+                                                         num_elem):
+                    self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
+                    return
+            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
+                op.getdescr())
             arglocs = [imm(x) for x in args]
-            arglocs.append(self.loc(op.getarg(0)))
-            return self._call(op, arglocs)
+            arglocs.append(self.loc(box_num_elem))
+            self._call(op, arglocs)
+            return
         # boehm GC (XXX kill the following code at some point)
         itemsize, basesize, ofs_length, _, _ = (
             self._unpack_arraydescr(op.getdescr()))
         scale_of_field = _get_scale(itemsize)
-        return self._malloc_varsize(basesize, ofs_length, scale_of_field,
-                                    op.getarg(0), op.result)
+        self._malloc_varsize(basesize, ofs_length, scale_of_field,
+                             op.getarg(0), op.result)
 
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
@@ -1222,6 +1243,29 @@ class RegAlloc(object):
             return 1
         else:
             raise AssertionError("bad unicode item size")
+
+    def consider_read_timestamp(self, op):
+        tmpbox_high = TempBox()
+        self.rm.force_allocate_reg(tmpbox_high, selected_reg=eax)
+        if longlong.is_64_bit:
+            # on 64-bit, use rax as temporary register and returns the
+            # result in rdx
+            result_loc = self.rm.force_allocate_reg(op.result,
+                                                    selected_reg=edx)
+            self.Perform(op, [], result_loc)
+        else:
+            # on 32-bit, use both eax and edx as temporary registers,
+            # use a temporary xmm register, and returns the result in
+            # another xmm register.
+            tmpbox_low = TempBox()
+            self.rm.force_allocate_reg(tmpbox_low, selected_reg=edx)
+            xmmtmpbox = TempBox()
+            xmmtmploc = self.xrm.force_allocate_reg(xmmtmpbox)
+            result_loc = self.xrm.force_allocate_reg(op.result)
+            self.Perform(op, [xmmtmploc], result_loc)
+            self.xrm.possibly_free_var(xmmtmpbox)
+            self.rm.possibly_free_var(tmpbox_low)
+        self.rm.possibly_free_var(tmpbox_high)
 
     def consider_jump(self, op):
         assembler = self.assembler

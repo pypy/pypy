@@ -298,8 +298,11 @@ class ExecutionContext(object):
 
         # Profile cases
         if self.profilefunc is not None:
-            if event not in ['leaveframe', 'call', 'c_call',
-                             'c_return', 'c_exception']:
+            if not (event == 'leaveframe' or
+                    event == 'call' or
+                    event == 'c_call' or
+                    event == 'c_return' or
+                    event == 'c_exception'):
                 return False
 
             last_exception = frame.last_exception
@@ -519,7 +522,7 @@ class FrameTraceAction(AsyncAction):
             return
         code = frame.pycode
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
-            if frame.last_instr <= frame.instr_prev:
+            if frame.last_instr < frame.instr_prev_plus_one:
                 # We jumped backwards in the same line.
                 executioncontext._trace(frame, 'line', self.space.w_None)
         else:
@@ -557,5 +560,5 @@ class FrameTraceAction(AsyncAction):
                 frame.f_lineno = line
                 executioncontext._trace(frame, 'line', self.space.w_None)
 
-        frame.instr_prev = frame.last_instr
+        frame.instr_prev_plus_one = frame.last_instr + 1
         self.space.frame_trace_action.fire()     # continue tracing

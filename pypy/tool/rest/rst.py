@@ -389,18 +389,14 @@ class Directive(Paragraph):
     indent = '   '
     def __init__(self, name, *args, **options):
         self.name = name
-        self.content = options.pop('content', [])
-        children = list(args)
-        super(Directive, self).__init__(*children)
+        self.content = args
+        super(Directive, self).__init__()
         self.options = options
         
     def text(self):
         # XXX not very pretty...
-        namechunksize = len(self.name) + 2
-        self.children.insert(0, Text('X' * namechunksize))
-        txt = super(Directive, self).text()
-        txt = '.. %s::%s' % (self.name, txt[namechunksize + 3:],)
-        options = '\n'.join(['   :%s: %s' % (k, v) for (k, v) in
+        txt = '.. %s::' % (self.name,)
+        options = '\n'.join(['    :%s: %s' % (k, v) for (k, v) in
                              self.options.iteritems()])
         if options:
             txt += '\n%s' % (options,)
@@ -408,10 +404,7 @@ class Directive(Paragraph):
         if self.content:
             txt += '\n'
             for item in self.content:
-                assert item.parentclass == Rest, 'only top-level items allowed'
-                assert not item.indent
-                item.indent = '   '
-                txt += '\n' + item.text()
+                txt += '\n    ' + item
         
         return txt
 

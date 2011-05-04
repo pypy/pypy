@@ -43,9 +43,14 @@ else:
 
 class SizeDescr(AbstractDescr):
     size = 0      # help translation
+    is_immutable = False
 
-    def __init__(self, size):
+    def __init__(self, size, count_fields_if_immut=-1):
         self.size = size
+        self.count_fields_if_immut = count_fields_if_immut
+
+    def count_fields_if_immutable(self):
+        return self.count_fields_if_immut
 
     def repr_of_descr(self):
         return '<SizeDescr %s>' % self.size
@@ -62,14 +67,14 @@ def get_size_descr(gccache, STRUCT):
         return cache[STRUCT]
     except KeyError:
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
+        count_fields_if_immut = heaptracker.count_fields_if_immutable(STRUCT)
         if heaptracker.has_gcstruct_a_vtable(STRUCT):
-            sizedescr = SizeDescrWithVTable(size)
+            sizedescr = SizeDescrWithVTable(size, count_fields_if_immut)
         else:
-            sizedescr = SizeDescr(size)
+            sizedescr = SizeDescr(size, count_fields_if_immut)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
         return sizedescr
-
 
 # ____________________________________________________________
 # FieldDescrs

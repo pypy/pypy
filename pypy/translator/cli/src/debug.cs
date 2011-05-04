@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 // this code is modeled after translator/c/src/debug.h
@@ -21,12 +22,20 @@ namespace pypy.runtime
         static int have_debug_prints = -1;
         static bool debug_ready = false;
         static bool debug_profile = false;
-        static string debug_prefix = null;
+        static string[] active_categories = null;
 
         public static void close_file()
         {
             if (debug_file != null)
                 debug_file.Close();
+        }
+
+        public static bool startswithoneof(string category, string[] active_categories)
+        {
+            foreach(string cat in active_categories)
+                if (category.StartsWith(cat))
+                    return true;
+            return false;
         }
 
         public static bool HAVE_DEBUG_PRINTS()
@@ -48,7 +57,8 @@ namespace pypy.runtime
             have_debug_prints <<= 1;
             if (!debug_profile) {
                 /* non-profiling version */
-                if (debug_prefix == null || !category.StartsWith(debug_prefix)) {
+                if (active_categories == null || 
+                    !startswithoneof(category, active_categories)) {
                     /* wrong section name, or no PYPYLOG at all, skip it */
                     return;
                 }
@@ -83,7 +93,8 @@ namespace pypy.runtime
                 }
                 else {
                     /* PYPYLOG=prefix:filename --- conditional logging */
-                    debug_prefix = filename.Substring(0, colon);
+                    string debug_prefix = filename.Substring(0, colon);
+                    active_categories = debug_prefix.Split(',');
                     filename = filename.Substring(colon+1);
                 }
                 if (filename != "-")

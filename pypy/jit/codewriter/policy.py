@@ -42,9 +42,6 @@ class JitPolicy(object):
         mod = func.__module__ or '?'
         if mod.startswith('pypy.rpython.module.'):
             return True
-        if mod == 'pypy.rpython.lltypesystem.module.ll_math':
-            # XXX temporary, contains force_cast
-            return True
         if mod.startswith('pypy.translator.'): # XXX wtf?
             return True
         # string builder interface

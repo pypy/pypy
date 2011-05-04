@@ -427,3 +427,28 @@ class TestFunctions(BaseCTypesTestChecker):
         a[1].x = 33
         u = dll.ret_un_func(a[1])
         assert u.y == 33*10000
+
+    def test_warnings(self):
+        import warnings
+        warnings.simplefilter("always")
+        with warnings.catch_warnings(record=True) as w:
+            dll.get_an_integer()
+            assert len(w) == 2
+            assert issubclass(w[0].category, RuntimeWarning)
+            assert issubclass(w[1].category, RuntimeWarning)
+            assert "C function without declared arguments called" in str(w[0].message)
+            assert "C function without declared return type called" in str(w[1].message)
+
+        with warnings.catch_warnings(record=True) as w:
+            dll.get_an_integer.argtypes = []
+            dll.get_an_integer()
+            assert len(w) == 1
+            assert issubclass(w[0].category, RuntimeWarning)
+            assert "C function without declared return type called" in str(w[0].message)
+            
+        with warnings.catch_warnings(record=True) as w:
+            dll.get_an_integer.restype = None
+            dll.get_an_integer()
+            assert len(w) == 0
+            
+        warnings.resetwarnings()
