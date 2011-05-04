@@ -11,7 +11,7 @@ from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rstring import StringBuilder, string_repeat
+from pypy.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import StringBuffer
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
@@ -856,7 +856,7 @@ def mul_string_times(space, w_str, w_times):
     if len(input) == 1:
         s = input[0] * mul
     else:
-        s = string_repeat(input, mul)
+        s = input * mul
     # xxx support again space.config.objspace.std.withstrjoin?
     return W_StringObject(s)
 
