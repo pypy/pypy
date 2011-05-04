@@ -239,7 +239,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             i19 = int_add_ovf(i10, i17)
             guard_no_overflow(descr=<Guard6>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, p14, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=<Loop0>)
         """)
 
     def test_static_classmethod_call(self):
@@ -272,7 +272,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             i18 = force_token()
             i20 = int_sub(i17, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, p13, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, descr=<Loop0>)
         """)
 
     def test_default_and_kw(self):
@@ -1665,3 +1665,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('shift', "")  # optimized away
+
+
+def test_count():
+    assert 0, "loops too long! revert d5dd9462363a on model.py"
