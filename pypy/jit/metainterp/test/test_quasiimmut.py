@@ -388,6 +388,39 @@ class QuasiImmutTests(object):
             assert len(loop.quasi_immutable_deps) == 1
             assert isinstance(loop.quasi_immutable_deps.keys()[0], QuasiImmut)
 
+    def test_list_pass_around(self):
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
+        class Foo:
+            _immutable_fields_ = ['lst?[*]']
+            def __init__(self, lst):
+                self.lst = lst
+        def g(lst):
+            return lst[1]
+        def f(a, x):
+            lst1 = [0, 0]
+            g(lst1)
+            lst1[1] = a
+            foo = Foo(lst1)
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x, total=total)
+                # read a quasi-immutable field out of a Constant
+                total += g(foo.lst)
+                x -= 1
+            return total
+        #
+        res = self.meta_interp(f, [100, 7])
+        assert res == 700
+        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+                         getarrayitem_gc=0, getarrayitem_gc_pure=0,
+                         everywhere=True)
+        #
+        from pypy.jit.metainterp.warmspot import get_stats
+        loops = get_stats().loops
+        for loop in loops:
+            assert len(loop.quasi_immutable_deps) == 1
+            assert isinstance(loop.quasi_immutable_deps.keys()[0], QuasiImmut)
+
     def test_list_change_during_running(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
         class Foo:
