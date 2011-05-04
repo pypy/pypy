@@ -56,6 +56,10 @@ else:
     assert False
 print config
 
+from pypy.jit.codewriter.codewriter import CodeWriter
+CodeWriter.debug = True
+
+
 import sys, pdb
 
 space = Space(config)

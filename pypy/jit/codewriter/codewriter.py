@@ -13,8 +13,9 @@ from pypy.tool.udir import udir
 
 class CodeWriter(object):
     callcontrol = None    # for tests
+    debug = False
 
-    def __init__(self, cpu=None, jitdrivers_sd=[], debug=False):
+    def __init__(self, cpu=None, jitdrivers_sd=[]):
         self.cpu = cpu
         self.assembler = Assembler()
         self.callcontrol = CallControl(cpu, jitdrivers_sd)

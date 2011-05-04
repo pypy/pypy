@@ -66,7 +66,8 @@ class QuasiImmutTests(object):
         #
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_loops(getfield_gc=0, everywhere=True)
+        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+                         everywhere=True)
         #
         from pypy.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -95,12 +96,39 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7])
         assert res == 721
-        self.check_loops(getfield_gc=1)
+        self.check_loops(guard_not_invalidated=0, getfield_gc=1)
         #
         from pypy.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
         for loop in loops:
             assert loop.quasi_immutable_deps is None
+
+    def test_opt_via_virtual_1(self):
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
+        class Foo:
+            _immutable_fields_ = ['a?']
+            def __init__(self, a):
+                self.a = a
+        class A:
+            pass
+        def f(a, x):
+            foo = Foo(a)
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x, total=total)
+                # make it a Constant after optimization only
+                a = A()
+                a.foo = foo
+                foo = a.foo
+                # read a quasi-immutable field out of it
+                total += foo.a
+                x -= 1
+            return total
+        #
+        res = self.meta_interp(f, [100, 7])
+        assert res == 700
+        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+                         everywhere=True)
 
     def test_change_during_tracing_1(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
@@ -125,7 +153,7 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7])
         assert res == 721
-        self.check_loops(getfield_gc=1)
+        self.check_loops(guard_not_invalidated=0, getfield_gc=1)
 
     def test_change_during_tracing_2(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
@@ -151,7 +179,7 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 700
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_loops(getfield_gc=1)
+        self.check_loops(guard_not_invalidated=0, getfield_gc=1)
 
     def test_change_invalidate_reentering(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
@@ -177,7 +205,7 @@ class QuasiImmutTests(object):
         assert g(100, 7) == 700707
         res = self.meta_interp(g, [100, 7])
         assert res == 700707
-        self.check_loops(getfield_gc=0)
+        self.check_loops(guard_not_invalidated=2, getfield_gc=0)
 
     def test_invalidate_while_running(self):
         jitdriver = JitDriver(greens=['foo'], reds=['i', 'total'])
@@ -312,8 +340,47 @@ class QuasiImmutTests(object):
         #
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_loops(getfield_gc=0, getarrayitem_gc=0,
-                         getarrayitem_gc_pure=0, everywhere=True)
+        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+                         getarrayitem_gc=0, getarrayitem_gc_pure=0,
+                         everywhere=True)
+        #
+        from pypy.jit.metainterp.warmspot import get_stats
+        loops = get_stats().loops
+        for loop in loops:
+            assert len(loop.quasi_immutable_deps) == 1
+            assert isinstance(loop.quasi_immutable_deps.keys()[0], QuasiImmut)
+
+    def test_list_length_1(self):
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
+        class Foo:
+            _immutable_fields_ = ['lst?[*]']
+            def __init__(self, lst):
+                self.lst = lst
+        class A:
+            pass
+        def f(a, x):
+            lst1 = [0, 0]
+            lst1[1] = a
+            foo = Foo(lst1)
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x, total=total)
+                # make it a Constant after optimization only
+                a = A()
+                a.foo = foo
+                foo = a.foo
+                # read a quasi-immutable field out of it
+                total += foo.lst[1]
+                # also read the length
+                total += len(foo.lst)
+                x -= 1
+            return total
+        #
+        res = self.meta_interp(f, [100, 7])
+        assert res == 714
+        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+                         getarrayitem_gc=0, getarrayitem_gc_pure=0,
+                         arraylen_gc=0, everywhere=True)
         #
         from pypy.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
