@@ -1,5 +1,5 @@
-from pypy.module.micronumpy.numarray import SingleDimArray, Add, FloatAdd
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.module.micronumpy.numarray import SingleDimArray, BinOp, FloatWrapper
+from pypy.jit.metainterp.test.support import LLJitMixin
 
 class FakeSpace(object):
     pass
@@ -14,7 +14,7 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             ar = SingleDimArray(i)
             if i:
-                v = Add(ar, ar)
+                v = BinOp('a', ar, ar)
             else:
                 v = ar
             return v.force().storage[3]
@@ -31,13 +31,13 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             ar = SingleDimArray(i)
             if i:
-                v = FloatAdd(ar, 4.5)
+                v = BinOp('a', ar, FloatWrapper(4.5))
             else:
                 v = ar
             return v.force().storage[3]
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({"getarrayitem_gc": 2, "float_add": 2,
-                          "setarrayitem_gc": 1, "int_add": 1,
+        self.check_loops({"getarrayitem_raw": 1, "float_add": 1,
+                          "setarrayitem_raw": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
         assert result == f(5)

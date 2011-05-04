@@ -62,6 +62,7 @@ class AppTestNumpyLike(object):
 
 class AppTestNumpy(object):
     def setup_class(cls):
+        py.test.skip("unimplemented")
         cls.space = gettestobjspace(usemodules=('micronumpy',))
     
     def test_zeroes(self):
@@ -101,6 +102,7 @@ class AppTestNumpy(object):
 
 class AppTestMultiDim(object):
     def setup_class(cls):
+        py.test.skip("unimplemented")
         cls.space = gettestobjspace(usemodules=('micronumpy',))
 
     def test_multidim(self):

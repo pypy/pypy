@@ -4,6 +4,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib import jit
+from pypy.rlib.nonconst import NonConstant
 
 TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
@@ -24,6 +25,8 @@ class ComputationFrame(object):
         self.arrays = arrays
         self.array_pos = len(arrays)
         self.floats = floats
+        if NonConstant(0):
+            self.floats = [3.5] # annotator hack for test_jit
         self.float_pos = len(floats)
         self.valuestack = [0.0] * (len(arrays) + len(floats))
 
