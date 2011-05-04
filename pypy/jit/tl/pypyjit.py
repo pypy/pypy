@@ -56,10 +56,6 @@ else:
     assert False
 print config
 
-from pypy.jit.codewriter.codewriter import CodeWriter
-CodeWriter.debug = True
-
-
 import sys, pdb
 
 space = Space(config)
@@ -119,6 +115,8 @@ def test_run_translation():
     # print a message, and restart
     unixcheckpoint.restartable_point(auto='run')
 
+    from pypy.jit.codewriter.codewriter import CodeWriter
+    CodeWriter.debug = True
     from pypy.jit.tl.pypyjit_child import run_child, run_child_ootype
     if BACKEND == 'c':
         run_child(globals(), locals())
