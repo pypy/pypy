@@ -20,7 +20,6 @@ class CodeWriter(object):
         self.assembler = Assembler()
         self.callcontrol = CallControl(cpu, jitdrivers_sd)
         self._seen_files = set()
-        self.debug = debug
 
     def transform_func_to_jitcode(self, func, values, type_system='lltype'):
         """For testing."""
