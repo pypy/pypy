@@ -44,6 +44,28 @@ class AppTestNumpyLike(object):
         for i in range(5):
             assert b[i] == i + 5
 
+    def test_subtract(self):
+        from numpy import array
+        a = array(range(5))
+        b = (a - a).force()
+        for i in range(5):
+            assert b[i] == 0
+
+    def test_subtract_other(self):
+        from numpy import array
+        a = array(range(5))
+        b = array([1, 1, 1, 1, 1])
+        c = (a - b).force()
+        for i in range(5):
+            assert c[i] == i - 1
+
+    def test_subtract_constant(self):
+        from numpy import array
+        a = array(range(5))
+        b = (a - 5).force()
+        for i in range(5):
+            assert b[i] == i - 5
+
     def test_mul(self):
         from numpy import array
         a = array(range(5))
@@ -64,12 +86,12 @@ class AppTestNumpy(object):
     def setup_class(cls):
         py.test.skip("unimplemented")
         cls.space = gettestobjspace(usemodules=('micronumpy',))
-    
+
     def test_zeroes(self):
         from numpy import zeros
         ar = zeros(3, dtype=int)
         assert ar[0] == 0
-    
+
     def test_setitem_getitem(self):
         from numpy import zeros
         ar = zeros(8, dtype=int)

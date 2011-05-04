@@ -1,10 +1,12 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.error import operationerrfmt
-from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rpython.lltypesystem import lltype
+from pypy.interpreter.typedef import TypeDef
 from pypy.rlib import jit
 from pypy.rlib.nonconst import NonConstant
+from pypy.rpython.lltypesystem import lltype
+from pypy.tool.sourcetools import func_with_new_name
+
 
 TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
@@ -117,13 +119,18 @@ def compute(code):
                 frame.pushvalue(val)
             elif opcode == 'a':
                 # Add.
-                b = frame.popvalue()
                 a = frame.popvalue()
+                b = frame.popvalue()
                 frame.pushvalue(a + b)
+            elif opcode == 's':
+                # Subtract
+                a = frame.popvalue()
+                b = frame.popvalue()
+                frame.pushvalue(a - b)
             elif opcode == 'm':
                 # Multiply.
-                b = frame.popvalue()
                 a = frame.popvalue()
+                b = frame.popvalue()
                 frame.pushvalue(a * b)
             else:
                 raise NotImplementedError(
@@ -145,19 +152,21 @@ class BaseArray(Wrappable):
         # (we still have to compile new bytecode, but too bad)
         return compute(code)
 
-    def descr_add(self, space, w_other):
-        if isinstance(w_other, BaseArray):
-            return space.wrap(BinOp('a', self, w_other))
-        else:
-            return space.wrap(BinOp('a', self,
-                FloatWrapper(space.float_w(w_other))))
+    def _binop_impl(bytecode):
+        def impl(self, space, w_other):
+            if isinstance(w_other, BaseArray):
+                return space.wrap(BinOp(bytecode, self, w_other))
+            else:
+                return space.wrap(BinOp(
+                    bytecode,
+                    self,
+                    FloatWrapper(space.float_w(w_other))
+                ))
+        return func_with_new_name(impl, "binop_%s_impl" % bytecode)
 
-    def descr_mul(self, space, w_other):
-        if isinstance(w_other, BaseArray):
-            return space.wrap(BinOp('m', self, w_other))
-        else:
-            return space.wrap(BinOp('m', self,
-                FloatWrapper(space.float_w(w_other))))
+    descr_add = _binop_impl("a")
+    descr_mul = _binop_impl("m")
+    descr_sub = _binop_impl("s")
 
     def compile(self):
         raise NotImplementedError("abstract base class")
@@ -192,6 +201,7 @@ BaseArray.typedef = TypeDef(
     'Operation',
     force = interp2app(BaseArray.force),
     __add__ = interp2app(BaseArray.descr_add),
+    __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
 )
 
@@ -251,6 +261,7 @@ SingleDimArray.typedef = TypeDef(
     __getitem__ = interp2app(SingleDimArray.descr_getitem),
     __setitem__ = interp2app(SingleDimArray.descr_setitem),
     __add__ = interp2app(BaseArray.descr_add),
+    __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     force = interp2app(SingleDimArray.force),
 )
