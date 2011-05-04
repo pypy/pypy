@@ -132,6 +132,10 @@ def compute(code):
                 a = frame.popvalue()
                 b = frame.popvalue()
                 frame.pushvalue(a * b)
+            elif opcode == 'd':
+                a = frame.popvalue()
+                b = frame.popvalue()
+                frame.pushvalue(a / b)
             else:
                 raise NotImplementedError(
                     "Can't handle bytecode instruction %s" % opcode)
@@ -165,8 +169,9 @@ class BaseArray(Wrappable):
         return func_with_new_name(impl, "binop_%s_impl" % bytecode)
 
     descr_add = _binop_impl("a")
-    descr_mul = _binop_impl("m")
     descr_sub = _binop_impl("s")
+    descr_mul = _binop_impl("m")
+    descr_div = _binop_impl("d")
 
     def compile(self):
         raise NotImplementedError("abstract base class")
@@ -203,6 +208,7 @@ BaseArray.typedef = TypeDef(
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
+    __div__ = interp2app(BaseArray.descr_div),
 )
 
 class SingleDimArray(BaseArray):
@@ -263,5 +269,6 @@ SingleDimArray.typedef = TypeDef(
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
+    __div__ = interp2app(BaseArray.descr_div),
     force = interp2app(SingleDimArray.force),
 )

@@ -82,6 +82,28 @@ class AppTestNumpyLike(object):
         for i in range(5):
             assert b[i] == i * 5
 
+    def test_div(self):
+        from numpy import array
+        a = array(range(1, 6))
+        b = (a / a).force()
+        for i in range(5):
+            assert b[i] == 1
+
+    def test_div_other(self):
+        from numpy import array
+        a = array(range(5))
+        b = array([2, 2, 2, 2, 2])
+        c = (a / b).force()
+        for i in range(5):
+            assert c[i] == i / 2.0
+
+    def test_div_constant(self):
+        from numpy import array
+        a = array(range(5))
+        b = (a / 5.0).force()
+        for i in range(5):
+            assert b[i] == i / 5.0
+
 class AppTestNumpy(object):
     def setup_class(cls):
         py.test.skip("unimplemented")
