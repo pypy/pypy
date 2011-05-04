@@ -213,6 +213,9 @@ class BinOp(BaseArray):
         self.forced_result = None
 
     def compile(self):
+        if self.forced_result is not None:
+            return self.forced_result.compile()
+
         left_code = self.left.compile()
         right_code = self.right.compile()
         return left_code.merge(self.opcode, right_code)
