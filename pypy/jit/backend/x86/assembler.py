@@ -1202,17 +1202,6 @@ class Assembler386(object):
         self.mc.XOR_rr(edx.value, edx.value)
         self.mc.DIV_r(ecx.value)
 
-    def genop_discard_sse_float_add(self, op, arglocs):
-        base_loc, ofs_loc, itemsize, ofs, loc1, loc2 = arglocs
-        assert isinstance(loc1, RegLoc)
-        assert isinstance(loc2, RegLoc)
-        assert isinstance(ofs, ImmedLoc)
-        assert isinstance(itemsize, ImmedLoc)
-        scale = _get_scale(itemsize.value)
-        dest_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
-        self.mc.ADDPD(loc1, loc2)
-        self.mc.MOVAPD(dest_addr, loc1)
-
     genop_llong_add = _binaryop("PADDQ", True)
     genop_llong_sub = _binaryop("PSUBQ")
     genop_llong_and = _binaryop("PAND",  True)

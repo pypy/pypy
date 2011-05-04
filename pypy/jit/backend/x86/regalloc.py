@@ -1093,26 +1093,6 @@ class RegAlloc(object):
                                               imm(itemsize), imm(ofs),
                                               xmmreg)
 
-    def consider_sse_float_add(self, op):
-        box1 = TempBox()
-        box2 = TempBox()
-        loc1 = self.xrm.force_allocate_reg(box1)
-        loc2 = self.xrm.force_allocate_reg(box2, [box1])
-        arraydescr = op.getdescr()
-        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(3))
-        self._read_elem_into_xmmreg(loc1, op.getarg(0), op.getarg(3), ofs_loc,
-                                    arraydescr)
-        if op.getarg(1) != op.getarg(0):
-            self._read_elem_into_xmmreg(loc2, op.getarg(1), op.getarg(3),
-                                        ofs_loc, arraydescr)
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(2), [op.getarg(3)])
-        itemsize, ofs, _, _, _ = self._unpack_arraydescr(arraydescr)
-        self.possibly_free_vars(op.getarglist())
-        self.xrm.possibly_free_var(box1)
-        self.xrm.possibly_free_var(box2)
-        self.PerformDiscard(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                                 loc1, loc2])
-
     consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
 
