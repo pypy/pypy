@@ -167,7 +167,7 @@ class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
 def gen_test_float_load_store_func(name, table):
     tests = []
     for c,v in [('EQ', conditions.EQ), ('LE', conditions.LE), ('AL', conditions.AL)]:
-        for reg in range(16):
+        for reg in range(15):
             for creg in range(2):
                 asm = 'd%d, [r%d]' % (creg, reg)
                 tests.append((asm, (creg, reg)))
@@ -178,7 +178,7 @@ def gen_test_float_load_store_func(name, table):
 def gen_test_float64_data_proc_instructions_func(name, table):
     tests = []
     for c,v in [('EQ', conditions.EQ), ('LE', conditions.LE), ('AL', conditions.AL)]:
-        for reg in range(16):
+        for reg in range(15):
             if 'result' in table and not table['result']:
                 asm = 'd%d, d2' % reg
                 tests.append((asm, (reg, r.d2.value), {}, '.F64'))
