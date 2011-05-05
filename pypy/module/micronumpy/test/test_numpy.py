@@ -117,6 +117,12 @@ class AppTestNumpyLike(object):
         for i in range(5):
             assert b[i] == i - 1
 
+        a = array(range(5))
+        b = a + a
+        c = b + b
+        b[1] = 5
+        assert c[1] == 4
+
 class AppTestNumpy(object):
     def setup_class(cls):
         py.test.skip("unimplemented")

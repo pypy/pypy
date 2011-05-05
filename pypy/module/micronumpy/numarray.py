@@ -231,7 +231,7 @@ class BinOp(BaseArray):
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
-        self.forced_if_needed()
+        self.force_if_needed()
         self.invalidated()
         return self.forced_result.descr_setitem(space, item, value)
 
