@@ -37,6 +37,12 @@ class AppTestNumpyLike(object):
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
 
+    def test_len(self):
+        from numpy import array
+        a = array(range(5))
+        assert len(a) == 5
+        assert len(a + a) == 5
+
     def test_add(self):
         from numpy import array
         a = array(range(5))

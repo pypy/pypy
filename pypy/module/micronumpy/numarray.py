@@ -224,6 +224,10 @@ class BinOp(BaseArray):
         if self.forced_result is None:
             self.forced_result = self.force()
 
+    def descr_len(self, space):
+        self.force_if_needed()
+        return self.forced_result.descr_len(space)
+
     @unwrap_spec(item=int)
     def descr_getitem(self, space, item):
         self.force_if_needed()
@@ -238,6 +242,7 @@ class BinOp(BaseArray):
 
 BinOp.typedef = TypeDef(
     'Operation',
+    __len__ = interp2app(BinOp.descr_len),
     __getitem__ = interp2app(BinOp.descr_getitem),
     __setitem__ = interp2app(BinOp.descr_setitem),
 
@@ -268,6 +273,9 @@ class SingleDimArray(BaseArray):
             raise operationerrfmt(space.w_IndexError,
               '%d below zero', item)
         return item
+
+    def descr_len(self, space):
+        return space.wrap(self.size)
 
     @unwrap_spec(item=int)
     def descr_getitem(self, space, item):
@@ -300,8 +308,10 @@ def zeros(space, size):
 SingleDimArray.typedef = TypeDef(
     'numarray',
     __new__ = interp2app(descr_new_numarray),
+    __len__ = interp2app(SingleDimArray.descr_len),
     __getitem__ = interp2app(SingleDimArray.descr_getitem),
     __setitem__ = interp2app(SingleDimArray.descr_setitem),
+
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
