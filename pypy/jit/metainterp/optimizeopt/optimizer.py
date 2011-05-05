@@ -356,10 +356,12 @@ class Optimizer(Optimization):
                          for o in self.optimizations]
         new.set_optimizations(optimizations)
 
-        for value, box in self.interned_refs.items():
-            if box in short_boxes:
-                new.interned_refs[value] = box
-
+        for ref, box in self.interned_refs.items():
+            value = self.getvalue(box)
+            if isinstance(value, ConstantValue): # These are the only values surviving without being cloned
+                new.interned_refs[ref] = box
+                new.values[box] = value
+            
         new.pure_operations = args_dict()
         for key, op in self.pure_operations.items():
             if op.result in short_boxes:
