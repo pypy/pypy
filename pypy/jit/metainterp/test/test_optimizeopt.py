@@ -1526,11 +1526,29 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         p18 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
         guard_isnull(p18) [p0, p8]
         p31 = new(descr=ssize)
+        p35 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p35, p31, descr=valuedescr)        
         jump(p0, p35)
         """
         expected = """
         [p0]
         jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_varray_boxed_noconst(self):
+        ops = """
+        [p0, p8, p18, p19]
+        guard_isnull(p18) [p0, p8]
+        p31 = new(descr=ssize)
+        p35 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p35, p31, descr=valuedescr)        
+        jump(p0, p35, p19, p18)
+        """
+        expected = """
+        [p0, p19]
+        guard_isnull(p19) [p0]
+        jump(p0, NULL)
         """
         self.optimize_loop(ops, expected)
         

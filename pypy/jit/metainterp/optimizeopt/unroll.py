@@ -162,7 +162,7 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(jump_args)
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
-            
+
             sb = self.optimizer.produce_short_preamble_ops(inputargs)
             self.short_boxes = sb
             preamble_optimizer = self.optimizer

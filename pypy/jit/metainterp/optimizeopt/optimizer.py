@@ -379,6 +379,11 @@ class Optimizer(Optimization):
                 if bool_box:
                     new.bool_boxes[value] = None
 
+        for value in valuemap.values():
+            box = value.get_key_box()
+            if box not in new.values:
+                new.values[box] = value
+
         return new
 
     def produce_potential_short_preamble_ops(self, potential_ops):
