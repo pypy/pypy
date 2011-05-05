@@ -1496,20 +1496,41 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_varray_boxed(self):
+    def test_varray_boxed1(self):
         ops = """
-        [p8]
+        [p0, p8]
+        p11 = getfield_gc(p0, descr=otherdescr)
+        guard_nonnull(p11) [p0, p8]
+        guard_class(p11, ConstClass(node_vtable2)) [p0, p8]
+        p14 = getfield_gc(p11, descr=otherdescr)
+        guard_isnull(p14) [p0, p8]
+        p18 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        guard_isnull(p18) [p0, p8]
         p31 = new(descr=ssize)
         setfield_gc(p31, 0, descr=adescr)
         p33 = new_array(0, descr=arraydescr)
         setfield_gc(p31, p33, descr=bdescr)
         p35 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p35, p31, descr=valuedescr)
-        jump(p35)
+        jump(p0, p35)
         """
         expected = """
-        []
-        jump()
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_varray_boxed_simplified(self):
+        ops = """
+        [p0, p8]
+        p18 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        guard_isnull(p18) [p0, p8]
+        p31 = new(descr=ssize)
+        jump(p0, p35)
+        """
+        expected = """
+        [p0]
+        jump(p0)
         """
         self.optimize_loop(ops, expected)
         
