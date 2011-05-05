@@ -251,6 +251,18 @@ class TestOpMatcher(object):
         """
         assert self.match(loop, expected, ignore_ops=['force_token'])
 
+    def test_match_dots_in_arguments(self):
+        loop = """
+            [i0]
+            i1 = int_add(0, 1)
+            jump(i4, descr=...)
+        """
+        expected = """
+            i1 = int_add(...)
+            jump(i4, descr=...)
+        """
+        assert self.match(loop, expected)
+
 
 class TestRunPyPyC(BaseTestPyPyC):
 

@@ -8,10 +8,20 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.tool.autopath import pypydir
 from pypy.rlib import jit, rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.rfloat import isinf, isnan, isfinite, INFINITY, NAN
+from pypy.translator.platform import platform
+from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
 if sys.platform == "win32":
-    eci = ExternalCompilationInfo()
+    if platform.name == "msvc":
+        # When compiled with /O2 or /Oi (enable intrinsic functions)
+        # It's no more possible to take the address of some math functions.
+        # Ensure that the compiler chooses real functions instead.
+        eci = ExternalCompilationInfo(
+            includes = ['math.h'],
+            post_include_bits = ['#pragma function(floor)'],
+            )
+    else:
+        eci = ExternalCompilationInfo()
     # Some math functions are C99 and not defined by the Microsoft compiler
     cdir = py.path.local(pypydir).join('translator', 'c')
     math_eci = ExternalCompilationInfo(

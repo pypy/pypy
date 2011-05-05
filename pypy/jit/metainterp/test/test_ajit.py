@@ -2211,7 +2211,6 @@ class BasicTests:
             assert self.meta_interp(f, [bigval, 5]) == 0
             self.check_loops(int_rshift=3, everywhere=True)
 
-
     def test_pure_op_not_to_be_propagated(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'sa'])
         def f(n):
@@ -2222,7 +2221,24 @@ class BasicTests:
                 n -= 1
             return sa
         assert self.meta_interp(f, [10]) == f(10)
-        
+
+    def test_read_timestamp(self):
+        import time
+        from pypy.rlib.rtimer import read_timestamp
+        def busy_loop():
+            start = time.time()
+            while time.time() - start < 0.1:
+                # busy wait
+                pass
+
+        def f():
+            t1 = read_timestamp()
+            busy_loop()
+            t2 = read_timestamp()
+            return t2 - t1 > 1000
+        res = self.interp_operations(f, [])
+        assert res
+
     def test_bug688_multiple_immutable_fields(self):
         myjitdriver = JitDriver(greens=[], reds=['counter','context'])
 

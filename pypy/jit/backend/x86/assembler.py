@@ -330,7 +330,7 @@ class Assembler386(object):
         if log:
             self._register_counter()
             operations = self._inject_debugging_code(looptoken, operations)
-        
+
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
         looptoken._x86_arglocs = arglocs
@@ -339,7 +339,7 @@ class Assembler386(object):
         stackadjustpos = self._assemble_bootstrap_code(inputargs, arglocs)
         self.looppos = self.mc.get_relative_pos()
         looptoken._x86_frame_depth = -1     # temporarily
-        looptoken._x86_param_depth = -1     # temporarily        
+        looptoken._x86_param_depth = -1     # temporarily
         frame_depth, param_depth = self._assemble(regalloc, operations)
         looptoken._x86_frame_depth = frame_depth
         looptoken._x86_param_depth = param_depth
@@ -490,7 +490,7 @@ class Assembler386(object):
         if WORD == 4:
             adr_target += 5     # CALL imm
         else:
-            adr_target += 13    # MOV r11, imm; CALL *r11
+            adr_target += 13    # MOV r11, imm-as-8-bytes; CALL *r11 xxxxxxxxxx
         return adr_target
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
@@ -506,9 +506,9 @@ class Assembler386(object):
             mc.writeimm32(offset)
             mc.copy_to_raw_memory(adr_jump_offset)
         else:
-            # "mov r11, addr; jmp r11" is 13 bytes, which fits in there
-            # because we always write "mov r11, addr; call *r11" in the
-            # first place.
+            # "mov r11, addr; jmp r11" is up to 13 bytes, which fits in there
+            # because we always write "mov r11, imm-as-8-bytes; call *r11" in
+            # the first place.
             mc.MOV_ri(X86_64_SCRATCH_REG.value, adr_new_target)
             mc.JMP_r(X86_64_SCRATCH_REG.value)
             p = rffi.cast(rffi.INTP, adr_jump_offset)
@@ -538,7 +538,7 @@ class Assembler386(object):
 
     def _assemble(self, regalloc, operations):
         self._regalloc = regalloc
-        regalloc.walk_operations(operations)        
+        regalloc.walk_operations(operations)
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
         frame_depth = regalloc.fm.frame_depth
@@ -1015,7 +1015,7 @@ class Assembler386(object):
                     dst_locs.append(unused_gpr.pop())
                 else:
                     pass_on_stack.append(loc)
-        
+
         # Emit instructions to pass the stack arguments
         # XXX: Would be nice to let remap_frame_layout take care of this, but
         # we'd need to create something like StackLoc, but relative to esp,
@@ -1441,6 +1441,17 @@ class Assembler386(object):
         else:
             assert 0, itemsize
 
+    def genop_read_timestamp(self, op, arglocs, resloc):
+        self.mc.RDTSC()
+        if longlong.is_64_bit:
+            self.mc.SHL_ri(edx.value, 32)
+            self.mc.OR_rr(edx.value, eax.value)
+        else:
+            loc1, = arglocs
+            self.mc.MOVD_xr(loc1.value, edx.value)
+            self.mc.MOVD_xr(resloc.value, eax.value)
+            self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
+
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
         self.mc.TEST(loc, loc)
@@ -1565,7 +1576,18 @@ class Assembler386(object):
                 withfloats = True
                 break
         exc = guardtok.exc
-        mc.CALL(imm(self.failure_recovery_code[exc + 2 * withfloats]))
+        target = self.failure_recovery_code[exc + 2 * withfloats]
+        if WORD == 4:
+            mc.CALL(imm(target))
+        else:
+            # Generate exactly 13 bytes:
+            #        MOV r11, target-as-8-bytes
+            #        CALL *r11
+            # Keep the number 13 in sync with _find_failure_recovery_bytecode.
+            start = mc.get_relative_pos()
+            mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
+            mc.CALL_r(X86_64_SCRATCH_REG.value)
+            assert mc.get_relative_pos() == start + 13
         # write tight data that describes the failure recovery
         self.write_failure_recovery_description(mc, guardtok.failargs,
                                                 guardtok.fail_locs)
@@ -1821,8 +1843,9 @@ class Assembler386(object):
         for i in range(len(locs)):
             loc = locs[i]
             if not isinstance(loc, RegLoc):
-                if isinstance(loc, StackLoc) and loc.type == FLOAT:
-                    self.mc.MOVSD_xb(xmm0.value, loc.value)
+                if ((isinstance(loc, StackLoc) and loc.type == FLOAT) or
+                        isinstance(loc, ConstFloatLoc)):
+                    self.mc.MOVSD(xmm0, loc)
                     adr = self.fail_boxes_float.get_addr_for_num(i)
                     self.mc.MOVSD(heap(adr), xmm0)
                 else:
@@ -2131,7 +2154,7 @@ class Assembler386(object):
         assert rx86.fits_in_32bits(tid)
         self.mc.MOV_mi((eax.value, 0), tid)
         self.mc.MOV(heap(nursery_free_adr), edx)
-        
+
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_llong_list = {}
@@ -2142,7 +2165,7 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_discard_'):]
         num = getattr(rop, opname.upper())
         genop_discard_list[num] = value
-    elif name.startswith('genop_guard_') and name != 'genop_guard_exception': 
+    elif name.startswith('genop_guard_') and name != 'genop_guard_exception':
         opname = name[len('genop_guard_'):]
         num = getattr(rop, opname.upper())
         genop_guard_list[num] = value

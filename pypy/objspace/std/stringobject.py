@@ -11,7 +11,7 @@ from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rstring import StringBuilder, string_repeat
+from pypy.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import StringBuffer
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
@@ -856,7 +856,7 @@ def mul_string_times(space, w_str, w_times):
     if len(input) == 1:
         s = input[0] * mul
     else:
-        s = string_repeat(input, mul)
+        s = input * mul
     # xxx support again space.config.objspace.std.withstrjoin?
     return W_StringObject(s)
 
@@ -963,19 +963,20 @@ def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
                 space.wrap("translation table must be 256 characters long"))
 
     string = w_string._value
-    chars = []
     deletechars = space.str_w(w_deletechars)
     if len(deletechars) == 0:
+        buf = StringBuilder(len(string))
         for char in string:
-            chars.append(table[ord(char)])
+            buf.append(table[ord(char)])
     else:
+        buf = StringBuilder()
         deletion_table = [False] * 256
         for c in deletechars:
             deletion_table[ord(c)] = True
         for char in string:
             if not deletion_table[ord(char)]:
-                chars.append(table[ord(char)])
-    return W_StringObject(''.join(chars))
+                buf.append(table[ord(char)])
+    return W_StringObject(buf.build())
 
 def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \

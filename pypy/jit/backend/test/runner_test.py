@@ -316,6 +316,30 @@ class BaseBackendTest(Runner):
         fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr
 
+        if self.cpu.supports_floats:
+            looptoken = LoopToken()
+            f0 = BoxFloat()
+            operations = [
+                ResOperation(rop.FINISH, [f0], None, descr=faildescr)
+                ]
+            self.cpu.compile_loop([f0], operations, looptoken)
+            value = longlong.getfloatstorage(-61.25)
+            self.cpu.set_future_value_float(0, value)
+            fail = self.cpu.execute_token(looptoken)
+            assert fail is faildescr
+            res = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(res) == -61.25
+
+            looptoken = LoopToken()
+            operations = [
+                ResOperation(rop.FINISH, [constfloat(42.5)], None, descr=faildescr)
+                ]
+            self.cpu.compile_loop([], operations, looptoken)
+            fail = self.cpu.execute_token(looptoken)
+            assert fail is faildescr
+            res = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(res) == 42.5
+
     def test_execute_operations_in_env(self):
         cpu = self.cpu
         x = BoxInt(123)
@@ -1355,6 +1379,19 @@ class BaseBackendTest(Runner):
         self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest], 'void')
         self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
                                                c_nest, c_nest], 'void')
+
+    def test_read_timestamp(self):
+        if longlong.is_64_bit:
+            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            res1 = got1.getint()
+            res2 = got2.getint()
+        else:
+            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            res1 = got1.getlonglong()
+            res2 = got2.getlonglong()
+        assert res1 < res2 < res1 + 2**32
 
 
 class LLtypeBackendTest(BaseBackendTest):

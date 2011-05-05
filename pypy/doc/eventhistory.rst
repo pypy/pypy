@@ -54,7 +54,7 @@ progress was also made on PyPy's ootypesystem for the more high level
 backends. For more details, read the last `sprint status`_ page and
 enjoy the pictures_.
 
-.. _`sprint status`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/tokyo-planning.html
+.. _`sprint status`: https://bitbucket.org/pypy/extradoc/src/tip/sprintinfo/tokyo/tokyo-planning.txt
 .. _`pictures`: http://www.flickr.com/photos/19046555@N00/sets/72057594116388174/
 
 PyPy at Python UK/ACCU Conference (United Kingdom)
@@ -63,12 +63,12 @@ PyPy at Python UK/ACCU Conference (United Kingdom)
 *April 19th - April 22nd 2006.* Several talks about PyPy were hold at
 this year's Python UK/ACCU conference. Read more at the `ACCU site`_.
 
-.. _`ACCU site`: http://www.accu.org/
+.. _`ACCU site`: http://accu.org/
 
 PyPy at XPDay France 2006 in Paris March 23rd - March 24th 2006
 ==================================================================
 
-Logilab presented PyPy at the first `french XP Day`_ that it was
+Logilab presented PyPy at the first french XP Day that it was
 sponsoring and which was held in Paris. There was over a hundred
 attendants. Interesting talks included Python as an agile language and
 Tools for continuous integration.
@@ -99,7 +99,7 @@ A report is coming up.
 Talks at PyCon 2006 (Dallas, Texas, USA)
 ===================================================================
 
-*Feb 24th - Feb 26th 2006.* PyPy developers spoke at `PyCon 2006`_.
+*Feb 24th - Feb 26th 2006.* PyPy developers spoke at PyCon 2006.
 
 .. _`PyCon 2006`: http://us.pycon.org/TX2006/HomePage 
 
@@ -247,7 +247,7 @@ having a good time.   You might want to look at the selected
 .. _`breakthrough`: http://codespeak.net/~hpk/hildesheim2-sprint-www/hildesheim2-sprint-www-Thumbnails/36.jpg
 .. _`hurray`: http://codespeak.net/~hpk/hildesheim2-sprint-www/hildesheim2-sprint-www-Pages/Image37.html
 .. _`pictures from the sprint`: http://codespeak.net/~hpk/hildesheim2-sprint-www/ 
-.. _`Trillke-Gut`: http://www.trillke.net/images/HomePagePictureSmall.jpg
+.. _`Trillke-Gut`: http://www.trillke.net
 
 EuroPython 2005 sprints finished 
 ======================================================
@@ -310,6 +310,6 @@ Conference. This year it will be from the *6th to the 9th of July*.
 Read more in `EuroPython sprint announcement`_, see who is  planning to attend
 on `the people page`_. There is also a page_ in the python wiki.
 
-.. _`EuroPython sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/europython-2006/announce.html
-.. _`the people page`: http://codespeak.net/pypy/extradoc/sprintinfo/europython-2006/people.html
+.. _`EuroPython sprint announcement`: https://bitbucket.org/pypy/extradoc/src/tip/sprintinfo/post-ep2006/announce.txt
+.. _`the people page`: https://bitbucket.org/pypy/extradoc/src/tip/sprintinfo/post-ep2006/people.txt
 .. _page: http://wiki.python.org/moin/EuroPython2006

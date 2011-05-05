@@ -180,6 +180,9 @@ class AppTestFcntl:
         fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def test_large_flag(self):
+        import sys
+        if sys.platform == "darwin":
+            skip("Mac OS doesn't have any large flag in fcntl.h")
         import fcntl, sys
         if sys.maxint == 2147483647:
             assert fcntl.DN_MULTISHOT == -2147483648

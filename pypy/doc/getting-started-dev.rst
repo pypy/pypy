@@ -10,10 +10,9 @@ Trying out the translator
 ------------------------- 
 
 The translator is a tool based on the PyPy interpreter which can translate
-sufficiently static Python programs into low-level code (in particular it can
-be used to translate the `full Python interpreter`_). To be able to use it
-you need to (if you want to look at the flowgraphs, which you obviously
-should):
+sufficiently static RPython programs into low-level code (in particular it can
+be used to translate the `full Python interpreter`_). To be able to experiment with it
+you need to:
 
   * Download and install Pygame_.
 
@@ -99,7 +98,7 @@ executable in one of the ``/tmp/usession-*`` directories::
     9
 
 To translate and run for the CLI you must have the SDK installed: Windows
-users need the `.NET Framework SDK 2.0`_, while Linux and Mac users
+users need the `.NET Framework SDK`_, while Linux and Mac users
 can use Mono_.  To translate and run for the JVM you must have a JDK 
 installed (at least version 5) and ``java``/``javac`` on your path.
 
@@ -146,41 +145,39 @@ own interpreters`_.
 Where to start reading the sources
 ---------------------------------- 
 
-PyPy is made from parts that are relatively independent from each other.
+PyPy is made from parts that are relatively independent of each other.
 You should start looking at the part that attracts you most (all paths are
 relative to the PyPy top level directory).  You may look at our `directory reference`_ 
 or start off at one of the following points:
 
 *  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
-   in pyopcode.py_, frame and code objects in eval.py_ and pyframe.py_,
-   function objects and argument passing in function.py_ and argument.py_,
-   the object space interface definition in baseobjspace.py_, modules in
-   module.py_ and mixedmodule.py_.  Core types supporting the bytecode 
-   interpreter are defined in typedef.py_.
+   in `pypy/interpreter/pyopcode.py`_, frame and code objects in `pypy/interpreter/eval.py`_ and `pypy/interpreter/pyframe.py`_,
+   function objects and argument passing in `pypy/interpreter/function.py`_ and `pypy/interpreter/argument.py`_,
+   the object space interface definition in `pypy/interpreter/baseobjspace.py`_, modules in
+   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode 
+   interpreter are defined in `pypy/interpreter/typedef.py`_.
 
 *  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
-   and input data files that allow it to parse both Python 2.3 and 2.4
-   syntax.  Once the input data has been processed, the parser can be
+   and grammar files that allow it to parse the syntax of various Python
+   versions. Once the grammar has been processed, the parser can be
    translated by the above machinery into efficient code.
  
 *  `pypy/interpreter/astcompiler`_ contains the compiler.  This
    contains a modified version of the compiler package from CPython
-   that fixes some bugs and is translatable.  That the compiler and
-   parser are translatable is new in 0.8.0 and it makes using the
-   resulting binary interactively much more pleasant.
+   that fixes some bugs and is translatable.
 
 *  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
-   is objspace.py_.  For each type, the files ``xxxtype.py`` and
+   is `pypy/objspace/std/objspace.py`_.  For each type, the files ``xxxtype.py`` and
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-*  `pypy/objspace`_ contains a few other object spaces: the thunk_,
-   trace_ and flow_ object spaces.  The latter is a relatively short piece
+*  `pypy/objspace`_ contains a few other object spaces: the `pypy/objspace/thunk.py`_,
+   `pypy/objspace/trace.py`_ and `pypy/objspace/flow`_ object spaces.  The latter is a relatively short piece
    of code that builds the control flow graphs when the bytecode interpreter
    runs in it.
 
 *  `pypy/translator`_ contains the code analysis and generation stuff.
-   Start reading from translator.py_, from which it should be easy to follow
+   Start reading from translator.py, from which it should be easy to follow
    the pieces of code involved in the various translation phases.
 
 *  `pypy/annotation`_ contains the data model for the type annotation that
@@ -190,13 +187,15 @@ or start off at one of the following points:
 *  `pypy/rpython`_ contains the code of the RPython typer. The typer transforms
    annotated flow graphs in a way that makes them very similar to C code so
    that they can be easy translated. The graph transformations are controlled
-   by the stuff in `pypy/rpython/rtyper.py`_. The object model that is used can
+   by the code in `pypy/rpython/rtyper.py`_. The object model that is used can
    be found in `pypy/rpython/lltypesystem/lltype.py`_. For each RPython type
    there is a file rxxxx.py that contains the low level functions needed for
    this type.
 
-*  `pypy/rlib`_ contains the RPython standard library, things that you can
+*  `pypy/rlib`_ contains the `RPython standard library`_, things that you can
    use from rpython.
+
+.. _`RPython standard library`: rlib.html
 
 .. _optionaltool: 
 
@@ -204,10 +203,9 @@ or start off at one of the following points:
 Running PyPy's unit tests
 -------------------------
 
-PyPy development always was and is still thorougly test-driven. 
+PyPy development always was and is still thoroughly test-driven.
 We use the flexible `py.test testing tool`_ which you can `install independently
-<http://pytest.org/getting-started.html>`_ and use indepedently
-from PyPy for other projects.
+<http://pytest.org/getting-started.html>`_ and use for other projects.
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
@@ -263,7 +261,7 @@ Interpreter-level console
 
 If you start an untranslated Python interpreter via::
 
-    python pypy-svn/pypy/bin/py.py
+    python pypy/bin/py.py
 
 If you press
 <Ctrl-C> on the console you enter the interpreter-level console, a
@@ -347,18 +345,6 @@ want to look at generated flow graphs:
 
 	pygame: http://www.pygame.org/download.shtml
 
-CTypes on Python 2.4
-++++++++++++++++++++++++++++
-
-`ctypes`_ is included in CPython 2.5 and higher.  CPython 2.4 users needs to
-install it if they want to run low-level tests. See
-the `download page of ctypes`_.
-
-.. _`download page of ctypes`: http://sourceforge.net/project/showfiles.php?group_id=71702
-.. _`ctypes`: http://starship.python.net/crew/theller/ctypes/
-
-.. _`py.test`:
-
 py.test and the py lib 
 +++++++++++++++++++++++
 
@@ -367,7 +353,7 @@ The `py.test testing tool`_ drives all our testing needs.
 We use the `py library`_ for filesystem path manipulations, terminal
 writing, logging and some other support  functionality.
 
-You don't neccessarily need to install these two libraries because 
+You don't necessarily need to install these two libraries because
 we also ship them inlined in the PyPy source tree.
 
 Getting involved 
@@ -390,33 +376,18 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 
-.. _`.NET Framework SDK 2.0`: http://msdn.microsoft.com/netframework/downloads/updates/default.aspx
+.. _`.NET Framework SDK`: http://msdn.microsoft.com/netframework/
 .. _Mono: http://www.mono-project.com/Main_Page
 .. _`CLI backend`: cli-backend.html
 .. _clr: clr-module.html
 
 .. _`Dot Graphviz`:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/
-.. _pyopcode.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/pyopcode.py
-.. _eval.py:                http://codespeak.net/svn/pypy/trunk/pypy/interpreter/eval.py
-.. _pyframe.py:             http://codespeak.net/svn/pypy/trunk/pypy/interpreter/pyframe.py
-.. _function.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/function.py
-.. _argument.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/argument.py
-.. _baseobjspace.py:        http://codespeak.net/svn/pypy/trunk/pypy/interpreter/baseobjspace.py
-.. _module.py:              http://codespeak.net/svn/pypy/trunk/pypy/interpreter/module.py
-.. _mixedmodule.py:          http://codespeak.net/svn/pypy/trunk/pypy/interpreter/mixedmodule.py
-.. _typedef.py:             http://codespeak.net/svn/pypy/trunk/pypy/interpreter/typedef.py
 .. _Standard object space:  objspace.html#the-standard-object-space
-.. _objspace.py:            ../../../../pypy/objspace/std/objspace.py
-.. _thunk:                  ../../../../pypy/objspace/thunk.py
-.. _trace:                  ../../../../pypy/objspace/trace.py
-.. _flow:                   ../../../../pypy/objspace/flow/
-.. _translator.py:          ../../../../pypy/translator/translator.py
 .. _mailing lists:          index.html
-.. _documentation:          docindex.html 
+.. _documentation:          index.html#project-documentation
 .. _unit tests:             coding-guide.html#test-design
 
-.. _`directory reference`: docindex.html#directory-reference
+.. _`directory reference`: index.html#pypy-directory-reference
 
-.. include:: _ref.rst
-
+.. include:: _ref.txt

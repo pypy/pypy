@@ -37,9 +37,8 @@ platform = sys.platform
 
 def getinitialpath(prefix):
     from pypy.module.sys.version import CPYTHON_VERSION
-    dirname = '%d.%d.%d' % (CPYTHON_VERSION[0],
-                            CPYTHON_VERSION[1],
-                            CPYTHON_VERSION[2])
+    dirname = '%d.%d' % (CPYTHON_VERSION[0],
+                         CPYTHON_VERSION[1])
     lib_python = os.path.join(prefix, 'lib-python')
     python_std_lib = os.path.join(lib_python, dirname)
     checkdir(python_std_lib)

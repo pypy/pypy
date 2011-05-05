@@ -422,12 +422,12 @@ def shifts(mod_field):
 
 
 # Method names take the form of
-# 
+#
 #     <instruction name>_<operand type codes>
 #
 # For example, the method name for "mov reg, immed" is MOV_ri. Operand order
 # is Intel-style, with the destination first.
-# 
+#
 # The operand type codes are:
 #     r - register
 #     b - ebp/rbp offset
@@ -564,6 +564,9 @@ class AbstractX86CodeBuilder(object):
 
     # x87 instructions
     FSTP_b = insn('\xDD', orbyte(3<<3), stack_bp(1))
+
+    # ------------------------------ Random mess -----------------------
+    RDTSC = insn('\x0F\x31')
 
     # reserved as an illegal instruction
     UD2 = insn('\x0F\x0B')

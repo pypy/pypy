@@ -1198,6 +1198,10 @@ public class PyPy implements Constants {
         return Double.isInfinite(x);
     }
 
+    public boolean ll_math_isfinite(double x) {
+        return !Double.isNaN(x) && !Double.isInfinite(x);
+    }
+
     private double check(double v) {
         if (Double.isNaN(v))
             interlink.throwValueError();

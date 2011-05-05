@@ -28,9 +28,6 @@ class __extend__(Option):
         fullpath = get_fullpath(self, path)
         result = Rest(
             Title(fullpath, abovechar="=", belowchar="="),
-            Directive("contents"),
-            Paragraph(Link("back to parent", path + ".html")),
-            Title("Basic Option Information"),
             ListItem(Strong("name:"), self._name),
             ListItem(Strong("description:"), self.doc))
         if self.cmdline is not None:
@@ -132,47 +129,27 @@ class __extend__(OptionDescription):
     def make_rest_doc(self, path=""):
         fullpath = get_fullpath(self, path)
         content = Rest(
-            Title(fullpath, abovechar="=", belowchar="="),
-            Directive("contents"))
-        if path:
-            content.add(
-                Paragraph(Link("back to parent", path + ".html")))
+            Title(fullpath, abovechar="=", belowchar="="))
+        toctree = []
+        for child in self._children:
+            subpath = fullpath + "." + child._name
+            toctree.append(subpath)
+        content.add(Directive("toctree", *toctree, maxdepth=4))
         content.join(
-            Title("Basic Option Information"),
             ListItem(Strong("name:"), self._name),
-            ListItem(Strong("description:"), self.doc),
-            Title("Sub-Options"))
+            ListItem(Strong("description:"), self.doc))
         stack = []
-        prefix = fullpath
         curr = content
         config = Config(self)
-        for ending in self.getpaths(include_groups=True):
-            subpath = fullpath + "." + ending
-            while not (subpath.startswith(prefix) and
-                       subpath[len(prefix)] == "."):
-                curr, prefix = stack.pop()
-            print subpath, fullpath, ending, curr
-            sub, step = config._cfgimpl_get_home_by_path(ending)
-            doc = getattr(sub._cfgimpl_descr, step).doc
-            if doc:
-                new = curr.add(ListItem(Link(subpath + ":", subpath + ".html"),
-                                        Em(doc)))
-            else:
-                new = curr.add(ListItem(Link(subpath + ":", subpath + ".html")))
-            stack.append((curr, prefix))
-            prefix = subpath
-            curr = new
         return content
 
 
 def _get_section_header(cmdline, fullpath, subdescr):
     # XXX:  pypy specific hack
     txtfile = configdocdir.join(fullpath + ".txt")
-    print txtfile,
     if not txtfile.check():
-        print "not found"
+        print txtfile, "not found"
         return ""
-    print "found"
     content = txtfile.read()
     if ".. internal" in content:
         return "Internal Options"
@@ -221,7 +198,7 @@ def register_config_role(docdir):
         from docutils import nodes
         from pypy.config.pypyoption import get_pypy_config
         from pypy.config.makerestdoc import get_cmdline
-        txt = docdir.join("config", text + ".txt")
+        txt = docdir.join("config", text + ".rst")
         html = docdir.join("config", text + ".html")
         assert txt.check()
         assert name == "config"
@@ -247,9 +224,8 @@ def register_config_role(docdir):
                     shortest_long_option = cmd
             text = shortest_long_option
         target = prefix + relative
-        print text, target
         reference_node = nodes.reference(rawtext, text, name=text, refuri=target)
         return [reference_node], []
     config_role.content = True
     config_role.options = {}
-    roles.register_canonical_role("config", config_role)
+    return config_role
