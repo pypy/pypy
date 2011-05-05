@@ -1496,6 +1496,23 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_varray_boxed(self):
+        ops = """
+        [p8]
+        p31 = new(descr=ssize)
+        setfield_gc(p31, 0, descr=adescr)
+        p33 = new_array(0, descr=arraydescr)
+        setfield_gc(p31, p33, descr=bdescr)
+        p35 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p35, p31, descr=valuedescr)
+        jump(p35)
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        
     def test_varray_1(self):
         ops = """
         [i1]
