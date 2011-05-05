@@ -20,6 +20,13 @@ class AppTestNumpyLike(object):
         a = array(range(5))
         assert a[3] == 3
 
+    def test_getitem(self):
+        from numpy import array
+        a = array(range(5))
+        raises(TypeError, "a[5]")
+        a = a + a
+        raises(TypeError, "a[5]")
+
     def test_add(self):
         from numpy import array
         a = array(range(5))

@@ -263,7 +263,7 @@ class SingleDimArray(BaseArray):
         if item < 0:
             raise operationerrfmt(space.w_TypeError,
               '%d below zero', item)
-        if item > self.size:
+        if item >= self.size:
             raise operationerrfmt(space.w_TypeError,
               '%d above array size', item)
         return space.wrap(self.storage[item])
