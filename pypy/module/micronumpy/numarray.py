@@ -82,65 +82,74 @@ class Code(object):
             self.arrays + other.arrays,
             self.floats + other.floats)
 
-def compute(code):
-    """
-    Crunch a ``Code`` full of bytecode.
-    """
+    def intern(self):
+        # the point of these hacks is to intern the bytecode string otherwise
+        # we have to compile new assembler each time, which sucks (we still
+        # have to compile new bytecode, but too bad)
+        try:
+            self.bytecode = JITCODES[self.bytecode]
+        except KeyError:
+            JITCODES[self.bytecode] = self.bytecode
 
-    bytecode = code.bytecode
-    result_size = code.arrays[0].size
-    result = SingleDimArray(result_size)
-    bytecode_pos = len(bytecode) - 1
-    i = 0
-    frame = ComputationFrame(code.arrays, code.floats)
-    while i < result_size:
-        numpy_driver.jit_merge_point(bytecode=bytecode, result=result,
-                                     result_size=result_size,
-                                     i=i, frame=frame,
-                                     bytecode_pos=bytecode_pos)
-        if bytecode_pos == -1:
-            bytecode_pos = len(bytecode) - 1
-            frame.reset()
-            result.storage[i] = frame.valuestack[0]
-            i += 1
-            numpy_driver.can_enter_jit(bytecode=bytecode, result=result,
-                                       result_size=result_size,
-                                       i=i, frame=frame,
-                                       bytecode_pos=bytecode_pos)
-        else:
-            opcode = bytecode[bytecode_pos]
-            if opcode == 'l':
-                # Load array.
-                val = frame.getarray().storage[i]
-                frame.pushvalue(val)
-            elif opcode == 'f':
-                # Load float.
-                val = frame.getfloat()
-                frame.pushvalue(val)
-            elif opcode == 'a':
-                # Add.
-                a = frame.popvalue()
-                b = frame.popvalue()
-                frame.pushvalue(a + b)
-            elif opcode == 's':
-                # Subtract
-                a = frame.popvalue()
-                b = frame.popvalue()
-                frame.pushvalue(a - b)
-            elif opcode == 'm':
-                # Multiply.
-                a = frame.popvalue()
-                b = frame.popvalue()
-                frame.pushvalue(a * b)
-            elif opcode == 'd':
-                a = frame.popvalue()
-                b = frame.popvalue()
-                frame.pushvalue(a / b)
+    def compute(self):
+        """
+        Crunch a ``Code`` full of bytecode.
+        """
+
+        bytecode = self.bytecode
+        result_size = self.arrays[0].size
+        result = SingleDimArray(result_size)
+        bytecode_pos = len(bytecode) - 1
+        i = 0
+        frame = ComputationFrame(self.arrays, self.floats)
+        while i < result_size:
+            numpy_driver.jit_merge_point(bytecode=bytecode, result=result,
+                                         result_size=result_size,
+                                         i=i, frame=frame,
+                                         bytecode_pos=bytecode_pos)
+            if bytecode_pos == -1:
+                bytecode_pos = len(bytecode) - 1
+                frame.reset()
+                result.storage[i] = frame.valuestack[0]
+                i += 1
+                numpy_driver.can_enter_jit(bytecode=bytecode, result=result,
+                                           result_size=result_size,
+                                           i=i, frame=frame,
+                                           bytecode_pos=bytecode_pos)
             else:
-                raise NotImplementedError(
-                    "Can't handle bytecode instruction %s" % opcode)
-            bytecode_pos -= 1
-    return result
+                opcode = bytecode[bytecode_pos]
+                if opcode == 'l':
+                    # Load array.
+                    val = frame.getarray().storage[i]
+                    frame.pushvalue(val)
+                elif opcode == 'f':
+                    # Load float.
+                    val = frame.getfloat()
+                    frame.pushvalue(val)
+                elif opcode == 'a':
+                    # Add.
+                    a = frame.popvalue()
+                    b = frame.popvalue()
+                    frame.pushvalue(a + b)
+                elif opcode == 's':
+                    # Subtract
+                    a = frame.popvalue()
+                    b = frame.popvalue()
+                    frame.pushvalue(a - b)
+                elif opcode == 'm':
+                    # Multiply.
+                    a = frame.popvalue()
+                    b = frame.popvalue()
+                    frame.pushvalue(a * b)
+                elif opcode == 'd':
+                    a = frame.popvalue()
+                    b = frame.popvalue()
+                    frame.pushvalue(a / b)
+                else:
+                    raise NotImplementedError(
+                        "Can't handle bytecode instruction %s" % opcode)
+                bytecode_pos -= 1
+        return result
 
 JITCODES = {}
 
@@ -150,14 +159,8 @@ class BaseArray(Wrappable):
 
     def force(self):
         code = self.compile()
-        try:
-            code.bytecode = JITCODES[code.bytecode]
-        except KeyError:
-            JITCODES[code.bytecode] = code.bytecode
-        # the point of above hacks is to intern the bytecode string
-        # otherwise we have to compile new assembler each time, which sucks
-        # (we still have to compile new bytecode, but too bad)
-        return compute(code)
+        code.intern()
+        return code.compute()
 
     def invalidated(self):
         for arr in self.invalidates:
