@@ -2339,29 +2339,6 @@ class BasicTests:
             return f(n, A(5), A(10))
         assert self.meta_interp(g, [20]) == g(20)
 
-    def test_inlined_short_preamble_guard_needed_in_loop2(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa',
-                                                     'a', 'b'])
-        def f(n):
-            sa = i = 0
-            a = b = []
-            while i < n:
-                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a, b=b)
-                a = []
-                sa += i
-                i += 1
-            return sa
-        assert self.meta_interp(f, [20]) == f(20)
-
-
-
-    def test_varray_boxed(self):
-        myjitdriver = JitDriver(greens = [], reds = ['a'])
-        a = []
-        while True:
-            myjitdriver.jit_merge_point(a=a)
-            a = []
-
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
