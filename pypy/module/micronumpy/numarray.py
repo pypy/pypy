@@ -260,12 +260,14 @@ class SingleDimArray(BaseArray):
 
     @unwrap_spec(item=int)
     def descr_getitem(self, space, item):
-        if item < 0:
-            raise operationerrfmt(space.w_TypeError,
-              '%d below zero', item)
         if item >= self.size:
-            raise operationerrfmt(space.w_TypeError,
+            raise operationerrfmt(space.w_IndexError,
               '%d above array size', item)
+        if item < 0:
+            item += self.size
+        if item < 0:
+            raise operationerrfmt(space.w_IndexError,
+              '%d below zero', item)
         return space.wrap(self.storage[item])
 
     @unwrap_spec(item=int, value=float)

@@ -23,9 +23,11 @@ class AppTestNumpyLike(object):
     def test_getitem(self):
         from numpy import array
         a = array(range(5))
-        raises(TypeError, "a[5]")
+        raises(IndexError, "a[5]")
         a = a + a
-        raises(TypeError, "a[5]")
+        raises(IndexError, "a[5]")
+        assert a[-1] == 8
+        raises(IndexError, "a[-6]")
 
     def test_add(self):
         from numpy import array
