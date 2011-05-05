@@ -1,6 +1,7 @@
 import py
 from pypy.conftest import gettestobjspace
 
+
 class AppTestNumpyLike(object):
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=('micronumpy',))
