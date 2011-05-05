@@ -258,8 +258,7 @@ class SingleDimArray(BaseArray):
     def compile(self):
         return Code('l', [self], [])
 
-    @unwrap_spec(item=int)
-    def descr_getitem(self, space, item):
+    def getindex(self, space, item):
         if item >= self.size:
             raise operationerrfmt(space.w_IndexError,
               '%d above array size', item)
@@ -268,16 +267,16 @@ class SingleDimArray(BaseArray):
         if item < 0:
             raise operationerrfmt(space.w_IndexError,
               '%d below zero', item)
+        return item
+
+    @unwrap_spec(item=int)
+    def descr_getitem(self, space, item):
+        item = self.getindex(space, item)
         return space.wrap(self.storage[item])
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
-        if item < 0:
-            raise operationerrfmt(space.w_TypeError,
-              '%d below zero', item)
-        if item > self.size:
-            raise operationerrfmt(space.w_TypeError,
-              '%d above array size', item)
+        item = self.getindex(space, item)
         self.invalidated()
         self.storage[item] = value
 
