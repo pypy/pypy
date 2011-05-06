@@ -173,6 +173,7 @@ class LoopWithIds(Function):
         return matcher.match(expected_src)
 
 class InvalidMatch(Exception):
+    opindex = None
 
     def __init__(self, message, frame):
         Exception.__init__(self, message)
@@ -332,31 +333,39 @@ class OpMatcher(object):
         """
         iter_exp_ops = iter(expected_ops)
         iter_ops = iter(self.ops)
-        for exp_op in iter_exp_ops:
-            if exp_op == '...':
-                # loop until we find an operation which matches
-                try:
-                    exp_op = iter_exp_ops.next()
-                except StopIteration:
-                    # the ... is the last line in the expected_ops, so we just
-                    # return because it matches everything until the end
-                    return
-                op = self.match_until(exp_op, iter_ops)
-            else:
-                while True:
-                    op = self._next_op(iter_ops)
-                    if op.name not in ignore_ops:
-                        break
-            self.match_op(op, exp_op)
+        for opindex, exp_op in enumerate(iter_exp_ops):
+            try:
+                if exp_op == '...':
+                    # loop until we find an operation which matches
+                    try:
+                        exp_op = iter_exp_ops.next()
+                    except StopIteration:
+                        # the ... is the last line in the expected_ops, so we just
+                        # return because it matches everything until the end
+                        return
+                    op = self.match_until(exp_op, iter_ops)
+                else:
+                    while True:
+                        op = self._next_op(iter_ops)
+                        if op.name not in ignore_ops:
+                            break
+                self.match_op(op, exp_op)
+            except InvalidMatch, e:
+                e.opindex = opindex
+                raise
         #
         # make sure we exhausted iter_ops
         self._next_op(iter_ops, assert_raises=True)
 
     def match(self, expected_src, ignore_ops=[]):
-        def format(src):
+        def format(src, opindex=None):
             if src is None:
                 return ''
-            return py.code.Source(src).deindent().indent()
+            text = str(py.code.Source(src).deindent().indent())
+            lines = text.splitlines(True)
+            if opindex is not None and 0 <= opindex < len(lines):
+                lines[opindex] = lines[opindex].rstrip() + '\t<=====\n'
+            return ''.join(lines)
         #
         expected_src = self.preprocess_expected_src(expected_src)
         expected_ops = self.parse_ops(expected_src)
@@ -372,7 +381,7 @@ class OpMatcher(object):
             print
             print "Ignore ops:", ignore_ops
             print "Got:"
-            print format(self.src)
+            print format(self.src, e.opindex)
             print
             print "Expected:"
             print format(expected_src)
