@@ -2911,6 +2911,42 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_remove_duplicate_pure_op_ovf_with_lazy_setfield(self):
+        ops = """
+        [i1, p1]
+        i3 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        i3b = int_is_true(i3)
+        guard_true(i3b) []
+        setfield_gc(p1, i1, descr=valuedescr)
+        i4 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        i4b = int_is_true(i4)
+        guard_true(i4b) []
+        escape(i3)
+        escape(i4)
+        jump(i1, p1)
+        """
+        preamble = """
+        [i1, p1]
+        i3 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        i3b = int_is_true(i3)
+        guard_true(i3b) []
+        setfield_gc(p1, i1, descr=valuedescr)        
+        escape(i3)
+        escape(i3)
+        jump(i1, p1, i3)
+        """
+        expected = """
+        [i1, p1, i3]
+        setfield_gc(p1, i1, descr=valuedescr)        
+        escape(i3)
+        escape(i3)
+        jump(i1, p1, i3)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_ovf_guard_in_short_preamble1(self):
         ops = """
         [p8, p11, i24]
@@ -2946,6 +2982,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p8, i28, descr=nextdescr)
         i34 = getfield_gc_pure(p11, descr=valuedescr)
         i35 = getfield_gc_pure(p26, descr=adescr)
+        guard_nonnull(p12) []
         i36 = int_add_ovf(i34, i35)
         guard_no_overflow() []
         p38 = new_with_vtable(ConstClass(node_vtable))
