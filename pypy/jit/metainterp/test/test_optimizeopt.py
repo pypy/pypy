@@ -2911,6 +2911,54 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_ovf_guard_in_short_preamble1(self):
+        ops = """
+        [p8, p11, i24]
+        p26 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p26, i24, descr=adescr)        
+        i34 = getfield_gc_pure(p11, descr=valuedescr)
+        i35 = getfield_gc_pure(p26, descr=adescr)
+        i36 = int_add_ovf(i34, i35)
+        guard_no_overflow() []
+        jump(p8, p11, i35)
+        """
+        expected = """
+        [p8, p11, i26]
+        jump(p8, p11, i26)        
+        """
+        self.optimize_loop(ops, expected)
+        
+    def test_ovf_guard_in_short_preamble2(self):
+        ops = """
+        [p8, p11, p12]
+        p16 = getfield_gc(p8, descr=valuedescr)
+        i17 = getfield_gc(p8, descr=nextdescr)
+        i19 = getfield_gc(p16, descr=valuedescr)
+        i20 = int_ge(i17, i19)
+        guard_false(i20) []
+        i21 = getfield_gc(p16, descr=otherdescr)
+        i22 = getfield_gc(p16, descr=nextdescr)
+        i23 = int_mul(i17, i22)
+        i24 = int_add(i21, i23)
+        p26 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p26, i24, descr=adescr)
+        i28 = int_add(i17, 1)
+        setfield_gc(p8, i28, descr=nextdescr)
+        i34 = getfield_gc_pure(p11, descr=valuedescr)
+        i35 = getfield_gc_pure(p26, descr=adescr)
+        i36 = int_add_ovf(i34, i35)
+        guard_no_overflow() []
+        p38 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p38, i36, descr=adescr)
+        jump(p8, p11, p26)
+        """
+        expected = """
+        [i34, i17, i22]
+        jump(i34, i17, i22)        
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_int_and_or_with_zero(self):
         ops = """
         [i0, i1]
