@@ -1669,7 +1669,3 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('shift', "")  # optimized away
-
-
-def test_count():
-    assert 0, "loops too long! revert d5dd9462363a on model.py"
