@@ -2355,6 +2355,25 @@ class BasicTests:
             return f(n, A(5), A(10))
         assert self.meta_interp(g, [20]) == g(20)
 
+    def test_ovf_guard_in_short_preamble2(self):
+        class A(object):
+            def __init__(self, val):
+                self.val = val
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a', 'node1', 'node2'])
+        def f(n, a):
+            node1 = node2 = A(0)
+            sa = i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a, node1=node1, node2=node2)
+                node2.val = 7
+                if a >= 100:
+                    sa += 1
+                sa += ovfcheck(i + i)
+                node1 = A(i)
+                i += 1
+        assert self.meta_interp(f, [20, 7]) == f(20, 7)
+            
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

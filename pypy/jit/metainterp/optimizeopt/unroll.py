@@ -175,6 +175,23 @@ class UnrollOptimizer(Optimization):
                     self.constant_inputargs[box] = const
         
             initial_inputargs_len = len(inputargs)
+            self.inliner = Inliner(loop.inputargs, jump_args)
+
+            start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
+            self.start_resumedescr = start_resumedescr
+            assert isinstance(start_resumedescr, ResumeGuardDescr)
+            snapshot = start_resumedescr.rd_snapshot
+            while snapshot is not None:
+                snapshot_args = snapshot.boxes 
+                new_snapshot_args = []
+                for a in snapshot_args:
+                    if not isinstance(a, Const):
+                        a = loop.preamble.inputargs[jump_args.index(a)]
+                    a = self.inliner.inline_arg(a)
+                    a = self.getvalue(a).get_key_box()
+                    new_snapshot_args.append(a)
+                snapshot.boxes = new_snapshot_args
+                snapshot = snapshot.prev
 
             inputargs, short_inputargs, short = self.inline(self.cloned_operations,
                                            loop.inputargs, jump_args,
@@ -192,21 +209,6 @@ class UnrollOptimizer(Optimization):
 
             loop.operations = self.optimizer.newoperations
 
-            start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
-            assert isinstance(start_resumedescr, ResumeGuardDescr)
-            snapshot = start_resumedescr.rd_snapshot
-            while snapshot is not None:
-                snapshot_args = snapshot.boxes 
-                new_snapshot_args = []
-                for a in snapshot_args:
-                    if not isinstance(a, Const):
-                        a = loop.preamble.inputargs[jump_args.index(a)]
-                    a = self.inliner.inline_arg(a)
-                    a = self.getvalue(a).get_key_box()
-                    new_snapshot_args.append(a)
-                snapshot.boxes = new_snapshot_args
-                snapshot = snapshot.prev
-
             #short = self.create_short_preamble(loop.preamble, loop)
             if short:
                 assert short[-1].getopnum() == rop.JUMP
@@ -218,7 +220,7 @@ class UnrollOptimizer(Optimization):
                     if op.is_guard():
                         op = op.clone()
                         op.setfailargs(None)
-                        descr = start_resumedescr.clone_if_mutable()
+                        descr = self.start_resumedescr.clone_if_mutable()
                         op.setdescr(descr)
                         short[i] = op
 
@@ -234,7 +236,7 @@ class UnrollOptimizer(Optimization):
                 short_loop.inputargs = newargs
                 ops = [inliner.inline_op(op) for op in short_loop.operations]
                 short_loop.operations = ops
-                descr = start_resumedescr.clone_if_mutable()
+                descr = self.start_resumedescr.clone_if_mutable()
                 inliner.inline_descr_inplace(descr)
                 short_loop.start_resumedescr = descr
 
@@ -253,7 +255,7 @@ class UnrollOptimizer(Optimization):
                         op.result.forget_value()
                 
     def inline(self, loop_operations, loop_args, jump_args, virtual_state):
-        self.inliner = inliner = Inliner(loop_args, jump_args)
+        inliner = self.inliner
 
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values)
@@ -320,29 +322,26 @@ class UnrollOptimizer(Optimization):
 
     def add_op_to_short(self, op, short, short_seen):
         if op is None:
-            return 
+            return
         if op.result is not None and op.result in short_seen:
             return self.short_inliner.inline_arg(op.result)
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in short_seen:
                 self.add_op_to_short(self.short_boxes[a], short, short_seen)
+        if op.is_guard():
+            descr = self.start_resumedescr.clone_if_mutable()
+            op.setdescr(descr)
+            
         short.append(op)
         short_seen[op.result] = True
         newop = self.short_inliner.inline_op(op)
-        newoplen = len(self.optimizer.newoperations)
         self.optimizer.send_extra_operation(newop)
-        assert len(self.optimizer.newoperations) == newoplen
 
         if op.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-            short.append(guard)
-            newoplen = len(self.optimizer.newoperations)
-            self.optimizer.send_extra_operation(guard)
-            assert len(self.optimizer.newoperations) == newoplen
+            self.add_op_to_short(guard, short, short_seen)
 
-        # FIXME: Emit a proper guards here in case it is not
-        #        removed by the optimizer. Can that happen?
         return newop.result
         
     def import_box(self, box, inputargs, short, short_jumpargs,
