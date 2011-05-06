@@ -74,7 +74,7 @@ void pypy_debug_ensure_opened(void)
 
 #ifndef _WIN32
 
-     static long long pypy_read_timestamp(void)
+     long long pypy_read_timestamp(void)
      {
 #  ifdef CLOCK_THREAD_CPUTIME_ID
        struct timespec tspec;
