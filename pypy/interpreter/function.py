@@ -600,8 +600,10 @@ class StaticMethod(Wrappable):
         """staticmethod(x).__get__(obj[, type]) -> x"""
         return self.w_function
 
-    def descr_staticmethod__new__(space, w_type, w_function):
-        return space.wrap(StaticMethod(w_function))
+    def descr_staticmethod__new__(space, w_subtype, w_function):
+        instance = space.allocate_instance(StaticMethod, w_subtype)
+        instance.__init__(w_function)
+        return space.wrap(instance)
 
 class ClassMethod(Wrappable):
     """The classmethod objects."""

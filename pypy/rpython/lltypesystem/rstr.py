@@ -5,6 +5,7 @@ from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.jit import purefunction, we_are_jitted
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import inputconst, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
@@ -255,6 +256,27 @@ def bloom(mask, c):
 
 
 class LLHelpers(AbstractLLHelpers):
+    @purefunction
+    def ll_str_mul(s, times):
+        if times < 0:
+            times = 0
+        try:
+            size = ovfcheck(len(s.chars) * times)
+        except OverflowError:
+            raise MemoryError
+        newstr = s.malloc(size)
+        i = 0
+        if i < size:
+            s.copy_contents(s, newstr, 0, 0, len(s.chars))
+            i += len(s.chars)
+        while i < size:
+            if i <= size - i:
+                j = i
+            else:
+                j = size - i
+            s.copy_contents(newstr, newstr, 0, i, j)
+            i += j
+        return newstr
 
     @purefunction
     def ll_char_mul(ch, times):

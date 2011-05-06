@@ -1443,6 +1443,7 @@ class DarwinAssemblerParser64(DarwinAssemblerParser):
 
 class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
+    r_sectionstart = re.compile(r"^_loc()")
     FunctionGcRootTracker = Mingw32FunctionGcRootTracker
 
 class MsvcAssemblerParser(AssemblerParser):

@@ -23,34 +23,47 @@ List of extension modules that we support:
     _ast
     _bisect
     _codecs
+    _collections
+    `_ffi`_
+    _hashlib
+    _io
+    _locale
     _lsprof
+    _md5
     `_minimal_curses`_
+    _multiprocessing
     _random
     `_rawffi`_
-    _ssl
+    _sha
     _socket
     _sre
+    _ssl
+    _warnings
     _weakref
+    _winreg
     array
+    binascii
     bz2
     cStringIO
+    clr
+    cmath
     `cpyext`_
     crypt
     errno
     exceptions
     fcntl
     gc
+    imp
     itertools
     marshal
     math
-    md5
     mmap
     operator
+    oracle
     parser
     posix
     pyexpat
     select
-    sha
     signal
     struct
     symbol
@@ -77,8 +90,7 @@ List of extension modules that we support:
 
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
-  support this way: ``ctypes``, ``cPickle``,
-  ``cStringIO``, ``cmath``, ``dbm`` (?), ``datetime``, ``binascii``...  
+  support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
   Note that some modules are both in there and in the list above;
   by default, the built-in module is used (but can be disabled
   at translation time).
@@ -89,6 +101,7 @@ that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
 
 .. the nonstandard modules are listed below...
 .. _`__pypy__`: __pypy__-module.html
+.. _`_ffi`: ctypes-implementation.html
 .. _`_rawffi`: ctypes-implementation.html
 .. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
 .. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
@@ -114,7 +127,7 @@ CPython's behavior in a language spec, given that it has no chance to be
 adopted by Jython or IronPython (or any other port of Python to Java or
 .NET, like PyPy itself).
 
-This affects the precise time at which __del__ methods are called, which
+This affects the precise time at which ``__del__`` methods are called, which
 is not reliable in PyPy (nor Jython nor IronPython).  It also means that
 weak references may stay alive for a bit longer than expected.  This
 makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
@@ -124,12 +137,12 @@ next access.  Any code that uses weak proxies must carefully catch such
 ``ReferenceError`` at any place that uses them.
 
 There are a few extra implications for the difference in the GC.  Most
-notably, if an object has a __del__, the __del__ is never called more
-than once in PyPy; but CPython will call the same __del__ several times
-if the object is resurrected and dies again.  The __del__ methods are
+notably, if an object has a ``__del__``, the ``__del__`` is never called more
+than once in PyPy; but CPython will call the same ``__del__`` several times
+if the object is resurrected and dies again.  The ``__del__`` methods are
 called in "the right" order if they are on objects pointing to each
 other, as in CPython, but unlike CPython, if there is a dead cycle of
-objects referencing each other, their __del__ methods are called anyway;
+objects referencing each other, their ``__del__`` methods are called anyway;
 CPython would instead put them into the list ``garbage`` of the ``gc``
 module.  More information is available on the blog `[1]`__ `[2]`__.
 
@@ -142,7 +155,7 @@ are not real addresses (because an object can move around several times)
 and calling it a lot can lead to performance problem.
 
 Note that if you have a long chain of objects, each with a reference to
-the next one, and each with a __del__, PyPy's GC will perform badly.  On
+the next one, and each with a ``__del__``, PyPy's GC will perform badly.  On
 the bright side, in most other cases, benchmarks have shown that PyPy's
 GCs perform much better than CPython's.
 
@@ -221,5 +234,9 @@ Miscellaneous
   it could be supported, but then it will likely work in many
   *more* case on PyPy than on CPython 2.6/2.7.)
 
+* the ``__builtins__`` name is always referencing the ``__builtin__`` module,
+  never a dictionary as it sometimes is in CPython. Assigning to
+  ``__builtins__`` has no effect.
 
-.. include:: _ref.rst
+.. include:: _ref.txt
+

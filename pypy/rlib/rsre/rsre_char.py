@@ -54,11 +54,13 @@ MAXREPEAT = 65535
 
 
 def getlower(char_ord, flags):
-    if flags & SRE_FLAG_UNICODE:
+    if flags & SRE_FLAG_LOCALE:
+        if char_ord < 256:      # cheating!  Well, CPython does too.
+            char_ord = tolower(char_ord)
+        return char_ord
+    elif flags & SRE_FLAG_UNICODE:
         assert unicodedb is not None
         char_ord = unicodedb.tolower(char_ord)
-    elif flags & SRE_FLAG_LOCALE:
-        return tolower(char_ord)
     else:
         if int_between(ord('A'), char_ord, ord('Z') + 1):   # ASCII lower
             char_ord += ord('a') - ord('A')

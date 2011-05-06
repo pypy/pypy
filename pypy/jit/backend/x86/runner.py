@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
@@ -9,6 +10,11 @@ from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
 import sys
+
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer('jitbackend')
+py.log.setconsumer('jitbackend', ansi_log)
+
 
 class AbstractX86CPU(AbstractLLCPU):
     debug = True
@@ -29,6 +35,8 @@ class AbstractX86CPU(AbstractLLCPU):
             config = rtyper.annotator.translator.config
             if config.translation.jit_profiler == "oprofile":
                 from pypy.jit.backend.x86 import oprofile
+                if not oprofile.OPROFILE_AVAILABLE:
+                    log.WARNING('oprofile support was explicitly enabled, but oprofile headers seem not to be available')
                 profile_agent = oprofile.OProfileAgent()
 
         self.profile_agent = profile_agent

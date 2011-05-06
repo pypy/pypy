@@ -286,6 +286,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         while True:
             extended_arg_count = 0
             offset = 0
+            force_redo = False
             # Calculate the code offset of each block.
             for block in blocks:
                 block.offset = offset
@@ -313,7 +314,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     instr.has_jump = False
                                     # The size of the code changed,
                                     # we have to trigger another pass
-                                    extended_arg_count += 1
+                                    force_redo = True
                                     continue
                         if absolute:
                             jump_arg = target.offset
@@ -322,7 +323,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                         instr.arg = jump_arg
                         if jump_arg > 0xFFFF:
                             extended_arg_count += 1
-            if extended_arg_count == last_extended_arg_count:
+            if extended_arg_count == last_extended_arg_count and not force_redo:
                 break
             else:
                 last_extended_arg_count = extended_arg_count

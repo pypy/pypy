@@ -1,7 +1,7 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
-from pypy.rlib.rfloat import isinf, isnan
+from pypy.rlib.rfloat import isfinite
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
@@ -173,9 +173,15 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         # This function is not marked as pure because it can raise
-        sign = 1
-        if isinf(dval) or isnan(dval):
+        if isfinite(dval):
+            return rbigint._fromfloat_finite(dval)
+        else:
             raise OverflowError
+
+    @staticmethod
+    @jit.purefunction
+    def _fromfloat_finite(dval):
+        sign = 1
         if dval < 0.0:
             sign = -1
             dval = -dval

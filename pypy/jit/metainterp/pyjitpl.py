@@ -1023,6 +1023,10 @@ class MIFrame(object):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, lastbox], None)
 
+    @arguments()
+    def opimpl_ll_read_timestamp(self):
+        return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
+
     # ------------------------------
 
     def setup_call(self, argboxes):
