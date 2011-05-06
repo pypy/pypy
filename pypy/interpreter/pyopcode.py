@@ -1417,13 +1417,16 @@ app = gateway.applevel(r'''
     def print_item_to(x, stream):
         if file_softspace(stream, False):
            stream.write(" ")
-        if isinstance(x, unicode) and getattr(stream, "encoding", None) is not None:
-            x = x.encode(stream.encoding, getattr(stream, "errors", None) or "strict")
-        stream.write(str(x))
+
+        # give to write() an argument which is either a string or a unicode
+        # (and let it deals itself with unicode handling)
+        if not isinstance(x, unicode):
+            x = str(x)
+        stream.write(x)
 
         # add a softspace unless we just printed a string which ends in a '\t'
         # or '\n' -- or more generally any whitespace character but ' '
-        if isinstance(x, (str, unicode)) and x:
+        if x:
             lastchar = x[-1]
             if lastchar.isspace() and lastchar != ' ':
                 return
