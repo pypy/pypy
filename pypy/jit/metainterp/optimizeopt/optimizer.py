@@ -58,14 +58,14 @@ class OptValue(object):
             if self.level == LEVEL_NONNULL:
                 op = ResOperation(rop.GUARD_NONNULL, [box], None)
                 guards.append(op)
-            if self.intbound.has_lower:
+            if self.intbound.has_lower and self.intbound.lower > MININT:
                 bound = self.intbound.lower
                 res = BoxInt()
                 op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
                 guards.append(op)
                 op = ResOperation(rop.GUARD_TRUE, [res], None)
                 guards.append(op)
-            if self.intbound.has_upper:
+            if self.intbound.has_upper and self.intbound.upper < MAXINT:
                 bound = self.intbound.upper
                 res = BoxInt()
                 op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
@@ -81,6 +81,10 @@ class OptValue(object):
         return self.box
 
     def force_at_end_of_preamble(self, already_forced):
+        if self.intbound.lower < MININT/2:
+            self.intbound.lower = MININT
+        if self.intbound.upper > MAXINT/2:
+            self.intbound.upper = MAXINT
         return self
 
     def get_cloned(self, optimizer, valuemap, force_if_needed=True):

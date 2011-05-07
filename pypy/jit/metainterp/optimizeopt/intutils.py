@@ -224,7 +224,7 @@ class IntBound(object):
         res.has_lower = self.has_lower
         res.has_upper = self.has_upper
         return res
-    
+
 class IntUpperBound(IntBound):
     def __init__(self, upper):
         self.has_upper = True
