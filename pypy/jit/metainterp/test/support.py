@@ -51,6 +51,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     testself.cw = cw
     policy = JitPolicy()
+    policy.set_supports_floats(True)
     policy.set_supports_longlong(supports_longlong)
     cw.find_all_graphs(policy)
     #
