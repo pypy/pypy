@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.jit.codewriter.jtransform import Transformer
 from pypy.jit.metainterp.history import getkind
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rlist
+from pypy.rpython.lltypesystem.module import ll_math
 from pypy.translator.unsimplify import varoftype
 from pypy.jit.codewriter import heaptracker, effectinfo
 from pypy.jit.codewriter.flatten import ListOfKind
@@ -98,7 +99,9 @@ class FakeBuiltinCallControl:
             PUNICODE = lltype.Ptr(rstr.UNICODE)
             INT = lltype.Signed
             UNICHAR = lltype.UniChar
+            FLOAT = lltype.Float
             argtypes = {
+             EI.OS_MATH_SQRT:  ([FLOAT], FLOAT),
              EI.OS_STR2UNICODE:([PSTR], PUNICODE),
              EI.OS_STR_CONCAT: ([PSTR, PSTR], PSTR),
              EI.OS_STR_SLICE:  ([PSTR, INT, INT], PSTR),
@@ -947,3 +950,22 @@ def test_list_ll_arraycopy():
     assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_ARRAYCOPY
     assert op1.args[2] == ListOfKind('int', [v3, v4, v5])
     assert op1.args[3] == ListOfKind('ref', [v1, v2])
+
+def test_math_sqrt():
+    # test that the oopspec is present and correctly transformed
+    FLOAT = lltype.Float
+    FUNC = lltype.FuncType([FLOAT], FLOAT)
+    func = lltype.functionptr(FUNC, 'll_math',
+                              _callable=ll_math.sqrt_nonneg)
+    v1 = varoftype(FLOAT)
+    v2 = varoftype(FLOAT)
+    op = SpaceOperation('direct_call', [const(func), v1], v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = tr.rewrite_operation(op)
+    assert op1.opname == 'residual_call_irf_f'
+    assert op1.args[0].value == func
+    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_MATH_SQRT
+    assert op1.args[2] == ListOfKind("int", [])
+    assert op1.args[3] == ListOfKind("ref", [])
+    assert op1.args[4] == ListOfKind('float', [v1])
+    assert op1.result == v2

@@ -691,6 +691,8 @@ define_modrm_modes('MOVSX32_r*', [rex_w, '\x63', register(1, 8)])
 define_modrm_modes('MOVSD_x*', ['\xF2', rex_nw, '\x0F\x10', register(1,8)], regtype='XMM')
 define_modrm_modes('MOVSD_*x', ['\xF2', rex_nw, '\x0F\x11', register(2,8)], regtype='XMM')
 
+define_modrm_modes('SQRTSD_x*', ['\xF2', rex_nw, '\x0F\x51', register(1,8)], regtype='XMM')
+
 #define_modrm_modes('XCHG_r*', [rex_w, '\x87', register(1, 8)])
 
 define_modrm_modes('ADDSD_x*', ['\xF2', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')

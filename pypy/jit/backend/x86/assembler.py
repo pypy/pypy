@@ -832,6 +832,11 @@ class Assembler386(object):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         genop_llong_list[oopspecindex](self, op, arglocs, resloc)
+        
+    def regalloc_perform_math(self, op, arglocs, resloc):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        genop_math_list[oopspecindex](self, op, arglocs, resloc)
 
     def regalloc_perform_with_guard(self, op, guard_op, faillocs,
                                     arglocs, resloc, current_depths):
@@ -1119,6 +1124,9 @@ class Assembler386(object):
     genop_guard_float_eq = _cmpop_guard_float("E", "E", "NE","NE")
     genop_guard_float_gt = _cmpop_guard_float("A", "B", "BE","AE")
     genop_guard_float_ge = _cmpop_guard_float("AE","BE", "B", "A")
+    
+    def genop_math_sqrt(self, op, arglocs, resloc):
+        self.mc.SQRTSD(arglocs[0], resloc)
 
     def genop_guard_float_ne(self, op, guard_op, guard_token, arglocs, result_loc):
         guard_opnum = guard_op.getopnum()
@@ -2158,6 +2166,7 @@ class Assembler386(object):
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_llong_list = {}
+genop_math_list = {}
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():
@@ -2173,6 +2182,10 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_llong_'):]
         num = getattr(EffectInfo, 'OS_LLONG_' + opname.upper())
         genop_llong_list[num] = value
+    elif name.startswith('genop_math_'):
+        opname = name[len('genop_math_'):]
+        num = getattr(EffectInfo, 'OS_MATH_' + opname.upper())
+        genop_math_list[num] = value
     elif name.startswith('genop_'):
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())

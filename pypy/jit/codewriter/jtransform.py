@@ -351,6 +351,8 @@ class Transformer(object):
             prepare = self._handle_jit_call
         elif oopspec_name.startswith('libffi_'):
             prepare = self._handle_libffi_call
+        elif oopspec_name.startswith('math.sqrt'):
+            prepare = self._handle_math_sqrt_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -1360,6 +1362,13 @@ class Transformer(object):
         assert vinfo is not None
         self.vable_flags[op.args[0]] = op.args[2].value
         return []
+        
+    # ---------
+    # ll_math.sqrt_nonneg()
+    
+    def _handle_math_sqrt_call(self, op, oopspec_name, args):
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
+                                         EffectInfo.EF_PURE)
 
 # ____________________________________________________________
 
