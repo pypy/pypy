@@ -1266,9 +1266,10 @@ class SContinueLoop(SuspendedUnroller):
 
 
 class FrameBlock(object):
-
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
+
+    _immutable_ = True
 
     def __init__(self, frame, handlerposition):
         self.handlerposition = handlerposition
@@ -1311,6 +1312,7 @@ class FrameBlock(object):
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
+    _immutable_ = True
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
@@ -1330,6 +1332,7 @@ class LoopBlock(FrameBlock):
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
 
+    _immutable_ = True
     _opname = 'SETUP_EXCEPT'
     handling_mask = SApplicationException.kind
 
@@ -1354,6 +1357,7 @@ class ExceptBlock(FrameBlock):
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
 
+    _immutable_ = True
     _opname = 'SETUP_FINALLY'
     handling_mask = -1     # handles every kind of SuspendedUnroller
 
@@ -1380,6 +1384,8 @@ class FinallyBlock(FrameBlock):
 
 
 class WithBlock(FinallyBlock):
+
+    _immutable_ = True
 
     def really_handle(self, frame, unroller):
         if (frame.space.full_exceptions and

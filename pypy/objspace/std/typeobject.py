@@ -88,7 +88,7 @@ class W_TypeObject(W_Object):
 
     _immutable_fields_ = ["flag_heaptype",
                           "flag_cpytype",
-                          #  flag_abstract is not immutable
+                          "flag_abstract?",
                           'needsdel',
                           'weakrefable',
                           'hasdict',
