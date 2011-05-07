@@ -42,11 +42,11 @@ If you need another license, don't hesitate to contact us.
 Trailer: PyPy at the PyCon 2006
 -------------------------------
 
-130mb: http://codespeak.net/download/pypy/video/pycon-trailer.avi.torrent
+130mb: http://wyvern.cs.uni-duesseldorf.de/torrent/pycon-trailer.avi.torrent
 
-71mb: http://codespeak.net/download/pypy/video/pycon-trailer-medium.avi.torrent
+71mb: http://wyvern.cs.uni-duesseldorf.de/torrent/pycon-trailer-medium.avi.torrent
 
-50mb: http://codespeak.net/download/pypy/video/pycon-trailer-320x240.avi.torrent
+50mb: http://wyvern.cs.uni-duesseldorf.de/torrent/pycon-trailer-320x240.avi.torrent
 
 .. image:: image/pycon-trailer.jpg
    :scale: 100
@@ -62,9 +62,9 @@ PAL, 9 min, DivX AVI
 Interview with Tim Peters
 -------------------------
 
-440mb: http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent
+440mb: http://wyvern.cs.uni-duesseldorf.de/torrent/interview-timpeters-v2.avi.torrent
 
-138mb: http://codespeak.net/download/pypy/video/interview-timpeters-320x240.avi.torrent
+138mb: http://wyvern.cs.uni-duesseldorf.de/torrent/interview-timpeters-320x240.avi.torrent
 
 .. image:: image/interview-timpeters.jpg
    :scale: 100
@@ -82,9 +82,9 @@ Tim Peters, a longtime CPython core developer talks about how he got into Python
 Interview with Bob Ippolito
 ---------------------------
 
-155mb: http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent
+155mb: http://wyvern.cs.uni-duesseldorf.de/torrent/interview-bobippolito-v2.avi.torrent
 
-50mb: http://codespeak.net/download/pypy/video/interview-bobippolito-320x240.avi.torrent
+50mb: http://wyvern.cs.uni-duesseldorf.de/torrent/interview-bobippolito-320x240.avi.torrent
 
 .. image:: image/interview-bobippolito.jpg
    :scale: 100
@@ -102,9 +102,9 @@ Bob Ippolito is an Open Source software developer from San Francisco and has bee
 Introductory talk on PyPy
 -------------------------
 
-430mb: http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
+430mb: http://wyvern.cs.uni-duesseldorf.de/torrent/introductory-talk-pycon-v1.avi.torrent
 
-166mb: http://codespeak.net/download/pypy/video/introductory-talk-pycon-320x240.avi.torrent
+166mb: http://wyvern.cs.uni-duesseldorf.de/torrent/introductory-talk-pycon-320x240.avi.torrent
 
 .. image:: image/introductory-talk-pycon.jpg
    :scale: 100
@@ -125,9 +125,9 @@ Stackless and Greenlets in PyPy.
 Talk on Agile Open Source Methods in the PyPy project
 -----------------------------------------------------
 
-395mb: http://codespeak.net/download/pypy/video/agile-talk-v1.avi.torrent
+395mb: http://wyvern.cs.uni-duesseldorf.de/torrent/agile-talk-v1.avi.torrent
 
-153mb: http://codespeak.net/download/pypy/video/agile-talk-320x240.avi.torrent
+153mb: http://wyvern.cs.uni-duesseldorf.de/torrent/agile-talk-320x240.avi.torrent
 
 .. image:: image/agile-talk.jpg
    :scale: 100
@@ -148,9 +148,9 @@ the formalities required for EU funding.
 PyPy Architecture session
 -------------------------
 
-744mb: http://codespeak.net/download/pypy/video/architecture-session-v1.avi.torrent
+744mb: http://wyvern.cs.uni-duesseldorf.de/torrent/architecture-session-v1.avi.torrent
 
-288mb: http://codespeak.net/download/pypy/video/architecture-session-320x240.avi.torrent
+288mb: http://wyvern.cs.uni-duesseldorf.de/torrent/architecture-session-320x240.avi.torrent
 
 .. image:: image/architecture-session.jpg
    :scale: 100
@@ -171,9 +171,9 @@ a daily basis, and pays special attention to flow graphs.
 Sprint tutorial
 ---------------
 
-680mb: http://codespeak.net/download/pypy/video/sprint-tutorial-v2.avi.torrent
+680mb: http://wyvern.cs.uni-duesseldorf.de/torrent/sprint-tutorial-v2.avi.torrent
 
-263mb: http://codespeak.net/download/pypy/video/sprint-tutorial-320x240.avi.torrent
+263mb: http://wyvern.cs.uni-duesseldorf.de/torrent/sprint-tutorial-320x240.avi.torrent
 
 .. image:: image/sprint-tutorial.jpg
    :scale: 100
@@ -190,9 +190,9 @@ Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. 
 Scripting .NET with IronPython by Jim Hugunin
 ---------------------------------------------
 
-372mb: http://codespeak.net/download/pypy/video/ironpython-talk-v2.avi.torrent
+372mb: http://wyvern.cs.uni-duesseldorf.de/torrent/ironpython-talk-v2.avi.torrent
 
-270mb: http://codespeak.net/download/pypy/video/ironpython-talk-320x240.avi.torrent
+270mb: http://wyvern.cs.uni-duesseldorf.de/torrent/ironpython-talk-320x240.avi.torrent
 
 .. image:: image/ironpython.jpg
    :scale: 100
@@ -209,9 +209,9 @@ Jim Hugunin talks about regression tests, the code generation and the object lay
 Bram Cohen, founder and developer of BitTorrent
 -----------------------------------------------
 
-509mb: http://codespeak.net/download/pypy/video/bram-cohen-interview-v1.avi.torrent
+509mb: http://wyvern.cs.uni-duesseldorf.de/torrent/bram-cohen-interview-v1.avi.torrent
 
-370mb: http://codespeak.net/download/pypy/video/bram-cohen-interview-320x240.avi.torrent
+370mb: http://wyvern.cs.uni-duesseldorf.de/torrent/bram-cohen-interview-320x240.avi.torrent
 
 .. image:: image/bram.jpg
    :scale: 100
@@ -226,9 +226,9 @@ PAL, 60 min, DivX AVI
 Keynote speech by Guido van Rossum on the new Python 2.5 features
 -----------------------------------------------------------------
 
-695mb: http://codespeak.net/download/pypy/video/keynote-speech_guido-van-rossum_v1.avi.torrent
+695mb: http://wyvern.cs.uni-duesseldorf.de/torrent/keynote-speech_guido-van-rossum_v1.avi.torrent
 
-430mb: http://codespeak.net/download/pypy/video/keynote-speech_guido-van-rossum_320x240.avi.torrent
+430mb: http://wyvern.cs.uni-duesseldorf.de/torrent/keynote-speech_guido-van-rossum_320x240.avi.torrent
 
 .. image:: image/guido.jpg
    :scale: 100
@@ -243,11 +243,11 @@ PAL, 70 min, DivX AVI
 Trailer: PyPy sprint at the University of Palma de Mallorca
 -----------------------------------------------------------
 
-166mb: http://codespeak.net/download/pypy/video/mallorca-trailer-v1.avi.torrent
+166mb: http://wyvern.cs.uni-duesseldorf.de/torrent/mallorca-trailer-v1.avi.torrent
 
-88mb: http://codespeak.net/download/pypy/video/mallorca-trailer-medium.avi.torrent
+88mb: http://wyvern.cs.uni-duesseldorf.de/torrent/mallorca-trailer-medium.avi.torrent
 
-64mb: http://codespeak.net/download/pypy/video/mallorca-trailer-320x240.avi.torrent
+64mb: http://wyvern.cs.uni-duesseldorf.de/torrent/mallorca-trailer-320x240.avi.torrent
 
 .. image:: image/mallorca-trailer.jpg
    :scale: 100
@@ -262,9 +262,9 @@ PAL, 11 min, DivX AVI
 Coding discussion of core developers Armin Rigo and Samuele Pedroni
 -------------------------------------------------------------------
 
-620mb: http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
+620mb: http://wyvern.cs.uni-duesseldorf.de/torrent/coding-discussion-v1.avi.torrent
 
-240mb: http://codespeak.net/download/pypy/video/coding-discussion-320x240.avi.torrent
+240mb: http://wyvern.cs.uni-duesseldorf.de/torrent/coding-discussion-320x240.avi.torrent
 
 .. image:: image/coding-discussion.jpg
    :scale: 100
@@ -279,9 +279,9 @@ PAL 40 min, DivX AVI
 PyPy technical talk at the University of Palma de Mallorca
 ----------------------------------------------------------
 
-865mb: http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
+865mb: http://wyvern.cs.uni-duesseldorf.de/torrent/introductory-student-talk-v2.avi.torrent
 
-437mb: http://codespeak.net/download/pypy/video/introductory-student-talk-320x240.avi.torrent
+437mb: http://wyvern.cs.uni-duesseldorf.de/torrent/introductory-student-talk-320x240.avi.torrent
 
 .. image:: image/introductory-student-talk.jpg
    :scale: 100
