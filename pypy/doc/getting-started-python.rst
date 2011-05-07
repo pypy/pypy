@@ -300,6 +300,6 @@ options do.
 .. _`CLI backend`: cli-backend.html
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 .. _clr: clr-module.html
-.. _`CPythons core language regression tests`: http://codespeak.net:8099/summary?category=applevel&branch=%3Ctrunk%3E
+.. _`CPythons core language regression tests`: http://buildbot.pypy.org/summary?category=applevel&branch=%3Ctrunk%3E
 
 .. include:: _ref.txt
