@@ -1174,6 +1174,15 @@ class BlackholeInterpreter(object):
     def bhimpl_setfield_raw_f(cpu, struct, fielddescr, newvalue):
         cpu.bh_setfield_raw_f(struct, fielddescr, newvalue)
 
+    @arguments("r", "d", "d")
+    def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):
+        pass
+
+    @arguments("cpu", "r", "d")
+    def bhimpl_jit_force_quasi_immutable(cpu, struct, mutatefielddescr):
+        from pypy.jit.metainterp import quasiimmut
+        quasiimmut.do_force_quasi_immutable(cpu, struct, mutatefielddescr)
+
     @arguments("cpu", "d", returns="r")
     def bhimpl_new(cpu, descr):
         return cpu.bh_new(descr)
@@ -1298,6 +1307,8 @@ class BlackholeInterpreter(object):
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
             # We get here because it used to overflow, but now it no longer
             # does.
+            pass
+        elif opnum == rop.GUARD_NOT_INVALIDATED:
             pass
         else:
             from pypy.jit.metainterp.resoperation import opname

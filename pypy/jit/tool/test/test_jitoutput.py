@@ -61,6 +61,7 @@ abort: trace too long:  10
 abort: compiling:       11
 abort: vable escape:    12
 abort: bad loop:        135
+abort: force quasi-immut: 3
 nvirtuals:              13
 nvholes:                14
 nvreused:               15
@@ -89,6 +90,7 @@ def test_parse():
     assert info.abort.compiling == 11
     assert info.abort.vable_escape == 12
     assert info.abort.bad_loop == 135
+    assert info.abort.force_quasiimmut == 3
     assert info.nvirtuals == 13
     assert info.nvholes == 14
     assert info.nvreused == 15

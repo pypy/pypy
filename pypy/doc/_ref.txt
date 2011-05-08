@@ -1,3 +1,4 @@
+.. _`ctypes_configure/doc/sample.py`: https://bitbucket.org/pypy/pypy/src/default/ctypes_configure/doc/sample.py
 .. _`demo/`: https://bitbucket.org/pypy/pypy/src/default/demo/
 .. _`demo/pickle_coroutine.py`: https://bitbucket.org/pypy/pypy/src/default/demo/pickle_coroutine.py
 .. _`lib-python/`: https://bitbucket.org/pypy/pypy/src/default/lib-python/
