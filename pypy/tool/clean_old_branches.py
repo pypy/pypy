@@ -32,7 +32,7 @@ if not closed_heads:
 
 # ____________________________________________________________
 
-closed_heads = sorted(set(closed_heads))
+closed_heads.reverse()
 
 for branch_head in closed_heads:
     branch, head = branch_head.split()
