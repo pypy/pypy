@@ -794,15 +794,8 @@ def test_immutable_hint():
         def __init__(self, fields):
             self.fields = fields
     S = GcStruct('S', ('x', lltype.Signed),
-                 hints={'immutable_fields': FieldListAccessor({'x':''})})
-    assert S._immutable_field('x') == True
-    #
-    class FieldListAccessor(object):
-        def __init__(self, fields):
-            self.fields = fields
-    S = GcStruct('S', ('x', lltype.Signed),
-                 hints={'immutable_fields': FieldListAccessor({'x':'[*]'})})
-    assert S._immutable_field('x') == '[*]'
+                 hints={'immutable_fields': FieldListAccessor({'x': 1234})})
+    assert S._immutable_field('x') == 1234
 
 def test_typedef():
     T = Typedef(Signed, 'T')

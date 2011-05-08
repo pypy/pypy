@@ -153,6 +153,17 @@ class AbstractX86CPU(AbstractLLCPU):
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
+    def invalidate_loop(self, looptoken):
+        from pypy.jit.backend.x86 import codebuf
+        
+        for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
+            mc = codebuf.MachineCodeBlockWrapper()
+            mc.JMP_l(tgt)
+            assert mc.get_relative_pos() == 5      # [JMP] [tgt 4 bytes]
+            mc.copy_to_raw_memory(addr - 1)
+        # positions invalidated
+        looptoken.compiled_loop_token.invalidate_positions = []
+
 class CPU386(AbstractX86CPU):
     WORD = 4
     NUM_REGS = 8

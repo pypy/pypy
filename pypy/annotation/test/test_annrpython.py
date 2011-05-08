@@ -3398,6 +3398,20 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.listdef.listitem.immutable
 
+    def test_return_immutable_list_quasiimmut_field(self):
+        class A:
+            _immutable_fields_ = 'lst?[*]'
+        def f(n):
+            a = A()
+            l1 = [n, 0]
+            l1[1] = n+1
+            a.lst = l1
+            return a.lst
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.listdef.listitem.immutable
+
     def test_immutable_list_is_actually_resized(self):
         class A:
             _immutable_fields_ = 'lst[*]'

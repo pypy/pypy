@@ -267,6 +267,8 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(jump_args)
 
             loop.preamble.operations = self.optimizer.newoperations
+            loop.preamble.quasi_immutable_deps = (
+                self.optimizer.quasi_immutable_deps)
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
@@ -276,6 +278,7 @@ class UnrollOptimizer(Optimization):
             loop.preamble.operations.append(jmp)
 
             loop.operations = self.optimizer.newoperations
+            loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
 
             start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
             assert isinstance(start_resumedescr, ResumeGuardDescr)

@@ -136,6 +136,16 @@ class AbstractCPU(object):
         oldlooptoken so that from now own they will call newlooptoken."""
         raise NotImplementedError
 
+    def invalidate_loop(self, looptoken):
+        """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
+        bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
+        after this call, they all fail.  Note that afterwards, if one such
+        guard fails often enough, it has a bridge attached to it; it is
+        possible then to re-call invalidate_loop() on the same looptoken,
+        which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
+        old one that already has a bridge attached to it."""
+        raise NotImplementedError
+
     def free_loop_and_bridges(self, compiled_loop_token):
         """This method is called to free resources (machine code,
         references to resume guards, etc.) allocated by the compilation
@@ -291,6 +301,7 @@ class CompiledLoopToken(object):
         # that belong to this loop or to a bridge attached to it.
         # Filled by the frontend calling record_faildescr_index().
         self.faildescr_indices = []
+        self.invalidate_positions = []
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")

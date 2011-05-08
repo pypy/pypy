@@ -9,6 +9,8 @@ from pypy.jit.codewriter import support, heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
+from pypy.jit.metainterp import quasiimmut
+from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
 from pypy.translator.simplify import get_funcobj
@@ -113,7 +115,7 @@ class Transformer(object):
                     "known non-negative, or catching IndexError, or\n"
                     "not inlining at all (for tests: use listops=True).\n"
                     "Occurred in: %r" % self.graph)
-            # extra expanation: with the way things are organized in
+            # extra explanation: with the way things are organized in
             # rpython/rlist.py, the ll_getitem becomes a function call
             # that is typically meant to be inlined by the JIT, but
             # this does not work with vable arrays because
@@ -362,7 +364,7 @@ class Transformer(object):
         # If the resulting op1 is still a direct_call, turn it into a
         # residual_call.
         if isinstance(op1, SpaceOperation) and op1.opname == 'direct_call':
-            op1 = self.handle_residual_call(op1 or op)
+            op1 = self.handle_residual_call(op1)
         return op1
 
     def handle_recursive_call(self, op):
@@ -563,7 +565,8 @@ class Transformer(object):
                                                 arraydescr)
             return []
         # check for _immutable_fields_ hints
-        if v_inst.concretetype.TO._immutable_field(c_fieldname.value):
+        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
+        if immut:
             if (self.callcontrol is not None and
                 self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
                                                       c_fieldname.value)):
@@ -576,8 +579,18 @@ class Transformer(object):
         descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                       c_fieldname.value)
         kind = getkind(RESULT)[0]
-        return SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
-                              [v_inst, descr], op.result)
+        op1 = SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
+                             [v_inst, descr], op.result)
+        #
+        if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
+            descr1 = self.cpu.fielddescrof(
+                v_inst.concretetype.TO,
+                quasiimmut.get_mutate_field_name(c_fieldname.value))
+            op1 = [SpaceOperation('-live-', [], None),
+                   SpaceOperation('record_quasiimmut_field',
+                                  [v_inst, descr, descr1], None),
+                   op1]
+        return op1
 
     def rewrite_op_setfield(self, op):
         if self.is_typeptr_getset(op):
@@ -1369,6 +1382,15 @@ class Transformer(object):
     def _handle_math_sqrt_call(self, op, oopspec_name, args):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
                                          EffectInfo.EF_PURE)
+
+    def rewrite_op_jit_force_quasi_immutable(self, op):
+        v_inst, c_fieldname = op.args
+        descr1 = self.cpu.fielddescrof(v_inst.concretetype.TO,
+                                       c_fieldname.value)
+        op0 = SpaceOperation('-live-', [], None)
+        op1 = SpaceOperation('jit_force_quasi_immutable', [v_inst, descr1],
+                             None)
+        return [op0, op1]
 
 # ____________________________________________________________
 
