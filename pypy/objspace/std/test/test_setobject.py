@@ -69,10 +69,19 @@ class AppTestAppSetTest:
         assert s == frozenset('abc')     # the __init__ is ignored
 
     def test_subtype_bug(self):
-        class subset(set):pass
-        b = subset('abc').copy()
+        class subset(set): pass
+        b = subset('abc')
+        subset.__new__ = lambda *args: foobar   # not called
+        b = b.copy()
         assert type(b) is subset
         assert set(b) == set('abc')
+        #
+        class frozensubset(frozenset): pass
+        b = frozensubset('abc')
+        frozensubset.__new__ = lambda *args: foobar   # not called
+        b = b.copy()
+        assert type(b) is frozensubset
+        assert frozenset(b) == frozenset('abc')
 
     def test_union(self):
         a = set([4, 5])
@@ -148,11 +157,6 @@ class AppTestAppSetTest:
         assert s1 is not s2
         assert s1 == s2
         assert type(s2) is myfrozen
-        class myfrozen(frozenset):
-            def __new__(cls):
-                return frozenset.__new__(cls, 'abc')
-        s1 = myfrozen()
-        raises(TypeError, s1.copy)
 
     def test_update(self):
         s1 = set('abc')

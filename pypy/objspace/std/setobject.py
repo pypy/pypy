@@ -59,10 +59,9 @@ class W_FrozensetObject(W_BaseSetObject):
         if type(w_self) is W_FrozensetObject:
             return W_FrozensetObject(space, rdict_w)
         w_type = space.type(w_self)
-        _, w_newdescr = w_type.lookup_where('__new__')
-        w_newfunc = space.get(w_newdescr, w_type)
-        w_itemiterator = W_SetIterObject(rdict_w)
-        return space.call_function(w_newfunc, w_type, w_itemiterator)
+        w_obj = space.allocate_instance(W_FrozensetObject, w_type)
+        W_FrozensetObject.__init__(w_obj, space, rdict_w)
+        return w_obj
 
 registerimplementation(W_BaseSetObject)
 registerimplementation(W_SetObject)
