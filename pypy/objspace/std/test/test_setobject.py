@@ -57,6 +57,23 @@ class AppTestAppSetTest:
         b = a | set('abc')
         assert type(b) is subset
 
+    def test_init_new_behavior(self):
+        s = set.__new__(set, 'abc')
+        assert s == set()                # empty
+        s.__init__('def')
+        assert s == set('def')
+        #
+        s = frozenset.__new__(frozenset, 'abc')
+        assert s == frozenset('abc')     # non-empty
+        s.__init__('def')
+        assert s == frozenset('abc')     # the __init__ is ignored
+
+    def test_subtype_bug(self):
+        class subset(set):pass
+        b = subset('abc').copy()
+        assert type(b) is subset
+        assert set(b) == set('abc')
+
     def test_union(self):
         a = set([4, 5])
         b = a.union([5, 7])
