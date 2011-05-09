@@ -615,14 +615,11 @@ class ArgErrCount(ArgErr):
         self.num_kwds = nkwds
 
     def getmsg(self, fnname):
-        args = None
-        #args_w, kwds_w = args.unpack()
-        nargs = self.num_args + self.num_kwds
         n = self.expected_nargs
         if n == 0:
-            msg = "%s() takes no argument (%d given)" % (
+            msg = "%s() takes no arguments (%d given)" % (
                 fnname,
-                nargs)
+                self.num_args + self.num_kwds)
         else:
             defcount = self.num_defaults
             if defcount == 0 and not self.has_vararg:
@@ -636,12 +633,17 @@ class ArgErrCount(ArgErr):
                 plural = ""
             else:
                 plural = "s"
-            msg = "%s() takes %s %d argument%s (%d given)" % (
+            if self.has_kwarg or self.num_kwds > 0:
+                msg2 = " non-keyword"
+            else:
+                msg2 = ""
+            msg = "%s() takes %s %d%s argument%s (%d given)" % (
                 fnname,
                 msg1,
                 n,
+                msg2,
                 plural,
-                nargs)
+                self.num_args)
         return msg
 
 class ArgErrMultipleValues(ArgErr):

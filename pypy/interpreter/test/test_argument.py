@@ -512,25 +512,34 @@ class TestErrorHandling(object):
         # defaults_w, missing_args
         err = ArgErrCount(1, 0, 0, False, False, None, 0)
         s = err.getmsg('foo')
-        assert s == "foo() takes no argument (1 given)"
+        assert s == "foo() takes no arguments (1 given)"
         err = ArgErrCount(0, 0, 1, False, False, [], 1)
         s = err.getmsg('foo')
         assert s == "foo() takes exactly 1 argument (0 given)"
         err = ArgErrCount(3, 0, 2, False, False, [], 0)
         s = err.getmsg('foo')
         assert s == "foo() takes exactly 2 arguments (3 given)"
+        err = ArgErrCount(3, 0, 2, False, False, ['a'], 0)
+        s = err.getmsg('foo')
+        assert s == "foo() takes at most 2 arguments (3 given)"
         err = ArgErrCount(1, 0, 2, True, False, [], 1)
         s = err.getmsg('foo')
         assert s == "foo() takes at least 2 arguments (1 given)"
-        err = ArgErrCount(3, 0, 2, True, False, ['a'], 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at most 2 arguments (3 given)"
         err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
         s = err.getmsg('foo')
-        assert s == "foo() takes at least 1 argument (1 given)"
+        assert s == "foo() takes at least 1 non-keyword argument (0 given)"
         err = ArgErrCount(2, 1, 1, False, True, [], 0)
         s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 argument (3 given)"
+        assert s == "foo() takes exactly 1 non-keyword argument (2 given)"
+        err = ArgErrCount(0, 1, 1, False, True, [], 1)
+        s = err.getmsg('foo')
+        assert s == "foo() takes exactly 1 non-keyword argument (0 given)"
+        err = ArgErrCount(0, 1, 1, True, True, [], 1)
+        s = err.getmsg('foo')
+        assert s == "foo() takes at least 1 non-keyword argument (0 given)"
+        err = ArgErrCount(2, 1, 1, False, True, ['a'], 0)
+        s = err.getmsg('foo')
+        assert s == "foo() takes at most 1 non-keyword argument (2 given)"
 
     def test_bad_type_for_star(self):
         space = self.space
@@ -565,15 +574,15 @@ class TestErrorHandling(object):
 class AppTestArgument:
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
-        assert exc.value.message == "<lambda>() takes at least 1 argument (1 given)"
+        assert exc.value.message == "<lambda>() takes at least 1 non-keyword argument (0 given)"
         exc = raises(TypeError, (lambda: 0), b=3)
-        assert exc.value.message == "<lambda>() takes no argument (1 given)"
+        assert exc.value.message == "<lambda>() takes no arguments (1 given)"
         exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
-        assert exc.value.message == "<lambda>() takes exactly 2 arguments (4 given)"
+        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (3 given)"
         exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
-        assert exc.value.message == "<lambda>() takes at most 2 arguments (4 given)"
+        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
         exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
-        assert exc.value.message == "<lambda>() takes at most 2 arguments (3 given)"
+        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
 
 def make_arguments_for_translation(space, args_w, keywords_w={},
                                    w_stararg=None, w_starstararg=None):
