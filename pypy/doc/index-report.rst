@@ -99,7 +99,7 @@ to virtual machine construction`_. *(2007-02-28)*
 .. _`py-lib`: http://pylib.org/
 .. _`py.test`: http://pytest.org/
 .. _codespeak: http://codespeak.net/
-.. _`pypy-dev`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`pypy-dev`: http://python.org/mailman/listinfo/pypy-dev
 
 
 Reports of 2006
