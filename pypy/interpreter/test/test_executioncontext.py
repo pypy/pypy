@@ -324,3 +324,22 @@ gc.collect()
         g.close()
         assert 'Called 1' in data
         assert 'Called 2' in data
+
+
+class AppTestProfile:
+
+    def test_return(self):
+        import sys
+        l = []
+        def profile(frame, event, arg):
+            l.append((event, arg))
+
+        def bar(x):
+            return 40 + x
+
+        sys.setprofile(profile)
+        bar(2)
+        sys.setprofile(None)
+        assert l == [('call', None),
+                     ('return', 42),
+                     ('c_call', sys.setprofile)], repr(l)
