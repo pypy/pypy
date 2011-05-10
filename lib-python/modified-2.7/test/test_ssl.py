@@ -105,7 +105,6 @@ class BasicSocketTests(unittest.TestCase):
             print "didn't raise TypeError"
         ssl.RAND_add("this is a random string", 75.0)
 
-    @test_support.impl_detail("obscure test")
     def test_parse_cert(self):
         # note that this uses an 'unofficial' function in _ssl.c,
         # provided solely for this test, to exercise the certificate

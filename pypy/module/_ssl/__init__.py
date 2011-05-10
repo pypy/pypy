@@ -7,6 +7,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'sslwrap': 'interp_ssl.sslwrap',
         'SSLError': 'interp_ssl.get_error(space)',
+        '_test_decode_cert': 'interp_ssl._test_decode_cert',
     }
 
     appleveldefs = {
