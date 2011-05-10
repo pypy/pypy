@@ -211,10 +211,10 @@ class AppTestDATATYPES:
         assert c.s_int                  == -202
         assert c.s_uint                 ==  202
         assert cppyy_test_data.s_uint   ==  202
-        assert cppyy_test_data.s_long   == -303
-        assert c.s_long                 == -303
-        assert c.s_ulong                ==  303
-        assert cppyy_test_data.s_ulong  ==  303
+        assert cppyy_test_data.s_long   == -303L
+        assert c.s_long                 == -303L
+        assert c.s_ulong                ==  303L
+        assert cppyy_test_data.s_ulong  ==  303L
 
         # floating point types
         assert round(cppyy_test_data.s_float  + 404., 5) == 0
@@ -227,7 +227,66 @@ class AppTestDATATYPES:
     def test4ClassDataWriteAccess(self):
         """Test write access to class public data and verify values"""
 
-        pass
+        import cppyy, sys
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+        # char types
+        cppyy_test_data.s_char          = 'a'
+        assert c.s_char                == 'a'
+        c.s_char                        = 'b'
+        assert cppyy_test_data.s_char  == 'b'
+        cppyy_test_data.s_uchar         = 'c'
+        assert c.s_uchar               == 'c'
+        c.s_uchar                       = 'd'
+        assert cppyy_test_data.s_uchar == 'd'
+        raises(TypeError, setattr, cppyy_test_data, 's_uchar', -1)
+        raises(TypeError, setattr, c,               's_uchar', -1)
+
+        # integer types
+        c.s_short                        = -102
+        assert cppyy_test_data.s_short  == -102
+        cppyy_test_data.s_short          = -203
+        assert c.s_short                == -203
+        c.s_ushort                       =  127
+        assert cppyy_test_data.s_ushort ==  127
+        cppyy_test_data.s_ushort         =  227
+        assert c.s_ushort               ==  227
+        cppyy_test_data.s_int            = -234
+        assert c.s_int                  == -234
+        c.s_int                          = -321
+        assert cppyy_test_data.s_int    == -321
+        cppyy_test_data.s_uint           = 1234
+        assert c.s_uint                 == 1234
+        c.s_uint                         = 4321
+        assert cppyy_test_data.s_uint   == 4321
+        raises(ValueError, setattr, c,               's_uint', -1)
+        raises(ValueError, setattr, cppyy_test_data, 's_uint', -1)
+        cppyy_test_data.s_long           = -87L
+        assert c.s_long                 == -87L
+        c.s_long                         = 876L
+        assert cppyy_test_data.s_long   == 876L
+        cppyy_test_data.s_ulong          = 876L
+        assert c.s_ulong                == 876L
+        c.s_ulong                        = 678L
+        assert cppyy_test_data.s_ulong  == 678L
+        raises(ValueError, setattr, cppyy_test_data, 's_ulong', -1)
+        raises(ValueError, setattr, c,               's_ulong', -1)
+
+        # floating point types
+        cppyy_test_data.s_float                    = -3.1415
+        assert round(c.s_float, 5 )               == -3.1415
+        c.s_float                                  =  3.1415
+        assert round(cppyy_test_data.s_float, 5 ) ==  3.1415
+        import math
+        c.s_double                                 = -math.pi
+        assert cppyy_test_data.s_double           == -math.pi
+        cppyy_test_data.s_double                   =  math.pi
+        assert c.s_double                         ==  math.pi
+
+        c.destruct()
 
     def test5RangeAccess(self):
         """Test the ranges of integer types"""
@@ -238,6 +297,8 @@ class AppTestDATATYPES:
         c = cppyy_test_data()
         assert isinstance(c, cppyy_test_data)
 
+        # TODO: should these be TypeErrors, or should char/bool raise
+        #       ValueErrors? In any case, consistency is needed ...
         raises(ValueError, setattr, c, 'm_uint',  -1)
         raises(ValueError, setattr, c, 'm_ulong', -1)
 

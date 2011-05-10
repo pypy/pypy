@@ -247,6 +247,9 @@ class W_CPPDataMember(Wrappable):
         self.converter = converter.get_converter(self.space, cpptype)
         self.offset = offset
 
+    def is_static(self):
+        return self.space.wrap(False)
+
     def __get__(self, args_w):
         return self.converter.from_memory(self.space, args_w[0], self.offset)
 
@@ -256,12 +259,16 @@ class W_CPPDataMember(Wrappable):
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',
+    is_static = interp2app(W_CPPDataMember.is_static, unwrap_spec=['self']),
     __get__ = interp2app(W_CPPDataMember.__get__, unwrap_spec=['self', 'args_w']),
     __set__ = interp2app(W_CPPDataMember.__set__, unwrap_spec=['self', 'args_w']),
 )
 
 
 class W_CPPStaticDataMember(W_CPPDataMember):
+    def is_static(self):
+        return self.space.wrap(True)
+
     def __get__(self, args_w):
         return self.converter.from_memory(self.space, self.space.w_None, self.offset)
 
@@ -271,6 +278,7 @@ class W_CPPStaticDataMember(W_CPPDataMember):
 
 W_CPPStaticDataMember.typedef = TypeDef(
     'CPPStaticDataMember',
+    is_static = interp2app(W_CPPStaticDataMember.is_static, unwrap_spec=['self']),
     __get__ = interp2app(W_CPPStaticDataMember.__get__, unwrap_spec=['self', 'args_w']),
     __set__ = interp2app(W_CPPStaticDataMember.__set__, unwrap_spec=['self', 'args_w']),
 )

@@ -51,9 +51,12 @@ def get_cppclass(name):
         pass
 
     # if failed, create
-    # TODO: handle base classes
+
+    # TODO: handle base classes through lookup
     cpptype = cppyy._type_byname(name)
     d = {"_cppyyclass" : cpptype}
+
+    # insert (static) methods in the class dictionary
     for f in cpptype.get_method_names():
         cppol = cpptype.get_overload(f)
         if cppol.is_static():
@@ -61,14 +64,24 @@ def get_cppclass(name):
         else:
             d[f] = make_method(f, cppol.get_returntype())
 
+    # create a meta class to allow properties (for static data write access)
+    metacpp = type(CppyyClass)(name+'_meta', (type,), {})
+
+    # add all data members to the dictionary of the class to be created, and
+    # static ones also to the meta class (needed for property setters)
     for dm in cpptype.get_data_member_names():
-         d[dm] = cpptype.get_data_member(dm)
+        cppdm = cpptype.get_data_member(dm)
 
-    pycpptype = CppyyClass(name, (CppyyObject,), d)
+        d[dm] = cppdm
+        if cppdm.is_static():
+            setattr(metacpp, dm, cppdm)
 
+    # create the python-side C++ class representation
+    pycpptype = metacpp(name, (CppyyObject,), d)
     return pycpptype
 
-#    raise TypeError("no such C++ class %s" % name)
+    # TODO: better error reporting
+    # raise TypeError("no such C++ class %s" % name)
 
 
 class _gbl(object):
@@ -81,6 +94,7 @@ class _gbl(object):
             return cppclass
         except TypeError, e:
             import traceback
+            traceback.print_exc()
             raise AttributeError("'gbl' object has no attribute '%s'" % attr)
 
 

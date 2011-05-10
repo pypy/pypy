@@ -31,9 +31,9 @@ class PtrTypeExecutor(FunctionExecutor):
 
     def execute(self, space, func, cppthis, num_args, args):
         lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
-        spresult = rffi.cast(rffi.SHORTP, lresult)
+        address = rffi.cast(rffi.UINT, lresult)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
-        return arr.fromaddress(space, spresult, sys.maxint)
+        return arr.fromaddress(space, address, sys.maxint)
 
 
 class VoidExecutor(FunctionExecutor):
@@ -50,6 +50,7 @@ class VoidExecutor(FunctionExecutor):
 
 class BoolExecutor(FunctionExecutor):
     _immutable_ = True
+
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_b(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.wrap(result)
