@@ -59,23 +59,26 @@ typedef struct MultibyteCodec_s {
 #define MBERR_TOOSMALL          (-1) /* insufficient output buffer space */
 #define MBERR_TOOFEW            (-2) /* incomplete input buffer */
 #define MBERR_INTERNAL          (-3) /* internal runtime error */
+#define MBERR_NOMEMORY          (-4) /* out of memory */
 
 #define MBENC_FLUSH             0x0001 /* encode all characters encodable */
 #define MBENC_MAX               MBENC_FLUSH
 
 
 struct pypy_cjk_dec_s {
-  MultibyteCodec *codec;
+  const MultibyteCodec *codec;
   MultibyteCodec_State state;
-  char *inbuf, *inbuf_end;
+  const unsigned char *inbuf_start, *inbuf, *inbuf_end;
   Py_UNICODE *outbuf_start, *outbuf, *outbuf_end;
 };
 
 struct pypy_cjk_dec_s *pypy_cjk_dec_init(const MultibyteCodec *codec,
                                          char *inbuf, Py_ssize_t inlen);
 void pypy_cjk_dec_free(struct pypy_cjk_dec_s *);
-long pypy_cjk_dec_chunk(struct pypy_cjk_dec_s *);
+Py_ssize_t pypy_cjk_dec_chunk(struct pypy_cjk_dec_s *);
 Py_UNICODE *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_outlen(struct pypy_cjk_dec_s *);
+Py_ssize_t pypy_cjk_dec_inbuf_remaining(struct pypy_cjk_dec_s *d);
+Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d);
 
 #endif

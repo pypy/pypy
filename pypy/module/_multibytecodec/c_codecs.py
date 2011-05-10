@@ -7,6 +7,16 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
 
 
+class EncodeDecodeError(Exception):
+    def __init__(self, start, end, reason):
+        self.start = start
+        self.end = end
+        self.reason = reason
+    def __str__(self):
+        return 'EncodeDecodeError(%r, %r, %r)' % (self.start, self.end,
+                                                  self.reason)
+
+
 srcdir = py.path.local(pypydir).join('module', '_multibytecodec', 'cjkcodecs')
 
 eci = ExternalCompilationInfo(
@@ -21,6 +31,10 @@ eci = ExternalCompilationInfo(
     ],
 )
 
+MBERR_TOOSMALL = -1  # insufficient output buffer space
+MBERR_TOOFEW   = -2  # incomplete input buffer
+MBERR_INTERNAL = -3  # internal runtime error
+MBERR_NOMEMORY = -4  # out of memory
 
 MULTIBYTECODEC_P = rffi.COpaquePtr('struct MultibyteCodec_s',
                                    compilation_info=eci)
@@ -76,11 +90,15 @@ pypy_cjk_dec_init = llexternal('pypy_cjk_dec_init',
 pypy_cjk_dec_free = llexternal('pypy_cjk_dec_free', [DECODEBUF_P],
                                lltype.Void)
 pypy_cjk_dec_chunk = llexternal('pypy_cjk_dec_chunk', [DECODEBUF_P],
-                                lltype.Signed)
+                                rffi.SSIZE_T)
 pypy_cjk_dec_outbuf = llexternal('pypy_cjk_dec_outbuf', [DECODEBUF_P],
                                  rffi.CWCHARP)
 pypy_cjk_dec_outlen = llexternal('pypy_cjk_dec_outlen', [DECODEBUF_P],
                                  rffi.SSIZE_T)
+pypy_cjk_dec_inbuf_remaining = llexternal('pypy_cjk_dec_inbuf_remaining',
+                                          [DECODEBUF_P], rffi.SSIZE_T)
+pypy_cjk_dec_inbuf_consumed = llexternal('pypy_cjk_dec_inbuf_consumed',
+                                         [DECODEBUF_P], rffi.SSIZE_T)
 
 def decode(codec, stringdata):
     inleft = len(stringdata)
@@ -96,7 +114,7 @@ def decode(codec, stringdata):
                 r = pypy_cjk_dec_chunk(decodebuf)
                 if r == 0:
                     break
-                multibytecodec_decerror(xxx)
+                multibytecodec_decerror(decodebuf, r)
             src = pypy_cjk_dec_outbuf(decodebuf)
             length = pypy_cjk_dec_outlen(decodebuf)
             return unicode_from_raw(src, length)
@@ -106,6 +124,25 @@ def decode(codec, stringdata):
     #
     finally:
         rffi.free_nonmovingbuffer(stringdata, inbuf)
+
+def multibytecodec_decerror(decodebuf, e):
+    if e > 0:
+        reason = "illegal multibyte sequence"
+        esize = e
+    elif e == MBERR_TOOFEW:
+        reason = "incomplete multibyte sequence"
+        esize = pypy_cjk_dec_inbuf_remaining(decodebuf)
+    elif e == MBERR_NOMEMORY:
+        raise MemoryError
+    else:
+        raise RuntimeError
+    #
+    # if errors == ERROR_REPLACE:...
+    # if errors == ERROR_IGNORE or errors == ERROR_REPLACE:...
+    start = pypy_cjk_dec_inbuf_consumed(decodebuf)
+    end = start + esize
+    if 1:  # errors == ERROR_STRICT:
+        raise EncodeDecodeError(start, end, reason)
 
 # ____________________________________________________________
 
