@@ -38,6 +38,7 @@ def machine_code_dump(data, originaddr, backend_name):
         'i386': 'i386',
     }
     objdump = ('objdump -M %(backend)s -b binary -m i386 '
+               '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
     f = open(tmpfile, 'wb')
