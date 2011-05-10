@@ -61,7 +61,7 @@ class RegrTest:
                                  usemodules = '',
                                  skip=None): 
         self.basename = basename 
-        self._usemodules = usemodules.split()
+        self._usemodules = usemodules.split() + ['signal']
         self._compiler = compiler 
         self.core = core
         self.skip = skip
@@ -400,7 +400,7 @@ testmap = [
 
     RegrTest('test_softspace.py', core=True),
     RegrTest('test_sort.py', core=True),
-    RegrTest('test_ssl.py'),
+    RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
     RegrTest('test_str.py', core=True),
 
     RegrTest('test_strftime.py'),
