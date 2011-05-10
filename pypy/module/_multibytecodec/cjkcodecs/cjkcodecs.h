@@ -209,12 +209,12 @@ struct pair_encodemap {
 #define END_MAPPINGS_LIST /* empty */
 
 #define BEGIN_CODECS_LIST /* empty */
-#define _CODEC(name)                            \
-  const MultibyteCodec _pypy_cjkcodec_##name;   \
-  void *pypy_cjkcodec_##name(void) {            \
-    return (void *)&_pypy_cjkcodec_##name;      \
-  }                                             \
-  const MultibyteCodec _pypy_cjkcodec_##name
+#define _CODEC(name)                                    \
+  static const MultibyteCodec _pypy_cjkcodec_##name;    \
+  const MultibyteCodec *pypy_cjkcodec_##name(void) {    \
+    return &_pypy_cjkcodec_##name;                      \
+  }                                                     \
+  static const MultibyteCodec _pypy_cjkcodec_##name
 #define _STATEFUL_METHODS(enc)          \
     enc##_encode,                       \
     enc##_encode_init,                  \
