@@ -626,9 +626,11 @@ eq__Frozenset_Frozenset = eq__Set_Set
 eq__Frozenset_Set = eq__Set_Set
 
 def eq__Set_settypedef(space, w_left, w_other):
-    #XXX dont know how to test this
-    rd = make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_is_eq(w_left.setdata, rd))
+    # tested in test_buildinshortcut.py
+    #XXX do not make new setobject here
+    setdata = make_setdata_from_w_iterable(space, w_other)
+    w_other_as_set = w_left._newobj(space, setdata)
+    return space.wrap(w_left.equals(w_other))
 
 eq__Set_frozensettypedef = eq__Set_settypedef
 eq__Frozenset_settypedef = eq__Set_settypedef
