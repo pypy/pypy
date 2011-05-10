@@ -53,7 +53,6 @@ class AbstractCPU(object):
         """Called once by the front-end when the program stops."""
         pass
 
-
     def compile_loop(self, inputargs, operations, looptoken, log=True):
         """Assemble the given loop.
         Should create and attach a fresh CompiledLoopToken to
@@ -68,6 +67,10 @@ class AbstractCPU(object):
         The FailDescr is the descr of the original guard that failed.
         """
         raise NotImplementedError    
+
+    def dump_loop_token(self, looptoken):
+        """Print a disassembled version of looptoken to stdout"""
+        raise NotImplementedError
 
     def execute_token(self, looptoken):
         """Execute the generated code referenced by the looptoken.

@@ -52,6 +52,17 @@ class AbstractX86CPU(AbstractLLCPU):
         self.assembler.finish_once()
         self.profile_agent.shutdown()
 
+    def dump_loop_token(self, looptoken):
+        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
+        data = []
+        addr = looptoken._x86_rawstart
+        src = rffi.cast(rffi.CCHARP, addr)
+        for p in range(looptoken._x86_fullsize):
+            data.append(src[p])
+        data = ''.join(data)
+        lines = machine_code_dump(data, addr, self.backend_name)
+        print ''.join(lines)
+
     def compile_loop(self, inputargs, operations, looptoken, log=True):
         self.assembler.assemble_loop(inputargs, operations, looptoken,
                                      log=log)
@@ -146,7 +157,9 @@ class AbstractX86CPU(AbstractLLCPU):
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
+
 class CPU386(AbstractX86CPU):
+    backend_name = 'x86'
     WORD = 4
     NUM_REGS = 8
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi]
@@ -162,6 +175,7 @@ class CPU386_NO_SSE2(CPU386):
     supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
+    backend_name = 'x86_64'
     WORD = 8
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
