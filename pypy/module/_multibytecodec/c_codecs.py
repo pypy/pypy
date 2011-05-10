@@ -12,7 +12,7 @@ class EncodeDecodeError(Exception):
         self.start = start
         self.end = end
         self.reason = reason
-    def __str__(self):
+    def __repr__(self):
         return 'EncodeDecodeError(%r, %r, %r)' % (self.start, self.end,
                                                   self.reason)
 
@@ -74,12 +74,8 @@ _codecs_getters = dict([(name, getter_for(name)) for name in codecs])
 assert len(_codecs_getters) == len(codecs)
 
 def getcodec(name):
-    try:
-        getter = _codecs_getters[name]
-    except KeyError:
-        return lltype.nullptr(MULTIBYTECODEC_P.TO)
-    else:
-        return getter()
+    getter = _codecs_getters[name]
+    return getter()
 
 # ____________________________________________________________
 
