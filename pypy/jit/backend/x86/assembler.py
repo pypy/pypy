@@ -361,6 +361,11 @@ class Assembler386(object):
                                 frame_depth + param_depth)
         self.patch_pending_failure_recoveries(rawstart)
         #
+        if not we_are_translated():
+            # only for tests
+            looptoken._x86_rawstart = rawstart
+            looptoken._x86_fullsize = fullsize
+
         looptoken._x86_bootstrap_code = rawstart + bootstrappos
         looptoken._x86_loop_code = rawstart + self.looppos
         looptoken._x86_direct_bootstrap_code = rawstart + directbootstrappos
