@@ -787,6 +787,19 @@ class TestLL2Ctypes(object):
         res = fn()
         assert res == 42
 
+    def test_llexternal_macro(self):
+        eci = ExternalCompilationInfo(
+            post_include_bits = ["#define fn(x) (42 + x)"],
+        )
+        fn1 = rffi.llexternal('fn', [rffi.INT], rffi.INT, 
+                              compilation_info=eci, macro=True)
+        fn2 = rffi.llexternal('fn2', [rffi.DOUBLE], rffi.DOUBLE, 
+                              compilation_info=eci, macro='fn')
+        res = fn1(10)
+        assert res == 52
+        res = fn2(10.5)
+        assert res == 52.5
+
     def test_prebuilt_constant(self):
         header = py.code.Source("""
         #ifndef _SOME_H
@@ -1318,7 +1331,6 @@ class TestLL2Ctypes(object):
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
         from pypy.translator.platform import platform
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
         tmpdir = udir.join('lib_on_libppaths')
         tmpdir.ensure(dir=1)
@@ -1340,7 +1352,6 @@ class TestPlatform(object):
             py.test.skip("Not supported")
 
         from pypy.translator.platform import platform
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
         tmpdir = udir.join('lib_on_libppaths_prefix')
         tmpdir.ensure(dir=1)
