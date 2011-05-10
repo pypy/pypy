@@ -1,3 +1,4 @@
+# NOT_RPYTHON
 #
 # These classes are not supported so far.
 #
