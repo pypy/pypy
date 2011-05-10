@@ -35,8 +35,29 @@ class MultibyteCodec(Wrappable):
                                space.wrap(len(input))])
     decode.unwrap_spec = ['self', ObjSpace, str, 'str_or_None']
 
-    def encode(self):
-        xxx
+    def encode(self, space, input, errors=None):
+        if errors is not None and errors != 'strict':
+            raise OperationError(space.w_NotImplementedError,    # XXX
+                                 space.wrap("errors='%s' in _multibytecodec"
+                                            % errors))
+        #
+        try:
+            output = c_codecs.encode(self.codec, input)
+        except c_codecs.EncodeDecodeError, e:
+            raise OperationError(
+                space.w_UnicodeEncodeError,
+                space.newtuple([
+                    space.wrap(self.name),
+                    space.wrap(input),
+                    space.wrap(e.start),
+                    space.wrap(e.end),
+                    space.wrap(e.reason)]))
+        except RuntimeError:
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("internal codec error"))
+        return space.newtuple([space.wrap(output),
+                               space.wrap(len(input))])
+    encode.unwrap_spec = ['self', ObjSpace, unicode, 'str_or_None']
 
 
 MultibyteCodec.typedef = TypeDef(
