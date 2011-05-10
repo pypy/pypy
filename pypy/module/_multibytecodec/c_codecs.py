@@ -1,7 +1,7 @@
 import py, sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.rstr import UNICODE
-from pypy.rpython.annlowlevel import hlunicode
+from pypy.rpython.lltypesystem.rstr import STR, UNICODE
+from pypy.rpython.annlowlevel import hlstr, hlunicode
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
@@ -78,6 +78,7 @@ def getcodec(name):
     return getter()
 
 # ____________________________________________________________
+# Decoding
 
 DECODEBUF_P = rffi.COpaquePtr('struct pypy_cjk_dec_s', compilation_info=eci)
 pypy_cjk_dec_init = llexternal('pypy_cjk_dec_init',
@@ -98,19 +99,16 @@ pypy_cjk_dec_inbuf_consumed = llexternal('pypy_cjk_dec_inbuf_consumed',
 
 def decode(codec, stringdata):
     inleft = len(stringdata)
-    if inleft > sys.maxint // 4:
-        raise MemoryError
     inbuf = rffi.get_nonmovingbuffer(stringdata)
     try:
         decodebuf = pypy_cjk_dec_init(codec, inbuf, inleft)
         if not decodebuf:
             raise MemoryError
         try:
-            while True:
-                r = pypy_cjk_dec_chunk(decodebuf)
-                if r == 0:
-                    break
+            r = pypy_cjk_dec_chunk(decodebuf)
+            if r != 0:
                 multibytecodec_decerror(decodebuf, r)
+                assert False
             src = pypy_cjk_dec_outbuf(decodebuf)
             length = pypy_cjk_dec_outlen(decodebuf)
             return unicode_from_raw(src, length)
@@ -140,8 +138,6 @@ def multibytecodec_decerror(decodebuf, e):
     if 1:  # errors == ERROR_STRICT:
         raise EncodeDecodeError(start, end, reason)
 
-# ____________________________________________________________
-
 def unicode_from_raw(src, length):
     result = lltype.malloc(UNICODE, length)
     try:
@@ -152,5 +148,85 @@ def unicode_from_raw(src, length):
         rffi.raw_memcopy(src, dest,
                          llmemory.sizeof(lltype.UniChar) * length)
         return hlunicode(result)
+    finally:
+        keepalive_until_here(result)
+
+# ____________________________________________________________
+# Encoding
+
+ENCODEBUF_P = rffi.COpaquePtr('struct pypy_cjk_enc_s', compilation_info=eci)
+pypy_cjk_enc_init = llexternal('pypy_cjk_enc_init',
+                               [MULTIBYTECODEC_P, rffi.CWCHARP, rffi.SSIZE_T],
+                               ENCODEBUF_P)
+pypy_cjk_enc_free = llexternal('pypy_cjk_enc_free', [ENCODEBUF_P],
+                               lltype.Void)
+pypy_cjk_enc_chunk = llexternal('pypy_cjk_enc_chunk', [ENCODEBUF_P],
+                                rffi.SSIZE_T)
+pypy_cjk_enc_reset = llexternal('pypy_cjk_enc_reset', [ENCODEBUF_P],
+                                rffi.SSIZE_T)
+pypy_cjk_enc_outbuf = llexternal('pypy_cjk_enc_outbuf', [ENCODEBUF_P],
+                                 rffi.CCHARP)
+pypy_cjk_enc_outlen = llexternal('pypy_cjk_enc_outlen', [ENCODEBUF_P],
+                                 rffi.SSIZE_T)
+pypy_cjk_enc_inbuf_remaining = llexternal('pypy_cjk_enc_inbuf_remaining',
+                                          [ENCODEBUF_P], rffi.SSIZE_T)
+pypy_cjk_enc_inbuf_consumed = llexternal('pypy_cjk_enc_inbuf_consumed',
+                                         [ENCODEBUF_P], rffi.SSIZE_T)
+
+def encode(codec, unicodedata):
+    inleft = len(unicodedata)
+    inbuf = rffi.get_nonmoving_unicodebuffer(unicodedata)
+    try:
+        encodebuf = pypy_cjk_enc_init(codec, inbuf, inleft)
+        if not encodebuf:
+            raise MemoryError
+        try:
+            r = pypy_cjk_enc_chunk(encodebuf)
+            if r != 0:
+                multibytecodec_encerror(encodebuf, r)
+                assert False
+            r = pypy_cjk_enc_reset(encodebuf)
+            if r != 0:
+                multibytecodec_encerror(encodebuf, r)
+                assert False
+            src = pypy_cjk_enc_outbuf(encodebuf)
+            length = pypy_cjk_enc_outlen(encodebuf)
+            return string_from_raw(src, length)
+        #
+        finally:
+            pypy_cjk_enc_free(encodebuf)
+    #
+    finally:
+        rffi.free_nonmoving_unicodebuffer(unicodedata, inbuf)
+
+def multibytecodec_encerror(encodebuf, e):
+    if e > 0:
+        reason = "illegal multibyte sequence"
+        esize = e
+    elif e == MBERR_TOOFEW:
+        reason = "incomplete multibyte sequence"
+        esize = pypy_cjk_enc_inbuf_remaining(encodebuf)
+    elif e == MBERR_NOMEMORY:
+        raise MemoryError
+    else:
+        raise RuntimeError
+    #
+    # if errors == ERROR_REPLACE:...
+    # if errors == ERROR_IGNORE or errors == ERROR_REPLACE:...
+    start = pypy_cjk_enc_inbuf_consumed(encodebuf)
+    end = start + esize
+    if 1:  # errors == ERROR_STRICT:
+        raise EncodeDecodeError(start, end, reason)
+
+def string_from_raw(src, length):
+    result = lltype.malloc(STR, length)
+    try:
+        str_chars_offset = (rffi.offsetof(STR, 'chars') + \
+                            rffi.itemoffsetof(STR.chars, 0))
+        dest = rffi.cast_ptr_to_adr(result) + str_chars_offset
+        src = rffi.cast_ptr_to_adr(src) + rffi.itemoffsetof(rffi.CCHARP.TO)
+        rffi.raw_memcopy(src, dest,
+                         llmemory.sizeof(lltype.Char) * length)
+        return hlstr(result)
     finally:
         keepalive_until_here(result)

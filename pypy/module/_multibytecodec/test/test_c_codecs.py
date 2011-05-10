@@ -1,6 +1,7 @@
 import py
 from pypy.module._multibytecodec.c_codecs import getcodec, codecs
-from pypy.module._multibytecodec.c_codecs import decode, EncodeDecodeError
+from pypy.module._multibytecodec.c_codecs import decode, encode
+from pypy.module._multibytecodec.c_codecs import EncodeDecodeError
 
 
 def test_codecs_existence():
@@ -32,5 +33,20 @@ def test_decode_hz_error():
     #
     e = py.test.raises(EncodeDecodeError, decode, c, "~{xyz}").value
     assert e.start == 2
+    assert e.end == 4
+    assert e.reason == "illegal multibyte sequence"
+
+def test_encode_hz():
+    c = getcodec("hz")
+    s = encode(c, u'foobar')
+    assert s == 'foobar' and type(s) is str
+    s = encode(c, u'\u5f95\u6cef')
+    assert s == '~{abc}~}'
+
+def test_encode_hz_error():
+    # error
+    c = getcodec("hz")
+    e = py.test.raises(EncodeDecodeError, encode, c, u'abc\u1234def').value
+    assert e.start == 3
     assert e.end == 4
     assert e.reason == "illegal multibyte sequence"

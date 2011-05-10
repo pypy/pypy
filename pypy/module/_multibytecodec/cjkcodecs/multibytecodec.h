@@ -12,6 +12,7 @@
 typedef uint32_t ucs4_t, Py_UNICODE;
 typedef uint16_t ucs2_t, DBCHAR;
 typedef ssize_t Py_ssize_t;
+#define PY_SSIZE_T_MAX   ((Py_ssize_t)(((size_t) -1) >> 1))
 
 
 typedef union {
@@ -80,5 +81,22 @@ Py_UNICODE *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_outlen(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_inbuf_remaining(struct pypy_cjk_dec_s *d);
 Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d);
+
+struct pypy_cjk_enc_s {
+  const MultibyteCodec *codec;
+  MultibyteCodec_State state;
+  const Py_UNICODE *inbuf_start, *inbuf, *inbuf_end;
+  unsigned char *outbuf_start, *outbuf, *outbuf_end;
+};
+
+struct pypy_cjk_enc_s *pypy_cjk_enc_init(const MultibyteCodec *codec,
+                                         Py_UNICODE *inbuf, Py_ssize_t inlen);
+void pypy_cjk_enc_free(struct pypy_cjk_enc_s *);
+Py_ssize_t pypy_cjk_enc_chunk(struct pypy_cjk_enc_s *);
+Py_ssize_t pypy_cjk_enc_reset(struct pypy_cjk_enc_s *);
+char *pypy_cjk_enc_outbuf(struct pypy_cjk_enc_s *);
+Py_ssize_t pypy_cjk_enc_outlen(struct pypy_cjk_enc_s *);
+Py_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d);
+Py_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d);
 
 #endif
