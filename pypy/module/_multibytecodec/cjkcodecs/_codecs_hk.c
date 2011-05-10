@@ -13,17 +13,14 @@
  * BIG5HKSCS codec
  */
 
+USING_IMPORTED_MAP(big5);
 static const encode_map *big5_encmap = NULL;
 static const decode_map *big5_decmap = NULL;
 
 CODEC_INIT(big5hkscs)
 {
-    static int initialized = 0;
-
-    if (!initialized && IMPORT_MAP(tw, big5, &big5_encmap, &big5_decmap))
-        return -1;
-    initialized = 1;
-    return 0;
+  IMPORT_MAP(tw, big5, &big5_encmap, &big5_decmap);
+  return 0;
 }
 
 /*

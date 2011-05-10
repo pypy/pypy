@@ -1,3 +1,10 @@
+Source
+------
+The .c and .h files come directly from CPython, with the exception of
+cjkcodecs.h and multibytecodec.h, which have been ripped of their
+CPython dependencies.
+
+
 To generate or modify mapping headers
 -------------------------------------
 Mapping headers are imported from CJKCodecs as pre-generated form.

@@ -538,6 +538,21 @@ bypass:                                 WRITE1(c)
 
 /*-*- mapping table holders -*-*/
 
+USING_IMPORTED_MAP(cp949)
+USING_IMPORTED_MAP(ksx1001)
+USING_IMPORTED_MAP(jisxcommon)
+USING_IMPORTED_MAP(jisx0208)
+USING_IMPORTED_MAP(jisx0212)
+USING_IMPORTED_MAP(jisx0213_bmp)
+USING_IMPORTED_MAP(jisx0213_1_bmp)
+USING_IMPORTED_MAP(jisx0213_2_bmp)
+USING_IMPORTED_MAP(jisx0213_emp)
+USING_IMPORTED_MAP(jisx0213_1_emp)
+USING_IMPORTED_MAP(jisx0213_2_emp)
+USING_IMPORTED_MAP(jisx0213_pair)
+USING_IMPORTED_MAP(gbcommon)
+USING_IMPORTED_MAP(gb2312)
+
 #define ENCMAP(enc) static const encode_map *enc##_encmap = NULL;
 #define DECMAP(enc) static const decode_map *enc##_decmap = NULL;
 
@@ -567,14 +582,9 @@ DECMAP(gb2312)
 static int
 ksx1001_init(void)
 {
-    static int initialized = 0;
-
-    if (!initialized && (
-                    IMPORT_MAP(kr, cp949, &cp949_encmap, NULL) ||
-                    IMPORT_MAP(kr, ksx1001, NULL, &ksx1001_decmap)))
-        return -1;
-    initialized = 1;
-    return 0;
+  IMPORT_MAP(kr, cp949, &cp949_encmap, NULL);
+  IMPORT_MAP(kr, ksx1001, NULL, &ksx1001_decmap);
+  return 0;
 }
 
 static ucs4_t
@@ -603,14 +613,9 @@ ksx1001_encoder(const ucs4_t *data, Py_ssize_t *length)
 static int
 jisx0208_init(void)
 {
-    static int initialized = 0;
-
-    if (!initialized && (
-                    IMPORT_MAP(jp, jisxcommon, &jisxcommon_encmap, NULL) ||
-                    IMPORT_MAP(jp, jisx0208, NULL, &jisx0208_decmap)))
-        return -1;
-    initialized = 1;
-    return 0;
+  IMPORT_MAP(jp, jisxcommon, &jisxcommon_encmap, NULL);
+  IMPORT_MAP(jp, jisx0208, NULL, &jisx0208_decmap);
+  return 0;
 }
 
 static ucs4_t
@@ -644,14 +649,9 @@ jisx0208_encoder(const ucs4_t *data, Py_ssize_t *length)
 static int
 jisx0212_init(void)
 {
-    static int initialized = 0;
-
-    if (!initialized && (
-                    IMPORT_MAP(jp, jisxcommon, &jisxcommon_encmap, NULL) ||
-                    IMPORT_MAP(jp, jisx0212, NULL, &jisx0212_decmap)))
-        return -1;
-    initialized = 1;
-    return 0;
+  IMPORT_MAP(jp, jisxcommon, &jisxcommon_encmap, NULL);
+  IMPORT_MAP(jp, jisx0212, NULL, &jisx0212_decmap);
+  return 0;
 }
 
 static ucs4_t
@@ -681,27 +681,15 @@ jisx0212_encoder(const ucs4_t *data, Py_ssize_t *length)
 static int
 jisx0213_init(void)
 {
-    static int initialized = 0;
-
-    if (!initialized && (
-                    jisx0208_init() ||
-                    IMPORT_MAP(jp, jisx0213_bmp,
-                               &jisx0213_bmp_encmap, NULL) ||
-                    IMPORT_MAP(jp, jisx0213_1_bmp,
-                               NULL, &jisx0213_1_bmp_decmap) ||
-                    IMPORT_MAP(jp, jisx0213_2_bmp,
-                               NULL, &jisx0213_2_bmp_decmap) ||
-                    IMPORT_MAP(jp, jisx0213_emp,
-                               &jisx0213_emp_encmap, NULL) ||
-                    IMPORT_MAP(jp, jisx0213_1_emp,
-                               NULL, &jisx0213_1_emp_decmap) ||
-                    IMPORT_MAP(jp, jisx0213_2_emp,
-                               NULL, &jisx0213_2_emp_decmap) ||
-                    IMPORT_MAP(jp, jisx0213_pair, &jisx0213_pair_encmap,
-                               &jisx0213_pair_decmap)))
-        return -1;
-    initialized = 1;
-    return 0;
+  jisx0208_init();
+  IMPORT_MAP(jp, jisx0213_bmp, &jisx0213_bmp_encmap, NULL);
+  IMPORT_MAP(jp, jisx0213_1_bmp, NULL, &jisx0213_1_bmp_decmap);
+  IMPORT_MAP(jp, jisx0213_2_bmp, NULL, &jisx0213_2_bmp_decmap);
+  IMPORT_MAP(jp, jisx0213_emp, &jisx0213_emp_encmap, NULL);
+  IMPORT_MAP(jp, jisx0213_1_emp, NULL, &jisx0213_1_emp_decmap);
+  IMPORT_MAP(jp, jisx0213_2_emp, NULL, &jisx0213_2_emp_decmap);
+  IMPORT_MAP(jp, jisx0213_pair, &jisx0213_pair_encmap, &jisx0213_pair_decmap);
+  return 0;
 }
 
 #define config ((void *)2000)
@@ -951,14 +939,9 @@ jisx0201_k_encoder(const ucs4_t *data, Py_ssize_t *length)
 static int
 gb2312_init(void)
 {
-    static int initialized = 0;
-
-    if (!initialized && (
-                    IMPORT_MAP(cn, gbcommon, &gbcommon_encmap, NULL) ||
-                    IMPORT_MAP(cn, gb2312, NULL, &gb2312_decmap)))
-        return -1;
-    initialized = 1;
-    return 0;
+  IMPORT_MAP(cn, gbcommon, &gbcommon_encmap, NULL);
+  IMPORT_MAP(cn, gb2312, NULL, &gb2312_decmap);
+  return 0;
 }
 
 static ucs4_t

@@ -1,14 +1,14 @@
 /*
- * cjkcodecs.h: common header for cjkcodecs
+ * cjkcodecs.h is inspired by the file of the same name from CPython,
+ * but was heavily modified to suit PyPy.
  *
- * Written by Hye-Shik Chang <perky@FreeBSD.org>
+ * Original author: Hye-Shik Chang <perky@FreeBSD.org>
+ * Modified by: Armin Rigo <arigo@tunes.org>
  */
 
 #ifndef _CJKCODECS_H_
 #define _CJKCODECS_H_
 
-#define PY_SSIZE_T_CLEAN
-#include "Python.h"
 #include "multibytecodec.h"
 
 
@@ -59,9 +59,6 @@ struct pair_encodemap {
     ucs4_t uniseq;
     DBCHAR code;
 };
-
-static const MultibyteCodec *codec_list;
-static const struct dbcs_map *mapping_list;
 
 #define CODEC_INIT(encoding)                                            \
     static int encoding##_codec_init(const void *config)
@@ -201,14 +198,15 @@ static const struct dbcs_map *mapping_list;
 #define GET_INSIZE(c)   1
 #endif
 
-#define BEGIN_MAPPINGS_LIST static const struct dbcs_map _mapping_list[] = {
-#define MAPPING_ENCONLY(enc) {#enc, (void*)enc##_encmap, NULL},
-#define MAPPING_DECONLY(enc) {#enc, NULL, (void*)enc##_decmap},
-#define MAPPING_ENCDEC(enc) {#enc, (void*)enc##_encmap, (void*)enc##_decmap},
-#define END_MAPPINGS_LIST                               \
-    {"", NULL, NULL} };                                 \
-    static const struct dbcs_map *mapping_list =        \
-        (const struct dbcs_map *)_mapping_list;
+#define BEGIN_MAPPINGS_LIST /* empty */
+#define MAPPING_ENCONLY(enc)                                            \
+  const struct dbcs_map _pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, NULL};
+#define MAPPING_DECONLY(enc)                                            \
+  const struct dbcs_map _pypy_cjkmap_##enc = {#enc, NULL, (void*)enc##_decmap};
+#define MAPPING_ENCDEC(enc)                                             \
+  const struct dbcs_map _pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, \
+                                              (void*)enc##_decmap};
+#define END_MAPPINGS_LIST /* empty */
 
 #define BEGIN_CODECS_LIST static const MultibyteCodec _codec_list[] = {
 #define _STATEFUL_METHODS(enc)          \
@@ -235,84 +233,8 @@ static const struct dbcs_map *mapping_list;
     _STATELESS_METHODS(enc)             \
 },
 #define END_CODECS_LIST                                 \
-    {"", NULL,} };                                      \
-    static const MultibyteCodec *codec_list =           \
-        (const MultibyteCodec *)_codec_list;
+    {"", NULL,} };
 
-static PyObject *
-getmultibytecodec(void)
-{
-    static PyObject *cofunc = NULL;
-
-    if (cofunc == NULL) {
-        PyObject *mod = PyImport_ImportModuleNoBlock("_multibytecodec");
-        if (mod == NULL)
-            return NULL;
-        cofunc = PyObject_GetAttrString(mod, "__create_codec");
-        Py_DECREF(mod);
-    }
-    return cofunc;
-}
-
-static PyObject *
-getcodec(PyObject *self, PyObject *encoding)
-{
-    PyObject *codecobj, *r, *cofunc;
-    const MultibyteCodec *codec;
-    const char *enc;
-
-    if (!PyString_Check(encoding)) {
-        PyErr_SetString(PyExc_TypeError,
-                        "encoding name must be a string.");
-        return NULL;
-    }
-
-    cofunc = getmultibytecodec();
-    if (cofunc == NULL)
-        return NULL;
-
-    enc = PyString_AS_STRING(encoding);
-    for (codec = codec_list; codec->encoding[0]; codec++)
-        if (strcmp(codec->encoding, enc) == 0)
-            break;
-
-    if (codec->encoding[0] == '\0') {
-        PyErr_SetString(PyExc_LookupError,
-                        "no such codec is supported.");
-        return NULL;
-    }
-
-    codecobj = PyCapsule_New((void *)codec, PyMultibyteCodec_CAPSULE_NAME, NULL);
-    if (codecobj == NULL)
-        return NULL;
-
-    r = PyObject_CallFunctionObjArgs(cofunc, codecobj, NULL);
-    Py_DECREF(codecobj);
-
-    return r;
-}
-
-static struct PyMethodDef __methods[] = {
-    {"getcodec", (PyCFunction)getcodec, METH_O, ""},
-    {NULL, NULL},
-};
-
-static int
-register_maps(PyObject *module)
-{
-    const struct dbcs_map *h;
-
-    for (h = mapping_list; h->charset[0] != '\0'; h++) {
-        char mhname[256] = "__map_";
-        int r;
-        strcpy(mhname + sizeof("__map_") - 1, h->charset);
-        r = PyModule_AddObject(module, mhname,
-                        PyCapsule_New((void *)h, PyMultibyteCodec_CAPSULE_NAME, NULL));
-        if (r == -1)
-            return -1;
-    }
-    return 0;
-}
 
 #ifdef USING_BINARY_PAIR_SEARCH
 static DBCHAR
@@ -344,55 +266,25 @@ find_pairencmap(ucs2_t body, ucs2_t modifier,
 }
 #endif
 
+
 #ifdef USING_IMPORTED_MAPS
-#define IMPORT_MAP(locale, charset, encmap, decmap) \
-    importmap("_codecs_" #locale, "__map_" #charset, \
-              (const void**)encmap, (const void**)decmap)
+#define USING_IMPORTED_MAP(charset) \
+  extern const struct dbcs_map _pypy_cjkmap_##charset;
 
-static int
-importmap(const char *modname, const char *symbol,
-          const void **encmap, const void **decmap)
+#define IMPORT_MAP(locale, charset, encmap, decmap)                     \
+  importmap(&_pypy_cjkmap_##charset, encmap, decmap)
+
+static void importmap(const struct dbcs_map *src, void *encmp,
+                      void *decmp)
 {
-    PyObject *o, *mod;
-
-    mod = PyImport_ImportModule((char *)modname);
-    if (mod == NULL)
-        return -1;
-
-    o = PyObject_GetAttrString(mod, (char*)symbol);
-    if (o == NULL)
-        goto errorexit;
-    else if (!PyCapsule_IsValid(o, PyMultibyteCodec_CAPSULE_NAME)) {
-        PyErr_SetString(PyExc_ValueError,
-                        "map data must be a Capsule.");
-        goto errorexit;
-    }
-    else {
-        struct dbcs_map *map;
-        map = PyCapsule_GetPointer(o, PyMultibyteCodec_CAPSULE_NAME);
-        if (encmap != NULL)
-            *encmap = map->encmap;
-        if (decmap != NULL)
-            *decmap = map->decmap;
-        Py_DECREF(o);
-    }
-
-    Py_DECREF(mod);
-    return 0;
-
-errorexit:
-    Py_DECREF(mod);
-    return -1;
+  if (encmp) *(const encode_map **)encmp = src->encmap;
+  if (decmp) *(const decode_map **)decmp = src->decmap;
 }
 #endif
 
-#define I_AM_A_MODULE_FOR(loc)                                          \
-    void                                                                \
-    init_codecs_##loc(void)                                             \
-    {                                                                   \
-        PyObject *m = Py_InitModule("_codecs_" #loc, __methods);\
-        if (m != NULL)                                                  \
-            (void)register_maps(m);                                     \
-    }
+
+#define I_AM_A_MODULE_FOR(loc)                                  \
+    const MultibyteCodec *pypy_codec_list_##loc = _codec_list;
+
 
 #endif
