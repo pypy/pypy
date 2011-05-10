@@ -121,6 +121,33 @@ class AppTestAppSetTest:
         assert a == set()
         raises(KeyError, "a.pop()")
 
+    def test_symmetric_difference(self):
+        a = set([1,2,3])
+        b = set([3,4,5])
+        c = a.symmetric_difference(b)
+        assert c == set([1,2,4,5])
+
+        a = set([1,2,3])
+        b = [3,4,5]
+        c = a.symmetric_difference(b)
+        assert c == set([1,2,4,5])
+
+    def test_symmetric_difference_update(self):
+        a = set([1,2,3])
+        b = set([3,4,5])
+        a.symmetric_difference_update(b)
+        assert a == set([1,2,4,5])
+
+        a = set([1,2,3])
+        b = [3,4,5]
+        a.symmetric_difference_update(b)
+        assert a == set([1,2,4,5])
+
+        a = set([1,2,3])
+        b = set([3,4,5])
+        a ^= b
+        assert a == set([1,2,4,5])
+
     def test_subtype(self):
         class subset(set):pass
         a = subset()

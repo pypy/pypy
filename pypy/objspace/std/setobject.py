@@ -113,6 +113,12 @@ class W_BaseSetObject(W_Object):
     def difference_update(self, w_other):
         return self.strategy.difference_update(self, w_other)
 
+    def symmetric_difference(self, w_other):
+        return self.strategy.symmetric_difference(self, w_other)
+
+    def symmetric_difference_update(self, w_other):
+        return self.strategy.symmetric_difference_update(self, w_other)
+
     def intersect(self, w_other):
         return self.strategy.intersect(self, w_other)
 
@@ -288,6 +294,31 @@ class AbstractUnwrappedSetStrategy(object):
                     self.delitem(w_set, w_key)
                 except KeyError:
                     pass
+
+    def symmetric_difference(self, w_set, w_other):
+        #XXX no wrapping when strategies are equal
+        result = w_set._newobj(self.space, newset(self.space))
+        for w_key in w_set.getkeys():
+            if not w_other.has_key(w_key):
+                result.add(w_key)
+        for w_key in w_other.getkeys():
+            if not w_set.has_key(w_key):
+                result.add(w_key)
+        return result
+
+    def symmetric_difference_update(self, w_set, w_other):
+        #XXX no wrapping when strategies are equal
+        newsetdata = newset(self.space)
+        for w_key in w_set.getkeys():
+            if not w_other.has_key(w_key):
+                newsetdata[w_key] = None
+        for w_key in w_other.getkeys():
+            if not w_set.has_key(w_key):
+                newsetdata[w_key] = None
+
+        # do not switch strategy here if other items match
+        w_set.strategy = strategy = self.space.fromcache(ObjectSetStrategy)
+        w_set.sstorage = strategy.cast_to_void_star(newsetdata)
 
     def intersect(self, w_set, w_other):
         if w_set.length() > w_other.length():
@@ -811,9 +842,8 @@ frozenset_isdisjoint__Frozenset_ANY = set_isdisjoint__Set_ANY
 
 def set_symmetric_difference__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _symmetric_difference_dict(space, ld, rd)
-    return w_left._newobj(space, new_ld)
+    w_result = w_left.symmetric_difference(w_other)
+    return w_result
 
 set_symmetric_difference__Set_Frozenset = set_symmetric_difference__Set_Set
 set_symmetric_difference__Frozenset_Set = set_symmetric_difference__Set_Set
@@ -827,26 +857,28 @@ xor__Frozenset_Frozenset = set_symmetric_difference__Set_Set
 
 
 def set_symmetric_difference__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld = _symmetric_difference_dict(space, ld, rd)
-    return w_left._newobj(space, new_ld)
+    #XXX deal with iterables withouth turning them into sets
+    setdata = make_setdata_from_w_iterable(space, w_other)
+    w_other_as_set = w_left._newobj(space, setdata)
+
+    w_result = w_left.symmetric_difference(w_other_as_set)
+    return w_result
 
 frozenset_symmetric_difference__Frozenset_ANY = \
         set_symmetric_difference__Set_ANY
 
 def set_symmetric_difference_update__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _symmetric_difference_dict(space, ld, rd)
-    w_left.setdata = new_ld
+    w_left.symmetric_difference_update(w_other)
 
 set_symmetric_difference_update__Set_Frozenset = \
                                     set_symmetric_difference_update__Set_Set
 
 def set_symmetric_difference_update__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld = _symmetric_difference_dict(space, ld, rd)
-    w_left.setdata = new_ld
+    #XXX deal with iterables withouth turning them into sets
+    setdata = make_setdata_from_w_iterable(space, w_other)
+    w_other_as_set = w_left._newobj(space, setdata)
+    w_left.symmetric_difference_update(w_other_as_set)
 
 def inplace_xor__Set_Set(space, w_left, w_other):
     set_symmetric_difference_update__Set_Set(space, w_left, w_other)
