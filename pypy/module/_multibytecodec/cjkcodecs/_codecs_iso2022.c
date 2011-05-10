@@ -1094,12 +1094,10 @@ BEGIN_MAPPINGS_LIST
   /* no mapping table here */
 END_MAPPINGS_LIST
 
-#define ISO2022_CODEC(variation) {              \
-    "iso2022_" #variation,                      \
-    &iso2022_##variation##_config,              \
-    iso2022_codec_init,                         \
-    _STATEFUL_METHODS(iso2022)                  \
-},
+#define ISO2022_CODEC(variation)                        \
+  CODEC_STATEFUL_CONFIG(iso2022,                        \
+                        variation,                      \
+                        &iso2022_##variation##_config)
 
 BEGIN_CODECS_LIST
   ISO2022_CODEC(kr)

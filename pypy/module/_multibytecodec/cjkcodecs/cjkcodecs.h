@@ -200,15 +200,21 @@ struct pair_encodemap {
 
 #define BEGIN_MAPPINGS_LIST /* empty */
 #define MAPPING_ENCONLY(enc)                                            \
-  const struct dbcs_map _pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, NULL};
+  const struct dbcs_map pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, NULL};
 #define MAPPING_DECONLY(enc)                                            \
-  const struct dbcs_map _pypy_cjkmap_##enc = {#enc, NULL, (void*)enc##_decmap};
+  const struct dbcs_map pypy_cjkmap_##enc = {#enc, NULL, (void*)enc##_decmap};
 #define MAPPING_ENCDEC(enc)                                             \
-  const struct dbcs_map _pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, \
-                                              (void*)enc##_decmap};
+  const struct dbcs_map pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, \
+                                             (void*)enc##_decmap};
 #define END_MAPPINGS_LIST /* empty */
 
-#define BEGIN_CODECS_LIST static const MultibyteCodec _codec_list[] = {
+#define BEGIN_CODECS_LIST /* empty */
+#define _CODEC(name)                            \
+  const MultibyteCodec _pypy_cjkcodec_##name;   \
+  void *pypy_cjkcodec_##name(void) {            \
+    return (void *)&_pypy_cjkcodec_##name;      \
+  }                                             \
+  const MultibyteCodec _pypy_cjkcodec_##name
 #define _STATEFUL_METHODS(enc)          \
     enc##_encode,                       \
     enc##_encode_init,                  \
@@ -219,21 +225,31 @@ struct pair_encodemap {
 #define _STATELESS_METHODS(enc)         \
     enc##_encode, NULL, NULL,           \
     enc##_decode, NULL, NULL,
-#define CODEC_STATEFUL(enc) {           \
-    #enc, NULL, NULL,                   \
-    _STATEFUL_METHODS(enc)              \
-},
-#define CODEC_STATELESS(enc) {          \
-    #enc, NULL, NULL,                   \
-    _STATELESS_METHODS(enc)             \
-},
-#define CODEC_STATELESS_WINIT(enc) {    \
-    #enc, NULL,                         \
-    enc##_codec_init,                   \
-    _STATELESS_METHODS(enc)             \
-},
-#define END_CODECS_LIST                                 \
-    {"", NULL,} };
+#define CODEC_STATEFUL(enc) _CODEC(enc) = {     \
+    #enc, NULL, NULL,                           \
+    _STATEFUL_METHODS(enc)                      \
+  };
+#define CODEC_STATELESS(enc) _CODEC(enc) = {    \
+    #enc, NULL, NULL,                           \
+    _STATELESS_METHODS(enc)                     \
+  };
+#define CODEC_STATELESS_WINIT(enc) _CODEC(enc) = {      \
+    #enc, NULL,                                         \
+    enc##_codec_init,                                   \
+    _STATELESS_METHODS(enc)                             \
+  };
+#define CODEC_STATELESS_CONFIG(enc, config, baseenc) _CODEC(enc) = {    \
+    #enc, config, NULL,                                                 \
+    _STATELESS_METHODS(baseenc)                                         \
+  };
+#define CODEC_STATEFUL_CONFIG(enc, variation, config)   \
+  _CODEC(enc##_##variation) = {                         \
+    #enc "_" #variation,                                \
+    config,                                             \
+    enc##_codec_init,                                   \
+    _STATEFUL_METHODS(enc)                              \
+  };
+#define END_CODECS_LIST /* empty */
 
 
 #ifdef USING_BINARY_PAIR_SEARCH
@@ -269,10 +285,10 @@ find_pairencmap(ucs2_t body, ucs2_t modifier,
 
 #ifdef USING_IMPORTED_MAPS
 #define USING_IMPORTED_MAP(charset) \
-  extern const struct dbcs_map _pypy_cjkmap_##charset;
+  extern const struct dbcs_map pypy_cjkmap_##charset;
 
 #define IMPORT_MAP(locale, charset, encmap, decmap)                     \
-  importmap(&_pypy_cjkmap_##charset, encmap, decmap)
+  importmap(&pypy_cjkmap_##charset, encmap, decmap)
 
 static void importmap(const struct dbcs_map *src, void *encmp,
                       void *decmp)
@@ -283,8 +299,7 @@ static void importmap(const struct dbcs_map *src, void *encmp,
 #endif
 
 
-#define I_AM_A_MODULE_FOR(loc)                                  \
-    const MultibyteCodec *pypy_codec_list_##loc = _codec_list;
+#define I_AM_A_MODULE_FOR(loc) /* empty */
 
 
 #endif

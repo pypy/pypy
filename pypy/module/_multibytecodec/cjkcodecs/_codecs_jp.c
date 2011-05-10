@@ -724,8 +724,8 @@ BEGIN_CODECS_LIST
   CODEC_STATELESS(euc_jp)
   CODEC_STATELESS(shift_jis_2004)
   CODEC_STATELESS(euc_jis_2004)
-  { "euc_jisx0213", (void *)2000, NULL, _STATELESS_METHODS(euc_jis_2004) },
-  { "shift_jisx0213", (void *)2000, NULL, _STATELESS_METHODS(shift_jis_2004) },
+  CODEC_STATELESS_CONFIG(euc_jisx0213,   (void *)2000, euc_jis_2004)
+  CODEC_STATELESS_CONFIG(shift_jisx0213, (void *)2000, shift_jis_2004)
 END_CODECS_LIST
 
 I_AM_A_MODULE_FOR(jp)
