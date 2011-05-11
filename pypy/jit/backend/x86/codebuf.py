@@ -1,5 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.debug import debug_start, debug_print, debug_stop
+from pypy.rlib.debug import have_debug_prints
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.x86.rx86 import X86_32_CodeBuilder, X86_64_CodeBuilder
 from pypy.jit.backend.x86.regloc import LocationCodeBuilder
@@ -42,3 +44,13 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
             adr[0] = intmask(adr[0] - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)
+        self.dump_labels(addr, "jit-backend-dump-labels")
+
+    def dump_labels(self, addr, logname):
+        debug_start(logname)
+        if have_debug_prints():
+            debug_print('LABELS @%x' % addr)
+            for offset, name in self.labels:
+                debug_print('+%d: %s' % (offset, name))
+        debug_stop(logname)
+

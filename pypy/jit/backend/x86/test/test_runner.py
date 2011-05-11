@@ -391,6 +391,7 @@ class TestX86(LLtypeBackendTest):
         assert res == 20
 
     def test_labels(self):
+        from pypy.rlib import debug
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
@@ -401,8 +402,9 @@ class TestX86(LLtypeBackendTest):
             ResOperation(rop.JUMP, [i1], None, descr=looptoken),
             ]
         inputargs = [i0]
+        debug._log = dlog = debug.DebugLog()
         self.cpu.compile_loop(inputargs, operations, looptoken)
-        labels = looptoken._x86_labels
+        debug._log = None
         expected = ['getfield_raw',
                     'int_add',
                     'setfield_raw',
@@ -410,8 +412,22 @@ class TestX86(LLtypeBackendTest):
                     'int_le',
                     'jump',
                     '--end of the loop--']
+        #
+        # check the labels saved on the looptoken
+        labels = looptoken._x86_labels
         assert len(labels) == len(expected)
         for (off, lbl), exp_lbl in zip(labels, expected):
+            assert exp_lbl in lbl
+        #
+        # -----
+        # check the labels dumped to the log
+        # discards code blocks which do not belong to loops
+        dumped_labels, = [content for category, content in dlog
+                          if (category == 'jit-backend-dump-labels' and
+                              len(content) > 1)]
+        # the first debug_print is LABELS @address
+        assert len(dumped_labels) == len(expected) + 1
+        for (_, lbl), exp_lbl in zip(dumped_labels[1:], expected):
             assert exp_lbl in lbl
 
 class TestDebuggingAssembler(object):
