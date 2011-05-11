@@ -14,6 +14,7 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 
 def get_strategy_from_w_iterable(space, w_iterable=None):
+    assert False
     from pypy.objspace.std.intobject import W_IntObject
     #XXX what types for w_iterable are possible
 
@@ -50,8 +51,10 @@ class W_BaseSetObject(W_Object):
         """Initialize the set by taking ownership of 'setdata'."""
         assert setdata is not None
         w_self.space = space #XXX less memory without this indirection?
-        w_self.strategy = get_strategy_from_w_iterable(space, setdata.keys())
-        w_self.strategy.init_from_setdata_w(w_self, setdata)
+        #XXX in case of ObjectStrategy we can reuse the setdata object
+        set_strategy_and_setdata(space, w_self, setdata.keys())
+        #w_self.strategy = get_strategy_from_w_iterable(space, setdata.keys())
+        #w_self.strategy.init_from_setdata_w(w_self, setdata)
 
     def __repr__(w_self):
         """representation for debugging purposes"""
@@ -184,6 +187,12 @@ class AbstractUnwrappedSetStrategy(object):
         for item_w in setdata_w.keys():
             d[self.unwrap(item_w)] = None
         w_set.sstorage = self.cast_to_void_star(d)
+
+    def get_storage_from_list(self, list_w):
+        setdata = self.get_empty_dict()
+        for w_item in list_w:
+            setdata[self.unwrap(w_item)] = None
+        return self.cast_to_void_star(setdata)
 
     def make_setdata_from_w_iterable(self, w_iterable):
         """Return a new r_dict with the content of w_iterable."""
@@ -437,6 +446,9 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
 
+    def get_empty_storage(self):
+        return self.cast_to_void_star(newset(self.space))
+
     def get_empty_dict(self):
         return newset(self.space)
 
@@ -497,6 +509,34 @@ def next__SetIterObject(space, w_setiter):
 def newset(space):
     return r_dict(space.eq_w, space.hash_w)
 
+def set_strategy_and_setdata(space, w_set, w_iterable):
+    from pypy.objspace.std.intobject import W_IntObject
+
+    if w_iterable is None:
+        w_set.strategy = space.fromcache(ObjectSetStrategy) #XXX EmptySetStrategy
+        w_set.sstorage = w_set.strategy.get_empty_storage()
+        return
+
+    if isinstance(w_iterable, W_BaseSetObject):
+        w_set.strategy = w_iterable.strategy
+        w_set.sstorage = w_iterable.sstorage
+        return
+
+    if not isinstance(w_iterable, list):
+        w_iterable = space.listview(w_iterable)
+
+    # check for integers
+    for item_w in w_iterable:
+        if type(item_w) is not W_IntObject:
+            break;
+        if item_w is w_iterable[:-1]:
+            w_set.strategy = space.fromcache(IntegerSetStrategy)
+            w_set.sstorage = w_set.strategy.get_storage_from_list(w_iterable)
+            return
+
+    w_set.strategy = space.fromcache(ObjectSetStrategy)
+    w_set.sstorage = w_set.strategy.get_storage_from_list(w_iterable)
+
 def make_setdata_from_w_iterable(space, w_iterable=None):
     #XXX remove this later
     """Return a new r_dict with the content of w_iterable."""
@@ -511,6 +551,8 @@ def make_setdata_from_w_iterable(space, w_iterable=None):
 
 def _initialize_set(space, w_obj, w_iterable=None):
     w_obj.clear()
+    set_strategy_and_setdata(space, w_obj, w_iterable)
+    return
     if w_iterable is not None:
         if  isinstance(w_iterable, GeneratorIterator):
             w_iterable = W_ListObject(space.listview(w_iterable))
