@@ -4,8 +4,8 @@
  * Written by Hye-Shik Chang <perky@FreeBSD.org>
  */
 
-#include "cjkcodecs.h"
-#include "mappings_kr.h"
+#include "src/cjkcodecs/cjkcodecs.h"
+#include "src/cjkcodecs/mappings_kr.h"
 
 /*
  * EUC-KR codec

@@ -16,19 +16,20 @@ class EncodeDecodeError(Exception):
         return 'EncodeDecodeError(%r, %r, %r)' % (self.start, self.end,
                                                   self.reason)
 
-
-srcdir = py.path.local(pypydir).join('module', '_multibytecodec', 'cjkcodecs')
+srcdir = py.path.local(pypydir).join('translator', 'c')
 
 eci = ExternalCompilationInfo(
     separate_module_files = [
-        srcdir.join('_codecs_cn.c'),
-        srcdir.join('_codecs_hk.c'),
-        srcdir.join('_codecs_iso2022.c'),
-        srcdir.join('_codecs_jp.c'),
-        srcdir.join('_codecs_kr.c'),
-        srcdir.join('_codecs_tw.c'),
-        srcdir.join('multibytecodec.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_cn.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_hk.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_iso2022.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_jp.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_kr.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_tw.c'),
+        srcdir.join('src', 'cjkcodecs', 'multibytecodec.c'),
     ],
+    includes = ['src/cjkcodecs/multibytecodec.h'],
+    include_dirs = [str(srcdir)],
 )
 
 MBERR_TOOSMALL = -1  # insufficient output buffer space
@@ -147,9 +148,11 @@ def unicode_from_raw(src, length):
         src = rffi.cast_ptr_to_adr(src) + rffi.itemoffsetof(rffi.CWCHARP.TO)
         rffi.raw_memcopy(src, dest,
                          llmemory.sizeof(lltype.UniChar) * length)
-        return hlunicode(result)
+        got = hlunicode(result)
     finally:
         keepalive_until_here(result)
+    assert got is not None
+    return got
 
 # ____________________________________________________________
 # Encoding
@@ -227,6 +230,8 @@ def string_from_raw(src, length):
         src = rffi.cast_ptr_to_adr(src) + rffi.itemoffsetof(rffi.CCHARP.TO)
         rffi.raw_memcopy(src, dest,
                          llmemory.sizeof(lltype.Char) * length)
-        return hlstr(result)
+        got = hlstr(result)
     finally:
         keepalive_until_here(result)
+    assert got is not None
+    return got

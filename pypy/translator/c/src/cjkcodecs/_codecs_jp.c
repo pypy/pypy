@@ -7,11 +7,11 @@
 #define USING_BINARY_PAIR_SEARCH
 #define EMPBASE 0x20000
 
-#include "cjkcodecs.h"
-#include "mappings_jp.h"
-#include "mappings_jisx0213_pair.h"
-#include "alg_jisx0201.h"
-#include "emu_jisx0213_2000.h"
+#include "src/cjkcodecs/cjkcodecs.h"
+#include "src/cjkcodecs/mappings_jp.h"
+#include "src/cjkcodecs/mappings_jisx0213_pair.h"
+#include "src/cjkcodecs/alg_jisx0201.h"
+#include "src/cjkcodecs/emu_jisx0213_2000.h"
 
 /*
  * CP932 codec
