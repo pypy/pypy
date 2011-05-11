@@ -305,10 +305,6 @@ class Assembler386(object):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
-    def add_label(self, name):
-        pos = self.mc.get_relative_pos()
-        self.currently_compiling_loop._x86_labels.append((pos, name))
-
     def assemble_loop(self, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
                _x86_loop_code       (an integer giving an address)
@@ -332,7 +328,6 @@ class Assembler386(object):
 
         self.setup(looptoken)
         self.currently_compiling_loop = looptoken
-        looptoken._x86_labels = []
         funcname = self._find_debug_merge_point(operations)
         if log:
             self._register_counter()
@@ -367,9 +362,10 @@ class Assembler386(object):
         self.patch_pending_failure_recoveries(rawstart)
         #
         if not we_are_translated():
-            # only for tests
+            # used only by looptoken.dump() -- useful in tests
             looptoken._x86_rawstart = rawstart
             looptoken._x86_fullsize = fullsize
+            looptoken._x86_labels = self.mc.labels
 
         looptoken._x86_bootstrap_code = rawstart + bootstrappos
         looptoken._x86_loop_code = rawstart + self.looppos

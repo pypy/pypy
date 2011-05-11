@@ -25,9 +25,14 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         # at [p-4:p] encode an absolute address that will need to be
         # made relative.
         self.relocations = []
+        self.labels = []
 
     def add_pending_relocation(self):
         self.relocations.append(self.get_relative_pos())
+
+    def mark_label(self, name):
+        pos = self.get_relative_pos()
+        self.labels.append((pos, name))
 
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
