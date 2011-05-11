@@ -2389,17 +2389,54 @@ class BasicTests:
         assert self.meta_interp(f, [20]) == f(20)
         self.check_loops(int_gt=1, int_lt=2, int_ge=0, int_le=0)
 
+    def test_intbounds_not_generalized(self):
+        # FIXME
+        assert False
+
     def test_retrace_ending_up_retrazing_another_loop(self):
         # FIXME
         assert False
 
-    def test_retrace_limit(self):
-        # FIXME
-        assert False
+    def test_retrace_limit1(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
+
+        def f(n, limit):
+            myjitdriver.set_param('retrace_limit', limit)
+            sa = i = a = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
+                a = i/4
+                a = hint(a, promote=True)
+                sa += a
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20, 2]) == f(20, 2)
+        self.check_tree_loop_count(4)
+        assert self.meta_interp(f, [20, 3]) == f(20, 3)
+        self.check_tree_loop_count(5)
+
 
     def test_retrace_limit_with_extra_guards(self):
-        # FIXME
-        assert False
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
+                                                     'node'])
+        def f(n, limit):
+            myjitdriver.set_param('retrace_limit', limit)
+            sa = i = a = 0
+            node = [1, 2, 3]
+            node[1] = n
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a, node=node)
+                a = i/4
+                a = hint(a, promote=True)
+                if i&1 == 0:
+                    sa += node[i%3]
+                sa += a
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20, 2]) == f(20, 2)
+        self.check_tree_loop_count(4)
+        assert self.meta_interp(f, [20, 3]) == f(20, 3)
+        self.check_tree_loop_count(5)
 
 class TestOOtype(BasicTests, OOJitMixin):
 

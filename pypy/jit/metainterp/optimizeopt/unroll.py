@@ -606,14 +606,14 @@ class OptInlineShortPreamble(Optimization):
     
     def propagate_forward(self, op):
         if op.getopnum() == rop.JUMP:
-            descr = op.getdescr()
-            assert isinstance(descr, LoopToken)
+            loop_token = op.getdescr()
+            assert isinstance(loop_token, LoopToken)
             # FIXME: Use a tree, similar to the tree formed by the full
             # preamble and it's bridges, instead of a list to save time and
             # memory. This should also allow better behaviour in
             # situations that the is_emittable() chain currently cant
             # handle and the inlining fails unexpectedly belwo.
-            short = descr.short_preamble
+            short = loop_token.short_preamble
             if short:
                 args = op.getarglist()
                 modifier = VirtualStateAdder(self.optimizer)
@@ -654,22 +654,22 @@ class OptInlineShortPreamble(Optimization):
                             assert jumpop.getopnum() == rop.JUMP
                             for guard in extra_guards:
                                 if guard.is_guard():
-                                    d = sh.start_resumedescr.clone_if_mutable()
-                                    self.inliner.inline_descr_inplace(d)
-                                    guard.setdescr(d)
+                                    descr = sh.start_resumedescr.clone_if_mutable()
+                                    self.inliner.inline_descr_inplace(descr)
+                                    guard.setdescr(descr)
+                                    
                                 self.emit_operation(guard)
                             self.optimizer.newoperations.append(jumpop)
                         return
-                # FIXME: rename descr => loop_token, d => descr
-                retraced_count = descr.retraced_count
-                descr.retraced_count += 1
+                retraced_count = loop_token.retraced_count
+                loop_token.retraced_count += 1
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
                 if not self.retraced and retraced_count<limit:
-                    if not descr.failed_states:
+                    if not loop_token.failed_states:
                         debug_print("Retracing (%d of %d)" % (retraced_count,
                                                               limit))
                         raise RetraceLoop
-                    for failed in descr.failed_states:
+                    for failed in loop_token.failed_states:
                         if failed.generalization_of(virtual_state):
                             # Retracing once more will most likely fail again
                             break
@@ -678,10 +678,10 @@ class OptInlineShortPreamble(Optimization):
                                                               limit))
                         raise RetraceLoop
                 else:
-                    if not descr.failed_states:
-                        descr.failed_states=[virtual_state]
+                    if not loop_token.failed_states:
+                        loop_token.failed_states=[virtual_state]
                     else:
-                        descr.failed_states.append(virtual_state)
+                        loop_token.failed_states.append(virtual_state)
         self.emit_operation(op)
                 
         
