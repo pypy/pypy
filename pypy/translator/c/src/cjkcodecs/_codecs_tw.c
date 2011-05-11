@@ -4,8 +4,8 @@
  * Written by Hye-Shik Chang <perky@FreeBSD.org>
  */
 
-#include "cjkcodecs.h"
-#include "mappings_tw.h"
+#include "src/cjkcodecs/cjkcodecs.h"
+#include "src/cjkcodecs/mappings_tw.h"
 
 /*
  * BIG5 codec

@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "multibytecodec.h"
+#include "src/cjkcodecs/multibytecodec.h"
 
 
 struct pypy_cjk_dec_s *pypy_cjk_dec_init(const MultibyteCodec *codec,

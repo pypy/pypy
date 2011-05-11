@@ -4,8 +4,8 @@
  * Written by Hye-Shik Chang <perky@FreeBSD.org>
  */
 
-#include "cjkcodecs.h"
-#include "mappings_cn.h"
+#include "src/cjkcodecs/cjkcodecs.h"
+#include "src/cjkcodecs/mappings_cn.h"
 
 /**
  * hz is predefined as 100 on AIX. So we undefine it to avoid

@@ -6,8 +6,8 @@
 
 #define USING_IMPORTED_MAPS
 
-#include "cjkcodecs.h"
-#include "mappings_hk.h"
+#include "src/cjkcodecs/cjkcodecs.h"
+#include "src/cjkcodecs/mappings_hk.h"
 
 /*
  * BIG5HKSCS codec

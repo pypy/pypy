@@ -9,7 +9,7 @@
 #ifndef _CJKCODECS_H_
 #define _CJKCODECS_H_
 
-#include "multibytecodec.h"
+#include "src/cjkcodecs/multibytecodec.h"
 
 
 /* a unicode "undefined" codepoint */
