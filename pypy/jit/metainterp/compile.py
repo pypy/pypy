@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import debug_start, debug_stop
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -599,6 +599,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     except InvalidLoop:
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
+        debug_print('InvalidLoop in compile_new_bridge')
         return None
     # Did it work?
     if target_loop_token is not None:

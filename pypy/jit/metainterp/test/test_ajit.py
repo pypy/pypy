@@ -2389,6 +2389,18 @@ class BasicTests:
         assert self.meta_interp(f, [20]) == f(20)
         self.check_loops(int_gt=1, int_lt=2, int_ge=0, int_le=0)
 
+    def test_retrace_ending_up_retrazing_another_loop(self):
+        # FIXME
+        assert False
+
+    def test_retrace_limit(self):
+        # FIXME
+        assert False
+
+    def test_retrace_limit_with_extra_guards(self):
+        # FIXME
+        assert False
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
