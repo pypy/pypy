@@ -36,12 +36,11 @@ class TestW_SetObject:
         self.false = self.space.w_False
 
     def test_and(self):
-        s = W_SetObject(self.space, newset(self.space))
+        s = W_SetObject(self.space)
         _initialize_set(self.space, s, self.word)
-        t0 = W_SetObject(self.space, newset(self.space))
+        t0 = W_SetObject(self.space)
         _initialize_set(self.space, t0, self.otherword)
-        t1 = W_FrozensetObject(self.space,
-                make_setdata_from_w_iterable(self.space, self.otherword))
+        t1 = W_FrozensetObject(self.space, self.otherword)
         r0 = and__Set_Set(self.space, s, t0)
         r1 = and__Set_Set(self.space, s, t1)
         assert eq__Set_Set(self.space, r0, r1) == self.true
@@ -49,9 +48,9 @@ class TestW_SetObject:
         assert eq__Set_Set(self.space, r0, sr) == self.true
 
     def test_compare(self):
-        s = W_SetObject(self.space, newset(self.space))
+        s = W_SetObject(self.space)
         _initialize_set(self.space, s, self.word)
-        t = W_SetObject(self.space, newset(self.space))
+        t = W_SetObject(self.space)
         _initialize_set(self.space, t, self.word)
         assert self.space.eq_w(s,t)
         u = self.space.wrap(set('simsalabim'))

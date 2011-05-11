@@ -47,12 +47,11 @@ class W_BaseSetObject(W_Object):
             return True
         return False
 
-    def __init__(w_self, space, setdata):
+    def __init__(w_self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
-        assert setdata is not None
         w_self.space = space #XXX less memory without this indirection?
         #XXX in case of ObjectStrategy we can reuse the setdata object
-        set_strategy_and_setdata(space, w_self, setdata.keys())
+        set_strategy_and_setdata(space, w_self, w_iterable)
 
     def __repr__(w_self):
         """representation for debugging purposes"""
@@ -73,17 +72,17 @@ class W_BaseSetObject(W_Object):
         obj.sstorage = storage
         return obj
 
-    def _newobj(w_self, space, rdict_w=None):
+    def _newobj(w_self, space, w_iterable):
         """Make a new set or frozenset by taking ownership of 'rdict_w'."""
         #return space.call(space.type(w_self),W_SetIterObject(rdict_w))
         objtype = type(w_self)
         if objtype is W_SetObject:
-            obj = W_SetObject(space, rdict_w)
+            obj = W_SetObject(space, w_iterable)
         elif objtype is W_FrozensetObject:
-            obj = W_FrozensetObject(space, rdict_w)
+            obj = W_FrozensetObject(space, w_iterable)
         else:
-            itemiterator = space.iter(W_SetIterObject(rdict_w))
-            obj = space.call_function(space.type(w_self),itemiterator)
+            itemiterator = space.iter(W_SetIterObject(w_iterable))
+            obj = space.call_function(space.type(w_self), itemiterator)
         return obj
 
     _lifeline_ = None
@@ -283,11 +282,9 @@ class AbstractUnwrappedSetStrategy(object):
         return True
 
     def difference(self, w_set, w_other):
-        result = w_set._newobj(self.space, newset(self.space))
+        result = w_set._newobj(self.space, None)
         if not isinstance(w_other, W_BaseSetObject):
-            w_temp = w_set._newobj(self.space, newset(self.space))
-            set_strategy_and_setdata(self.space, w_temp, w_other)
-            w_other = w_temp
+            w_other = w_set._newobj(self.space, w_other)
         # lookup is faster when w_other is set
         for w_key in w_set.getkeys():
             if not w_other.has_key(w_key):
@@ -306,7 +303,7 @@ class AbstractUnwrappedSetStrategy(object):
 
     def symmetric_difference(self, w_set, w_other):
         #XXX no wrapping when strategies are equal
-        result = w_set._newobj(self.space, newset(self.space))
+        result = w_set._newobj(self.space, None)
         for w_key in w_set.getkeys():
             if not w_other.has_key(w_key):
                 result.add(w_key)
@@ -333,7 +330,7 @@ class AbstractUnwrappedSetStrategy(object):
         if w_set.length() > w_other.length():
             return w_other.intersect(w_set)
 
-        result = w_set._newobj(self.space, newset(self.space))
+        result = w_set._newobj(self.space, None)
         items = self.cast_from_void_star(w_set.sstorage).keys()
         #XXX do it without wrapping when strategies are equal
         for key in items:
@@ -367,7 +364,7 @@ class AbstractUnwrappedSetStrategy(object):
                 result = result.intersect(w_other)
             else:
                 #XXX directly give w_other as argument to result2
-                result2 = w_set._newobj(self.space, newset(self.space))
+                result2 = w_set._newobj(self.space, None)
                 for w_key in self.space.listview(w_other):
                     if result.has_key(w_key):
                         result2.add(w_key)
@@ -660,8 +657,7 @@ eq__Frozenset_Set = eq__Set_Set
 def eq__Set_settypedef(space, w_left, w_other):
     # tested in test_buildinshortcut.py
     #XXX do not make new setobject here
-    w_other_as_set = w_left._newobj(space, newset(space))
-    set_strategy_and_setdata(space, w_other_as_set, w_other)
+    w_other_as_set = w_left._newobj(space, w_other)
     return space.wrap(w_left.equals(w_other))
 
 eq__Set_frozensettypedef = eq__Set_settypedef
@@ -724,10 +720,7 @@ def set_issubset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    # this is faster when w_other is a set
-    w_other_as_set = w_left._newobj(space, newset(space))
-    set_strategy_and_setdata(space, w_other_as_set, w_other)
-
+    w_other_as_set = w_left._newobj(space, w_other)
     return space.wrap(w_other_as_set.issuperset(w_left))
 
 frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
@@ -892,8 +885,7 @@ xor__Frozenset_Frozenset = set_symmetric_difference__Set_Set
 def set_symmetric_difference__Set_ANY(space, w_left, w_other):
     #XXX since we need to iterate over both objects, create set
     #    from w_other so looking up items is fast
-    w_other_as_set = w_left._newobj(space, newset(space))
-    set_strategy_and_setdata(space, w_other_as_set, w_other)
+    w_other_as_set = w_left._newobj(space, w_other)
     w_result = w_left.symmetric_difference(w_other_as_set)
     return w_result
 
@@ -908,9 +900,7 @@ set_symmetric_difference_update__Set_Frozenset = \
                                     set_symmetric_difference_update__Set_Set
 
 def set_symmetric_difference_update__Set_ANY(space, w_left, w_other):
-    #XXX deal with iterables withouth turning them into sets
-    w_other_as_set = w_left._newobj(space, newset(space))
-    set_strategy_and_setdata(space, w_other_as_set, w_other)
+    w_other_as_set = w_left._newobj(space, w_other)
     w_left.symmetric_difference_update(w_other_as_set)
 
 def inplace_xor__Set_Set(space, w_left, w_other):

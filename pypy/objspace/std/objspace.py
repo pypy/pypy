@@ -233,10 +233,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_ComplexObject(x.real, x.imag)
 
         if isinstance(x, set):
-            rdict_w = r_dict(self.eq_w, self.hash_w)
-            for item in x:
-                rdict_w[self.wrap(item)] = None
-            res = W_SetObject(self, rdict_w)
+            res = W_SetObject(self, [self.wrap(item) for item in x])
             return res
 
         if isinstance(x, frozenset):
