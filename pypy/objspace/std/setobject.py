@@ -136,6 +136,9 @@ class W_BaseSetObject(W_Object):
     def intersect_multiple_update(self, others_w):
         self.strategy.intersect_multiple_update(self, others_w)
 
+    def issuperset(self, w_other):
+        return self.strategy.issuperset(self, w_other)
+
     def issubset(self, w_other):
         return self.strategy.issubset(self, w_other)
 
@@ -382,17 +385,11 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.strategy = result.strategy
         w_set.sstorage = result.sstorage
 
-    def issubset(self, w_set, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            setdata = make_setdata_from_w_iterable(self.space, w_other)
-            w_other = w_set._newobj(self.space, setdata)
-
-        if w_set.length() > w_other.length():
+    def issuperset(self, w_set, w_other):
+        if w_set.length() < self.space.unwrap(self.space.len(w_other)):
             return False
-
-        #XXX add ways without unwrapping if strategies are equal
-        for w_key in w_set.getkeys():
-            if not w_other.has_key(w_key):
+        for w_key in self.space.unpackiterable(w_other):
+            if not w_set.has_key(w_key):
                 return False
         return True
 
@@ -727,7 +724,7 @@ def set_issubset__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
     if space.is_w(w_left, w_other):
         return space.w_True
-    return space.wrap(w_left.issubset(w_other))
+    return space.wrap(w_other.issuperset(w_left))
 
 set_issubset__Set_Frozenset = set_issubset__Set_Set
 frozenset_issubset__Frozenset_Set = set_issubset__Set_Set
@@ -737,7 +734,11 @@ def set_issubset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    return space.wrap(w_left.issubset(w_other))
+    # this is faster when w_other is a set
+    w_other_as_set = w_left._newobj(space, newset(space))
+    set_strategy_and_setdata(space, w_other_as_set, w_other)
+
+    return space.wrap(w_other_as_set.issuperset(w_left))
 
 frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
 
@@ -748,11 +749,9 @@ le__Frozenset_Frozenset = set_issubset__Set_Set
 
 def set_issuperset__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
-    #XXX this is the same code as in set_issubset__Set_Set (sets reversed)
     if space.is_w(w_left, w_other):
         return space.w_True
-
-    return space.wrap(w_other.issubset(w_left))
+    return space.wrap(w_left.issuperset(w_other))
 
 set_issuperset__Set_Frozenset = set_issuperset__Set_Set
 set_issuperset__Frozenset_Set = set_issuperset__Set_Set
@@ -762,11 +761,7 @@ def set_issuperset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    #XXX BAD
-    setdata = make_setdata_from_w_iterable(space, w_other)
-    w_other = w_left._newobj(space, setdata)
-
-    return space.wrap(w_other.issubset(w_left))
+    return space.wrap(w_left.issuperset(w_other))
 
 frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
 
