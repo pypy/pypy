@@ -8,11 +8,15 @@
 #include <unistd.h>
 #include <assert.h>
 
+#ifndef Py_UNICODE_SIZE
 #define Py_UNICODE_SIZE  4
-typedef uint32_t ucs4_t, Py_UNICODE;
-typedef uint16_t ucs2_t, DBCHAR;
+typedef uint32_t Py_UNICODE;
 typedef ssize_t Py_ssize_t;
 #define PY_SSIZE_T_MAX   ((Py_ssize_t)(((size_t) -1) >> 1))
+#endif
+
+typedef uint32_t ucs4_t;
+typedef uint16_t ucs2_t, DBCHAR;
 
 
 typedef union {
