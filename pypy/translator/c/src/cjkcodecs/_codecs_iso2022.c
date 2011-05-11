@@ -10,10 +10,10 @@
 #define EMULATE_JISX0213_2000_ENCODE_INVALID MAP_UNMAPPABLE
 #define EMULATE_JISX0213_2000_DECODE_INVALID MAP_UNMAPPABLE
 
-#include "cjkcodecs.h"
-#include "alg_jisx0201.h"
-#include "emu_jisx0213_2000.h"
-#include "mappings_jisx0213_pair.h"
+#include "src/cjkcodecs/cjkcodecs.h"
+#include "src/cjkcodecs/alg_jisx0201.h"
+#include "src/cjkcodecs/emu_jisx0213_2000.h"
+#include "src/cjkcodecs/mappings_jisx0213_pair.h"
 
 /* STATE
 

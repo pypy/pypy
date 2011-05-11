@@ -99,4 +99,46 @@ Py_ssize_t pypy_cjk_enc_outlen(struct pypy_cjk_enc_s *);
 Py_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d);
 Py_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d);
 
+/* list of codecs defined in the .c files */
+
+#define DEFINE_CODEC(name)                              \
+    const MultibyteCodec *pypy_cjkcodec_##name(void);
+
+// _codecs_cn
+DEFINE_CODEC(gb2312)
+DEFINE_CODEC(gbk)
+DEFINE_CODEC(gb18030)
+DEFINE_CODEC(hz)
+
+//_codecs_hk
+DEFINE_CODEC(big5hkscs)
+
+//_codecs_iso2022
+DEFINE_CODEC(iso2022_kr)
+DEFINE_CODEC(iso2022_jp)
+DEFINE_CODEC(iso2022_jp_1)
+DEFINE_CODEC(iso2022_jp_2)
+DEFINE_CODEC(iso2022_jp_2004)
+DEFINE_CODEC(iso2022_jp_3)
+DEFINE_CODEC(iso2022_jp_ext)
+
+//_codecs_jp
+DEFINE_CODEC(shift_jis)
+DEFINE_CODEC(cp932)
+DEFINE_CODEC(euc_jp)
+DEFINE_CODEC(shift_jis_2004)
+DEFINE_CODEC(euc_jis_2004)
+DEFINE_CODEC(euc_jisx0213)
+DEFINE_CODEC(shift_jisx0213)
+
+//_codecs_kr
+DEFINE_CODEC(euc_kr)
+DEFINE_CODEC(cp949)
+DEFINE_CODEC(johab)
+
+//_codecs_tw
+DEFINE_CODEC(big5)
+DEFINE_CODEC(cp950)
+
+
 #endif
