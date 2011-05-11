@@ -154,3 +154,26 @@ def PySequence_DelItem(space, w_o, i):
     equivalent of the Python statement del o[i]."""
     space.delitem(w_o, space.wrap(i))
     return 0
+
+@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
+def PySequence_Index(space, w_seq, w_obj):
+    """Return the first index i for which o[i] == value.  On error, return
+    -1.    This is equivalent to the Python expression o.index(value).
+
+    This function returned an int type. This might require changes
+    in your code for properly supporting 64-bit systems."""
+
+    w_iter = space.iter(w_seq)
+    idx = 0
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError, e:
+            if e.match(space, space.w_StopIteration):
+                break
+            raise
+        if space.is_true(space.eq(w_next, w_obj)):
+            return idx
+        idx += 1
+
+    return -1

@@ -2021,15 +2021,6 @@ def PySequence_Count(space, o, value):
     in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
-def PySequence_Index(space, o, value):
-    """Return the first index i for which o[i] == value.  On error, return
-    -1.    This is equivalent to the Python expression o.index(value).
-
-    This function returned an int type. This might require changes
-    in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], PyObjectP)
 def PySequence_Fast_ITEMS(space, o):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned

@@ -105,3 +105,20 @@ class TestSequence(BaseApiTest):
 
         self.raises(space, api, IndexError, api.PySequence_DelItem,
                     w_l, 3)
+
+    def test_index(self, space, api):
+        thelist = [9, 8, 7, 6, 5, 4, 3, 2, 1]
+        w_l = space.wrap(thelist)
+        w_tofind = space.wrap(5)
+
+        result = api.PySequence_Index(w_l, w_tofind)
+        assert result == thelist.index(5)
+
+        w_tofind = space.wrap(9001)
+        result = api.PySequence_Index(w_l, w_tofind)
+        assert result == -1
+
+        gen = (x ** 2 for x in range(40))
+        w_tofind = space.wrap(16)
+        result = api.PySequence_Index(space.wrap(gen), w_tofind)
+        assert result == 4
