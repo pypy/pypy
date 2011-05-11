@@ -50,6 +50,17 @@ class _AppThunk(AbstractThunk):
         rstack.resume_point("appthunk", costate, returns=w_result)
         costate.w_tempval = w_result
 
+class _ResumeThunk(AbstractThunk):
+    def __init__(self, space, costate, w_frame):
+        self.space = space
+        self.costate = costate
+        self.w_frame = w_frame
+
+    def call(self):
+        w_result = resume_frame(self.space, self.w_frame)
+        # costate.w_tempval = w_result #XXX?
+
+
 W_CoroutineExit = _new_exception('CoroutineExit', W_SystemExit,
                         """Coroutine killed manually.""")
 
@@ -93,6 +104,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
     def w_switch(self):
         space = self.space
         if self.frame is None:
+            import pdb; pdb.set_trace()
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
         state = self.costate
@@ -194,6 +206,8 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         if isinstance(thunk, _AppThunk):
             w_args, w_kwds = thunk.args.topacked()
             w_thunk = nt([thunk.w_func, w_args, w_kwds])
+        elif isinstance(thunk, _ResumeThunk):
+            raise NotImplementedError
         else:
             w_thunk = space.w_None
 
@@ -217,75 +231,14 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.parent = space.interp_w(AppCoroutine, w_parent)
         ec = self.space.getexecutioncontext()
         self.subctx.setstate(space, w_state)
-        self.reconstruct_framechain()
         if space.is_w(w_thunk, space.w_None):
-            self.thunk = None
+            self.bind(_ResumeThunk(space, self.costate, self.subctx.topframe))
         else:
             w_func, w_args, w_kwds = space.unpackiterable(w_thunk,
                                                           expected_length=3)
             args = Arguments.frompacked(space, w_args, w_kwds)
             self.bind(_AppThunk(space, self.costate, w_func, args))
 
-    def reconstruct_framechain(self):
-        from pypy.interpreter.pyframe import PyFrame
-        from pypy.rlib.rstack import resume_state_create
-        if self.subctx.topframe is None:
-            self.frame = None
-            return
-
-        space = self.space
-        ec = space.getexecutioncontext()
-        costate = self.costate
-        # now the big fun of recreating tiny things...
-        bottom = resume_state_create(None, "yield_current_frame_to_caller_1")
-        # ("coroutine__bind", state)
-        _bind_frame = resume_state_create(bottom, "coroutine__bind", costate)
-        # ("appthunk", costate, returns=w_result)
-        appthunk_frame = resume_state_create(_bind_frame, "appthunk", costate)
-        chain = appthunk_frame
-        for frame in self.subctx.getframestack():
-            assert isinstance(frame, PyFrame)
-            # ("execute_frame", self, executioncontext, returns=w_exitvalue)
-            chain = resume_state_create(chain, "execute_frame", frame, ec)
-            code = frame.pycode.co_code
-            # ("dispatch", self, co_code, ec, returns=next_instr)
-            chain = resume_state_create(chain, "dispatch", frame, code, ec)
-            # ("handle_bytecode", self, co_code, ec, returns=next_instr)
-            chain = resume_state_create(chain, "handle_bytecode", frame, code,
-                                        ec)
-            instr = frame.last_instr
-            opcode = ord(code[instr])
-            map = pythonopcode.opmap
-            call_ops = [map['CALL_FUNCTION'], map['CALL_FUNCTION_KW'], map['CALL_FUNCTION_VAR'], 
-                        map['CALL_FUNCTION_VAR_KW'], map['CALL_METHOD']]
-            assert opcode in call_ops
-            # ("dispatch_call", self, co_code, next_instr, ec)
-            chain = resume_state_create(chain, "dispatch_call", frame, code,
-                                        instr+3, ec)
-            instr += 1
-            oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
-            nargs = oparg & 0xff
-            nkwds = (oparg >> 8) & 0xff
-            if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
-                if nkwds == 0:     # only positional arguments
-                    chain = resume_state_create(chain, 'CALL_METHOD', frame,
-                                                nargs)
-                else:              # includes keyword arguments
-                    chain = resume_state_create(chain, 'CALL_METHOD_KW', frame)
-            elif opcode == map['CALL_FUNCTION'] and nkwds == 0:
-                # Only positional arguments
-                # case1: ("CALL_FUNCTION", f, nargs, returns=w_result)
-                chain = resume_state_create(chain, 'CALL_FUNCTION', frame,
-                                            nargs)
-            else:
-                # case2: ("call_function", f, returns=w_result)
-                chain = resume_state_create(chain, 'call_function', frame)
-
-        # ("w_switch", state, space)
-        w_switch_frame = resume_state_create(chain, 'w_switch', costate, space)
-        # ("coroutine_switch", state, returns=incoming_frame)
-        switch_frame = resume_state_create(w_switch_frame, "coroutine_switch", costate)
-        self.frame = switch_frame
 
 # _mixin_ did not work
 for methname in StacklessFlags.__dict__:
@@ -411,3 +364,61 @@ def get_stack_depth_limit(space):
 @unwrap_spec(limit=int)
 def set_stack_depth_limit(space, limit):
     rstack.set_stack_depth_limit(limit)
+
+
+# ___________________________________________________________________
+# unpickling trampoline
+
+def resume_frame(space, w_frame):
+    from pypy.interpreter.pyframe import PyFrame
+    frame = space.interp_w(PyFrame, w_frame, can_be_None=True)
+    w_result = space.w_None
+    operr = None
+    while frame is not None:
+        code = frame.pycode.co_code
+        instr = frame.last_instr
+        opcode = ord(code[instr])
+        map = pythonopcode.opmap
+        call_ops = [map['CALL_FUNCTION'], map['CALL_FUNCTION_KW'], map['CALL_FUNCTION_VAR'], 
+                    map['CALL_FUNCTION_VAR_KW'], map['CALL_METHOD']]
+        assert opcode in call_ops
+        instr += 1
+        oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
+        nargs = oparg & 0xff
+        nkwds = (oparg >> 8) & 0xff
+        if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
+            raise NotImplementedError
+        elif opcode == map['CALL_FUNCTION']:
+            if nkwds == 0:     # only positional arguments
+                frame.dropvalues(nargs + 1)
+            else:
+                raise NotImplementedError   # includes keyword arguments
+        else:
+            assert 0
+
+        next_instr = instr + 2 # continue after the call
+        w_result, operr = _finish_execution_after_call(frame, next_instr, w_result, operr)
+        frame = frame.f_backref()
+    return w_result
+
+def _finish_execution_after_call(frame, next_instr, w_inputval, operr):
+    # XXX bit annoying, this is a part of PyFrame.execute_frame
+    assert operr is None
+    frame.pushvalue(w_inputval)
+    executioncontext = frame.space.getexecutioncontext()
+    w_result = frame.space.w_None
+    try:
+        try:
+            w_result = frame.dispatch(frame.pycode, next_instr,
+                                      executioncontext)
+        except OperationError, operr:
+            executioncontext.return_trace(frame, frame.space.w_None)
+            return None, operr
+        executioncontext.return_trace(frame, w_result)
+        # clean up the exception, might be useful for not
+        # allocating exception objects in some cases
+        frame.last_exception = None
+    finally:
+        executioncontext.leave(frame, w_result)
+    return w_result, None
+
