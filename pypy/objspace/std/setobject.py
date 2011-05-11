@@ -10,6 +10,8 @@ from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 from pypy.rlib import rerased
 from pypy.rlib.objectmodel import instantiate
+from pypy.interpreter.generator import GeneratorIterator
+from pypy.objspace.std.listobject import W_ListObject
 
 def get_strategy_from_w_iterable(space, w_iterable=None):
     from pypy.objspace.std.intobject import W_IntObject
@@ -510,6 +512,8 @@ def make_setdata_from_w_iterable(space, w_iterable=None):
 def _initialize_set(space, w_obj, w_iterable=None):
     w_obj.clear()
     if w_iterable is not None:
+        if  isinstance(w_iterable, GeneratorIterator):
+            w_iterable = W_ListObject(space.listview(w_iterable))
         w_obj.strategy = get_strategy_from_w_iterable(space, w_iterable)
         w_obj.strategy.init_from_w_iterable(w_obj, w_iterable)
 

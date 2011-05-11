@@ -59,6 +59,16 @@ class AppTestAppSetTest:
         c = a.union(b)
         assert c == set([1,2,3,4])
 
+    def test_generator(self):
+        def foo():
+            for i in [1,2,3,4,5]:
+                yield i
+        b = set(foo())
+        assert b == set([1,2,3,4,5])
+
+        a = set(x for x in [1,2,3])
+        assert a == set([1,2,3])
+
     def test_or(self):
         a = set([0,1,2])
         b = a | set([1,2,3])
