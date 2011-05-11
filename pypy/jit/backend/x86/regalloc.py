@@ -406,6 +406,7 @@ class RegAlloc(object):
         #self.operations = operations
         while i < len(operations):
             op = operations[i]
+            self.assembler.add_label(op.repr())
             self.rm.position = i
             self.xrm.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:
@@ -424,6 +425,7 @@ class RegAlloc(object):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
+        self.assembler.add_label('--end of the loop--')
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in

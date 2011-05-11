@@ -68,7 +68,8 @@ class AbstractX86CPU(AbstractLLCPU):
         for p in range(looptoken._x86_fullsize):
             data.append(src[p])
         data = ''.join(data)
-        lines = machine_code_dump(data, addr, self.backend_name)
+        lines = machine_code_dump(data, addr, self.backend_name,
+                                  labels=looptoken._x86_labels)
         print ''.join(lines)
 
     def compile_loop(self, inputargs, operations, looptoken, log=True):

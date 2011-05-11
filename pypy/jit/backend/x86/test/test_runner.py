@@ -390,6 +390,29 @@ class TestX86(LLtypeBackendTest):
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
 
+    def test_labels(self):
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        looptoken = LoopToken()
+        operations = [
+            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
+            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ]
+        inputargs = [i0]
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        labels = looptoken._x86_labels
+        expected = ['getfield_raw',
+                    'int_add',
+                    'setfield_raw',
+                    'int_add',
+                    'int_le',
+                    'jump',
+                    '--end of the loop--']
+        assert len(labels) == len(expected)
+        for (off, lbl), exp_lbl in zip(labels, expected):
+            assert exp_lbl in lbl
 
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):
