@@ -100,18 +100,16 @@ class ExecutionContext(object):
 
         # the following interface is for pickling and unpickling
         def getstate(self, space):
-            # XXX we could just save the top frame, which brings
-            # the whole frame stack, but right now we get the whole stack
-            items = [space.wrap(f) for f in self.getframestack()]
-            return space.newtuple(items)
+            if self.topframe is None:
+                return space.w_None
+            return self.topframe
 
         def setstate(self, space, w_state):
             from pypy.interpreter.pyframe import PyFrame
-            frames_w = space.unpackiterable(w_state)
-            if len(frames_w) > 0:
-                self.topframe = space.interp_w(PyFrame, frames_w[-1])
-            else:
+            if space.is_w(w_state, space.w_None):
                 self.topframe = None
+            else:
+                self.topframe = space.interp_w(PyFrame, w_state)
 
         def getframestack(self):
             lst = []
