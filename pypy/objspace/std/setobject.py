@@ -59,6 +59,20 @@ class W_BaseSetObject(W_Object):
         reprlist = [repr(w_item) for w_item in w_self.getkeys()]
         return "<%s(%s)>" % (w_self.__class__.__name__, ', '.join(reprlist))
 
+    def from_storage_and_strategy(w_self, storage, strategy):
+        objtype = type(w_self)
+        if objtype is W_SetObject:
+            obj = instantiate(W_SetObject)
+        elif objtype is W_FrozensetObject:
+            obj = instantiate(W_FrozensetObject)
+        else:
+            itemiterator = w_self.space.iter(W_SetIterObject(newset(w_self.space)))
+            obj = w_self.space.call_function(w_self.space.type(w_self),itemiterator)
+        obj.space = w_self.space
+        obj.strategy = strategy
+        obj.sstorage = storage
+        return obj
+
     def _newobj(w_self, space, rdict_w=None):
         """Make a new set or frozenset by taking ownership of 'rdict_w'."""
         #return space.call(space.type(w_self),W_SetIterObject(rdict_w))
@@ -197,10 +211,9 @@ class AbstractUnwrappedSetStrategy(object):
     def copy(self, w_set):
         #XXX do not copy FrozenDict
         d = self.cast_from_void_star(w_set.sstorage)
-        #XXX make it faster by using from_storage_and_strategy
-        clone = w_set._newobj(self.space, newset(self.space))
-        clone.strategy = w_set.strategy
-        clone.sstorage = self.cast_to_void_star(d.copy())
+        strategy = w_set.strategy
+        storage = self.cast_to_void_star(d.copy())
+        clone = w_set.from_storage_and_strategy(storage, strategy)
         return clone
 
     def add(self, w_set, w_key):
