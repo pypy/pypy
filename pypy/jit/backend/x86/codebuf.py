@@ -27,14 +27,17 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         # at [p-4:p] encode an absolute address that will need to be
         # made relative.
         self.relocations = []
-        self.labels = []
+        # ResOperation --> offset in the assembly.
+        # labels[None] represents the beginning of the code after the last op
+        # (i.e., the tail of the loop
+        self.labels = {}
 
     def add_pending_relocation(self):
         self.relocations.append(self.get_relative_pos())
 
-    def mark_label(self, name):
+    def mark_op(self, op):
         pos = self.get_relative_pos()
-        self.labels.append((pos, name))
+        self.labels[op] = pos
 
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
@@ -44,13 +47,3 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
             adr[0] = intmask(adr[0] - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)
-        self.dump_labels(addr, "jit-backend-dump-labels")
-
-    def dump_labels(self, addr, logname):
-        debug_start(logname)
-        if have_debug_prints():
-            debug_print('LABELS @%x' % addr)
-            for offset, name in self.labels:
-                debug_print('+%d: %s' % (offset, name))
-        debug_stop(logname)
-

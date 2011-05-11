@@ -405,30 +405,15 @@ class TestX86(LLtypeBackendTest):
         debug._log = dlog = debug.DebugLog()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         debug._log = None
-        expected = ['getfield_raw',
-                    'int_add',
-                    'setfield_raw',
-                    'int_add',
-                    'int_le',
-                    'jump',
-                    '--end of the loop--']
         #
         # check the labels saved on the looptoken
         labels = looptoken._x86_labels
-        assert len(labels) == len(expected)
-        for (off, lbl), exp_lbl in zip(labels, expected):
-            assert exp_lbl in lbl
-        #
-        # -----
-        # check the labels dumped to the log
-        # discards code blocks which do not belong to loops
-        dumped_labels, = [content for category, content in dlog
-                          if (category == 'jit-backend-dump-labels' and
-                              len(content) > 1)]
-        # the first debug_print is LABELS @address
-        assert len(dumped_labels) == len(expected) + 1
-        for (_, lbl), exp_lbl in zip(dumped_labels[1:], expected):
-            assert exp_lbl in lbl
+        # getfield_raw/int_add/setfield_raw + ops + None
+        assert len(labels) == 3 + len(operations) + 1
+        assert (labels[operations[0]] <=
+                labels[operations[1]] <=
+                labels[operations[2]] <=
+                labels[None])
 
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):

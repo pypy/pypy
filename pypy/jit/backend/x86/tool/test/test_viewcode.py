@@ -14,8 +14,8 @@ aa0c: seven
 aa12: eight
 """.strip()).readlines()
     #
-    labels = [(0x00, 'AAA'), (0x03, 'BBB'), (0x0c, 'CCC')]
-    lines = format_code_dump_with_labels(0xAA00, lines, labels)
+    label_list = [(0x00, 'AAA'), (0x03, 'BBB'), (0x0c, 'CCC')]
+    lines = format_code_dump_with_labels(0xAA00, lines, label_list)
     out = ''.join(lines)
     assert out == """
 aa00 <.data>:
@@ -50,6 +50,6 @@ aa12: eight
 """.strip()
     lines = StringIO(input).readlines()
     #
-    lines = format_code_dump_with_labels(0xAA00, lines, labels=None)
+    lines = format_code_dump_with_labels(0xAA00, lines, label_list=None)
     out = ''.join(lines)
     assert out.strip() == input

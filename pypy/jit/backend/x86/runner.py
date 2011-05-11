@@ -61,15 +61,19 @@ class AbstractX86CPU(AbstractLLCPU):
         self.profile_agent.shutdown()
 
     def dump_loop_token(self, looptoken):
+        """
+        NOT_RPYTHON
+        """
         from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
         data = []
+        label_list = [(offset, name) for name, offset in looptoken._x86_labels.iteritems()]
+        label_list.sort()
         addr = looptoken._x86_rawstart
         src = rffi.cast(rffi.CCHARP, addr)
         for p in range(looptoken._x86_fullsize):
             data.append(src[p])
         data = ''.join(data)
-        lines = machine_code_dump(data, addr, self.backend_name,
-                                  labels=looptoken._x86_labels)
+        lines = machine_code_dump(data, addr, self.backend_name, label_list)
         print ''.join(lines)
 
     def compile_loop(self, inputargs, operations, looptoken, log=True):

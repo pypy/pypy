@@ -31,7 +31,7 @@ pypy.tool.udir = mod
 if sys.platform == "win32":
     XXX   # lots more in Psyco
 
-def machine_code_dump(data, originaddr, backend_name, labels=None):
+def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_backend_option = {
         'x86': 'i386',
         'x86_64': 'x86-64',
@@ -52,22 +52,25 @@ def machine_code_dump(data, originaddr, backend_name, labels=None):
     result = g.readlines()
     g.close()
     lines = result[6:]   # drop some objdump cruft
-    return format_code_dump_with_labels(originaddr, lines, labels)
+    return format_code_dump_with_labels(originaddr, lines, label_list)
 
-def format_code_dump_with_labels(originaddr, lines, labels):
+def format_code_dump_with_labels(originaddr, lines, label_list):
     from pypy.rlib.rarithmetic import r_uint
-    if not labels:
-        labels = []
+    if not label_list:
+        label_list = []
     originaddr = r_uint(originaddr)
     itlines = iter(lines)
     yield itlines.next() # don't process the first line
-    for lbl_start, lbl_name in labels:
+    for lbl_start, lbl_name in label_list:
         for line in itlines:
             addr, _ = line.split(':', 1)
             addr = int(addr, 16)
             if addr >= originaddr+lbl_start:
                 yield '\n'
-                yield lbl_name + '\n'
+                if lbl_name is None:
+                    yield '--end of the loop--\n'
+                else:
+                    yield str(lbl_name) + '\n'
                 yield line
                 break
             yield line
