@@ -53,8 +53,6 @@ class W_BaseSetObject(W_Object):
         w_self.space = space #XXX less memory without this indirection?
         #XXX in case of ObjectStrategy we can reuse the setdata object
         set_strategy_and_setdata(space, w_self, setdata.keys())
-        #w_self.strategy = get_strategy_from_w_iterable(space, setdata.keys())
-        #w_self.strategy.init_from_setdata_w(w_self, setdata)
 
     def __repr__(w_self):
         """representation for debugging purposes"""
@@ -169,9 +167,6 @@ class SetStrategy(object):
     def __init__(self, space):
         self.space = space
 
-    def init_from_w_iterable(self, w_set, setdata):
-        raise NotImplementedError
-
     def length(self, w_set):
         raise NotImplementedError
 
@@ -180,10 +175,6 @@ class AbstractUnwrappedSetStrategy(object):
 
     def get_empty_storage(self):
         raise NotImplementedError
-
-    def init_from_w_iterable(self, w_set, w_iterable):
-        setdata = self.make_setdata_from_w_iterable(w_iterable)
-        w_set.sstorage = self.cast_to_void_star(setdata)
 
     def init_from_setdata_w(self, w_set, setdata_w):
         d = self.get_empty_dict()
@@ -196,16 +187,6 @@ class AbstractUnwrappedSetStrategy(object):
         for w_item in list_w:
             setdata[self.unwrap(w_item)] = None
         return self.cast_to_void_star(setdata)
-
-    def make_setdata_from_w_iterable(self, w_iterable):
-        """Return a new r_dict with the content of w_iterable."""
-        if isinstance(w_iterable, W_BaseSetObject):
-            return self.cast_from_void_star(w_set.sstorage).copy()
-        data = self.get_empty_dict()
-        if w_iterable is not None:
-            for w_item in self.space.listview(w_iterable):
-                data[self.unwrap(w_item)] = None
-        return data
 
     def length(self, w_set):
         return len(self.cast_from_void_star(w_set.sstorage))
@@ -291,9 +272,10 @@ class AbstractUnwrappedSetStrategy(object):
     def difference(self, w_set, w_other):
         result = w_set._newobj(self.space, newset(self.space))
         if not isinstance(w_other, W_BaseSetObject):
-            #XXX this is bad
-            setdata = make_setdata_from_w_iterable(self.space, w_other)
-            w_other = w_set._newobj(self.space, setdata)
+            w_temp = w_set._newobj(self.space, newset(self.space))
+            set_strategy_and_setdata(self.space, w_temp, w_other)
+            w_other = w_temp
+        # lookup is faster when w_other is set
         for w_key in w_set.getkeys():
             if not w_other.has_key(w_key):
                 result.add(w_key)
@@ -549,12 +531,6 @@ def make_setdata_from_w_iterable(space, w_iterable=None):
 def _initialize_set(space, w_obj, w_iterable=None):
     w_obj.clear()
     set_strategy_and_setdata(space, w_obj, w_iterable)
-    return
-    if w_iterable is not None:
-        if  isinstance(w_iterable, GeneratorIterator):
-            w_iterable = W_ListObject(space.listview(w_iterable))
-        w_obj.strategy = get_strategy_from_w_iterable(space, w_iterable)
-        w_obj.strategy.init_from_w_iterable(w_obj, w_iterable)
 
 def _convert_set_to_frozenset(space, w_obj):
     #XXX can be optimized
@@ -671,8 +647,8 @@ eq__Frozenset_Set = eq__Set_Set
 def eq__Set_settypedef(space, w_left, w_other):
     # tested in test_buildinshortcut.py
     #XXX do not make new setobject here
-    setdata = make_setdata_from_w_iterable(space, w_other)
-    w_other_as_set = w_left._newobj(space, setdata)
+    w_other_as_set = w_left._newobj(space, newset(space))
+    set_strategy_and_setdata(space, w_other_as_set, w_other)
     return space.wrap(w_left.equals(w_other))
 
 eq__Set_frozensettypedef = eq__Set_settypedef
@@ -694,6 +670,7 @@ ne__Frozenset_Frozenset = ne__Set_Set
 ne__Frozenset_Set = ne__Set_Set
 
 def ne__Set_settypedef(space, w_left, w_other):
+    #XXX this is not tested
     rd = make_setdata_from_w_iterable(space, w_other)
     return space.wrap(_is_eq(w_left.setdata, rd))
 
@@ -900,10 +877,10 @@ xor__Frozenset_Frozenset = set_symmetric_difference__Set_Set
 
 
 def set_symmetric_difference__Set_ANY(space, w_left, w_other):
-    #XXX deal with iterables withouth turning them into sets
-    setdata = make_setdata_from_w_iterable(space, w_other)
-    w_other_as_set = w_left._newobj(space, setdata)
-
+    #XXX since we need to iterate over both objects, create set
+    #    from w_other so looking up items is fast
+    w_other_as_set = w_left._newobj(space, newset(space))
+    set_strategy_and_setdata(space, w_other_as_set, w_other)
     w_result = w_left.symmetric_difference(w_other_as_set)
     return w_result
 
@@ -919,8 +896,8 @@ set_symmetric_difference_update__Set_Frozenset = \
 
 def set_symmetric_difference_update__Set_ANY(space, w_left, w_other):
     #XXX deal with iterables withouth turning them into sets
-    setdata = make_setdata_from_w_iterable(space, w_other)
-    w_other_as_set = w_left._newobj(space, setdata)
+    w_other_as_set = w_left._newobj(space, newset(space))
+    set_strategy_and_setdata(space, w_other_as_set, w_other)
     w_left.symmetric_difference_update(w_other_as_set)
 
 def inplace_xor__Set_Set(space, w_left, w_other):

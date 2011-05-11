@@ -10,12 +10,19 @@ is not too wrong.
 import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.setobject import _initialize_set
-from pypy.objspace.std.setobject import newset, make_setdata_from_w_iterable
+from pypy.objspace.std.setobject import newset
 from pypy.objspace.std.setobject import and__Set_Set
 from pypy.objspace.std.setobject import set_intersection__Set
 from pypy.objspace.std.setobject import eq__Set_Set
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+def make_setdata_from_w_iterable(space, w_iterable):
+    data = newset(space)
+    if w_iterable is not None:
+        for w_item in space.listview(w_iterable):
+            data[w_item] = None
+    return data
 
 class W_SubSetObject(W_SetObject):pass
 
