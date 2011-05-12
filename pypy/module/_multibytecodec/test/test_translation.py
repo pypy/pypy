@@ -1,3 +1,5 @@
+import sys
+
 from pypy.module._multibytecodec import c_codecs
 from pypy.translator.c.test import test_standalone
 
@@ -15,5 +17,9 @@ class TestTranslation(test_standalone.StandaloneTests):
             return 0
         #
         t, cbuilder = self.compile(entry_point)
-        data = cbuilder.cmdexec('hz \~\{abc\}')
+        if sys.platform == "win32":
+            cmd = 'hz "~{abc}"'
+        else:
+            cmd = 'hz \~\{abc\}'
+        data = cbuilder.cmdexec(cmd)
         assert data == '~{abc}~}\n'
