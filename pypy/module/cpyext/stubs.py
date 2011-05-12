@@ -2032,17 +2032,6 @@ def PySequence_Fast_ITEMS(space, o):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PySequence_ITEM(space, o, i):
-    """Return the ith element of o or NULL on failure. Macro form of
-    PySequence_GetItem() but without checking that
-    PySequence_Check(o)() is true and without adjustment for negative
-    indices.
-
-    This function used an int type for i. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PySet_Check(space, p):
     """Return true if p is a set object or an instance of a subtype.

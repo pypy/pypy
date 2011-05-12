@@ -106,6 +106,15 @@ class TestSequence(BaseApiTest):
         self.raises(space, api, IndexError, api.PySequence_DelItem,
                     w_l, 3)
 
+    def test_getitem(self, space, api):
+        thelist = [8, 7, 6, 5, 4, 3, 2, 1]
+        w_l = space.wrap(thelist)
+
+        result = api.PySequence_GetItem(w_l, 4)
+        assert space.is_true(space.eq(result, space.wrap(4)))
+
+        self.raises(space, api, IndexError, api.PySequence_GetItem, w_l, 9000)
+
     def test_index(self, space, api):
         thelist = [9, 8, 7, 6, 5, 4, 3, 2, 1]
         w_l = space.wrap(thelist)
