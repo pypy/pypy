@@ -50,3 +50,8 @@ def test_encode_hz_error():
     assert e.start == 3
     assert e.end == 4
     assert e.reason == "illegal multibyte sequence"
+
+def test_encode_jisx0208():
+    c = getcodec('iso2022_jp')
+    s = encode(c, u'\u83ca\u5730\u6642\u592b')
+    assert s == '\x1b$B5FCO;~IW\x1b(B' and type(s) is str
