@@ -11,24 +11,24 @@
 
 class MultibyteIncrementalEncoder(object):
     def __init__(self, *args, **kwds):
-        raise NotImplementedError(
-            "MultibyteIncrementalEncoder not supported; "
+        raise LookupError(
+            "MultibyteIncrementalEncoder not implemented; "
             "see pypy/module/_multibytecodec/app_multibytecodec.py")
 
 class MultibyteIncrementalDecoder(object):
     def __init__(self, *args, **kwds):
-        raise NotImplementedError(
-            "MultibyteIncrementalDecoder not supported; "
+        raise LookupError(
+            "MultibyteIncrementalDecoder not implemented; "
             "see pypy/module/_multibytecodec/app_multibytecodec.py")
 
 class MultibyteStreamReader(object):
     def __init__(self, *args, **kwds):
-        raise NotImplementedError(
-            "MultibyteStreamReader not supported; "
+        raise LookupError(
+            "MultibyteStreamReader not implemented; "
             "see pypy/module/_multibytecodec/app_multibytecodec.py")
 
 class MultibyteStreamWriter(object):
     def __init__(self, *args, **kwds):
-        raise NotImplementedError(
-            "MultibyteStreamWriter not supported; "
+        raise LookupError(
+            "MultibyteStreamWriter not implemented; "
             "see pypy/module/_multibytecodec/app_multibytecodec.py")
