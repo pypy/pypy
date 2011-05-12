@@ -5,12 +5,27 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <unistd.h>
 #include <assert.h>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
+#ifdef _WIN64
+typedef __int64 ssize_t
+#else
+#ifdef _WIN32
+typedef int ssize_t;
+#endif
+#endif
+
 #ifndef Py_UNICODE_SIZE
-#define Py_UNICODE_SIZE  4
-typedef uint32_t Py_UNICODE;
+#ifdef _WIN32
+#define Py_UNICODE_SIZE 2
+#else
+#define Py_UNICODE_SIZE 4
+#endif
+typedef wchar_t Py_UNICODE;
 typedef ssize_t Py_ssize_t;
 #define PY_SSIZE_T_MAX   ((Py_ssize_t)(((size_t) -1) >> 1))
 #endif

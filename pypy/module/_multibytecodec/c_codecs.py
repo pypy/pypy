@@ -18,28 +18,6 @@ class EncodeDecodeError(Exception):
 
 srcdir = py.path.local(pypydir).join('translator', 'c')
 
-eci = ExternalCompilationInfo(
-    separate_module_files = [
-        srcdir.join('src', 'cjkcodecs', '_codecs_cn.c'),
-        srcdir.join('src', 'cjkcodecs', '_codecs_hk.c'),
-        srcdir.join('src', 'cjkcodecs', '_codecs_iso2022.c'),
-        srcdir.join('src', 'cjkcodecs', '_codecs_jp.c'),
-        srcdir.join('src', 'cjkcodecs', '_codecs_kr.c'),
-        srcdir.join('src', 'cjkcodecs', '_codecs_tw.c'),
-        srcdir.join('src', 'cjkcodecs', 'multibytecodec.c'),
-    ],
-    includes = ['src/cjkcodecs/multibytecodec.h'],
-    include_dirs = [str(srcdir)],
-)
-
-MBERR_TOOSMALL = -1  # insufficient output buffer space
-MBERR_TOOFEW   = -2  # incomplete input buffer
-MBERR_INTERNAL = -3  # internal runtime error
-MBERR_NOMEMORY = -4  # out of memory
-
-MULTIBYTECODEC_P = rffi.COpaquePtr('struct MultibyteCodec_s',
-                                   compilation_info=eci)
-
 codecs = [
     # _codecs_cn
     'gb2312', 'gbk', 'gb18030', 'hz',
@@ -60,7 +38,38 @@ codecs = [
 
     # _codecs_tw
     'big5', 'cp950',
-    ]
+]
+
+eci = ExternalCompilationInfo(
+    separate_module_files = [
+        srcdir.join('src', 'cjkcodecs', '_codecs_cn.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_hk.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_iso2022.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_jp.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_kr.c'),
+        srcdir.join('src', 'cjkcodecs', '_codecs_tw.c'),
+        srcdir.join('src', 'cjkcodecs', 'multibytecodec.c'),
+    ],
+    includes = ['src/cjkcodecs/multibytecodec.h'],
+    include_dirs = [str(srcdir)],
+    export_symbols = [
+        "pypy_cjk_dec_init", "pypy_cjk_dec_free", "pypy_cjk_dec_chunk",
+        "pypy_cjk_dec_outbuf", "pypy_cjk_dec_outlen",
+        "pypy_cjk_dec_inbuf_remaining", "pypy_cjk_dec_inbuf_consumed",
+
+        "pypy_cjk_enc_init", "pypy_cjk_enc_free", "pypy_cjk_enc_chunk",
+        "pypy_cjk_enc_reset", "pypy_cjk_enc_outbuf", "pypy_cjk_enc_outlen",
+        "pypy_cjk_enc_inbuf_remaining", "pypy_cjk_enc_inbuf_consumed",
+    ] + ["pypy_cjkcodec_%s" % codec for codec in codecs],
+)
+
+MBERR_TOOSMALL = -1  # insufficient output buffer space
+MBERR_TOOFEW   = -2  # incomplete input buffer
+MBERR_INTERNAL = -3  # internal runtime error
+MBERR_NOMEMORY = -4  # out of memory
+
+MULTIBYTECODEC_P = rffi.COpaquePtr('struct MultibyteCodec_s',
+                                   compilation_info=eci)
 
 def llexternal(*args, **kwds):
     kwds.setdefault('compilation_info', eci)
@@ -156,7 +165,6 @@ def unicode_from_raw(src, length):
 
 # ____________________________________________________________
 # Encoding
-
 ENCODEBUF_P = rffi.COpaquePtr('struct pypy_cjk_enc_s', compilation_info=eci)
 pypy_cjk_enc_init = llexternal('pypy_cjk_enc_init',
                                [MULTIBYTECODEC_P, rffi.CWCHARP, rffi.SSIZE_T],
@@ -194,7 +202,7 @@ def encode(codec, unicodedata):
                 assert False
             src = pypy_cjk_enc_outbuf(encodebuf)
             length = pypy_cjk_enc_outlen(encodebuf)
-            return string_from_raw(src, length)
+            return rffi.charpsize2str(src, length)
         #
         finally:
             pypy_cjk_enc_free(encodebuf)
@@ -220,18 +228,3 @@ def multibytecodec_encerror(encodebuf, e):
     end = start + esize
     if 1:  # errors == ERROR_STRICT:
         raise EncodeDecodeError(start, end, reason)
-
-def string_from_raw(src, length):
-    result = lltype.malloc(STR, length)
-    try:
-        str_chars_offset = (rffi.offsetof(STR, 'chars') + \
-                            rffi.itemoffsetof(STR.chars, 0))
-        dest = rffi.cast_ptr_to_adr(result) + str_chars_offset
-        src = rffi.cast_ptr_to_adr(src) + rffi.itemoffsetof(rffi.CCHARP.TO)
-        rffi.raw_memcopy(src, dest,
-                         llmemory.sizeof(lltype.Char) * length)
-        got = hlstr(result)
-    finally:
-        keepalive_until_here(result)
-    assert got is not None
-    return got
