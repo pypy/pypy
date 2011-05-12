@@ -15,6 +15,7 @@ from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rpython.lltypesystem import llmemory
 import os, sys
 
@@ -538,7 +539,7 @@ def COpaque(name=None, ptr_typedef=None, hints=None, compilation_info=None):
             val = rffi_platform.sizeof(name, compilation_info)
             cache[name] = val
             return val
-    
+
     hints['getsize'] = lazy_getsize
     return lltype.OpaqueType(name, hints)
 
@@ -636,24 +637,24 @@ FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 # conversions between str and char*
 # conversions between unicode and wchar_t*
 def make_string_mappings(strtype):
-    
+
     if strtype is str:
         from pypy.rpython.lltypesystem.rstr import STR as STRTYPE
         from pypy.rpython.annlowlevel import llstr as llstrtype
         from pypy.rpython.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
-        emptystr = ''
         lastchar = '\x00'
+        builder_class = StringBuilder
     else:
         from pypy.rpython.lltypesystem.rstr import UNICODE as STRTYPE
         from pypy.rpython.annlowlevel import llunicode as llstrtype
         from pypy.rpython.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
-        emptystr = u''
         lastchar = u'\x00'
-        
+        builder_class = UnicodeBuilder
+
     # str -> char*
     def str2charp(s):
         """ str -> char*
@@ -674,12 +675,12 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
-        l = []
+        b = builder_class()
         i = 0
         while cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return b.build()
 
     # str -> char*
     def get_nonmovingbuffer(data):
@@ -777,17 +778,19 @@ def make_string_mappings(strtype):
 
     # char* -> str, with an upper bound on the length in case there is no \x00
     def charp2strn(cp, maxlen):
-        l = []
+        b = builder_class(maxlen)
         i = 0
         while i < maxlen and cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return b.build()
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
-        l = [cp[i] for i in range(size)]
-        return emptystr.join(l)
+        b = builder_class(size)
+        for i in xrange(size):
+            b.append(cp[i])
+        return b.build()
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
