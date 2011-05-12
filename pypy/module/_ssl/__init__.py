@@ -31,3 +31,5 @@ class Module(MixedModule):
     def startup(self, space):
         from pypy.rlib.ropenssl import init_ssl
         init_ssl()
+        from pypy.module._ssl.interp_ssl import setup_ssl_threads
+        setup_ssl_threads()

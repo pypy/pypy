@@ -86,6 +86,8 @@ class CConfig:
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
 
+    CRYPTO_LOCK = rffi_platform.ConstantInteger("CRYPTO_LOCK")
+
     # Some structures, with only the fields used in the _ssl module
     X509_name_entry_st = rffi_platform.Struct('struct X509_name_entry_st',
                                               [('set', rffi.INT)])
@@ -142,6 +144,15 @@ def ssl_external(name, argtypes, restype, **kw):
 
 ssl_external('SSL_load_error_strings', [], lltype.Void)
 ssl_external('SSL_library_init', [], rffi.INT)
+ssl_external('CRYPTO_num_locks', [], rffi.INT)
+ssl_external('CRYPTO_set_locking_callback',
+             [lltype.Ptr(lltype.FuncType(
+                [rffi.INT, rffi.INT, rffi.CCHARP, rffi.INT], lltype.Void))],
+             lltype.Void)
+ssl_external('CRYPTO_set_id_callback',
+             [lltype.Ptr(lltype.FuncType([], rffi.INT))],
+             lltype.Void)
+             
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
     ssl_external('RAND_status', [], rffi.INT)

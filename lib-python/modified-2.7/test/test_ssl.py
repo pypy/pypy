@@ -839,6 +839,8 @@ else:
                 c = socket.socket()
                 c.connect((HOST, port))
                 listener_gone.wait()
+                # XXX why is it necessary?
+                test_support.gc_collect()
                 try:
                     ssl_sock = ssl.wrap_socket(c)
                 except IOError:

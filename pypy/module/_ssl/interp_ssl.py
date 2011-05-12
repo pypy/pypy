@@ -873,3 +873,37 @@ def _test_decode_cert(space, filename, verbose=True):
     finally:
         libssl_BIO_free(cert)
     
+# this function is needed to perform locking on shared data
+# structures. (Note that OpenSSL uses a number of global data
+# structures that will be implicitly shared whenever multiple threads
+# use OpenSSL.) Multi-threaded applications will crash at random if
+# it is not set.
+#
+# locking_function() must be able to handle up to CRYPTO_num_locks()
+# different mutex locks. It sets the n-th lock if mode & CRYPTO_LOCK, and
+# releases it otherwise.
+#
+# filename and line are the file number of the function setting the
+# lock. They can be useful for debugging.
+_ssl_locks = []
+
+def _ssl_thread_locking_function(mode, n, filename, line):
+    n = intmask(n)
+    if n < 0 or n >= len(_ssl_locks):
+        return
+
+    if intmask(mode) & CRYPTO_LOCK:
+        _ssl_locks[n].acquire(True)
+    else:
+        _ssl_locks[n].release()
+
+def _ssl_thread_id_function():
+    from pypy.module.thread import ll_thread
+    return ll_thread.get_ident()
+
+def setup_ssl_threads():
+    from pypy.module.thread import ll_thread
+    for i in range(libssl_CRYPTO_num_locks()):
+        _ssl_locks.append(ll_thread.allocate_lock())
+    libssl_CRYPTO_set_locking_callback(_ssl_thread_locking_function)
+    libssl_CRYPTO_set_id_callback(_ssl_thread_id_function)
