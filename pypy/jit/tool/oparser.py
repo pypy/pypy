@@ -312,7 +312,7 @@ class OpParser(object):
                 continue  # a comment or empty line
             newlines.append(line)
         base_indent, inpargs, newlines = self.parse_inpargs(newlines)
-        num, ops = self.parse_ops(base_indent, newlines, 0)
+        num, ops, last_offset = self.parse_ops(base_indent, newlines, 0)
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
         loop = ExtendedTreeLoop("loop")
@@ -320,11 +320,13 @@ class OpParser(object):
         loop.token = self.looptoken
         loop.operations = ops
         loop.inputargs = inpargs
+        loop.last_offset = last_offset
         return loop
 
     def parse_ops(self, indent, lines, start):
         num = start
         ops = []
+        last_offset = None
         while num < len(lines):
             line = lines[num]
             if not line.startswith(" " * indent):
@@ -333,9 +335,25 @@ class OpParser(object):
             elif line.startswith(" "*(indent + 1)):
                 raise ParseError("indentation not valid any more")
             else:
-                ops.append(self.parse_next_op(lines[num].strip()))
+                line = line.strip()
+                offset, line = self.parse_offset(line)
+                if line == '--end of the loop--':
+                    last_offset = offset
+                else:
+                    op = self.parse_next_op(line)
+                    if offset:
+                        op.offset = offset
+                ops.append(op)
                 num += 1
-        return num, ops
+        return num, ops, last_offset
+
+    def parse_offset(self, line):
+        if line.startswith('+'):
+            # it begins with an offset, like: "+10: i1 = int_add(...)"
+            offset, _, line = line.partition(':')
+            offset = int(offset)
+            return offset, line.strip()
+        return None, line
 
     def parse_inpargs(self, lines):
         line = lines[0]
