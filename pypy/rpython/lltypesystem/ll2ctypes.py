@@ -616,7 +616,7 @@ def lltype2ctypes(llobj, normalize=True):
             container = llobj._obj.container
             T = lltype.Ptr(lltype.typeOf(container))
             # otherwise it came from integer and we want a c_void_p with
-            # the same valu
+            # the same value
             if getattr(container, 'llopaque', None):
                 no = len(_opaque_objs)
                 _opaque_objs.append(container)
@@ -774,7 +774,7 @@ def ctypes2lltype(T, cobj):
             # CFunctionType.__nonzero__ is broken before Python 2.6
             return lltype.nullptr(T.TO)
         if isinstance(T.TO, lltype.Struct):
-            if ptrval & 1: # a tagged pointer
+            if T.TO._gckind == 'gc' and ptrval & 1: # a tagged pointer
                 gcref = _opaque_objs[ptrval // 2].hide()
                 return lltype.cast_opaque_ptr(T, gcref)
             REAL_TYPE = T.TO
