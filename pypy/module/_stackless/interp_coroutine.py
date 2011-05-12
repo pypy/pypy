@@ -232,7 +232,10 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         ec = self.space.getexecutioncontext()
         self.subctx.setstate(space, w_state)
         if space.is_w(w_thunk, space.w_None):
-            self.bind(_ResumeThunk(space, self.costate, self.subctx.topframe))
+            if space.is_w(w_state, space.w_None):
+                self.thunk = None
+            else:
+                self.bind(_ResumeThunk(space, self.costate, self.subctx.topframe))
         else:
             w_func, w_args, w_kwds = space.unpackiterable(w_thunk,
                                                           expected_length=3)
