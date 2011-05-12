@@ -622,18 +622,25 @@ class ArgErrCount(ArgErr):
                 self.num_args + self.num_kwds)
         else:
             defcount = self.num_defaults
+            has_kwarg = self.has_kwarg
+            num_args = self.num_args
+            num_kwds = self.num_kwds
             if defcount == 0 and not self.has_vararg:
                 msg1 = "exactly"
+                if not has_kwarg:
+                    num_args += num_kwds
+                    num_kwds = 0
             elif not self.missing_args:
                 msg1 = "at most"
             else:
                 msg1 = "at least"
+                has_kwarg = False
                 n -= defcount
             if n == 1:
                 plural = ""
             else:
                 plural = "s"
-            if self.has_kwarg or self.num_kwds > 0:
+            if has_kwarg or num_kwds > 0:
                 msg2 = " non-keyword"
             else:
                 msg2 = ""
@@ -643,7 +650,7 @@ class ArgErrCount(ArgErr):
                 n,
                 msg2,
                 plural,
-                self.num_args)
+                num_args)
         return msg
 
 class ArgErrMultipleValues(ArgErr):
