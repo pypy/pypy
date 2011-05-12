@@ -5,23 +5,21 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib import jit, libffi
 
-from pypy.objspace.std.noneobject import W_NoneObject
-
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array
 
 from pypy.module.cppyy import helper, capi
 
+
 _converters = {}
 
 def get_rawobject(space, w_obj):
-    from pypy.module.cppyy.interp_cppyy import W_CPPInstance
-    w_obj = space.wrap(space.findattr(w_obj, space.wrap("_cppinstance")))
-    obj = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
-    if obj:
-        return obj.rawobject
-    else:
-        return lltype.nullptr(rffi.CCHARP.TO)
+    if w_obj:
+        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+        w_cpp_instance = space.findattr(w_obj, space.wrap("_cppinstance"))
+        if w_cpp_instance:
+            return w_cpp_instance.rawobject
+    return lltype.nullptr(rffi.CCHARP.TO)
 
 
 class TypeConverter(object):
@@ -32,18 +30,13 @@ class TypeConverter(object):
         pass
 
     @jit.dont_look_inside
-    def _get_fieldptr(self, space, w_obj, offset):
+    def _get_raw_address(self, space, w_obj, offset):
         rawobject = get_rawobject(space, w_obj)
         if rawobject:
             fieldptr = lltype.direct_ptradd(rawobject, offset)
         else:
             fieldptr = rffi.cast(rffi.CCHARP, offset)
         return fieldptr
-
-    def _get_address(self, space, w_obj, offset):
-        fieldptr = self._get_fieldptr(space, w_obj, offset)
-        address = rffi.cast(rffi.CCHARP, fieldptr)
-        return address
 
     def _is_abstract(self):
         raise NotImplementedError(
@@ -79,22 +72,22 @@ class ArrayTypeConverter(TypeConverter):
 
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
-        address_value = self._get_address(space, w_obj, offset)
+        address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.UINT, address_value)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
         return arr.fromaddress(space, address, self.size)
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         buf = space.interp_w(Buffer, w_value.getslotvalue(2))
         for i in range(min(self.size*self.typesize, buf.getlength())):
             address[i] = buf.getitem(i)
 
 
 class PtrTypeConverter(ArrayTypeConverter):
-    def _get_fieldptr(self, space, w_obj, offset):
-        fieldptr = TypeConverter._get_fieldptr(self, space, w_obj, offset)
+    def _get_raw_address(self, space, w_obj, offset):
+        fieldptr = TypeConverter._get_raw_address(self, space, w_obj, offset)
         ptrptr = rffi.cast(rffi.LONGP, fieldptr)
         return ptrptr[0]
 
@@ -122,13 +115,13 @@ class BoolConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
     def from_memory(self, space, w_obj, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         if address[0] == '\x01':
             return space.wrap(True)
         return space.wrap(False)
 
     def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         arg = space.c_int_w(w_value)
         if arg != False and arg != True:
             raise OperationError(space.w_TypeError,
@@ -165,11 +158,11 @@ class CharConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
     def from_memory(self, space, w_obj, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         return space.wrap(address[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         address[0] = self._from_space(space, w_value)
 
 class LongConverter(TypeConverter):
@@ -189,12 +182,12 @@ class LongConverter(TypeConverter):
         argchain.arg(self._unwrap_object(space, w_obj))
 
     def from_memory(self, space, w_obj, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         longptr = rffi.cast(rffi.LONGP, address)
         return space.wrap(longptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         longptr = rffi.cast(rffi.LONGP, address)
         longptr[0] = space.c_int_w(w_value)
 
@@ -212,12 +205,12 @@ class UnsignedLongConverter(LongConverter):
         return rffi.cast(rffi.VOIDP, x)
 
     def from_memory(self, space, w_obj, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         ulongptr = rffi.cast(rffi.ULONGP, address)
         return space.wrap(ulongptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         ulongptr = rffi.cast(rffi.ULONGP, address)
         ulongptr[0] = space.c_uint_w(w_value)
 
@@ -226,12 +219,12 @@ class ShortConverter(LongConverter):
     libffitype = libffi.types.sshort
 
     def from_memory(self, space, w_obj, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         shortptr = rffi.cast(rffi.SHORTP, address)
         return space.wrap(shortptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         shortptr = rffi.cast(rffi.SHORTP, address)
         shortptr[0] = rffi.cast(rffi.SHORT, self._unwrap_object(space, w_value))
 
@@ -245,12 +238,12 @@ class FloatConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
     def from_memory(self, space, w_obj, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         floatptr = rffi.cast(rffi.FLOATP, address)
         return space.wrap(float(floatptr[0]))
 
     def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         floatptr = rffi.cast(rffi.FLOATP, address)
         floatptr[0] = r_singlefloat(space.float_w(w_value))
 
@@ -270,12 +263,12 @@ class DoubleConverter(TypeConverter):
         argchain.arg(self._unwrap_object(space, w_obj))
 
     def from_memory(self, space, w_obj, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         doubleptr = rffi.cast(rffi.DOUBLEP, address)
         return space.wrap(doubleptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_address(space, w_obj, offset)
+        address = self._get_raw_address(space, w_obj, offset)
         doubleptr = rffi.cast(rffi.DOUBLEP, address)
         doubleptr[0] = space.float_w(w_value)
 
@@ -344,7 +337,7 @@ class InstancePtrConverter(TypeConverter):
     def convert_argument(self, space, w_obj):
         from pypy.module.cppyy import interp_cppyy
         w_cppinstance = space.findattr(w_obj, space.wrap("_cppinstance"))
-        if w_cppinstance is not None:
+        if w_cppinstance:
             w_obj = w_cppinstance
         obj = space.interpclass_w(w_obj)
         if isinstance(obj, interp_cppyy.W_CPPInstance):
