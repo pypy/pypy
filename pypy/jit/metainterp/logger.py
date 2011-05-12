@@ -119,7 +119,7 @@ class Logger(object):
                         '(' + args + ')' + fail_args)
         if ops_offset and None in ops_offset:
             offset = ops_offset[None]
-            debug_print("+%d: # --end of the loop--" % offset)
+            debug_print("+%d: --end of the loop--" % offset)
 
 
 def int_could_be_an_address(x):
