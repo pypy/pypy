@@ -2274,18 +2274,6 @@ def Py_Exit(space, status):
     standard C library function exit(status)."""
     raise NotImplementedError
 
-@cpython_api([rffi.VOIDP], rffi.INT_real, error=-1)
-def Py_AtExit(space, func):
-    """Register a cleanup function to be called by Py_Finalize().  The cleanup
-    function will be called with no arguments and should return no value.  At
-    most 32 cleanup functions can be registered.  When the registration is
-    successful, Py_AtExit() returns 0; on failure, it returns -1.  The cleanup
-    function registered last is called first. Each cleanup function will be
-    called at most once.  Since Python's internal finalization will have
-    completed before the cleanup function, no Python APIs should be called by
-    func."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PyTuple_GetSlice(space, p, low, high):
     """Take a slice of the tuple pointed to by p from low to high and return it

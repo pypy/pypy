@@ -12,8 +12,20 @@ class Module(MixedModule):
     appleveldefs = {
     }
 
+    atexit_funcs = []
+
     def startup(self, space):
         space.fromcache(State).startup(space)
+
+    def register_atexit(self, function):
+        if len(self.atexit_funcs) >= 32:
+            raise ValueError("cannot register more than 32 atexit functions")
+        self.atexit_funcs.append(function)
+
+    def shutdown(self, space):
+        for func in self.atexit_funcs:
+            func()
+
 
 # import these modules to register api functions by side-effect
 import pypy.module.cpyext.thread
