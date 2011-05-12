@@ -18,6 +18,19 @@ class TestImport(BaseApiTest):
         assert space.str_w(space.getattr(w_foobar,
                                          space.wrap('__name__'))) == 'foobar'
 
+    def test_getmoduledict(self, space, api):
+        testmod = "binascii"
+        w_pre_dict = api.PyImport_GetModuleDict()
+        assert not space.is_true(space.contains(w_pre_dict, space.wrap(testmod)))
+
+        with rffi.scoped_str2charp(testmod) as modname:
+            w_module = api.PyImport_ImportModule(modname)
+            print w_module
+            assert w_module
+
+        w_dict = api.PyImport_GetModuleDict()
+        assert space.is_true(space.contains(w_dict, space.wrap(testmod)))
+
     def test_reload(self, space, api):
         pdb = api.PyImport_Import(space.wrap("pdb"))
         space.delattr(pdb, space.wrap("set_trace"))
