@@ -31,10 +31,10 @@ def capturing(func, *args, **kwds):
     return log_stream.getvalue()
 
 class Logger(logger.Logger):
-    def log_loop(self, loop, namespace={}, labels=None):
+    def log_loop(self, loop, namespace={}, ops_offset=None):
         self.namespace = namespace
         return capturing(logger.Logger.log_loop, self,
-                         loop.inputargs, loop.operations, labels=labels)
+                         loop.inputargs, loop.operations, ops_offset=ops_offset)
 
     def repr_of_descr(self, descr):
         for k, v in self.namespace.items():
@@ -179,7 +179,7 @@ class TestLogger(object):
         assert output.splitlines()[0] == "# bridge out of Guard 3 with 0 ops"
         pure_parse(output)
 
-    def test_labels(self):
+    def test_ops_offset(self):
         inp = '''
         [i0]
         i1 = int_add(i0, 1)
@@ -188,13 +188,13 @@ class TestLogger(object):
         '''
         loop = pure_parse(inp)
         ops = loop.operations
-        labels = {
+        ops_offset = {
             ops[0]: 10,
             ops[2]: 30,
             None: 40
             }
         logger = Logger(self.make_metainterp_sd())
-        output = logger.log_loop(loop, labels=labels)
+        output = logger.log_loop(loop, ops_offset=ops_offset)
         assert output.strip() == """
 [i0]
 +10: i2 = int_add(i0, 1)

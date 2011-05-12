@@ -34,7 +34,7 @@ class FakeCPU(object):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
-    def log_loop(self, inputargs, operations, number=0, type=None, labels=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
         pass
 
 class FakeState(object):

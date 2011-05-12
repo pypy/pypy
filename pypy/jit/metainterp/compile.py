@@ -162,8 +162,8 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        labels = metainterp_sd.cpu.compile_loop(loop.inputargs, loop.operations,
-                                                loop.token)
+        ops_offset = metainterp_sd.cpu.compile_loop(loop.inputargs, loop.operations,
+                                                    loop.token)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -175,7 +175,7 @@ def send_loop_to_backend(metainterp_sd, loop, type):
             loop._ignore_during_counting = True
     metainterp_sd.log("compiled new " + type)
     #
-    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type, labels)
+    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type, ops_offset)
     short = loop.token.short_preamble
     if short:
         metainterp_sd.logger_ops.log_short_preamble(short[-1].inputargs,
@@ -192,8 +192,8 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations,
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        labels = metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
-                                                  original_loop_token)
+        ops_offset = metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
+                                                      original_loop_token)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -202,7 +202,7 @@ def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations,
     metainterp_sd.log("compiled new bridge")
     #
     n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, labels)
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, ops_offset)
     #
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
         metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
