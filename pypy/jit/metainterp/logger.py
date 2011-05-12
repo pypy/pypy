@@ -14,7 +14,7 @@ class Logger(object):
         self.ts = metainterp_sd.cpu.ts
         self.guard_number = guard_number
 
-    def log_loop(self, inputargs, operations, number=0, type=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, labels=None):
         if type is None:
             debug_start("jit-log-noopt-loop")
             self._log_operations(inputargs, operations)
@@ -26,7 +26,7 @@ class Logger(object):
             self._log_operations(inputargs, operations)
             debug_stop("jit-log-opt-loop")
 
-    def log_bridge(self, inputargs, operations, number=-1):
+    def log_bridge(self, inputargs, operations, number=-1, labels=None):
         if number == -1:
             debug_start("jit-log-noopt-bridge")
             self._log_operations(inputargs, operations)

@@ -403,11 +403,11 @@ class TestX86(LLtypeBackendTest):
             ]
         inputargs = [i0]
         debug._log = dlog = debug.DebugLog()
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        labels = self.cpu.compile_loop(inputargs, operations, looptoken)
         debug._log = None
         #
         # check the labels saved on the looptoken
-        labels = looptoken._x86_labels
+        assert labels is looptoken._x86_labels
         # getfield_raw/int_add/setfield_raw + ops + None
         assert len(labels) == 3 + len(operations) + 1
         assert (labels[operations[0]] <=

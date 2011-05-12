@@ -58,6 +58,14 @@ class AbstractCPU(object):
         Should create and attach a fresh CompiledLoopToken to
         looptoken.compiled_loop_token and stick extra attributes
         on it to point to the compiled loop in assembler.
+
+        Optionally, return a ``labels`` dictionary, which maps each operation
+        to its offset in the compiled code.  The ``labels`` dictionary is then
+        used by the operation logger to print the offsets in the log.  The
+        offset representing the end of the last operation is stored in
+        ``labels[None]``: note that this might not coincide with the end of
+        the loop, because usually in the loop footer there is code which does
+        not belong to any particular operation.
         """
         raise NotImplementedError
 
@@ -65,6 +73,9 @@ class AbstractCPU(object):
                        original_loop_token, log=True):
         """Assemble the bridge.
         The FailDescr is the descr of the original guard that failed.
+
+        Optionally, return a ``labels`` dictionary.  See the docstring of
+        ``compiled_loop`` for more informations about it.
         """
         raise NotImplementedError    
 

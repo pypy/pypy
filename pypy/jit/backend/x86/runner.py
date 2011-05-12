@@ -77,15 +77,15 @@ class AbstractX86CPU(AbstractLLCPU):
         print ''.join(lines)
 
     def compile_loop(self, inputargs, operations, looptoken, log=True):
-        self.assembler.assemble_loop(inputargs, operations, looptoken,
-                                     log=log)
+        return self.assembler.assemble_loop(inputargs, operations, looptoken,
+                                            log=log)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
-        self.assembler.assemble_bridge(faildescr, inputargs, operations,
-                                       original_loop_token, log=log)
+        return self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                              original_loop_token, log=log)
 
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)
