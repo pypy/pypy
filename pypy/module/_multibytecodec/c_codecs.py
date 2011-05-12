@@ -1,8 +1,5 @@
 import py, sys
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.rstr import STR, UNICODE
-from pypy.rpython.annlowlevel import hlstr, hlunicode
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
 
@@ -121,7 +118,7 @@ def decode(codec, stringdata):
                 assert False
             src = pypy_cjk_dec_outbuf(decodebuf)
             length = pypy_cjk_dec_outlen(decodebuf)
-            return unicode_from_raw(src, length)
+            return rffi.wcharpsize2unicode(src, length)
         #
         finally:
             pypy_cjk_dec_free(decodebuf)
@@ -147,21 +144,6 @@ def multibytecodec_decerror(decodebuf, e):
     end = start + esize
     if 1:  # errors == ERROR_STRICT:
         raise EncodeDecodeError(start, end, reason)
-
-def unicode_from_raw(src, length):
-    result = lltype.malloc(UNICODE, length)
-    try:
-        uni_chars_offset = (rffi.offsetof(UNICODE, 'chars') + \
-                            rffi.itemoffsetof(UNICODE.chars, 0))
-        dest = rffi.cast_ptr_to_adr(result) + uni_chars_offset
-        src = rffi.cast_ptr_to_adr(src) + rffi.itemoffsetof(rffi.CWCHARP.TO)
-        rffi.raw_memcopy(src, dest,
-                         llmemory.sizeof(lltype.UniChar) * length)
-        got = hlunicode(result)
-    finally:
-        keepalive_until_here(result)
-    assert got is not None
-    return got
 
 # ____________________________________________________________
 # Encoding
