@@ -343,7 +343,7 @@ class OpParser(object):
                     op = self.parse_next_op(line)
                     if offset:
                         op.offset = offset
-                ops.append(op)
+                    ops.append(op)
                 num += 1
         return num, ops, last_offset
 

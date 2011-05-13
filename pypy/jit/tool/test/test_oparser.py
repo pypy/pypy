@@ -223,4 +223,5 @@ def test_last_offset():
     +30: --end of the loop--
     """
     loop = parse(x)
+    assert len(loop.operations) == 2
     assert loop.last_offset == 30
