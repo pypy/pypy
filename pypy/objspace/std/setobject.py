@@ -120,6 +120,9 @@ class W_BaseSetObject(W_Object):
     def getdict_w(self):
         return self.strategy.getdict_w(self)
 
+    def get_storage_copy(self):
+        return self.strategy.get_storage_copy(self)
+
     def getkeys(self):
         return self.strategy.getkeys(self)
 
@@ -182,6 +185,96 @@ class SetStrategy(object):
 
     def length(self, w_set):
         raise NotImplementedError
+
+
+class EmptySetStrategy(SetStrategy):
+
+    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("empty")
+    cast_to_void_star = staticmethod(cast_to_void_star)
+    cast_from_void_star = staticmethod(cast_from_void_star)
+
+    def get_empty_storage(self):
+        return self.cast_to_void_star(None)
+
+    def is_correct_type(self, w_key):
+        return False
+
+    def length(self, w_set):
+        return 0
+
+    def clear(self, w_set):
+        pass
+
+    def copy(self, w_set):
+        strategy = w_set.strategy
+        storage = self.cast_to_void_star(None)
+        clone = w_set.from_storage_and_strategy(storage, strategy)
+        return clone
+
+    def add(self, w_set, w_key):
+        #XXX switch to correct strategy later
+        w_set.switch_to_object_strategy(self.space)
+        w_set.add(w_key)
+
+    def delitem(self, w_set, w_item):
+        raise KeyError
+
+    def discard(self, w_set, w_item):
+        return False
+
+    def getdict_w(self, w_set):
+        return newset(self.space)
+
+    def get_storage_copy(self, w_set):
+        return w_set.sstorage
+
+    def getkeys(self, w_set):
+        return []
+
+    def has_key(self, w_set, w_key):
+        return False
+
+    def equals(self, w_set, w_other):
+        if w_other.strategy is self.space.fromcache(EmptySetStrategy):
+            return True
+        return False
+
+    def difference(self, w_set, w_other):
+        return w_set.copy()
+
+    def difference_update(self, w_set, w_other):
+        pass
+
+    def intersect(self, w_set, w_other):
+        return w_set.copy()
+
+    def intersect_update(self, w_set, w_other):
+        return w_set.copy()
+
+    def intersect_multiple(self, w_set, w_other):
+        return w_set.copy()
+
+    def intersect_multiple_update(self, w_set, w_other):
+        pass
+
+    def isdisjoint(self, w_set, w_other):
+        return True
+
+    def issuperset(self, w_set, w_other):
+        if self.space.unwrap(self.space.len(w_other)) == 0:
+            return True
+        return False
+
+    def symmetric_difference(self, w_set, w_other):
+        return w_other.copy()
+
+    def symmetric_difference_update(self, w_set, w_other):
+        w_set.strategy = w_other.strategy
+        w_set.sstorage = w_other.get_storage_copy()
+
+    def update(self, w_set, w_other):
+        w_set.switch_to_object_strategy(self.space)
+        w_set.update(w_other)
 
 class AbstractUnwrappedSetStrategy(object):
     __mixin__ = True
@@ -263,6 +356,11 @@ class AbstractUnwrappedSetStrategy(object):
             result[self.wrap(key)] = None
         return result
 
+    def get_storage_copy(self, w_set):
+        d = self.cast_from_void_star(w_set.sstorage)
+        copy = self.cast_to_void_star(d.copy())
+        return copy
+
     def getkeys(self, w_set):
         keys = self.cast_from_void_star(w_set.sstorage).keys()
         keys_w = [self.wrap(key) for key in keys]
@@ -282,6 +380,7 @@ class AbstractUnwrappedSetStrategy(object):
         return True
 
     def difference(self, w_set, w_other):
+        #XXX return clone if other is Empty
         result = w_set._newobj(self.space, None)
         if not isinstance(w_other, W_BaseSetObject):
             w_other = w_set._newobj(self.space, w_other)
@@ -292,6 +391,7 @@ class AbstractUnwrappedSetStrategy(object):
         return result
 
     def difference_update(self, w_set, w_other):
+        #XXX do nothing if other is empty
         if w_set is w_other:
             w_set.clear()     # for the case 'a.difference_update(a)'
         else:
@@ -378,6 +478,7 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.sstorage = result.sstorage
 
     def issuperset(self, w_set, w_other):
+        #XXX other is empty is always True
         if w_set.length() < self.space.unwrap(self.space.len(w_other)):
             return False
         for w_key in self.space.unpackiterable(w_other):
@@ -386,6 +487,7 @@ class AbstractUnwrappedSetStrategy(object):
         return True
 
     def isdisjoint(self, w_set, w_other):
+        #XXX always True if other is empty
         if w_set.length() > w_other.length():
             return w_other.isdisjoint(w_set)
 
@@ -501,18 +603,24 @@ def newset(space):
 def set_strategy_and_setdata(space, w_set, w_iterable):
     from pypy.objspace.std.intobject import W_IntObject
 
-    if w_iterable is None:
-        w_set.strategy = space.fromcache(ObjectSetStrategy) #XXX EmptySetStrategy
-        w_set.sstorage = w_set.strategy.get_empty_storage()
+    if w_iterable is None :
+        w_set.strategy = space.fromcache(EmptySetStrategy)
+        w_set.sstorage = w_set.strategy.cast_to_void_star(None)#w_set.strategy.get_empty_storage()
         return
 
     if isinstance(w_iterable, W_BaseSetObject):
         w_set.strategy = w_iterable.strategy
+        #XXX need to make copy here
         w_set.sstorage = w_iterable.sstorage
         return
 
     if not isinstance(w_iterable, list):
         w_iterable = space.listview(w_iterable)
+
+    if len(w_iterable) == 0:
+        w_set.strategy = space.fromcache(EmptySetStrategy)
+        w_set.sstorage = w_set.strategy.cast_to_void_star(None)
+        return
 
     # check for integers
     for item_w in w_iterable:
@@ -844,6 +952,7 @@ def set_intersection_update__Set(space, w_left, others_w):
     return
 
 def inplace_and__Set_Set(space, w_left, w_other):
+    #XXX why do we need to return here?
     return w_left.intersect_update(w_other)
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set

@@ -458,3 +458,63 @@ class AppTestAppSetTest:
         s.difference_update(s)
         assert s == set([])
 
+    def test_empty_empty(self):
+        assert set() == set([])
+
+    def test_empty_difference(self):
+        e = set()
+        x = set([1,2,3])
+        assert e.difference(x) == set()
+        assert x.difference(e) == x
+
+        e.difference_update(x)
+        assert e == set()
+        x.difference_update(e)
+        assert x == set([1,2,3])
+
+        assert e.symmetric_difference(x) == x
+        assert x.symmetric_difference(e) == x
+
+        e.symmetric_difference_update(e)
+        assert e == e
+        e.symmetric_difference_update(x)
+        assert e == x
+
+        x.symmetric_difference_update(set())
+        assert x == set([1,2,3])
+
+    def test_empty_intersect(self):
+        e = set()
+        x = set([1,2,3])
+        assert e.intersection(x) == e
+        assert x.intersection(e) == e
+        assert e & x == e
+        assert x & e == e
+
+        e.intersection_update(x)
+        assert e == set()
+        e &= x
+        assert e == set()
+        x.intersection_update(e)
+        assert x == set()
+
+    def test_empty_issuper(self):
+        e = set()
+        x = set([1,2,3])
+        assert e.issuperset(e) == True
+        assert e.issuperset(x) == False
+        assert x.issuperset(e) == True
+
+    def test_empty_issubset(self):
+        e = set()
+        x = set([1,2,3])
+        assert e.issubset(e) == True
+        assert e.issubset(x) == True
+        assert x.issubset(e) == False
+
+    def test_empty_isdisjoint(self):
+        e = set()
+        x = set([1,2,3])
+        assert e.isdisjoint(e) == True
+        assert e.isdisjoint(x) == True
+        assert x.isdisjoint(e) == True
