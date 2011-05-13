@@ -403,4 +403,6 @@ def resume_frame(space, w_frame):
         except OperationError, operr:
             pass
         frame = frame.f_backref()
+    if operr:
+        raise operr
     return w_result

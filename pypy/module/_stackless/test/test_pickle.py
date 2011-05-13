@@ -257,16 +257,26 @@ def example():
     pckl = pickle.dumps(sub_coro)
     new_coro = pickle.loads(pckl)
 
-    new_coro.switch()
+    try:
+        sub_coro.switch()
+    except ValueError:
+        pass
+    else:
+        assert 0
+    try:
+        new_coro.switch()
+    except ValueError:
+        pass
+    else:
+        assert 0
 
 example()
-assert output == [16, 8, 4, 2, 1]
+assert output == [16, 8, 4, 2, 1] * 2
 ''' in mod.__dict__
         finally:
             del sys.modules['mod']
 
     def test_loop(self):
-        #skip("happily segfaulting")
         import new, sys
 
         mod = new.module('mod')
@@ -375,7 +385,6 @@ assert output == [9]
 
 
     def test_solver(self):
-        skip("fix me please")
         import new, sys
 
         mod = new.module('mod')
