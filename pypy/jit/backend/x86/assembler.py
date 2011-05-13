@@ -334,7 +334,7 @@ class Assembler386(object):
             operations = self._inject_debugging_code(looptoken, operations)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
-        arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
+        arglocs, operations = regalloc.prepare_loop(inputargs, operations, looptoken)
         looptoken._x86_arglocs = arglocs
 
         bootstrappos = self.mc.get_relative_pos()
@@ -405,8 +405,8 @@ class Assembler386(object):
                     [loc.assembler() for loc in faildescr._x86_debug_faillocs])
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         fail_depths = faildescr._x86_current_depths
-        regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
-                                operations)
+        operations = regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
+                                             operations)
 
         stackadjustpos = self._patchable_stackadjust()
         frame_depth, param_depth = self._assemble(regalloc, operations)
