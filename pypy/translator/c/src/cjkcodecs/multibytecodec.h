@@ -4,19 +4,14 @@
 
 
 #include <stddef.h>
-#include <stdint.h>
 #include <assert.h>
-
-#ifndef _WIN32
-#include <unistd.h>
-#endif
 
 #ifdef _WIN64
 typedef __int64 ssize_t
-#else
-#ifdef _WIN32
+#elif defined(_WIN32)
 typedef int ssize_t;
-#endif
+#else
+#include <unistd.h>
 #endif
 
 #ifndef Py_UNICODE_SIZE
@@ -30,8 +25,15 @@ typedef ssize_t Py_ssize_t;
 #define PY_SSIZE_T_MAX   ((Py_ssize_t)(((size_t) -1) >> 1))
 #endif
 
+#ifdef _WIN32
+typedef unsigned int ucs4_t;
+typedef unsigned short ucs2_t, DBCHAR;
+#else
+#include <stdint.h>
 typedef uint32_t ucs4_t;
 typedef uint16_t ucs2_t, DBCHAR;
+#endif
+
 
 
 typedef union {
