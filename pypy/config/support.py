@@ -2,13 +2,15 @@
 """ Some support code
 """
 
-import re, sys, os
+import re, sys, os, subprocess
 
 def detect_number_of_processors(filename_or_file='/proc/cpuinfo'):
-    if sys.platform != 'linux2':
-        return 1    # implement me
     if os.environ.get('MAKEFLAGS'):
         return 1    # don't override MAKEFLAGS.  This will call 'make' without any '-j' option
+    if sys.platform == 'darwin':
+        return darwin_get_cpu_count()
+    elif sys.platform != 'linux2':
+        return 1    # implement me
     try:
         if isinstance(filename_or_file, str):
             f = open(filename_or_file, "r")
@@ -23,3 +25,12 @@ def detect_number_of_processors(filename_or_file='/proc/cpuinfo'):
             return count
     except:
         return 1 # we really don't want to explode here, at worst we have 1
+
+def darwin_get_cpu_count(cmd = "/usr/sbin/sysctl hw.ncpu"):
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+        # 'hw.ncpu: 20'
+        count = proc.communicate()[0].rstrip()[8:]
+        return int(count)
+    except (OSError, ValueError):
+        return 1
