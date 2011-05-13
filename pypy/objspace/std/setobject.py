@@ -261,7 +261,9 @@ class EmptySetStrategy(SetStrategy):
         return True
 
     def issuperset(self, w_set, w_other):
-        if self.space.unwrap(self.space.len(w_other)) == 0:
+        if isinstance(w_other, W_BaseSetObject) and w_other.strategy is EmptySetStrategy:
+            return True
+        elif len(self.space.unpackiterable(w_other)) == 0:
             return True
         return False
 

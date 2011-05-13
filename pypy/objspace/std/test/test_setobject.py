@@ -509,12 +509,16 @@ class AppTestAppSetTest:
         assert e.issuperset(x) == False
         assert x.issuperset(e) == True
 
+        assert e.issuperset(set())
+        assert e.issuperset([])
+
     def test_empty_issubset(self):
         e = set()
         x = set([1,2,3])
         assert e.issubset(e) == True
         assert e.issubset(x) == True
         assert x.issubset(e) == False
+        assert e.issubset([])
 
     def test_empty_isdisjoint(self):
         e = set()
