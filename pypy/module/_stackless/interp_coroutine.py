@@ -405,6 +405,6 @@ def resume_frame(space, w_frame):
         try:
             w_result = frame.execute_frame(w_result, operr)
         except OperationError, operr:
-            raise NotImplementedError
+            pass
         frame = frame.f_backref()
     return w_result
