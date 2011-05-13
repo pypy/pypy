@@ -393,15 +393,23 @@ class AbstractUnwrappedSetStrategy(object):
         return result
 
     def difference_update(self, w_set, w_other):
-        #XXX do nothing if other is empty
+        if w_other.strategy is EmptySetStrategy:
+            return
         if w_set is w_other:
             w_set.clear()     # for the case 'a.difference_update(a)'
         else:
-            for w_key in w_other.getkeys():
+            w_iter = self.space.iter(w_other)
+            while True:
                 try:
-                    self.delitem(w_set, w_key)
-                except KeyError:
-                    pass
+                    w_item = self.space.next(w_iter)
+                    try:
+                        self.delitem(w_set, w_item)
+                    except KeyError:
+                        pass
+                except OperationError, e:
+                    if not e.match(self.space, self.space.w_StopIteration):
+                        raise
+                    return
 
     def symmetric_difference(self, w_set, w_other):
         #XXX no wrapping when strategies are equal
@@ -487,12 +495,15 @@ class AbstractUnwrappedSetStrategy(object):
                 w_item = self.space.next(w_iter)
                 if not w_set.has_key(w_item):
                     return False
-            except OperationError:
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_StopIteration):
+                    raise
                 return True
         return True
 
     def isdisjoint(self, w_set, w_other):
-        #XXX always True if other is empty
+        if w_other.length() == 0:
+            return True
         if w_set.length() > w_other.length():
             return w_other.isdisjoint(w_set)
 
