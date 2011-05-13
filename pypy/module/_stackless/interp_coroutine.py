@@ -385,14 +385,12 @@ def resume_frame(space, w_frame):
         oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
         nargs = oparg & 0xff
         nkwds = (oparg >> 8) & 0xff
-        if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
-            if nkwds == 0:     # only positional arguments
+        if nkwds == 0:     # only positional arguments
+            # fast paths leaves things on the stack, pop them
+            if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
                 frame.dropvalues(nargs + 2)
-        elif opcode == map['CALL_FUNCTION']:
-            if nkwds == 0:     # only positional arguments
+            elif opcode == map['CALL_FUNCTION']:
                 frame.dropvalues(nargs + 1)
-        else:
-            assert 0
 
         # small hack: unlink frame out of the execution context, because
         # execute_frame will add it there again
