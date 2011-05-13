@@ -161,7 +161,7 @@ class RegAlloc(object):
         self.fm = X86FrameManager()
         self.param_depth = 0
         cpu = self.assembler.cpu
-        cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
@@ -170,20 +170,22 @@ class RegAlloc(object):
                                   assembler = self.assembler)
         self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
+        return operations
 
     def prepare_loop(self, inputargs, operations, looptoken):
-        self._prepare(inputargs, operations)
+        operations = self._prepare(inputargs, operations)
         jump = operations[-1]
         loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
         self.loop_consts = loop_consts
-        return self._process_inputargs(inputargs)
+        return self._process_inputargs(inputargs), operations
 
     def prepare_bridge(self, prev_depths, inputargs, arglocs, operations):
-        self._prepare(inputargs, operations)
+        operations = self._prepare(inputargs, operations)
         self.loop_consts = {}
         self._update_bindings(arglocs, inputargs)
         self.fm.frame_depth = prev_depths[0]
         self.param_depth = prev_depths[1]
+        return operations
 
     def reserve_param(self, n):
         self.param_depth = max(self.param_depth, n)
@@ -406,6 +408,7 @@ class RegAlloc(object):
         #self.operations = operations
         while i < len(operations):
             op = operations[i]
+            self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.xrm.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:
@@ -424,6 +427,7 @@ class RegAlloc(object):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
+        self.assembler.mc.mark_op(None) # end of the loop
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in

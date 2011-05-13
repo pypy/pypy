@@ -60,16 +60,33 @@ class AbstractX86CPU(AbstractLLCPU):
         self.assembler.finish_once()
         self.profile_agent.shutdown()
 
+    def dump_loop_token(self, looptoken):
+        """
+        NOT_RPYTHON
+        """
+        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
+        data = []
+        label_list = [(offset, name) for name, offset in
+                      looptoken._x86_ops_offset.iteritems()]
+        label_list.sort()
+        addr = looptoken._x86_rawstart
+        src = rffi.cast(rffi.CCHARP, addr)
+        for p in range(looptoken._x86_fullsize):
+            data.append(src[p])
+        data = ''.join(data)
+        lines = machine_code_dump(data, addr, self.backend_name, label_list)
+        print ''.join(lines)
+
     def compile_loop(self, inputargs, operations, looptoken, log=True):
-        self.assembler.assemble_loop(inputargs, operations, looptoken,
-                                     log=log)
+        return self.assembler.assemble_loop(inputargs, operations, looptoken,
+                                            log=log)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
-        self.assembler.assemble_bridge(faildescr, inputargs, operations,
-                                       original_loop_token, log=log)
+        return self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                              original_loop_token, log=log)
 
     def set_future_value_int(self, index, intvalue):
         self.assembler.fail_boxes_int.setitem(index, intvalue)
@@ -164,7 +181,9 @@ class AbstractX86CPU(AbstractLLCPU):
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
 
+
 class CPU386(AbstractX86CPU):
+    backend_name = 'x86'
     WORD = 4
     NUM_REGS = 8
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi]
@@ -180,6 +199,7 @@ class CPU386_NO_SSE2(CPU386):
     supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
+    backend_name = 'x86_64'
     WORD = 8
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]

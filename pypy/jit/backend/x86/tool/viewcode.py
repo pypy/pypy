@@ -31,7 +31,7 @@ pypy.tool.udir = mod
 if sys.platform == "win32":
     XXX   # lots more in Psyco
 
-def machine_code_dump(data, originaddr, backend_name):
+def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_backend_option = {
         'x86': 'i386',
         'x86_64': 'x86-64',
@@ -51,7 +51,32 @@ def machine_code_dump(data, originaddr, backend_name):
     }, 'r')
     result = g.readlines()
     g.close()
-    return result[6:]   # drop some objdump cruft
+    lines = result[6:]   # drop some objdump cruft
+    return format_code_dump_with_labels(originaddr, lines, label_list)
+
+def format_code_dump_with_labels(originaddr, lines, label_list):
+    from pypy.rlib.rarithmetic import r_uint
+    if not label_list:
+        label_list = []
+    originaddr = r_uint(originaddr)
+    itlines = iter(lines)
+    yield itlines.next() # don't process the first line
+    for lbl_start, lbl_name in label_list:
+        for line in itlines:
+            addr, _ = line.split(':', 1)
+            addr = int(addr, 16)
+            if addr >= originaddr+lbl_start:
+                yield '\n'
+                if lbl_name is None:
+                    yield '--end of the loop--\n'
+                else:
+                    yield str(lbl_name) + '\n'
+                yield line
+                break
+            yield line
+    # yield all the remaining lines
+    for line in itlines:
+        yield line
 
 def load_symbols(filename):
     # the program that lists symbols, and the output it gives
@@ -135,6 +160,7 @@ class CodeRange(object):
     def disassemble(self):
         if not hasattr(self, 'text'):
             lines = machine_code_dump(self.data, self.addr, self.world.backend_name)
+            lines = list(lines)
             # instead of adding symbol names in the dumps we could
             # also make the 0xNNNNNNNN addresses be red and show the
             # symbol name when the mouse is over them
