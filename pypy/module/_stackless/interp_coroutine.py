@@ -28,7 +28,7 @@ from pypy.module._stackless.rcoroutine import Coroutine, BaseCoState, AbstractTh
 
 from pypy.module.exceptions.interp_exceptions import W_SystemExit, _new_exception
 
-from pypy.rlib import rstack # for resume points
+from pypy.rlib import rstack, jit # for resume points
 from pypy.tool import stdlib_opcode as pythonopcode
 
 class _AppThunk(AbstractThunk):
@@ -104,7 +104,6 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
     def w_switch(self):
         space = self.space
         if self.frame is None:
-            import pdb; pdb.set_trace()
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
         state = self.costate
@@ -377,6 +376,7 @@ def resume_frame(space, w_frame):
     frame = space.interp_w(PyFrame, w_frame, can_be_None=True)
     w_result = space.w_None
     operr = None
+    executioncontext = frame.space.getexecutioncontext()
     while frame is not None:
         code = frame.pycode.co_code
         instr = frame.last_instr
@@ -399,29 +399,13 @@ def resume_frame(space, w_frame):
         else:
             assert 0
 
-        next_instr = instr + 2 # continue after the call
-        w_result, operr = _finish_execution_after_call(frame, next_instr, w_result, operr)
+        # small hack: unlink frame out of the execution context, because
+        # execute_frame will add it there again
+        executioncontext.topframeref = jit.non_virtual_ref(frame.f_backref())
+        frame.last_instr = instr + 1 # continue after the call
+        try:
+            w_result = frame.execute_frame(w_result, operr)
+        except OperationError, operr:
+            raise NotImplementedError
         frame = frame.f_backref()
     return w_result
-
-def _finish_execution_after_call(frame, next_instr, w_inputval, operr):
-    # XXX bit annoying, this is a part of PyFrame.execute_frame
-    assert operr is None
-    frame.pushvalue(w_inputval)
-    executioncontext = frame.space.getexecutioncontext()
-    w_result = frame.space.w_None
-    try:
-        try:
-            w_result = frame.dispatch(frame.pycode, next_instr,
-                                      executioncontext)
-        except OperationError, operr:
-            executioncontext.return_trace(frame, frame.space.w_None)
-            return None, operr
-        executioncontext.return_trace(frame, w_result)
-        # clean up the exception, might be useful for not
-        # allocating exception objects in some cases
-        frame.last_exception = None
-    finally:
-        executioncontext.leave(frame, w_result)
-    return w_result, None
-
