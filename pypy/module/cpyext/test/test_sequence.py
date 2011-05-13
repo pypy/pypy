@@ -113,6 +113,9 @@ class TestSequence(BaseApiTest):
         result = api.PySequence_GetItem(w_l, 4)
         assert space.is_true(space.eq(result, space.wrap(4)))
 
+        result = api.PySequence_ITEM(w_l, 4)
+        assert space.is_true(space.eq(result, space.wrap(4)))
+
         self.raises(space, api, IndexError, api.PySequence_GetItem, w_l, 9000)
 
     def test_index(self, space, api):
