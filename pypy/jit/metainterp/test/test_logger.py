@@ -200,5 +200,5 @@ class TestLogger(object):
 +10: i2 = int_add(i0, 1)
 i4 = int_mul(i2, 2)
 +30: jump(i4)
-+40: # --end of the loop--
++40: --end of the loop--
 """.strip()
