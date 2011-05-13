@@ -390,7 +390,8 @@ def resume_frame(space, w_frame):
         nargs = oparg & 0xff
         nkwds = (oparg >> 8) & 0xff
         if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
-            raise NotImplementedError
+            if nkwds == 0:     # only positional arguments
+                frame.dropvalues(nargs + 2)
         elif opcode == map['CALL_FUNCTION']:
             if nkwds == 0:     # only positional arguments
                 frame.dropvalues(nargs + 1)

@@ -19,7 +19,7 @@ class AppTestBasic:
 class AppTestPickle:
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('_stackless',))
+        cls.space = gettestobjspace(usemodules=('_stackless',), CALL_METHOD=True)
 
     def test_pickle_coroutine_empty(self):
         # this test is limited to basic pickling.
