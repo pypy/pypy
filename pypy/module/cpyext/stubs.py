@@ -2021,15 +2021,6 @@ def PySequence_Count(space, o, value):
     in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
-def PySequence_Index(space, o, value):
-    """Return the first index i for which o[i] == value.  On error, return
-    -1.    This is equivalent to the Python expression o.index(value).
-
-    This function returned an int type. This might require changes
-    in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], PyObjectP)
 def PySequence_Fast_ITEMS(space, o):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned
@@ -2039,17 +2030,6 @@ def PySequence_Fast_ITEMS(space, o):
     So, only use the underlying array pointer in contexts where the sequence
     cannot change.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PySequence_ITEM(space, o, i):
-    """Return the ith element of o or NULL on failure. Macro form of
-    PySequence_GetItem() but without checking that
-    PySequence_Check(o)() is true and without adjustment for negative
-    indices.
-
-    This function used an int type for i. This might require
-    changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -2272,18 +2252,6 @@ def PySys_SetPath(space, path):
 def Py_Exit(space, status):
     """Exit the current process.  This calls Py_Finalize() and then calls the
     standard C library function exit(status)."""
-    raise NotImplementedError
-
-@cpython_api([rffi.VOIDP], rffi.INT_real, error=-1)
-def Py_AtExit(space, func):
-    """Register a cleanup function to be called by Py_Finalize().  The cleanup
-    function will be called with no arguments and should return no value.  At
-    most 32 cleanup functions can be registered.  When the registration is
-    successful, Py_AtExit() returns 0; on failure, it returns -1.  The cleanup
-    function registered last is called first. Each cleanup function will be
-    called at most once.  Since Python's internal finalization will have
-    completed before the cleanup function, no Python APIs should be called by
-    func."""
     raise NotImplementedError
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)

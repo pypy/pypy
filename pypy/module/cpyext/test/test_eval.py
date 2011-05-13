@@ -166,6 +166,15 @@ class TestEval(BaseApiTest):
 
         lltype.free(pi, flavor='raw')
 
+    def test_atexit(self, space, api):
+        lst = []
+        def func():
+            lst.append(42)
+        api.Py_AtExit(func)
+        cpyext = space.getbuiltinmodule('cpyext')
+        cpyext.shutdown(space) # simulate shutdown
+        assert lst == [42]
+
 class AppTestCall(AppTestCpythonExtensionBase):
     def test_CallFunction(self):
         module = self.import_extension('foo', [
