@@ -129,6 +129,8 @@ class TestSequence(BaseApiTest):
         w_tofind = space.wrap(9001)
         result = api.PySequence_Index(w_l, w_tofind)
         assert result == -1
+        assert api.PyErr_Occurred() is space.w_ValueError
+        api.PyErr_Clear()
 
         gen = (x ** 2 for x in range(40))
         w_tofind = space.wrap(16)

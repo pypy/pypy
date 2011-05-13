@@ -186,4 +186,5 @@ def PySequence_Index(space, w_seq, w_obj):
             return idx
         idx += 1
 
-    return -1
+    raise OperationError(space.w_ValueError, space.wrap(
+        "sequence.index(x): x not in sequence"))
