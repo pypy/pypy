@@ -205,8 +205,6 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         if isinstance(thunk, _AppThunk):
             w_args, w_kwds = thunk.args.topacked()
             w_thunk = nt([thunk.w_func, w_args, w_kwds])
-        elif isinstance(thunk, _ResumeThunk):
-            raise NotImplementedError
         else:
             w_thunk = space.w_None
 

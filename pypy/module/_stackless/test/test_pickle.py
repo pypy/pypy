@@ -84,6 +84,43 @@ assert output == [16, 8, 4, 2, 1]
         finally:
             del sys.modules['mod']
 
+    def test_pickle_again(self):
+
+        import new, sys
+
+        mod = new.module('mod')
+        sys.modules['mod'] = mod
+        try:
+            exec '''
+output = []
+import _stackless
+def f(coro, n, x):
+    if n == 0:
+        coro.switch()
+        return
+    f(coro, n-1, 2*x)
+    output.append(x)
+
+def example():
+    main_coro = _stackless.coroutine.getcurrent()
+    sub_coro = _stackless.coroutine()
+    sub_coro.bind(f, main_coro, 5, 1)
+    sub_coro.switch()
+
+    import pickle
+    pckl = pickle.dumps(sub_coro)
+    new_coro = pickle.loads(pckl)
+    pckl = pickle.dumps(new_coro)
+    newer_coro = pickle.loads(pckl)
+
+    newer_coro.switch()
+
+example()
+assert output == [16, 8, 4, 2, 1]
+''' in mod.__dict__
+        finally:
+            del sys.modules['mod']
+
     def test_kwargs(self):
 
         import new, sys
