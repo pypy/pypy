@@ -478,12 +478,15 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.sstorage = result.sstorage
 
     def issuperset(self, w_set, w_other):
-        #XXX other is empty is always True
-        if w_set.length() < self.space.unwrap(self.space.len(w_other)):
-            return False
-        for w_key in self.space.unpackiterable(w_other):
-            if not w_set.has_key(w_key):
-                return False
+        #XXX always True if other is empty
+        w_iter = self.space.iter(w_other)
+        while True:
+            try:
+                w_item = self.space.next(w_iter)
+                if not w_set.has_key(w_item):
+                    return False
+            except OperationError:
+                return True
         return True
 
     def isdisjoint(self, w_set, w_other):
@@ -818,6 +821,8 @@ def set_issubset__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
     if space.is_w(w_left, w_other):
         return space.w_True
+    if w_left.length() > w_other.length():
+        return space.w_False
     return space.wrap(w_other.issuperset(w_left))
 
 set_issubset__Set_Frozenset = set_issubset__Set_Set
@@ -829,6 +834,9 @@ def set_issubset__Set_ANY(space, w_left, w_other):
         return space.w_True
 
     w_other_as_set = w_left._newobj(space, w_other)
+
+    if w_left.length() > w_other_as_set.length():
+        return space.w_False
     return space.wrap(w_other_as_set.issuperset(w_left))
 
 frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
@@ -842,6 +850,8 @@ def set_issuperset__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
     if space.is_w(w_left, w_other):
         return space.w_True
+    if w_left.length() < w_other.length():
+        return space.w_False
     return space.wrap(w_left.issuperset(w_other))
 
 set_issuperset__Set_Frozenset = set_issuperset__Set_Set

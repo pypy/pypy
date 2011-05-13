@@ -115,6 +115,10 @@ class AppTestAppSetTest:
         c = [2,3]
         assert a.issuperset(c)
 
+        c = [1,1,1,1,1]
+        assert a.issuperset(c)
+        assert set([1,1,1,1,1]).issubset(a)
+
     def test_inplace_and(test):
         a = set([1,2,3,4])
         b = set([0,2,3,5,6])
@@ -518,3 +522,10 @@ class AppTestAppSetTest:
         assert e.isdisjoint(e) == True
         assert e.isdisjoint(x) == True
         assert x.isdisjoint(e) == True
+
+
+    def test_super_with_generator(self):
+        def foo():
+            for i in [1,2,3]:
+                yield i
+        set([1,2,3,4,5]).issuperset(foo())
