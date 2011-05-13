@@ -47,7 +47,6 @@ class _AppThunk(AbstractThunk):
     def call(self):
         costate = self.costate
         w_result = self.space.call_args(self.w_func, self.args)
-        rstack.resume_point("appthunk", costate, returns=w_result)
         costate.w_tempval = w_result
 
 class _ResumeThunk(AbstractThunk):
@@ -108,7 +107,6 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                 "cannot switch to an unbound Coroutine"))
         state = self.costate
         self.switch()
-        rstack.resume_point("w_switch", state, space)
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret
 
