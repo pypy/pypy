@@ -173,6 +173,8 @@ class BaseBackendTest(Runner):
         wr_i1 = weakref.ref(i1)
         wr_guard = weakref.ref(operations[2])
         self.cpu.compile_loop(inputargs, operations, looptoken)
+        if hasattr(looptoken, '_x86_ops_offset'):
+            del looptoken._x86_ops_offset # else it's kept alive
         del i0, i1, i2
         del inputargs
         del operations
