@@ -394,8 +394,6 @@ def resume_frame(space, w_frame):
         elif opcode == map['CALL_FUNCTION']:
             if nkwds == 0:     # only positional arguments
                 frame.dropvalues(nargs + 1)
-            else:
-                raise NotImplementedError   # includes keyword arguments
         else:
             assert 0
 
