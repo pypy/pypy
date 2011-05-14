@@ -73,7 +73,7 @@ class TestNumpyJIt(LLJitMixin):
             return v2.force().storage[3]
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({"getarrayitem_raw": 1, "float_add": 1, "float_neg": 1,
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1, "float_neg": 1,
                           "setarrayitem_raw": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1,
         })
