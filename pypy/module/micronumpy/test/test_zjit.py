@@ -2,7 +2,6 @@ from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, BinOp,
     FloatWrapper, Call)
 from pypy.module.micronumpy.interp_ufuncs import negative_impl
-from pypy.rlib.nonconst import NonConstant
 
 
 class FakeSpace(object):
@@ -18,7 +17,7 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             ar = SingleDimArray(i)
             if i:
-                v = BinOp(NonConstant('a'), ar, ar)
+                v = BinOp('a', ar, ar)
             else:
                 v = ar
             return v.get_concrete().storage[3]
@@ -35,7 +34,7 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             ar = SingleDimArray(i)
             if i:
-                v = BinOp(NonConstant('a'), ar, FloatWrapper(4.5))
+                v = BinOp('a', ar, FloatWrapper(4.5))
             else:
                 v = ar
             return v.get_concrete().storage[3]
@@ -69,7 +68,7 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
         def f(i):
             ar = SingleDimArray(i)
-            v1 = BinOp(NonConstant('a'), ar, ar)
+            v1 = BinOp('a', ar, ar)
             v2 = Call(negative_impl, v1)
             return v2.get_concrete().storage[3]
 

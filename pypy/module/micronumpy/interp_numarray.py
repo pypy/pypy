@@ -124,6 +124,8 @@ class BinOp(VirtualArray):
     Intermediate class for performing binary operations.
     """
     _immutable_fields_ = ["opcode", "left", "right"]
+    # Hack for test_zjit so the annotator doesn't see the bytecode as constant
+    opcode = "?"
 
     def __init__(self, opcode, left, right):
         VirtualArray.__init__(self)
