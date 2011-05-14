@@ -209,7 +209,7 @@ class BaseCPU(model.AbstractCPU):
                         llimpl.compile_add_fail_arg(c, var2index[box])
                     else:
                         llimpl.compile_add_fail_arg(c, -1)
-                        
+
             x = op.result
             if x is not None:
                 if isinstance(x, history.BoxInt):

@@ -8,6 +8,14 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 
 
+def dummy1(v):
+    assert isinstance(v, float)
+    return v
+
+def dummy2(v):
+    assert isinstance(v, float)
+    return v
+
 TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
 numpy_driver = jit.JitDriver(greens = ['bytecode_pos', 'bytecode'],
@@ -19,37 +27,44 @@ class ComputationFrame(object):
     _virtualizable2_ = ['valuestackdepth', 'valuestack[*]',
                         'array_pos', 'arrays[*]',
                         'float_pos', 'floats[*]',
+                        'function_pos', 'functions[*]',
                         ]
 
-    def __init__(self, arrays, floats):
+    def __init__(self, arrays, floats, functions):
         self = jit.hint(self, access_directly=True, fresh_virtualizable=True)
         self.valuestackdepth = 0
         self.arrays = arrays
         self.array_pos = len(arrays)
         self.floats = floats
         if NonConstant(0):
-            self.floats = [3.5] # annotator hack for test_jit
+            self.floats = [3.5] # annotator hack for test_zjit
         self.float_pos = len(floats)
+        self.functions = functions
+        if NonConstant(0):
+            self.functions = [dummy1, dummy2] # another annotator hack
+        self.function_pos = len(functions)
         self.valuestack = [0.0] * (len(arrays) + len(floats))
 
     def reset(self):
         self.valuestackdepth = 0
         self.array_pos = len(self.arrays)
         self.float_pos = len(self.floats)
+        self.function_pos = len(self.functions)
 
-    def getarray(self):
-        p = self.array_pos - 1
-        assert p >= 0
-        res = self.arrays[p]
-        self.array_pos = p
-        return res
+    def _get_item(value):
+        pos_name = value + "_pos"
+        array_name = value + "s"
+        def impl(self):
+            p = getattr(self, pos_name) - 1
+            assert p >= 0
+            res = getattr(self, array_name)[p]
+            setattr(self, pos_name, p)
+            return res
+        return func_with_new_name(impl, "get" + value)
 
-    def getfloat(self):
-        p = self.float_pos - 1
-        assert p >= 0
-        res = self.floats[p]
-        self.float_pos = p
-        return res
+    getarray = _get_item("array")
+    getfloat = _get_item("float")
+    getfunction = _get_item("function")
 
     def popvalue(self):
         v = self.valuestackdepth - 1
@@ -67,10 +82,11 @@ class Code(object):
     A chunk of bytecode.
     """
 
-    def __init__(self, bytecode, arrays, floats):
+    def __init__(self, bytecode, arrays=None, floats=None, functions=None):
         self.bytecode = bytecode
-        self.arrays = arrays
-        self.floats = floats
+        self.arrays = arrays or []
+        self.floats = floats or []
+        self.functions = functions or []
 
     def merge(self, code, other):
         """
@@ -80,7 +96,8 @@ class Code(object):
 
         return Code(code + self.bytecode + other.bytecode,
             self.arrays + other.arrays,
-            self.floats + other.floats)
+            self.floats + other.floats,
+            self.functions + other.functions)
 
     def intern(self):
         # the point of these hacks is to intern the bytecode string otherwise
@@ -101,7 +118,7 @@ class Code(object):
         result = SingleDimArray(result_size)
         bytecode_pos = len(bytecode) - 1
         i = 0
-        frame = ComputationFrame(self.arrays, self.floats)
+        frame = ComputationFrame(self.arrays, self.floats, self.functions)
         while i < result_size:
             numpy_driver.jit_merge_point(bytecode=bytecode, result=result,
                                          result_size=result_size,
@@ -145,6 +162,10 @@ class Code(object):
                     a = frame.popvalue()
                     b = frame.popvalue()
                     frame.pushvalue(a / b)
+                elif opcode == 'c':
+                    func = frame.getfunction()
+                    val = frame.popvalue()
+                    frame.pushvalue(func(val))
                 else:
                     raise NotImplementedError(
                         "Can't handle bytecode instruction %s" % opcode)
@@ -200,28 +221,19 @@ class FloatWrapper(BaseArray):
         self.float_value = float_value
 
     def compile(self):
-        return Code('f', [], [self.float_value])
+        return Code('f', floats=[self.float_value])
 
-class BinOp(BaseArray):
+class VirtualArray(BaseArray):
     """
-    Intermediate class for performing binary operations.
+    Class for representing virtual arrays, such as binary ops or ufuncs
     """
-
-    def __init__(self, opcode, left, right):
+    def __init__(self):
         BaseArray.__init__(self)
-        self.opcode = opcode
-        self.left = left
-        self.right = right
-
         self.forced_result = None
 
     def compile(self):
         if self.forced_result is not None:
             return self.forced_result.compile()
-
-        left_code = self.left.compile()
-        right_code = self.right.compile()
-        return left_code.merge(self.opcode, right_code)
 
     def force_if_needed(self):
         if self.forced_result is None:
@@ -243,11 +255,44 @@ class BinOp(BaseArray):
         return self.forced_result.descr_setitem(space, item, value)
 
 
-BinOp.typedef = TypeDef(
+class BinOp(VirtualArray):
+    """
+    Intermediate class for performing binary operations.
+    """
+
+    def __init__(self, opcode, left, right):
+        VirtualArray.__init__(self)
+        self.opcode = opcode
+        self.left = left
+        self.right = right
+
+    def compile(self):
+        result = VirtualArray.compile(self)
+        if result is not None:
+            return result
+
+        left_code = self.left.compile()
+        right_code = self.right.compile()
+        return left_code.merge(self.opcode, right_code)
+
+class Call(VirtualArray):
+    def __init__(self, function, values):
+        VirtualArray.__init__(self)
+        self.function = function
+        self.values = values
+
+    def compile(self):
+        result = VirtualArray.compile(self)
+        if result is not None:
+            return result
+        return Code('', functions=[self.function]).merge('c', self.values.compile())
+
+
+VirtualArray.typedef = TypeDef(
     'Operation',
-    __len__ = interp2app(BinOp.descr_len),
-    __getitem__ = interp2app(BinOp.descr_getitem),
-    __setitem__ = interp2app(BinOp.descr_setitem),
+    __len__ = interp2app(VirtualArray.descr_len),
+    __getitem__ = interp2app(VirtualArray.descr_getitem),
+    __setitem__ = interp2app(VirtualArray.descr_setitem),
 
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
@@ -261,10 +306,10 @@ class SingleDimArray(BaseArray):
         self.size = size
         self.storage = lltype.malloc(TP, size, zero=True,
                                      flavor='raw', track_allocation=False)
-        # XXX find out why test_jit explodes with trackign of allocations
+        # XXX find out why test_zjit explodes with trackign of allocations
 
     def compile(self):
-        return Code('l', [self], [])
+        return Code('l', arrays=[self])
 
     def getindex(self, space, item):
         if item >= self.size:
