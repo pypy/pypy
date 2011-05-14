@@ -42,7 +42,7 @@ not relying on the ctypes codegen. This tool works by querying gcc about
 platform-dependent details (compiling small snippets of C code and running
 them), so it'll benefit not pypy-related ctypes-based modules as well.
 
-.. _`ctypes-configure`: http://codespeak.net/~fijal/configure.html
+.. _`ctypes-configure`: ctypes-implementation.html#ctypes-configure
 
 Pros
 ----

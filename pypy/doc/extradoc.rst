@@ -67,7 +67,7 @@ Papers
 .. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
 .. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: http://codespeak.net/svn/pypy/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
 .. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/publications/bolz-prolog-jit.pdf
-.. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
+.. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
 .. _`How to *not* write Virtual Machines for Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
@@ -335,7 +335,7 @@ Related projects
   Microsoft's Common Language Runtime (CLR) Intermediate Language (IL).
 
 * Tunes_ is not entirely unrelated.  The web site changed a lot, but a
-  snapshot of the `old Tunes Wiki`_ is available on codespeak; browsing
+  snapshot of the `old Tunes Wiki`_ is available; browsing
   through it is a lot of fun.
 
 .. _TraceMonkey: https://wiki.mozilla.org/JavaScript:TraceMonkey
@@ -355,4 +355,4 @@ Related projects
 .. _`Dynamic Native Optimization of Native Interpreters`: http://people.csail.mit.edu/gregs/dynamorio.html
 .. _JikesRVM: http://jikesrvm.org/
 .. _Tunes: http://tunes.org
-.. _`old Tunes Wiki`: http://codespeak.net/cliki.tunes.org/
+.. _`old Tunes Wiki`: http://buildbot.pypy.org/misc/cliki.tunes.org/

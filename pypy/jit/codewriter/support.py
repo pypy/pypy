@@ -4,6 +4,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.rpython.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
 from pypy.rpython.lltypesystem import rlist as lltypesystem_rlist
+from pypy.rpython.lltypesystem.module import ll_math
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import rdict as oo_rdict
 from pypy.rpython.llinterp import LLInterpreter
@@ -221,6 +222,11 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
+        
+# math support
+# ------------
+
+_ll_1_ll_math_ll_math_sqrt = ll_math.ll_math_sqrt
 
 
 # long long support
@@ -388,6 +394,7 @@ inline_calls_to = [
     ('int_mod_zer',          [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_abs',              [lltype.Signed],                lltype.Signed),
+    ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
     ]
 
 

@@ -105,7 +105,6 @@ class BasicSocketTests(unittest.TestCase):
             print "didn't raise TypeError"
         ssl.RAND_add("this is a random string", 75.0)
 
-    @test_support.impl_detail("obscure test")
     def test_parse_cert(self):
         # note that this uses an 'unofficial' function in _ssl.c,
         # provided solely for this test, to exercise the certificate
@@ -840,6 +839,8 @@ else:
                 c = socket.socket()
                 c.connect((HOST, port))
                 listener_gone.wait()
+                # XXX why is it necessary?
+                test_support.gc_collect()
                 try:
                     ssl_sock = ssl.wrap_socket(c)
                 except IOError:

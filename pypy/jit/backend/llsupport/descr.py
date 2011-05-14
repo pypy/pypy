@@ -261,6 +261,19 @@ class BaseCallDescr(AbstractDescr):
         self.arg_classes = arg_classes    # string of "r" and "i" (ref/int)
         self.extrainfo = extrainfo
 
+    def __repr__(self):
+        res = '%s(%s)' % (self.__class__.__name__, self.arg_classes)
+        oopspecindex = getattr(self.extrainfo, 'oopspecindex', 0)
+        if oopspecindex:
+            from pypy.jit.codewriter.effectinfo import EffectInfo
+            for key, value in EffectInfo.__dict__.items():
+                if key.startswith('OS_') and value == oopspecindex:
+                    break
+            else:
+                key = 'oopspecindex=%r' % oopspecindex
+            res += ' ' + key
+        return '<%s>' % res
+
     def get_extra_info(self):
         return self.extrainfo
 

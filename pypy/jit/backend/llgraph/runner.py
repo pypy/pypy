@@ -286,6 +286,10 @@ class BaseCPU(model.AbstractCPU):
             raise ValueError("CALL_ASSEMBLER not supported")
         llimpl.redirect_call_assembler(self, oldlooptoken, newlooptoken)
 
+    def invalidate_loop(self, looptoken):
+        for loop in looptoken.compiled_loop_token.loop_and_bridges:
+            loop._obj.externalobj.invalid = True
+
     # ----------
 
     def sizeof(self, S):

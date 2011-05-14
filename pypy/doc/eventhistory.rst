@@ -267,7 +267,7 @@ the LLVM backends and type inference in general.
 .. _`day 1`: http://codespeak.net/pipermail/pypy-dev/2005q2/002169.html
 .. _`day 2`: http://codespeak.net/pipermail/pypy-dev/2005q2/002171.html
 .. _`day 3`: http://codespeak.net/pipermail/pypy-dev/2005q2/002172.html
-.. _`pypy-dev`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`pypy-dev`: http://python.org/mailman/listinfo/pypy-dev
 
 .. _EuroPython: http://europython.org 
 .. _`translation`: translation.html 

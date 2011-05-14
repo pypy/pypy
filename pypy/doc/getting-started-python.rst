@@ -217,23 +217,29 @@ flux.  It can also be copied to other machines as long as their system
 is "similar enough": some details of the system on which the translation
 occurred might be hard-coded in the executable.
 
-For installation purposes, note that the executable needs to be able to
-find its version of the Python standard library in the following three
-directories: ``lib-python/2.7``, ``lib-python/modified-2.7`` and
-``lib_pypy``.  They are located by "looking around" starting from the
-directory in which the executable resides.  The current logic is to try
-to find a ``PREFIX`` from which the directories
-``PREFIX/lib-python/2.7`` and ``PREFIX/lib-python/modified.2.7`` and
-``PREFIX/lib_pypy`` can all be found.  The prefixes that are tried are::
+PyPy dynamically finds the location of its libraries depending on the location
+of the executable.  The directory hierarchy of a typical PyPy installation
+looks like this::
 
-    .
-    ./lib/pypy1.5
-    ..
-    ../lib/pypy1.5
-    ../..
-    ../../lib/pypy-1.5
-    ../../..
-    etc.
+   ./bin/pypy
+   ./include/
+   ./lib_pypy/
+   ./lib-python/2.7
+   ./lib-python/modified-2.7
+   ./site-packages/
+
+The hierarchy shown above is relative to a PREFIX directory.  PREFIX is
+computed by starting from the directory where the executable resides, and
+"walking up" the filesystem until we find a directory containing ``lib_pypy``,
+``lib-python/2.7`` and ``lib-python/2.7.1``.
+
+The archives (.tar.bz2 or .zip) containing PyPy releases already contain the
+correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
+the ``bin/pypy`` executable.
+
+To install PyPy system wide on unix-like systems, it is recommended to put the
+whole hierarchy alone (e.g. in ``/opt/pypy1.5``) and put a symlink to the
+``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report
 ``debug: WARNING: library path not found, using compiled-in sys.path``
@@ -300,6 +306,6 @@ options do.
 .. _`CLI backend`: cli-backend.html
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 .. _clr: clr-module.html
-.. _`CPythons core language regression tests`: http://codespeak.net:8099/summary?category=applevel&branch=%3Ctrunk%3E
+.. _`CPythons core language regression tests`: http://buildbot.pypy.org/summary?category=applevel&branch=%3Ctrunk%3E
 
 .. include:: _ref.txt

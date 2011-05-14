@@ -35,7 +35,7 @@ class GcLLDescription(GcCache):
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
     def rewrite_assembler(self, cpu, operations):
-        pass
+        return operations
     def can_inline_malloc(self, descr):
         return False
     def can_inline_malloc_varsize(self, descr, num_elem):
@@ -831,8 +831,7 @@ class GcLLDescr_framework(GcLLDescription):
                         op = op.copy_and_change(rop.SETARRAYITEM_RAW)
             # ----------
             newops.append(op)
-        del operations[:]
-        operations.extend(newops)
+        return newops
 
     def _gen_write_barrier(self, newops, v_base, v_value):
         args = [v_base, v_value]

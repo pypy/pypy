@@ -29,7 +29,18 @@ class W_DictProxyObject(W_DictMultiObject):
             raise OperationError(space.w_TypeError, space.wrap("cannot add non-string keys to dict of a type"))
 
     def impl_setitem_str(self, name, w_value):
-        self.w_type.setdictvalue(self.space, name, w_value)
+        try:
+            self.w_type.setdictvalue(self.space, name, w_value)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_TypeError):
+                raise
+            w_type = self.w_type
+            if not w_type.is_cpytype():
+                raise
+            # xxx obscure workaround: allow cpyext to write to type->tp_dict.
+            # xxx like CPython, we assume that this is only done early after
+            # xxx the type is created, and we don't invalidate any cache.
+            w_type.dict_w[name] = w_value
 
     def impl_setdefault(self, w_key, w_default):
         space = self.space

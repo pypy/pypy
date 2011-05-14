@@ -177,7 +177,11 @@ class BaseTestRfloat(BaseRtypingTest):
             n1 = x * x
             n2 = y * y * y
             return rfloat.isnan(n1 / n2)
-        assert self.interpret(fn, [1e200, 1e200])   # nan
+        if self.__class__.__name__ != 'TestCliFloat':
+            # the next line currently fails on mono 2.6.7 (ubuntu 11.04), see:
+            # https://bugzilla.novell.com/show_bug.cgi?id=692493
+            assert self.interpret(fn, [1e200, 1e200])   # nan
+        #
         assert not self.interpret(fn, [1e200, 1.0])   # +inf
         assert not self.interpret(fn, [1e200, -1.0])  # -inf
         assert not self.interpret(fn, [42.5, 2.3])    # +finite
@@ -205,7 +209,11 @@ class BaseTestRfloat(BaseRtypingTest):
         assert self.interpret(fn, [42.5, -2.3])       # -finite
         assert not self.interpret(fn, [1e200, 1.0])   # +inf
         assert not self.interpret(fn, [1e200, -1.0])  # -inf
-        assert not self.interpret(fn, [1e200, 1e200]) # nan
+        #
+        if self.__class__.__name__ != 'TestCliFloat':
+            # the next line currently fails on mono 2.6.7 (ubuntu 11.04), see:
+            # https://bugzilla.novell.com/show_bug.cgi?id=692493
+            assert not self.interpret(fn, [1e200, 1e200]) # nan
 
 
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
