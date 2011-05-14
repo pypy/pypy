@@ -4,6 +4,11 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestNumArray(BaseNumpyAppTest):
+    def test_type(self):
+        from numpy import array
+        ar = array(range(5))
+        assert type(ar) is type(ar + ar)
+
     def test_init(self):
         from numpy import zeros
         a = zeros(15)
