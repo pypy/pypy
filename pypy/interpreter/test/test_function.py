@@ -98,6 +98,14 @@ class AppTestFunctionIntrospection:
             raises(TypeError, "dir.func_code = f.func_code")
             raises(TypeError, "list.append.im_func.func_code = f.func_code")
 
+    def test_set_module_to_name_eagerly(self):
+        skip("fails on PyPy but works on CPython.  Unsure we want to care")
+        exec '''if 1:
+            __name__ = "foo"
+            def f(): pass
+            __name__ = "bar"
+            assert f.__module__ == "foo"''' in {}
+
 
 class AppTestFunction:
     def test_simple_call(self):
