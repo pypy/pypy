@@ -69,6 +69,7 @@ class FloatWrapper(BaseArray):
     """
     Intermediate class representing a float literal.
     """
+    _immutable_fields_ = ["float_value"]
 
     def __init__(self, float_value):
         BaseArray.__init__(self)
@@ -122,6 +123,7 @@ class BinOp(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
+    _immutable_fields_ = ["opcode", "left", "right"]
 
     def __init__(self, opcode, left, right):
         VirtualArray.__init__(self)
@@ -153,6 +155,8 @@ class BinOp(VirtualArray):
             raise NotImplementedError("Don't know opcode %s" % self.opcode)
 
 class Call(VirtualArray):
+    _immutable_fields_ = ["function", "values"]
+
     def __init__(self, function, values):
         VirtualArray.__init__(self)
         self.function = function
