@@ -499,7 +499,7 @@ class Connection(object):
                 return callback(text1, text2)
 
             c_collation_callback = COLLATION(collation_callback)
-            self._collations[name] = collation_callback
+            self._collations[name] = c_collation_callback
 
 
         ret = sqlite.sqlite3_create_collation(self.db, name,
