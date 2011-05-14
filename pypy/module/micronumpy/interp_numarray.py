@@ -234,6 +234,7 @@ class VirtualArray(BaseArray):
     def compile(self):
         if self.forced_result is not None:
             return self.forced_result.compile()
+        return self._compile()
 
     def force_if_needed(self):
         if self.forced_result is None:
@@ -266,11 +267,7 @@ class BinOp(VirtualArray):
         self.left = left
         self.right = right
 
-    def compile(self):
-        result = VirtualArray.compile(self)
-        if result is not None:
-            return result
-
+    def _compile(self):
         left_code = self.left.compile()
         right_code = self.right.compile()
         return left_code.merge(self.opcode, right_code)
@@ -281,10 +278,7 @@ class Call(VirtualArray):
         self.function = function
         self.values = values
 
-    def compile(self):
-        result = VirtualArray.compile(self)
-        if result is not None:
-            return result
+    def _compile(self):
         return Code('', functions=[self.function]).merge('c', self.values.compile())
 
 
