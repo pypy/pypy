@@ -211,6 +211,22 @@ class BaseArray(Wrappable):
     def compile(self):
         raise NotImplementedError("abstract base class")
 
+    def get_concrete(self):
+        raise NotImplementedError
+
+    def descr_len(self, space):
+        return self.get_concrete().descr_len(space)
+
+    @unwrap_spec(item=int)
+    def descr_getitem(self, space, item):
+        return self.get_concrete().descr_getitem(space, item)
+
+    @unwrap_spec(item=int, value=float)
+    def descr_setitem(self, space, item, value):
+        self.invalidated()
+        return self.get_concrete().descr_setitem(space, item, value)
+
+
 class FloatWrapper(BaseArray):
     """
     Intermediate class representing a float literal.
@@ -240,20 +256,9 @@ class VirtualArray(BaseArray):
         if self.forced_result is None:
             self.forced_result = self.force()
 
-    def descr_len(self, space):
+    def get_concrete(self):
         self.force_if_needed()
-        return self.forced_result.descr_len(space)
-
-    @unwrap_spec(item=int)
-    def descr_getitem(self, space, item):
-        self.force_if_needed()
-        return self.forced_result.descr_getitem(space, item)
-
-    @unwrap_spec(item=int, value=float)
-    def descr_setitem(self, space, item, value):
-        self.force_if_needed()
-        self.invalidated()
-        return self.forced_result.descr_setitem(space, item, value)
+        return self.forced_result
 
 
 class BinOp(VirtualArray):
@@ -282,18 +287,6 @@ class Call(VirtualArray):
         return Code('', functions=[self.function]).merge('c', self.values.compile())
 
 
-VirtualArray.typedef = TypeDef(
-    'Operation',
-    __len__ = interp2app(VirtualArray.descr_len),
-    __getitem__ = interp2app(VirtualArray.descr_getitem),
-    __setitem__ = interp2app(VirtualArray.descr_setitem),
-
-    __add__ = interp2app(BaseArray.descr_add),
-    __sub__ = interp2app(BaseArray.descr_sub),
-    __mul__ = interp2app(BaseArray.descr_mul),
-    __div__ = interp2app(BaseArray.descr_div),
-)
-
 class SingleDimArray(BaseArray):
     def __init__(self, size):
         BaseArray.__init__(self)
@@ -304,6 +297,9 @@ class SingleDimArray(BaseArray):
 
     def compile(self):
         return Code('l', arrays=[self])
+
+    def get_concrete(self):
+        return self
 
     def getindex(self, space, item):
         if item >= self.size:
@@ -347,12 +343,12 @@ def zeros(space, size):
     return space.wrap(SingleDimArray(size))
 
 
-SingleDimArray.typedef = TypeDef(
+BaseArray.typedef = TypeDef(
     'numarray',
     __new__ = interp2app(descr_new_numarray),
-    __len__ = interp2app(SingleDimArray.descr_len),
-    __getitem__ = interp2app(SingleDimArray.descr_getitem),
-    __setitem__ = interp2app(SingleDimArray.descr_setitem),
+    __len__ = interp2app(BaseArray.descr_len),
+    __getitem__ = interp2app(BaseArray.descr_getitem),
+    __setitem__ = interp2app(BaseArray.descr_setitem),
 
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
