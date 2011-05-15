@@ -114,6 +114,8 @@ class Lock(object):
             c_thread_releaselock(self._lock)
 
     def __del__(self):
+        if free_ll_lock is None:  # happens when tests are shutting down
+            return
         free_ll_lock(self._lock)
 
     def __enter__(self):
