@@ -108,8 +108,8 @@ class AbstractX86CPU(AbstractLLCPU):
         addr = executable_token._x86_bootstrap_code
         #llop.debug_print(lltype.Void, ">>>> Entering", addr)
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        #llop.debug_print(lltype.Void, "<<<< Back")
         fail_index = self._execute_call(func)
+        #llop.debug_print(lltype.Void, "<<<< Back")
         return self.get_fail_descr_from_number(fail_index)
 
     def _execute_call(self, func):
