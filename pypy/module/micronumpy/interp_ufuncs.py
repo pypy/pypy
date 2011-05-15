@@ -16,5 +16,5 @@ def negative(value):
     return -value
 
 @ufunc
-def npabs(value):
+def absolute(value):
     return abs(value)

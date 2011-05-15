@@ -16,9 +16,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert b[0] == 5.0
 
     def test_abs(self):
-        from numpy import array, abs as npabs
+        from numpy import array, absolute
 
         a = array([-5.0, -0.0, 1.0])
-        b = npabs(a)
+        b = absolute(a)
         for i in range(3):
             assert b[i] == abs(a[i])
