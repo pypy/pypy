@@ -52,8 +52,6 @@ Mailing lists, bug tracker, IRC channel
 * `Mercurial commit mailing list`_: updates to code and
   documentation. 
 
-* `Sprint mailing list`_: mailing list for organizing upcoming sprints. 
-
 * `Development bug/feature tracker`_: filing bugs and feature requests. 
 
 * **IRC channel #pypy on freenode**: Many of the core developers are hanging out 
