@@ -2040,13 +2040,17 @@ class Assembler386(object):
         if gcrootmap:
             # note that regalloc.py used save_all_regs=True to save all
             # registers, so we don't have to care about saving them (other
-            # than ebp) in the close_stack_struct
+            # than ebp) in the close_stack_struct.  But if they are registers
+            # like %eax that would be destroyed by this call, *and* they are
+            # used by arglocs for the *next* call, then trouble; for now we
+            # will just push/pop them.
+            XXXXXXX
             self.call_close_stack()
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
-        self.genop_call(op, arglocs, result_loc)
+        self._genop_call(op, arglocs, result_loc, fail_index)
         # then reopen the stack
         if gcrootmap:
             self.call_reopen_stack(result_loc)
@@ -2077,7 +2081,7 @@ class Assembler386(object):
         elif IS_X86_64:
             reg = edi
         self.mc.LEA_rb(reg.value, css)
-        self._emit_call(imm(self.closestack_addr), [reg])
+        self._emit_call(-1, imm(self.closestack_addr), [reg])
 
     def call_reopen_stack(self, save_loc):
         # save the previous result (eax/xmm0) into the stack temporarily
@@ -2095,7 +2099,7 @@ class Assembler386(object):
         elif IS_X86_64:
             reg = edi
         self.mc.LEA_rb(reg.value, css)
-        self._emit_call(imm(self.reopenstack_addr), [reg])
+        self._emit_call(-1, imm(self.reopenstack_addr), [reg])
         # restore the result from the stack
         if isinstance(save_loc, RegLoc):
             if save_loc.is_xmm:

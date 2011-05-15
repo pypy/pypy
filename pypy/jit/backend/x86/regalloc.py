@@ -840,14 +840,7 @@ class RegAlloc(object):
         assert guard_op is not None
         self._consider_call(op, guard_op)
 
-    def consider_call_release_gil(self, op, guard_op):
-        # first force the registers like eax into the stack, because of
-        # the initial call to _close_stack()
-        self.rm.before_call()
-        self.xrm.before_call()
-        #
-        assert guard_op is not None
-        self._consider_call(op, guard_op)
+    consider_call_release_gil = consider_call_may_force
 
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
