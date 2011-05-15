@@ -1031,7 +1031,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_func_defaults(self):
-        py.test.skip("until we fix defaults")
         def main(n):
             i = 1
             while i < n:
@@ -1047,17 +1046,18 @@ class TestPyPyCNew(BaseTestPyPyC):
             # This can be improved if the JIT realized the lookup of i5 produces
             # a constant and thus can be removed entirely
             i120 = int_add(i5, 1)
+            guard_not_invalidated(descr=<Guard4>)
             i140 = int_lt(0, i120)
-            guard_true(i140, descr=<Guard4>)
-            i13 = uint_floordiv(i5, i7)
+            guard_true(i140, descr=<Guard5>)
+            i13 = uint_floordiv(i5, 1)       # XXX we could remove that
             i15 = int_add(i13, 1)
             i17 = int_lt(i15, 0)
-            guard_false(i17, descr=<Guard5>)
+            guard_false(i17, descr=<Guard6>)
             i20 = int_sub(i15, i5)
             i21 = int_add_ovf(i5, i20)
-            guard_no_overflow(descr=<Guard6>)
+            guard_no_overflow(descr=<Guard7>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, descr=<Loop0>)
+            jump(..., descr=<Loop0>)
         """)
 
     def test_unpack_iterable_non_list_tuple(self):
