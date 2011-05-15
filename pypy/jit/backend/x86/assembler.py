@@ -2044,8 +2044,7 @@ class Assembler386(object):
             # like %eax that would be destroyed by this call, *and* they are
             # used by arglocs for the *next* call, then trouble; for now we
             # will just push/pop them.
-            XXXXXXX
-            self.call_close_stack()
+            self.call_close_stack(arglocs)
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
@@ -2058,7 +2057,7 @@ class Assembler386(object):
         self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
         self.implement_guard(guard_token, 'L')
 
-    def call_close_stack(self):
+    def call_close_stack(self, save_registers):
         from pypy.rpython.memory.gctransform import asmgcroot
         css = self._regalloc.close_stack_struct
         if css == 0:
@@ -2067,6 +2066,17 @@ class Assembler386(object):
             pos = self._regalloc.fm.reserve_location_in_frame(use_words)
             css = get_ebp_ofs(pos + use_words - 1)
             self._regalloc.close_stack_struct = css
+        # First, we need to save away the registers listed in
+        # 'save_registers' that are not callee-save.  XXX We assume that
+        # the XMM registers won't be modified.  We store them in
+        # [ESP+4], [ESP+8], etc., leaving enough room in [ESP] for the
+        # single argument to closestack_addr below.
+        p = WORD
+        for reg in self._regalloc.rm.save_around_call_regs:
+            if reg in save_registers:
+                self.mc.MOV_sr(p, reg.value)
+                p += WORD
+        self._regalloc.reserve_param(p//WORD)
         # The location where the future CALL will put its return address
         # will be [ESP-WORD], so save that as the next frame's top address
         self.mc.LEA_rs(eax.value, -WORD)        # LEA EAX, [ESP-4]
@@ -2082,15 +2092,20 @@ class Assembler386(object):
             reg = edi
         self.mc.LEA_rb(reg.value, css)
         self._emit_call(-1, imm(self.closestack_addr), [reg])
+        # Finally, restore the registers saved above.
+        p = WORD
+        for reg in self._regalloc.rm.save_around_call_regs:
+            if reg in save_registers:
+                self.mc.MOV_rs(reg.value, p)
+                p += WORD
 
     def call_reopen_stack(self, save_loc):
-        # save the previous result (eax/xmm0) into the stack temporarily
-        if isinstance(save_loc, RegLoc):
-            self._regalloc.reserve_param(save_loc.width//WORD)
-            if save_loc.is_xmm:
-                self.mc.MOVSD_sx(0, save_loc.value)
-            else:
-                self.mc.MOV_sr(0, save_loc.value)
+        # save the previous result (eax/xmm0) into the stack temporarily.
+        # XXX like with call_close_stack(), we assume that we don't need
+        # to save xmm0 in this case.
+        if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
+            self.mc.MOV_sr(WORD, save_loc.value)
+            self._regalloc.reserve_param(2)
         # call the reopenstack() function (also reacquiring the GIL)
         css = self._regalloc.close_stack_struct
         assert css != 0
@@ -2101,11 +2116,8 @@ class Assembler386(object):
         self.mc.LEA_rb(reg.value, css)
         self._emit_call(-1, imm(self.reopenstack_addr), [reg])
         # restore the result from the stack
-        if isinstance(save_loc, RegLoc):
-            if save_loc.is_xmm:
-                self.mc.MOVSD_xs(save_loc.value, 0)
-            else:
-                self.mc.MOV_rs(save_loc.value, 0)
+        if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
+            self.mc.MOV_rs(save_loc.value, WORD)
 
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
