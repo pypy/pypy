@@ -1043,17 +1043,13 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i5, i6)
             guard_true(i10, descr=<Guard3>)
-            # This can be improved if the JIT realized the lookup of i5 produces
-            # a constant and thus can be removed entirely
             i120 = int_add(i5, 1)
             guard_not_invalidated(descr=<Guard4>)
             i140 = int_lt(0, i120)
             guard_true(i140, descr=<Guard5>)
-            i13 = uint_floordiv(i5, 1)       # XXX we could remove that
-            i15 = int_add(i13, 1)
-            i17 = int_lt(i15, 0)
+            i17 = int_lt(i120, 0)
             guard_false(i17, descr=<Guard6>)
-            i20 = int_sub(i15, i5)
+            i20 = int_sub(i120, i5)
             i21 = int_add_ovf(i5, i20)
             guard_no_overflow(descr=<Guard7>)
             --TICK--
@@ -1092,7 +1088,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
         """)
-        
+
     def test_mutate_class(self):
         def fn(n):
             class A(object):
@@ -1497,7 +1493,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         def main():
             i=0
             sa=0
-            while i < 300: 
+            while i < 300:
                 sa+=min(max(i, 3000), 4000)
                 i+=1
             return sa
@@ -1534,7 +1530,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
             ...
         """)
-        
+
     def test_iter_max(self):
         def main():
             i = 2
@@ -1552,7 +1548,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert len(guards) < 20
         assert loop.match_by_id('max',"""
             ...
-            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)            
+            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
             ...
         """)
 

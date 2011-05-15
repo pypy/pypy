@@ -2843,6 +2843,18 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
+    def test_fold_partially_constant_uint_floordiv(self):
+        ops = """
+        [i0]
+        i1 = uint_floordiv(i0, 1)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
@@ -5746,7 +5758,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         []
-        guard_not_invalidated() []        
+        guard_not_invalidated() []
         escape(-4247)
         jump()
         """
