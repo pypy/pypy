@@ -23,7 +23,6 @@ class Logger(object):
             debug_print("# Loop", number, ":", type,
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
-            self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-loop")
         return logops
 
