@@ -899,7 +899,7 @@ def _ssl_thread_locking_function(mode, n, filename, line):
 
 def _ssl_thread_id_function():
     from pypy.module.thread import ll_thread
-    return ll_thread.get_ident()
+    return rffi.cast(rffi.INT, ll_thread.get_ident())
 
 def setup_ssl_threads():
     from pypy.module.thread import ll_thread
