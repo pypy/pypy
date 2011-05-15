@@ -90,8 +90,8 @@ class AppTestConnectedSSL:
         cls.space = space
 
     def setup_method(self, method):
-        # https://codespeak.net/
-        ADDR = "codespeak.net", 443
+        # https://www.verisign.net/
+        ADDR = "www.verisign.net", 443
 
         self.w_s = self.space.appexec([self.space.wrap(ADDR)], """(ADDR):
             import socket
