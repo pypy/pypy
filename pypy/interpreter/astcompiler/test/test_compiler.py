@@ -73,6 +73,10 @@ class TestCompiler:
     def error_test(self, source, exc_type):
         py.test.raises(exc_type, self.simple_test, source, None, None)
 
+    def test_issue_713(self):
+        func = "def f(_=2): return (_ if _ else _) if False else _"
+        yield self.st, func, "f()", 2
+
     def test_long_jump(self):
         func = """def f(x):
     y = 0

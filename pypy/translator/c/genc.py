@@ -508,27 +508,15 @@ class CStandaloneBuilder(CBuilder):
 
         shared = self.config.translation.shared
 
-        if (self.config.translation.gcrootfinder == "asmgcc" or
-            self.config.translation.force_make):
-            extra_opts = []
-            if self.config.translation.make_jobs != 1:
-                extra_opts += ['-j', str(self.config.translation.make_jobs)]
-            self.translator.platform.execute_makefile(self.targetdir,
-                                                      extra_opts)
-            if shared:
-                self.shared_library_name = self.executable_name.new(
-                    purebasename='lib' + self.executable_name.purebasename,
-                    ext=self.translator.platform.so_ext)
-        else:
-            compiler = CCompilerDriver(self.translator.platform,
-                                       [self.c_source_filename] + self.extrafiles,
-                                       self.eci, profbased=self.getprofbased(),
-                                       outputfilename=exe_name)
-            self.executable_name = compiler.build(shared=shared)
-            if shared:
-                self.executable_name = self.build_main_for_shared(
-                    self.executable_name, "pypy_main_startup", exe_name)
-            assert self.executable_name
+        extra_opts = []
+        if self.config.translation.make_jobs != 1:
+            extra_opts += ['-j', str(self.config.translation.make_jobs)]
+        self.translator.platform.execute_makefile(self.targetdir,
+                                                  extra_opts)
+        if shared:
+            self.shared_library_name = self.executable_name.new(
+                purebasename='lib' + self.executable_name.purebasename,
+                ext=self.translator.platform.so_ext)
         self._compiled = True
         return self.executable_name
 

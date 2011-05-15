@@ -40,8 +40,7 @@ def PyNumber_AsSsize_t(space, w_obj, w_exc):
 @cpython_api([PyObject], PyObject)
 def PyNumber_Int(space, w_obj):
     """Returns the o converted to an integer object on success, or NULL on failure.
-    If the argument is outside the integer range a long object will be returned
-    instead. This is the equivalent of the Python expression int(o)."""
+    This is the equivalent of the Python expression int(o)."""
     return space.int(w_obj)
 
 @cpython_api([PyObject], PyObject)

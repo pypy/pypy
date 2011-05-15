@@ -890,8 +890,7 @@ class ObjSpace(object):
         try:
             w_res = self.call_args(w_func, args)
         except OperationError, e:
-            w_value = e.get_w_value(self)
-            ec.c_exception_trace(frame, w_value)
+            ec.c_exception_trace(frame, w_func)
             raise
         ec.c_return_trace(frame, w_func, args)
         return w_res

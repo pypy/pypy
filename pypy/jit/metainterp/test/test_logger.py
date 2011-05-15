@@ -31,10 +31,10 @@ def capturing(func, *args, **kwds):
     return log_stream.getvalue()
 
 class Logger(logger.Logger):
-    def log_loop(self, loop, namespace={}):
+    def log_loop(self, loop, namespace={}, ops_offset=None):
         self.namespace = namespace
         return capturing(logger.Logger.log_loop, self,
-                         loop.inputargs, loop.operations)
+                         loop.inputargs, loop.operations, ops_offset=ops_offset)
 
     def _make_log_operations(self1):
         class LogOperations(logger.LogOperations):
@@ -194,3 +194,27 @@ class TestLogger(object):
         logger, loop, _ = self.reparse(inp)
         op = loop.operations[1]
         assert logger.logops.repr_of_op(op) == "i8 = int_add(i6, 3)"
+
+    def test_ops_offset(self):
+        inp = '''
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_mul(i1, 2)
+        jump(i2)
+        '''
+        loop = pure_parse(inp)
+        ops = loop.operations
+        ops_offset = {
+            ops[0]: 10,
+            ops[2]: 30,
+            None: 40
+            }
+        logger = Logger(self.make_metainterp_sd())
+        output = logger.log_loop(loop, ops_offset=ops_offset)
+        assert output.strip() == """
+[i0]
++10: i2 = int_add(i0, 1)
+i4 = int_mul(i2, 2)
++30: jump(i4)
++40: --end of the loop--
+""".strip()

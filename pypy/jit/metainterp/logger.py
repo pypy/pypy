@@ -13,43 +13,44 @@ class Logger(object):
         self.metainterp_sd = metainterp_sd
         self.guard_number = guard_number
 
-    def log_loop(self, inputargs, operations, number=0, type=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
         if type is None:
             debug_start("jit-log-noopt-loop")
-            logops = self._log_operations(inputargs, operations)
+            logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, ":", type,
                         "with", len(operations), "ops")
-            logops = self._log_operations(inputargs, operations)
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-loop")
         return logops
 
-    def log_bridge(self, inputargs, operations, number=-1):
+    def log_bridge(self, inputargs, operations, number=-1, ops_offset=None):
         if number == -1:
             debug_start("jit-log-noopt-bridge")
-            logops = self._log_operations(inputargs, operations)
+            logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard", number,
                         "with", len(operations), "ops")
-            logops = self._log_operations(inputargs, operations)
+            logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-bridge")
         return logops
 
     def log_short_preamble(self, inputargs, operations):
         debug_start("jit-log-short-preamble")
-        logops = self._log_operations(inputargs, operations)
+        logops = self._log_operations(inputargs, operations, ops_offset=None)
         debug_stop("jit-log-short-preamble")
         return logops
 
-    def _log_operations(self, inputargs, operations):
+    def _log_operations(self, inputargs, operations, ops_offset):
         if not have_debug_prints():
             return None
         logops = self._make_log_operations()
-        logops.log_operations(inputargs, operations)
+        logops.log_operations(inputargs, operations, ops_offset)
         return logops
 
     def _make_log_operations(self):
@@ -100,7 +101,11 @@ class LogOperations(object):
         else:
             return '?'
 
-    def repr_of_op(self, op):
+    def repr_of_op(self, op, offset=-1):
+        if offset == -1:
+            s_offset = ""
+        else:
+            s_offset = "+%d: " % offset
         args = ", ".join([self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())])
         if op.result is not None:
             res = self.repr_of_arg(op.result) + " = "
@@ -120,9 +125,11 @@ class LogOperations(object):
                                           for arg in op.getfailargs()]) + ']'
         else:
             fail_args = ''
-        return res + op.getopname() + '(' + args + ')' + fail_args
+        return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
-    def log_operations(self, inputargs, operations):
+    def log_operations(self, inputargs, operations, ops_offset):
+        if ops_offset is None:
+            ops_offset = {}
         if inputargs is not None:
             args = ", ".join([self.repr_of_arg(arg) for arg in inputargs])
             debug_print('[' + args + ']')
@@ -133,7 +140,12 @@ class LogOperations(object):
                 reclev = op.getarg(1).getint()
                 debug_print("debug_merge_point('%s', %s)" % (loc, reclev))
                 continue
-            debug_print(self.repr_of_op(op))
+            offset = ops_offset.get(op, -1)
+            debug_print(self.repr_of_op(op, offset))
+        if None in ops_offset:
+            offset = ops_offset[None]
+            debug_print("+%d: --end of the loop--" % offset)
+
 
 def int_could_be_an_address(x):
     if we_are_translated():

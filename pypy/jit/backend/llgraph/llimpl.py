@@ -168,6 +168,7 @@ TYPES = {
 
 class CompiledLoop(object):
     has_been_freed = False
+    invalid = False
 
     def __init__(self):
         self.inputargs = []
@@ -951,6 +952,9 @@ class Frame(object):
         if forced:
             raise GuardFailed
 
+    def op_guard_not_invalidated(self, descr):
+        if self.loop.invalid:
+            raise GuardFailed
 
 class OOFrame(Frame):
 

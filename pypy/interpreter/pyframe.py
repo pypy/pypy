@@ -138,6 +138,7 @@ class PyFrame(eval.Frame):
                 not self.space.config.translating)
         executioncontext = self.space.getexecutioncontext()
         executioncontext.enter(self)
+        w_exitvalue = self.space.w_None
         try:
             executioncontext.call_trace(self)
             #
@@ -166,7 +167,7 @@ class PyFrame(eval.Frame):
             # allocating exception objects in some cases
             self.last_exception = None
         finally:
-            executioncontext.leave(self)
+            executioncontext.leave(self, w_exitvalue)
         return w_exitvalue
     execute_frame.insert_stack_check_here = True
 

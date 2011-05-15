@@ -15,6 +15,7 @@ from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rpython.lltypesystem import llmemory
 import os, sys
 
@@ -54,7 +55,8 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, pure_function=False):
+               oo_primitive=None, pure_function=False,
+               macro=None):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -78,7 +80,13 @@ def llexternal(name, args, result, _callable=None,
         assert callable(_callable)
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
-        _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+        if macro is not None:
+            if macro is True:
+                macro = name
+            _callable = generate_macro_wrapper(
+                name, macro, ext_type, compilation_info)
+        else:
+            _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
     if pure_function:
         _callable._pure_function_ = True
     kwds = {}
@@ -315,6 +323,41 @@ def llexternal_use_eci(compilation_info):
                       compilation_info=eci, sandboxsafe=True, _nowrapper=True,
                       _callable=lambda: None)
 
+def generate_macro_wrapper(name, macro, functype, eci):
+    """Wraps a function-like macro inside a real function, and expose
+    it with llexternal."""
+
+    # Generate the function call
+    from pypy.translator.c.database import LowLevelDatabase
+    from pypy.translator.c.support import cdecl
+    wrapper_name = 'pypy_macro_wrapper_%s' % (name,)
+    argnames = ['arg%d' % (i,) for i in range(len(functype.ARGS))]
+    db = LowLevelDatabase()
+    implementationtypename = db.gettype(functype, argnames=argnames)
+    if functype.RESULT is lltype.Void:
+        pattern = '%s { %s(%s); }'
+    else:
+        pattern = '%s { return %s(%s); }'
+    source = pattern % (
+        cdecl(implementationtypename, wrapper_name),
+        macro, ', '.join(argnames))
+
+    # Now stuff this source into a "companion" eci that will be used
+    # by ll2ctypes.  We replace eci._with_ctypes, so that only one
+    # shared library is actually compiled (when ll2ctypes calls the
+    # first function)
+    ctypes_eci = eci.merge(ExternalCompilationInfo(
+            separate_module_sources=[source],
+            export_symbols=[wrapper_name],
+            ))
+    if hasattr(eci, '_with_ctypes'):
+        ctypes_eci = eci._with_ctypes.merge(ctypes_eci)
+    eci._with_ctypes = ctypes_eci
+    func = llexternal(wrapper_name, functype.ARGS, functype.RESULT,
+                      compilation_info=eci, _nowrapper=True)
+    # _nowrapper=True returns a pointer which is not hashable
+    return lambda *args: func(*args)
+
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
 # this makes passing opaque objects possible (they don't even pass
@@ -497,7 +540,7 @@ def COpaque(name=None, ptr_typedef=None, hints=None, compilation_info=None):
             val = rffi_platform.sizeof(name, compilation_info)
             cache[name] = val
             return val
-    
+
     hints['getsize'] = lazy_getsize
     return lltype.OpaqueType(name, hints)
 
@@ -595,24 +638,24 @@ FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 # conversions between str and char*
 # conversions between unicode and wchar_t*
 def make_string_mappings(strtype):
-    
+
     if strtype is str:
         from pypy.rpython.lltypesystem.rstr import STR as STRTYPE
         from pypy.rpython.annlowlevel import llstr as llstrtype
         from pypy.rpython.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
-        emptystr = ''
         lastchar = '\x00'
+        builder_class = StringBuilder
     else:
         from pypy.rpython.lltypesystem.rstr import UNICODE as STRTYPE
         from pypy.rpython.annlowlevel import llunicode as llstrtype
         from pypy.rpython.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
-        emptystr = u''
         lastchar = u'\x00'
-        
+        builder_class = UnicodeBuilder
+
     # str -> char*
     def str2charp(s):
         """ str -> char*
@@ -633,12 +676,12 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
-        l = []
+        b = builder_class()
         i = 0
         while cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return b.build()
 
     # str -> char*
     def get_nonmovingbuffer(data):
@@ -736,17 +779,19 @@ def make_string_mappings(strtype):
 
     # char* -> str, with an upper bound on the length in case there is no \x00
     def charp2strn(cp, maxlen):
-        l = []
+        b = builder_class(maxlen)
         i = 0
         while i < maxlen and cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return b.build()
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
-        l = [cp[i] for i in range(size)]
-        return emptystr.join(l)
+        b = builder_class(size)
+        for i in xrange(size):
+            b.append(cp[i])
+        return b.build()
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,

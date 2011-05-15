@@ -58,6 +58,14 @@ class AbstractCPU(object):
         Should create and attach a fresh CompiledLoopToken to
         looptoken.compiled_loop_token and stick extra attributes
         on it to point to the compiled loop in assembler.
+
+        Optionally, return a ``ops_offset`` dictionary, which maps each operation
+        to its offset in the compiled code.  The ``ops_offset`` dictionary is then
+        used by the operation logger to print the offsets in the log.  The
+        offset representing the end of the last operation is stored in
+        ``ops_offset[None]``: note that this might not coincide with the end of
+        the loop, because usually in the loop footer there is code which does
+        not belong to any particular operation.
         """
         raise NotImplementedError
 
@@ -65,6 +73,9 @@ class AbstractCPU(object):
                        original_loop_token, log=True):
         """Assemble the bridge.
         The FailDescr is the descr of the original guard that failed.
+
+        Optionally, return a ``ops_offset`` dictionary.  See the docstring of
+        ``compiled_loop`` for more informations about it.
         """
         raise NotImplementedError    
 
@@ -137,6 +148,16 @@ class AbstractCPU(object):
         """Redirect oldlooptoken to newlooptoken.  More precisely, it is
         enough to redirect all CALL_ASSEMBLERs already compiled that call
         oldlooptoken so that from now own they will call newlooptoken."""
+        raise NotImplementedError
+
+    def invalidate_loop(self, looptoken):
+        """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
+        bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
+        after this call, they all fail.  Note that afterwards, if one such
+        guard fails often enough, it has a bridge attached to it; it is
+        possible then to re-call invalidate_loop() on the same looptoken,
+        which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
+        old one that already has a bridge attached to it."""
         raise NotImplementedError
 
     def free_loop_and_bridges(self, compiled_loop_token):
@@ -294,6 +315,7 @@ class CompiledLoopToken(object):
         # that belong to this loop or to a bridge attached to it.
         # Filled by the frontend calling record_faildescr_index().
         self.faildescr_indices = []
+        self.invalidate_positions = []
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")

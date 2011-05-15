@@ -61,7 +61,7 @@ class RegrTest:
                                  usemodules = '',
                                  skip=None): 
         self.basename = basename 
-        self._usemodules = usemodules.split()
+        self._usemodules = usemodules.split() + ['signal']
         self._compiler = compiler 
         self.core = core
         self.skip = skip
@@ -154,17 +154,17 @@ testmap = [
     RegrTest('test_cmd.py'),
     RegrTest('test_cmd_line_script.py'),
     RegrTest('test_codeccallbacks.py', core=True),
-    RegrTest('test_codecencodings_cn.py', skip="encodings not available"),
-    RegrTest('test_codecencodings_hk.py', skip="encodings not available"),
-    RegrTest('test_codecencodings_jp.py', skip="encodings not available"),
-    RegrTest('test_codecencodings_kr.py', skip="encodings not available"),
-    RegrTest('test_codecencodings_tw.py', skip="encodings not available"),
+    RegrTest('test_codecencodings_cn.py'),
+    RegrTest('test_codecencodings_hk.py'),
+    RegrTest('test_codecencodings_jp.py'),
+    RegrTest('test_codecencodings_kr.py'),
+    RegrTest('test_codecencodings_tw.py'),
 
-    RegrTest('test_codecmaps_cn.py', skip="encodings not available"),
-    RegrTest('test_codecmaps_hk.py', skip="encodings not available"),
-    RegrTest('test_codecmaps_jp.py', skip="encodings not available"),
-    RegrTest('test_codecmaps_kr.py', skip="encodings not available"),
-    RegrTest('test_codecmaps_tw.py', skip="encodings not available"),
+    RegrTest('test_codecmaps_cn.py'),
+    RegrTest('test_codecmaps_hk.py'),
+    RegrTest('test_codecmaps_jp.py'),
+    RegrTest('test_codecmaps_kr.py'),
+    RegrTest('test_codecmaps_tw.py'),
     RegrTest('test_codecs.py', core=True),
     RegrTest('test_codeop.py', core=True),
     RegrTest('test_coercion.py', core=True),
@@ -314,10 +314,10 @@ testmap = [
     RegrTest('test_mmap.py'),
     RegrTest('test_module.py', core=True),
     RegrTest('test_modulefinder.py'),
-    RegrTest('test_multibytecodec.py', skip="unsupported codecs"),
+    RegrTest('test_multibytecodec.py'),
     RegrTest('test_multibytecodec_support.py', skip="not a test"),
     RegrTest('test_multifile.py'),
-    RegrTest('test_multiprocessing.py', skip='FIXME leaves subprocesses'),
+    RegrTest('test_multiprocessing.py'),
     RegrTest('test_mutants.py', core="possibly"),
     RegrTest('test_mutex.py'),
     RegrTest('test_netrc.py'),
@@ -400,7 +400,7 @@ testmap = [
 
     RegrTest('test_softspace.py', core=True),
     RegrTest('test_sort.py', core=True),
-    RegrTest('test_ssl.py'),
+    RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
     RegrTest('test_str.py', core=True),
 
     RegrTest('test_strftime.py'),

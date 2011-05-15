@@ -76,9 +76,8 @@ on the `development mailing list`_.
 .. _`PyPy blog`: http://morepypy.blogspot.com/
 .. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
 .. _here: http://tismerysoft.de/pypy/irc-logs/pypy
-.. _`sprint mailing list`: http://codespeak.net/mailman/listinfo/pypy-sprint 
-.. _`Mercurial commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
-.. _`development mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`Mercurial commit mailing list`: http://python.org/mailman/listinfo/pypy-commit
+.. _`development mailing list`: http://python.org/mailman/listinfo/pypy-dev
 .. _`FAQ`: faq.html
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
@@ -141,15 +140,6 @@ PyPy's own tests `summary`_, daily updated, run through BuildBot infrastructure.
 You can also find CPython's compliance tests run with compiled ``pypy-c``
 executables there.
 
-information dating from early 2007: 
-
-`PyPy LOC statistics`_ shows LOC statistics about PyPy.
-
-`PyPy statistics`_ is a page with various statistics about the PyPy project.
-
-`compatibility matrix`_ is a diagram that shows which of the various features
-of the PyPy interpreter work together with which other features.
-
 
 Source Code Documentation
 ===============================================
@@ -207,8 +197,6 @@ from our Python interpreter.
 .. _`development methodology`: dev_method.html
 .. _`sprint reports`: sprint-reports.html
 .. _`papers, talks and related projects`: extradoc.html
-.. _`PyPy LOC statistics`: http://codespeak.net/~hpk/pypy-stat/
-.. _`PyPy statistics`: http://codespeak.net/pypy/trunk/pypy/doc/statistic
 .. _`object spaces`: objspace.html 
 .. _`interpreter optimizations`: interpreter-optimizations.html 
 .. _`translation`: translation.html 
@@ -222,7 +210,7 @@ from our Python interpreter.
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
 .. _`Technical reports`: index-report.html
-.. _`summary`: http://codespeak.net:8099/summary
+.. _`summary`: http://buildbot.pypy.org/summary
 .. _`ideas for PyPy related projects`: project-ideas.html
 .. _`Nightly builds and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
 .. _`directory reference`: 
@@ -360,7 +348,6 @@ Directory                          explanation/links
 .. _Mono: http://www.mono-project.com/
 .. _`"standard library"`: rlib.html
 .. _`graph viewer`: getting-started-dev.html#try-out-the-translator
-.. _`compatibility matrix`: image/compat-matrix.png
 
 
 .. The following documentation is important and reasonably up-to-date:

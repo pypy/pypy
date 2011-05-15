@@ -104,7 +104,8 @@ not have to allocate all the time when doing simple arithmetic. Every time a new
 integer object is created it is checked whether the integer is small enough to
 be retrieved from the cache.
 
-This option is enabled by default.
+This option is disabled by default, you can enable this feature with the
+:config:`objspace.std.withprebuiltint` option.
 
 Integers as Tagged Pointers
 +++++++++++++++++++++++++++

@@ -221,7 +221,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('meth1', opcode='LOOKUP_METHOD')
         assert log.opnames(ops) == ['guard_value', 'getfield_gc', 'guard_value',
-                                    'getfield_gc', 'guard_value']
+                                    'guard_not_invalidated']
         # the second LOOKUP_METHOD is folded away
         assert list(entry_bridge.ops_by_id('meth2', opcode='LOOKUP_METHOD')) == []
         #
@@ -231,14 +231,15 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i15 = int_lt(i6, i9)
             guard_true(i15, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             i16 = force_token()
             i17 = int_add_ovf(i10, i6)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             i18 = force_token()
             i19 = int_add_ovf(i10, i17)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=<Guard6>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, p14, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=<Loop0>)
         """)
 
     def test_static_classmethod_call(self):
@@ -264,17 +265,17 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i14 = int_lt(i6, i9)
             guard_true(i14, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             i15 = force_token()
             i17 = int_add_ovf(i8, 1)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             i18 = force_token()
             i20 = int_sub(i17, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, p13, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, descr=<Loop0>)
         """)
 
     def test_default_and_kw(self):
-        py.test.skip("Wait until we have saner defaults strat")
         def main(n):
             def f(i, j=1):
                 return i + j
@@ -415,8 +416,9 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_lt(i5, i6)
             guard_true(i7, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             i9 = int_add_ovf(i5, 2)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             --TICK--
             jump(p0, p1, p2, p3, p4, i9, i6, descr=<Loop0>)
         """)
@@ -439,10 +441,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i9 = int_lt(i5, i6)
             guard_true(i9, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             i10 = int_add_ovf(i5, i7)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i10, i6, p7, i7, p8, descr=<Loop0>)
         """)
 
     def test_mixed_type_loop(self):
@@ -506,15 +509,15 @@ class TestPyPyCNew(BaseTestPyPyC):
             i20 = int_add(i11, 1)
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            guard_not_invalidated(descr=<Guard4>)
             i23 = int_lt(i18, 0)
-            guard_false(i23, descr=<Guard4>)
+            guard_false(i23, descr=<Guard5>)
             i25 = int_ge(i18, i9)
-            guard_false(i25, descr=<Guard5>)
-            i26 = int_mul(i18, i10)
-            i27 = int_add_ovf(i7, i26)
-            guard_no_overflow(descr=<Guard6>)
+            guard_false(i25, descr=<Guard6>)
+            i27 = int_add_ovf(i7, i18)
+            guard_no_overflow(descr=<Guard7>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, i27, i18, i9, i10, i20, i12, p13, i14, i15, descr=<Loop0>)
+            jump(..., descr=<Loop0>)
         """)
 
     def test_exception_inside_loop_1(self):
@@ -533,11 +536,12 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
         i5 = int_is_true(i3)
         guard_true(i5, descr=<Guard3>)
+        guard_not_invalidated(descr=<Guard4>)
         --EXC-TICK--
         i12 = int_sub_ovf(i3, 1)
-        guard_no_overflow(descr=<Guard5>)
+        guard_no_overflow(descr=<Guard6>)
         --TICK--
-        jump(p0, p1, p2, i12, descr=<Loop0>)
+        jump(..., descr=<Loop0>)
         """)
 
     def test_exception_inside_loop_2(self):
@@ -580,10 +584,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_lt(i4, i5)
             guard_true(i7, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             --EXC-TICK--
             i14 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i14, i5, descr=<Loop0>)
+            jump(..., descr=<Loop0>)
         """)
 
     def test_chain_of_guards(self):
@@ -685,10 +690,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match_by_id('import', """
             p11 = getfield_gc(ConstPtr(ptr10), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
             guard_value(p11, ConstPtr(ptr12), descr=<Guard4>)
+            guard_not_invalidated(descr=<Guard5>)
             p14 = getfield_gc(ConstPtr(ptr13), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
             p16 = getfield_gc(ConstPtr(ptr15), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
-            guard_value(p14, ConstPtr(ptr17), descr=<Guard5>)
-            guard_isnull(p16, descr=<Guard6>)
+            guard_value(p14, ConstPtr(ptr17), descr=<Guard6>)
+            guard_isnull(p16, descr=<Guard7>)
         """)
 
     def test_import_fast_path(self, tmpdir):
@@ -1138,7 +1144,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
-        assert log.opnames(ops) == ['guard_value', 'getfield_gc', 'guard_value',
+        assert log.opnames(ops) == ['guard_value', 'guard_not_invalidated',
                                     'getfield_gc', 'guard_nonnull_class']
         # the STORE_ATTR is folded away
         assert list(entry_bridge.ops_by_id('meth1', opcode='STORE_ATTR')) == []
@@ -1150,6 +1156,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             i8 = getfield_gc_pure(p5, descr=<SignedFieldDescr .*W_IntObject.inst_intval.*>)
             i9 = int_lt(i8, i7)
             guard_true(i9, descr=.*)
+            guard_not_invalidated(descr=.*)
             i11 = int_add(i8, 1)
             i12 = force_token()
             --TICK--
@@ -1691,3 +1698,21 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('shift', "")  # optimized away
+
+    def test_division_to_rshift(self):
+        py.test.skip('in-progress')
+        def main(b):
+            res = 0
+            a = 0
+            while a < 300:
+                assert a >= 0
+                assert 0 <= b <= 10
+                res = a/b     # ID: div
+                a += 1
+            return res
+        #
+        log = self.run(main, [3], threshold=200)
+        #assert log.result == 149
+        loop, = log.loops_by_filename(self.filepath)
+        import pdb;pdb.set_trace()
+        assert loop.match_by_id('div', "")  # optimized away

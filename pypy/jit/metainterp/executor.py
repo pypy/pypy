@@ -320,6 +320,7 @@ def _make_execute_list():
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
                          rop.CALL_RELEASE_GIL,
+                         rop.QUASIIMMUT_FIELD,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))

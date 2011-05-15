@@ -7,6 +7,7 @@ from pypy.interpreter.pyopcode import LoopBlock
 
 class GeneratorIterator(Wrappable):
     "An iterator created by a generator."
+    _immutable_fields_ = ['pycode']
     
     def __init__(self, frame):
         self.space = frame.space

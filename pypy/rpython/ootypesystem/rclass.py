@@ -262,6 +262,10 @@ class InstanceRepr(AbstractInstanceRepr):
         self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef)
         self.rbase.setup()
 
+        for name, attrdef in selfattrs.iteritems():
+            if not attrdef.readonly and self.is_quasi_immutable(name):
+                ootype.addFields(self.lowleveltype, {'mutable_'+name: OBJECT})
+
         classattributes = {}
         baseInstance = self.lowleveltype._superclass
         classrepr = getclassrepr(self.rtyper, self.classdef)
@@ -476,10 +480,8 @@ class InstanceRepr(AbstractInstanceRepr):
         mangled_name = mangle(attr, self.rtyper.getconfig())
         cname = inputconst(ootype.Void, mangled_name)
         self.hook_access_field(vinst, cname, llops, flags)
+        self.hook_setfield(vinst, attr, llops)
         llops.genop('oosetfield', [vinst, cname, vvalue])
-
-    def hook_access_field(self, vinst, cname, llops, flags):
-        pass        # for virtualizables; see rvirtualizable2.py
 
     def rtype_is_true(self, hop):
         vinst, = hop.inputargs(self)

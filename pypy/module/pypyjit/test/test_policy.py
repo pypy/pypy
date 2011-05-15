@@ -39,7 +39,7 @@ def test_thread_local():
 def test_pypy_module():
     from pypy.module._random.interp_random import W_Random
     assert not pypypolicy.look_inside_function(W_Random.random)
-    assert not pypypolicy.look_inside_pypy_module('posix.interp_expat')
+    assert not pypypolicy.look_inside_pypy_module('select.interp_epoll')
     assert pypypolicy.look_inside_pypy_module('__builtin__.operation')
     assert pypypolicy.look_inside_pypy_module('__builtin__.abstractinst')
     assert pypypolicy.look_inside_pypy_module('__builtin__.functional')

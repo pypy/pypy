@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+from pypy.rpython.rclass import IR_IMMUTABLE_ARRAY, IR_IMMUTABLE
 from pypy.rpython import rvirtualizable2
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
@@ -10,7 +11,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.warmstate import wrap, unwrap
 from pypy.rlib.objectmodel import specialize
 
-class VirtualizableInfo:
+class VirtualizableInfo(object):
     TOKEN_NONE            = 0      # must be 0 -- see also x86.call_assembler
     TOKEN_TRACING_RESCALL = -1
 
@@ -33,11 +34,13 @@ class VirtualizableInfo:
         all_fields = accessor.fields
         static_fields = []
         array_fields = []
-        for name, suffix in all_fields.iteritems():
-            if suffix == '[*]':
+        for name, tp in all_fields.iteritems():
+            if tp == IR_IMMUTABLE_ARRAY:
                 array_fields.append(name)
-            else:
+            elif tp == IR_IMMUTABLE:
                 static_fields.append(name)
+            else:
+                raise Exception("unknown type: %s" % tp)
         self.static_fields = static_fields
         self.array_fields = array_fields
         #

@@ -560,12 +560,6 @@ instance ``e`` holds two attributes that you can inspect:
 match an exception, as this will miss exceptions that are
 instances of subclasses.
 
-We are thinking about replacing ``OperationError`` with a
-family of common exception classes (e.g. ``AppKeyError``,
-``AppIndexError``...) so that we can more easily catch them.
-The generic ``AppError`` would stand for all other
-application-level classes.
-
 
 .. _`modules`:
 

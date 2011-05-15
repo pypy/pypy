@@ -180,9 +180,17 @@ sqlite.sqlite3_get_autocommit.restype = c_int
 sqlite.sqlite3_libversion.argtypes = []
 sqlite.sqlite3_libversion.restype = c_char_p
 sqlite.sqlite3_open.argtypes = [c_char_p, c_void_p]
+sqlite.sqlite3_open.restype = c_int
 sqlite.sqlite3_prepare_v2.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
+sqlite.sqlite3_prepare_v2.restype = c_int
 sqlite.sqlite3_column_decltype.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_decltype.restype = c_char_p
+sqlite.sqlite3_step.argtypes = [c_void_p]
+sqlite.sqlite3_step.restype = c_int
+sqlite.sqlite3_reset.argtypes = [c_void_p]
+sqlite.sqlite3_reset.restype = c_int
+sqlite.sqlite3_column_count.argtypes = [c_void_p]
+sqlite.sqlite3_column_count.restype = c_int
 
 sqlite.sqlite3_result_blob.argtypes = [c_void_p, c_char_p, c_int, c_void_p]
 sqlite.sqlite3_result_int64.argtypes = [c_void_p, c_int64]
@@ -491,7 +499,7 @@ class Connection(object):
                 return callback(text1, text2)
 
             c_collation_callback = COLLATION(collation_callback)
-            self._collations[name] = collation_callback
+            self._collations[name] = c_collation_callback
 
 
         ret = sqlite.sqlite3_create_collation(self.db, name,
