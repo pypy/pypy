@@ -14,3 +14,7 @@ def ufunc(func):
 @ufunc
 def negative(value):
     return -value
+
+@ufunc
+def npabs(value):
+    return abs(value)
