@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, BinOp,
     FloatWrapper, Call)
-from pypy.module.micronumpy.interp_ufuncs import negative_impl
+from pypy.module.micronumpy.interp_ufuncs import negative
 
 
 class FakeSpace(object):
@@ -69,7 +69,7 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             ar = SingleDimArray(i)
             v1 = BinOp('a', ar, ar)
-            v2 = Call(negative_impl, v1)
+            v2 = negative(space, v1)
             return v2.get_concrete().storage[3]
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)

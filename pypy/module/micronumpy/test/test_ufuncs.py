@@ -9,3 +9,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = negative(a)
         for i in range(3):
             assert b[i] == -a[i]
+
+        a = array([-5.0, 1.0])
+        b = negative(a)
+        a[0] = 5.0
+        assert b[0] == 5.0
