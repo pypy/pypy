@@ -110,6 +110,7 @@ class TestStandalone(StandaloneTests):
         assert counters == (0,3,2)
 
     def test_prof_inline(self):
+        py.test.skip("broken by 5b0e029514d4, but we don't use it any more")
         if sys.platform == 'win32':
             py.test.skip("instrumentation support is unix only for now")
         def add(a,b):
