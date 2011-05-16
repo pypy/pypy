@@ -511,7 +511,7 @@ class MMap(object):
         
         if _POSIX:
             if not has_mremap:
-                raise OSError(-11111, "No mremap available")
+                raise RValueError("mmap: resizing not available--no mremap()")
             
             # resize the underlying file first
             os.ftruncate(self.fd, self.offset + newsize)

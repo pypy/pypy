@@ -4,7 +4,12 @@
 #include <stdlib.h>
 
 #include <stdio.h>
+#ifndef _WIN32
 #include <unistd.h>
+#else
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 #include "src/profiling.h"
 #include "src/debug_print.h"
 
@@ -21,7 +26,7 @@ static void pypy_debug_open(void)
 {
   char *filename = getenv("PYPYLOG");
   if (filename)
-#ifndef MS_WINDOWS
+#ifndef _WIN32
     unsetenv("PYPYLOG");   /* don't pass it to subprocesses */
 #else
     putenv("PYPYLOG=");    /* don't pass it to subprocesses */
@@ -69,7 +74,7 @@ void pypy_debug_ensure_opened(void)
 
 #ifndef _WIN32
 
-     static long long pypy_read_timestamp(void)
+     long long pypy_read_timestamp(void)
      {
 #  ifdef CLOCK_THREAD_CPUTIME_ID
        struct timespec tspec;

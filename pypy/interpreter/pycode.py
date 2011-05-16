@@ -204,7 +204,7 @@ class PyCode(eval.Code):
                                       fresh_virtualizable=True)
         args_matched = args.parse_into_scope(None, fresh_frame.fastlocals_w,
                                              func.name,
-                                             sig, func.defs)
+                                             sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -217,7 +217,7 @@ class PyCode(eval.Code):
                                       fresh_virtualizable=True)
         args_matched = args.parse_into_scope(w_obj, fresh_frame.fastlocals_w,
                                              func.name,
-                                             sig, func.defs)
+                                             sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
 

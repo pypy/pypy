@@ -54,7 +54,10 @@ def unwrap(TYPE, box):
     if TYPE is lltype.Void:
         return None
     if isinstance(TYPE, lltype.Ptr):
-        return box.getref(TYPE)
+        if TYPE.TO._gckind == "gc":
+            return box.getref(TYPE)
+        else:
+            return llmemory.cast_adr_to_ptr(box.getaddr(), TYPE)
     if isinstance(TYPE, ootype.OOType):
         return box.getref(TYPE)
     if TYPE == lltype.Float:
@@ -578,7 +581,7 @@ class WarmEnterState(object):
                 cell.set_entry_loop_token(entry_loop_token)
             return entry_loop_token
         self.get_assembler_token = get_assembler_token
-        
+
         #
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:

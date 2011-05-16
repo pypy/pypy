@@ -8,7 +8,6 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
-from pypy.interpreter.function import Defaults
 from pypy.rlib.listsort import TimSort
 from pypy.interpreter.argument import Signature
 
@@ -33,7 +32,7 @@ registerimplementation(W_ListObject)
 
 
 init_signature = Signature(['sequence'], None, None)
-init_defaults = Defaults([None])
+init_defaults = [None]
 
 def init__List(space, w_list, __args__):
     from pypy.objspace.std.tupleobject import W_TupleObject

@@ -56,10 +56,10 @@ class ExecutionContext(object):
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
-    def leave(self, frame):
+    def leave(self, frame, w_exitvalue):
         try:
             if self.profilefunc:
-                self._trace(frame, 'leaveframe', self.space.w_None)
+                self._trace(frame, 'leaveframe', w_exitvalue)
         finally:
             self.topframeref = frame.f_backref
             jit.virtual_ref_finish(frame)

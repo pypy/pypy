@@ -82,7 +82,7 @@ class W_Root(object):
             raise
 
     def getaddrstring(self, space):
-        # XXX slowish
+        # slowish
         w_id = space.id(self)
         w_4 = space.wrap(4)
         w_0x0F = space.wrap(0x0F)
@@ -616,7 +616,6 @@ class ObjSpace(object):
 
     def createcompiler(self):
         "Factory function creating a compiler object."
-        # XXX simple selection logic for now
         try:
             return self.default_compiler
         except AttributeError:
@@ -821,11 +820,11 @@ class ObjSpace(object):
 
     def call_obj_args(self, w_callable, w_obj, args):
         if not self.config.objspace.disable_call_speedhacks:
-            # XXX start of hack for performance
+            # start of hack for performance
             from pypy.interpreter.function import Function
             if isinstance(w_callable, Function):
                 return w_callable.call_obj_args(w_obj, args)
-            # XXX end of hack for performance
+            # end of hack for performance
         return self.call_args(w_callable, args.prepend(w_obj))
 
     def call(self, w_callable, w_args, w_kwds=None):
@@ -835,7 +834,7 @@ class ObjSpace(object):
     def call_function(self, w_func, *args_w):
         nargs = len(args_w) # used for pruning funccall versions
         if not self.config.objspace.disable_call_speedhacks and nargs < 5:
-            # XXX start of hack for performance
+            # start of hack for performance
             from pypy.interpreter.function import Function, Method
             if isinstance(w_func, Method):
                 w_inst = w_func.w_instance
@@ -850,7 +849,7 @@ class ObjSpace(object):
 
             if isinstance(w_func, Function):
                 return w_func.funccall(*args_w)
-            # XXX end of hack for performance
+            # end of hack for performance
 
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
@@ -864,7 +863,7 @@ class ObjSpace(object):
             return self.call_args_and_c_profile(frame, w_func, args)
 
         if not self.config.objspace.disable_call_speedhacks:
-            # XXX start of hack for performance
+            # start of hack for performance
             if isinstance(w_func, Method):
                 w_inst = w_func.w_instance
                 if w_inst is not None:
@@ -879,7 +878,7 @@ class ObjSpace(object):
 
             if isinstance(w_func, Function):
                 return w_func.funccall_valuestack(nargs, frame)
-            # XXX end of hack for performance
+            # end of hack for performance
 
         args = frame.make_arguments(nargs)
         return self.call_args(w_func, args)
@@ -890,8 +889,7 @@ class ObjSpace(object):
         try:
             w_res = self.call_args(w_func, args)
         except OperationError, e:
-            w_value = e.get_w_value(self)
-            ec.c_exception_trace(frame, w_value)
+            ec.c_exception_trace(frame, w_func)
             raise
         ec.c_return_trace(frame, w_func, args)
         return w_res
@@ -1339,7 +1337,7 @@ class AppExecCache(SpaceCache):
         source = source.lstrip()
         assert source.startswith('('), "incorrect header in:\n%s" % (source,)
         source = py.code.Source("def anonymous%s\n" % source)
-        w_glob = space.newdict()
+        w_glob = space.newdict(module=True)
         space.exec_(str(source), w_glob, w_glob)
         return space.getitem(w_glob, space.wrap('anonymous'))
 

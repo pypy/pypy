@@ -714,8 +714,7 @@ class FrameworkGCTransformer(GCTransformer):
                     malloc_ptr = self.malloc_varsize_clear_ptr
                 args = [self.c_const_gc, c_type_id, v_length, c_size,
                         c_varitemsize, c_ofstolength, c_can_collect]
-        keep_current_args = flags.get('keep_current_args', False)
-        livevars = self.push_roots(hop, keep_current_args=keep_current_args)
+        livevars = self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
         self.pop_roots(hop, livevars)

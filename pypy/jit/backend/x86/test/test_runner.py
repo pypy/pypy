@@ -390,6 +390,29 @@ class TestX86(LLtypeBackendTest):
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
 
+    def test_ops_offset(self):
+        from pypy.rlib import debug
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        looptoken = LoopToken()
+        operations = [
+            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
+            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ]
+        inputargs = [i0]
+        debug._log = dlog = debug.DebugLog()
+        ops_offset = self.cpu.compile_loop(inputargs, operations, looptoken)
+        debug._log = None
+        #
+        assert ops_offset is looptoken._x86_ops_offset
+        # getfield_raw/int_add/setfield_raw + ops + None
+        assert len(ops_offset) == 3 + len(operations) + 1
+        assert (ops_offset[operations[0]] <=
+                ops_offset[operations[1]] <=
+                ops_offset[operations[2]] <=
+                ops_offset[None])
 
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):

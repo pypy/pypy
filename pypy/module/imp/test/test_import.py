@@ -53,10 +53,13 @@ def setup_directory_structure(space):
              relative_f = "from .imp import get_magic",
              relative_g = "import imp; from .imp import get_magic",
              )
-    setuppkg("pkg.pkg1", 
+    setuppkg("pkg.pkg1",
+             __init__   = 'from . import a',
              a          = '',
              relative_d = "from __future__ import absolute_import\nfrom ..string import inpackage",
              relative_e = "from __future__ import absolute_import\nfrom .. import string",
+             relative_g = "from .. import pkg1\nfrom ..pkg1 import b",
+             b          = "insubpackage = 1",
              )
     setuppkg("pkg.pkg2", a='', b='')
     setuppkg("pkg_r", inpkg = "import x.y")
@@ -401,6 +404,12 @@ class AppTestImport:
     def test_future_relative_import_level_2_without_from_name(self):
         from pkg.pkg1 import relative_e
         assert relative_e.string.inpackage == 1
+
+    def test_future_relative_import_level_3(self):
+        from pkg.pkg1 import relative_g
+        assert relative_g.b.insubpackage == 1
+        import pkg.pkg1
+        assert pkg.pkg1.__package__ == 'pkg.pkg1'
 
     def test_future_relative_import_error_when_in_non_package(self):
         exec """def imp():

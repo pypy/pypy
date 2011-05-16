@@ -2843,6 +2843,18 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
+    def test_fold_partially_constant_uint_floordiv(self):
+        ops = """
+        [i0]
+        i1 = uint_floordiv(i0, 1)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
@@ -5718,34 +5730,121 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
+    def test_quasi_immut(self):
+        ops = """
+        [p0, p1, i0]
+        quasiimmut_field(p0, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(p0, descr=quasifielddescr)
+        escape(i1)
+        jump(p1, p0, i1)
+        """
+        expected = """
+        [p0, p1, i0]
+        i1 = getfield_gc(p0, descr=quasifielddescr)
+        escape(i1)
+        jump(p1, p0, i1)
+        """
+        self.optimize_loop(ops, expected)
 
+    def test_quasi_immut_2(self):
+        ops = """
+        []
+        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        escape(i1)
+        jump()
+        """
+        expected = """
+        []
+        guard_not_invalidated() []
+        escape(-4247)
+        jump()
+        """
+        self.optimize_loop(ops, expected, expected)
 
+    def test_remove_extra_guards_not_invalidated(self):
+        ops = """
+        [i0]
+        guard_not_invalidated() []
+        guard_not_invalidated() []
+        i1 = int_add(i0, 1)
+        guard_not_invalidated() []
+        guard_not_invalidated() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        guard_not_invalidated() []
+        i1 = int_add(i0, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
 
-##class TestOOtype(OptimizeOptTest, OOtypeMixin):
+    def test_call_may_force_invalidated_guards(self):
+        ops = """
+        [i0]
+        guard_not_invalidated() []
+        call_may_force(i0, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        guard_not_invalidated() []
+        call_may_force(i0, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
 
-##    def test_instanceof(self):
-##        ops = """
-##        [i0]
-##        p0 = new_with_vtable(ConstClass(node_vtable))
-##        i1 = instanceof(p0, descr=nodesize)
-##        jump(i1)
-##        """
-##        expected = """
-##        [i0]
-##        jump(1)
-##        """
-##        self.optimize_loop(ops, expected)
+    def test_call_may_force_invalidated_guards_reload(self):
+        ops = """
+        [i0a, i0b]
+        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i2 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i3 = escape(i1)
+        i4 = escape(i2)
+        jump(i3, i4)
+        """
+        expected = """
+        [i0a, i0b]
+        guard_not_invalidated() []
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        i3 = escape(-4247)
+        i4 = escape(-4247)
+        jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)
 
-##    def test_instanceof_guard_class(self):
-##        ops = """
-##        [i0, p0]
-##        guard_class(p0, ConstClass(node_vtable)) []
-##        i1 = instanceof(p0, descr=nodesize)
-##        jump(i1, p0)
-##        """
-##        expected = """
-##        [i0, p0]
-##        guard_class(p0, ConstClass(node_vtable)) []
-##        jump(1, p0)
-##        """
-##        self.optimize_loop(ops, expected)
+    def test_call_may_force_invalidated_guards_virtual(self):
+        ops = """
+        [i0a, i0b]
+        p = new(descr=quasisize)
+        setfield_gc(p, 421, descr=quasifielddescr)
+        quasiimmut_field(p, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(p, descr=quasifielddescr)
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        quasiimmut_field(p, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i2 = getfield_gc(p, descr=quasifielddescr)
+        i3 = escape(i1)
+        i4 = escape(i2)
+        jump(i3, i4)
+        """
+        expected = """
+        [i0a, i0b]
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        i3 = escape(421)
+        i4 = escape(421)
+        jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)

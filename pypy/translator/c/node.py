@@ -11,7 +11,7 @@ from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from pypy.translator.c.support import c_char_array_constant, barebonearray
 from pypy.translator.c.primitive import PrimitiveType, name_signed
 from pypy.rlib import exports
-from pypy.rlib.rfloat import isinf, isnan
+from pypy.rlib.rfloat import isfinite
 from pypy.rlib.rstackovf import _StackOverflow
 from pypy.translator.c import extfunc
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -793,7 +793,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             node = db.getcontainernode(value._obj)
             expr = 'NULL /*%s*/' % node.name
             node.where_to_copy_me.append('&%s' % access_expr)
-        elif typeOf(value) == Float and (isinf(value) or isnan(value)):
+        elif typeOf(value) == Float and not isfinite(value):
             db.late_initializations.append(('%s' % access_expr, db.get(value)))
             expr = '0.0 /* patched later by %sinfinity */' % (
                 '-+'[value > 0])

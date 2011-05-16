@@ -304,7 +304,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.unimport_module(name)
         self.cleanup_references(self.space)
         if self.check_and_print_leaks():
-            assert False, "Test leaks or loses object(s)."
+            assert False, (
+                "Test leaks or loses object(s).  You should also check if "
+                "the test actually passed in the first place; if it failed "
+                "it is likely to reach this place.")
+            # XXX find out how to disable check_and_print_leaks() if the
+            # XXX test failed...
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
