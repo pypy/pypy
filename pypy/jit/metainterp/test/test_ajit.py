@@ -2390,8 +2390,21 @@ class BasicTests:
         self.check_loops(int_gt=1, int_lt=2, int_ge=0, int_le=0)
 
     def test_intbounds_not_generalized(self):
-        # FIXME
-        assert False
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa'])
+
+        def f(n):
+            sa = i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa)
+                if i > n/2:
+                    sa += 1
+                else:
+                    sa += 2
+                    assert  -100 < i < 100
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20]) == f(20)
+        self.check_loops(int_gt=1, int_lt=3, int_ge=3, int_le=1)
 
     def test_retrace_ending_up_retrazing_another_loop(self):
         # FIXME
