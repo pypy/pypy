@@ -16,8 +16,8 @@ def ufunc2(func):
     signature = Signature()
     @unwrap_spec(larray=BaseArray, rarray=BaseArray)
     def impl(space, larray, rarray):
-        new_sig = larray.signature.transition(signature)
-        w_res = Call2(func, larray, rarray, rarray.signature.transition(new_sig))
+        new_sig = larray.signature.transition(signature).transition(rarray.signature)
+        w_res = Call2(func, larray, rarray, new_sig)
         larray.invalidates.append(w_res)
         rarray.invalidates.append(w_res)
         return w_res
