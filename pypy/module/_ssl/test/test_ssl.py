@@ -81,7 +81,7 @@ class AppTestSSL:
         ss = _ssl.sslwrap(s, 0)
         s.close()
         exc = raises(_ssl.SSLError, ss.write, "data")
-        assert exc.value.message == "Underlying socket has been closed."
+        assert exc.value.strerror == "Underlying socket has been closed."
 
 
 class AppTestConnectedSSL:
@@ -90,8 +90,8 @@ class AppTestConnectedSSL:
         cls.space = space
 
     def setup_method(self, method):
-        # https://codespeak.net/
-        ADDR = "codespeak.net", 443
+        # https://www.verisign.net/
+        ADDR = "www.verisign.net", 443
 
         self.w_s = self.space.appexec([self.space.wrap(ADDR)], """(ADDR):
             import socket
