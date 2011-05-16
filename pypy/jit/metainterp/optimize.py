@@ -1,4 +1,4 @@
-from pypy.rlib.debug import debug_start, debug_stop
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
 # ____________________________________________________________
 
