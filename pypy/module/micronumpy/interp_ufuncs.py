@@ -1,5 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.micronumpy.interp_numarray import BaseArray, Call1, Call2, Signature
+from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
 
 
@@ -24,17 +25,29 @@ def ufunc2(func):
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 @ufunc
-def negative(value):
-    return -value
-
-@ufunc
 def absolute(value):
     return abs(value)
+
+@ufunc2
+def maximum(lvalue, rvalue):
+    return max(lvalue, rvalue)
 
 @ufunc2
 def minimum(lvalue, rvalue):
     return min(lvalue, rvalue)
 
-@ufunc2
-def maximum(lvalue, rvalue):
-    return max(lvalue, rvalue)
+@ufunc
+def negative(value):
+    return -value
+
+@ufunc
+def reciprocal(value):
+    if value == 0.0:
+        return rfloat.copysign(rfloat.INFINITY, value)
+    return 1.0 / value
+
+@ufunc
+def sign(value):
+    if value == 0.0:
+        return 0.0
+    return rfloat.copysign(1.0, value)

@@ -40,3 +40,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = maximum(a, b)
         for i in range(3):
             assert c[i] == max(a[i], b[i])
+
+    def test_sign(self):
+        from numpy import array, sign
+
+        reference = [-1.0, 0.0, 0.0, 1.0]
+        a = array([-5.0, -0.0, 0.0, 6.0])
+        b = sign(a)
+        for i in range(4):
+            assert b[i] == reference[i]
+
+    def test_reciporocal(self):
+        from numpy import array, reciprocal
+
+        reference = [-0.2, float("inf"), float("-inf"), 2.0]
+        a = array([-5.0, 0.0, -0.0, 0.5])
+        b = reciprocal(a)
+        for i in range(4):
+            assert b[i] == reference[i]

@@ -11,9 +11,11 @@ class Module(MixedModule):
 
         # ufuncs
         'absolute': 'interp_ufuncs.absolute',
-        'negative': 'interp_ufuncs.negative',
-        'minimum': 'interp_ufuncs.minimum',
         'maximum': 'interp_ufuncs.maximum',
+        'minimum': 'interp_ufuncs.minimum',
+        'negative': 'interp_ufuncs.negative',
+        'reciprocal': 'interp_ufuncs.reciprocal',
+        'sign': 'interp_ufuncs.sign',
     }
 
     appleveldefs = {}
