@@ -265,7 +265,7 @@ class JitHintError(Exception):
 
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
-              'trace_limit': 10000,
+              'trace_limit': 12000,
               'inlining': 0,
               'loop_longevity': 1000,
               'retrace_limit': 5,

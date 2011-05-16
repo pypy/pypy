@@ -768,6 +768,31 @@ class GcLLDescr_framework(GcLLDescription):
             funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
                     llmemory.cast_ptr_to_adr(gcref_newptr))
 
+    def replace_constptrs_with_getfield_raw(self, cpu, newops, op):
+        # xxx some performance issue here
+        newargs = [None] * op.numargs()
+        needs_copy = False
+        for i in range(op.numargs()):
+            v = op.getarg(i)
+            newargs[i] = v
+            if isinstance(v, ConstPtr) and bool(v.value):
+                addr = self.gcrefs.get_address_of_gcref(v.value)
+                # ^^^even for non-movable objects, to record their presence
+                if rgc.can_move(v.value):
+                    box = BoxPtr(v.value)
+                    addr = cpu.cast_adr_to_int(addr)
+                    newops.append(ResOperation(rop.GETFIELD_RAW,
+                                               [ConstInt(addr)], box,
+                                               self.single_gcref_descr))
+                    newargs[i] = box
+                    needs_copy = True
+        #
+        if needs_copy:
+            return op.copy_and_change(op.getopnum(), args=newargs)
+        else:
+            return op
+
+
     def rewrite_assembler(self, cpu, operations):
         # Perform two kinds of rewrites in parallel:
         #
@@ -790,19 +815,7 @@ class GcLLDescr_framework(GcLLDescription):
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             # ---------- replace ConstPtrs with GETFIELD_RAW ----------
-            # xxx some performance issue here
-            for i in range(op.numargs()):
-                v = op.getarg(i)
-                if isinstance(v, ConstPtr) and bool(v.value):
-                    addr = self.gcrefs.get_address_of_gcref(v.value)
-                    # ^^^even for non-movable objects, to record their presence
-                    if rgc.can_move(v.value):
-                        box = BoxPtr(v.value)
-                        addr = cpu.cast_adr_to_int(addr)
-                        newops.append(ResOperation(rop.GETFIELD_RAW,
-                                                   [ConstInt(addr)], box,
-                                                   self.single_gcref_descr))
-                        op.setarg(i, box)
+            op = self.replace_constptrs_with_getfield_raw(cpu, newops, op)
             if op.is_malloc():
                 last_malloc = op.result
             elif op.can_malloc():
