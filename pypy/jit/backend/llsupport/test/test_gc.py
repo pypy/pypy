@@ -6,6 +6,7 @@ from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport.gc import *
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.gc import get_description
+from pypy.jit.metainterp.resoperation import get_deep_immutable_oplist
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
@@ -437,6 +438,7 @@ class TestFramework(object):
             ]
         gc_ll_descr = self.gc_ll_descr
         gc_ll_descr.gcrefs = MyFakeGCRefList()
+        operations = get_deep_immutable_oplist(operations)
         operations = gc_ll_descr.rewrite_assembler(MyFakeCPU(), operations)
         assert len(operations) == 2
         assert operations[0].getopnum() == rop.GETFIELD_RAW
@@ -472,6 +474,7 @@ class TestFramework(object):
         gc_ll_descr = self.gc_ll_descr
         gc_ll_descr.gcrefs = MyFakeGCRefList()
         old_can_move = rgc.can_move
+        operations = get_deep_immutable_oplist(operations)
         try:
             rgc.can_move = lambda s: False
             operations = gc_ll_descr.rewrite_assembler(MyFakeCPU(), operations)
@@ -496,6 +499,7 @@ class TestFramework(object):
                          descr=field_descr),
             ]
         gc_ll_descr = self.gc_ll_descr
+        operations = get_deep_immutable_oplist(operations)
         operations = gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
         assert len(operations) == 2
         #
@@ -520,6 +524,7 @@ class TestFramework(object):
                          descr=array_descr),
             ]
         gc_ll_descr = self.gc_ll_descr
+        operations = get_deep_immutable_oplist(operations)
         operations = gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
         assert len(operations) == 2
         #
@@ -552,7 +557,8 @@ class TestFramework(object):
         setfield_gc(p0, p1, descr=xdescr)
         jump()
         """, namespace=locals())
-        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        operations = get_deep_immutable_oplist(ops.operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
         equaloplists(operations, expected.operations)
 
     def test_rewrite_assembler_initialization_store_2(self):
@@ -576,7 +582,8 @@ class TestFramework(object):
         setfield_raw(p0, p1, descr=xdescr)
         jump()
         """, namespace=locals())
-        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        operations = get_deep_immutable_oplist(ops.operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
         equaloplists(operations, expected.operations)
 
     def test_rewrite_assembler_initialization_store_3(self):
@@ -594,7 +601,8 @@ class TestFramework(object):
         setarrayitem_gc(p0, 0, p1, descr=arraydescr)
         jump()
         """, namespace=locals())
-        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, ops.operations)
+        operations = get_deep_immutable_oplist(ops.operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
         equaloplists(operations, expected.operations)
 
 class TestFrameworkMiniMark(TestFramework):
