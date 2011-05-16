@@ -1045,13 +1045,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_true(i10, descr=<Guard3>)
             i120 = int_add(i5, 1)
             guard_not_invalidated(descr=<Guard4>)
-            i140 = int_lt(0, i120)
-            guard_true(i140, descr=<Guard5>)
-            i17 = int_lt(i120, 0)
-            guard_false(i17, descr=<Guard6>)
-            i20 = int_sub(i120, i5)
-            i21 = int_add_ovf(i5, i20)
-            guard_no_overflow(descr=<Guard7>)
             --TICK--
             jump(..., descr=<Loop0>)
         """)
