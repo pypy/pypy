@@ -8,12 +8,7 @@ class BaseNumpyAppTest(object):
 
 
 class TestSignature(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace()
-
-    def test_binop_signature(self):
-        space = self.space
-
+    def test_binop_signature(self, space):
         ar = SingleDimArray(10)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, FloatWrapper(2.0))
