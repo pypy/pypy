@@ -774,6 +774,19 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(op.getarg(1))
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
+        # we need to save registers on the stack:
+        #
+        #  - at least the non-callee-saved registers
+        #
+        #  - for shadowstack, we assume that any call can collect, and we
+        #    save also the callee-saved registers that contain GC pointers,
+        #    so that they can be found by follow_stack_frame_of_assembler()
+        #
+        #  - for CALL_MAY_FORCE or CALL_ASSEMBLER, we have to save all regs
+        #    anyway, in case we need to do cpu.force().  The issue is that
+        #    grab_frame_values() would not be able to locate values in
+        #    callee-saved registers.
+        #
         save_all_regs = guard_not_forced_op is not None
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
