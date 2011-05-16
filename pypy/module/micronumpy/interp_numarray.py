@@ -53,23 +53,23 @@ class BaseArray(Wrappable):
         def impl(self, space, w_other):
             new_sig = self.signature.transition(signature)
             if isinstance(w_other, BaseArray):
-                res = space.wrap(Call2(
+                res = Call2(
                     function,
                     self,
                     w_other,
                     new_sig.transition(w_other.signature)
-                ))
+                )
                 w_other.invalidates.append(res)
             else:
                 w_other = FloatWrapper(space.float_w(w_other))
-                res = space.wrap(Call2(
+                res = Call2(
                     function,
                     self,
                     w_other,
                     new_sig.transition(w_other.signature)
-                ))
+                )
             self.invalidates.append(res)
-            return res
+            return space.wrap(res)
         return func_with_new_name(impl, "binop_%s_impl" % function.__name__)
 
     descr_add = _binop_impl(add)
