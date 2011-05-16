@@ -17,8 +17,27 @@ def dummy2(v):
 
 TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
-numpy_driver = jit.JitDriver(greens = ['bytecode'],
+numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
+
+class Signature(object):
+    def __init__(self):
+        self.transitions = {}
+
+    def transition(self, target):
+        if target in self.transitions:
+            return self.transitions[target]
+        self.transitions[target] = new = Signature()
+        return new
+
+def add(v1, v2):
+    return v1 + v2
+def sub(v1, v2):
+    return v1 - v2
+def mul(v1, v2):
+    return v1 * v2
+def div(v1, v2):
+    return v1 / v2
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -29,25 +48,34 @@ class BaseArray(Wrappable):
             arr.force_if_needed()
         self.invalidates = []
 
-    def _binop_impl(bytecode):
+    def _binop_impl(function):
+        signature = Signature()
         def impl(self, space, w_other):
+            new_sig = self.signature.transition(signature)
             if isinstance(w_other, BaseArray):
-                res = space.wrap(BinOp(bytecode, self, w_other))
+                res = space.wrap(Call2(
+                    function,
+                    self,
+                    w_other,
+                    new_sig.transition(w_other.signature)
+                ))
                 w_other.invalidates.append(res)
             else:
-                res = space.wrap(BinOp(
-                    bytecode,
+                w_other = FloatWrapper(space.float_w(w_other))
+                res = space.wrap(Call2(
+                    function,
                     self,
-                    FloatWrapper(space.float_w(w_other))
+                    w_other,
+                    new_sig.transition(w_other.signature)
                 ))
             self.invalidates.append(res)
             return res
-        return func_with_new_name(impl, "binop_%s_impl" % bytecode)
+        return func_with_new_name(impl, "binop_%s_impl" % function.__name__)
 
-    descr_add = _binop_impl("a")
-    descr_sub = _binop_impl("s")
-    descr_mul = _binop_impl("m")
-    descr_div = _binop_impl("d")
+    descr_add = _binop_impl(add)
+    descr_sub = _binop_impl(sub)
+    descr_mul = _binop_impl(mul)
+    descr_div = _binop_impl(div)
 
     def get_concrete(self):
         raise NotImplementedError
@@ -70,13 +98,11 @@ class FloatWrapper(BaseArray):
     Intermediate class representing a float literal.
     """
     _immutable_fields_ = ["float_value"]
+    signature = Signature()
 
     def __init__(self, float_value):
         BaseArray.__init__(self)
         self.float_value = float_value
-
-    def bytecode(self):
-        return "f"
 
     def find_size(self):
         raise ValueError
@@ -88,17 +114,18 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self):
+    def __init__(self, signature):
         BaseArray.__init__(self)
         self.forced_result = None
+        self.signature = signature
 
     def compute(self):
         i = 0
-        bytecode = self.bytecode()
+        signature = self.signature
         result_size = self.find_size()
         result = SingleDimArray(result_size)
         while i < result_size:
-            numpy_driver.jit_merge_point(bytecode=bytecode,
+            numpy_driver.jit_merge_point(signature=signature,
                                          result_size=result_size, i=i,
                                          self=self, result=result)
             result.storage[i] = self.eval(i)
@@ -118,23 +145,30 @@ class VirtualArray(BaseArray):
             return self.forced_result.eval(i)
         return self._eval(i)
 
+class Call1(VirtualArray):
+    _immutable_fields_ = ["function", "values"]
 
-class BinOp(VirtualArray):
+    def __init__(self, function, values, signature):
+        VirtualArray.__init__(self, signature)
+        self.function = function
+        self.values = values
+
+    def find_size(self):
+        return self.values.find_size()
+
+    def _eval(self, i):
+        return self.function(self.values.eval(i))
+
+class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    _immutable_fields_ = ["opcode", "left", "right"]
-    # Hack for test_zjit so the annotator doesn't see the bytecode as constant
-    opcode = "?"
-
-    def __init__(self, opcode, left, right):
-        VirtualArray.__init__(self)
-        self.opcode = opcode
+    _immutable_fields_ = ["function", "left", "right"]
+    def __init__(self, function, left, right, signature):
+        VirtualArray.__init__(self, signature)
+        self.function = function
         self.left = left
         self.right = right
-
-    def bytecode(self):
-        return self.opcode + self.left.bytecode() + self.right.bytecode()
 
     def find_size(self):
         try:
@@ -145,36 +179,12 @@ class BinOp(VirtualArray):
 
     def _eval(self, i):
         lhs, rhs = self.left.eval(i), self.right.eval(i)
-        if self.opcode == "a":
-            return lhs + rhs
-        elif self.opcode == "s":
-            return lhs - rhs
-        elif self.opcode == "m":
-            return lhs * rhs
-        elif self.opcode == "d":
-            return lhs / rhs
-        else:
-            raise NotImplementedError("Don't know opcode %s" % self.opcode)
-
-class Call(VirtualArray):
-    _immutable_fields_ = ["function", "values"]
-
-    def __init__(self, function, values):
-        VirtualArray.__init__(self)
-        self.function = function
-        self.values = values
-
-    def bytecode(self):
-        return "c" + self.values.bytecode()
-
-    def find_size(self):
-        return self.values.find_size()
-
-    def _eval(self, i):
-        return self.function(self.values.eval(i))
+        return self.function(lhs, rhs)
 
 
 class SingleDimArray(BaseArray):
+    signature = Signature()
+
     def __init__(self, size):
         BaseArray.__init__(self)
         self.size = size
@@ -184,9 +194,6 @@ class SingleDimArray(BaseArray):
 
     def get_concrete(self):
         return self
-
-    def bytecode(self):
-        return "l"
 
     def find_size(self):
         return self.size
