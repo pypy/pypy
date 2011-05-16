@@ -2426,10 +2426,6 @@ class BasicTests:
         assert self.meta_interp(f, [20]) == f(20)
         self.check_loops(int_gt=1, int_lt=2, int_ge=1, int_le=1)
 
-    def test_retrace_ending_up_retrazing_another_loop(self):
-        # FIXME
-        assert False
-
     def test_retrace_limit1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
@@ -2470,6 +2466,65 @@ class BasicTests:
         self.check_tree_loop_count(4)
         assert self.meta_interp(f, [20, 3]) == f(20, 3)
         self.check_tree_loop_count(5)
+
+    def test_retrace_ending_up_retrazing_another_loop(self):
+
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
+        bytecode = "0+sI0+SI"
+        def f(n):
+            myjitdriver.set_param('threshold', 3)
+            myjitdriver.set_param('trace_eagerness', 1)
+            myjitdriver.set_param('retrace_limit', 5)
+            pc = sa = i = 0
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)
+                n = hint(n, promote=True)
+                op = bytecode[pc]
+                if op == '0':
+                    i = 0
+                elif op == '+':
+                    i += 1
+                elif op == 's':
+                    sa += i
+                elif op == 'S':
+                    sa += 2
+                elif op == 'I':
+                    if i < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i)
+                        continue
+                pc += 1
+            return sa
+
+        def g(n1, n2):
+            for i in range(10):
+                f(n1)
+            for i in range(10):                
+                f(n2)
+
+        nn = [10, 3]
+        assert self.meta_interp(g, nn) == g(*nn)
+        
+        # The attempts of retracing first loop will end up retracing the
+        # second and thus fail 5 times, saturating the retrace_count. Instead a
+        # bridge back to the preamble of the first loop is produced. A guard in
+        # this bridge is later traced resulting in a retrace of the second loop.
+        # Thus we end up with:
+        #   1 preamble and 1 specialized version of first loop
+        #   1 preamble and 2 specialized version of second loop
+        self.check_tree_loop_count(2 + 3)
+
+        # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
+        
+        def g(n):
+            for i in range(n):
+                for j in range(10):
+                    f(n-i)
+
+        res = self.meta_interp(g, [10])
+        assert res == g(10)
+        # 1 preamble and 6 speciealized versions of each loop
+        self.check_tree_loop_count(2*(1 + 6))
 
 class TestOOtype(BasicTests, OOJitMixin):
 
