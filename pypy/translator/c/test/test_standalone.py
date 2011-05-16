@@ -163,13 +163,13 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="")
+        t = Translation(entry_point, backend='c', standalone=True, profopt="100")
         # no counters
         t.backendopt()
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
-        t = Translation(entry_point, backend='c', standalone=True, profopt="",
+        t = Translation(entry_point, backend='c', standalone=True, profopt="100",
                         noprofopt=True)
         # no counters
         t.backendopt()
