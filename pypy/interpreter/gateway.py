@@ -594,7 +594,7 @@ class BuiltinCode(eval.Code):
         space = func.space
         activation = self.activation
         scope_w = args.parse_obj(w_obj, func.name, self.sig,
-                                 func.defs, self.minargs)
+                                 func.defs_w, self.minargs)
         try:
             w_result = activation._run(space, scope_w)
         except DescrMismatch:

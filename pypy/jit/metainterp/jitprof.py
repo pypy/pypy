@@ -22,6 +22,7 @@ ABORT_TOO_LONG
 ABORT_BRIDGE
 ABORT_ESCAPE
 ABORT_BAD_LOOP
+ABORT_FORCE_QUASIIMMUT
 NVIRTUALS
 NVHOLES
 NVREUSED
@@ -179,6 +180,8 @@ class Profiler(BaseProfiler):
         self._print_intline("abort: compiling", cnt[ABORT_BRIDGE])
         self._print_intline("abort: vable escape", cnt[ABORT_ESCAPE])
         self._print_intline("abort: bad loop", cnt[ABORT_BAD_LOOP])
+        self._print_intline("abort: force quasi-immut",
+                                               cnt[ABORT_FORCE_QUASIIMMUT])
         self._print_intline("nvirtuals", cnt[NVIRTUALS])
         self._print_intline("nvholes", cnt[NVHOLES])
         self._print_intline("nvreused", cnt[NVREUSED])

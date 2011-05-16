@@ -166,9 +166,12 @@ class UnrollOptimizer(Optimization):
             sb = self.optimizer.produce_short_preamble_ops(inputargs)
             self.short_boxes = sb
             preamble_optimizer = self.optimizer
+            loop.preamble.quasi_immutable_deps = (
+                self.optimizer.quasi_immutable_deps)
             self.optimizer = self.optimizer.reconstruct_for_next_iteration(sb, jump_args)
 
             self.constant_inputargs = {}
+            loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps            
             for box in jump_args:
                 const = self.get_constant_box(box)
                 if const:

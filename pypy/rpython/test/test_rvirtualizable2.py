@@ -5,6 +5,7 @@ from pypy.rpython.rvirtualizable2 import replace_force_virtualizable_with_call
 from pypy.rlib.jit import hint
 from pypy.objspace.flow.model import summary
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy import conftest
 
 
@@ -116,8 +117,8 @@ class BaseTest(BaseRtypingTest):
         TYPE = self.gettype(v_inst)
         accessor = TYPE._hints['virtualizable2_accessor']
         assert accessor.TYPE == TYPE
-        assert accessor.fields == {self.prefix + 'v1' : "",
-                                   self.prefix + 'v2': "[*]"}
+        assert accessor.fields == {self.prefix + 'v1': IR_IMMUTABLE,
+                                   self.prefix + 'v2': IR_IMMUTABLE_ARRAY}
         #
         def fn2(n):
             Base().base1 = 42

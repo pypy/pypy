@@ -312,6 +312,7 @@ class Optimizer(Optimization):
         self.pendingfields = []
         self.posponedop = None
         self.exception_might_have_happened = False
+        self.quasi_immutable_deps = None
         self.newoperations = []
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
@@ -368,6 +369,7 @@ class Optimizer(Optimization):
                 new.pure_operations[key] = op
         new.producer = self.producer
         assert self.posponedop is None
+        new.quasi_immutable_deps = self.quasi_immutable_deps
 
         for box in short_boxes:
             box = new.getinterned(box)
@@ -522,6 +524,7 @@ class Optimizer(Optimization):
             self.first_optimization.propagate_forward(op)
             self.i += 1
         self.loop.operations = self.newoperations
+        self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
 

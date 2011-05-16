@@ -162,7 +162,7 @@ most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
 .. _`contact us`: index.html
-.. _`mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`mailing list`: http://python.org/mailman/listinfo/pypy-dev
 
 -------------------------------------------------------------
 OSError: ... cannot restore segment prot after reloc... Help?

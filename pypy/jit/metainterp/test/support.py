@@ -8,11 +8,12 @@ from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.jit.codewriter import longlong
+from pypy.jit.codewriter import codewriter, longlong
+from pypy.rlib.rfloat import isnan
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, **kwds):
-    from pypy.jit.codewriter import support, codewriter
+    from pypy.jit.codewriter import support
 
     class FakeJitCell:
         __compiled_merge_points = []
@@ -49,8 +50,10 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, None, False)
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
+    cw.debug = True
     testself.cw = cw
     policy = JitPolicy()
+    policy.set_supports_floats(True)
     policy.set_supports_longlong(supports_longlong)
     cw.find_all_graphs(policy)
     #
@@ -171,7 +174,12 @@ class JitMixin:
         kwds['type_system'] = self.type_system
         if "backendopt" not in kwds:
             kwds["backendopt"] = False
-        return ll_meta_interp(*args, **kwds)
+        old = codewriter.CodeWriter.debug
+        try:
+            codewriter.CodeWriter.debug = True
+            return ll_meta_interp(*args, **kwds)
+        finally:
+            codewriter.CodeWriter.debug = old
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
@@ -180,10 +188,10 @@ class JitMixin:
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
         result2 = _run_with_pyjitpl(self, args)
-        assert result1 == result2
+        assert result1 == result2 or isnan(result1) and isnan(result2)
         # try to run it by running the code compiled just before
         result3 = _run_with_machine_code(self, args)
-        assert result1 == result3 or result3 == NotImplemented
+        assert result1 == result3 or result3 == NotImplemented or isnan(result1) and isnan(result3)
         #
         if (longlong.supports_longlong and
             isinstance(result1, longlong.r_float_storage)):

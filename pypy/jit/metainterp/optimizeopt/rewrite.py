@@ -28,7 +28,7 @@ class OptRewrite(Optimization):
         for op in self.loop_invariant_producer.values():
             potential_ops[op.result] = op
 
-    
+
     def propagate_forward(self, op):
         args = self.optimizer.make_args_key(op)
         if self.find_rewritable_bool(op, args):
@@ -53,7 +53,7 @@ class OptRewrite(Optimization):
                     return False
         return self.is_emittable(op)
 
-        
+
     def try_boolinvers(self, op, targs):
         oldop = self.optimizer.pure_operations.get(targs, None)
         if oldop is not None and oldop.getdescr() is op.getdescr():
@@ -82,7 +82,7 @@ class OptRewrite(Optimization):
         try:
             oldopnum = opboolreflex[op.getopnum()] # FIXME: add INT_ADD, INT_MUL
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
-                                                              None))            
+                                                              None))
             oldop = self.optimizer.pure_operations.get(targs, None)
             if oldop is not None and oldop.getdescr() is op.getdescr():
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
@@ -93,7 +93,7 @@ class OptRewrite(Optimization):
         try:
             oldopnum = opboolinvers[opboolreflex[op.getopnum()]]
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
-                                                              None))            
+                                                              None))
             if self.try_boolinvers(op, targs):
                 return True
         except KeyError:
@@ -168,6 +168,15 @@ class OptRewrite(Optimization):
                     op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
                     break
 
+            self.emit_operation(op)
+
+    def optimize_UINT_FLOORDIV(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+
+        if v2.is_constant() and v2.box.getint() == 1:
+            self.make_equal_to(op.result, v1)
+        else:
             self.emit_operation(op)
 
     def optimize_INT_LSHIFT(self, op):
@@ -337,7 +346,7 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
         resvalue = self.getvalue(op.result)
         self.loop_invariant_results[key] = resvalue
-    
+
     def _optimize_nullness(self, op, box, expect_nonnull):
         value = self.getvalue(box)
         if value.is_nonnull():
@@ -396,7 +405,7 @@ class OptRewrite(Optimization):
 ##        if realclassbox is not None:
 ##            checkclassbox = self.optimizer.cpu.typedescr2classbox(op.descr)
 ##            result = self.optimizer.cpu.ts.subclassOf(self.optimizer.cpu,
-##                                                      realclassbox, 
+##                                                      realclassbox,
 ##                                                      checkclassbox)
 ##            self.make_constant_int(op.result, result)
 ##            return

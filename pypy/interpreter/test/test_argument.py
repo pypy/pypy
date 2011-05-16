@@ -3,7 +3,6 @@ from pypy.interpreter.argument import (Arguments, ArgumentsForTranslation,
     ArgErr, ArgErrUnknownKwds, ArgErrMultipleValues, ArgErrCount, rawshape,
     Signature)
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.function import Defaults
 
 
 class TestSignature(object):
@@ -184,7 +183,7 @@ class TestArgumentsNormal(object):
         py.test.raises(ArgErr, args._match_signature, None, l, Signature(["a"], "*"))
         args = Arguments(space, [])
         l = [None]
-        args._match_signature(None, l, Signature(["a"]), defaults=Defaults([1]))
+        args._match_signature(None, l, Signature(["a"]), defaults_w=[1])
         assert l == [1]
         args = Arguments(space, [])
         l = [None]
@@ -232,7 +231,7 @@ class TestArgumentsNormal(object):
                 py.test.raises(ArgErr, args._match_signature, firstarg, l, Signature(["a", "b", "c", "d", "e"], "*"))
                 l = [None, None, None, None, None]
                 args = Arguments(space, arglist, w_stararg=starargs)
-                args._match_signature(firstarg, l, Signature(["a", "b", "c", "d", "e"]), defaults=Defaults([1]))
+                args._match_signature(firstarg, l, Signature(["a", "b", "c", "d", "e"]), defaults_w=[1])
                 assert l == [4, 5, 6, 7, 1]
                 for j in range(len(values)):
                     l = [None] * (j + 1)
@@ -257,24 +256,24 @@ class TestArgumentsNormal(object):
             assert len(keywords) == len(keywords_w)
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
             l = [None, None, None]
-            args._match_signature(None, l, Signature(["a", "b", "c"]), defaults=Defaults([4]))
+            args._match_signature(None, l, Signature(["a", "b", "c"]), defaults_w=[4])
             assert l == [1, 2, 3]
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
             l = [None, None, None, None]
-            args._match_signature(None, l, Signature(["a", "b", "b1", "c"]), defaults=Defaults([4, 5]))
+            args._match_signature(None, l, Signature(["a", "b", "b1", "c"]), defaults_w=[4, 5])
             assert l == [1, 2, 4, 3]
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
             l = [None, None, None, None]
-            args._match_signature(None, l, Signature(["a", "b", "c", "d"]), defaults=Defaults([4, 5]))
+            args._match_signature(None, l, Signature(["a", "b", "c", "d"]), defaults_w=[4, 5])
             assert l == [1, 2, 3, 5]
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
             l = [None, None, None, None]
             py.test.raises(ArgErr, args._match_signature, None, l,
-                           Signature(["c", "b", "a", "d"]), defaults=Defaults([4, 5]))
+                           Signature(["c", "b", "a", "d"]), defaults_w=[4, 5])
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
             l = [None, None, None, None]
             py.test.raises(ArgErr, args._match_signature, None, l,
-                           Signature(["a", "b", "c1", "d"]), defaults=Defaults([4, 5]))
+                           Signature(["a", "b", "c1", "d"]), defaults_w=[4, 5])
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
             l = [None, None, None]
             args._match_signature(None, l, Signature(["a", "b"], None, "**"))
@@ -355,10 +354,10 @@ class TestArgumentsNormal(object):
         calls = []
 
         def _match_signature(w_firstarg, scope_w, signature,
-                             defaults=None, blindargs=0):
-            defaults = [] if defaults is None else defaults.getitems()
+                             defaults_w=None, blindargs=0):
+            defaults_w = [] if defaults_w is None else defaults_w
             calls.append((w_firstarg, scope_w, signature.argnames, signature.has_vararg(),
-                          signature.has_kwarg(), defaults, blindargs))
+                          signature.has_kwarg(), defaults_w, blindargs))
         args._match_signature = _match_signature
 
         scope_w = args.parse_obj(None, "foo", Signature(["a", "b"], None, None))
@@ -376,7 +375,7 @@ class TestArgumentsNormal(object):
         calls = []
 
         scope_w = args.parse_obj(None, "foo", Signature(["a", "b"], "args", "kw"),
-                             defaults=Defaults(['x', 'y']))
+                             defaults_w=['x', 'y'])
         assert len(calls) == 1
         assert calls[0] == (None, [None, None, None, None], ["a", "b"],
                             True, True,
@@ -384,7 +383,7 @@ class TestArgumentsNormal(object):
         calls = []
 
         scope_w = args.parse_obj("obj", "foo", Signature(["a", "b"], "args", "kw"),
-                             defaults=Defaults(['x', 'y']), blindargs=1)
+                             defaults_w=['x', 'y'], blindargs=1)
         assert len(calls) == 1
         assert calls[0] == ("obj", [None, None, None, None], ["a", "b"],
                             True, True,
@@ -413,10 +412,10 @@ class TestArgumentsNormal(object):
         calls = []
 
         def _match_signature(w_firstarg, scope_w, signature,
-                             defaults=None, blindargs=0):
-            defaults = [] if defaults is None else defaults.getitems()
+                             defaults_w=None, blindargs=0):
+            defaults_w = [] if defaults_w is None else defaults_w
             calls.append((w_firstarg, scope_w, signature.argnames, signature.has_vararg(),
-                          signature.has_kwarg(), defaults, blindargs))
+                          signature.has_kwarg(), defaults_w, blindargs))
         args._match_signature = _match_signature
 
         scope_w = [None, None]
@@ -429,7 +428,7 @@ class TestArgumentsNormal(object):
 
         scope_w = [None, None, None, None]
         args.parse_into_scope(None, scope_w, "foo", Signature(["a", "b"], "args", "kw"),
-                              defaults=Defaults(['x', 'y']))
+                              defaults_w=['x', 'y'])
         assert len(calls) == 1
         assert calls[0] == (None, scope_w, ["a", "b"],
                             True, True,
@@ -439,7 +438,7 @@ class TestArgumentsNormal(object):
         scope_w = [None, None, None, None]
         args.parse_into_scope("obj", scope_w, "foo", Signature(["a", "b"],
                                                       "args", "kw"),
-                              defaults=Defaults(['x', 'y']))
+                              defaults_w=['x', 'y'])
         assert len(calls) == 1
         assert calls[0] == ("obj", scope_w, ["a", "b"],
                             True, True,
@@ -511,27 +510,36 @@ class TestErrorHandling(object):
     def test_missing_args(self):
         # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
         # defaults_w, missing_args
-        err = ArgErrCount(1, 0, 0, False, False, Defaults([]), 0)
+        err = ArgErrCount(1, 0, 0, False, False, None, 0)
         s = err.getmsg('foo')
-        assert s == "foo() takes no argument (1 given)"
-        err = ArgErrCount(0, 0, 1, False, False, Defaults([]), 1)
+        assert s == "foo() takes no arguments (1 given)"
+        err = ArgErrCount(0, 0, 1, False, False, [], 1)
         s = err.getmsg('foo')
         assert s == "foo() takes exactly 1 argument (0 given)"
-        err = ArgErrCount(3, 0, 2, False, False, Defaults([]), 0)
+        err = ArgErrCount(3, 0, 2, False, False, [], 0)
         s = err.getmsg('foo')
         assert s == "foo() takes exactly 2 arguments (3 given)"
-        err = ArgErrCount(1, 0, 2, True, False, Defaults([]), 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at least 2 arguments (1 given)"
-        err = ArgErrCount(3, 0, 2, True, False, Defaults(['a']), 0)
+        err = ArgErrCount(3, 0, 2, False, False, ['a'], 0)
         s = err.getmsg('foo')
         assert s == "foo() takes at most 2 arguments (3 given)"
-        err = ArgErrCount(0, 1, 2, True, False, Defaults(['a']), 1)
+        err = ArgErrCount(1, 0, 2, True, False, [], 1)
         s = err.getmsg('foo')
-        assert s == "foo() takes at least 1 argument (1 given)"
-        err = ArgErrCount(2, 1, 1, False, True, Defaults([]), 0)
+        assert s == "foo() takes at least 2 arguments (1 given)"
+        err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
         s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 argument (3 given)"
+        assert s == "foo() takes at least 1 non-keyword argument (0 given)"
+        err = ArgErrCount(2, 1, 1, False, True, [], 0)
+        s = err.getmsg('foo')
+        assert s == "foo() takes exactly 1 non-keyword argument (2 given)"
+        err = ArgErrCount(0, 1, 1, False, True, [], 1)
+        s = err.getmsg('foo')
+        assert s == "foo() takes exactly 1 non-keyword argument (0 given)"
+        err = ArgErrCount(0, 1, 1, True, True, [], 1)
+        s = err.getmsg('foo')
+        assert s == "foo() takes at least 1 non-keyword argument (0 given)"
+        err = ArgErrCount(2, 1, 1, False, True, ['a'], 0)
+        s = err.getmsg('foo')
+        assert s == "foo() takes at most 1 non-keyword argument (2 given)"
 
     def test_bad_type_for_star(self):
         space = self.space
@@ -566,15 +574,23 @@ class TestErrorHandling(object):
 class AppTestArgument:
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
-        assert exc.value.message == "<lambda>() takes at least 1 argument (1 given)"
+        assert exc.value.message == "<lambda>() takes at least 1 non-keyword argument (0 given)"
         exc = raises(TypeError, (lambda: 0), b=3)
-        assert exc.value.message == "<lambda>() takes no argument (1 given)"
+        assert exc.value.message == "<lambda>() takes no arguments (1 given)"
         exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
         assert exc.value.message == "<lambda>() takes exactly 2 arguments (4 given)"
         exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
-        assert exc.value.message == "<lambda>() takes at most 2 arguments (4 given)"
+        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
         exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
-        assert exc.value.message == "<lambda>() takes at most 2 arguments (3 given)"
+        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
+        exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), 1)
+        assert exc.value.message == "<lambda>() takes at least 2 arguments (1 given)"
+        exc = raises(TypeError, (lambda a, b, **kw: 0), 1)
+        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (1 given)"
+        exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), a=1)
+        assert exc.value.message == "<lambda>() takes at least 2 non-keyword arguments (0 given)"
+        exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
+        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
 
 def make_arguments_for_translation(space, args_w, keywords_w={},
                                    w_stararg=None, w_starstararg=None):
@@ -603,7 +619,7 @@ class TestArgumentsForTranslation(object):
 
         args = make_arguments_for_translation(space, [1])
         sig = Signature(['a', 'b', 'c'], None, None)
-        data = args.match_signature(sig, Defaults([2, 3]))
+        data = args.match_signature(sig, [2, 3])
         new_args = args.unmatch_signature(sig, data)
         assert args.unpack() == new_args.unpack()
 
@@ -615,25 +631,25 @@ class TestArgumentsForTranslation(object):
 
         args = make_arguments_for_translation(space, [1], {'c': 3, 'b': 2})
         sig = Signature(['a', 'b', 'c'], None, None)
-        data = args.match_signature(sig, Defaults([]))
+        data = args.match_signature(sig, [])
         new_args = args.unmatch_signature(sig, data)
         assert args.unpack() == new_args.unpack()
 
         args = make_arguments_for_translation(space, [1], {'c': 5})
         sig = Signature(['a', 'b', 'c'], None, None)
-        data = args.match_signature(sig, Defaults([2, 3]))
+        data = args.match_signature(sig, [2, 3])
         new_args = args.unmatch_signature(sig, data)
         assert args.unpack() == new_args.unpack()
 
         args = make_arguments_for_translation(space, [1], {'c': 5, 'd': 7})
         sig = Signature(['a', 'b', 'c'], None, 'kw')
-        data = args.match_signature(sig, Defaults([2, 3]))
+        data = args.match_signature(sig, [2, 3])
         new_args = args.unmatch_signature(sig, data)
         assert args.unpack() == new_args.unpack()
 
         args = make_arguments_for_translation(space, [1,2,3,4,5], {'e': 5, 'd': 7})
         sig = Signature(['a', 'b', 'c'], 'r', 'kw')
-        data = args.match_signature(sig, Defaults([2, 3]))
+        data = args.match_signature(sig, [2, 3])
         new_args = args.unmatch_signature(sig, data)
         assert args.unpack() == new_args.unpack()
 
@@ -641,7 +657,7 @@ class TestArgumentsForTranslation(object):
                                        w_stararg=[1],
                                        w_starstararg={'c': 5, 'd': 7})
         sig = Signature(['a', 'b', 'c'], None, 'kw')
-        data = args.match_signature(sig, Defaults([2, 3]))
+        data = args.match_signature(sig, [2, 3])
         new_args = args.unmatch_signature(sig, data)
         assert args.unpack() == new_args.unpack()
 
@@ -649,7 +665,7 @@ class TestArgumentsForTranslation(object):
                                        w_stararg=[3,4,5],
                                        w_starstararg={'e': 5, 'd': 7})
         sig = Signature(['a', 'b', 'c'], 'r', 'kw')
-        data = args.match_signature(sig, Defaults([2, 3]))
+        data = args.match_signature(sig, [2, 3])
         new_args = args.unmatch_signature(sig, data)
         assert args.unpack() == new_args.unpack()
 

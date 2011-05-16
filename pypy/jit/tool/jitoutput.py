@@ -25,6 +25,7 @@ REGEXES = [
     (('abort.compiling',), '^abort: compiling:\s+(\d+)$'),
     (('abort.vable_escape',), '^abort: vable escape:\s+(\d+)$'),
     (('abort.bad_loop',), '^abort: bad loop:\s+(\d+)$'),
+    (('abort.force_quasiimmut',), '^abort: force quasi-immut:\s+(\d+)$'),
     (('nvirtuals',), '^nvirtuals:\s+(\d+)$'),
     (('nvholes',), '^nvholes:\s+(\d+)$'),
     (('nvreused',), '^nvreused:\s+(\d+)$'),

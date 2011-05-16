@@ -6,6 +6,7 @@ from pypy.rpython.lltypesystem.rstr import STR, UNICODE, char_repr,\
 from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.objectmodel import enforceargs
 from pypy.rpython.lltypesystem.lltype import staticAdtMethod
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -15,6 +16,7 @@ from pypy.tool.sourcetools import func_with_new_name
 GROW_FAST_UNTIL = 100*1024*1024      # 100 MB
 
 def new_grow_func(name, mallocfn, copycontentsfn):
+    @enforceargs(None, int)
     def stringbuilder_grow(ll_builder, needed):
         allocated = ll_builder.allocated
         #if allocated < GROW_FAST_UNTIL:

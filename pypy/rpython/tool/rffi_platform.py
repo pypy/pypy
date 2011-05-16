@@ -787,7 +787,7 @@ def configure_boehm(platform=None):
     eci = ExternalCompilationInfo(
         platform=platform,
         includes=includes,
-        libraries=['gc'],
+        libraries=['gc', 'dl'],
         )
     return configure_external_library(
         'gc', eci,

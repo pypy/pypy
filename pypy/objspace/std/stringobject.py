@@ -52,11 +52,15 @@ def _is_generic(space, w_self, fun):
         c = v[0]
         return space.newbool(fun(c))
     else:
-        for idx in range(len(v)):
-            if not fun(v[idx]):
-                return space.w_False
-        return space.w_True
+        return _is_generic_loop(space, v, fun)
 _is_generic._annspecialcase_ = "specialize:arg(2)"
+
+def _is_generic_loop(space, v, fun):
+    for idx in range(len(v)):
+        if not fun(v[idx]):
+            return space.w_False
+    return space.w_True
+_is_generic_loop._annspecialcase_ = "specialize:arg(2)"
 
 def _upper(ch):
     if ch.islower():
