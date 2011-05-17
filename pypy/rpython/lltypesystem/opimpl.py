@@ -516,6 +516,9 @@ def op_debug_stop(category):
 def op_debug_offset():
     return debug.debug_offset()
 
+def op_debug_flush():
+    pass
+
 def op_have_debug_prints():
     return debug.have_debug_prints()
 

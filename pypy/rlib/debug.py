@@ -157,6 +157,23 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('debug_offset', [], resulttype=lltype.Signed)
 
+
+def debug_flush():
+    """ Flushes the debug file
+    """
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_flush
+
+    def compute_result_annotation(self):
+        return None
+    
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('debug_flush', [])
+
+
 def llinterpcall(RESTYPE, pythonfunction, *args):
     """When running on the llinterp, this causes the llinterp to call to
     the provided Python function with the run-time value of the given args.

@@ -28,7 +28,7 @@
 #define PYPY_DEBUG_STOP(cat)      pypy_debug_stop(cat)
 #define OP_DEBUG_OFFSET(res)      res = pypy_debug_offset()
 #define OP_HAVE_DEBUG_PRINTS(r)   r = (pypy_have_debug_prints & 1)
-
+#define OP_DEBUG_FLUSH() fflush(pypy_debug_file)
 
 /************************************************************/
 

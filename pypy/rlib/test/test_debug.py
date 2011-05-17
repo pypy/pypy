@@ -60,6 +60,7 @@ class DebugTests:
             debug_start("mycat")
             debug_print("foo", 2, "bar", x)
             debug_stop("mycat")
+            debug_flush() # does nothing
             debug_offset() # should not explode at least
             return have_debug_prints()
 

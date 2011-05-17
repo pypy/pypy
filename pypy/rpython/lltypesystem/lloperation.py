@@ -554,6 +554,7 @@ LL_OPERATIONS = {
     'debug_stop':           LLOp(canrun=True),
     'have_debug_prints':    LLOp(canrun=True),
     'debug_offset':         LLOp(canrun=True),
+    'debug_flush':          LLOp(canrun=True),
     'debug_pdb':            LLOp(),
     'debug_assert':         LLOp(tryfold=True),
     'debug_fatalerror':     LLOp(),

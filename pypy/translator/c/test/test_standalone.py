@@ -3,7 +3,7 @@ import sys, os, re
 
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.debug import ll_assert, have_debug_prints
+from pypy.rlib.debug import ll_assert, have_debug_prints, debug_flush
 from pypy.rlib.debug import debug_print, debug_start, debug_stop, debug_offset
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt import all
@@ -284,6 +284,7 @@ class TestStandalone(StandaloneTests):
             debug_stop   ("mycat")
             if have_debug_prints(): x += "a"
             debug_print("toplevel")
+            debug_flush()
             os.write(1, x + "." + str(debug_offset()) + '.\n')
             return 0
         t, cbuilder = self.compile(entry_point)
