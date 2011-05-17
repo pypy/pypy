@@ -762,19 +762,27 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             assert space.config.objspace.std.withmethodcache
             _, w_descr = w_type._pure_lookup_where_with_method_cache(
                 name, version_tag)
+            #
             selector = ("", INVALID)
             if w_descr is None:
-                selector = (name, DICT)   # common case: not shadowing anything
+                selector = (name, DICT) #common case: no such attr in the class
             elif isinstance(w_descr, TypeCell):
-                pass    # shadowing a TypeCell: give up
+                pass              # we have a TypeCell in the class: give up
+            elif space.is_data_descr(w_descr):
+                # we have a data descriptor, which means the dictionary value
+                # (if any) has no relevance.
+                from pypy.interpreter.typedef import Member
+                descr = space.interpclass_w(w_descr)
+                if isinstance(descr, Member):    # it is a slot -- easy case
+                    selector = ("slot", SLOTS_STARTING_FROM + descr.index)
             else:
-                if space.is_data_descr(w_descr):
-                    from pypy.interpreter.typedef import Member
-                    descr = space.interpclass_w(w_descr)
-                    if isinstance(descr, Member):    # a slot
-                        selector = ("slot", SLOTS_STARTING_FROM + descr.index)
-                else:
-                    selector = (name, DICT)   # shadowing a non-data descr
+                # There is a non-data descriptor in the class.  If there is
+                # also a dict attribute, use the latter, caching its position.
+                # If not, we loose.  We could do better in this case too,
+                # but we don't care too much; the common case of a method
+                # invocation is handled by LOOKUP_METHOD_xxx below.
+                selector = (name, DICT)
+            #
             if selector[1] != INVALID:
                 index = map.index(selector)
                 if index >= 0:
@@ -818,3 +826,7 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
     if w_method is None or isinstance(w_method, TypeCell):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
+
+# XXX fix me: if a function contains a loop with both LOAD_ATTR and
+# XXX LOOKUP_METHOD on the same attribute name, it keeps trashing and
+# XXX rebuilding the cache

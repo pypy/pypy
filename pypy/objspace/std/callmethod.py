@@ -51,6 +51,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
             # this handles directly the common case
             #   module.function(args..)
             w_value = w_obj.getdictvalue(space, name)
+            # xxx we could also use the mapdict cache in that case, probably
         else:
             typ = type(w_descr)
             if typ is function.Function or typ is function.FunctionWithFixedCode:
