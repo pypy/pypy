@@ -807,6 +807,11 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
     map = w_obj._get_mapdict_map()
     if map is None or isinstance(map.terminator, DevolvedDictTerminator):
         return
+    # We know here that w_obj.getdictvalue(space, name) just returned None,
+    # so the 'name' is not in the instance.  We repeat the lookup to find it
+    # in the class, this time taking care of the result: it can be either a
+    # quasi-constant class attribute, or actually a TypeCell --- which we
+    # must not cache.  (It should not be None here, but you never know...)
     assert space.config.objspace.std.withmethodcache
     _, w_method = w_type._pure_lookup_where_with_method_cache(name,
                                                               version_tag)
