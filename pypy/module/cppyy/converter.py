@@ -14,10 +14,12 @@ from pypy.module.cppyy import helper, capi
 _converters = {}
 
 def get_rawobject(space, w_obj):
-    if w_obj:
+    if not space.eq_w(w_obj, space.w_None):
+        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
         w_cpp_instance = space.findattr(w_obj, space.wrap("_cppinstance"))
-        if w_cpp_instance:
-            return w_cpp_instance.rawobject
+        cpp_instance = space.interp_w(W_CPPInstance, w_cpp_instance, can_be_None=True)
+        if cpp_instance:
+            return cpp_instance.rawobject
     return lltype.nullptr(rffi.CCHARP.TO)
 
 
