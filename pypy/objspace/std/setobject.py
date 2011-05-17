@@ -212,8 +212,13 @@ class EmptySetStrategy(SetStrategy):
         return clone
 
     def add(self, w_set, w_key):
-        #XXX switch to correct strategy later
-        w_set.switch_to_object_strategy(self.space)
+        from pypy.objspace.std.intobject import W_IntObject
+        if type(w_key) is W_IntObject:
+            w_set.strategy = self.space.fromcache(IntegerSetStrategy)
+        else:
+            w_set.strategy = self.space.fromcache(ObjectSetStrategy)
+
+        w_set.sstorage = w_set.strategy.get_empty_storage()
         w_set.add(w_key)
 
     def delitem(self, w_set, w_item):
@@ -550,6 +555,9 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("integer")
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
+
+    def get_empty_storage(self):
+        return self.cast_to_void_star({})
 
     def get_empty_dict(self):
         return {}
