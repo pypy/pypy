@@ -769,6 +769,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             if selector[1] != INVALID:
                 index = map.index(selector)
                 if index >= 0:
+                    # note that if map.terminator is a DevolvedDictTerminator,
+                    # map.index() will always return -1 if selector[1]==DICT
                     _fill_cache(pycode, nameindex, map, version_tag, index)
                     return w_obj._mapdict_read_storage(index)
     if space.config.objspace.std.withmethodcachecounter:
@@ -793,6 +795,6 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(pycode, nameindex, w_obj, w_type, w_
     if version_tag is None:
         return
     map = w_obj._get_mapdict_map()
-    if map is None:
+    if map is None or isinstance(map.terminator, DevolvedDictTerminator):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
