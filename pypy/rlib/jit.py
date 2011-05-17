@@ -258,7 +258,7 @@ class Entry(ExtRegistryEntry):
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
-# User interface for the hotpath JIT policy
+# User interface for the warmspot JIT policy
 
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
