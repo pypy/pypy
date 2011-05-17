@@ -247,7 +247,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-<<<<<<< local
     def test_boolrewrite_invers(self):
         for a, b, res, ops in (('2000', '2000', 20001000, 51),
                                ( '500',  '500', 15001500, 81),
