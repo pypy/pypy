@@ -1,3 +1,5 @@
+import math
+
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.micronumpy.interp_numarray import BaseArray, Call1, Call2, Signature
 from pypy.rlib import rfloat
@@ -27,6 +29,14 @@ def ufunc2(func):
 @ufunc
 def absolute(value):
     return abs(value)
+
+@ufunc2
+def copysign(lvalue, rvalue):
+    return rfloat.copysign(lvalue, rvalue)
+
+@ufunc
+def exp(value):
+    return math.exp(value)
 
 @ufunc2
 def maximum(lvalue, rvalue):

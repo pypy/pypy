@@ -58,3 +58,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = reciprocal(a)
         for i in range(4):
             assert b[i] == reference[i]
+
+    def test_copysign(self):
+        from numpy import array, copysign
+
+        reference = [5.0, -0.0, 0.0, -6.0]
+        a = array([-5.0, 0.0, 0.0, 6.0])
+        b = array([5.0, -0.0, 3.0, -6.0])
+        c = copysign(a, b)
+        for i in range(4):
+            assert c[i] == reference[i]
+
+    def test_exp(self):
+        import math
+        from numpy import array, exp
+
+        a = array([-5.0, -0.0, 0.0, float("inf")])
+        b = exp(a)
+        for i in range(4):
+            assert b[i] == math.exp(a[i])
