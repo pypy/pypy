@@ -1676,3 +1676,36 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         import pdb;pdb.set_trace()
         assert loop.match_by_id('div', "")  # optimized away
+
+    def test_oldstyle_newstyle_mix(self):
+        def main():
+            class A:
+                pass
+
+            class B(object, A):
+                def __init__(self, x):
+                    self.x = x
+
+            i = 0
+            b = B(1)
+            while i < 100:
+                v = b.x # ID: loadattr
+                i += v
+            return i
+
+        log = self.run(main, [], threshold=80)
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('loadattr',
+        '''
+        guard_not_invalidated(descr=...)
+        i19 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
+        guard_no_exception(descr=...)
+        i21 = int_and(i19, _)
+        i22 = int_is_true(i21)
+        guard_true(i22, descr=...)
+        i26 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
+        guard_no_exception(descr=...)
+        i28 = int_and(i26, _)
+        i29 = int_is_true(i28)
+        guard_true(i29, descr=...)
+        ''')
