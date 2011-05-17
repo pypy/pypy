@@ -7,6 +7,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'set_param':    'interp_jit.set_param',
         'residual_call': 'interp_jit.residual_call',
+        'getjitinfo': 'interp_info.getjitinfo',
     }
 
     def setup_after_space_initialization(self):
