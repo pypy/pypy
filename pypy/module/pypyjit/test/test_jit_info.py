@@ -20,5 +20,5 @@ class AppTestJitInfo(object):
 
         info = pypyjit.getjitinfo(self.code)
         assert info[13].counter == 13
-        # assert did not crash
+
 

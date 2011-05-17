@@ -4,7 +4,7 @@ import sys, os, re
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.debug import ll_assert, have_debug_prints
-from pypy.rlib.debug import debug_print, debug_start, debug_stop
+from pypy.rlib.debug import debug_print, debug_start, debug_stop, debug_offset
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt import all
 from pypy.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
@@ -284,12 +284,12 @@ class TestStandalone(StandaloneTests):
             debug_stop   ("mycat")
             if have_debug_prints(): x += "a"
             debug_print("toplevel")
-            os.write(1, x + '.\n')
+            os.write(1, x + "." + str(debug_offset()) + '.\n')
             return 0
         t, cbuilder = self.compile(entry_point)
         # check with PYPYLOG undefined
         out, err = cbuilder.cmdexec("", err=True, env={})
-        assert out.strip() == 'got:a.'
+        assert out.strip() == 'got:a.-1.'
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -298,7 +298,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG defined to an empty string (same as undefined)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ''})
-        assert out.strip() == 'got:a.'
+        assert out.strip() == 'got:a.-1.'
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -307,7 +307,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.'
+        assert out.strip() == 'got:bcda.-1.'
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -320,7 +320,8 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': ':%s' % path})
-        assert out.strip() == 'got:bcda.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:bcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -335,7 +336,8 @@ class TestStandalone(StandaloneTests):
         # check with PYPYLOG=somefilename
         path = udir.join('test_debug_xxx_prof.log')
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
-        assert out.strip() == 'got:a.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:a.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -351,7 +353,8 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx_myc.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc:%s' % path})
-        assert out.strip() == 'got:bda.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:bda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -366,7 +369,8 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx_cat.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'cat:%s' % path})
-        assert out.strip() == 'got:ca.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:ca.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -380,7 +384,8 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx_myc_cat2.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc,cat2:%s' % path})
-        assert out.strip() == 'got:bcda.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:bcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -401,7 +406,7 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_does_not_show_up.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': ':%s' % path})
-        assert out.strip() == 'got:.'
+        assert out.strip() == 'got:.-1.'
         assert not err
         assert path.check(file=0)
 

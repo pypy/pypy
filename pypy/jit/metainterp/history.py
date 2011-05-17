@@ -771,6 +771,9 @@ class LoopToken(AbstractDescr):
     # CompiledLoopToken has its __del__ called, which frees the assembler
     # memory and the ResumeGuards.
     compiled_loop_token = None
+    # extra debugging info to fish from the log
+    jitlog_start = -1
+    jitlog_end = -1
 
     def __init__(self):
         # For memory management of assembled loops
