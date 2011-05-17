@@ -140,6 +140,23 @@ class Entry(ExtRegistryEntry):
             return hop.inputconst(lltype.Bool, False)
 
 
+def debug_offset():
+    """ Return an offset in log file
+    """
+    return -1
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_offset
+
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
+        return hop.genop('debug_offset', [], resulttype=lltype.Signed)
+
 def llinterpcall(RESTYPE, pythonfunction, *args):
     """When running on the llinterp, this causes the llinterp to call to
     the provided Python function with the run-time value of the given args.

@@ -2,7 +2,7 @@
 import py
 from pypy.rlib.debug import check_annotation, make_sure_not_resized
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
-from pypy.rlib.debug import have_debug_prints
+from pypy.rlib.debug import have_debug_prints, debug_offset
 from pypy.rlib.debug import check_nonneg, IntegerCanBeNegative
 from pypy.rlib import debug
 from pypy.rpython.test.test_llinterp import interpret
@@ -60,6 +60,7 @@ class DebugTests:
             debug_start("mycat")
             debug_print("foo", 2, "bar", x)
             debug_stop("mycat")
+            debug_offset() # should not explode at least
             return have_debug_prints()
 
         try:
