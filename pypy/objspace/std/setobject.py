@@ -422,7 +422,23 @@ class AbstractUnwrappedSetStrategy(object):
                 result.add(w_key)
         return result
 
+    def symmetric_difference_update_match(self, w_set, w_other):
+        d_new = self.get_empty_dict()
+        d_this = self.cast_from_void_star(w_set.sstorage)
+        d_other = self.cast_from_void_star(w_other.sstorage)
+        for key in d_other.keys():
+            if not key in d_this:
+                d_new[key] = None
+        for key in d_this.keys():
+            if not key in d_other:
+                d_new[key] = None
+
+        w_set.sstorage = self.cast_to_void_star(d_new)
+
     def symmetric_difference_update(self, w_set, w_other):
+        if w_set.strategy is w_other.strategy:
+            self.symmetric_difference_update_match(w_set, w_other)
+            return
         #XXX no wrapping when strategies are equal
         newsetdata = newset(self.space)
         for w_key in w_set.getkeys():
