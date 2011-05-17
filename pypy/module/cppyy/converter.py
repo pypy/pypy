@@ -15,7 +15,6 @@ _converters = {}
 
 def get_rawobject(space, w_obj):
     if w_obj:
-        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
         w_cpp_instance = space.findattr(w_obj, space.wrap("_cppinstance"))
         if w_cpp_instance:
             return w_cpp_instance.rawobject
@@ -87,9 +86,9 @@ class ArrayTypeConverter(TypeConverter):
 
 class PtrTypeConverter(ArrayTypeConverter):
     def _get_raw_address(self, space, w_obj, offset):
-        fieldptr = TypeConverter._get_raw_address(self, space, w_obj, offset)
-        ptrptr = rffi.cast(rffi.LONGP, fieldptr)
-        return ptrptr[0]
+        address = TypeConverter._get_raw_address(self, space, w_obj, offset)
+        ptr2ptr = rffi.cast(rffi.LONGP, address)
+        return rffi.cast(rffi.CCHARP, ptr2ptr[0])
 
 
 class VoidConverter(TypeConverter):
@@ -127,9 +126,9 @@ class BoolConverter(TypeConverter):
             raise OperationError(space.w_TypeError,
                                  space.wrap("boolean value should be bool, or integer 1 or 0"))
         if arg:
-           address[0] = '\x01'
+            address[0] = '\x01'
         else:
-           address[0] = '\x00'
+            address[0] = '\x00'
 
 class CharConverter(TypeConverter):
     _immutable = True
@@ -191,7 +190,7 @@ class LongConverter(TypeConverter):
         longptr = rffi.cast(rffi.LONGP, address)
         longptr[0] = space.c_int_w(w_value)
 
-class UnsignedLongConverter(LongConverter):
+class UnsignedLongConverter(TypeConverter):
     _immutable = True
     libffitype = libffi.types.ulong
 

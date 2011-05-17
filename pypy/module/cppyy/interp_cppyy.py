@@ -248,14 +248,14 @@ class W_CPPDataMember(Wrappable):
         self.offset = offset
 
     def is_static(self):
-        return self.space.wrap(False)
+        return self.space.w_False
 
     def __get__(self, args_w):
         return self.converter.from_memory(self.space, args_w[0], self.offset)
 
     def __set__(self, args_w):
         self.converter.to_memory(self.space, args_w[0], args_w[1], self.offset)
-        return None
+        return self.space.w_None
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',
@@ -267,14 +267,14 @@ W_CPPDataMember.typedef = TypeDef(
 
 class W_CPPStaticDataMember(W_CPPDataMember):
     def is_static(self):
-        return self.space.wrap(True)
+        return self.space.w_True
 
     def __get__(self, args_w):
         return self.converter.from_memory(self.space, self.space.w_None, self.offset)
 
     def __set__(self, args_w):
         self.converter.to_memory(self.space, self.space.w_None, args_w[1], self.offset)
-        return None
+        return self.space.w_None
 
 W_CPPStaticDataMember.typedef = TypeDef(
     'CPPStaticDataMember',
