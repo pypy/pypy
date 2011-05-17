@@ -930,6 +930,26 @@ class AppTestWithMapDictAndCounters(object):
         got = a.method()
         assert got == 44
 
+    def test_bug_slot_via_changing_member_descr(self):
+        class A(object):
+            __slots__ = ['a', 'b', 'c', 'd']
+        x = A()
+        x.a = 'a'
+        x.b = 'b'
+        x.c = 'c'
+        x.d = 'd'
+        got = x.a
+        assert got == 'a'
+        A.a = A.b
+        got = x.a
+        assert got == 'b'
+        A.a = A.c
+        got = x.a
+        assert got == 'c'
+        A.a = A.d
+        got = x.a
+        assert got == 'd'
+
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):
         cls.space = gettestobjspace(

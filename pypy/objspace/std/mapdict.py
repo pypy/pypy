@@ -754,24 +754,32 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
             return space._handle_getattribute(w_descr, w_obj, w_name)
-
         version_tag = w_type.version_tag()
         if version_tag is not None:
             name = space.str_w(w_name)
-            w_descr = w_type.lookup(name)
+            # We need to care for obscure cases in which the w_descr is
+            # a TypeCell, which may change without changing the version_tag
+            assert space.config.objspace.std.withmethodcache
+            _, w_descr = w_type._pure_lookup_where_with_method_cache(
+                name, version_tag)
             selector = ("", INVALID)
-            if w_descr is not None and space.is_data_descr(w_descr):
-                from pypy.interpreter.typedef import Member
-                descr = space.interpclass_w(w_descr)
-                if isinstance(descr, Member):
-                    selector = ("slot", SLOTS_STARTING_FROM + descr.index)
+            if w_descr is None:
+                selector = (name, DICT)   # common case: not shadowing anything
+            elif isinstance(w_descr, TypeCell):
+                pass    # shadowing a TypeCell: give up
             else:
-                selector = (name, DICT)
+                if space.is_data_descr(w_descr):
+                    from pypy.interpreter.typedef import Member
+                    descr = space.interpclass_w(w_descr)
+                    if isinstance(descr, Member):    # a slot
+                        selector = ("slot", SLOTS_STARTING_FROM + descr.index)
+                else:
+                    selector = (name, DICT)   # shadowing a non-data descr
             if selector[1] != INVALID:
                 index = map.index(selector)
                 if index >= 0:
-                    # note that if map.terminator is a DevolvedDictTerminator,
-                    # map.index() will always return -1 if selector[1]==DICT
+                    # Note that if map.terminator is a DevolvedDictTerminator,
+                    # map.index() will always return -1 if selector[1]==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, index)
                     return w_obj._mapdict_read_storage(index)
     if space.config.objspace.std.withmethodcachecounter:
