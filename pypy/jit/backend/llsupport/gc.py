@@ -17,6 +17,7 @@ from pypy.jit.backend.llsupport.descr import BaseSizeDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
 from pypy.jit.backend.llsupport.descr import GcPtrFieldDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
+from pypy.rpython.memory.gctransform import asmgcroot
 
 # ____________________________________________________________
 
@@ -323,7 +324,6 @@ class GcRootMap_asmgcc(object):
 
     @rgc.no_collect
     def freeing_block(self, start, stop):
-        from pypy.rpython.memory.gctransform import asmgcroot
         # if [start:stop] is a raw block of assembler, then look up the
         # corresponding gcroot markers, and mark them as freed now in
         # self._gcmap by setting the 2nd address of every entry to NULL.
