@@ -64,7 +64,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                             not jit.we_are_jitted()):
                         # let mapdict cache stuff
                         LOOKUP_METHOD_mapdict_fill_cache_method(
-                            f.getcode(), nameindex, w_obj, w_type, w_descr)
+                            space, f.getcode(), name, nameindex, w_obj, w_type)
                     return
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)

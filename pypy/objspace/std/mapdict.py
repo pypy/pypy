@@ -8,6 +8,7 @@ from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
 from pypy.objspace.std.dictmultiobject import _is_sane_hash
 from pypy.objspace.std.objectobject import W_ObjectObject
+from pypy.objspace.std.typeobject import TypeCell
 
 # ____________________________________________________________
 # attribute shapes
@@ -790,11 +791,17 @@ def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
             return True
     return False
 
-def LOOKUP_METHOD_mapdict_fill_cache_method(pycode, nameindex, w_obj, w_type, w_method):
+def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
+                                            w_obj, w_type):
     version_tag = w_type.version_tag()
     if version_tag is None:
         return
     map = w_obj._get_mapdict_map()
     if map is None or isinstance(map.terminator, DevolvedDictTerminator):
+        return
+    assert space.config.objspace.std.withmethodcache
+    _, w_method = w_type._pure_lookup_where_with_method_cache(name,
+                                                              version_tag)
+    if w_method is None or isinstance(w_method, TypeCell):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
