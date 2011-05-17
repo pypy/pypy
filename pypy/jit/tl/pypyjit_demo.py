@@ -1,11 +1,10 @@
 
 try:
-    def f(x):
-        i = 0
-        while i < x:
-            range(i)
-            i += 1
-    f(10000)
+    import numpy
+    a = numpy.array(range(10))
+    b = a + a + a
+    print b[3]
+
 except Exception, e:
     print "Exception: ", type(e)
     print e

@@ -113,7 +113,7 @@ class Entry(ExtRegistryEntry):
                         flags['fresh_virtualizable'] = True
                     s_x = annmodel.SomeInstance(s_x.classdef,
                                                 s_x.can_be_None,
-                                                flags)        
+                                                flags)
         return s_x
 
     def specialize_call(self, hop, **kwds_i):
@@ -201,7 +201,7 @@ class AssertGreenFailed(Exception):
 # VRefs
 
 def virtual_ref(x):
-    
+
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
     is that the object 'x' is supposed to be JITted as a virtual between
@@ -275,7 +275,7 @@ unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
 # ____________________________________________________________
 
-class JitDriver(object):    
+class JitDriver(object):
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
     will allow us (later) to support a single RPython program with
@@ -557,7 +557,7 @@ class ExtSetParam(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         from pypy.rpython.lltypesystem.rstr import string_repr
-        
+
         hop.exception_cannot_occur()
         driver = self.instance.im_self
         name = hop.args_s[0].const

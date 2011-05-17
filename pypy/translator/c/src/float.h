@@ -43,3 +43,4 @@
 #define OP_CAST_FLOAT_TO_LONGLONG(x,r) r = (long long)(x)
 #define OP_CAST_FLOAT_TO_ULONGLONG(x,r) r = (unsigned long long)(x)
 #endif
+
