@@ -179,24 +179,6 @@ class AssertGreenFailed(Exception):
     pass
 
 
-##def force_virtualizable(virtualizable):
-##    pass
-
-##class Entry(ExtRegistryEntry):
-##    _about_ = force_virtualizable
-
-##    def compute_result_annotation(self):
-##        from pypy.annotation import model as annmodel
-##        return annmodel.s_None
-
-##    def specialize_call(self, hop):
-##        [vinst] = hop.inputargs(hop.args_r[0])
-##        cname = inputconst(lltype.Void, None)
-##        cflags = inputconst(lltype.Void, {})
-##        hop.exception_cannot_occur()
-##        return hop.genop('jit_force_virtualizable', [vinst, cname, cflags],
-##                         resulttype=lltype.Void)
-
 # ____________________________________________________________
 # VRefs
 
