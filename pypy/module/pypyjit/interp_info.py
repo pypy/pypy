@@ -1,21 +1,23 @@
 
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.baseobjspace import Wrappable, ObjSpace, W_Root
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pycode import PyCode
 
-class JitInfo(W_Root):
-    pass
+class MergePointInfo(Wrappable):
+    def __init__(self, jitcell):
+        self.counter = jitcell.counter
 
-JitInfo.typedef = TypeDef(
-    'JitInfo',
+MergePointInfo.typedef = TypeDef(
+    'MergePointInfo',
+    counter = interp_attrproperty('counter', cls=MergePointInfo),
 )
-JitInfo.typedef.acceptable_as_base_class = False
+MergePointInfo.typedef.acceptable_as_base_class = False
 
 @unwrap_spec(ObjSpace, W_Root)
 def getjitinfo(space, w_obj):
     pycode = space.interp_w(PyCode, w_obj)
     w_dict = space.newdict()
-    for k in pycode.jit_cells:
-        space.setitem(w_dict, space.wrap(k), JitInfo())
+    for k, v in pycode.jit_cells.items():
+        space.setitem(w_dict, space.wrap(k), MergePointInfo(v))
     return w_dict
