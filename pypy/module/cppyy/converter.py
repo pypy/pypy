@@ -62,6 +62,7 @@ class TypeConverter(object):
 
 class ArrayTypeConverter(TypeConverter):
     _immutable = True
+    _immutable_fields_ = ["size"]
     typecode = ''
     typesize = 0         # TODO: get sizeof(type) from system
 
@@ -87,6 +88,8 @@ class ArrayTypeConverter(TypeConverter):
 
 
 class PtrTypeConverter(ArrayTypeConverter):
+    _immutable_ = True
+
     def _get_raw_address(self, space, w_obj, offset):
         address = TypeConverter._get_raw_address(self, space, w_obj, offset)
         ptr2ptr = rffi.cast(rffi.LONGP, address)
@@ -106,6 +109,8 @@ class VoidConverter(TypeConverter):
 
 
 class BoolConverter(TypeConverter):
+    _immutable = True
+
     def convert_argument(self, space, w_obj):
         arg = space.c_int_w(w_obj)
         if arg != False and arg != True:
@@ -230,6 +235,8 @@ class ShortConverter(LongConverter):
         shortptr[0] = rffi.cast(rffi.SHORT, self._unwrap_object(space, w_value))
 
 class FloatConverter(TypeConverter):
+    _immutable = True
+
     def _unwrap_object(self, space, w_obj):
         return r_singlefloat(space.float_w(w_obj))
 
@@ -275,6 +282,8 @@ class DoubleConverter(TypeConverter):
 
 
 class CStringConverter(TypeConverter):
+    _immutable = True
+
     def convert_argument(self, space, w_obj):
         arg = space.str_w(w_obj)
         x = rffi.str2charp(arg)
@@ -282,28 +291,23 @@ class CStringConverter(TypeConverter):
 
 
 class ShortArrayConverter(ArrayTypeConverter):
-    _immutable_ = True
     typecode = 'h'
     typesize = 2
 
 class LongArrayConverter(ArrayTypeConverter):
-    _immutable_ = True
     typecode = 'l'
     typesize = 4
 
 class FloatArrayConverter(ArrayTypeConverter):
-    _immutable_ = True
     typecode = 'f'
     typesize = 4
 
 class DoubleArrayConverter(ArrayTypeConverter):
-    _immutable_ = True
     typecode = 'd'
     typesize = 8
 
 
 class ShortPtrConverter(PtrTypeConverter):
-    _immutable_ = True
     typecode = 'h'
     typesize = 2
 
@@ -315,23 +319,22 @@ class ShortPtrConverter(PtrTypeConverter):
 #        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
 
 class LongPtrConverter(PtrTypeConverter):
-    _immutable_ = True
     typecode = 'l'
     typesize = 4
 
 class FloatPtrConverter(PtrTypeConverter):
-    _immutable_ = True
     typecode = 'f'
     typesize = 4
 
 class DoublePtrConverter(PtrTypeConverter):
-    _immutable_ = True
     typecode = 'd'
     typesize = 8
 
 
 class InstancePtrConverter(TypeConverter):
     _immutable_ = True
+    _immutable_fields_ = ["cpptype"]
+
     def __init__(self, space, cpptype):
         self.cpptype = cpptype
 
