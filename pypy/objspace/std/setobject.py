@@ -97,6 +97,10 @@ class W_BaseSetObject(W_Object):
         self.strategy = space.fromcache(ObjectSetStrategy)
         self.sstorage = self.strategy.cast_to_void_star(d)
 
+    def switch_to_empty_strategy(self):
+        self.strategy = self.space.fromcache(EmptySetStrategy)
+        self.sstorage = self.strategy.get_empty_storage()
+
     # _____________ strategy methods ________________
 
     def clear(self):
@@ -305,7 +309,7 @@ class AbstractUnwrappedSetStrategy(object):
         return len(self.cast_from_void_star(w_set.sstorage))
 
     def clear(self, w_set):
-        self.cast_from_void_star(w_set.sstorage).clear()
+        w_set.switch_to_empty_strategy()
 
     def copy(self, w_set):
         #XXX do not copy FrozenDict
@@ -937,6 +941,8 @@ def _discard_from_set(space, w_left, w_item):
     Returns True if successfully removed.
     """
     x = w_left.discard(w_item)
+    if w_left.length() == 0:
+        w_left.switch_to_empty_strategy()
     return x
 
 def set_discard__Set_ANY(space, w_left, w_item):
