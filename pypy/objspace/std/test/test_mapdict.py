@@ -916,6 +916,20 @@ class AppTestWithMapDictAndCounters(object):
         got = a.method()
         assert got == 43
 
+    def test_bug_method_change(self):
+        class A(object):
+            def method(self):
+                return 42
+        a = A()
+        got = a.method()
+        assert got == 42
+        A.method = lambda self: 43
+        got = a.method()
+        assert got == 43
+        A.method = lambda self: 44
+        got = a.method()
+        assert got == 44
+
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):
         cls.space = gettestobjspace(
