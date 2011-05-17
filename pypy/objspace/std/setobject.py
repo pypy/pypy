@@ -658,7 +658,7 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
     for item_w in w_iterable:
         if type(item_w) is not W_IntObject:
             break;
-        if item_w is w_iterable[:-1]:
+        if item_w is w_iterable[-1]:
             w_set.strategy = space.fromcache(IntegerSetStrategy)
             w_set.sstorage = w_set.strategy.get_storage_from_list(w_iterable)
             return
