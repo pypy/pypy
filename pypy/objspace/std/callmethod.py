@@ -13,8 +13,6 @@ like: (on the left, without the new bytecodes; on the right, with them)
 from pypy.interpreter import function
 from pypy.objspace.descroperation import object_getattribute
 from pypy.rlib import jit, rstack # for resume points
-from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
-    LOOKUP_METHOD_mapdict_fill_cache_method
 
 
 # This module exports two extra methods for StdObjSpaceFrame implementing
@@ -33,13 +31,6 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     #
     space = f.space
     w_obj = f.popvalue()
-
-    if space.config.objspace.std.withmapdict and not jit.we_are_jitted():
-        # mapdict has an extra-fast version of this function
-        from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict
-        if LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
-            return
-
     w_name = f.getname_w(nameindex)
     w_value = None
 
@@ -60,11 +51,6 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                     # nothing in the instance
                     f.pushvalue(w_descr)
                     f.pushvalue(w_obj)
-                    if (space.config.objspace.std.withmapdict and
-                            not jit.we_are_jitted()):
-                        # let mapdict cache stuff
-                        LOOKUP_METHOD_mapdict_fill_cache_method(
-                            f.getcode(), nameindex, w_obj, w_type, w_descr)
                     return
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)

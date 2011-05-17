@@ -723,13 +723,8 @@ class __extend__(pyframe.PyFrame):
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
         w_obj = self.popvalue()
-        if (self.space.config.objspace.std.withmapdict
-            and not jit.we_are_jitted()):
-            from pypy.objspace.std.mapdict import LOAD_ATTR_caching
-            w_value = LOAD_ATTR_caching(self.getcode(), w_obj, nameindex)
-        else:
-            w_attributename = self.getname_w(nameindex)
-            w_value = self.space.getattr(w_obj, w_attributename)
+        w_attributename = self.getname_w(nameindex)
+        w_value = self.space.getattr(w_obj, w_attributename)
         self.pushvalue(w_value)
     LOAD_ATTR._always_inline_ = True
 
