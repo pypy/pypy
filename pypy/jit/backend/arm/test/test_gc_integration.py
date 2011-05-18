@@ -20,13 +20,30 @@ from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcRefList, GcPtrF
 
 from pypy.jit.backend.arm.test.test_regalloc import MockAssembler
 from pypy.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
+from pypy.jit.backend.arm.regalloc import ARMv7RegisterMananger, ARMFrameManager,\
+     VFPRegisterManager
 
 CPU = getcpuclass()
 
 class MockGcRootMap(object):
+    is_shadow_stack = False
     def get_basic_shape(self, is_64_bit):
         return ['shape']
-    def add_ebp_offset(self, shape, offset):
+    def add_frame_offset(self, shape, offset):
+        shape.append(offset)
+    def add_callee_save_reg(self, shape, reg_index):
+        index_to_name = { 1: 'ebx', 2: 'esi', 3: 'edi' }
+        shape.append(index_to_name[reg_index])
+    def compress_callshape(self, shape, datablockwrapper):
+        assert datablockwrapper == 'fakedatablockwrapper'
+        assert shape[0] == 'shape'
+        return ['compressed'] + shape[1:]
+
+class MockGcRootMap2(object):
+    is_shadow_stack = False
+    def get_basic_shape(self, is_64_bit):
+        return ['shape']
+    def add_frame_offset(self, shape, offset):
         shape.append(offset)
     def add_callee_save_reg(self, shape, reg_index):
         index_to_name = { 1: 'ebx', 2: 'esi', 3: 'edi' }
@@ -42,7 +59,8 @@ class MockGcDescr(GcCache):
     get_funcptr_for_newarray = get_funcptr_for_new
     get_funcptr_for_newstr = get_funcptr_for_new
     get_funcptr_for_newunicode = get_funcptr_for_new
-    
+    get_malloc_slowpath_addr = None
+
     moving_gc = True
     gcrootmap = MockGcRootMap()
 
@@ -53,6 +71,40 @@ class MockGcDescr(GcCache):
         
     rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
 
+class TestRegallocDirectGcIntegration(object):
+
+    def test_mark_gc_roots(self):
+        py.test.skip('roots')
+        cpu = CPU(None, None)
+        cpu.setup_once()
+        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)))
+        regalloc.assembler.datablockwrapper = 'fakedatablockwrapper'
+        boxes = [BoxPtr() for i in range(len(ARMv7RegisterManager.all_regs))]
+        longevity = {}
+        for box in boxes:
+            longevity[box] = (0, 1)
+        regalloc.fm = ARMFrameManager()
+        regalloc.rm = ARMv7RegisterManager(longevity, regalloc.fm,
+                                         assembler=regalloc.assembler)
+        regalloc.xrm = VFPRegisterManager(longevity, regalloc.fm,
+                                             assembler=regalloc.assembler)
+        cpu = regalloc.assembler.cpu
+        for box in boxes:
+            regalloc.rm.try_allocate_reg(box)
+        TP = lltype.FuncType([], lltype.Signed)
+        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        regalloc.rm._check_invariants()
+        box = boxes[0]
+        regalloc.position = 0
+        regalloc.consider_call(ResOperation(rop.CALL, [box], BoxInt(),
+                                            calldescr))
+        assert len(regalloc.assembler.movs) == 3
+        #
+        mark = regalloc.get_mark_gc_roots(cpu.gc_ll_descr.gcrootmap)
+        assert mark[0] == 'compressed'
+        base = -WORD * FRAME_FIXED_SIZE
+        expected = ['ebx', 'esi', 'edi', base, base-WORD, base-WORD*2]
+        assert dict.fromkeys(mark[1:]) == dict.fromkeys(expected)
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
@@ -131,26 +183,29 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
 
 class GCDescrFastpathMalloc(GcLLDescription):
     gcrootmap = None
-    
+    expected_malloc_slowpath_size = WORD*2
+
     def __init__(self):
         GcCache.__init__(self, False)
         # create a nursery
         NTP = rffi.CArray(lltype.Signed)
         self.nursery = lltype.malloc(NTP, 16, flavor='raw')
-        self.addrs = lltype.malloc(rffi.CArray(lltype.Signed), 2,
+        self.addrs = lltype.malloc(rffi.CArray(lltype.Signed), 3,
                                    flavor='raw')
         self.addrs[0] = rffi.cast(lltype.Signed, self.nursery)
-        self.addrs[1] = self.addrs[0] + 64
-        # 64 bytes
+        self.addrs[1] = self.addrs[0] + 16*WORD
+        self.addrs[2] = 0
+        # 16 WORDs
         def malloc_slowpath(size):
-            assert size == WORD*2
+            assert size == self.expected_malloc_slowpath_size
             nadr = rffi.cast(lltype.Signed, self.nursery)
             self.addrs[0] = nadr + size
+            self.addrs[2] += 1
             return nadr
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed],
                                                lltype.Signed)
-        self._counter = 123
+        self._counter = 123000
 
     def can_inline_malloc(self, descr):
         return True
@@ -169,7 +224,7 @@ class GCDescrFastpathMalloc(GcLLDescription):
     def get_nursery_top_addr(self):
         return rffi.cast(lltype.Signed, self.addrs) + WORD
 
-    def get_malloc_fixedsize_slowpath_addr(self):
+    def get_malloc_slowpath_addr(self):
         fptr = llhelper(lltype.Ptr(self.MALLOC_SLOWPATH), self.malloc_slowpath)
         return rffi.cast(lltype.Signed, fptr)
 
@@ -185,9 +240,11 @@ class TestMallocFastpath(BaseTestRegalloc):
         cpu.gc_ll_descr = GCDescrFastpathMalloc()
         cpu.setup_once()
 
-        NODE = lltype.Struct('node', ('tid', lltype.Signed),
-                                     ('value', lltype.Signed))
-        nodedescr = cpu.sizeof(NODE)     # xxx hack: NODE is not a GcStruct
+        # hack: specify 'tid' explicitly, because this test is not running
+        # with the gc transformer
+        NODE = lltype.GcStruct('node', ('tid', lltype.Signed),
+                                       ('value', lltype.Signed))
+        nodedescr = cpu.sizeof(NODE)
         valuedescr = cpu.fielddescrof(NODE, 'value')
 
         self.cpu = cpu
@@ -206,7 +263,6 @@ class TestMallocFastpath(BaseTestRegalloc):
         self.namespace = locals().copy()
         
     def test_malloc_fastpath(self):
-        py.test.skip()
         ops = '''
         [i0]
         p0 = new(descr=nodedescr)
@@ -220,9 +276,9 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.nursery[1] == 42
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
         assert gc_ll_descr.addrs[0] == nurs_adr + (WORD*2)
+        assert gc_ll_descr.addrs[2] == 0   # slowpath never called
 
     def test_malloc_slowpath(self):
-        py.test.skip()
         ops = '''
         []
         p0 = new(descr=nodedescr)
@@ -241,9 +297,9 @@ class TestMallocFastpath(BaseTestRegalloc):
         gc_ll_descr = self.cpu.gc_ll_descr
         nadr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
         assert gc_ll_descr.addrs[0] == nadr + (WORD*2)
+        assert gc_ll_descr.addrs[2] == 1   # slowpath called once
 
     def test_new_with_vtable(self):
-        py.test.skip()
         ops = '''
         [i0, i1]
         p0 = new_with_vtable(ConstClass(vtable))
@@ -257,3 +313,116 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.nursery[1] == self.vtable_int
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
         assert gc_ll_descr.addrs[0] == nurs_adr + (WORD*3)
+        assert gc_ll_descr.addrs[2] == 0   # slowpath never called
+
+
+class Seen(Exception):
+    pass
+
+class GCDescrFastpathMallocVarsize(GCDescrFastpathMalloc):
+    def can_inline_malloc_varsize(self, arraydescr, num_elem):
+        return num_elem < 5
+    def get_funcptr_for_newarray(self):
+        return 52
+    def init_array_descr(self, A, descr):
+        descr.tid = self._counter
+        self._counter += 1
+    def args_for_new_array(self, descr):
+        raise Seen("args_for_new_array")
+
+class TestMallocVarsizeFastpath(BaseTestRegalloc):
+    def setup_method(self, method):
+        cpu = CPU(None, None)
+        cpu.vtable_offset = WORD
+        cpu.gc_ll_descr = GCDescrFastpathMallocVarsize()
+        cpu.setup_once()
+        self.cpu = cpu
+
+        ARRAY = lltype.GcArray(lltype.Signed)
+        arraydescr = cpu.arraydescrof(ARRAY)
+        self.arraydescr = arraydescr
+        ARRAYCHAR = lltype.GcArray(lltype.Char)
+        arraychardescr = cpu.arraydescrof(ARRAYCHAR)
+
+        self.namespace = locals().copy()
+
+    def test_malloc_varsize_fastpath(self):
+        # Hack.  Running the GcLLDescr_framework without really having
+        # a complete GC means that we end up with both the tid and the
+        # length being at offset 0.  In this case, so the length overwrites
+        # the tid.  This is of course only the case in this test class.
+        ops = '''
+        []
+        p0 = new_array(4, descr=arraydescr)
+        setarrayitem_gc(p0, 0, 142, descr=arraydescr)
+        setarrayitem_gc(p0, 3, 143, descr=arraydescr)
+        finish(p0)
+        '''
+        self.interpret(ops, [])
+        # check the nursery
+        gc_ll_descr = self.cpu.gc_ll_descr
+        assert gc_ll_descr.nursery[0] == 4
+        assert gc_ll_descr.nursery[1] == 142
+        assert gc_ll_descr.nursery[4] == 143
+        nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        assert gc_ll_descr.addrs[0] == nurs_adr + (WORD*5)
+        assert gc_ll_descr.addrs[2] == 0   # slowpath never called
+
+    def test_malloc_varsize_slowpath(self):
+        ops = '''
+        []
+        p0 = new_array(4, descr=arraydescr)
+        setarrayitem_gc(p0, 0, 420, descr=arraydescr)
+        setarrayitem_gc(p0, 3, 430, descr=arraydescr)
+        p1 = new_array(4, descr=arraydescr)
+        setarrayitem_gc(p1, 0, 421, descr=arraydescr)
+        setarrayitem_gc(p1, 3, 431, descr=arraydescr)
+        p2 = new_array(4, descr=arraydescr)
+        setarrayitem_gc(p2, 0, 422, descr=arraydescr)
+        setarrayitem_gc(p2, 3, 432, descr=arraydescr)
+        p3 = new_array(4, descr=arraydescr)
+        setarrayitem_gc(p3, 0, 423, descr=arraydescr)
+        setarrayitem_gc(p3, 3, 433, descr=arraydescr)
+        finish(p0, p1, p2, p3)
+        '''
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gc_ll_descr.expected_malloc_slowpath_size = 5*WORD
+        self.interpret(ops, [])
+        assert gc_ll_descr.addrs[2] == 1   # slowpath called once
+
+    def test_malloc_varsize_too_big(self):
+        ops = '''
+        []
+        p0 = new_array(5, descr=arraydescr)
+        finish(p0)
+        '''
+        py.test.raises(Seen, self.interpret, ops, [])
+
+    def test_malloc_varsize_variable(self):
+        ops = '''
+        [i0]
+        p0 = new_array(i0, descr=arraydescr)
+        finish(p0)
+        '''
+        py.test.raises(Seen, self.interpret, ops, [])
+
+    def test_malloc_array_of_char(self):
+        # check that fastpath_malloc_varsize() respects the alignment
+        # of the pointer in the nursery
+        ops = '''
+        []
+        p1 = new_array(1, descr=arraychardescr)
+        p2 = new_array(2, descr=arraychardescr)
+        p3 = new_array(3, descr=arraychardescr)
+        p4 = new_array(4, descr=arraychardescr)
+        finish(p1, p2, p3, p4)
+        '''
+        self.interpret(ops, [])
+        p1 = self.getptr(0, llmemory.GCREF)
+        p2 = self.getptr(1, llmemory.GCREF)
+        p3 = self.getptr(2, llmemory.GCREF)
+        p4 = self.getptr(3, llmemory.GCREF)
+        assert p1._obj.intval & (WORD-1) == 0    # aligned
+        assert p2._obj.intval & (WORD-1) == 0    # aligned
+        assert p3._obj.intval & (WORD-1) == 0    # aligned
+        assert p4._obj.intval & (WORD-1) == 0    # aligned
