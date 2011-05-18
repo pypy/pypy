@@ -4,7 +4,7 @@ from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET, N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
-from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
+from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager, ARMv7RegisterMananger,
                                                     _check_imm_arg, TempInt, TempPtr)
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -112,6 +112,8 @@ class AssemblerARM(ResOpAssembler):
             ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
             self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
                                                       ll_new_unicode)
+        if gc_ll_descr.get_malloc_slowpath_addr is not None:
+            self._build_malloc_slowpath()
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._exit_code_addr = self._gen_exit_path()
         self._leave_jitted_jook_save_exc = self._gen_leave_jitted_hook_code(True)
@@ -258,27 +260,25 @@ class AssemblerARM(ResOpAssembler):
     def _build_malloc_slowpath(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         mc = ARMv7Builder()
-        assert gcrootmap is not None and gcrootmap.is_shadow_stack
-        # ---- shadowstack ----
-        for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
-            mc.MOV_br(ofs, reg.value)
-        mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
-        if IS_X86_32:
-            mc.MOV_sr(0, edx.value)          # push argument
-        elif IS_X86_64:
-            mc.MOV_rr(edi.value, edx.value)
-        mc.CALL(imm(addr))
-        mc.ADD_ri(esp.value, 16 - WORD)
-        for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
-            mc.MOV_rb(reg.value, ofs)
-        if self.cpu.supports_floats:          # restore the XMM registers
-            for i in range(self.cpu.NUM_REGS):# from where they were saved
-                mc.MOVSD_xs(i, (WORD*2)+8*i)
+        assert self.cpu.supports_floats
+        mc.PUSH([r.lr.value])
+        with saved_registers(mc, [], r.caller_vfp_resp):
+            # At this point we know that the values we need to compute the size
+            # are stored in r0 and IP.
+            mc.SUB_rr(r.r0.value, r.ip.value, r.r0.value)
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+            # XXX replace with an STMxx operation
+            for reg, ofs in ARMv7RegisterMananger.REGLOC_TO_COPY_AREA_OFS.items():
+                mc.STR_ri(reg.value, r.fp.value, imm=ofs)
+            mc.BL(addr)
+            for reg, ofs in ARMv7RegisterMananger.REGLOC_TO_COPY_AREA_OFS.items():
+                mc.LDR_ri(reg.value, r.fp.value, imm=ofs)
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
-        mc.RET()
+        mc.gen_load_int(r.ip.value, nursery_free_adr)
+        mc.LDR_ri(r.ip.value, r.ip.value)
+        mc.POP([r.pc.value])
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.malloc_slowpath2 = rawstart
+        self.malloc_slowpath = rawstart
 
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = ARMv7Builder()
