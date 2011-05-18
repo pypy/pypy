@@ -823,16 +823,19 @@ class Regalloc(object):
             self.assembler._emit_call(self.assembler.malloc_func_addr,
                                     arglocs, self, result=op.result)
             self.possibly_free_vars(arglocs)
-            self.possibly_free_var(op.result)
+        self.possibly_free_var(op.result)
         return []
 
     def prepare_op_new_with_vtable(self, op, fcond):
         classint = op.getarg(0).getint()
         descrsize = heaptracker.vtable2descr(self.cpu, classint)
-        callargs = self._prepare_args_for_new_op(descrsize)
-        self.assembler._emit_call(self.assembler.malloc_func_addr,
-                                    callargs, self, result=op.result)
-        self.possibly_free_vars(callargs)
+        if self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize):
+            self.fastpath_malloc_fixedsize(op, descrsize)
+        else:
+            callargs = self._prepare_args_for_new_op(descrsize)
+            self.assembler._emit_call(self.assembler.malloc_func_addr,
+                                        callargs, self, result=op.result)
+            self.possibly_free_vars(callargs)
         self.possibly_free_var(op.result)
         return [imm(classint)]
 
