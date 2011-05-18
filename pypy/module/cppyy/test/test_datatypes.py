@@ -1,6 +1,5 @@
 import py, os, sys
 from pypy.conftest import gettestobjspace
-from pypy.module.cppyy import interp_cppyy, executor
 
 
 currpath = py.path.local(__file__).dirpath()
@@ -25,13 +24,13 @@ class AppTestDATATYPES:
             import cppyy
             return cppyy.load_lib(%r)""" % (shared_lib, ))
 
-    def testLoadLibCache(self):
+    def test0_load_lib_cache(self):
         """Test whether loading a library twice results in the same object."""
         import cppyy
         lib2 = cppyy.load_lib(self.shared_lib)
         assert self.datatypes is lib2
 
-    def test1InstanceDataReadAccess( self ):
+    def test1_instance_data_read_access( self ):
         """Test read access to instance public data and verify values"""
 
         import cppyy, sys
@@ -105,7 +104,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test2InstanceDataWriteAccess(self):
+    def test2_instance_data_write_access(self):
         """Test write access to instance public data and verify values"""
 
         import cppyy, sys
@@ -187,7 +186,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test3ClassReadAccess(self):
+    def test3_class_read_access(self):
         """Test read access to class public data and verify values"""
 
         import cppyy, sys
@@ -224,7 +223,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test4ClassDataWriteAccess(self):
+    def test4_class_data_write_access(self):
         """Test write access to class public data and verify values"""
 
         import cppyy, sys
@@ -288,7 +287,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test5RangeAccess(self):
+    def test5_range_access(self):
         """Test the ranges of integer types"""
 
         import cppyy, sys
@@ -304,7 +303,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test6TypeConversions(self):
+    def test6_type_conversions(self):
         """Test conversions between builtin types"""
 
         import cppyy, sys
