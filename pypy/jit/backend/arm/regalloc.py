@@ -10,12 +10,14 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_float_op,
                                                     _check_imm_arg)
 from pypy.jit.backend.arm.jump import remap_frame_layout_mixed
+from pypy.jit.backend.arm.arch import MY_COPY_OF_REGS, WORD
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxInt, BoxPtr, AbstractFailDescr,
                                         INT, REF, FLOAT, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
+from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
+                                             BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
@@ -89,6 +91,18 @@ class ARMv7RegisterMananger(RegisterManager):
     box_types             = None       # or a list of acceptable types
     no_lower_byte_regs    = all_regs
     save_around_call_regs = r.caller_resp
+
+    REGLOC_TO_COPY_AREA_OFS = {
+        r.r2: MY_COPY_OF_REGS + 0 * WORD,
+        r.r3: MY_COPY_OF_REGS + 1 * WORD,
+        r.r4: MY_COPY_OF_REGS + 2 * WORD,
+        r.r5: MY_COPY_OF_REGS + 3 * WORD,
+        r.r6: MY_COPY_OF_REGS + 4 * WORD,
+        r.r7: MY_COPY_OF_REGS + 5 * WORD,
+        r.r8: MY_COPY_OF_REGS + 6 * WORD,
+        r.r9: MY_COPY_OF_REGS + 7 * WORD,
+        r.r10: MY_COPY_OF_REGS + 8 * WORD,
+    }
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
@@ -801,11 +815,15 @@ class Regalloc(object):
         return [argloc, resloc]
 
     def prepare_op_new(self, op, fcond):
-        arglocs = self._prepare_args_for_new_op(op.getdescr())
-        self.assembler._emit_call(self.assembler.malloc_func_addr,
-                                arglocs, self, result=op.result)
-        self.possibly_free_vars(arglocs)
-        self.possibly_free_var(op.result)
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if gc_ll_descr.can_inline_malloc(op.getdescr()):
+            self.fastpath_malloc_fixedsize(op, op.getdescr())
+        else:
+            arglocs = self._prepare_args_for_new_op(op.getdescr())
+            self.assembler._emit_call(self.assembler.malloc_func_addr,
+                                    arglocs, self, result=op.result)
+            self.possibly_free_vars(arglocs)
+            self.possibly_free_var(op.result)
         return []
 
     def prepare_op_new_with_vtable(self, op, fcond):
@@ -821,12 +839,69 @@ class Regalloc(object):
     def prepare_op_new_array(self, op, fcond):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newarray is not None:
-            raise NotImplementedError
+            # framework GC
+            box_num_elem = op.getarg(0)
+            if isinstance(box_num_elem, ConstInt):
+                num_elem = box_num_elem.value
+                if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
+                                                         num_elem):
+                    self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
+                    return
+            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
+                op.getdescr())
+            arglocs = [imm(x) for x in args]
+            arglocs.append(self.loc(box_num_elem))
+            self._call(op, arglocs)
         # boehm GC
         itemsize, scale, basesize, ofs_length, _ = (
             self._unpack_arraydescr(op.getdescr()))
         return self._malloc_varsize(basesize, ofs_length, itemsize, op)
 
+    def fastpath_malloc_varsize(self, op, arraydescr, num_elem):
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs_length = arraydescr.get_ofs_length(self.cpu.translate_support_code)
+        basesize = arraydescr.get_base_size(self.cpu.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.cpu.translate_support_code)
+        size = basesize + itemsize * num_elem
+        self._do_fastpath_malloc(op, size, arraydescr.tid)
+        self.assembler.set_new_array_length(eax, ofs_length, imm(num_elem))
+
+    def fastpath_malloc_fixedsize(self, op, descr):
+        assert isinstance(descr, BaseSizeDescr)
+        self._do_fastpath_malloc(op, descr.size, descr.tid)
+
+    def _do_fastpath_malloc(self, op, size, tid):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        t = TempInt()
+        self.rm.force_allocate_reg(t, selected_reg=r.r1)
+        self.possibly_free_var(op.result)
+        self.possibly_free_var(t)
+
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            size, tid,
+            )
+
+    def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
+        shape = gcrootmap.get_basic_shape(False)
+        for v, val in self.frame_manager.frame_bindings.items():
+            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
+                assert isinstance(val, StackLoc)
+                gcrootmap.add_frame_offset(shape, val.position)
+        for v, reg in self.rm.reg_bindings.items():
+            if reg is r.r0:
+                continue
+            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
+                if use_copy_area:
+                    assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
+                    area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
+                    gcrootmap.add_frame_offset(shape, area_offset)
+                else:
+                    assert 0, 'sure??'
+        return gcrootmap.compress_callshape(shape,
+                                            self.assembler.datablockwrapper)
     def prepare_op_newstr(self, op, fcond):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newstr is not None:

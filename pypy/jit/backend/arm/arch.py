@@ -2,8 +2,14 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import lltype
 
+
 FUNC_ALIGN=8
 WORD=4
+
+# the number of registers that we need to save around malloc calls
+N_REGISTERS_SAVED_BY_MALLOC = 9
+# the offset from the FP where the list of the registers mentioned above starts
+MY_COPY_OF_REGS = WORD
 # The Address in the PC points two words befind the current instruction
 PC_OFFSET = 8
 

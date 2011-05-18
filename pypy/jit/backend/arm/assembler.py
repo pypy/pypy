@@ -2,7 +2,7 @@ from pypy.jit.backend.arm.helper.assembler import saved_registers
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
-from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET
+from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET, N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                                                     _check_imm_arg, TempInt, TempPtr)
@@ -71,14 +71,28 @@ class AssemblerARM(ResOpAssembler):
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
         self.memcpy_addr = 0
-        self.teardown()
+        self.guard_descrs = None
         self._exit_code_addr = 0
+        self.current_clt = None
+        self.malloc_slowpath = 0
+        self._regalloc = None
+        self.datablockwrapper = None
 
-    def setup(self):
+    def setup(self, looptoken):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
+        self.current_clt = looptoken.compiled_loop_token
         self.mc = ARMv7Builder()
         self.guard_descrs = []
         self.blocks = []
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                            self.blocks)
+
+    def teardown(self):
+        self.current_clt = None
+        self._regalloc = None
+        self.datablockwrapper.done()
+        self.mc = None
+        self.guard_descrs = None
 
     def setup_once(self):
         # Addresses of functions called by new_xxx operations
@@ -241,6 +255,31 @@ class AssemblerARM(ResOpAssembler):
         mem[i+2] = chr((n >> 16) & 0xFF)
         mem[i+3] = chr((n >> 24) & 0xFF)
 
+    def _build_malloc_slowpath(self):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        mc = ARMv7Builder()
+        assert gcrootmap is not None and gcrootmap.is_shadow_stack
+        # ---- shadowstack ----
+        for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
+            mc.MOV_br(ofs, reg.value)
+        mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
+        if IS_X86_32:
+            mc.MOV_sr(0, edx.value)          # push argument
+        elif IS_X86_64:
+            mc.MOV_rr(edi.value, edx.value)
+        mc.CALL(imm(addr))
+        mc.ADD_ri(esp.value, 16 - WORD)
+        for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
+            mc.MOV_rb(reg.value, ofs)
+        if self.cpu.supports_floats:          # restore the XMM registers
+            for i in range(self.cpu.NUM_REGS):# from where they were saved
+                mc.MOVSD_xs(i, (WORD*2)+8*i)
+        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
+        mc.RET()
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        self.malloc_slowpath2 = rawstart
+
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = ARMv7Builder()
         # XXX add a check if cpu supports floats 
@@ -282,10 +321,7 @@ class AssemblerARM(ResOpAssembler):
         # 1 separator byte
         # 4 bytes for the faildescr
         memsize = (len(arglocs)-1)*6+5
-        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
-                                                    self.blocks)
-        memaddr = datablockwrapper.malloc_aligned(memsize, alignment=WORD)
-        datablockwrapper.done()
+        memaddr = self.datablockwrapper.malloc_aligned(memsize, alignment=WORD)
         mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
         i = 0
         j = 0
@@ -344,16 +380,19 @@ class AssemblerARM(ResOpAssembler):
         if mc is None:
             mc = self.mc
         mc.MOV_rr(r.sp.value, r.fp.value, cond=cond)
-        mc.ADD_ri(r.sp.value, r.sp.value, WORD, cond=cond)
+        mc.ADD_ri(r.sp.value, r.sp.value, (N_REGISTERS_SAVED_BY_MALLOC+1)*WORD, cond=cond)
         if self.cpu.supports_floats:
-            mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers])
+            mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers], cond=cond)
         mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
         if self.cpu.supports_floats:
             self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
-        self.mc.SUB_ri(r.sp.value, r.sp.value,  WORD)
+        # here we modify the stack pointer to leave room for the 9 registers
+        # that are going to be saved here around malloc calls and one word to
+        # store the force index
+        self.mc.SUB_ri(r.sp.value, r.sp.value,  (N_REGISTERS_SAVED_BY_MALLOC+1)*WORD)
         self.mc.MOV_rr(r.fp.value, r.sp.value)
 
     def gen_bootstrap_code(self, nonfloatlocs, floatlocs, inputargs):
@@ -468,12 +507,14 @@ class AssemblerARM(ResOpAssembler):
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken, log):
         self._dump(operations)
-        self.setup()
-        longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = Regalloc(longevity, assembler=self, frame_manager=ARMFrameManager())
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
+
+        self.setup(looptoken)
+        longevity = compute_vars_longevity(inputargs, operations)
+        regalloc = Regalloc(longevity, assembler=self, frame_manager=ARMFrameManager())
+
 
         self.align()
         self.gen_func_prolog()
@@ -509,7 +550,7 @@ class AssemblerARM(ResOpAssembler):
     def assemble_bridge(self, faildescr, inputargs, operations,
                                                     original_loop_token, log):
         self._dump(operations, 'bridge')
-        self.setup()
+        self.setup(original_loop_token)
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
         enc = rffi.cast(rffi.CCHARP, code)
@@ -548,11 +589,6 @@ class AssemblerARM(ResOpAssembler):
         for descr in self.guard_descrs:
             descr._arm_block_start = block_start
 
-    def teardown(self):
-        self.mc = None
-        self.guard_descrs = None
-        #self.looppos = -1
-        #self.currently_compiling_loop = None
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -600,7 +636,7 @@ class AssemblerARM(ResOpAssembler):
 
     def _walk_operations(self, operations, regalloc):
         fcond=c.AL
-        self._insert_checks()
+        self._regalloc = regalloc
         while regalloc.position() < len(operations) - 1:
             regalloc.next_instruction()
             i = regalloc.position()
@@ -621,7 +657,6 @@ class AssemblerARM(ResOpAssembler):
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
             regalloc._check_invariants()
-            self._insert_checks()
 
     def can_merge_with_next_guard(self, op, i, operations):
         num = op.getopnum()
@@ -790,6 +825,75 @@ class AssemblerARM(ResOpAssembler):
 
     def leave_jitted_hook(self):
         pass
+
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
+        size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
+        size = (size + WORD-1) & ~(WORD-1)     # round up
+
+        self.mc.gen_load_int(r.r0.value, nursery_free_adr)
+        self.mc.LDR_ri(r.r0.value, r.r0.value)
+
+        self.mc.ADD_ri(r.ip.value, r.r0.value, size)
+
+        # XXX maybe use an offset from the valeu nursery_free_addr
+        self.mc.gen_load_int(r.r1.value, nursery_top_adr)
+        self.mc.LDR_ri(r.r1.value, r.r1.value)
+
+        self.mc.CMP_rr(r.ip.value, r.r1.value)
+
+        fast_jmp_pos = self.mc.currpos()
+        self.mc.NOP()
+
+        # XXX update
+        # See comments in _build_malloc_slowpath for the
+        # details of the two helper functions that we are calling below.
+        # First, we need to call two of them and not just one because we
+        # need to have a mark_gc_roots() in between.  Then the calling
+        # convention of slowpath_addr{1,2} are tweaked a lot to allow
+        # the code here to be just two CALLs: slowpath_addr1 gets the
+        # size of the object to allocate from (EDX-EAX) and returns the
+        # result in EAX; slowpath_addr2 additionally returns in EDX a
+        # copy of heap(nursery_free_adr), so that the final MOV below is
+        # a no-op.
+
+        self.mark_gc_roots(self.write_new_force_index(),
+                           use_copy_area=True)
+        slowpath_addr2 = self.malloc_slowpath
+        self.mc.BL(slowpath_addr2)
+
+        offset = self.mc.currpos() - fast_jmp_pos
+        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
+        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.LS)
+
+        self.mc.gen_load_int(r.r1.value, nursery_free_adr)
+        self.mc.STR_ri(r.ip.value, r.r1.value)
+
+        self.mc.gen_load_int(r.ip.value, tid)
+        self.mc.STR_ri(r.ip.value, r.r0.value)
+
+
+    def mark_gc_roots(self, force_index, use_copy_area=False):
+        if force_index < 0:
+            return     # not needed
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            mark = self._regalloc.get_mark_gc_roots(gcrootmap, use_copy_area)
+            assert gcrootmap.is_shadow_stack
+            gcrootmap.write_callshape(mark, force_index)
+
+    def write_new_force_index(self):
+        # for shadowstack only: get a new, unused force_index number and
+        # write it to FORCE_INDEX_OFS.  Used to record the call shape
+        # (i.e. where the GC pointers are in the stack) around a CALL
+        # instruction that doesn't already have a force_index.
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            clt = self.current_clt
+            force_index = clt.reserve_and_record_some_faildescr_index()
+            self._write_fail_index(force_index)
+            return force_index
+        else:
+            return 0
 
 def make_operation_list():
     def notimplemented(self, op, arglocs, regalloc, fcond):
