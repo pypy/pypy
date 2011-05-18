@@ -895,9 +895,15 @@ class AllocOpAssembler(object):
             self.mc.gen_load_int(r.ip.value, adr)
             self.mc.STR_ri(r.ip.value, r.r0.value, self.cpu.vtable_offset)
 
+    def set_new_array_length(self, loc, ofs_length, loc_num_elem):
+        assert loc.is_reg()
+        self.mc.gen_load_int(r.ip.value, loc_num_elem)
+        self.mc.STR_ri(r.ip.value, loc.value, imm=ofs_length)
+
     def emit_op_new_array(self, op, arglocs, regalloc, fcond):
-        value_loc, base_loc, ofs_length = arglocs
-        self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length.value)
+        if len(arglocs) > 0:
+            value_loc, base_loc, ofs_length = arglocs
+            self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length.value)
         return fcond
 
     emit_op_newstr = emit_op_new_array

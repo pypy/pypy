@@ -849,12 +849,13 @@ class Regalloc(object):
                 if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
                                                          num_elem):
                     self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
-                    return
+                    return []
             args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
                 op.getdescr())
             arglocs = [imm(x) for x in args]
             arglocs.append(self.loc(box_num_elem))
-            self._call(op, arglocs)
+            self.assembler._emit_call(self.assembler.malloc_array_func_addr, arglocs, self, op.result)
+            return []
         # boehm GC
         itemsize, scale, basesize, ofs_length, _ = (
             self._unpack_arraydescr(op.getdescr()))
@@ -867,7 +868,8 @@ class Regalloc(object):
         itemsize = arraydescr.get_item_size(self.cpu.translate_support_code)
         size = basesize + itemsize * num_elem
         self._do_fastpath_malloc(op, size, arraydescr.tid)
-        self.assembler.set_new_array_length(eax, ofs_length, imm(num_elem))
+        # we know the resullt of the malloc call is in r0
+        self.assembler.set_new_array_length(r.r0, ofs_length, num_elem)
 
     def fastpath_malloc_fixedsize(self, op, descr):
         assert isinstance(descr, BaseSizeDescr)
