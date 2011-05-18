@@ -269,7 +269,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "make instances really small but slow without the JIT",
                    default=False,
                    requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withtypeversion", True),
+                             ("objspace.std.withmethodcache", True),
                        ]),
 
         BoolOption("withrangelist",
