@@ -145,7 +145,6 @@ class AbstractARMv7Builder(object):
         self.write32(instr)
 
     def POP(self, regs, cond=cond.AL):
-        assert reg.lr.value not in regs
         instr = self._encode_reg_list(cond << 28 | 0x8BD << 16, regs)
         self.write32(instr)
 
