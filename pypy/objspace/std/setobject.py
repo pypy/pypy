@@ -713,6 +713,8 @@ def _initialize_set(space, w_obj, w_iterable=None):
 def _convert_set_to_frozenset(space, w_obj):
     #XXX can be optimized
     if space.is_true(space.isinstance(w_obj, space.w_set)):
+        assert isinstance(w_obj, W_SetObject)
+        #XXX better instantiate?
         w_frozen = W_FrozensetObject(space, None)
         w_frozen.strategy = w_obj.strategy
         w_frozen.sstorage = w_obj.sstorage
