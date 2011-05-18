@@ -65,8 +65,7 @@ class W_BaseSetObject(W_Object):
         elif objtype is W_FrozensetObject:
             obj = instantiate(W_FrozensetObject)
         else:
-            itemiterator = w_self.space.iter(W_SetIterObject(newset(w_self.space)))
-            obj = w_self.space.call_function(w_self.space.type(w_self),itemiterator)
+            obj = w_self.space.call_function(w_self.space.type(w_self), None)
         obj.space = w_self.space
         obj.strategy = strategy
         obj.sstorage = storage
@@ -81,8 +80,7 @@ class W_BaseSetObject(W_Object):
         elif objtype is W_FrozensetObject:
             obj = W_FrozensetObject(space, w_iterable)
         else:
-            itemiterator = space.iter(W_SetIterObject(w_iterable))
-            obj = space.call_function(space.type(w_self), itemiterator)
+            obj = space.call_function(space.type(w_self), w_iterable)
         return obj
 
     _lifeline_ = None

@@ -75,6 +75,16 @@ class AppTestAppSetTest:
         a = set(x for x in [1,2,3])
         assert a == set([1,2,3])
 
+    def test_generator2(self):
+        def foo():
+            for i in [1,2,3]:
+                yield i
+        class A(set):
+            pass
+        a = A([1,2,3,4,5])
+        b = a.difference(foo())
+        assert b == set([4,5])
+
     def test_or(self):
         a = set([0,1,2])
         b = a | set([1,2,3])
