@@ -41,9 +41,7 @@ def PyDict_DelItem(space, w_dict, w_key):
 def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
     if PyDict_Check(space, w_dict):
         key = rffi.charp2str(key_ptr)
-        # our dicts dont have a standardized interface, so we need
-        # to go through the space
-        space.setitem(w_dict, space.wrap(key), w_obj)
+        space.setitem_str(w_dict, key, w_obj)
         return 0
     else:
         PyErr_BadInternalCall(space)
@@ -60,12 +58,25 @@ def PyDict_GetItemString(space, w_dict, key):
         return None
     return borrow_from(w_dict, w_res)
 
+@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
+def PyDict_DelItemString(space, w_dict, key_ptr):
+    """Remove the entry in dictionary p which has a key specified by the string
+    key.  Return 0 on success or -1 on failure."""
+    if PyDict_Check(space, w_dict):
+        key = rffi.charp2str(key_ptr)
+        # our dicts dont have a standardized interface, so we need
+        # to go through the space
+        space.delitem(w_dict, space.wrap(key))
+        return 0
+    else:
+        PyErr_BadInternalCall(space)
+
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyDict_Size(space, w_obj):
     """
     Return the number of items in the dictionary.  This is equivalent to
     len(p) on a dictionary."""
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_Contains(space, w_obj, w_value):
@@ -125,25 +136,25 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     them are borrowed.  ppos should not be altered during iteration. Its
     value represents offsets within the internal dictionary structure, and
     since the structure is sparse, the offsets are not consecutive.
-    
+
     For example:
-    
+
     PyObject *key, *value;
     Py_ssize_t pos = 0;
-    
+
     while (PyDict_Next(self->dict, &pos, &key, &value)) {
         /* do something interesting with the values... */
         ...
     }
-    
+
     The dictionary p should not be mutated during iteration.  It is safe
     (since Python 2.1) to modify the values of the keys as you iterate over the
     dictionary, but only so long as the set of keys does not change.  For
     example:
-    
+
     PyObject *key, *value;
     Py_ssize_t pos = 0;
-    
+
     while (PyDict_Next(self->dict, &pos, &key, &value)) {
         int i = PyInt_AS_LONG(value) + 1;
         PyObject *o = PyInt_FromLong(i);
@@ -180,5 +191,3 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
             raise
         return 0
     return 1
-
-

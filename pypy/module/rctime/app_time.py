@@ -5,6 +5,7 @@ from _structseq import structseqtype, structseqfield
 class struct_time:
     __metaclass__ = structseqtype
     __module__ = 'time'
+    name = 'time.struct_time'
 
     tm_year   = structseqfield(0)
     tm_mon    = structseqfield(1)
@@ -24,7 +25,7 @@ def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     (same as strftime())."""
 
     import _strptime     # from the CPython standard library
-    return _strptime.strptime(string, format)
+    return _strptime._strptime(string, format)[0]
 
 __doc__ = """This module provides various functions to manipulate time values.
 

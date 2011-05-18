@@ -190,6 +190,22 @@ class TestTypedOptimizedSwitchTestCase:
             y = ord(x)
             assert fn(y) == f(y)
 
+    def test_char_may_be_signed(self):
+        def f(n):
+            case = chr(n)
+            if case == '\xFF': return 1
+            if case == '\xFE': return 2
+            if case == '\xFD': return 3
+            if case == '\xFC': return 4
+            if case == '\xFB': return 5
+            if case == '\xFA': return 6
+            return 7
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f, [int])
+        for input, expected in [(255, 1), (253, 3), (251, 5), (161, 7)]:
+            res = fn(input)
+            assert res == expected
+
     def test_unichr_switch(self):
         def f(y):
             x = unichr(y)

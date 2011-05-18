@@ -12,8 +12,20 @@ class Module(MixedModule):
     appleveldefs = {
     }
 
+    atexit_funcs = []
+
     def startup(self, space):
         space.fromcache(State).startup(space)
+
+    def register_atexit(self, function):
+        if len(self.atexit_funcs) >= 32:
+            raise ValueError("cannot register more than 32 atexit functions")
+        self.atexit_funcs.append(function)
+
+    def shutdown(self, space):
+        for func in self.atexit_funcs:
+            func()
+
 
 # import these modules to register api functions by side-effect
 import pypy.module.cpyext.thread
@@ -46,10 +58,12 @@ import pypy.module.cpyext.cdatetime
 import pypy.module.cpyext.complexobject
 import pypy.module.cpyext.weakrefobject
 import pypy.module.cpyext.funcobject
+import pypy.module.cpyext.frameobject
 import pypy.module.cpyext.classobject
 import pypy.module.cpyext.pypyintf
 import pypy.module.cpyext.memoryobject
 import pypy.module.cpyext.codecs
+import pypy.module.cpyext.pyfile
 
 # now that all rffi_platform.Struct types are registered, configure them
 api.configure_types()

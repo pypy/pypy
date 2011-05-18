@@ -80,6 +80,11 @@ def test_getservbyport():
                          "(_socket, port): return _socket.getservbyport(port)")
     assert space.unwrap(name) == "smtp"
 
+    from pypy.interpreter.error import OperationError
+    exc = raises(OperationError, space.appexec,
+           [w_socket], "(_socket): return _socket.getservbyport(-1)")
+    assert exc.value.match(space, space.w_ValueError)
+
 def test_getprotobyname():
     name = "tcp"
     w_n = space.appexec([w_socket, space.wrap(name)],
@@ -348,17 +353,13 @@ class AppTestSocket:
         assert isinstance(s.fileno(), int)
 
     def test_socket_close(self):
-        import _socket, errno
+        import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         fileno = s.fileno()
+        assert s.fileno() >= 0
         s.close()
+        assert s.fileno() < 0
         s.close()
-        try:
-            s.fileno()
-        except _socket.error, ex:
-            assert ex.args[0], errno.EBADF
-        else:
-            assert 0
 
     def test_socket_close_error(self):
         import _socket, os
@@ -371,11 +372,12 @@ class AppTestSocket:
     def test_socket_connect(self):
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        # XXX temporarily we use codespeak to test, will have more robust tests in
-        # the absence of a network connection later when more parts of the socket
-        # API are implemented. currently skip the test if there is no connection.
+        # XXX temporarily we use python.org to test, will have more robust tests
+        # in the absence of a network connection later when more parts of the
+        # socket API are implemented.  Currently skip the test if there is no
+        # connection.
         try:
-            s.connect(("codespeak.net", 80))
+            s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         name = s.getpeername() # Will raise socket.error if not connected
@@ -401,6 +403,12 @@ class AppTestSocket:
         for args in tests:
             raises((TypeError, ValueError), s.connect, args)
         s.close()
+
+    def test_bigport(self):
+        import _socket
+        s = _socket.socket()
+        raises(ValueError, s.connect, ("localhost", 1000000))
+        raises(ValueError, s.connect, ("localhost", -1))
 
     def test_NtoH(self):
         import sys
@@ -472,13 +480,25 @@ class AppTestSocket:
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
 
+    def test_socket_ioctl(self):
+        import _socket, sys
+        if sys.platform != 'win32':
+            skip("win32 only")
+        assert hasattr(_socket.socket, 'ioctl')
+        assert hasattr(_socket, 'SIO_RCVALL')
+        assert hasattr(_socket, 'RCVALL_ON')
+        assert hasattr(_socket, 'RCVALL_OFF')
+        assert hasattr(_socket, 'SIO_KEEPALIVE_VALS')
+        s = _socket.socket()
+        raises(ValueError, s.ioctl, -1, None)
+        s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
+
     def test_dup(self):
         import _socket as socket
         if not hasattr(socket.socket, 'dup'):
             skip('No dup() on this platform')
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('localhost', 50007))
+        s.bind(('localhost', 0))
         s2 = s.dup()
         assert s.fileno() != s2.fileno()
         assert s.getsockname() == s2.getsockname()
@@ -487,11 +507,12 @@ class AppTestSocket:
         # Test that send/sendall/sendto accept a buffer or a unicode as arg
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        # XXX temporarily we use codespeak to test, will have more robust tests in
-        # the absence of a network connection later when more parts of the socket
-        # API are implemented. currently skip the test if there is no connection.
+        # XXX temporarily we use python.org to test, will have more robust tests
+        # in the absence of a network connection later when more parts of the
+        # socket API are implemented.  Currently skip the test if there is no
+        # connection.
         try:
-            s.connect(("codespeak.net", 80))
+            s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         s.send(buffer(''))
@@ -534,17 +555,14 @@ class AppTestSocketTCP:
     def setup_class(cls):
         cls.space = space
 
-    PORT = 50007
     HOST = 'localhost'
         
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
-        w_PORT = space.wrap(self.PORT)
-        self.w_serv = space.appexec([w_socket, w_HOST, w_PORT],
-            '''(_socket, HOST, PORT):
+        self.w_serv = space.appexec([w_socket, w_HOST],
+            '''(_socket, HOST):
             serv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-            serv.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
-            serv.bind((HOST, PORT))
+            serv.bind((HOST, 0))
             serv.listen(1)
             return serv
             ''')
@@ -642,14 +660,10 @@ class AppTestErrno:
     def test_errno(self):
         from socket import socket, AF_INET, SOCK_STREAM, error
         import errno
-        try:
-            s = socket(AF_INET, SOCK_STREAM)
-            import __pypy__
-            print __pypy__.internal_repr(s)
-            s.accept()
-        except Exception, e:
-            assert len(e.args) == 2
-            # error is EINVAL, or WSAEINVAL on Windows
-            assert errno.errorcode[e.args[0]].endswith("EINVAL")
-            assert isinstance(e.args[1], str)
-
+        s = socket(AF_INET, SOCK_STREAM)
+        exc = raises(error, s.accept)
+        assert isinstance(exc.value, error)
+        assert isinstance(exc.value, IOError)
+        # error is EINVAL, or WSAEINVAL on Windows
+        assert exc.value.errno == getattr(errno, 'WSAEINVAL', errno.EINVAL)
+        assert isinstance(exc.value.message, str)

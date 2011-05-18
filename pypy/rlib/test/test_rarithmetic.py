@@ -299,25 +299,6 @@ def test_abs():
     assert type(abs(r_longlong(1))) is r_longlong
 
 
-def test_break_up_float():
-    assert break_up_float('1') == ('', '1', '', '')
-    assert break_up_float('+1') == ('+', '1', '', '')
-    assert break_up_float('-1') == ('-', '1', '', '')
-
-    assert break_up_float('.5') == ('', '', '5', '')
-    
-    assert break_up_float('1.2e3') == ('', '1', '2', '3')
-    assert break_up_float('1.2e+3') == ('', '1', '2', '+3')
-    assert break_up_float('1.2e-3') == ('', '1', '2', '-3')
-
-    # some that will get thrown out on return:
-    assert break_up_float('.') == ('', '', '', '')
-    assert break_up_float('+') == ('+', '', '', '')
-    assert break_up_float('-') == ('-', '', '', '')
-    assert break_up_float('e1') == ('', '', '', '1')
-
-    py.test.raises(ValueError, break_up_float, 'e')
-
 def test_r_singlefloat():
     x = r_singlefloat(2.5)       # exact number
     assert float(x) == 2.5
@@ -335,40 +316,6 @@ def test_r_singlefloat_eq():
     py.test.raises(TypeError, "x>y")
 
 class BaseTestRarithmetic(BaseRtypingTest):
-    def test_formatd(self):
-        from pypy.rlib.rarithmetic import formatd
-        def f(x):
-            return formatd('%.2f', x)
-        res = self.ll_to_string(self.interpret(f, [10/3.0]))
-        assert res == '3.33'
-
-    def test_formatd_overflow(self):
-        from pypy.translator.c.test.test_genc import compile
-        from pypy.rlib.rarithmetic import formatd_overflow
-
-        def func(x):
-            # Test the %F format, which is not supported by
-            # the Microsoft's msvcrt library.
-            return formatd_overflow(0, 4, 'F', x)
-
-        f = compile(func, [float])
-        assert f(10/3.0) == '3.3333'
-
-    def test_parts_to_float(self):
-        from pypy.rlib.rarithmetic import parts_to_float, break_up_float
-        def f(x):
-            if x == 0:
-                s = '1.0'
-            else:
-                s = '1e-100'
-            sign, beforept, afterpt, expt = break_up_float(s)   
-            return parts_to_float(sign, beforept, afterpt, expt)
-        res = self.interpret(f, [0])
-        assert res == 1.0
-
-        res = self.interpret(f, [1])
-        assert res == 1e-100
-
     def test_compare_singlefloat_crashes(self):
         from pypy.rlib.rarithmetic import r_singlefloat
         from pypy.rpython.error import MissingRTypeOperation
@@ -378,26 +325,39 @@ class BaseTestRarithmetic(BaseRtypingTest):
             return a == b
         py.test.raises(MissingRTypeOperation, "self.interpret(f, [42.0])")
 
-
 class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
     pass
 
-def test_isinf():
-    assert isinf(INFINITY)
-
-def test_isnan():
-    assert isnan(NAN)
-
 def test_int_real_union():
     from pypy.rpython.lltypesystem.rffi import r_int_real
     assert compute_restype(r_int_real, r_int_real) is r_int_real
 
+def test_most_neg_value_of():
+    assert most_neg_value_of_same_type(123) == -sys.maxint-1
+    assert most_neg_value_of_same_type(r_uint(123)) == 0
+    llmin = -(2**(r_longlong.BITS-1))
+    assert most_neg_value_of_same_type(r_longlong(123)) == llmin
+    assert most_neg_value_of_same_type(r_ulonglong(123)) == 0
+
+def test_r_ulonglong():
+    x = r_longlong(-1)
+    y = r_ulonglong(x)
+    assert long(y) == 2**r_ulonglong.BITS - 1
+
 def test_highest_bit():
     py.test.raises(AssertionError, highest_bit, 0)
     py.test.raises(AssertionError, highest_bit, 14)
-
     for i in xrange(31):
         assert highest_bit(2**i) == i
+
+def test_int_between():
+    assert int_between(1, 1, 3)
+    assert int_between(1, 2, 3)
+    assert not int_between(1, 0, 2)
+    assert not int_between(1, 5, 2)
+    assert not int_between(1, 2, 2)
+    assert not int_between(1, 1, 1)
+

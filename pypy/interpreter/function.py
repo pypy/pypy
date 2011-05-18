@@ -21,12 +21,17 @@ def _get_immutable_code(func):
     assert not func.can_change_code
     return func.code
 
+
 class Function(Wrappable):
     """A function is a code object captured with some environment:
     an object space, a dictionary of globals, default arguments,
     and an arbitrary 'closure' passed to the code object."""
 
     can_change_code = True
+    _immutable_fields_ = ['code?',
+                          'w_func_globals?',
+                          'closure?',
+                          'defs_w?[*]']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
                  forcename=None):
@@ -36,8 +41,7 @@ class Function(Wrappable):
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
-        self.defs_w    = defs_w     # list of w_default's
-        make_sure_not_resized(self.defs_w)
+        self.defs_w = defs_w
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
 
@@ -87,7 +91,7 @@ class Function(Wrappable):
                 assert isinstance(code, gateway.BuiltinCode4)
                 return code.fastcall_4(self.space, self, args_w[0],
                                        args_w[1], args_w[2], args_w[3])
-        elif (nargs|PyCode.FLATPYCALL) == fast_natural_arity:
+        elif (nargs | PyCode.FLATPYCALL) == fast_natural_arity:
             assert isinstance(code, PyCode)
             if nargs < 5:
                 new_frame = self.space.createframe(code, self.w_func_globals,
@@ -129,15 +133,15 @@ class Function(Wrappable):
                 return code.fastcall_4(self.space, self, frame.peekvalue(3),
                                        frame.peekvalue(2), frame.peekvalue(1),
                                         frame.peekvalue(0))
-        elif (nargs|Code.FLATPYCALL) == fast_natural_arity:
+        elif (nargs | Code.FLATPYCALL) == fast_natural_arity:
             assert isinstance(code, PyCode)
             return self._flat_pycall(code, nargs, frame)
-        elif fast_natural_arity&Code.FLATPYCALL:
-            natural_arity = fast_natural_arity&0xff
-            if natural_arity > nargs >= natural_arity-len(self.defs_w):
+        elif fast_natural_arity & Code.FLATPYCALL:
+            natural_arity = fast_natural_arity & 0xff
+            if natural_arity > nargs >= natural_arity - len(self.defs_w):
                 assert isinstance(code, PyCode)
                 return self._flat_pycall_defaults(code, nargs, frame,
-                                                  natural_arity-nargs)
+                                                  natural_arity - nargs)
         elif fast_natural_arity == Code.PASSTHROUGHARGS1 and nargs >= 1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             w_obj = frame.peekvalue(nargs-1)
@@ -167,29 +171,28 @@ class Function(Wrappable):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.fastlocals_w[i] = w_arg
 
-        defs_w = self.defs_w
-        ndefs = len(defs_w)
-        start = ndefs-defs_to_load
+        ndefs = len(self.defs_w)
+        start = ndefs - defs_to_load
         i = nargs
         for j in xrange(start, ndefs):
-            new_frame.fastlocals_w[i] = defs_w[j]
+            new_frame.fastlocals_w[i] = self.defs_w[j]
             i += 1
         return new_frame.run()
 
-    def getdict(self):
+    def getdict(self, space):
         if self.w_func_dict is None:
-            self.w_func_dict = self.space.newdict(instance=True)
+            self.w_func_dict = space.newdict(instance=True)
         return self.w_func_dict
 
     def setdict(self, space, w_dict):
-        if not space.is_true(space.isinstance( w_dict, space.w_dict )):
-            raise OperationError( space.w_TypeError, space.wrap("setting function's dictionary to a non-dict") )
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise OperationError(space.w_TypeError,
+                space.wrap("setting function's dictionary to a non-dict")
+            )
         self.w_func_dict = w_dict
 
-    # unwrapping is done through unwrap_specs in typedef.py
-
     def descr_function__new__(space, w_subtype, w_code, w_globals,
-                            w_name=None, w_argdefs=None, w_closure=None):
+                              w_name=None, w_argdefs=None, w_closure=None):
         code = space.interp_w(Code, w_code)
         if not space.is_true(space.isinstance(w_globals, space.w_dict)):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
@@ -298,7 +301,7 @@ class Function(Wrappable):
         from pypy.interpreter.pycode import PyCode
         args_w = space.unpackiterable(w_args)
         try:
-            (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs_w,
+            (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs,
              w_func_dict, w_module) = args_w
         except ValueError:
             # wrong args
@@ -323,16 +326,19 @@ class Function(Wrappable):
         if space.is_w(w_func_dict, space.w_None):
             w_func_dict = None
         self.w_func_dict = w_func_dict
-        self.defs_w    = space.fixedview(w_defs_w)
+        self.defs_w = space.fixedview(w_defs)
         self.w_module = w_module
 
-    def fget_func_defaults(space, self):
+    def fget_func_defaults(self, space):
         values_w = self.defs_w
+        # the `None in values_w` check here is to ensure that interp-level
+        # functions with a default of NoneNotWrapped do not get their defaults
+        # exposed at applevel
         if not values_w or None in values_w:
             return space.w_None
         return space.newtuple(values_w)
 
-    def fset_func_defaults(space, self, w_defaults):
+    def fset_func_defaults(self, space, w_defaults):
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
             return
@@ -340,21 +346,21 @@ class Function(Wrappable):
             raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None") )
         self.defs_w = space.fixedview(w_defaults)
 
-    def fdel_func_defaults(space, self):
+    def fdel_func_defaults(self, space):
         self.defs_w = []
 
-    def fget_func_doc(space, self):
+    def fget_func_doc(self, space):
         if self.w_doc is None:
             self.w_doc = self.code.getdocstring(space)
         return self.w_doc
 
-    def fset_func_doc(space, self, w_doc):
+    def fset_func_doc(self, space, w_doc):
         self.w_doc = w_doc
 
-    def fget_func_name(space, self):
+    def fget_func_name(self, space):
         return space.wrap(self.name)
 
-    def fset_func_name(space, self, w_name):
+    def fset_func_name(self, space, w_name):
         try:
             self.name = space.str_w(w_name)
         except OperationError, e:
@@ -365,27 +371,27 @@ class Function(Wrappable):
             raise
 
 
-    def fdel_func_doc(space, self):
+    def fdel_func_doc(self, space):
         self.w_doc = space.w_None
 
-    def fget___module__(space, self):
+    def fget___module__(self, space):
         if self.w_module is None:
             if self.w_func_globals is not None and not space.is_w(self.w_func_globals, space.w_None):
-                self.w_module = space.call_method( self.w_func_globals, "get", space.wrap("__name__") )
+                self.w_module = space.call_method(self.w_func_globals, "get", space.wrap("__name__"))
             else:
                 self.w_module = space.w_None
         return self.w_module
 
-    def fset___module__(space, self, w_module):
+    def fset___module__(self, space, w_module):
         self.w_module = w_module
 
-    def fdel___module__(space, self):
+    def fdel___module__(self, space):
         self.w_module = space.w_None
 
-    def fget_func_code(space, self):
+    def fget_func_code(self, space):
         return space.wrap(self.code)
 
-    def fset_func_code(space, self, w_code):
+    def fset_func_code(self, space, w_code):
         from pypy.interpreter.pycode import PyCode
         if not self.can_change_code:
             raise OperationError(space.w_TypeError,
@@ -400,7 +406,7 @@ class Function(Wrappable):
                 self.name, closure_len, len(code.co_freevars))
         self.code = code
 
-    def fget_func_closure(space, self):
+    def fget_func_closure(self, space):
         if self.closure is not None:
             w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
         else:
@@ -422,6 +428,7 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
 
 class Method(Wrappable):
     """A method is a function bound to a specific instance or class."""
+    _immutable_fields_ = ['w_function', 'w_instance', 'w_class']
 
     def __init__(self, space, w_function, w_instance, w_class):
         self.space = space
@@ -565,7 +572,7 @@ class Method(Wrappable):
 
 class StaticMethod(Wrappable):
     """The staticmethod objects."""
-    _immutable_ = True
+    _immutable_fields_ = ['w_function']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -574,12 +581,14 @@ class StaticMethod(Wrappable):
         """staticmethod(x).__get__(obj[, type]) -> x"""
         return self.w_function
 
-    def descr_staticmethod__new__(space, w_type, w_function):
-        return space.wrap(StaticMethod(w_function))
+    def descr_staticmethod__new__(space, w_subtype, w_function):
+        instance = space.allocate_instance(StaticMethod, w_subtype)
+        instance.__init__(w_function)
+        return space.wrap(instance)
 
 class ClassMethod(Wrappable):
     """The classmethod objects."""
-    _immutable_ = True
+    _immutable_fields_ = ['w_function']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -590,10 +599,6 @@ class ClassMethod(Wrappable):
         return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
 
     def descr_classmethod__new__(space, w_subtype, w_function):
-        if not space.is_true(space.callable(w_function)):
-            typename = space.type(w_function).getname(space)
-            raise operationerrfmt(space.w_TypeError,
-                                  "'%s' object is not callable", typename)
         instance = space.allocate_instance(ClassMethod, w_subtype)
         instance.__init__(w_function)
         return space.wrap(instance)

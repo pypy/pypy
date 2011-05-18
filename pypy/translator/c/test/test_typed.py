@@ -240,6 +240,21 @@ class TestTypedTestCase(CompilationTestCase):
         gn = self.getcompiled(g, [r_longlong], view=False)
         assert gn(2147483647) == 4*2147483647
 
+        def g(i):
+            return i << 12
+        gn = self.getcompiled(g, [r_longlong])
+        assert gn(2147483647) == 2147483647 << 12
+
+        def g(i):
+            return i >> 12
+        gn = self.getcompiled(g, [r_longlong])
+        assert gn(-2147483647) == (-2147483647) >> 12
+
+        def g(i):
+            return i >> 12
+        gn = self.getcompiled(g, [r_ulonglong])
+        assert gn(2**64 - 12345678) == (2**64 - 12345678) >> 12
+
     def test_specializing_int_functions(self):
         def f(i):
             return i + 1

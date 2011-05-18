@@ -5,10 +5,10 @@ from __future__ import absolute_import
 import StringIO, sys
 import unittest, py
 
-from ..ctypes_config_cache import rebuild
+from lib_pypy.ctypes_config_cache import rebuild
 rebuild.rebuild_one('pyexpat.ctc.py')
 
-from .. import pyexpat
+from lib_pypy import pyexpat
 #from xml.parsers import expat
 expat = pyexpat
 

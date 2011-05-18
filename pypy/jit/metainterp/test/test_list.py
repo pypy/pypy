@@ -1,6 +1,6 @@
 import py
 from pypy.rlib.jit import JitDriver
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
 
 class ListTests:

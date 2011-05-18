@@ -15,6 +15,7 @@ from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rpython.lltypesystem import llmemory
 import os, sys
 
@@ -54,7 +55,8 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, pure_function=False):
+               oo_primitive=None, pure_function=False,
+               macro=None):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -78,7 +80,13 @@ def llexternal(name, args, result, _callable=None,
         assert callable(_callable)
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
-        _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+        if macro is not None:
+            if macro is True:
+                macro = name
+            _callable = generate_macro_wrapper(
+                name, macro, ext_type, compilation_info)
+        else:
+            _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
     if pure_function:
         _callable._pure_function_ = True
     kwds = {}
@@ -184,6 +192,15 @@ def llexternal(name, args, result, _callable=None,
                     arg = unicode2wcharp(arg)
                     # XXX leaks if a unicode2wcharp() fails with MemoryError
                     # and was not the first in this function
+                    freeme = arg
+            elif TARGET is VOIDP:
+                if arg is None:
+                    arg = lltype.nullptr(VOIDP.TO)
+                elif isinstance(arg, str):
+                    arg = str2charp(arg)
+                    freeme = arg
+                elif isinstance(arg, unicode):
+                    arg = unicode2wcharp(arg)
                     freeme = arg
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
@@ -295,6 +312,50 @@ class StackCounter:
         return False                # and threads increase it by one
 stackcounter = StackCounter()
 stackcounter._freeze_()
+
+def llexternal_use_eci(compilation_info):
+    """Return a dummy function that, if called in a RPython program,
+    adds the given ExternalCompilationInfo to it."""
+    eci = ExternalCompilationInfo(post_include_bits=['#define PYPY_NO_OP()'])
+    eci = eci.merge(compilation_info)
+    return llexternal('PYPY_NO_OP', [], lltype.Void,
+                      compilation_info=eci, sandboxsafe=True, _nowrapper=True,
+                      _callable=lambda: None)
+
+def generate_macro_wrapper(name, macro, functype, eci):
+    """Wraps a function-like macro inside a real function, and expose
+    it with llexternal."""
+
+    # Generate the function call
+    from pypy.translator.c.database import LowLevelDatabase
+    from pypy.translator.c.support import cdecl
+    wrapper_name = 'pypy_macro_wrapper_%s' % (name,)
+    argnames = ['arg%d' % (i,) for i in range(len(functype.ARGS))]
+    db = LowLevelDatabase()
+    implementationtypename = db.gettype(functype, argnames=argnames)
+    if functype.RESULT is lltype.Void:
+        pattern = '%s { %s(%s); }'
+    else:
+        pattern = '%s { return %s(%s); }'
+    source = pattern % (
+        cdecl(implementationtypename, wrapper_name),
+        macro, ', '.join(argnames))
+
+    # Now stuff this source into a "companion" eci that will be used
+    # by ll2ctypes.  We replace eci._with_ctypes, so that only one
+    # shared library is actually compiled (when ll2ctypes calls the
+    # first function)
+    ctypes_eci = eci.merge(ExternalCompilationInfo(
+            separate_module_sources=[source],
+            export_symbols=[wrapper_name],
+            ))
+    if hasattr(eci, '_with_ctypes'):
+        ctypes_eci = eci._with_ctypes.merge(ctypes_eci)
+    eci._with_ctypes = ctypes_eci
+    func = llexternal(wrapper_name, functype.ARGS, functype.RESULT,
+                      compilation_info=eci, _nowrapper=True)
+    # _nowrapper=True returns a pointer which is not hashable
+    return lambda *args: func(*args)
 
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
@@ -478,7 +539,7 @@ def COpaque(name=None, ptr_typedef=None, hints=None, compilation_info=None):
             val = rffi_platform.sizeof(name, compilation_info)
             cache[name] = val
             return val
-    
+
     hints['getsize'] = lazy_getsize
     return lltype.OpaqueType(name, hints)
 
@@ -542,6 +603,7 @@ INTPTR_T = SSIZE_T
 
 # double
 DOUBLE = lltype.Float
+LONGDOUBLE = lltype.LongFloat
 
 # float - corresponds to pypy.rlib.rarithmetic.r_float, and supports no
 #         operation except rffi.cast() between FLOAT and DOUBLE
@@ -549,8 +611,8 @@ FLOAT = lltype.SingleFloat
 r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
-VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
-VOIDP_real = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+NULL = None
 
 # void **
 VOIDPP = CArrayPtr(VOIDP)
@@ -575,24 +637,24 @@ FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 # conversions between str and char*
 # conversions between unicode and wchar_t*
 def make_string_mappings(strtype):
-    
+
     if strtype is str:
         from pypy.rpython.lltypesystem.rstr import STR as STRTYPE
         from pypy.rpython.annlowlevel import llstr as llstrtype
         from pypy.rpython.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
-        emptystr = ''
         lastchar = '\x00'
+        builder_class = StringBuilder
     else:
         from pypy.rpython.lltypesystem.rstr import UNICODE as STRTYPE
         from pypy.rpython.annlowlevel import llunicode as llstrtype
         from pypy.rpython.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
-        emptystr = u''
         lastchar = u'\x00'
-        
+        builder_class = UnicodeBuilder
+
     # str -> char*
     def str2charp(s):
         """ str -> char*
@@ -613,12 +675,12 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
-        l = []
+        b = builder_class()
         i = 0
         while cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return b.build()
 
     # str -> char*
     def get_nonmovingbuffer(data):
@@ -638,6 +700,7 @@ def make_string_mappings(strtype):
             data_start = cast_ptr_to_adr(llstrtype(data)) + \
                 offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
             return cast(TYPEP, data_start)
+    get_nonmovingbuffer._annenforceargs_ = [strtype]
 
     # (str, char*) -> None
     def free_nonmovingbuffer(data, buf):
@@ -656,6 +719,7 @@ def make_string_mappings(strtype):
         keepalive_until_here(data)
         if not followed_2nd_path:
             lltype.free(buf, flavor='raw')
+    free_nonmovingbuffer._annenforceargs_ = [strtype, None]
 
     # int -> (char*, str)
     def alloc_buffer(count):
@@ -670,6 +734,7 @@ def make_string_mappings(strtype):
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
     alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
@@ -713,17 +778,20 @@ def make_string_mappings(strtype):
 
     # char* -> str, with an upper bound on the length in case there is no \x00
     def charp2strn(cp, maxlen):
-        l = []
+        b = builder_class(maxlen)
         i = 0
         while i < maxlen and cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return b.build()
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
-        l = [cp[i] for i in range(size)]
-        return emptystr.join(l)
+        b = builder_class(size)
+        for i in xrange(size):
+            b.append(cp[i])
+        return b.build()
+    charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
@@ -795,6 +863,8 @@ def sizeof(tp):
     """Similar to llmemory.sizeof() but tries hard to return a integer
     instead of a symbolic value.
     """
+    if isinstance(tp, lltype.Typedef):
+        tp = tp.OF
     if isinstance(tp, lltype.FixedSizeArray):
         return sizeof(tp.OF) * tp.length
     if isinstance(tp, lltype.Struct):
@@ -927,8 +997,67 @@ getintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
 
 class scoped_str2charp:
     def __init__(self, value):
-        self.buf = str2charp(value)
+        if value is not None:
+            self.buf = str2charp(value)
+        else:
+            self.buf = lltype.nullptr(CCHARP.TO)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
-        free_charp(self.buf)
+        if self.buf:
+            free_charp(self.buf)
+
+
+class scoped_unicode2wcharp:
+    def __init__(self, value):
+        if value is not None:
+            self.buf = unicode2wcharp(value)
+        else:
+            self.buf = lltype.nullptr(CWCHARP.TO)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        if self.buf:
+            free_wcharp(self.buf)
+
+
+class scoped_nonmovingbuffer:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf = get_nonmovingbuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmovingbuffer(self.data, self.buf)
+
+
+class scoped_nonmoving_unicodebuffer:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf = get_nonmoving_unicodebuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmoving_unicodebuffer(self.data, self.buf)
+
+class scoped_alloc_buffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf = alloc_buffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_buffer_alive_until_here(self.raw, self.gc_buf)
+    def str(self, length):
+        return str_from_buffer(self.raw, self.gc_buf, self.size, length)
+
+class scoped_alloc_unicodebuffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf = alloc_unicodebuffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
+    def str(self, length):
+        return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)

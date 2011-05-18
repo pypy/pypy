@@ -5,17 +5,47 @@ import sys
 
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib import rposix
+from pypy.tool.autopath import pypydir
+from pypy.rlib import jit, rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.rarithmetic import isinf, isnan, INFINITY, NAN
+from pypy.translator.platform import platform
+from pypy.rlib.rfloat import isfinite, isinf, isnan, INFINITY, NAN
 
-if sys.platform[:3] == "win":
-    eci = ExternalCompilationInfo(libraries=[])
+if sys.platform == "win32":
+    if platform.name == "msvc":
+        # When compiled with /O2 or /Oi (enable intrinsic functions)
+        # It's no more possible to take the address of some math functions.
+        # Ensure that the compiler chooses real functions instead.
+        eci = ExternalCompilationInfo(
+            includes = ['math.h'],
+            post_include_bits = ['#pragma function(floor)'],
+            )
+    else:
+        eci = ExternalCompilationInfo()
+    # Some math functions are C99 and not defined by the Microsoft compiler
+    cdir = py.path.local(pypydir).join('translator', 'c')
+    math_eci = ExternalCompilationInfo(
+        include_dirs = [cdir],
+        includes = ['src/ll_math.h'],
+        separate_module_files=[cdir.join('src', 'll_math.c')],
+        export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
+                        '_pypy_math_atanh',
+                        '_pypy_math_expm1', '_pypy_math_log1p'],
+        )
+    math_prefix = '_pypy_math_'
 else:
-    eci = ExternalCompilationInfo(libraries=['m'])
+    eci = ExternalCompilationInfo(
+        libraries=['m'])
+    math_eci = eci
+    math_prefix = ''
 
-def llexternal(name, ARGS, RESULT):
+def llexternal(name, ARGS, RESULT, **kwargs):
     return rffi.llexternal(name, ARGS, RESULT, compilation_info=eci,
+                           sandboxsafe=True, **kwargs)
+
+def math_llexternal(name, ARGS, RESULT):
+    return rffi.llexternal(math_prefix + name, ARGS, RESULT,
+                           compilation_info=math_eci,
                            sandboxsafe=True)
 
 if sys.platform == 'win32':
@@ -27,7 +57,8 @@ math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
 math_copysign = llexternal(underscore + 'copysign',
-                           [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+                           [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+                           pure_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE)
 math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
@@ -36,6 +67,14 @@ math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, pure_function=True)
+
+math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
+
+@jit.purefunction
+def sqrt_nonneg(x):
+    return math_sqrt(x)
+sqrt_nonneg.oopspec = "math.sqrt_nonneg(x)"
 
 # ____________________________________________________________
 #
@@ -67,6 +106,26 @@ def _likely_raise(errno, x):
 # ____________________________________________________________
 #
 # Custom implementations
+
+def ll_math_isnan(y):
+    # By not calling into the external function the JIT can inline this.
+    # Floats are awesome.
+    return y != y
+
+def ll_math_isinf(y):
+    # Use a bitwise OR so the JIT doesn't produce 2 different guards.
+    return (y == INFINITY) | (y == -INFINITY)
+
+def ll_math_isfinite(y):
+    # Use a custom hack that is reasonably well-suited to the JIT.
+    # Floats are awesome (bis).
+    z = 0.0 * y
+    return z == z       # i.e.: z is not a NaN
+
+
+ll_math_floor = math_floor
+
+ll_math_copysign = math_copysign
 
 
 def ll_math_atan2(y, x):
@@ -267,12 +326,24 @@ def ll_math_pow(x, y):
         _likely_raise(errno, r)
     return r
 
+def ll_math_sqrt(x):
+    if x < 0.0:
+        raise ValueError, "math domain error"
+    
+    if isfinite(x):
+        return sqrt_nonneg(x)
+
+    return x   # +inf or nan
+
 # ____________________________________________________________
 #
 # Default implementations
 
-def new_unary_math_function(name, can_overflow):
-    c_func = llexternal(name, [rffi.DOUBLE], rffi.DOUBLE)
+def new_unary_math_function(name, can_overflow, c99):
+    if sys.platform == 'win32' and c99:
+        c_func = math_llexternal(name, [rffi.DOUBLE], rffi.DOUBLE)
+    else:
+        c_func = llexternal(name, [rffi.DOUBLE], rffi.DOUBLE)
 
     def ll_math(x):
         _error_reset()
@@ -301,14 +372,18 @@ def new_unary_math_function(name, can_overflow):
 
 unary_math_functions = [
     'acos', 'asin', 'atan',
-    'ceil', 'cos', 'cosh', 'exp', 'fabs', 'floor',
-    'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
-    # 'log1p', 'acosh', 'asinh', 'atanh',   -- added in Python 2.6
+    'ceil', 'cos', 'cosh', 'exp', 'fabs',
+    'sin', 'sinh', 'tan', 'tanh', 'log', 'log10',
+    'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
     ]
 unary_math_functions_can_overflow = [
-    'cosh', 'exp', 'log1p', 'sinh', # why log1p? CPython does it
+    'cosh', 'exp', 'log1p', 'sinh', 'expm1',
+    ]
+unary_math_functions_c99 = [
+    'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
     ]
 
 for name in unary_math_functions:
     can_overflow = name in unary_math_functions_can_overflow
-    globals()['ll_math_' + name] = new_unary_math_function(name, can_overflow)
+    c99 = name in unary_math_functions_c99
+    globals()['ll_math_' + name] = new_unary_math_function(name, can_overflow, c99)

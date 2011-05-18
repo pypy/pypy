@@ -131,6 +131,14 @@ def sha224_init():
     sha_info['digestsize'] = 28
     return sha_info
 
+def getbuf(s):
+    if isinstance(s, str):
+        return s
+    elif isinstance(s, unicode):
+        return str(s)
+    else:
+        return buffer(s)
+
 def sha_update(sha_info, buffer):
     count = len(buffer)
     buffer_idx = 0
@@ -211,10 +219,10 @@ class sha256(object):
     def __init__(self, s=None):
         self._sha = sha_init()
         if s:
-            sha_update(self._sha, s)
+            sha_update(self._sha, getbuf(s))
     
     def update(self, s):
-        sha_update(self._sha, s)
+        sha_update(self._sha, getbuf(s))
     
     def digest(self):
         return sha_final(self._sha.copy())[:self._sha['digestsize']]
@@ -233,7 +241,7 @@ class sha224(sha256):
     def __init__(self, s=None):
         self._sha = sha224_init()
         if s:
-            sha_update(self._sha, s)
+            sha_update(self._sha, getbuf(s))
 
     def copy(self):
         new = sha224.__new__(sha224)

@@ -1,8 +1,8 @@
 import os.path
 from pypy.module.clr import assemblyname
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
+from pypy.interpreter.baseobjspace import W_Root, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, ApplevelClass
+from pypy.interpreter.gateway import interp2app, unwrap_spec, ApplevelClass
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.dotnet import CLR, box, unbox, NativeException, native_exc,\
@@ -67,6 +67,7 @@ def call_method(space, b_obj, b_type, name, w_args, startfrom):
     else:
         return cli2py(space, b_res)
 
+@unwrap_spec(typename=str, methname=str)
 def call_staticmethod(space, typename, methname, w_args):
     """
     Call a .NET static method.
@@ -83,7 +84,6 @@ def call_staticmethod(space, typename, methname, w_args):
     """
     b_type = System.Type.GetType(typename) # XXX: cache this!
     return call_method(space, None, b_type, methname, w_args, 0)
-call_staticmethod.unwrap_spec = [ObjSpace, str, str, W_Root]
 
 def py2cli(space, w_obj):
     try:
@@ -263,20 +263,20 @@ def get_assemblies_info(space):
         info.w_info = space.newtuple([info.w_namespaces, info.w_classes, info.w_generics])
         save_info_for_std_assemblies(space)
     return info.w_info
-get_assemblies_info.unwrap_spec = [ObjSpace]
 
 #_______________________________________________________________________________
 # AddReference* methods
 
 # AddReference', 'AddReferenceByName', 'AddReferenceByPartialName', 'AddReferenceToFile', 'AddReferenceToFileAndPath'
 
+@unwrap_spec(name=str)
 def AddReferenceByPartialName(space, name):
     b_assembly = Assembly.LoadWithPartialName(name)
     if b_assembly is not None:
         save_info_for_assembly(space, b_assembly)
-AddReferenceByPartialName.unwrap_spec = [ObjSpace, str]
 
 
+@unwrap_spec(assemblyname=str, namespace=str, classname=str)
 def load_cli_class(space, assemblyname, namespace, classname):
     """
     Load the given .NET class into the PyPy interpreter and return a
@@ -295,7 +295,6 @@ def load_cli_class(space, assemblyname, namespace, classname):
         w_cls = build_cli_class(space, namespace, classname, fullname, assemblyname)
         CliClassCache.put(fullname, w_cls)
     return w_cls
-load_cli_class.unwrap_spec = [ObjSpace, str, str, str]
 
 def build_cli_class(space, namespace, classname, fullname, assemblyname):
     assembly_qualified_name = '%s, %s' % (fullname, assemblyname)
@@ -333,10 +332,11 @@ class W_CliObject(Wrappable):
         self.space = space
         self.b_obj = b_obj
 
+    @unwrap_spec(name=str, startfrom=int)
     def call_method(self, name, w_args, startfrom=0):
         return call_method(self.space, self.b_obj, self.b_obj.GetType(), name, w_args, startfrom)
-    call_method.unwrap_spec = ['self', str, W_Root, int]
 
+@unwrap_spec(typename=str)
 def cli_object_new(space, w_subtype, typename, w_args):
     b_type = System.Type.GetType(typename)
     b_args, b_paramtypes = rewrap_args(space, w_args, 0)
@@ -349,7 +349,6 @@ def cli_object_new(space, w_subtype, typename, w_args):
         # TODO: use the appropriate exception, not StandardError
         raise OperationError(space.w_StandardError, space.wrap(message))
     return space.wrap(W_CliObject(space, b_obj))
-cli_object_new.unwrap_spec = [ObjSpace, W_Root, str, W_Root]
 
 W_CliObject.typedef = TypeDef(
     '_CliObject_internal',

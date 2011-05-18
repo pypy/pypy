@@ -5,15 +5,15 @@ import sys
 class Module(MixedModule):
 
     appleveldefs = {
-        'error'      : 'app_socket.error',
-        'herror'     : 'app_socket.herror',
-        'gaierror'   : 'app_socket.gaierror',
-        'timeout'    : 'app_socket.timeout',
     }
 
     interpleveldefs = {
         'SocketType':  'interp_socket.W_RSocket',
         'socket'    :  'interp_socket.W_RSocket',
+        'error'     :  'interp_socket.get_error(space, "error")',
+        'herror'    :  'interp_socket.get_error(space, "herror")',
+        'gaierror'  :  'interp_socket.get_error(space, "gaierror")',
+        'timeout'   :  'interp_socket.get_error(space, "timeout")',
     }
 
     def startup(self, space):

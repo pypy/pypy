@@ -3,7 +3,7 @@ import sys, inspect
 from compiler import parse, ast, pycodegen
 from py._code.assertion import BuiltinAssertionError, _format_explanation
 
-passthroughex = (KeyboardInterrupt, SystemExit, MemoryError)
+passthroughex = py.builtin._sysex
 
 class Failure:
     def __init__(self, node):
@@ -496,7 +496,7 @@ def getmsg(excinfo):
     #frame = py.code.Frame(frame)
     #return interpret(line, frame)
 
-    tb = excinfo.traceback[-1] 
+    tb = excinfo.traceback[-1]
     source = str(tb.statement).strip()
     x = interpret(source, tb.frame, should_fail=True)
     if not isinstance(x, str):

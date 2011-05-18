@@ -25,13 +25,13 @@ namespace pypy.builtin
             return result;
         }
 
-        // the following code is borrowed from 
+        // the following code is borrowed from
         // http://web.telia.com/~u31115556/under_construction/Functions.Cephes.CFunctions.cs
         const double MAXNUM = double.MaxValue; // 1.79769313486232e308
         const int MEXP = 0x7ff;
 
         [StructLayout(LayoutKind.Explicit)] //, CLSCompliantAttribute(false)]
-        struct DoubleUshorts 
+        struct DoubleUshorts
         {
             [FieldOffset(0)] public double d;
             [FieldOffset(0)] public ushort u0;
@@ -223,6 +223,31 @@ namespace pypy.builtin
         static public double ll_math_tanh(double x)
         {
             return Math.Tanh(x);
+        }
+
+        static public bool ll_math_isnan(double x)
+        {
+            return double.IsNaN(x);
+        }
+
+        static public bool ll_math_isinf(double x)
+        {
+            return double.IsInfinity(x);
+        }
+
+        static public bool ll_math_isfinite(double x)
+        {
+            return !double.IsNaN(x) && !double.IsInfinity(x);
+        }
+
+        static public double ll_math_copysign(double x, double y)
+        {
+            if (x < 0.0)
+                x = -x;
+            if (y > 0.0 || (y == 0.0 && Math.Atan2(y, -1.0) > 0.0))
+                return x;
+            else
+                return -x;
         }
     }
 }

@@ -14,33 +14,33 @@ class Logger(object):
         self.ts = metainterp_sd.cpu.ts
         self.guard_number = guard_number
 
-    def log_loop(self, inputargs, operations, number=0, type=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
         if type is None:
             debug_start("jit-log-noopt-loop")
-            self._log_operations(inputargs, operations)
+            self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, ":", type,
                         "with", len(operations), "ops")
-            self._log_operations(inputargs, operations)
+            self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-loop")
 
-    def log_bridge(self, inputargs, operations, number=-1):
+    def log_bridge(self, inputargs, operations, number=-1, ops_offset=None):
         if number == -1:
             debug_start("jit-log-noopt-bridge")
-            self._log_operations(inputargs, operations)
+            self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard", number,
                         "with", len(operations), "ops")
-            self._log_operations(inputargs, operations)
+            self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-bridge")
 
     def log_short_preamble(self, inputargs, operations):
         debug_start("jit-log-short-preamble")
-        self._log_operations(inputargs, operations)
+        self._log_operations(inputargs, operations, ops_offset=None)
         debug_stop("jit-log-short-preamble")            
 
     def repr_of_descr(self, descr):
@@ -67,7 +67,7 @@ class Logger(object):
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)
         elif isinstance(arg, ConstFloat):
-            return str(arg.value)
+            return str(arg.getfloat())
         elif isinstance(arg, BoxFloat):
             return 'f' + str(mv)
         elif arg is None:
@@ -75,9 +75,11 @@ class Logger(object):
         else:
             return '?'
 
-    def _log_operations(self, inputargs, operations):
+    def _log_operations(self, inputargs, operations, ops_offset):
         if not have_debug_prints():
             return
+        if ops_offset is None:
+            ops_offset = {}
         memo = {}
         if inputargs is not None:
             args = ", ".join([self.repr_of_arg(memo, arg) for arg in inputargs])
@@ -89,6 +91,11 @@ class Logger(object):
                 reclev = op.getarg(1).getint()
                 debug_print("debug_merge_point('%s', %s)" % (loc, reclev))
                 continue
+            offset = ops_offset.get(op, -1)
+            if offset == -1:
+                s_offset = ""
+            else:
+                s_offset = "+%d: " % offset
             args = ", ".join([self.repr_of_arg(memo, op.getarg(i)) for i in range(op.numargs())])
             if op.result is not None:
                 res = self.repr_of_arg(memo, op.result) + " = "
@@ -108,8 +115,11 @@ class Logger(object):
                                               for arg in op.getfailargs()]) + ']'
             else:
                 fail_args = ''
-            debug_print(res + op.getopname() +
+            debug_print(s_offset + res + op.getopname() +
                         '(' + args + ')' + fail_args)
+        if ops_offset and None in ops_offset:
+            offset = ops_offset[None]
+            debug_print("+%d: --end of the loop--" % offset)
 
 
 def int_could_be_an_address(x):

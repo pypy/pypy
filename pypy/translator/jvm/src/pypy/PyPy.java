@@ -38,6 +38,10 @@ public class PyPy implements Constants {
     public final static int INT_MIN = Integer.MIN_VALUE;
     public final static double ULONG_MAX = 18446744073709551616.0;
 
+    public static boolean int_between(int a, int b, int c) {
+        return a <= b && b < c;
+    }
+
     /** 
      * Compares two unsigned integers (value1 and value2) and returns
      * a value greater than, equal to, or less than zero if value 1 is
@@ -162,6 +166,13 @@ public class PyPy implements Constants {
         else {
             return ULONG_MAX + value;
         }
+    }
+
+    public static long double_to_ulong(double value) {
+        if (value < 0)
+            return (long)(ULONG_MAX + value);
+        else
+            return (long)value;
     }
     
     public static int double_to_uint(double value) {
@@ -746,16 +757,33 @@ public class PyPy implements Constants {
         return str.substring(start, end);
     }
 
-    public static Object[] ll_split_chr(String str, char c) {
+    public static Object[] ll_split_chr(String str, char c, int max) {
         ArrayList list = new ArrayList();
         int lastidx = 0, idx = 0;
         while ((idx = str.indexOf(c, lastidx)) != -1)
         {
+            if (max >= 0 && list.size() >= max)
+                break;
             String sub = str.substring(lastidx, idx);
             list.add(sub);
             lastidx = idx+1;
         }
         list.add(str.substring(lastidx));
+        return list.toArray(new String[list.size()]);
+    }
+
+    public static Object[] ll_rsplit_chr(String str, char c, int max) {
+        ArrayList list = new ArrayList();
+        int lastidx = str.length(), idx = 0;
+        while ((idx = str.lastIndexOf(c, lastidx - 1)) != -1)
+        {
+            if (max >= 0 && list.size() >= max)
+                break;
+            String sub = str.substring(idx + 1, lastidx);
+            list.add(0, sub);
+            lastidx = idx;
+        }
+        list.add(0, str.substring(0, lastidx));
         return list.toArray(new String[list.size()]);
     }
 
@@ -1158,6 +1186,22 @@ public class PyPy implements Constants {
         return Math.tanh(x);
     }
 
+    public double ll_math_copysign(double x, double y) {
+        return Math.copySign(x, y);
+    }
+
+    public boolean ll_math_isnan(double x) {
+        return Double.isNaN(x);
+    }
+
+    public boolean ll_math_isinf(double x) {
+        return Double.isInfinite(x);
+    }
+
+    public boolean ll_math_isfinite(double x) {
+        return !Double.isNaN(x) && !Double.isInfinite(x);
+    }
+
     private double check(double v) {
         if (Double.isNaN(v))
             interlink.throwValueError();
@@ -1170,8 +1214,41 @@ public class PyPy implements Constants {
         return Character.toLowerCase(c);
     }
 
+    public int locale_tolower(int chr)
+    {
+        return Character.toLowerCase(chr);
+    }
+
+    public int locale_isupper(int chr)
+    {
+        return boolean2int(Character.isUpperCase(chr));
+    }
+
+    public int locale_islower(int chr)
+    {
+        return boolean2int(Character.isLowerCase(chr));
+    }
+
+    public int locale_isalpha(int chr)
+    {
+        return boolean2int(Character.isLetter(chr));
+    }
+
+    public int locale_isalnum(int chr)
+    {
+        return boolean2int(Character.isLetterOrDigit(chr));
+    }
+
+
     // ----------------------------------------------------------------------
     // Self Test
+
+    public static int boolean2int(boolean b)
+    {
+        if (b)
+            return 1;
+        return 0;
+    }
 
     public static int __counter = 0, __failures = 0;
     public static void ensure(boolean f) {

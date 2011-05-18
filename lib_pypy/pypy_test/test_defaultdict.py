@@ -10,7 +10,7 @@ if sys.version_info < (2, 5):
 
 import copy
 
-from ..collections import defaultdict
+from lib_pypy._collections import defaultdict
 
 def foobar():
     return list
@@ -47,6 +47,10 @@ class Test_defaultdict:
         assert d2.default_factory == None
         py.test.raises(KeyError, d2.__getitem__, 15)
         py.test.raises(TypeError, defaultdict, 1)
+
+    def test_constructor(self):
+        assert defaultdict(None) == {}
+        assert defaultdict(None, {1: 2}) == {1: 2}
 
     def test_missing(self):
         d1 = defaultdict()

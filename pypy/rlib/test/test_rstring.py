@@ -1,7 +1,6 @@
 import sys
 
-from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit, \
-    string_repeat
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 
 
 def test_split():
@@ -41,9 +40,6 @@ def test_unicode_builder():
     s.append(u'abc')
     s.append_slice(u'abcdef', 1, 2)
     assert s.getlength() == len('aabcb')
-    s.append_multiple_char('d', 4)
+    s.append_multiple_char(u'd', 4)
     assert s.build() == 'aabcbdddd'
     assert isinstance(s.build(), unicode)
-
-def test_string_repeat():
-    raises(MemoryError, string_repeat, "abc", sys.maxint)

@@ -60,7 +60,11 @@ class AppTest_SliceObject:
         assert slice(4,11,2).indices(2) == (2, 2, 2)
         assert slice(11,4,-2).indices(28) == (11, 4, -2)
         assert slice(11,4,-2).indices(8) == (7, 4, -2)
-        assert slice(11,4,-2).indices(2) == (1, 2, -2)
+        assert slice(11,4,-2).indices(2) == (1, 1, -2)
+        assert slice(None, -9).indices(10) == (0, 1, 1)
+        assert slice(None, -10, -1).indices(10) == (9, 0, -1)
+        assert slice(None, 10, -1).indices(10) == (9, 9, -1)
+
 
     def test_repr(self):
         assert repr(slice(1, 2, 3)) == 'slice(1, 2, 3)'
@@ -85,7 +89,7 @@ class AppTest_SliceObject:
 
     def test_long_indices(self):
         assert slice(-2 ** 100, 10, 1).indices(1000) == (0, 10, 1)
-        assert slice(-2 ** 200, -2 ** 100, 1).indices(1000) == (0, -1, 1)
+        assert slice(-2 ** 200, -2 ** 100, 1).indices(1000) == (0, 0, 1)
         assert slice(2 ** 100, 0, -1).indices(1000) == (999, 0, -1)
         assert slice(2 ** 100, -2 ** 100, -1).indices(1000) == (999, -1, -1)
         start, stop, step = slice(0, 1000, 2 ** 200).indices(1000)
@@ -93,3 +97,6 @@ class AppTest_SliceObject:
         assert stop == 1000
         assert step >= 1000
         raises(OverflowError, "slice(0, 1000, 1).indices(2 ** 100)")
+
+    def test_reduce(self):
+        assert slice(1, 2, 3).__reduce__() == (slice, (1, 2, 3))

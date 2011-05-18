@@ -1,9 +1,0 @@
-There are two sets of tests for lib_pypy:
-
-  - pypy_test contains direct tests for the module in this directory, which
-    are supposed to be run by either cpython or pypy (or even jython or
-    ironpython, in theory)
-
-  - moreover, there are app-level tests that check how the modules work on
-    py.py.  Being app-level, they need to stay somewhere below the main pypy/
-    package, so they are in module/test_lib_pypy

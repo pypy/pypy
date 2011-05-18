@@ -7,19 +7,21 @@ class PyPyJitPolicy(JitPolicy):
                 modname == '__builtin__.abstractinst' or
                 modname == '__builtin__.interp_classobj' or
                 modname == '__builtin__.functional' or
-                modname == '__builtin__.descriptor'):
+                modname == '__builtin__.descriptor' or
+                modname == 'thread.os_local'):
             return True
         if '.' in modname:
             modname, _ = modname.split('.', 1)
         if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
-                       'imp', 'sys', 'array', '_ffi', 'cppyy', 'itertools', 'operator']:
+                       'imp', 'sys', 'array', '_ffi', 'itertools', 'operator',
+                       'posix', '_socket', '_sre', '_lsprof', 'cppyy']:
             return True
         return False
 
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
 
-        if mod == 'pypy.rlib.rbigint' or mod == 'pypy.rlib.rlocale':
+        if mod == 'pypy.rlib.rbigint' or mod == 'pypy.rlib.rlocale' or mod == 'pypy.rlib.rsocket':
             return False
         if '_geninterp_' in func.func_globals: # skip all geninterped stuff
             return False

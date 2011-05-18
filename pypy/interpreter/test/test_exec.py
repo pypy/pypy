@@ -185,6 +185,8 @@ class AppTestExecStmt:
                 return key
             def __setitem__(self, key, value):
                 self.result[key] = value
+            def setdefault(self, key, value):
+                assert key == '__builtins__'
         m = M()
         m.result = {}
         exec "x=m" in {}, m

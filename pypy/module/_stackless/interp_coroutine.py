@@ -19,7 +19,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import StaticMethod
 
@@ -294,15 +294,15 @@ for methname in StacklessFlags.__dict__:
         setattr(AppCoroutine, meth.__name__, meth.im_func)
 del meth, methname
 
-def w_get_is_zombie(space, self):
+def w_get_is_zombie(self, space):
     return space.wrap(self.get_is_zombie())
 AppCoroutine.w_get_is_zombie = w_get_is_zombie
 
-def w_get_is_alive(space, self):
+def w_get_is_alive(self, space):
     return space.wrap(self.is_alive())
 AppCoroutine.w_get_is_alive = w_get_is_alive
 
-def w_descr__framestack(space, self):
+def w_descr__framestack(self, space):
     assert isinstance(self, AppCoroutine)
     counter = 0
     f = self.subctx.topframe
@@ -320,21 +320,22 @@ def w_descr__framestack(space, self):
     return space.newtuple(items)
 
 def makeStaticMethod(module, classname, funcname):
+    "NOT_RPYTHON"
     space = module.space
     w_klass = space.getattr(space.wrap(module), space.wrap(classname))
     # HACK HACK HACK
     # make the typeobject mutable for a while
-    from pypy.objspace.std.typeobject import _HEAPTYPE, W_TypeObject
+    from pypy.objspace.std.typeobject import W_TypeObject
     assert isinstance(w_klass, W_TypeObject)
-    old_flags = w_klass.__flags__
-    w_klass.__flags__ |= _HEAPTYPE
+    old_flag = w_klass.flag_heaptype
+    w_klass.flag_heaptype = True
     
     space.appexec([w_klass, space.wrap(funcname)], """
         (klass, funcname):
             func = getattr(klass, funcname)
             setattr(klass, funcname, staticmethod(func.im_func))
     """)
-    w_klass.__flags__ = old_flags
+    w_klass.flag_heaptype = old_flag
 
 def post_install(module):
     makeStaticMethod(module, 'coroutine', 'getcurrent')
@@ -348,8 +349,7 @@ def post_install(module):
 
 AppCoroutine.typedef = TypeDef("coroutine",
     __new__ = interp2app(AppCoroutine.descr_method__new__.im_func),
-    bind = interp2app(AppCoroutine.w_bind,
-                      unwrap_spec=['self', W_Root, Arguments]),
+    bind = interp2app(AppCoroutine.w_bind),
     switch = interp2app(AppCoroutine.w_switch),
     kill = interp2app(AppCoroutine.w_kill),
     throw = interp2app(AppCoroutine.w_throw),
@@ -362,10 +362,8 @@ AppCoroutine.typedef = TypeDef("coroutine",
     _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(AppCoroutine.w_getcurrent),
     getmain = interp2app(AppCoroutine.w_getmain),
-    __reduce__   = interp2app(AppCoroutine.descr__reduce__,
-                              unwrap_spec=['self', ObjSpace]),
-    __setstate__ = interp2app(AppCoroutine.descr__setstate__,
-                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __reduce__   = interp2app(AppCoroutine.descr__reduce__),
+    __setstate__ = interp2app(AppCoroutine.descr__setstate__),
     __module__ = '_stackless',
 )
 
@@ -374,6 +372,11 @@ class AppCoState(BaseCoState):
         BaseCoState.__init__(self)
         self.w_tempval = space.w_None
         self.space = space
+
+        # XXX Workaround: for now we need to instantiate these classes
+        # explicitly for translation to work
+        W_CoroutineExit(space)
+        W_TaskletExit(space)
 
         # Exporting new exception to space
         self.w_CoroutineExit = space.gettypefor(W_CoroutineExit)
@@ -401,12 +404,10 @@ class AppCoState(BaseCoState):
 
 def return_main(space):
     return AppCoroutine._get_state(space).main
-return_main.unwrap_spec = [ObjSpace]
 
 def get_stack_depth_limit(space):
     return space.wrap(rstack.get_stack_depth_limit())
-get_stack_depth_limit.unwrap_spec = [ObjSpace]
 
+@unwrap_spec(limit=int)
 def set_stack_depth_limit(space, limit):
     rstack.set_stack_depth_limit(limit)
-set_stack_depth_limit.unwrap_spec = [ObjSpace, int]

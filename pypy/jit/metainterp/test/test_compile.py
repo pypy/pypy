@@ -4,10 +4,10 @@ from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
-from pypy.jit.metainterp import nounroll_optimize, jitprof, typesystem, compile
+from pypy.jit.metainterp import jitprof, typesystem, compile
 from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
 from pypy.jit.tool.oparser import parse
-
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 def test_insert_loop_token():
     # XXX this test is a bit useless now that there are no specnodes
@@ -26,27 +26,28 @@ def test_insert_loop_token():
     assert lst == [tok1, tok2, tok3]
 
 
-class FakeCPU:
+class FakeCPU(object):
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
     def compile_loop(self, inputargs, operations, token):
         self.seen.append((inputargs, operations, token))
 
-class FakeLogger:
-    def log_loop(self, inputargs, operations, number=0, type=None):
+class FakeLogger(object):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
         pass
 
-class FakeState:
-    optimize_loop = staticmethod(nounroll_optimize.optimize_loop)
+class FakeState(object):
+    enable_opts = ALL_OPTS_DICT.copy()
+    enable_opts.pop('unroll')
 
     def attach_unoptimized_bridge_from_interp(*args):
         pass
 
-class FakeGlobalData:
+class FakeGlobalData(object):
     loopnumbering = 0
 
-class FakeMetaInterpStaticData:
+class FakeMetaInterpStaticData(object):
     
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
@@ -59,6 +60,7 @@ class FakeMetaInterpStaticData:
         pass
 
 class FakeMetaInterp:
+    call_pure_results = {}
     class jitdriver_sd:
         warmstate = FakeState()
 
@@ -84,9 +86,11 @@ def test_compile_new_loop():
     metainterp.history = History()
     metainterp.history.operations = loop.operations[:]
     metainterp.history.inputargs = loop.inputargs[:]
+    cpu._all_size_descrs_with_vtable = (
+        LLtypeMixin.cpu._all_size_descrs_with_vtable)
     #
     loop_tokens = []
-    loop_token = compile_new_loop(metainterp, loop_tokens, [], 0)
+    loop_token = compile_new_loop(metainterp, loop_tokens, [], 0, None)
     assert loop_tokens == [loop_token]
     assert loop_token.number == 1
     assert staticdata.globaldata.loopnumbering == 2
@@ -102,7 +106,7 @@ def test_compile_new_loop():
     metainterp.history.operations = loop.operations[:]
     metainterp.history.inputargs = loop.inputargs[:]
     #
-    loop_token_2 = compile_new_loop(metainterp, loop_tokens, [], 0)
+    loop_token_2 = compile_new_loop(metainterp, loop_tokens, [], 0, None)
     assert loop_token_2 is loop_token
     assert loop_tokens == [loop_token]
     assert len(cpu.seen) == 0

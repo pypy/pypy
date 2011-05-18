@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env pypy
 """
 Command-line options for translate:
 
@@ -89,7 +89,6 @@ OVERRIDES = {
     'translation.debug': False,
 }
 
-# we want 2.4 expand_default functionality
 import optparse
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
@@ -210,6 +209,10 @@ def main():
     from pypy.translator import translator
     from pypy.translator import driver
     from pypy.translator.tool.pdbplus import PdbPlusShow
+
+    if translateconfig.view:
+        translateconfig.pdb = True
+
     if translateconfig.profile:
         from cProfile import Profile
         prof = Profile()
@@ -221,12 +224,14 @@ def main():
 
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
-    def debug(got_error):
+    def finish_profiling():
         if prof:
             prof.disable()
             statfilename = 'prof.dump'
             log.info('Dumping profiler stats to: %s' % statfilename)
-            prof.dump_stats(statfilename)
+            prof.dump_stats(statfilename)        
+
+    def debug(got_error):
         tb = None
         if got_error:
             import traceback
@@ -285,6 +290,17 @@ def main():
         elif drv.exe_name is None and '__name__' in targetspec_dic:
             drv.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
 
+        # Double check to ensure we are not overwriting the current interpreter
+        try:
+            this_exe = py.path.local(sys.executable).new(ext='')
+            exe_name = drv.compute_exe_name()
+            samefile = this_exe.samefile(exe_name)
+            assert not samefile, (
+                'Output file %s is the currently running '
+                'interpreter (use --output=...)'% exe_name)
+        except EnvironmentError:
+            pass
+
         goals = translateconfig.goals
         try:
             drv.proceed(goals)
@@ -293,9 +309,11 @@ def main():
     except SystemExit:
         raise
     except:
+        finish_profiling()
         debug(True)
         raise SystemExit(1)
     else:
+        finish_profiling()
         if translateconfig.pdb:
             debug(False)
 

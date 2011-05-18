@@ -27,16 +27,19 @@ METHODS_WITH_SHORTCUT = dict.fromkeys(
      'inplace_floordiv', 'inplace_div', 'inplace_mod', 'inplace_pow',
      'inplace_lshift', 'inplace_rshift', 'inplace_and', 'inplace_or',
      'inplace_xor',
+     # other
+     'format',
  ])
 
 KNOWN_MISSING = ['getattr',   # mostly non-builtins or optimized by CALL_METHOD
                  'setattr', 'delattr', 'userdel',  # mostly for non-builtins
                  'get', 'set', 'delete',   # uncommon (except on functions)
                  'getslice', 'setslice', 'delslice',  # see below
-                 'delitem',                       # rare stuff?
+                 'delitem', 'trunc',              # rare stuff?
                  'abs', 'hex', 'oct',             # rare stuff?
                  'pos', 'divmod', 'cmp',          # rare stuff?
                  'float', 'long', 'coerce',       # rare stuff?
+                 'isinstance', 'issubtype',
                  ]
 # We cannot support {get,set,del}slice right now because
 # DescrOperation.{get,set,del}slice do a bit more work than just call

@@ -14,7 +14,7 @@ class TestBuffer:
         assert isinstance(buf, Buffer)
         assert buf.getlength() == 11
         assert buf.as_str() == 'hello world'
-        assert buf.getslice(1, 6) == 'ello '
+        assert buf.getslice(1, 6, 1, 5) == 'ello '
         assert space.buffer_w(space.wrap(buf)) is buf
         assert space.bufferstr_w(w_hello) == 'hello world'
         assert space.bufferstr_w(space.buffer(w_hello)) == 'hello world'

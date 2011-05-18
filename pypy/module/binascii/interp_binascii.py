@@ -1,11 +1,14 @@
 from pypy.interpreter.error import OperationError
 
+class Cache:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class("binascii.Error")
+        self.w_incomplete = space.new_exception_class("binascii.Incomplete")
+
 def raise_Error(space, msg):
-    w_module = space.getbuiltinmodule('binascii')
-    w_Error = space.getattr(w_module, space.wrap('Error'))
-    raise OperationError(w_Error, space.wrap(msg))
+    w_error = space.fromcache(Cache).w_error
+    raise OperationError(w_error, space.wrap(msg))
 
 def raise_Incomplete(space, msg):
-    w_module = space.getbuiltinmodule('binascii')
-    w_Error = space.getattr(w_module, space.wrap('Incomplete'))
-    raise OperationError(w_Error, space.wrap(msg))
+    w_error = space.fromcache(Cache).w_incomplete
+    raise OperationError(w_error, space.wrap(msg))

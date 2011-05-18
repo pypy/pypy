@@ -2,14 +2,16 @@
 Interp-level implementation of the basic space operations.
 """
 
-from pypy.interpreter import gateway, buffer
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.runicode import UNICHR
+from pypy.rlib.rfloat import isnan, isinf, round_double
+from pypy.rlib import rfloat
+import math
 import __builtin__
 NoneNotWrapped = gateway.NoneNotWrapped
-
-Buffer = buffer.Buffer
 
 def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
@@ -24,6 +26,7 @@ def chr(space, w_ascii):
                              space.wrap("character code not in range(256)"))
     return space.wrap(char)
 
+@unwrap_spec(code=int)
 def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     # XXX range checking!
@@ -33,7 +36,6 @@ def unichr(space, code):
         raise OperationError(space.w_ValueError,
                              space.wrap("unichr() arg out of range"))
     return space.wrap(c)
-unichr.unwrap_spec = [ObjSpace, int]
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
@@ -47,7 +49,7 @@ def checkattrname(space, w_name):
     # space.{get,set,del}attr()...
     # Note that if w_name is already a string (or a subclass of str),
     # it must be returned unmodified (and not e.g. unwrapped-rewrapped).
-    if not space.is_true(space.is_(w_name, space.w_str)):
+    if not space.is_w(space.type(w_name), space.w_str):
         name = space.str_w(w_name)    # typecheck
         w_name = space.wrap(name)     # rewrap as a real string
     return w_name
@@ -121,38 +123,40 @@ def _issubtype(space, w_cls1, w_cls2):
 
 # ____________________________________________________________
 
-from math import floor as _floor
-from math import ceil as _ceil
+# Here 0.30103 is an upper bound for log10(2)
+NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
+NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
-def round(space, number, ndigits=0):
+@unwrap_spec(number=float)
+def round(space, number, w_ndigits=0):
     """round(number[, ndigits]) -> floating point number
 
 Round a number to a given precision in decimal digits (default 0 digits).
 This always returns a floating point number.  Precision may be negative."""
-    # Algortithm copied directly from CPython
-    f = 1.0
-    if ndigits < 0:
-        i = -ndigits
-    else:
-        i = ndigits
-    while i > 0:
-        f = f*10.0
-        i -= 1
-    if ndigits < 0:
-        number /= f
-    else:
-        number *= f
-    if number >= 0.0:
-        number = _floor(number + 0.5)
-    else:
-        number = _ceil(number - 0.5)
-    if ndigits < 0:
-        number *= f
-    else:
-        number /= f
-    return space.wrap(number)
-#
-round.unwrap_spec = [ObjSpace, float, int]
+    # Algorithm copied directly from CPython
+
+    # interpret 2nd argument as a Py_ssize_t; clip on overflow
+    ndigits = space.getindex_w(w_ndigits, None)
+
+    # nans, infinities and zeros round to themselves
+    if number == 0 or isinf(number) or isnan(number):
+        return space.wrap(number)
+
+    # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
+    # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
+    # rounds to +-0.0.
+    if ndigits > NDIGITS_MAX:
+        return space.wrap(number)
+    elif ndigits < NDIGITS_MIN:
+        # return 0.0, but with sign of x
+        return space.wrap(0.0 * number)
+
+    # finite x, and ndigits is not unreasonably large
+    z = round_double(number, ndigits)
+    if isinf(z):
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("rounded value too large to represent"))
+    return space.wrap(z)
 
 # ____________________________________________________________
 
@@ -181,9 +185,20 @@ iter(callable, sentinel) -> iterator calling callable() until it returns
                             the sentinal.
 """
     if w_sentinel is None:
-        return space.iter(w_collection_or_callable) 
+        return space.iter(w_collection_or_callable)
     else:
         return iter_sentinel(space, w_collection_or_callable, w_sentinel)
+
+def next(space, w_iterator, w_default=NoneNotWrapped):
+    """next(iterator[, default])
+Return the next item from the iterator. If default is given and the iterator
+is exhausted, it is returned instead of raising StopIteration."""
+    try:
+        return space.next(w_iterator)
+    except OperationError, e:
+        if w_default is not None and e.match(space, space.w_StopIteration):
+            return w_default
+        raise
 
 def ord(space, w_val):
     """Return the integer ordinal of a character."""
@@ -221,3 +236,6 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
+def format(space, w_obj, w_format_spec=""):
+    """Format a obj according to format_spec"""
+    return space.format(w_obj, w_format_spec)

@@ -6,7 +6,7 @@ A note about performance: the pure Python MD5 takes roughly
 
 from __future__ import absolute_import
 import md5                              # CPython's implementation in C.
-from .. import md5 as pymd5  
+from lib_pypy import _md5 as pymd5  
 
 
 # Helpers...
@@ -57,7 +57,7 @@ def compareImp(message):
     d1h = m1.hexdigest()
     
     # Use MD5 module in pure Python.
-    m2 = pymd5.md5()
+    m2 = pymd5.new()
     m2.update(message)
     d2 = m2.digest()
     d2h = m2.hexdigest()
@@ -203,7 +203,7 @@ class TestMD5Compare:
         m1.update(prefix1)
         m1c = m1.copy()
 
-        m2 = pymd5.md5()
+        m2 = pymd5.new()
         m2.update(prefix1)
         m2c = m2.copy()
 
@@ -222,7 +222,6 @@ class TestMD5Compare:
 
 def test_attributes():
     assert pymd5.digest_size == 16
-    assert pymd5.digestsize == 16
-    assert pymd5.blocksize == 1
-    assert pymd5.md5().digest_size == 16
-    assert pymd5.md5().digestsize == 16
+    assert pymd5.new().digest_size == 16
+    assert pymd5.new().digestsize == 16
+    assert pymd5.new().block_size == 64

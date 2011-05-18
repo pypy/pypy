@@ -6,12 +6,12 @@ from pypy.translator.platform import host
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 def test_compilationerror_repr():
-    # compilation error output/stdout may be large, make sure
-    # repr creates a limited version
+    # compilation error output/stdout may be large, but we don't want
+    # repr to create a limited version
     c = CompilationError('', '*'*1000)
-    assert len(repr(c)) < 500
+    assert repr(c) == 'CompilationError(err="""\n\t%s""")' % ('*'*1000,)
     c = CompilationError('*'*1000, '')
-    assert len(repr(c)) < 500
+    assert repr(c) == 'CompilationError(out="""\n\t%s""")' % ('*'*1000,)
 
 class TestPlatform(object):
     platform = host

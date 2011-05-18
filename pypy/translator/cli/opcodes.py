@@ -71,6 +71,8 @@ misc_ops = {
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call],
     'indirect_call':            [IndirectCall],
+    'int_between':              [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::IntBetween(int32, int32, int32)'],
+
 
     'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
     'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
@@ -147,7 +149,10 @@ unary_ops = {
     'cast_float_to_uint':       'conv.u4',
     'cast_longlong_to_float':   'conv.r8',
     'cast_float_to_longlong':   'conv.i8',
+    'cast_ulonglong_to_float':  'conv.r8',
+    'cast_float_to_ulonglong':  'conv.u8',
     'cast_primitive':           [PushAllArgs, CastPrimitive],
+    'force_cast':               [PushAllArgs, CastPrimitive],
     'truncate_longlong_to_int': 'conv.i4',
     }
 
@@ -266,6 +271,8 @@ binary_ops = {
     'ullong_ge':                _not('clt.un'),
     'ullong_lshift':            [PushAllArgs, 'conv.u4', 'shl'],
     'ullong_rshift':            [PushAllArgs, 'conv.i4', 'shr'],
+    'ullong_and':               'and',
+    'ullong_or':                'or',
 
     'oois':                     'ceq',
     'ooisnot':                  _not('ceq'),

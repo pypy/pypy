@@ -485,7 +485,7 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
                 try:
                     thisattrvalue = frozendesc.attrcache[attr]
                 except KeyError:
-                    if not frozendesc.has_attribute(attr):
+                    if frozendesc.warn_missing_attribute(attr):
                         warning("Desc %r has no attribute %r" % (frozendesc, attr))
                     continue
                 llvalue = r_value.convert_const(thisattrvalue)
@@ -629,6 +629,8 @@ class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
         return inputconst(Void, None)
     
     def rtype_is_((robj1, rnone2), hop):
+        if hop.s_result.is_constant():
+            return hop.inputconst(Bool, hop.s_result.const)
         return hop.rtyper.type_system.rpbc.rtype_is_None(robj1, rnone2, hop)
 
 class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
@@ -637,6 +639,8 @@ class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
         return inputconst(r_to, None)
 
     def rtype_is_((rnone1, robj2), hop):
+        if hop.s_result.is_constant():
+            return hop.inputconst(Bool, hop.s_result.const)
         return hop.rtyper.type_system.rpbc.rtype_is_None(
                                                 robj2, rnone1, hop, pos=1)
 

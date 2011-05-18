@@ -15,7 +15,8 @@ import math
 # events
 #
 eventnames = '''POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL
-                POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG'''.split()
+                POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG
+                FD_SETSIZE'''.split()
 
 eventnames = [name for name in eventnames
                    if _c.constants.get(name) is not None]

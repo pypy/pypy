@@ -80,7 +80,7 @@ class Holder(object):
             v = self._emit(repr, hop)
             cache[repr] = v
             return v
-    
+
 
 class VarHolder(Holder):
 
@@ -95,7 +95,7 @@ class VarHolder(Holder):
         assert self.is_tuple()
         n = len(self.s_obj.items)
         return tuple([ItemHolder(self, i) for i in range(n)])
-        
+
     def _emit(self, repr, hop):
         return hop.inputarg(repr, arg=self.num)
 
@@ -186,4 +186,4 @@ class RPythonCallsSpace:
 
     def type(self, item):
         return type(item)
-    
+

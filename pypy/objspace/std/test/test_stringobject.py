@@ -12,7 +12,7 @@ class TestW_StringObject:
         assert self.space.str_w(self.space.wrap("foo")) == "foo"
 
     def test_equality(self):
-        w = self.space.wrap 
+        w = self.space.wrap
         assert self.space.eq_w(w('abc'), w('abc'))
         assert not self.space.eq_w(w('abc'), w('def'))
 
@@ -175,7 +175,7 @@ class AppTestStringObject:
         assert "!Brown Fox".istitle() == True
         assert "Brow&&&&N Fox".istitle() == True
         assert "!Brow&&&&n Fox".istitle() == False
-        
+
     def test_capitalize(self):
         assert "brown fox".capitalize() == "Brown fox"
         assert ' hello '.capitalize() == ' hello '
@@ -257,7 +257,7 @@ class AppTestStringObject:
         assert ''.zfill(3) == '000'
         assert '34'.zfill(1) == '34'
         assert '34'.zfill(4) == '0034'
-            
+
     def test_center(self):
         s="a b"
         assert s.center(0) == "a b"
@@ -277,7 +277,7 @@ class AppTestStringObject:
         assert 'abc'.center(5, '*') == '*abc*'     # Python 2.4
         raises(TypeError, 'abc'.center, 4, 'cba')
         assert ' abc'.center(7) == '   abc '
-        
+
     def test_count(self):
         assert "".count("x") ==0
         assert "".count("") ==1
@@ -290,7 +290,7 @@ class AppTestStringObject:
         assert 'aaa'.count('a', 0, -1) == 2
         assert 'aaa'.count('a', 0, -10) == 0
         assert 'ababa'.count('aba') == 1
-     
+
     def test_startswith(self):
         assert 'ab'.startswith('ab') is True
         assert 'ab'.startswith('a') is True
@@ -320,7 +320,7 @@ class AppTestStringObject:
         assert not 'hello'.startswith(('he', 'hel'), 0, 1)
         assert 'hello'.startswith(('he', 'hel'), 0, 2)
         raises(TypeError, 'hello'.startswith, (42,))
-    
+
     def test_endswith(self):
         assert 'ab'.endswith('ab') is True
         assert 'ab'.endswith('b') is True
@@ -351,6 +351,8 @@ class AppTestStringObject:
         raises(TypeError, 'hello'.endswith, (42,))
 
     def test_expandtabs(self):
+        import sys
+
         assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'
         assert 'abc\rab\tdef\ng\thi'.expandtabs(8) ==   'abc\rab      def\ng       hi'
         assert 'abc\rab\tdef\ng\thi'.expandtabs(4) ==   'abc\rab  def\ng   hi'
@@ -360,16 +362,18 @@ class AppTestStringObject:
         assert 'abc\r\nab\r\ndef\ng\r\nhi'.expandtabs(4) == 'abc\r\nab\r\ndef\ng\r\nhi'
 
         s = 'xy\t'
-        assert s.expandtabs() =='xy      '
-        
+        assert s.expandtabs() == 'xy      '
+
         s = '\txy\t'
-        assert s.expandtabs() =='        xy      '
-        assert s.expandtabs(1) ==' xy '
-        assert s.expandtabs(2) =='  xy  '
-        assert s.expandtabs(3) =='   xy '
-        
-        assert 'xy'.expandtabs() =='xy'
-        assert ''.expandtabs() ==''
+        assert s.expandtabs() == '        xy      '
+        assert s.expandtabs(1) == ' xy '
+        assert s.expandtabs(2) == '  xy  '
+        assert s.expandtabs(3) == '   xy '
+
+        assert 'xy'.expandtabs() == 'xy'
+        assert ''.expandtabs() == ''
+
+        raises(OverflowError, "t\tt\t".expandtabs, sys.maxint)
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
@@ -398,12 +402,13 @@ class AppTestStringObject:
         # Split on \r and \r\n too
         assert '12\r34\r\n56'.splitlines() == ['12', '34', '56']
         assert '12\r34\r\n56'.splitlines(1) == ['12\r', '34\r\n', '56']
-    
+
     def test_find(self):
         assert 'abcdefghiabc'.find('abc') == 0
         assert 'abcdefghiabc'.find('abc', 1) == 9
         assert 'abcdefghiabc'.find('def', 4) == -1
         assert 'abcdef'.find('', 13) == -1
+        assert 'abcdefg'.find('def', 5, None) == -1
 
     def test_index(self):
         from sys import maxint
@@ -412,6 +417,8 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.index('abc') == 0
         assert 'abcdefghiabc'.index('abc', 1) == 9
         assert 'abcdefghiabc'.index('def', -4*maxint, 4*maxint) == 3
+        assert 'abcdefgh'.index('def', 2, None) == 3
+        assert 'abcdefgh'.index('def', None, None) == 3
         raises(ValueError, 'abcdefghiabc'.index, 'hib')
         raises(ValueError, 'abcdefghiab'.index, 'abc', 1)
         raises(ValueError, 'abcdefghi'.index, 'ghi', 8)
@@ -427,6 +434,7 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.rfind('abcz') == -1
         assert 'abc'.rfind('', 0) == 3
         assert 'abc'.rfind('', 3) == 3
+        assert 'abcdefgh'.rfind('def', 2, None) == 3
 
     def test_rindex(self):
         from sys import maxint
@@ -486,6 +494,8 @@ class AppTestStringObject:
         assert ", ".join(['a', 'b', 'c']) == "a, b, c"
         assert "".join([]) == ""
         assert "-".join(['a', 'b']) == 'a-b'
+        text = 'text'
+        assert "".join([text]) is text
         raises(TypeError, ''.join, 1)
         raises(TypeError, ''.join, [1])
         raises(TypeError, ''.join, [[1]])
@@ -507,7 +517,7 @@ class AppTestStringObject:
                 if i == 2:
                     return unicode("fooled you!")
                 return self.it.next()
-            
+
         f = ('a\n', 'b\n', 'c\n')
         got = " - ".join(OhPhooey(f))
         assert got == unicode("a\n - b\n - fooled you! - c\n")
@@ -545,7 +555,7 @@ class AppTestStringObject:
         assert "\t\t\b\b\n".isspace() == False
         assert "\t\t".isspace() == True
         assert "\t\t\r\r\n".isspace() == True
-        
+
     def test_islower(self):
         assert "".islower() == False
         assert " ".islower() ==  False
@@ -565,8 +575,8 @@ class AppTestStringObject:
         assert "!BBB".isupper() == True
         assert "bbb".isupper() == False
         assert "BBBbbb".isupper() == False
-                          
-         
+
+
     def test_swapcase(self):
         assert "aaa AAA 111".swapcase() == "AAA aaa 111"
         assert "".swapcase() == ""
@@ -581,25 +591,28 @@ class AppTestStringObject:
 
             tbl = ''.join(L)
             return tbl
-        
+
         table = maketrans('abc', 'xyz')
         assert 'xyzxyz' == 'xyzabcdef'.translate(table, 'def')
+        assert 'xyzxyz' == 'xyzabcdef'.translate(memoryview(table), 'def')
 
         table = maketrans('a', 'A')
         assert 'Abc' == 'abc'.translate(table)
         assert 'xyz' == 'xyz'.translate(table)
         assert 'yz' ==  'xyz'.translate(table, 'x')
-        
+
         raises(ValueError, 'xyz'.translate, 'too short', 'strip')
         raises(ValueError, 'xyz'.translate, 'too short')
         raises(ValueError, 'xyz'.translate, 'too long'*33)
+
+        assert 'yz' == 'xyz'.translate(None, 'x')     # 2.6
 
     def test_iter(self):
         l=[]
         for i in iter("42"):
             l.append(i)
         assert l == ['4','2']
-        
+
     def test_repr(self):
         assert repr("")       =="''"
         assert repr("a")      =="'a'"
@@ -634,7 +647,7 @@ class AppTestStringObject:
     def test_encode(self):
         assert 'hello'.encode() == 'hello'
         assert type('hello'.encode()) is str
-        
+
     def test_hash(self):
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
@@ -649,6 +662,7 @@ class AppTestStringObject:
         assert len(b) == 5
         assert b[-1] == "o"
         assert b[:] == "hello"
+        assert b[1:0] == ""
         raises(TypeError, "b[3] = 'x'")
 
     def test_getnewargs(self):

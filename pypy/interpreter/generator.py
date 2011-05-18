@@ -7,11 +7,19 @@ from pypy.interpreter.pyopcode import LoopBlock
 
 class GeneratorIterator(Wrappable):
     "An iterator created by a generator."
+    _immutable_fields_ = ['pycode']
     
     def __init__(self, frame):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
+        self.pycode = frame.pycode
         self.running = False
+
+    def descr__repr__(self, space):
+        code_name = self.pycode.co_name
+        addrstring = self.getaddrstring(space)
+        return space.wrap("<generator object %s at 0x%s>" %
+                          (code_name, addrstring))
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -48,7 +56,7 @@ return next yielded value or raise StopIteration."""
         frame = self.frame
         if frame is None:
             # xxx a bit ad-hoc, but we don't want to go inside
-            # execute_generator_frame() if the frame is actually finished
+            # execute_frame() if the frame is actually finished
             if operr is None:
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
@@ -65,7 +73,7 @@ return next yielded value or raise StopIteration."""
         self.running = True
         try:
             try:
-                w_result = frame.execute_generator_frame(w_arg, operr)
+                w_result = frame.execute_frame(w_arg, operr)
             except OperationError:
                 # errors finish a frame
                 self.frame = None
@@ -81,7 +89,7 @@ return next yielded value or raise StopIteration."""
             self.running = False
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
-        """throw(typ[,val[,tb]]) -> raise exception in generator,
+        """x.throw(typ[,val[,tb]]) -> raise exception in generator,
 return next yielded value or raise StopIteration."""
         return self.throw(w_type, w_val, w_tb)
 
@@ -101,11 +109,11 @@ return next yielded value or raise StopIteration."""
         return self.send_ex(space.w_None, operr)
              
     def descr_next(self):
-        """next() -> the next value, or raise StopIteration"""
+        """x.next() -> the next value, or raise StopIteration"""
         return self.send_ex(self.space.w_None)
  
     def descr_close(self):
-        """close(arg) -> raise GeneratorExit inside generator."""
+        """x.close(arg) -> raise GeneratorExit inside generator."""
         space = self.space
         try:
             w_retval = self.throw(space.w_GeneratorExit, space.w_None,
@@ -120,11 +128,18 @@ return next yielded value or raise StopIteration."""
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
 
-    def descr_gi_frame(space, self):
+    def descr_gi_frame(self, space):
         if self.frame is not None and not self.frame.frame_finished_execution:
             return self.frame
         else:
             return space.w_None
+
+    def descr_gi_code(self, space):
+        return self.pycode
+
+    def descr__name__(self, space):
+        code_name = self.pycode.co_name
+        return space.wrap(code_name)
 
     def descr__del__(self):        
         """

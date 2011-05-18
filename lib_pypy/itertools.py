@@ -63,6 +63,23 @@ class chain(object):
                 raise TypeError('%s has no next() method' % \
                                 (self._cur_iterable_iter))
 
+
+class compress(object):
+    def __init__(self, data, selectors):
+        self.data = iter(data)
+        self.selectors = iter(selectors)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        while True:
+            next_item = self.data.next()
+            next_selector = self.selectors.next()
+            if bool(next_selector):
+                return next_item
+
+
 class count(object):
     """Make an iterator that returns consecutive integers starting
     with n.  If not specified n defaults to zero. Does not currently
@@ -412,7 +429,56 @@ class izip(object):
         except AttributeError:
             # CPython raises a TypeError when next() is not defined
             raise TypeError('%s has no next() method' % (i))
-    
+
+
+class product(object):
+
+    def __init__(self, *args, **kw):
+        if len(kw) > 1:
+            raise TypeError("product() takes at most 1 argument (%d given)" %
+                             len(kw))
+        self.repeat = kw.get('repeat', 1)
+        self.gears = [x for x in args] * self.repeat
+        self.num_gears = len(self.gears)
+        # initialization of indicies to loop over
+        self.indicies = [(0, len(self.gears[x]))
+                         for x in range(0, self.num_gears)]
+        self.cont = True
+
+    def roll_gears(self):
+        # Starting from the end of the gear indicies work to the front
+        # incrementing the gear until the limit is reached. When the limit
+        # is reached carry operation to the next gear
+        should_carry = True
+        for n in range(0, self.num_gears):
+            nth_gear = self.num_gears - n - 1
+            if should_carry:
+                count, lim = self.indicies[nth_gear]
+                count += 1
+                if count == lim and nth_gear == 0:
+                    self.cont = False
+                if count == lim:
+                    should_carry = True
+                    count = 0
+                else:
+                    should_carry = False
+                self.indicies[nth_gear] = (count, lim)
+            else:
+                break
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if not self.cont:
+            raise StopIteration
+        l = []
+        for x in range(0, self.num_gears):
+            index, limit = self.indicies[x]
+            l.append(self.gears[x][index])
+        self.roll_gears()
+        return tuple(l)
+
 
 class repeat(object):
     """Make an iterator that returns object over and over again.

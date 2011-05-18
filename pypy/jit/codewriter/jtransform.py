@@ -5,10 +5,12 @@ from pypy.jit.metainterp.history import getkind
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, c_last_exception
 from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
-from pypy.jit.codewriter import support, heaptracker
+from pypy.jit.codewriter import support, heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp.typesystem import deref, arrayItem
+from pypy.jit.metainterp import quasiimmut
+from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
 from pypy.translator.simplify import get_funcobj
@@ -113,7 +115,7 @@ class Transformer(object):
                     "known non-negative, or catching IndexError, or\n"
                     "not inlining at all (for tests: use listops=True).\n"
                     "Occurred in: %r" % self.graph)
-            # extra expanation: with the way things are organized in
+            # extra explanation: with the way things are organized in
             # rpython/rlist.py, the ll_getitem becomes a function call
             # that is typically meant to be inlined by the JIT, but
             # this does not work with vable arrays because
@@ -199,7 +201,6 @@ class Transformer(object):
 
     rewrite_op_cast_pointer = rewrite_op_same_as
     rewrite_op_cast_opaque_ptr = rewrite_op_same_as   # rlib.rerased
-    def rewrite_op_cast_primitive(self, op): pass
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
@@ -352,6 +353,8 @@ class Transformer(object):
             prepare = self._handle_jit_call
         elif oopspec_name.startswith('libffi_'):
             prepare = self._handle_libffi_call
+        elif oopspec_name.startswith('math.sqrt'):
+            prepare = self._handle_math_sqrt_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -361,7 +364,7 @@ class Transformer(object):
         # If the resulting op1 is still a direct_call, turn it into a
         # residual_call.
         if isinstance(op1, SpaceOperation) and op1.opname == 'direct_call':
-            op1 = self.handle_residual_call(op1 or op)
+            op1 = self.handle_residual_call(op1)
         return op1
 
     def handle_recursive_call(self, op):
@@ -424,6 +427,15 @@ class Transformer(object):
     rewrite_op_int_mod_zer     = _do_builtin_call
     rewrite_op_int_lshift_ovf  = _do_builtin_call
     rewrite_op_int_abs         = _do_builtin_call
+    rewrite_op_llong_abs          = _do_builtin_call
+    rewrite_op_llong_floordiv     = _do_builtin_call
+    rewrite_op_llong_floordiv_zer = _do_builtin_call
+    rewrite_op_llong_mod          = _do_builtin_call
+    rewrite_op_llong_mod_zer      = _do_builtin_call
+    rewrite_op_ullong_floordiv     = _do_builtin_call
+    rewrite_op_ullong_floordiv_zer = _do_builtin_call
+    rewrite_op_ullong_mod          = _do_builtin_call
+    rewrite_op_ullong_mod_zer      = _do_builtin_call
     rewrite_op_gc_identityhash = _do_builtin_call
     rewrite_op_gc_id           = _do_builtin_call
 
@@ -553,7 +565,8 @@ class Transformer(object):
                                                 arraydescr)
             return []
         # check for _immutable_fields_ hints
-        if v_inst.concretetype.TO._immutable_field(c_fieldname.value):
+        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
+        if immut:
             if (self.callcontrol is not None and
                 self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
                                                       c_fieldname.value)):
@@ -566,8 +579,18 @@ class Transformer(object):
         descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                       c_fieldname.value)
         kind = getkind(RESULT)[0]
-        return SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
-                              [v_inst, descr], op.result)
+        op1 = SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
+                             [v_inst, descr], op.result)
+        #
+        if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
+            descr1 = self.cpu.fielddescrof(
+                v_inst.concretetype.TO,
+                quasiimmut.get_mutate_field_name(c_fieldname.value))
+            op1 = [SpaceOperation('-live-', [], None),
+                   SpaceOperation('record_quasiimmut_field',
+                                  [v_inst, descr, descr1], None),
+                   op1]
+        return op1
 
     def rewrite_op_setfield(self, op):
         if self.is_typeptr_getset(op):
@@ -779,6 +802,114 @@ class Transformer(object):
         return result
 
     # ----------
+    # Long longs, for 32-bit only.  Supported operations are left unmodified,
+    # and unsupported ones are turned into a call to a function from
+    # jit.codewriter.support.
+
+    for _op, _oopspec in [('llong_invert',  'INVERT'),
+                          ('ullong_invert', 'INVERT'),
+                          ('llong_lt',      'LT'),
+                          ('llong_le',      'LE'),
+                          ('llong_eq',      'EQ'),
+                          ('llong_ne',      'NE'),
+                          ('llong_gt',      'GT'),
+                          ('llong_ge',      'GE'),
+                          ('ullong_lt',     'ULT'),
+                          ('ullong_le',     'ULE'),
+                          ('ullong_eq',     'EQ'),
+                          ('ullong_ne',     'NE'),
+                          ('ullong_gt',     'UGT'),
+                          ('ullong_ge',     'UGE'),
+                          ('llong_add',     'ADD'),
+                          ('llong_sub',     'SUB'),
+                          ('llong_mul',     'MUL'),
+                          ('llong_and',     'AND'),
+                          ('llong_or',      'OR'),
+                          ('llong_xor',     'XOR'),
+                          ('ullong_add',    'ADD'),
+                          ('ullong_sub',    'SUB'),
+                          ('ullong_mul',    'MUL'),
+                          ('ullong_and',    'AND'),
+                          ('ullong_or',     'OR'),
+                          ('ullong_xor',    'XOR'),
+                          ('llong_lshift',  'LSHIFT'),
+                          ('llong_rshift',  'RSHIFT'),
+                          ('ullong_lshift', 'LSHIFT'),
+                          ('ullong_rshift', 'URSHIFT'),
+                          ('cast_int_to_longlong',     'FROM_INT'),
+                          ('truncate_longlong_to_int', 'TO_INT'),
+                          ('cast_float_to_longlong',   'FROM_FLOAT'),
+                          ('cast_longlong_to_float',   'TO_FLOAT'),
+                          ('cast_uint_to_longlong',    'FROM_UINT'),
+                          ]:
+        exec py.code.Source('''
+            def rewrite_op_%s(self, op):
+                args = op.args
+                op1 = self.prepare_builtin_call(op, "llong_%s", args)
+                op2 = self._handle_oopspec_call(op1, args,
+                                                EffectInfo.OS_LLONG_%s,
+                                                EffectInfo.EF_PURE)
+                if %r == "TO_INT":
+                    assert op2.result.concretetype == lltype.Signed
+                return op2
+        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+
+    def _normalize(self, oplist):
+        if isinstance(oplist, SpaceOperation):
+            return [oplist]
+        else:
+            assert type(oplist) is list
+            return oplist
+
+    def rewrite_op_llong_neg(self, op):
+        v = varoftype(lltype.SignedLongLong)
+        op0 = SpaceOperation('cast_int_to_longlong',
+                             [Constant(0, lltype.Signed)],
+                             v)
+        args = [v, op.args[0]]
+        op1 = SpaceOperation('llong_sub', args, op.result)
+        return (self._normalize(self.rewrite_operation(op0)) +
+                self._normalize(self.rewrite_operation(op1)))
+
+    def rewrite_op_llong_is_true(self, op):
+        v = varoftype(op.args[0].concretetype)
+        op0 = SpaceOperation('cast_int_to_longlong',
+                             [Constant(0, lltype.Signed)],
+                             v)
+        args = [op.args[0], v]
+        op1 = SpaceOperation('llong_ne', args, op.result)
+        return (self._normalize(self.rewrite_operation(op0)) +
+                self._normalize(self.rewrite_operation(op1)))
+
+    rewrite_op_ullong_is_true = rewrite_op_llong_is_true
+
+    def rewrite_op_cast_primitive(self, op):
+        fromll = longlong.is_longlong(op.args[0].concretetype)
+        toll   = longlong.is_longlong(op.result.concretetype)
+        if fromll != toll:
+            args = op.args
+            if fromll:
+                opname = 'truncate_longlong_to_int'
+                RESULT = lltype.Signed
+            else:
+                from pypy.rpython.lltypesystem import rffi
+                if rffi.cast(op.args[0].concretetype, -1) < 0:
+                    opname = 'cast_int_to_longlong'
+                else:
+                    opname = 'cast_uint_to_longlong'
+                RESULT = lltype.SignedLongLong
+            v = varoftype(RESULT)
+            op1 = SpaceOperation(opname, args, v)
+            op2 = self.rewrite_operation(op1)
+            #
+            # force a renaming to put the correct result in place, even though
+            # it might be slightly mistyped (e.g. Signed versus Unsigned)
+            assert op2.result is v
+            op2.result = op.result
+            #
+            return op2
+
+    # ----------
     # Renames, from the _old opname to the _new one.
     # The new operation is optionally further processed by rewrite_operation().
     for _old, _new in [('bool_not', 'int_is_zero'),
@@ -881,7 +1012,9 @@ class Transformer(object):
         op1 = SpaceOperation('jit_merge_point', args, None)
         op2 = SpaceOperation('-live-', [], None)
         # ^^^ we need a -live- for the case of do_recursive_call()
-        return ops + [op1, op2]
+        op3 = SpaceOperation('-live-', [], None)
+        # and one for inlined short preambles
+        return ops + [op3, op1, op2]
 
     def handle_jit_marker__loop_header(self, op, jitdriver):
         jd = self.callcontrol.jitdriver_sd_from_jitdriver(jitdriver)
@@ -1105,9 +1238,11 @@ class Transformer(object):
     # Strings and Unicodes.
 
     def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
-        if extraeffect:
-            calldescr.get_extra_info().extraeffect = extraeffect
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
+                                                  extraeffect)
+        if extraeffect is not None:
+            assert (type(calldescr) is str      # for tests
+                    or calldescr.get_extra_info().extraeffect == extraeffect)
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
@@ -1123,7 +1258,7 @@ class Transformer(object):
         return op1
 
     def _register_extra_helper(self, oopspecindex, oopspec_name,
-                               argtypes, resulttype):
+                               argtypes, resulttype, effectinfo):
         # a bit hackish
         if self.callcontrol.callinfocollection.has_oopspec(oopspecindex):
             return
@@ -1133,7 +1268,8 @@ class Transformer(object):
         op = SpaceOperation('pseudo_call_cannot_raise',
                             [c_func] + [varoftype(T) for T in argtypes],
                             varoftype(resulttype))
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
+                                                  effectinfo)
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
@@ -1192,11 +1328,15 @@ class Transformer(object):
                 if args[0].concretetype.TO == rstr.UNICODE:
                     otherindex += EffectInfo._OS_offset_uni
                 self._register_extra_helper(otherindex, othername,
-                                            argtypes, resulttype)
+                                            argtypes, resulttype,
+                                            EffectInfo.EF_PURE)
         #
-        return self._handle_oopspec_call(op, args, dict[oopspec_name])
+        return self._handle_oopspec_call(op, args, dict[oopspec_name],
+                                         EffectInfo.EF_PURE)
 
     def _handle_str2unicode_call(self, op, oopspec_name, args):
+        # ll_str2unicode is not EF_PURE, because it can raise
+        # UnicodeDecodeError...
         return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE)
 
     # ----------
@@ -1235,6 +1375,22 @@ class Transformer(object):
         assert vinfo is not None
         self.vable_flags[op.args[0]] = op.args[2].value
         return []
+        
+    # ---------
+    # ll_math.sqrt_nonneg()
+    
+    def _handle_math_sqrt_call(self, op, oopspec_name, args):
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
+                                         EffectInfo.EF_PURE)
+
+    def rewrite_op_jit_force_quasi_immutable(self, op):
+        v_inst, c_fieldname = op.args
+        descr1 = self.cpu.fielddescrof(v_inst.concretetype.TO,
+                                       c_fieldname.value)
+        op0 = SpaceOperation('-live-', [], None)
+        op1 = SpaceOperation('jit_force_quasi_immutable', [v_inst, descr1],
+                             None)
+        return [op0, op1]
 
 # ____________________________________________________________
 

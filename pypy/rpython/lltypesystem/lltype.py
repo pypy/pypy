@@ -1,7 +1,7 @@
 import py
 from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
-                                   r_ulonglong, r_longlong, base_int,
-                                   normalizedinttype)
+                                   r_ulonglong, r_longlong, r_longfloat,
+                                   base_int, normalizedinttype)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
@@ -13,6 +13,33 @@ import weakref
 
 TLS = tlsobject()
 
+class WeakValueDictionary(weakref.WeakValueDictionary):
+    """A subclass of weakref.WeakValueDictionary
+    which resets the 'nested_hash_level' when keys are being deleted.
+    """
+    def __init__(self, *args, **kwargs):
+        weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
+        remove_base = self._remove
+        def remove(*args):
+            if safe_equal is None:
+                # The interpreter is shutting down, and the comparison
+                # function is already gone.
+                return
+            if TLS is None: # Happens when the interpreter is shutting down
+                return remove_base(*args)
+            nested_hash_level = TLS.nested_hash_level
+            try:
+                # The 'remove' function is called when an object dies.  This
+                # can happen anywhere when they are reference cycles,
+                # especially when we are already computing another __hash__
+                # value.  It's not really a recursion in this case, so we
+                # reset the counter; otherwise the hash value may be be
+                # incorrect and the key won't be deleted.
+                TLS.nested_hash_level = 0
+                remove_base(*args)
+            finally:
+                TLS.nested_hash_level = nested_hash_level
+        self._remove = remove
 
 class _uninitialized(object):
     def __init__(self, TYPE):
@@ -68,6 +95,8 @@ class LowLevelType(object):
     __slots__ = ['__dict__', '__cached_hash']
 
     def __eq__(self, other):
+        if isinstance(other, Typedef):
+            return other.__eq__(self)
         return self.__class__ is other.__class__ and (
             self is other or safe_equal(self.__dict__, other.__dict__))
 
@@ -165,6 +194,36 @@ class ContainerType(LowLevelType):
 
     def _container_example(self):
         raise NotImplementedError
+
+
+class Typedef(LowLevelType):
+    """A typedef is just another name for an existing type"""
+    def __init__(self, OF, c_name):
+        """
+        @param OF: the equivalent rffi type
+        @param c_name: the name we want in C code
+        """
+        assert isinstance(OF, LowLevelType)
+        # Look through typedefs, so other places don't have to
+        if isinstance(OF, Typedef):
+            OF = OF.OF # haha
+        self.OF = OF
+        self.c_name = c_name
+
+    def __repr__(self):
+        return '<Typedef "%s" of %r>' % (self.c_name, self.OF)
+
+    def __eq__(self, other):
+        return other == self.OF
+
+    def __getattr__(self, name):
+        return self.OF.get(name)
+
+    def _defl(self, parent=None, parentindex=None):
+        return self.OF._defl()
+
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        return self.OF._allocate(initialization, parent, parentindex)
 
 
 class Struct(ContainerType):
@@ -282,13 +341,14 @@ class Struct(ContainerType):
         return _struct(self, n, initialization='example')
 
     def _immutable_field(self, field):
+        if self._hints.get('immutable'):
+            return True
         if 'immutable_fields' in self._hints:
             try:
-                s = self._hints['immutable_fields'].fields[field]
-                return s or True
+                return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return self._hints.get('immutable', False)
+        return False
 
 class RttiStruct(Struct):
     _runtime_type_info = None
@@ -368,6 +428,8 @@ class Array(ContainerType):
                 return "{ %s }" % of._str_fields()
             else:
                 return "%s { %s }" % (of._name, of._str_fields())
+        elif self._hints.get('render_as_void'):
+            return 'void'
         else:
             return str(self.OF)
     _str_fields = saferecursive(_str_fields, '...')
@@ -397,7 +459,7 @@ class FixedSizeArray(Struct):
     # behaves more or less like a Struct with fields item0, item1, ...
     # but also supports __getitem__(), __setitem__(), __len__().
 
-    _cache = weakref.WeakValueDictionary() # cache the length-1 FixedSizeArrays
+    _cache = WeakValueDictionary() # cache the length-1 FixedSizeArrays
     def __new__(cls, OF, length, **kwds):
         if length == 1 and not kwds:
             try:
@@ -608,6 +670,7 @@ UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
 
 Float       = Primitive("Float",       0.0)                  # C type 'double'
 SingleFloat = Primitive("SingleFloat", r_singlefloat(0.0))   # C type 'float'
+LongFloat   = Primitive("LongFloat",   r_longfloat(0.0))     # C type 'long double'
 r_singlefloat._TYPE = SingleFloat
 
 Char     = Primitive("Char", '\x00')
@@ -619,7 +682,7 @@ UniChar  = Primitive("UniChar", u'\x00')
 class Ptr(LowLevelType):
     __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
 
-    _cache = weakref.WeakValueDictionary()  # cache the Ptrs
+    _cache = WeakValueDictionary()  # cache the Ptrs
     def __new__(cls, TO, use_cache=True):
         if not isinstance(TO, ContainerType):
             raise TypeError, ("can only point to a Container type, "
@@ -718,6 +781,8 @@ def typeOf(val):
             return build_number(None, tp)
         if tp is float:
             return Float
+        if tp is r_longfloat:
+            return LongFloat
         if tp is str:
             assert len(val) == 1
             return Char
@@ -749,6 +814,8 @@ def cast_primitive(TGT, value):
     elif ORIG == Float:
         if TGT == SingleFloat:
             return r_singlefloat(value)
+        elif TGT == LongFloat:
+            return r_longfloat(value)
         value = long(value)
     cast = _to_primitive.get(TGT)
     if cast is not None:
@@ -756,6 +823,8 @@ def cast_primitive(TGT, value):
     if isinstance(TGT, Number):
         return TGT._cast(value)
     if ORIG == SingleFloat and TGT == Float:
+        return float(value)
+    if ORIG == LongFloat and TGT == Float:
         return float(value)
     raise TypeError, "unsupported cast"
 
@@ -776,6 +845,8 @@ def _cast_whatever(TGT, value):
                 return cast_pointer(TGT, value)
         elif ORIG == llmemory.Address:
             return llmemory.cast_adr_to_ptr(value, TGT)
+        elif ORIG == Signed:
+            return cast_int_to_ptr(TGT, value)
     elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
         return llmemory.cast_ptr_to_adr(value)
     elif TGT == Signed and isinstance(ORIG, Ptr) and ORIG.TO._gckind == 'raw':
@@ -959,6 +1030,8 @@ def normalizeptr(p, check=True):
         return None   # null pointer
     if type(p._obj0) is int:
         return p      # a pointer obtained by cast_int_to_ptr
+    if getattr(p._obj0, '_carry_around_for_tests', False):
+        return p      # a pointer obtained by cast_instance_to_base_ptr
     container = obj._normalizedcontainer()
     if type(container) is int:
         # this must be an opaque ptr originating from an integer
@@ -1105,6 +1178,11 @@ class _abstract_ptr(object):
                 raise TypeError("cannot directly assign to container array items")
             T2 = typeOf(val)
             if T2 != T1:
+                from pypy.rpython.lltypesystem import rffi
+                if T1 is rffi.VOIDP and isinstance(T2, Ptr):
+                    # Any pointer is convertible to void*
+                    val = rffi.cast(rffi.VOIDP, val)
+                else:
                     raise TypeError("%r items:\n"
                                     "expect %r\n"
                                     "   got %r" % (self._T, T1, T2))
@@ -1144,6 +1222,7 @@ class _abstract_ptr(object):
             return '* %s' % (self._obj0,)
 
     def __call__(self, *args):
+        from pypy.rpython.lltypesystem import rffi
         if isinstance(self._T, FuncType):
             if len(args) != len(self._T.ARGS):
                 raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
@@ -1157,11 +1236,19 @@ class _abstract_ptr(object):
                             pass
                         else:
                             assert a == value
+                    # None is acceptable for any pointer
+                    elif isinstance(ARG, Ptr) and a is None:
+                        pass
+                    # Any pointer is convertible to void*
+                    elif ARG is rffi.VOIDP and isinstance(typeOf(a), Ptr):
+                        pass
                     # special case: ARG can be a container type, in which
                     # case a should be a pointer to it.  This must also be
                     # special-cased in the backends.
-                    elif not (isinstance(ARG, ContainerType)
-                            and typeOf(a) == Ptr(ARG)):
+                    elif (isinstance(ARG, ContainerType) and
+                          typeOf(a) == Ptr(ARG)):
+                        pass
+                    else:
                         args_repr = [typeOf(arg) for arg in args]
                         raise TypeError, ("calling %r with wrong argument "
                                           "types: %r" % (self._T, args_repr))
@@ -1797,8 +1884,8 @@ class _opaque(_parentable):
         if self.__class__ is not other.__class__:
             return NotImplemented
         if hasattr(self, 'container') and hasattr(other, 'container'):
-            obj1 = self.container._normalizedcontainer()
-            obj2 = other.container._normalizedcontainer()
+            obj1 = self._normalizedcontainer()
+            obj2 = other._normalizedcontainer()
             return obj1 == obj2
         else:
             return self is other
@@ -1821,6 +1908,8 @@ class _opaque(_parentable):
         if hasattr(self, 'container'):
             # an integer, cast to a ptr, cast to an opaque    
             if type(self.container) is int:
+                return self.container
+            if getattr(self.container, '_carry_around_for_tests', False):
                 return self.container
             return self.container._normalizedcontainer()
         else:

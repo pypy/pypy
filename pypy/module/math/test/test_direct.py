@@ -2,7 +2,8 @@
 """
 
 import py, sys, math
-from pypy.rlib.rarithmetic import isinf, isnan, INFINITY, NAN
+from pypy.rlib import rfloat
+from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
 consistent_host = True
 if '__pypy__' not in sys.builtin_module_names:
@@ -21,15 +22,23 @@ def finite(x):
 
 unary_math_functions = ['acos', 'asin', 'atan',
                         'ceil', 'cos', 'cosh', 'exp', 'fabs', 'floor',
-                        'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10']
+                        'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
+                        'acosh', 'asinh', 'atanh', 'log1p', 'expm1']
 binary_math_functions = ['atan2', 'fmod', 'hypot', 'pow']
 
 
 class MathTests:
 
-    REGCASES = [
-        (name, (0.3,), getattr(math, name)(0.3))
-        for name in unary_math_functions]
+    REGCASES = []
+    for name in unary_math_functions:
+        try:
+            input, output = (0.3,), getattr(math, name)(0.3)
+        except AttributeError:
+            # cannot test this function
+            continue
+        except ValueError:
+            input, output = (1.3,), getattr(math, name)(1.3)
+        REGCASES.append((name, input, output))
 
     IRREGCASES = [
         ('atan2', (0.31, 0.123), math.atan2(0.31, 0.123)),
@@ -55,6 +64,7 @@ class MathTests:
         ('pow', (10.0, 40000.0), OverflowError),
         ('ldexp', (10.0, 40000), OverflowError),
         ('log', (0.0,), ValueError),
+        ('log', (-1.,), ValueError),
         ('log10', (0.0,), ValueError),
         ]
 
@@ -65,6 +75,8 @@ class MathTests:
         ('asin', (-INFINITY,), ValueError),
         ('atan', (INFINITY,), math.pi / 2),
         ('atan', (-INFINITY,), -math.pi / 2),
+        ('atanh', (INFINITY,), ValueError),
+        ('atanh', (-INFINITY,), ValueError),
         ('ceil', (INFINITY,), positiveinf),
         ('ceil', (-INFINITY,), negativeinf),
         ('cos', (INFINITY,), ValueError),
@@ -214,7 +226,10 @@ def make_test_case((fnname, args, expected), dict):
     def test_func(self):
         if not consistent_host:
             py.test.skip("inconsistent behavior before 2.6")
-        fn = getattr(math, fnname)
+        try:
+            fn = getattr(math, fnname)
+        except AttributeError:
+            fn = getattr(rfloat, fnname)
         do_test(fn, fnname, args, expected)
     #
     dict[fnname] = dict.get(fnname, 0) + 1

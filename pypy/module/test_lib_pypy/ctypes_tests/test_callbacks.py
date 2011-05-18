@@ -205,4 +205,20 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         cfunc.restype = c_int
         res = cfunc(CTP(callback), lambda : 3)
         assert res == 3
-        
+
+    def test_callback_void(self, capsys):
+        import conftest
+        _ctypes_test = str(conftest.sofile)
+        dll = CDLL(_ctypes_test)
+
+        def callback():
+            pass
+
+        CTP = CFUNCTYPE(None)
+        cfunc = dll._testfunc_callback_void
+        cfunc.argtypes = [CTP]
+        cfunc.restype = int
+        cfunc(CTP(callback))
+        out, err = capsys.readouterr()
+        assert (out, err) == ("", "")
+

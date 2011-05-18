@@ -4,14 +4,8 @@ class AppTestRaise:
     def test_arg_as_string(self):
         def f():
             raise "test"
+        raises(TypeError, f)
 
-        import warnings
-        warnings.simplefilter('error', DeprecationWarning)
-        try:
-            raises(DeprecationWarning, f)
-        finally:
-            warnings.simplefilter('default', DeprecationWarning)
-        
     def test_control_flow(self):
         try:
             raise Exception
@@ -47,17 +41,6 @@ class AppTestRaise:
         except SystemError, e:
             assert e.args[0] == 1
             assert e.args[1] == 2
-
-    def test_stringexc(self):
-        a = "hello world"
-        try:
-            raise a
-        except a, e:
-            assert e == None
-        try:
-            raise a, "message"
-        except a, e:
-            assert e == "message"
 
     def test_builtin_exc(self):
         try:

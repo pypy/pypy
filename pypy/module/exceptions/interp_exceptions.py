@@ -23,10 +23,11 @@ recommended that user defined class based exceptions be derived from the
 BaseException
  +-- SystemExit
  +-- KeyboardInterrupt
+ +-- GeneratorExit
  +-- Exception
-      +-- GeneratorExit
       +-- StopIteration
       +-- StandardError
+      |    +-- BufferError
       |    +-- ArithmeticError
       |    |    +-- FloatingPointError
       |    |    +-- OverflowError
@@ -55,10 +56,10 @@ BaseException
       |    +-- SystemError
       |    +-- TypeError
       |    +-- ValueError
-      |    |    +-- UnicodeError
-      |    |         +-- UnicodeDecodeError
-      |    |         +-- UnicodeEncodeError
-      |    |         +-- UnicodeTranslateError
+      |         +-- UnicodeError
+      |              +-- UnicodeDecodeError
+      |              +-- UnicodeEncodeError
+      |              +-- UnicodeTranslateError
       +-- Warning
            +-- DeprecationWarning
            +-- PendingDeprecationWarning
@@ -68,13 +69,14 @@ BaseException
            +-- FutureWarning
            +-- ImportWarning
            +-- UnicodeWarning
+           +-- BytesWarning
 """
 
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w,\
      GetSetProperty, interp_attrproperty, descr_get_dict, descr_set_dict,\
      descr_del_dict
-from pypy.interpreter.gateway import interp2app, Arguments
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.rlib import rwin32
 
@@ -89,13 +91,12 @@ class W_BaseException(Wrappable):
     """Superclass representing the base of the exception hierarchy.
 
     The __getitem__ method is provided for backwards-compatibility
-    and will be deprecated at some point. 
+    and will be deprecated at some point.
     """
     w_dict = None
     args_w = []
 
     def __init__(self, space):
-        self.space = space
         self.w_message = space.w_None
 
     def descr_init(self, space, args_w):
@@ -104,7 +105,6 @@ class W_BaseException(Wrappable):
             self.w_message = args_w[0]
         else:
             self.w_message = space.wrap("")
-    descr_init.unwrap_spec = ['self', ObjSpace, 'args_w']
 
     def descr_str(self, space):
         lgt = len(self.args_w)
@@ -114,7 +114,22 @@ class W_BaseException(Wrappable):
             return space.str(self.args_w[0])
         else:
             return space.str(space.newtuple(self.args_w))
-    descr_str.unwrap_spec = ['self', ObjSpace]
+
+    def descr_unicode(self, space):
+        w_str = space.lookup(self, "__str__")
+        w_base_type = space.gettypeobject(W_BaseException.typedef)
+        w_base_str = w_base_type.dict_w["__str__"]
+        if not space.is_w(w_str, w_base_str):
+            w_as_str = space.get_and_call_function(w_str, space.wrap(self))
+            return space.call_function(space.w_unicode, w_as_str)
+        lgt = len(self.args_w)
+        if lgt == 0:
+            return space.wrap(u"")
+        if lgt == 1:
+            return space.call_function(space.w_unicode, self.args_w[0])
+        else:
+            w_tup = space.newtuple(self.args_w)
+            return space.call_function(space.w_unicode, w_tup)
 
     def descr_repr(self, space):
         if self.args_w:
@@ -123,21 +138,19 @@ class W_BaseException(Wrappable):
             args_repr = "()"
         clsname = self.getclass(space).getname(space, '?')
         return space.wrap(clsname + args_repr)
-    descr_repr.unwrap_spec = ['self', ObjSpace]
 
-    def descr_getargs(space, self):
+    def descr_getargs(self, space):
         return space.newtuple(self.args_w)
 
-    def descr_setargs(space, self, w_newargs):
+    def descr_setargs(self, space, w_newargs):
         self.args_w = space.fixedview(w_newargs)
 
     def descr_getitem(self, space, w_index):
         return space.getitem(space.newtuple(self.args_w), w_index)
-    descr_getitem.unwrap_spec = ['self', ObjSpace, W_Root]
 
-    def getdict(self):
+    def getdict(self, space):
         if self.w_dict is None:
-            self.w_dict = self.space.newdict(instance=True)
+            self.w_dict = space.newdict(instance=True)
         return self.w_dict
 
     def setdict(self, space, w_dict):
@@ -150,12 +163,36 @@ class W_BaseException(Wrappable):
         if self.w_dict is not None and space.is_true(self.w_dict):
             lst = lst + [self.w_dict]
         return space.newtuple(lst)
-    descr_reduce.unwrap_spec = ['self', ObjSpace]
 
     def descr_setstate(self, space, w_dict):
-        w_olddict = self.getdict()
+        w_olddict = self.getdict(space)
         space.call_method(w_olddict, 'update', w_dict)
-    descr_setstate.unwrap_spec = ['self', ObjSpace, W_Root]
+
+    def descr_message_get(self, space):
+        w_dict = self.w_dict
+        if w_dict is not None:
+            w_msg = space.finditem(w_dict, space.wrap("message"))
+            if w_msg is not None:
+                return w_msg
+        if self.w_message is None:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("message was deleted"))
+        space.warn("BaseException.message has been deprecated as of Python 2.6",
+                   space.w_DeprecationWarning)
+        return self.w_message
+
+    def descr_message_set(self, space, w_new):
+        space.setitem(self.getdict(space), space.wrap("message"), w_new)
+
+    def descr_message_del(self, space):
+        w_dict = self.w_dict
+        if w_dict is not None:
+            try:
+                space.delitem(w_dict, space.wrap("message"))
+            except OperationError, e:
+                if not e.match(space, space.w_KeyError):
+                    raise
+        self.w_message = None
 
 def _new(cls, basecls=None):
     if basecls is None:
@@ -164,7 +201,6 @@ def _new(cls, basecls=None):
         exc = space.allocate_instance(cls, w_subtype)
         basecls.__init__(exc, space)
         return space.wrap(exc)
-    descr_new_base_exception.unwrap_spec = [ObjSpace, W_Root, Arguments]
     descr_new_base_exception.func_name = 'descr_new_' + cls.__name__
     return interp2app(descr_new_base_exception)
 
@@ -175,13 +211,16 @@ W_BaseException.typedef = TypeDef(
     __new__ = _new(W_BaseException),
     __init__ = interp2app(W_BaseException.descr_init),
     __str__ = interp2app(W_BaseException.descr_str),
+    __unicode__ = interp2app(W_BaseException.descr_unicode),
     __repr__ = interp2app(W_BaseException.descr_repr),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
                               cls=W_BaseException),
     __getitem__ = interp2app(W_BaseException.descr_getitem),
     __reduce__ = interp2app(W_BaseException.descr_reduce),
     __setstate__ = interp2app(W_BaseException.descr_setstate),
-    message = readwrite_attrproperty_w('w_message', W_BaseException),
+    message = GetSetProperty(W_BaseException.descr_message_get,
+                            W_BaseException.descr_message_set,
+                            W_BaseException.descr_message_del),
     args = GetSetProperty(W_BaseException.descr_getargs,
                           W_BaseException.descr_setargs),
 )
@@ -207,7 +246,6 @@ def _new_exception(name, base, docstring, **kwargs):
         base.typedef,
         __doc__ = W_Exc.__doc__,
         __module__ = 'exceptions',
-        __new__ = _new(W_Exc, realbase),
         **kwargs
     )
     W_Exc.typedef.applevel_subclasses_base = realbase
@@ -216,11 +254,14 @@ def _new_exception(name, base, docstring, **kwargs):
 W_Exception = _new_exception('Exception', W_BaseException,
                          """Common base class for all non-exit exceptions.""")
 
-W_GeneratorExit = _new_exception('GeneratorExit', W_Exception,
+W_GeneratorExit = _new_exception('GeneratorExit', W_BaseException,
                           """Request that a generator exit.""")
 
 W_StandardError = _new_exception('StandardError', W_Exception,
                          """Base class for all standard Python exceptions.""")
+
+W_BufferError = _new_exception('BufferError', W_StandardError,
+                         """Buffer error.""")
 
 W_ValueError = _new_exception('ValueError', W_StandardError,
                          """Inappropriate argument value (of correct type).""")
@@ -241,7 +282,7 @@ class W_UnicodeTranslateError(W_UnicodeError):
     start = None
     end = None
     reason = None
-    
+
     def descr_init(self, space, w_object, w_start, w_end, w_reason):
         # typechecking
         space.realunicode_w(w_object)
@@ -255,8 +296,6 @@ class W_UnicodeTranslateError(W_UnicodeError):
         self.w_reason = w_reason
         W_BaseException.descr_init(self, space, [w_object, w_start,
                                                  w_end, w_reason])
-    descr_init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root,
-                              W_Root]
 
     def descr_str(self, space):
         return space.appexec([space.wrap(self)], r"""(self):
@@ -269,7 +308,6 @@ class W_UnicodeTranslateError(W_UnicodeError):
                 return "can't translate character u'\\U%08x' in position %d: %s"%(badchar, self.start, self.reason)
             return "can't translate characters in position %d-%d: %s" % (self.start, self.end - 1, self.reason)
         """)
-    descr_str.unwrap_spec = ['self', ObjSpace]
 
 W_UnicodeTranslateError.typedef = TypeDef(
     'UnicodeTranslateError',
@@ -295,8 +333,7 @@ def key_error_str(self, space):
         return space.repr(self.args_w[0])
     else:
         return space.str(space.newtuple(self.args_w))
-key_error_str.unwrap_spec = ['self', ObjSpace]
-    
+
 W_KeyError = _new_exception('KeyError', W_LookupError,
                             """Mapping key not found.""",
                             __str__ = key_error_str)
@@ -317,7 +354,7 @@ class W_EnvironmentError(W_StandardError):
     def __init__(self, space):
         self.w_errno = space.w_None
         self.w_strerror = space.w_None
-        self.w_filename = space.w_None        
+        self.w_filename = space.w_None
         W_BaseException.__init__(self, space)
 
     def descr_init(self, space, args_w):
@@ -328,7 +365,6 @@ class W_EnvironmentError(W_StandardError):
         if len(args_w) == 3:
             self.w_filename = args_w[2]
             self.args_w = [args_w[0], args_w[1]]
-    descr_init.unwrap_spec = ['self', ObjSpace, 'args_w']
 
     # since we rebind args_w, we need special reduce, grump
     def descr_reduce(self, space):
@@ -340,21 +376,22 @@ class W_EnvironmentError(W_StandardError):
         if self.w_dict is not None and space.is_true(self.w_dict):
             lst = lst + [self.w_dict]
         return space.newtuple(lst)
-    descr_reduce.unwrap_spec = ['self', ObjSpace]
 
     def descr_str(self, space):
         if (not space.is_w(self.w_errno, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
+            errno = space.str_w(space.str(self.w_errno))
+            strerror = space.str_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
                 return space.wrap("[Errno %s] %s: %s" % (
-                    space.str_w(space.str(self.w_errno)),
-                    space.str_w(self.w_strerror),
+                    errno,
+                    strerror,
                     space.str_w(space.repr(self.w_filename))))
-            return space.wrap("[Errno %s] %s" %
-                              (space.str_w(space.str(self.w_errno)),
-                               space.str_w(self.w_strerror)))
+            return space.wrap("[Errno %s] %s" % (
+                errno,
+                strerror,
+            ))
         return W_BaseException.descr_str(self, space)
-    descr_str.unwrap_spec = ['self', ObjSpace]
 
 W_EnvironmentError.typedef = TypeDef(
     'EnvironmentError',
@@ -375,7 +412,7 @@ W_OSError = _new_exception('OSError', W_EnvironmentError,
 
 class W_WindowsError(W_OSError):
     """MS-Windows OS system call failed."""
-    
+
     def __init__(self, space):
         self.w_winerror = space.w_None
         W_OSError.__init__(self, space)
@@ -392,7 +429,6 @@ class W_WindowsError(W_OSError):
             errno = self._winerror_to_errno.get(errno, self._default_errno)
         self.w_winerror = self.w_errno
         self.w_errno = space.wrap(errno)
-    descr_init.unwrap_spec = ['self', ObjSpace, 'args_w']
 
     def descr_str(self, space):
         if (not space.is_w(self.w_winerror, space.w_None) and
@@ -405,7 +441,6 @@ class W_WindowsError(W_OSError):
             return space.wrap("[Error %d] %s" % (space.int_w(self.w_winerror),
                                                  space.str_w(self.w_strerror)))
         return W_BaseException.descr_str(self, space)
-    descr_str.unwrap_spec = ['self', ObjSpace]
 
     if hasattr(rwin32, 'build_winerror_to_errno'):
         _winerror_to_errno, _default_errno = rwin32.build_winerror_to_errno()
@@ -422,6 +457,9 @@ W_WindowsError.typedef = TypeDef(
     __str__  = interp2app(W_WindowsError.descr_str),
     winerror = readwrite_attrproperty_w('w_winerror', W_WindowsError),
     )
+
+W_BytesWarning = _new_exception('BytesWarning', W_Warning,
+                                """Mixing bytes and unicode""")
 
 W_DeprecationWarning = _new_exception('DeprecationWarning', W_Warning,
                         """Base class for warnings about deprecated features.""")
@@ -450,7 +488,7 @@ class W_SyntaxError(W_StandardError):
         self.w_lineno   = space.w_None
         self.w_offset   = space.w_None
         self.w_text     = space.w_None
-        self.w_msg      = space.wrap('')
+        self.w_msg      = space.w_None
         self.w_print_file_and_line = space.w_None # what's that?
         self.w_lastlineno = space.w_None          # this is a pypy extension
         W_BaseException.__init__(self, space)
@@ -471,7 +509,6 @@ class W_SyntaxError(W_StandardError):
                 args_w = args_w[:]
                 args_w[1] = space.newtuple(values_w[:4])
         W_BaseException.descr_init(self, space, args_w)
-    descr_init.unwrap_spec = ['self', ObjSpace, 'args_w']
 
     def descr_str(self, space):
         return space.appexec([self], """(self):
@@ -499,12 +536,10 @@ class W_SyntaxError(W_StandardError):
             return buffer
         """)
 
-    descr_str.unwrap_spec = ['self', ObjSpace]
-
     def descr_repr(self, space):
         if (len(self.args_w) == 2
             and not space.is_w(self.w_lastlineno, space.w_None)
-            and space.int_w(space.len(self.args_w[1])) == 4):
+            and space.len_w(self.args_w[1]) == 4):
             # fake a 5-element tuple in the repr, suitable for calling
             # __init__ again
             values_w = space.fixedview(self.args_w[1])
@@ -515,7 +550,6 @@ class W_SyntaxError(W_StandardError):
             return space.wrap(clsname + args_repr)
         else:
             return W_StandardError.descr_repr(self, space)
-    descr_repr.unwrap_spec = ['self', ObjSpace]
 
 W_SyntaxError.typedef = TypeDef(
     'SyntaxError',
@@ -541,7 +575,7 @@ W_FutureWarning = _new_exception('FutureWarning', W_Warning,
 
 class W_SystemExit(W_BaseException):
     """Request to exit from the interpreter."""
-    
+
     def __init__(self, space):
         self.w_code = space.w_None
         W_BaseException.__init__(self, space)
@@ -552,7 +586,6 @@ class W_SystemExit(W_BaseException):
         elif len(args_w) > 1:
             self.w_code = space.newtuple(args_w)
         W_BaseException.descr_init(self, space, args_w)
-    descr_init.unwrap_spec = ['self', ObjSpace, 'args_w']
 
 W_SystemExit.typedef = TypeDef(
     'SystemExit',
@@ -608,19 +641,16 @@ class W_UnicodeDecodeError(W_UnicodeError):
         self.w_reason = w_reason
         W_BaseException.descr_init(self, space, [w_encoding, w_object,
                                                  w_start, w_end, w_reason])
-    descr_init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root, W_Root,
-                              W_Root]
 
     def descr_str(self, space):
         return space.appexec([self], """(self):
             if self.end == self.start + 1:
-                return "%r codec can't decode byte 0x%02x in position %d: %s"%(
+                return "'%s' codec can't decode byte 0x%02x in position %d: %s"%(
                     self.encoding,
                     ord(self.object[self.start]), self.start, self.reason)
-            return "%r codec can't decode bytes in position %d-%d: %s" % (
+            return "'%s' codec can't decode bytes in position %d-%d: %s" % (
                 self.encoding, self.start, self.end - 1, self.reason)
         """)
-    descr_str.unwrap_spec = ['self', ObjSpace]
 
 W_UnicodeDecodeError.typedef = TypeDef(
     'UnicodeDecodeError',
@@ -700,25 +730,22 @@ class W_UnicodeEncodeError(W_UnicodeError):
         self.w_reason = w_reason
         W_BaseException.descr_init(self, space, [w_encoding, w_object,
                                                  w_start, w_end, w_reason])
-    descr_init.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root, W_Root,
-                              W_Root]
 
     def descr_str(self, space):
         return space.appexec([self], r"""(self):
             if self.end == self.start + 1:
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
-                    return "%r codec can't encode character u'\\x%02x' in position %d: %s"%(
+                    return "'%s' codec can't encode character u'\\x%02x' in position %d: %s"%(
                         self.encoding, badchar, self.start, self.reason)
                 if badchar <= 0xffff:
-                    return "%r codec can't encode character u'\\u%04x' in position %d: %s"%(
+                    return "'%s' codec can't encode character u'\\u%04x' in position %d: %s"%(
                         self.encoding, badchar, self.start, self.reason)
-                return "%r codec can't encode character u'\\U%08x' in position %d: %s"%(
+                return "'%s' codec can't encode character u'\\U%08x' in position %d: %s"%(
                     self.encoding, badchar, self.start, self.reason)
-            return "%r codec can't encode characters in position %d-%d: %s" % (
+            return "'%s' codec can't encode characters in position %d-%d: %s" % (
                 self.encoding, self.start, self.end - 1, self.reason)
         """)
-    descr_str.unwrap_spec = ['self', ObjSpace]
 
 W_UnicodeEncodeError.typedef = TypeDef(
     'UnicodeEncodeError',

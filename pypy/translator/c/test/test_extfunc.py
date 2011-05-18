@@ -262,8 +262,8 @@ def test_time_time():
     assert t0 <= res <= t1
 
 
-def test_rarith_parts_to_float():
-    from pypy.rlib.rarithmetic import parts_to_float
+def test_parts_to_float():
+    from pypy.rlib.rfloat import parts_to_float
     def fn(sign, beforept, afterpt, exponent):
         return parts_to_float(sign, beforept, afterpt, exponent)
 
@@ -281,10 +281,10 @@ def test_rarith_parts_to_float():
     for parts, val in data:
         assert f(*parts) == val
 
-def test_rarith_formatd():
-    from pypy.rlib.rarithmetic import formatd
+def test_formatd():
+    from pypy.rlib.rfloat import formatd
     def fn(x):
-        return formatd("%.2f", x)
+        return formatd(x, 'f', 2, 0)
 
     f = compile(fn, [float])
 
@@ -292,7 +292,7 @@ def test_rarith_formatd():
     assert f(1.5) == "1.50"
     assert f(2.0) == "2.00"
 
-def test_rarith_float_to_str():
+def test_float_to_str():
     def fn(f):
         return str(f)
     f = compile(fn, [float])
@@ -844,6 +844,17 @@ if hasattr(os, 'getloadavg'):
         f = compile(does_stuff, [])
         res = f()
         assert type(res) is float and res >= 0.0
+
+if hasattr(os, 'major'):
+    def test_os_major_minor():
+        def does_stuff(n):
+            a = os.major(n)
+            b = os.minor(n)
+            x = os.makedev(a, b)
+            return '%d,%d,%d' % (a, b, x)
+        f = compile(does_stuff, [int])
+        res = f(12345)
+        assert res == '%d,%d,12345' % (os.major(12345), os.minor(12345))
 
 if hasattr(os, 'fchdir'):
     def test_os_fchdir():

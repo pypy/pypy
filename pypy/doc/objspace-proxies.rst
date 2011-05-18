@@ -1,0 +1,612 @@
+=================================
+What PyPy can do for your objects
+=================================
+
+.. contents::
+
+
+
+Thanks to the `Object Space`_ architecture, any feature that is
+based on proxying, extending, changing or otherwise controlling the
+behavior of all objects in a running program is easy to implement on
+top of PyPy.
+
+Here is what we have implemented so far, in historical order:
+
+* *Thunk Object Space*: lazily computed objects, computing only when an
+  operation is performed on them; lazy functions, computing their result
+  only if and when needed; and a way to globally replace an object with
+  another.
+
+* *Dump Object Space*: dumps all operations performed on all the objects
+  into a large log file.  For debugging your applications.
+
+* *Transparent Proxies Extension*: adds new proxy objects to
+  the Standard Object Space that enable applications to 
+  control operations on application and builtin objects, 
+  e.g lists, dictionaries, tracebacks. 
+
+Which object space to use can be chosen with the :config:`objspace.name`
+option.
+
+.. _`Object Space`: objspace.html
+
+.. _thunk:
+
+The Thunk Object Space
+======================
+
+This small object space, meant as a nice example, wraps another object
+space (e.g. the standard one) and adds two capabilities: lazily computed
+objects, computed only when an operation is performed on them, and
+"become", a more obscure feature which allows to completely and globally
+replaces an object with another.
+
+Example usage of lazily computed objects::
+
+    $ py.py -o thunk
+    >>>> from __pypy__ import thunk
+    >>>> def f():
+    ....    print 'computing...'
+    ....    return 6*7
+    ....
+    >>>> x = thunk(f)
+    >>>> x
+    computing...
+    42
+    >>>> x
+    42
+    >>>> y = thunk(f)
+    >>>> type(y)
+    computing...
+    <type 'int'>
+
+Example of how one object can be instantly and globally replaced with
+another::
+
+    $ py.py -o thunk
+    >>>> from __pypy__ import become
+    >>>> x = object()
+    >>>> lst = [1, 2, x, 4]
+    >>>> become(x, 3)
+    >>>> lst
+    [1, 2, 3, 4]
+
+There is also a decorator for functions whose result can be computed
+lazily (the function appears to return a result, but it is not really
+invoked before the result is used, if at all)::
+
+    $ py.py -o thunk
+    >>>> from __pypy__ import lazy
+    >>>> @lazy
+    .... def f(x):
+    ....    print 'computing...'
+    ....    return x * 100
+    ....
+    >>>> lst = [f(i) for i in range(10)]
+    >>>> del lst[1:9]
+    >>>> lst
+    computing...
+    computing...
+    [0, 900]
+
+Implementation
+--------------
+
+The implementation is short (see `pypy/objspace/thunk.py`_).  For the
+purpose of ``become()``, it adds an internal field `w_thunkalias` to
+each object, which is either None (in the common case) or a reference to
+the object that this object was replaced with.  When any space operation
+is invoked, the chain of ``w_thunkalias`` references is followed and the
+underlying object space really operates on the new objects instead of
+the old ones.
+
+For the laziness part, the function ``thunk()`` returns an instance of a
+new internal class ``W_Thunk`` which stores the user-supplied callable
+and arguments.  When a space operation follows the ``w_thunkalias``
+chains of objects, it special-cases ``W_Thunk``: it invokes the stored
+callable if necessary to compute the real value and then stores it in
+the ``w_thunkalias`` field of the ``W_Thunk``.  This has the effect of
+replacing the latter with the real value.
+
+.. _thunk-interface:
+
+Interface
+---------
+
+In a PyPy running with (or translated with) the Thunk Object Space,
+the ``__pypy__`` module exposes the following interface:
+
+ * ``thunk(f, *args, **kwargs)``: returns something that behaves like the result
+   of the call ``f(*args, **kwargs)`` but the call is done lazily.
+
+ * ``is_thunk(obj)``: return True if ``obj`` is a thunk that is not computed
+   yet.
+
+ * ``become(obj1, obj2)``: globally replace ``obj1`` with ``obj2``.
+
+ * ``lazy(callable)``: should be used as a function decorator - the decorated
+   function behaves lazily: all calls to it return a thunk object.
+
+
+.. broken right now:
+
+    .. _taint:
+
+    The Taint Object Space
+    ======================
+
+    Motivation
+    ----------
+
+    The Taint Object Space provides a form of security: "tainted objects",
+    inspired by various sources, see [D12.1]_ for a more detailed discussion. 
+
+    The basic idea of this kind of security is not to protect against
+    malicious code but to help with handling and boxing sensitive data. 
+    It covers two kinds of sensitive data: secret data which should not leak, 
+    and untrusted data coming from an external source and that must be 
+    validated before it is used.
+
+    The idea is that, considering a large application that handles these
+    kinds of sensitive data, there are typically only a small number of
+    places that need to explicitly manipulate that sensitive data; all the
+    other places merely pass it around, or do entirely unrelated things.
+
+    Nevertheless, if a large application needs to be reviewed for security,
+    it must be entirely carefully checked, because it is possible that a
+    bug at some apparently unrelated place could lead to a leak of sensitive
+    information in a way that an external attacker could exploit.  For
+    example, if any part of the application provides web services, an
+    attacker might be able to issue unexpected requests with a regular web
+    browser and deduce secret information from the details of the answers he
+    gets.  Another example is the common CGI attack where an attacker sends
+    malformed inputs and causes the CGI script to do unintended things.
+
+    An approach like that of the Taint Object Space allows the small parts
+    of the program that manipulate sensitive data to be explicitly marked.
+    The effect of this is that although these small parts still need a
+    careful security review, the rest of the application no longer does,
+    because even a bug would be unable to leak the information.
+
+    We have implemented a simple two-level model: objects are either
+    regular (untainted), or sensitive (tainted).  Objects are marked as
+    sensitive if they are secret or untrusted, and only declassified at
+    carefully-checked positions (e.g. where the secret data is needed, or
+    after the untrusted data has been fully validated).
+
+    It would be simple to extend the code for more fine-grained scales of
+    secrecy.  For example it is typical in the literature to consider
+    user-specified lattices of secrecy levels, corresponding to multiple
+    "owners" that cannot access data belonging to another "owner" unless
+    explicitly authorized to do so.
+
+    Tainting and untainting
+    -----------------------
+
+    Start a py.py with the Taint Object Space and try the following example::
+
+        $ py.py -o taint
+        >>>> from __pypy__ import taint
+        >>>> x = taint(6)
+
+        # x is hidden from now on.  We can pass it around and
+        # even operate on it, but not inspect it.  Taintness
+        # is propagated to operation results.
+
+        >>>> x
+        TaintError
+
+        >>>> if x > 5: y = 2   # see below
+        TaintError
+
+        >>>> y = x + 5         # ok
+        >>>> lst = [x, y]
+        >>>> z = lst.pop()
+        >>>> t = type(z)       # type() works too, tainted answer
+        >>>> t
+        TaintError
+        >>>> u = t is int      # even 'is' works
+        >>>> u
+        TaintError
+
+    Notice that using a tainted boolean like ``x > 5`` in an ``if``
+    statement is forbidden.  This is because knowing which path is followed
+    would give away a hint about ``x``; in the example above, if the
+    statement ``if x > 5: y = 2`` was allowed to run, we would know
+    something about the value of ``x`` by looking at the (untainted) value
+    in the variable ``y``.
+
+    Of course, there is a way to inspect tainted objects.  The basic way is
+    to explicitly "declassify" it with the ``untaint()`` function.  In an
+    application, the places that use ``untaint()`` are the places that need
+    careful security review.  To avoid unexpected objects showing up, the
+    ``untaint()`` function must be called with the exact type of the object
+    to declassify.  It will raise ``TaintError`` if the type doesn't match::
+
+        >>>> from __pypy__ import taint
+        >>>> untaint(int, x)
+        6
+        >>>> untaint(int, z)
+        11
+        >>>> untaint(bool, x > 5)
+        True
+        >>>> untaint(int, x > 5)
+        TaintError
+
+
+    Taint Bombs
+    -----------
+
+    In this area, a common problem is what to do about failing operations.
+    If an operation raises an exception when manipulating a tainted object,
+    then the very presence of the exception can leak information about the
+    tainted object itself.  Consider::
+
+        >>>> 5 / (x-6)
+
+    By checking if this raises ``ZeroDivisionError`` or not, we would know
+    if ``x`` was equal to 6 or not.  The solution to this problem in the
+    Taint Object Space is to introduce *Taint Bombs*.  They are a kind of
+    tainted object that doesn't contain a real object, but a pending
+    exception.  Taint Bombs are indistinguishable from normal tainted
+    objects to unprivileged code. See::
+
+        >>>> x = taint(6)
+        >>>> i = 5 / (x-6)     # no exception here
+        >>>> j = i + 1         # nor here
+        >>>> k = j + 5         # nor here
+        >>>> untaint(int, k)
+        TaintError
+
+    In the above example, all of ``i``, ``j`` and ``k`` contain a Taint
+    Bomb.  Trying to untaint it raises an exception - a generic
+    ``TaintError``.  What we win is that the exception gives little away,
+    and most importantly it occurs at the point where ``untaint()`` is
+    called, not where the operation failed.  This means that all calls to
+    ``untaint()`` - but not the rest of the code - must be carefully
+    reviewed for what occurs if they receive a Taint Bomb; they might catch
+    the ``TaintError`` and give the user a generic message that something
+    went wrong, if we are reasonably careful that the message or even its
+    presence doesn't give information away.  This might be a
+    problem by itself, but there is no satisfying general solution here:
+    it must be considered on a case-by-case basis.  Again, what the
+    Taint Object Space approach achieves is not solving these problems, but
+    localizing them to well-defined small parts of the application - namely,
+    around calls to ``untaint()``.
+
+    The ``TaintError`` exception deliberately does not include any
+    useful error messages, because they might give information away.
+    Of course, this makes debugging quite a bit harder; a difficult
+    problem to solve properly.  So far we have implemented a way to peek in a Taint
+    Box or Bomb, ``__pypy__._taint_look(x)``, and a "debug mode" that
+    prints the exception as soon as a Bomb is created - both write
+    information to the low-level stderr of the application, where we hope
+    that it is unlikely to be seen by anyone but the application
+    developer.
+
+
+    Taint Atomic functions
+    ----------------------
+
+    Occasionally, a more complicated computation must be performed on a
+    tainted object.  This requires first untainting the object, performing the
+    computations, and then carefully tainting the result again (including
+    hiding all exceptions into Bombs).
+
+    There is a built-in decorator that does this for you::
+
+        >>>> @__pypy__.taint_atomic
+        >>>> def myop(x, y):
+        ....     while x > 0:
+        ....         x -= y
+        ....     return x
+        ....
+        >>>> myop(42, 10)
+        -8
+        >>>> z = myop(taint(42), 10)
+        >>>> z
+        TaintError
+        >>>> untaint(int, z)
+        -8
+
+    The decorator makes a whole function behave like a built-in operation.
+    If no tainted argument is passed in, the function behaves normally.  But
+    if any of the arguments is tainted, it is automatically untainted - so
+    the function body always sees untainted arguments - and the eventual
+    result is tainted again (possibly in a Taint Bomb).
+
+    It is important for the function marked as ``taint_atomic`` to have no
+    visible side effects, as these could cause information leakage.
+    This is currently not enforced, which means that all ``taint_atomic``
+    functions have to be carefully reviewed for security (but not the
+    callers of ``taint_atomic`` functions).
+
+    A possible future extension would be to forbid side-effects on
+    non-tainted objects from all ``taint_atomic`` functions.
+
+    An example of usage: given a tainted object ``passwords_db`` that
+    references a database of passwords, we can write a function
+    that checks if a password is valid as follows::
+
+        @taint_atomic
+        def validate(passwords_db, username, password):
+            assert type(passwords_db) is PasswordDatabase
+            assert type(username) is str
+            assert type(password) is str
+            ...load username entry from passwords_db...
+            return expected_password == password
+
+    It returns a tainted boolean answer, or a Taint Bomb if something
+    went wrong.  A caller can do::
+
+        ok = validate(passwords_db, 'john', '1234')
+        ok = untaint(bool, ok)
+
+    This can give three outcomes: ``True``, ``False``, or a ``TaintError``
+    exception (with no information on it) if anything went wrong.  If even
+    this is considered giving too much information away, the ``False`` case
+    can be made indistinguishable from the ``TaintError`` case (simply by
+    raising an exception in ``validate()`` if the password is wrong).
+
+    In the above example, the security results achieved are the following:
+    as long as ``validate()`` does not leak information, no other part of
+    the code can obtain more information about a passwords database than a
+    Yes/No answer to a precise query.
+
+    A possible extension of the ``taint_atomic`` decorator would be to check
+    the argument types, as ``untaint()`` does, for the same reason: to
+    prevent bugs where a function like ``validate()`` above is accidentally
+    called with the wrong kind of tainted object, which would make it
+    misbehave.  For now, all ``taint_atomic`` functions should be
+    conservative and carefully check all assumptions on their input
+    arguments.
+
+
+    .. _`taint-interface`:
+
+    Interface
+    ---------
+
+    .. _`like a built-in operation`:
+
+    The basic rule of the Tainted Object Space is that it introduces two new
+    kinds of objects, Tainted Boxes and Tainted Bombs (which are not types
+    in the Python sense).  Each box internally contains a regular object;
+    each bomb internally contains an exception object.  An operation
+    involving Tainted Boxes is performed on the objects contained in the
+    boxes, and gives a Tainted Box or a Tainted Bomb as a result (such an
+    operation does not let an exception be raised).  An operation called
+    with a Tainted Bomb argument immediately returns the same Tainted Bomb.
+
+    In a PyPy running with (or translated with) the Taint Object Space,
+    the ``__pypy__`` module exposes the following interface:
+
+    * ``taint(obj)``
+
+        Return a new Tainted Box wrapping ``obj``.  Return ``obj`` itself
+        if it is already tainted (a Box or a Bomb).
+
+    * ``is_tainted(obj)``
+
+        Check if ``obj`` is tainted (a Box or a Bomb).
+
+    * ``untaint(type, obj)``
+
+        Untaints ``obj`` if it is tainted.  Raise ``TaintError`` if the type
+        of the untainted object is not exactly ``type``, or if ``obj`` is a
+        Bomb.
+
+    * ``taint_atomic(func)``
+
+        Return a wrapper function around the callable ``func``.  The wrapper
+        behaves `like a built-in operation`_ with respect to untainting the
+        arguments, tainting the result, and returning a Bomb.
+
+    * ``TaintError``
+
+        Exception.  On purpose, it provides no attribute or error message.
+
+    * ``_taint_debug(level)``
+
+        Set the debugging level to ``level`` (0=off).  At level 1 or above,
+        all Taint Bombs print a diagnostic message to stderr when they are
+        created.
+
+    * ``_taint_look(obj)``
+
+        For debugging purposes: prints (to stderr) the type and address of
+        the object in a Tainted Box, or prints the exception if ``obj`` is
+        a Taint Bomb.
+
+
+.. _dump:
+
+The Dump Object Space
+=====================
+
+When PyPy is run with (or translated with) the *Dump Object Space*, all
+operations between objects are dumped to a file called
+``pypy-space-dump``.  This should give a powerful way to debug
+applications, but so far the dump can only be inspected in a text
+editor; better browsing tools are needed before it becomes really useful.
+
+Try::
+
+    $ py.py -o dump
+    >>>> 2+3
+    5
+    >>>> (exit py.py here)
+    $ more pypy-space-dump
+
+On my machine the ``add`` between 2 and 3 starts at line 3152 (!)  and
+returns at line 3164.  All the rest is start-up, printing, and shutdown.
+
+
+.. _tproxy:
+
+Transparent Proxies
+================================
+
+PyPy's Transparent Proxies allow routing of operations on objects 
+to a callable.  Application level code can customize objects without
+interfering with the type system - ``type(proxied_list) is list`` holds true
+when 'proxied_list' is a proxied built-in list - while
+giving you full control on all operations that are performed on the
+``proxied_list``.
+
+See [D12.1]_ for more context, motivation and usage of transparent proxies. 
+
+Example of the core mechanism 
+-------------------------------------------
+
+The following example proxies a list and will 
+return ``42`` on any add operation to the list:: 
+
+   $ py.py --objspace-std-withtproxy 
+   >>>> from __pypy__ import tproxy
+   >>>> def f(operation, *args, **kwargs):
+   >>>>    if operation == '__add__':
+   >>>>         return 42
+   >>>>    raise AttributeError
+   >>>>
+   >>>> i = tproxy(list, f)
+   >>>> type(i)
+   list
+   >>>> i + 3
+   42
+
+.. _`alternative object implementations`: interpreter-optimizations.html
+
+
+Example of recording all operations on builtins
+----------------------------------------------------
+
+Suppose we want to have a list which stores all operations performed on
+it for later analysis.  We can use the small `lib_pypy/tputil.py`_ module to help
+with transparently proxying builtin instances::
+
+   from tputil import make_proxy
+
+   history = []
+   def recorder(operation):
+       history.append(operation) 
+       return operation.delegate()
+
+   >>>> l = make_proxy(recorder, obj=[])    
+   >>>> type(l)
+   list
+   >>>> l.append(3)
+   >>>> len(l)
+   1
+   >>>> len(history)
+   2
+   
+``make_proxy(recorder, obj=[])`` creates a transparent list
+proxy where we can delegate operations to in the ``recorder`` function. 
+Calling ``type(l)`` does not lead to any operation being executed at all. 
+
+Note that ``append`` shows up as ``__getattribute__`` and that ``type(lst)``
+does not show up at all - the type is the only aspect of the instance which
+the controller cannot change.
+
+.. _`transparent proxy builtins`: 
+
+Transparent Proxy PyPy builtins and support
+-----------------------------------------------------------
+
+If you are using the `--objspace-std-withtproxy`_ option 
+the `__pypy__`_ module provides the following builtins: 
+
+* ``tproxy(type, controller)``: returns a proxy object 
+  representing the given type and forwarding all operations 
+  on this type to the controller.  On each such operation
+  ``controller(opname, *args, **kwargs)`` is invoked. 
+
+* ``get_tproxy_controller(obj)``:  returns the responsible 
+  controller for a given object.  For non-proxied objects
+  ``None`` is returned.  
+
+.. _`__pypy__`:  __pypy__-module.html 
+.. _`--objspace-std-withtproxy`: config/objspace.std.withtproxy.html
+
+.. _tputil: 
+
+tputil helper module 
+----------------------------
+
+The `lib_pypy/tputil.py`_ module provides: 
+
+* ``make_proxy(controller, type, obj)``: function which 
+  creates a transparent proxy controlled by the given 
+  'controller' callable.  The proxy will appear 
+  as a completely regular instance of the given 
+  type but all operations on it are send to the 
+  specified controller - which receives a
+  ProxyOperation instance on each such operation.  
+  A non-specified type will default to type(obj) if 
+  `obj` was specified. 
+
+  ProxyOperation instances have the following attributes: 
+
+    `proxyobj`: the transparent proxy object of this operation. 
+
+    `opname`: the operation name of this operation 
+
+    `args`: positional arguments for this operation 
+
+    `kwargs`: keyword arguments for this operation 
+
+    `obj`: (if provided to `make_proxy`): a concrete object
+
+  If you have specified a concrete object instance `obj` 
+  to your `make_proxy` invocation, you may call 
+  ``proxyoperation.delegate()`` to delegate the operation 
+  to this object instance. 
+
+Further points of interest
+---------------------------
+
+A lot of tasks could be performed using transparent proxies, including,
+but not limited to:
+
+* Remote versions of objects, on which we can directly perform operations
+  (think about transparent distribution)
+
+* Access to persistent storage such as a database (imagine an
+  SQL object mapper which looks like a real object)
+
+* Access to external data structures, such as other languages, as normal
+  objects (of course some operations could raise exceptions, but 
+  since they are purely done on application level, that is not real problem)
+
+Implementation Notes
+-----------------------------
+
+PyPy's standard object space allows to internally have multiple
+implementations of a type and change the implementation at run
+time while application level code consistently sees the exact 
+same type and object.  Multiple performance optimizations using 
+this features are already implemented: see the document
+about `alternative object implementations`_. Transparent
+Proxies use the architecture to provide control back 
+to application level code. 
+
+Transparent proxies are implemented on top of the `standard object
+space`_, in `pypy/objspace/std/proxy_helpers.py`_, `pypy/objspace/std/proxyobject.py`_ and
+`pypy/objspace/std/transparent.py`_.  To use them you will need to pass a
+`--objspace-std-withtproxy`_ option to ``py.py`` or
+``translate.py``.  This registers implementations named
+``W_TransparentXxx`` - which usually correspond to an
+appropriate ``W_XxxObject`` - and includes some interpreter hacks
+for objects that are too close to the interpreter to be
+implemented in the std objspace. The types of objects that can
+be proxied this way are user created classes & functions,
+lists, dicts, exceptions, tracebacks and frames.
+
+.. _`standard object space`: objspace.html#the-standard-object-space
+
+.. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
+           EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
+
+.. include:: _ref.txt

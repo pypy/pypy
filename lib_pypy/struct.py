@@ -66,42 +66,6 @@ def unpack_signed_int(data,index,size,le):
 INFINITY = 1e200 * 1e200
 NAN = INFINITY / INFINITY
 
-def unpack_float(data,index,size,le):
-    bytes = [ord(b) for b in data[index:index+size]]
-    if len(bytes) != size:
-        raise StructError,"Not enough data to unpack"
-    if max(bytes) == 0:
-        return 0.0
-    if le == 'big':
-        bytes.reverse()
-    if size == 4:
-        bias = 127
-        exp = 8
-        prec = 23
-    else:
-        bias = 1023
-        exp = 11
-        prec = 52
-    mantissa = long(bytes[size-2] & (2**(15-exp)-1))
-    for b in bytes[size-3::-1]:
-        mantissa = mantissa << 8 | b
-    mantissa = 1 + (1.0*mantissa)/(2**(prec))
-    mantissa /= 2
-    e = (bytes[-1] & 0x7f) << (exp - 7)
-    e += (bytes[size-2] >> (15 - exp)) & (2**(exp - 7) -1)
-    e -= bias
-    e += 1
-    sign = bytes[-1] & 0x80
-    if e == bias + 2:
-        if mantissa == 0.5:
-            number = INFINITY
-        else:
-            return NAN
-    else:
-        number = math.ldexp(mantissa,e)
-    if sign : number *= -1
-    return number
-
 def unpack_char(data,index,size,le):
     return data[index:index+size]
 
@@ -139,54 +103,138 @@ def isinf(x):
 def isnan(v):
     return v != v*1.0 or (v == 1.0 and v == 2.0)
 
-def pack_float(number, size, le):
-    if size == 4:
-        bias = 127
-        exp = 8
-        prec = 23
-    else:
-        bias = 1023
-        exp = 11
-        prec = 52
-
-    if isnan(number):
-        sign = 0x80
-        man, e = 1.5, bias + 1
-    else:
-        if number < 0:
-            sign = 0x80
-            number *= -1
-        elif number == 0.0:
-            return '\x00' * size
-        else:
-            sign = 0x00
-        if isinf(number):
-            man, e = 1.0, bias + 1
-        else:
-            man, e = math.frexp(number)
-
+def pack_float(x, size, le):
+    unsigned = float_pack(x, size)
     result = []
-    if 0.5 <= man and man < 1.0:
-        man *= 2
-        e -= 1
-    man -= 1
-    e += bias
-    power_of_two = 1 << prec
-    mantissa = int(power_of_two * man + 0.5)
-    if mantissa >> prec :
-        mantissa = 0
-        e += 1
-
-    for i in range(size-2):
-        result.append(chr(mantissa & 0xff))
-        mantissa >>= 8
-    x = (mantissa & ((1<<(15-exp))-1)) | ((e & ((1<<(exp-7))-1))<<(15-exp))
-    result.append(chr(x))
-    x = sign | e >> (exp - 7)
-    result.append(chr(x))
-    if le == 'big':
+    for i in range(8):
+        result.append(chr((unsigned >> (i * 8)) & 0xFF))
+    if le == "big":
         result.reverse()
     return ''.join(result)
+
+def unpack_float(data, index, size, le):
+    binary = [data[i] for i in range(index, index + 8)]
+    if le == "big":
+        binary.reverse()
+    unsigned = 0
+    for i in range(8):
+        unsigned |= ord(binary[i]) << (i * 8)
+    return float_unpack(unsigned, size, le)
+
+def round_to_nearest(x):
+    """Python 3 style round:  round a float x to the nearest int, but
+    unlike the builtin Python 2.x round function:
+
+      - return an int, not a float
+      - do round-half-to-even, not round-half-away-from-zero.
+
+    We assume that x is finite and nonnegative; except wrong results
+    if you use this for negative x.
+
+    """
+    int_part = int(x)
+    frac_part = x - int_part
+    if frac_part > 0.5 or frac_part == 0.5 and int_part & 1 == 1:
+        int_part += 1
+    return int_part
+
+def float_unpack(Q, size, le):
+    """Convert a 32-bit or 64-bit integer created
+    by float_pack into a Python float."""
+
+    if size == 8:
+        MIN_EXP = -1021  # = sys.float_info.min_exp
+        MAX_EXP = 1024   # = sys.float_info.max_exp
+        MANT_DIG = 53    # = sys.float_info.mant_dig
+        BITS = 64
+    elif size == 4:
+        MIN_EXP = -125   # C's FLT_MIN_EXP
+        MAX_EXP = 128    # FLT_MAX_EXP
+        MANT_DIG = 24    # FLT_MANT_DIG
+        BITS = 32
+    else:
+        raise ValueError("invalid size value")
+
+    if Q >> BITS:
+         raise ValueError("input out of range")
+
+    # extract pieces
+    sign = Q >> BITS - 1
+    exp = (Q & ((1 << BITS - 1) - (1 << MANT_DIG - 1))) >> MANT_DIG - 1
+    mant = Q & ((1 << MANT_DIG - 1) - 1)
+
+    if exp == MAX_EXP - MIN_EXP + 2:
+        # nan or infinity
+        result = float('nan') if mant else float('inf')
+    elif exp == 0:
+        # subnormal or zero
+        result = math.ldexp(float(mant), MIN_EXP - MANT_DIG)
+    else:
+        # normal
+        mant += 1 << MANT_DIG - 1
+        result = math.ldexp(float(mant), exp + MIN_EXP - MANT_DIG - 1)
+    return -result if sign else result
+
+
+def float_pack(x, size):
+    """Convert a Python float x into a 64-bit unsigned integer
+    with the same byte representation."""
+
+    if size == 8:
+        MIN_EXP = -1021  # = sys.float_info.min_exp
+        MAX_EXP = 1024   # = sys.float_info.max_exp
+        MANT_DIG = 53    # = sys.float_info.mant_dig
+        BITS = 64
+    elif size == 4:
+        MIN_EXP = -125   # C's FLT_MIN_EXP
+        MAX_EXP = 128    # FLT_MAX_EXP
+        MANT_DIG = 24    # FLT_MANT_DIG
+        BITS = 32
+    else:
+        raise ValueError("invalid size value")
+
+    sign = math.copysign(1.0, x) < 0.0
+    if math.isinf(x):
+        mant = 0
+        exp = MAX_EXP - MIN_EXP + 2
+    elif math.isnan(x):
+        mant = 1 << (MANT_DIG-2) # other values possible
+        exp = MAX_EXP - MIN_EXP + 2
+    elif x == 0.0:
+        mant = 0
+        exp = 0
+    else:
+        m, e = math.frexp(abs(x))  # abs(x) == m * 2**e
+        exp = e - (MIN_EXP - 1)
+        if exp > 0:
+            # Normal case.
+            mant = round_to_nearest(m * (1 << MANT_DIG))
+            mant -= 1 << MANT_DIG - 1
+        else:
+            # Subnormal case.
+            if exp + MANT_DIG - 1 >= 0:
+                mant = round_to_nearest(m * (1 << exp + MANT_DIG - 1))
+            else:
+                mant = 0
+            exp = 0
+
+        # Special case: rounding produced a MANT_DIG-bit mantissa.
+        assert 0 <= mant <= 1 << MANT_DIG - 1
+        if mant == 1 << MANT_DIG - 1:
+            mant = 0
+            exp += 1
+
+        # Raise on overflow (in some circumstances, may want to return
+        # infinity instead).
+        if exp >= MAX_EXP - MIN_EXP + 2:
+             raise OverflowError("float too large to pack in this format")
+
+    # check constraints
+    assert 0 <= mant < 1 << MANT_DIG - 1
+    assert 0 <= exp <= MAX_EXP - MIN_EXP + 2
+    assert 0 <= sign <= 1
+    return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
+
 
 big_endian_format = {
     'x':{ 'size' : 1, 'alignment' : 0, 'pack' : None, 'unpack' : None},

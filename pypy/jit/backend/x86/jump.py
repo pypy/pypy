@@ -69,3 +69,41 @@ def _move(assembler, src, dst, tmpreg):
         assembler.regalloc_mov(src, tmpreg)
         src = tmpreg
     assembler.regalloc_mov(src, dst)
+
+def remap_frame_layout_mixed(assembler,
+                             src_locations1, dst_locations1, tmpreg1,
+                             src_locations2, dst_locations2, tmpreg2):
+    # find and push the xmm stack locations from src_locations2 that
+    # are going to be overwritten by dst_locations1
+    from pypy.jit.backend.x86.arch import WORD
+    extrapushes = []
+    dst_keys = {}
+    for loc in dst_locations1:
+        dst_keys[loc._getregkey()] = None
+    src_locations2red = []
+    dst_locations2red = []
+    for i in range(len(src_locations2)):
+        loc    = src_locations2[i]
+        dstloc = dst_locations2[i]
+        if isinstance(loc, StackLoc):
+            key = loc._getregkey()
+            if (key in dst_keys or (loc.width > WORD and
+                                    (key + WORD) in dst_keys)):
+                assembler.regalloc_push(loc)
+                extrapushes.append(dstloc)
+                continue
+        src_locations2red.append(loc)
+        dst_locations2red.append(dstloc)
+    src_locations2 = src_locations2red
+    dst_locations2 = dst_locations2red
+    #
+    # remap the integer and pointer registers and stack locations
+    remap_frame_layout(assembler, src_locations1, dst_locations1, tmpreg1)
+    #
+    # remap the xmm registers and stack locations
+    remap_frame_layout(assembler, src_locations2, dst_locations2, tmpreg2)
+    #
+    # finally, pop the extra xmm stack locations
+    while len(extrapushes) > 0:
+        loc = extrapushes.pop()
+        assembler.regalloc_pop(loc)

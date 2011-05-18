@@ -38,7 +38,7 @@ an outout-buffering stream.
 #
 
 import os, sys
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.rarithmetic import r_longlong, intmask
 from pypy.rlib import rposix
 
@@ -89,7 +89,7 @@ def open_file_as_stream(path, mode="r", buffering=-1):
 def _setfd_binary(fd):
     pass
     
-def fdopen_as_stream(fd, mode, buffering):
+def fdopen_as_stream(fd, mode, buffering=-1):
     # XXX XXX XXX you want do check whether the modes are compatible
     # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
@@ -206,6 +206,7 @@ if sys.platform == "win32":
                 raise WindowsError(rwin32.GetLastError(),
                                    "Could not truncate file")
         finally:
+            # we restore the file pointer position in any case
             os.lseek(fd, curpos, 0)
 
 
@@ -311,7 +312,18 @@ class DiskFile(Stream):
             ftruncate_win32(self.fd, size)
     else:
         def truncate(self, size):
-            os.ftruncate(self.fd, size)
+            # Note: for consistency, in translated programs a failing
+            # os.ftruncate() raises OSError.  However, on top of
+            # CPython, we get an IOError.  As it is (as far as I know)
+            # the only place that have this behavior, we just convert it
+            # to an OSError instead of adding IOError to StreamErrors.
+            if we_are_translated():
+                os.ftruncate(self.fd, size)
+            else:
+                try:
+                    os.ftruncate(self.fd, size)
+                except IOError, e:
+                    raise OSError(*e.args)
 
     def try_to_find_file_descriptor(self):
         return self.fd
@@ -1012,6 +1024,7 @@ class TextInputFilter(Stream):
             pos += 1
             self.atcr = False
             if self.buf == "\n":
+                self.CRLF = True
                 self.buf = ""
         return pos - len(self.buf)
 

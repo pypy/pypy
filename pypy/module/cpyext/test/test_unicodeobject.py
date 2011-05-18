@@ -1,8 +1,80 @@
 # encoding: iso-8859-15
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.unicodeobject import Py_UNICODE
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
+from pypy.module.cpyext.unicodeobject import (
+    Py_UNICODE, PyUnicodeObject, new_empty_unicode)
+from pypy.module.cpyext.api import PyObjectP, PyObject
+from pypy.module.cpyext.pyobject import Py_DecRef
 from pypy.rpython.lltypesystem import rffi, lltype
 import sys, py
+
+class AppTestUnicodeObject(AppTestCpythonExtensionBase):
+    def test_unicodeobject(self):
+        module = self.import_extension('foo', [
+            ("get_hello1", "METH_NOARGS",
+             """
+                 return PyUnicode_FromStringAndSize(
+                     "Hello world<should not be included>", 11);
+             """),
+            ("test_GetSize", "METH_NOARGS",
+             """
+                 PyObject* s = PyUnicode_FromString("Hello world");
+                 int result = 0;
+
+                 if(PyUnicode_GetSize(s) == 11) {
+                     result = 1;
+                 }
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*4)
+                     result = 0;
+                 Py_DECREF(s);
+                 return PyBool_FromLong(result);
+             """),
+            ("test_GetSize_exception", "METH_NOARGS",
+             """
+                 PyObject* f = PyFloat_FromDouble(1.0);
+                 Py_ssize_t size = PyUnicode_GetSize(f);
+
+                 Py_DECREF(f);
+                 return NULL;
+             """),
+             ("test_is_unicode", "METH_VARARGS",
+             """
+                return PyBool_FromLong(PyUnicode_Check(PyTuple_GetItem(args, 0)));
+             """)])
+        assert module.get_hello1() == u'Hello world'
+        assert module.test_GetSize()
+        raises(TypeError, module.test_GetSize_exception)
+
+        assert module.test_is_unicode(u"")
+        assert not module.test_is_unicode(())
+
+    def test_unicode_buffer_init(self):
+        module = self.import_extension('foo', [
+            ("getunicode", "METH_NOARGS",
+             """
+                 PyObject *s, *t;
+                 Py_UNICODE* c;
+                 Py_ssize_t len;
+
+                 s = PyUnicode_FromUnicode(NULL, 4);
+                 if (s == NULL)
+                    return NULL;
+                 t = PyUnicode_FromUnicode(NULL, 3);
+                 if (t == NULL)
+                    return NULL;
+                 Py_DECREF(t);
+                 c = PyUnicode_AsUnicode(s);
+                 c[0] = 'a';
+                 c[1] = 0xe9;
+                 c[3] = 'c';
+                 return s;
+             """),
+            ])
+        s = module.getunicode()
+        assert len(s) == 4
+        assert s == u'aé\x00c'
+
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):
@@ -45,6 +117,9 @@ class TestUnicode(BaseApiTest):
         encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
                                                 utf_8, None)
         assert space.unwrap(encoded) == 'sp\xc3\xa4m'
+        encoded_obj = api.PyUnicode_AsEncodedObject(space.wrap(u'späm'),
+                                                utf_8, None)
+        assert space.eq_w(encoded, encoded_obj)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,
                space.newtuple([1, 2, 3]), None, None)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,
@@ -73,6 +148,28 @@ class TestUnicode(BaseApiTest):
         w_res = api.PyUnicode_FromStringAndSize(s, 4)
         assert space.unwrap(w_res) == u'spä'
         rffi.free_charp(s)
+
+    def test_unicode_resize(self, space, api):
+        py_uni = new_empty_unicode(space, 10)
+        ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        py_uni.c_buffer[0] = u'a'
+        py_uni.c_buffer[1] = u'b'
+        py_uni.c_buffer[2] = u'c'
+        ar[0] = rffi.cast(PyObject, py_uni)
+        api.PyUnicode_Resize(ar, 3)
+        py_uni = rffi.cast(PyUnicodeObject, ar[0])
+        assert py_uni.c_size == 3
+        assert py_uni.c_buffer[1] == u'b'
+        assert py_uni.c_buffer[3] == u'\x00'
+        # the same for growing
+        ar[0] = rffi.cast(PyObject, py_uni)
+        api.PyUnicode_Resize(ar, 10)
+        py_uni = rffi.cast(PyUnicodeObject, ar[0])
+        assert py_uni.c_size == 10
+        assert py_uni.c_buffer[1] == 'b'
+        assert py_uni.c_buffer[10] == '\x00'
+        Py_DecRef(space, ar[0])
+        lltype.free(ar, flavor='raw')
 
     def test_AsUTF8String(self, space, api):
         w_u = space.wrap(u'späm')
@@ -184,8 +281,7 @@ class TestUnicode(BaseApiTest):
         assert space.eq_w(space.wrap(ustr), result)
 
         w_ustr = space.wrap(u"abcd\xe9f")
-        result = api.PyUnicode_AsASCIIString(w_ustr)
-        assert result is None
+        self.raises(space, api, UnicodeEncodeError, api.PyUnicode_AsASCIIString, w_ustr)
 
     def test_decode_utf16(self, space, api):
         def test(encoded, endian, realendian=None):
@@ -225,3 +321,49 @@ class TestUnicode(BaseApiTest):
 
     def test_compare(self, space, api):
         assert api.PyUnicode_Compare(space.wrap('a'), space.wrap('b')) == -1
+
+    def test_copy(self, space, api):
+        w_x = space.wrap(u"abcd\u0660")
+        target_chunk, _ = rffi.alloc_unicodebuffer(space.int_w(space.len(w_x)))
+        #lltype.malloc(Py_UNICODE, space.int_w(space.len(w_x)), flavor='raw')
+
+        x_chunk = api.PyUnicode_AS_UNICODE(w_x)
+        api.Py_UNICODE_COPY(target_chunk, x_chunk, 4)
+        w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, 4))
+
+        assert space.eq_w(w_y, space.wrap(u"abcd"))
+
+        size = api.PyUnicode_GET_SIZE(w_x)
+        api.Py_UNICODE_COPY(target_chunk, x_chunk, size)
+        w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, size))
+
+        assert space.eq_w(w_y, w_x)
+
+        lltype.free(target_chunk, flavor='raw')
+
+    def test_ascii_codec(self, space, api):
+        s = 'abcdefg'
+        data = rffi.str2charp(s)
+        w_u = api.PyUnicode_DecodeASCII(data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(w_u, space.wrap(u"abcdefg"))
+        rffi.free_charp(data)
+
+        s = 'abcd\xFF'
+        data = rffi.str2charp(s)
+        self.raises(space, api, UnicodeDecodeError, api.PyUnicode_DecodeASCII,
+                    data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        rffi.free_charp(data)
+
+        uni = u'abcdefg'
+        data = rffi.unicode2wcharp(uni)
+        w_s = api.PyUnicode_EncodeASCII(data, len(uni), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(space.wrap("abcdefg"), w_s)
+        rffi.free_wcharp(data)
+
+        u = u'äbcdéfg'
+        data = rffi.unicode2wcharp(u)
+        w_s = api.PyUnicode_EncodeASCII(data, len(u), lltype.nullptr(rffi.CCHARP.TO))
+        self.raises(space, api, UnicodeEncodeError, api.PyUnicode_EncodeASCII,
+                    data, len(u), lltype.nullptr(rffi.CCHARP.TO))
+        rffi.free_wcharp(data)
+

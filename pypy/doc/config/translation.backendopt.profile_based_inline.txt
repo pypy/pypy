@@ -7,4 +7,4 @@ for basic inlining. (see :config:`translation.backendopt.inline`,
 The option takes as value a string which is the arguments to pass to
 the program for the instrumented run.
 
-This optimisation is not used by default.
+This optimization is not used by default.

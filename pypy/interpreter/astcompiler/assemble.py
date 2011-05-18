@@ -8,6 +8,7 @@ from pypy.tool import stdlib_opcode as ops
 
 from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib import rfloat
 
 
 class Instruction(object):
@@ -166,15 +167,22 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.use_block(block)
         return block
 
+    def is_dead_code(self):
+        """Return False if any code can be meaningfully added to the
+        current block, or True if it would be dead code."""
+        # currently only True after a RETURN_VALUE.
+        return self.current_block.have_return
+
     def emit_op(self, op):
         """Emit an opcode without an argument."""
         instr = Instruction(op)
         if not self.lineno_set:
             instr.lineno = self.lineno
             self.lineno_set = True
-        self.instrs.append(instr)
-        if op == ops.RETURN_VALUE:
-            self.current_block.have_return = True
+        if not self.is_dead_code():
+            self.instrs.append(instr)
+            if op == ops.RETURN_VALUE:
+                self.current_block.have_return = True
         return instr
 
     def emit_op_arg(self, op, arg):
@@ -183,7 +191,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         if not self.lineno_set:
             instr.lineno = self.lineno
             self.lineno_set = True
-        self.instrs.append(instr)
+        if not self.is_dead_code():
+            self.instrs.append(instr)
 
     def emit_op_name(self, op, container, name):
         """Emit an opcode referencing a name."""
@@ -203,21 +212,61 @@ class PythonCodeMaker(ast.ASTVisitor):
             container[name] = index
         return index
 
-    def add_const(self, obj, w_key=None):
+    def add_const(self, obj):
         """Add a W_Root to the constant array and return its location."""
         space = self.space
-        # To avoid confusing equal but separate types, we hash store the type of
-        # the constant in the dictionary.
-        if w_key is None:
-            w_key = space.newtuple([obj, space.type(obj)])
+        # To avoid confusing equal but separate types, we hash store the type
+        # of the constant in the dictionary.  Moreover, we have to keep the
+        # difference between -0.0 and 0.0 floats, and this recursively in
+        # tuples.
+        w_key = self._make_key(obj)
+
         w_len = space.finditem(self.w_consts, w_key)
         if w_len is None:
             w_len = space.len(self.w_consts)
             space.setitem(self.w_consts, w_key, w_len)
         return space.int_w(w_len)
 
-    def load_const(self, obj, w_key=None):
-        index = self.add_const(obj, w_key)
+    def _make_key(self, obj):
+        # see the tests 'test_zeros_not_mixed*' in ../test/test_compiler.py
+        space = self.space
+        w_type = space.type(obj)
+        if space.is_w(w_type, space.w_float):
+            val = space.float_w(obj)
+            if val == 0.0 and rfloat.copysign(1., val) < 0:
+                w_key = space.newtuple([obj, space.w_float, space.w_None])
+            else:
+                w_key = space.newtuple([obj, space.w_float])
+        elif space.is_w(w_type, space.w_complex):
+            w_real = space.getattr(obj, space.wrap("real"))
+            w_imag = space.getattr(obj, space.wrap("imag"))
+            real = space.float_w(w_real)
+            imag = space.float_w(w_imag)
+            real_negzero = (real == 0.0 and
+                            rfloat.copysign(1., real) < 0)
+            imag_negzero = (imag == 0.0 and
+                            rfloat.copysign(1., imag) < 0)
+            if real_negzero and imag_negzero:
+                tup = [obj, space.w_complex, space.w_None, space.w_None,
+                       space.w_None]
+            elif imag_negzero:
+                tup = [obj, space.w_complex, space.w_None, space.w_None]
+            elif real_negzero:
+                tup = [obj, space.w_complex, space.w_None]
+            else:
+                tup = [obj, space.w_complex]
+            w_key = space.newtuple(tup)
+        elif space.is_w(w_type, space.w_tuple):
+            result_w = [obj, w_type]
+            for w_item in space.fixedview(obj):
+                result_w.append(self._make_key(w_item))
+            w_key = space.newtuple(result_w[:])
+        else:
+            w_key = space.newtuple([obj, w_type])
+        return w_key
+
+    def load_const(self, obj):
+        index = self.add_const(obj)
         self.emit_op_arg(ops.LOAD_CONST, index)
 
     def update_position(self, lineno, force=False):
@@ -237,6 +286,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         while True:
             extended_arg_count = 0
             offset = 0
+            force_redo = False
             # Calculate the code offset of each block.
             for block in blocks:
                 block.offset = offset
@@ -257,6 +307,15 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     target = target.instructions[0].jump[0]
                                     instr.opcode = ops.JUMP_ABSOLUTE
                                     absolute = True
+                                elif target_op == ops.RETURN_VALUE:
+                                    # Replace JUMP_* to a RETURN into just a RETURN
+                                    instr.opcode = ops.RETURN_VALUE
+                                    instr.arg = 0
+                                    instr.has_jump = False
+                                    # The size of the code changed,
+                                    # we have to trigger another pass
+                                    force_redo = True
+                                    continue
                         if absolute:
                             jump_arg = target.offset
                         else:
@@ -264,7 +323,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                         instr.arg = jump_arg
                         if jump_arg > 0xFFFF:
                             extended_arg_count += 1
-            if extended_arg_count == last_extended_arg_count:
+            if extended_arg_count == last_extended_arg_count and not force_redo:
                 break
             else:
                 last_extended_arg_count = extended_arg_count
@@ -273,7 +332,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Turn the applevel constants dictionary into a list."""
         w_consts = self.w_consts
         space = self.space
-        consts_w = [space.w_None] * space.int_w(space.len(w_consts))
+        consts_w = [space.w_None] * space.len_w(w_consts)
         w_iter = space.iter(w_consts)
         first = space.wrap(0)
         while True:
@@ -303,18 +362,30 @@ class PythonCodeMaker(ast.ASTVisitor):
             return max_depth
         block.marked = True
         block.initial_depth = depth
+        done = False
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth >= max_depth:
                 max_depth = depth
             if instr.has_jump:
+                target_depth = depth
+                jump_op = instr.opcode
+                if jump_op == ops.FOR_ITER:
+                    target_depth -= 2
+                elif (jump_op == ops.SETUP_FINALLY or
+                      jump_op == ops.SETUP_EXCEPT or
+                      jump_op == ops.SETUP_WITH):
+                    target_depth += 3
+                    if target_depth > max_depth:
+                        max_depth = target_depth
                 max_depth = self._recursive_stack_depth_walk(instr.jump[0],
-                                                             depth, max_depth)
-                if instr.opcode == ops.JUMP_ABSOLUTE or \
-                        instr.opcode == ops.JUMP_FORWARD:
+                                                             target_depth,
+                                                             max_depth)
+                if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
+                    done = True
                     break
-        if block.next_block:
+        if block.next_block and not done:
             max_depth = self._recursive_stack_depth_walk(block.next_block,
                                                          depth, max_depth)
         block.marked = False
@@ -428,6 +499,9 @@ _static_opcode_stack_effects = {
     ops.UNARY_INVERT : 0,
 
     ops.LIST_APPEND : -1,
+    ops.SET_ADD : -1,
+    ops.MAP_ADD : -2,
+    ops.STORE_MAP : -2,
 
     ops.BINARY_POWER : -1,
     ops.BINARY_MULTIPLY : -1,
@@ -488,9 +562,10 @@ _static_opcode_stack_effects = {
 
     ops.WITH_CLEANUP : -1,
     ops.POP_BLOCK : 0,
-    ops.END_FINALLY : -1,
-    ops.SETUP_FINALLY : 3,
-    ops.SETUP_EXCEPT : 3,
+    ops.END_FINALLY : -3,
+    ops.SETUP_WITH : 1,
+    ops.SETUP_FINALLY : 0,
+    ops.SETUP_EXCEPT : 0,
 
     ops.LOAD_LOCALS : 1,
     ops.RETURN_VALUE : -1,
@@ -498,6 +573,7 @@ _static_opcode_stack_effects = {
     ops.YIELD_VALUE : 0,
     ops.BUILD_CLASS : -2,
     ops.BUILD_MAP : 1,
+    ops.BUILD_SET : 1,
     ops.COMPARE_OP : -1,
 
     ops.LOOKUP_METHOD : 1,
@@ -525,13 +601,15 @@ _static_opcode_stack_effects = {
     ops.LOAD_CONST : 1,
 
     ops.IMPORT_STAR : -1,
-    ops.IMPORT_NAME : 0,
+    ops.IMPORT_NAME : -1,
     ops.IMPORT_FROM : 1,
 
     ops.JUMP_FORWARD : 0,
     ops.JUMP_ABSOLUTE : 0,
-    ops.JUMP_IF_TRUE : 0,
-    ops.JUMP_IF_FALSE : 0,
+    ops.JUMP_IF_TRUE_OR_POP : 0,
+    ops.JUMP_IF_FALSE_OR_POP : 0,
+    ops.POP_JUMP_IF_TRUE : -1,
+    ops.POP_JUMP_IF_FALSE : -1,
 }
 
 
@@ -548,7 +626,7 @@ def _compute_BUILD_LIST(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):
-    return -arg
+    return -arg - 1
 
 def _compute_MAKE_FUNCTION(arg):
     return -arg

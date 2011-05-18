@@ -7,7 +7,6 @@ class Module(MixedModule):
      applevel_name = 'parser'
 
      appleveldefs = {
-         'ParserError' : 'app_helpers.ParserError'
          }
 
      interpleveldefs = {
@@ -25,5 +24,6 @@ class Module(MixedModule):
          'ast2tuple'    : 'pyparser.st2tuple',
          'ASTType'      : 'pyparser.STType',
          'compilest'    : 'pyparser.compilest',
-         'compileast'   : 'pyparser.compilest'
+         'compileast'   : 'pyparser.compilest',
+         'ParserError'  : 'space.new_exception_class("parser.ParserError")',
          }

@@ -4,29 +4,17 @@ Interp-level definition of frequently used functionals.
 """
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import NoneNotWrapped, applevel
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.argument import Arguments
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
-from pypy.module.__builtin__.app_functional import range as app_range
 from inspect import getsource, getfile
-from pypy.rlib.jit import unroll_safe
+from pypy.rlib.rbigint import rbigint
 
-"""
-Implementation of the common integer case of range. Instead of handling
-all other cases here, too, we fall back to the applevel implementation
-for non-integer arguments.
-Ideally this implementation could be saved, if we were able to
-specialize the geninterp generated code. But I guess having this
-hand-optimized is a good idea.
 
-Note the fun of using range inside range :-)
-"""
-
-def get_len_of_range(lo, hi, step):
+def get_len_of_range(space, lo, hi, step):
     """
     Return number of items in range/xrange (lo, hi, step).
     Raise ValueError if step == 0 and OverflowError if the true value is too
@@ -44,7 +32,8 @@ def get_len_of_range(lo, hi, step):
     # hi-lo-1 = M-(-M-1)-1 = 2*M.  Therefore unsigned long has enough
     # precision to compute the RHS exactly.
     if step == 0:
-        raise ValueError
+        raise OperationError(space.w_ValueError,
+                             space.wrap("step argument must not be zero"))
     elif step < 0:
         lo, hi, step = hi, lo, -step
     if lo < hi:
@@ -53,27 +42,48 @@ def get_len_of_range(lo, hi, step):
         diff = uhi - ulo - 1
         n = intmask(diff // r_uint(step) + 1)
         if n < 0:
-            raise OverflowError
+            raise OperationError(space.w_OverflowError,
+                                 space.wrap("result has too many items"))
     else:
         n = 0
     return n
 
-def range(space, w_x, w_y=None, w_step=1):
+def range_int(space, w_x, w_y=NoneNotWrapped, w_step=1):
     """Return a list of integers in arithmetic position from start (defaults
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
 
+    if w_y is None:
+        w_start = space.wrap(0)
+        w_stop = w_x
+    else:
+        w_start = w_x
+        w_stop = w_y
+
+    if space.is_true(space.isinstance(w_stop, space.w_float)):
+        raise OperationError(space.w_TypeError,
+            space.wrap("range() integer end argument expected, got float."))
+    if space.is_true(space.isinstance(w_start, space.w_float)):
+        raise OperationError(space.w_TypeError,
+            space.wrap("range() integer start argument expected, got float."))
+    if space.is_true(space.isinstance(w_step, space.w_float)):
+        raise OperationError(space.w_TypeError,
+            space.wrap("range() integer step argument expected, got float."))
+
+    w_start = space.int(w_start)
+    w_stop  = space.int(w_stop)
+    w_step  = space.int(w_step)
+
     try:
-        x = space.int_w(space.int(w_x))
-        if space.is_w(w_y, space.w_None):
-            start, stop = 0, x
-        else:
-            start, stop = x, space.int_w(space.int(w_y))
-        step = space.int_w(space.int(w_step))
-        howmany = get_len_of_range(start, stop, step)
-    except (ValueError, OverflowError, OperationError):
-        # save duplication by redirecting every error to applevel
-        return range_fallback(space, w_x, w_y, w_step)
+        start = space.int_w(w_start)
+        stop  = space.int_w(w_stop)
+        step  = space.int_w(w_step)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+        return range_with_longs(space, w_start, w_stop, w_step)
+
+    howmany = get_len_of_range(space, start, stop, step)
 
     if space.config.objspace.std.withrangelist:
         return range_withspecialized_implementation(space, start,
@@ -84,20 +94,46 @@ get a list in decending order."""
         res_w[idx] = space.wrap(v)
         v += step
     return space.newlist(res_w)
-range_int = range
-range_int.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
-del range # don't hide the builtin one
 
-range_fallback = applevel(getsource(app_range), getfile(app_range)
-                          ).interphook('range')
 
 def range_withspecialized_implementation(space, start, step, howmany):
     assert space.config.objspace.std.withrangelist
     from pypy.objspace.std.rangeobject import W_RangeListObject
     return W_RangeListObject(start, step, howmany)
 
+bigint_one = rbigint.fromint(1)
 
-@unroll_safe
+def range_with_longs(space, w_start, w_stop, w_step):
+
+    start = lo = space.bigint_w(w_start)
+    stop  = hi = space.bigint_w(w_stop)
+    step  = st = space.bigint_w(w_step)
+
+    if not step.tobool():
+        raise OperationError(space.w_ValueError,
+                             space.wrap("step argument must not be zero"))
+    elif step.sign < 0:
+        lo, hi, st = hi, lo, st.neg()
+
+    if lo.lt(hi):
+        diff = hi.sub(lo).sub(bigint_one)
+        n = diff.floordiv(st).add(bigint_one)
+        try:
+            howmany = n.toint()
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                                 space.wrap("result has too many items"))
+    else:
+        howmany = 0
+
+    res_w = [None] * howmany
+    v = start
+    for idx in range(howmany):
+        res_w[idx] = space.newlong_from_rbigint(v)
+        v = v.add(step)
+    return space.newlist(res_w)
+
+
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
     if implementation_of == "max":
@@ -107,13 +143,12 @@ def min_max(space, args, implementation_of):
 
     args_w = args.arguments_w
     if len(args_w) == 2 and not args.keywords:
-        # Unrollable case
-        w_max_item = None
-        for w_item in args_w:
-            if w_max_item is None or \
-                   space.is_true(compare(w_item, w_max_item)):
-                w_max_item = w_item
-        return w_max_item
+        # simple case, suitable for the JIT
+        w_arg0, w_arg1 = args_w
+        if space.is_true(compare(w_arg0, w_arg1)):
+            return w_arg0
+        else:
+            return w_arg1
     else:
         return min_max_loop(space, args, implementation_of)
 
@@ -164,12 +199,13 @@ def min_max_loop(space, args, implementation_of):
     return w_max_item
 
 def max(space, __args__):
-    """Return the largest item in a sequence.
+    """max(iterable[, key=func]) -> value
+    max(a, b, c, ...[, key=func]) -> value
 
-    If more than one argument is passed, return the maximum of them.
+    With a single iterable argument, return its largest item.
+    With two or more arguments, return the largest argument.
     """
     return min_max(space, __args__, "max")
-max.unwrap_spec = [ObjSpace, Arguments]
 
 def min(space, __args__):
     """Return the smallest item in a sequence.
@@ -177,8 +213,8 @@ def min(space, __args__):
     If more than one argument is passed, return the minimum of them.
     """
     return min_max(space, __args__, "min")
-min.unwrap_spec = [ObjSpace, Arguments]
 
+@unwrap_spec(collections_w="args_w")
 def map(space, w_func, collections_w):
     """does 3 separate things, hence this enormous docstring.
        1.  if function is None, return a list of tuples, each with one
@@ -208,7 +244,6 @@ def map(space, w_func, collections_w):
         result_w = map_multiple_collections(space, w_func, collections_w,
                                             none_func)
     return space.newlist(result_w)
-map.unwrap_spec = [ObjSpace, W_Root, "args_w"]
 
 def map_single_collection(space, w_func, w_collection):
     """Special case for 'map(func, coll)', where 'func' is not None and there
@@ -291,10 +326,13 @@ def map_multiple_collections(space, w_func, collections_w, none_func):
         result_w.append(w_res)
     return result_w
 
-def sum(space, w_sequence, w_start=None):
-    if space.is_w(w_start, space.w_None):
-        w_start = space.wrap(0)
-    elif space.is_true(space.isinstance(w_start, space.w_basestring)):
+def sum(space, w_sequence, w_start=0):
+    """sum(sequence[, start]) -> value
+
+Returns the sum of a sequence of numbers (NOT strings) plus the value
+of parameter 'start' (which defaults to 0).  When the sequence is
+empty, returns start."""
+    if space.is_true(space.isinstance(w_start, space.w_basestring)):
         msg = "sum() can't sum strings"
         raise OperationError(space.w_TypeError, space.wrap(msg))
     w_iter = space.iter(w_sequence)
@@ -308,8 +346,8 @@ def sum(space, w_sequence, w_start=None):
             break
         w_last = space.add(w_last, w_next)
     return w_last
-sum.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
+@unwrap_spec(sequences_w="args_w")
 def zip(space, sequences_w):
     """Return a list of tuples, where the nth tuple contains every nth item of
     each collection.
@@ -329,7 +367,6 @@ def zip(space, sequences_w):
                 raise
             return space.newlist(result_w)
         result_w.append(space.newtuple(items_w))
-zip.unwrap_spec = [ObjSpace, "args_w"]
 
 def reduce(space, w_func, w_sequence, w_initial=NoneNotWrapped):
     """ Apply function of two arguments cumulatively to the items of sequence,
@@ -355,7 +392,6 @@ def reduce(space, w_func, w_sequence, w_initial=NoneNotWrapped):
             break
         w_result = space.call_function(w_func, w_result, w_next)
     return w_result
-reduce.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 def filter(space, w_func, w_seq):
     """construct a list of those elements of collection for which function
@@ -388,7 +424,7 @@ def filter(space, w_func, w_seq):
 
 def _filter_tuple(space, w_func, w_tuple):
     none_func = space.is_w(w_func, space.w_None)
-    length = space.int_w(space.len(w_tuple))
+    length = space.len_w(w_tuple)
     result_w = []
     for i in range(length):
         w_item = space.getitem(w_tuple, space.wrap(i))
@@ -404,7 +440,7 @@ def _filter_string(space, w_func, w_string, w_str_type):
     none_func = space.is_w(w_func, space.w_None)
     if none_func and space.is_w(space.type(w_string), w_str_type):
         return w_string
-    length = space.int_w(space.len(w_string))
+    length = space.len_w(w_string)
     result_w = []
     for i in range(length):
         w_item = space.getitem(w_string, space.wrap(i))
@@ -431,7 +467,6 @@ Return True if bool(x) is True for all values x in the iterable."""
         if not space.is_true(w_next):
             return space.w_False
     return space.w_True
-all.unwrap_spec = [ObjSpace, W_Root]
 
 
 def any(space, w_S):
@@ -449,7 +484,6 @@ Return True if bool(x) is True for any x in the iterable."""
         if space.is_true(w_next):
             return space.w_True
     return space.w_False
-any.unwrap_spec = [ObjSpace, W_Root]
 
 
 class W_Enumerate(Wrappable):
@@ -458,21 +492,23 @@ class W_Enumerate(Wrappable):
         self.w_iter = w_iter
         self.w_index = w_start
 
-    def descr___new__(space, w_subtype, w_iterable):
+    def descr___new__(space, w_subtype, w_iterable, w_start=NoneNotWrapped):
         self = space.allocate_instance(W_Enumerate, w_subtype)
-        self.__init__(space.iter(w_iterable), space.wrap(0))
+        if w_start is None:
+            w_start = space.wrap(0)
+        else:
+            w_start = space.index(w_start)
+        self.__init__(space.iter(w_iterable), w_start)
         return space.wrap(self)
 
     def descr___iter__(self, space):
         return space.wrap(self)
-    descr___iter__.unwrap_spec = ["self", ObjSpace]
 
     def descr_next(self, space):
         w_item = space.next(self.w_iter)
         w_index = self.w_index
         self.w_index = space.add(w_index, space.wrap(1))
         return space.newtuple([w_index, w_item])
-    descr_next.unwrap_spec = ["self", ObjSpace]
 
     def descr___reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -481,7 +517,6 @@ class W_Enumerate(Wrappable):
         w_new_inst = mod.get('enumerate_new')
         w_info = space.newtuple([self.w_iter, self.w_index])
         return space.newtuple([w_new_inst, w_info])
-    descr___reduce__.unwrap_spec = ["self", ObjSpace]
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter, w_index):
@@ -497,21 +532,28 @@ W_Enumerate.typedef = TypeDef("enumerate",
 
 def reversed(space, w_sequence):
     """Return a iterator that yields items of sequence in reverse."""
-    w_reversed_descr = space.lookup(w_sequence, "__reversed__")
-    if w_reversed_descr is None:
-        return space.wrap(W_ReversedIterator(space, w_sequence))
-    return space.get_and_call_function(w_reversed_descr, w_sequence)
-reversed.unwrap_spec = [ObjSpace, W_Root]
+    w_reversed = None
+    if space.is_oldstyle_instance(w_sequence):
+        w_reversed = space.findattr(w_sequence, space.wrap("__reversed__"))
+    else:
+        w_reversed_descr = space.lookup(w_sequence, "__reversed__")
+        if w_reversed_descr is not None:
+            w_reversed = space.get(w_reversed_descr, w_sequence)
+    if w_reversed is not None:
+        return space.call_function(w_reversed)
+    return space.wrap(W_ReversedIterator(space, w_sequence))
 
 class W_ReversedIterator(Wrappable):
 
     def __init__(self, space, w_sequence):
-        self.remaining = space.int_w(space.len(w_sequence)) - 1
+        self.remaining = space.len_w(w_sequence) - 1
+        if space.lookup(w_sequence, "__getitem__") is None:
+            msg = "reversed() argument must be a sequence"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
         self.w_sequence = w_sequence
 
     def descr___iter__(self, space):
         return space.wrap(self)
-    descr___iter__.unwrap_spec = ["self", ObjSpace]
 
     def descr_next(self, space):
         if self.remaining >= 0:
@@ -528,7 +570,6 @@ class W_ReversedIterator(Wrappable):
         # Done
         self.remaining = -1
         raise OperationError(space.w_StopIteration, space.w_None)
-    descr_next.unwrap_spec = ["self", ObjSpace]
 
     def descr___reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -538,7 +579,6 @@ class W_ReversedIterator(Wrappable):
         info_w = [self.w_sequence, space.wrap(self.remaining)]
         w_info = space.newtuple(info_w)
         return space.newtuple([w_new_inst, w_info])
-    descr___reduce__.unwrap_spec = ["self", ObjSpace]
 
 W_ReversedIterator.typedef = TypeDef("reversed",
     __iter__=interp2app(W_ReversedIterator.descr___iter__),
@@ -570,36 +610,29 @@ class W_XRange(Wrappable):
             start, stop = 0, start
         else:
             stop = _toint(space, w_stop)
-        try:
-            howmany = get_len_of_range(start, stop, step)
-        except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("xrange() arg 3 must not be zero"))
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("xrange() result has "
-                                            "too many items"))
+        howmany = get_len_of_range(space, start, stop, step)
         obj = space.allocate_instance(W_XRange, w_subtype)
         W_XRange.__init__(obj, space, start, howmany, step)
         return space.wrap(obj)
 
     def descr_repr(self):
-        stop = self.start + self.len * self.step 
-        if self.start == 0 and self.step == 1: 
-            s = "xrange(%d)" % (stop,) 
-        elif self.step == 1: 
-            s = "xrange(%d, %d)" % (self.start, stop) 
-        else: 
+        stop = self.start + self.len * self.step
+        if self.start == 0 and self.step == 1:
+            s = "xrange(%d)" % (stop,)
+        elif self.step == 1:
+            s = "xrange(%d, %d)" % (self.start, stop)
+        else:
             s = "xrange(%d, %d, %d)" %(self.start, stop, self.step)
         return self.space.wrap(s)
 
     def descr_len(self):
         return self.space.wrap(self.len)
 
+    @unwrap_spec(i='index')
     def descr_getitem(self, i):
         # xrange does NOT support slicing
         space = self.space
-        len = self.len 
+        len = self.len
         if i < 0:
             i += len
         if 0 <= i < len:
@@ -616,6 +649,15 @@ class W_XRange(Wrappable):
         return self.space.wrap(W_XRangeIterator(self.space, lastitem,
                                                 self.len, -self.step))
 
+    def descr_reduce(self):
+        space = self.space
+        return space.newtuple(
+            [space.type(self),
+             space.newtuple([space.wrap(self.start),
+                             space.wrap(self.start + self.len * self.step),
+                             space.wrap(self.step)])
+             ])
+
 def _toint(space, w_obj):
     # this also supports float arguments.  CPython still does, too.
     # needs a bit more thinking in general...
@@ -624,11 +666,11 @@ def _toint(space, w_obj):
 W_XRange.typedef = TypeDef("xrange",
     __new__          = interp2app(W_XRange.descr_new.im_func),
     __repr__         = interp2app(W_XRange.descr_repr),
-    __getitem__      = interp2app(W_XRange.descr_getitem, 
-                                  unwrap_spec=['self', 'index']),
+    __getitem__      = interp2app(W_XRange.descr_getitem),
     __iter__         = interp2app(W_XRange.descr_iter),
     __len__          = interp2app(W_XRange.descr_len),
     __reversed__     = interp2app(W_XRange.descr_reversed),
+    __reduce__       = interp2app(W_XRange.descr_reduce),
 )
 
 class W_XRangeIterator(Wrappable):

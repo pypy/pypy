@@ -10,7 +10,7 @@ from pypy.translator.oosupport.treebuilder import SubOperation
 from pypy.translator.oosupport.function import render_sub_op
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import isnan, isinf
+from pypy.rlib.rfloat import isnan, isinf
 from pypy.translator.oosupport.constant import push_constant
 import pypy.translator.jvm.typesystem as jvm
 

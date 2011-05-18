@@ -1,3 +1,5 @@
+import types
+
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import baseobjspace
 from pypy.interpreter import eval
@@ -97,10 +99,7 @@ def really_build_fake_type(cpy_type):
         return w_obj
     fake__new__.func_name = "fake__new__" + cpy_type.__name__
 
-    kw['__new__'] = gateway.interp2app(fake__new__,
-                                       unwrap_spec=[baseobjspace.ObjSpace,
-                                                    baseobjspace.W_Root,
-                                                    argument.Arguments])
+    kw['__new__'] = gateway.interp2app(fake__new__)
     if cpy_type.__base__ is not object and not issubclass(cpy_type, Exception):
         assert cpy_type.__base__ is basestring, cpy_type
         from pypy.objspace.std.basestringtype import basestring_typedef
@@ -113,14 +112,17 @@ def really_build_fake_type(cpy_type):
         def __init__(w_self, space, val):
             w_self.val = val
             w_self.space = space
-        def getdict(w_self):
+        def getdict(w_self, space):
             try:
                 d = w_self.val.__dict__
             except AttributeError:
-                return W_Object.getdict(w_self)
-            return w_self.space.wrap(d)
+                return W_Object.getdict(w_self, space)
+            return space.wrap(d)
         def unwrap(w_self, space):
             return w_self.val
+        if cpy_type is types.FunctionType:
+            def __get__(self, obj, owner):
+                return fake_object(self.space, self.val.__get__(obj, owner))
     W_Fake.__name__ = 'W_Fake%s'%(cpy_type.__name__.capitalize())
     W_Fake.typedef.fakedcpytype = cpy_type
     return W_Fake
@@ -145,13 +147,13 @@ class CPythonFakeCode(eval.Code):
         scope_w = args.parse_obj(None, func.name, sig, func.defs_w)
         frame.setfastscope(scope_w)
         return frame.run()
-    
+
 
 class CPythonFakeFrame(eval.Frame):
 
-    def __init__(self, space, code, w_globals=None, numlocals=-1):
+    def __init__(self, space, code, w_globals=None):
         self.fakecode = code
-        eval.Frame.__init__(self, space, w_globals, numlocals)
+        eval.Frame.__init__(self, space, w_globals)
 
     def getcode(self):
         return self.fakecode
@@ -205,14 +207,14 @@ class W_FakeDescriptor(Wrappable):
     def __init__(self, space, d):
         self.name = d.__name__
 
-    def descr_descriptor_get(space, descr, w_obj, w_cls=None):
+    def descr_descriptor_get(self, space, w_obj, w_cls=None):
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
         if (space.is_w(w_obj, space.w_None)
             and not space.is_w(w_cls, space.type(space.w_None))):
-            #print descr, w_obj, w_cls
-            return space.wrap(descr)
+            #print self, w_obj, w_cls
+            return space.wrap(self)
         else:
-            name = descr.name
+            name = self.name
             obj = space.unwrap(w_obj)
             try:
                 val = getattr(obj, name)  # this gives a "not RPython" warning
@@ -221,8 +223,8 @@ class W_FakeDescriptor(Wrappable):
                 raise
             return space.wrap(val)
 
-    def descr_descriptor_set(space, descr, w_obj, w_value):
-        name = descr.name
+    def descr_descriptor_set(self, space, w_obj, w_value):
+        name = self.name
         obj = space.unwrap(w_obj)
         val = space.unwrap(w_value)
         try:
@@ -230,8 +232,8 @@ class W_FakeDescriptor(Wrappable):
         except:
             wrap_exception(space)
 
-    def descr_descriptor_del(space, descr, w_obj):
-        name = descr.name
+    def descr_descriptor_del(self, space, w_obj):
+        name = self.name
         obj = space.unwrap(w_obj)
         try:
             delattr(obj, name)
@@ -241,16 +243,9 @@ class W_FakeDescriptor(Wrappable):
 
 W_FakeDescriptor.typedef = TypeDef(
     "FakeDescriptor",
-    __get__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_get.im_func,
-                         unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
-                                        baseobjspace.W_Root,
-                                        baseobjspace.W_Root]),
-    __set__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_set.im_func,
-                         unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
-                                        baseobjspace.W_Root, baseobjspace.W_Root]),
-    __delete__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_del.im_func,
-                            unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
-                                           baseobjspace.W_Root]),
+    __get__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_get),
+    __set__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_set),
+    __delete__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_del),
     )
 
 if hasattr(file, 'softspace'):    # CPython only

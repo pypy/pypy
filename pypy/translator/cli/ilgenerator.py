@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import isnan, isinf
+from pypy.rlib.rfloat import isnan, isinf
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator
 from pypy.translator.oosupport.constant import push_constant
@@ -443,8 +443,8 @@ class CLIBaseGenerator(Generator):
             self.ilasm.opcode('newarr', clitype.itemtype.typename())
     
     def _array_suffix(self, ARRAY, erase_unsigned=False):
-        from pypy.translator.cli.metavm import OOTYPE_TO_MNEMONIC
-        suffix = OOTYPE_TO_MNEMONIC.get(ARRAY.ITEM, 'ref')
+        from pypy.translator.cli.metavm import ootype_to_mnemonic
+        suffix = ootype_to_mnemonic(ARRAY.ITEM, ARRAY.ITEM, 'ref')
         if erase_unsigned:
             suffix = suffix.replace('u', 'i')
         return suffix

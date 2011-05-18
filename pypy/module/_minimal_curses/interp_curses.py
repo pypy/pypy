@@ -1,5 +1,5 @@
 
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.module._minimal_curses import _curses
 
@@ -40,6 +40,7 @@ def _curses_setupterm(termname, fd):
     except _curses.error, e:
         raise curses_error(e.args[0])
 
+@unwrap_spec(fd=int)
 def setupterm(space, w_termname=None, fd=-1):
     if fd == -1:
         w_stdout = space.getattr(space.getbuiltinmodule('sys'),
@@ -53,7 +54,6 @@ def setupterm(space, w_termname=None, fd=-1):
             _curses_setupterm(space.str_w(w_termname), fd)
     except curses_error, e:
         raise convert_error(space, e)
-setupterm.unwrap_spec = [ObjSpace, W_Root, int]
 
 class TermError(Exception):
     pass
@@ -75,6 +75,7 @@ def _curses_tparm(s, args):
     except _curses.error, e:
         raise curses_error(e.args[0])
 
+@unwrap_spec(capname=str)
 def tigetstr(space, capname):
     try:
         result = _curses_tigetstr(capname)
@@ -83,12 +84,11 @@ def tigetstr(space, capname):
     except curses_error, e:
         raise convert_error(space, e)
     return space.wrap(result)
-tigetstr.unwrap_spec = [ObjSpace, str]
 
+@unwrap_spec(s=str)
 def tparm(space, s, args_w):
     args = [space.int_w(a) for a in args_w]
     try:
         return space.wrap(_curses_tparm(s, args))
     except curses_error, e:
         raise convert_error(space, e)
-tparm.unwrap_spec = [ObjSpace, str, 'args_w']

@@ -1,7 +1,7 @@
-
+import py
 from pypy.rpython.lltypesystem import lltype, llmemory
 
-from pypy.jit.tool.oparser import parse
+from pypy.jit.tool.oparser import parse, ParseError
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken,\
      BoxFloat
@@ -203,3 +203,25 @@ def test_no_inputargs():
     loop = parse(x, nonstrict=True)
     assert loop.inputargs == []
     assert loop.operations[0].getopname() == 'int_add'
+
+def test_offsets():
+    x = """
+    [i0, i1]
+    +10: i2 = int_add(i0, i1)
+    i3 = int_add(i2, 3)
+    """
+    #    +30: --end of the loop--
+    loop = parse(x)
+    assert loop.operations[0].offset == 10
+    assert not hasattr(loop.operations[1], 'offset')
+
+def test_last_offset():
+    x = """
+    [i0, i1]
+    +10: i2 = int_add(i0, i1)
+    i3 = int_add(i2, 3)
+    +30: --end of the loop--
+    """
+    loop = parse(x)
+    assert len(loop.operations) == 2
+    assert loop.last_offset == 30

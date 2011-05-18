@@ -1,7 +1,7 @@
 import py, sys
+import pytest
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
 from pypy.rpython.lltypesystem import llmemory
-from pypy.jit.backend import conftest as demo_conftest
 from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop
 from pypy.jit.metainterp.history import BoxInt, ConstInt, LoopToken
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr
@@ -9,6 +9,7 @@ from pypy.jit.metainterp.history import BoxFloat, ConstFloat, Const
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.resoperation import opname
+from pypy.jit.codewriter import longlong
 
 class PleaseRewriteMe(Exception):
     pass
@@ -100,7 +101,8 @@ class OperationBuilder(object):
 ##                        'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable), cpu)'
 ##                        % name)
             elif isinstance(v, ConstFloat):
-                args.append('ConstFloat(%r)' % v.value)
+                args.append('ConstFloat(longlong.getfloatstorage(%r))'
+                            % v.getfloat())
             elif isinstance(v, ConstInt):
                 args.append('ConstInt(%s)' % v.value)
             else:
@@ -136,8 +138,8 @@ class OperationBuilder(object):
                 #if getattr(op, 'suboperations', None) is not None:
                 #    print_loop_prebuilt(op.suboperations)
 
-        if demo_conftest.option.output:
-            s = open(demo_conftest.option.output, "w")
+        if pytest.config.option.output:
+            s = open(pytest.config.option.output, "w")
         else:
             s = sys.stdout
         names = {None: 'None'}
@@ -182,8 +184,8 @@ class OperationBuilder(object):
         if hasattr(self.loop, 'inputargs'):
             for i, v in enumerate(self.loop.inputargs):
                 if isinstance(v, (BoxFloat, ConstFloat)):
-                    print >>s, '    cpu.set_future_value_float(%d, %r)' % (i,
-                                                                       v.value)
+                    print >>s, ('    cpu.set_future_value_float(%d,'
+                        'longlong.getfloatstorage(%r))' % (i, v.getfloat()))
                 else:
                     print >>s, '    cpu.set_future_value_int(%d, %d)' % (i,
                                                                        v.value)
@@ -194,13 +196,13 @@ class OperationBuilder(object):
             fail_args = self.should_fail_by.getfailargs()
         for i, v in enumerate(fail_args):
             if isinstance(v, (BoxFloat, ConstFloat)):
-                print >>s, ('    assert cpu.get_latest_value_float(%d) == %r'
-                            % (i, v.value))
+                print >>s, ('    assert longlong.getrealfloat('
+                    'cpu.get_latest_value_float(%d)) == %r' % (i, v.value))
             else:
                 print >>s, ('    assert cpu.get_latest_value_int(%d) == %d'
                             % (i, v.value))
         self.names = names
-        if demo_conftest.option.output:
+        if pytest.config.option.output:
             s.close()
 
 class CannotProduceOperation(Exception):
@@ -244,7 +246,7 @@ class ConstUnaryOperation(UnaryOperation):
         elif r.random() < 0.75 or not builder.cpu.supports_floats:
             self.put(builder, [ConstInt(r.random_integer())])
         else:
-            self.put(builder, [ConstFloat(r.random_float())])
+            self.put(builder, [ConstFloat(r.random_float_storage())])
 
 class BinaryOperation(AbstractOperation):
     def __init__(self, opnum, and_mask=-1, or_mask=0, boolres=False):
@@ -302,16 +304,16 @@ class BinaryFloatOperation(AbstractFloatOperation):
             raise CannotProduceOperation
         k = r.random()
         if k < 0.18:
-            v_first = ConstFloat(r.random_float())
+            v_first = ConstFloat(r.random_float_storage())
         else:
             v_first = r.choice(builder.floatvars)
         if k > 0.82:
-            v_second = ConstFloat(r.random_float())
+            v_second = ConstFloat(r.random_float_storage())
         else:
             v_second = r.choice(builder.floatvars)
-        if abs(v_first.value) > 1E100 or abs(v_second.value) > 1E100:
+        if abs(v_first.getfloat()) > 1E100 or abs(v_second.getfloat()) > 1E100:
             raise CannotProduceOperation     # avoid infinities
-        if abs(v_second.value) < 1E-100:
+        if abs(v_second.getfloat()) < 1E-100:
             raise CannotProduceOperation     # e.g. division by zero error
         self.put(builder, [v_first, v_second])
 
@@ -330,7 +332,7 @@ class CastFloatToIntOperation(AbstractFloatOperation):
         if not builder.floatvars:
             raise CannotProduceOperation
         box = r.choice(builder.floatvars)
-        if not (-sys.maxint-1 <= box.value <= sys.maxint):
+        if not (-sys.maxint-1 <= box.getfloat() <= sys.maxint):
             raise CannotProduceOperation      # would give an overflow
         self.put(builder, [box])
 
@@ -453,7 +455,7 @@ OperationBuilder.OPERATIONS = OPERATIONS
 
 def Random():
     import random
-    seed = demo_conftest.option.randomseed
+    seed = pytest.config.option.randomseed
     print
     print 'Random seed value is %d.' % (seed,)
     print
@@ -480,20 +482,24 @@ def Random():
         if k < 1.0:
             x += k
         return x
+    def get_random_float_storage():
+        x = get_random_float()
+        return longlong.getfloatstorage(x)
     r.random_integer = get_random_integer
     r.random_char = get_random_char
     r.random_float = get_random_float
+    r.random_float_storage = get_random_float_storage
     return r
 
 def get_cpu():
-    if demo_conftest.option.backend == 'llgraph':
+    if pytest.config.option.backend == 'llgraph':
         from pypy.jit.backend.llgraph.runner import LLtypeCPU
         return LLtypeCPU(None)
-    elif demo_conftest.option.backend == 'x86':
+    elif pytest.config.option.backend == 'x86':
         from pypy.jit.backend.x86.runner import CPU386
         return CPU386(None, None)
     else:
-        assert 0, "unknown backend %r" % demo_conftest.option.backend
+        assert 0, "unknown backend %r" % pytest.config.option.backend
 
 # ____________________________________________________________    
 
@@ -510,13 +516,13 @@ class RandomLoop(object):
                 # have a lot of them
                 k = r.random()
                 # but make sure there is at least one BoxInt
-                at_least_once = r.randrange(0, demo_conftest.option.n_vars)
+                at_least_once = r.randrange(0, pytest.config.option.n_vars)
             else:
                 k = -1
                 at_least_once = 0
-            for i in range(demo_conftest.option.n_vars):
+            for i in range(pytest.config.option.n_vars):
                 if r.random() < k and i != at_least_once:
-                    startvars.append(BoxFloat(r.random_float()))
+                    startvars.append(BoxFloat(r.random_float_storage()))
                 else:
                     startvars.append(BoxInt(r.random_integer()))
         assert len(dict.fromkeys(startvars)) == len(startvars)
@@ -539,7 +545,7 @@ class RandomLoop(object):
         cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
 
     def generate_ops(self, builder, r, loop, startvars):
-        block_length = demo_conftest.option.block_length
+        block_length = pytest.config.option.block_length
 
         for i in range(block_length):
             try:
@@ -572,7 +578,7 @@ class RandomLoop(object):
         self.expected = {}
         for v in endvars:
             self.expected[v] = v.value
-        if demo_conftest.option.output:
+        if pytest.config.option.output:
             builder.print_loop()
 
     def get_fail_args(self):
@@ -711,10 +717,11 @@ def check_random_function(cpu, BuilderClass, r, num=None, max=None):
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
     cpu = get_cpu()
-    if demo_conftest.option.repeat == -1:
+    cpu.setup_once()
+    if pytest.config.option.repeat == -1:
         while 1:
             check_random_function(cpu, BuilderClass, r)
     else:
-        for i in range(demo_conftest.option.repeat):
+        for i in range(pytest.config.option.repeat):
             check_random_function(cpu, BuilderClass, r, i,
-                                  demo_conftest.option.repeat)
+                                  pytest.config.option.repeat)

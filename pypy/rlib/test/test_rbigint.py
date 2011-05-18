@@ -3,6 +3,7 @@ import py
 import operator, sys
 from random import random, randint, sample
 from pypy.rlib.rbigint import rbigint, SHIFT, MASK, KARATSUBA_CUTOFF
+from pypy.rlib.rbigint import _store_digit
 from pypy.rlib import rbigint as lobj
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 from pypy.rpython.test.test_llinterp import interpret
@@ -17,7 +18,19 @@ class TestRLong(object):
                     r1 = getattr(rl_op1, op)(rl_op2)
                     r2 = getattr(operator, op)(op1, op2)
                     assert r1.tolong() == r2
-            
+
+    def test_frombool(self):
+        assert rbigint.frombool(False).tolong() == 0
+        assert rbigint.frombool(True).tolong() == 1
+
+    def test_str(self):
+        for i in range(100):
+            n = 3 ** i
+            r1 = rbigint.fromlong(n)
+            assert r1.str() == str(n)
+            r2 = rbigint.fromlong(-n)
+            assert r2.str() == str(-n)
+
     def test_floordiv(self):
         for op1 in [-12, -2, -1, 1, 2, 50]:
             for op2 in [-4, -2, -1, 1, 2, 8]:
@@ -35,6 +48,43 @@ class TestRLong(object):
                 r1 = rl_op1.truediv(rl_op2)
                 r2 = op1 / op2
                 assert r1 == r2
+
+    def test_truediv_precision(self):
+        op1 = rbigint.fromlong(12345*2**30)
+        op2 = rbigint.fromlong(98765*7**81)
+        f = op1.truediv(op2)
+        assert f == 4.7298422347492634e-61      # exactly
+
+    def test_truediv_overflow(self):
+        overflowing = 2**1024 - 2**(1024-53-1)
+        op1 = rbigint.fromlong(overflowing-1)
+        op2 = rbigint.fromlong(1)
+        f = op1.truediv(op2)
+        assert f == 1.7976931348623157e+308     # exactly
+
+        op1 = rbigint.fromlong(overflowing-1)
+        op2 = rbigint.fromlong(-1)
+        f = op1.truediv(op2)
+        assert f == -1.7976931348623157e+308    # exactly
+
+        op1 = rbigint.fromlong(-overflowing+1)
+        op2 = rbigint.fromlong(-1)
+        f = op1.truediv(op2)
+        assert f == +1.7976931348623157e+308    # exactly
+
+        op1 = rbigint.fromlong(overflowing)
+        op2 = rbigint.fromlong(1)
+        py.test.raises(OverflowError, op1.truediv, op2)
+
+    def test_truediv_overflow2(self):
+        overflowing = 2**1024 - 2**(1024-53-1)
+        op1 = rbigint.fromlong(2*overflowing - 10)
+        op2 = rbigint.fromlong(2)
+        f = op1.truediv(op2)
+        assert f == 1.7976931348623157e+308    # exactly
+        op2 = rbigint.fromlong(-2)
+        f = op1.truediv(op2)
+        assert f == -1.7976931348623157e+308   # exactly
 
     def test_mod(self):
         for op1 in [-50, -12, -2, -1, 1, 2, 50, 52]:
@@ -67,44 +117,52 @@ def gen_signs(l):
             yield s
             yield -s
 
+def bigint(lst, sign):
+    for digit in lst:
+        assert digit & MASK == digit    # wrongly written test!
+    return rbigint(map(_store_digit, lst), sign)
+
 
 class Test_rbigint(object):
 
     def test_args_from_long(self):
         BASE = 1 << SHIFT
-        assert rbigint.fromlong(0).eq(rbigint([0], 0))
-        assert rbigint.fromlong(17).eq(rbigint([17], 1))
-        assert rbigint.fromlong(BASE-1).eq(rbigint([intmask(BASE-1)], 1))
-        assert rbigint.fromlong(BASE).eq(rbigint([0, 1], 1))
-        assert rbigint.fromlong(BASE**2).eq(rbigint([0, 0, 1], 1))
-        assert rbigint.fromlong(-17).eq(rbigint([17], -1))
-        assert rbigint.fromlong(-(BASE-1)).eq(rbigint([intmask(BASE-1)], -1))
-        assert rbigint.fromlong(-BASE).eq(rbigint([0, 1], -1))
-        assert rbigint.fromlong(-(BASE**2)).eq(rbigint([0, 0, 1], -1))
+        assert rbigint.fromlong(0).eq(bigint([0], 0))
+        assert rbigint.fromlong(17).eq(bigint([17], 1))
+        assert rbigint.fromlong(BASE-1).eq(bigint([intmask(BASE-1)], 1))
+        assert rbigint.fromlong(BASE).eq(bigint([0, 1], 1))
+        assert rbigint.fromlong(BASE**2).eq(bigint([0, 0, 1], 1))
+        assert rbigint.fromlong(-17).eq(bigint([17], -1))
+        assert rbigint.fromlong(-(BASE-1)).eq(bigint([intmask(BASE-1)], -1))
+        assert rbigint.fromlong(-BASE).eq(bigint([0, 1], -1))
+        assert rbigint.fromlong(-(BASE**2)).eq(bigint([0, 0, 1], -1))
 #        assert rbigint.fromlong(-sys.maxint-1).eq(
 #            rbigint.digits_for_most_neg_long(-sys.maxint-1), -1)
 
     def test_args_from_int(self):
         BASE = 1 << SHIFT
-        assert rbigint.fromrarith_int(0).eq(rbigint([0], 0))
-        assert rbigint.fromrarith_int(17).eq(rbigint([17], 1))
-        assert rbigint.fromrarith_int(BASE-1).eq(rbigint([intmask(BASE-1)], 1))
-        assert rbigint.fromrarith_int(BASE).eq(rbigint([0, 1], 1))
-        assert rbigint.fromrarith_int(BASE**2).eq(rbigint([0, 0, 1], 1))
-        assert rbigint.fromrarith_int(-17).eq(rbigint([17], -1))
-        assert rbigint.fromrarith_int(-(BASE-1)).eq(rbigint([intmask(BASE-1)], -1))
-        assert rbigint.fromrarith_int(-BASE).eq(rbigint([0, 1], -1))
-        assert rbigint.fromrarith_int(-(BASE**2)).eq(rbigint([0, 0, 1], -1))
+        MAX = int(BASE-1)
+        assert rbigint.fromrarith_int(0).eq(bigint([0], 0))
+        assert rbigint.fromrarith_int(17).eq(bigint([17], 1))
+        assert rbigint.fromrarith_int(MAX).eq(bigint([MAX], 1))
+        assert rbigint.fromrarith_int(r_longlong(BASE)).eq(bigint([0, 1], 1))
+        assert rbigint.fromrarith_int(r_longlong(BASE**2)).eq(
+            bigint([0, 0, 1], 1))
+        assert rbigint.fromrarith_int(-17).eq(bigint([17], -1))
+        assert rbigint.fromrarith_int(-MAX).eq(bigint([MAX], -1))
+        assert rbigint.fromrarith_int(-MAX-1).eq(bigint([0, 1], -1))
+        assert rbigint.fromrarith_int(r_longlong(-(BASE**2))).eq(
+            bigint([0, 0, 1], -1))
 #        assert rbigint.fromrarith_int(-sys.maxint-1).eq((
 #            rbigint.digits_for_most_neg_long(-sys.maxint-1), -1)
 
     def test_args_from_uint(self):
         BASE = 1 << SHIFT
-        assert rbigint.fromrarith_int(r_uint(0)).eq(rbigint([0], 0))
-        assert rbigint.fromrarith_int(r_uint(17)).eq(rbigint([17], 1))
-        assert rbigint.fromrarith_int(r_uint(BASE-1)).eq(rbigint([intmask(BASE-1)], 1))
-        assert rbigint.fromrarith_int(r_uint(BASE)).eq(rbigint([0, 1], 1))
-        #assert rbigint.fromrarith_int(r_uint(BASE**2)).eq(rbigint([0], 0))
+        assert rbigint.fromrarith_int(r_uint(0)).eq(bigint([0], 0))
+        assert rbigint.fromrarith_int(r_uint(17)).eq(bigint([17], 1))
+        assert rbigint.fromrarith_int(r_uint(BASE-1)).eq(bigint([intmask(BASE-1)], 1))
+        assert rbigint.fromrarith_int(r_uint(BASE)).eq(bigint([0, 1], 1))
+        #assert rbigint.fromrarith_int(r_uint(BASE**2)).eq(bigint([0], 0))
         assert rbigint.fromrarith_int(r_uint(sys.maxint)).eq(
             rbigint.fromint(sys.maxint))
         assert rbigint.fromrarith_int(r_uint(sys.maxint+1)).eq(
@@ -172,9 +230,27 @@ class Test_rbigint(object):
         x = x ** 100
         f1 = rbigint.fromlong(x)
         assert raises(OverflowError, f1.tofloat)
-        f2 = rbigint([0, 2097152], 1)
+        f2 = rbigint.fromlong(2097152 << SHIFT)
         d = f2.tofloat()
         assert d == float(2097152 << SHIFT)
+
+    def test_tofloat_precision(self):
+        assert rbigint.fromlong(0).tofloat() == 0.0
+        for sign in [1, -1]:
+            for p in xrange(100):
+                x = long(2**p * (2**53 + 1) + 1) * sign
+                y = long(2**p * (2**53+ 2)) * sign
+                rx = rbigint.fromlong(x)
+                rxf = rx.tofloat()
+                assert rxf == float(y)
+                assert rbigint.fromfloat(rxf).tolong() == y
+                #
+                x = long(2**p * (2**53 + 1)) * sign
+                y = long(2**p * 2**53) * sign
+                rx = rbigint.fromlong(x)
+                rxf = rx.tofloat()
+                assert rxf == float(y)
+                assert rbigint.fromfloat(rxf).tolong() == y
 
     def test_fromfloat(self):
         x = 1234567890.1234567890
@@ -187,6 +263,9 @@ class Test_rbigint(object):
         x = 12345.6789e200
         x *= x
         assert raises(OverflowError, rbigint.fromfloat, x)
+        #
+        f1 = rbigint.fromfloat(9007199254740991.0)
+        assert f1.tolong() == 9007199254740991
 
     def test_eq(self):
         x = 5858393919192332223L
@@ -269,12 +348,30 @@ class Test_rbigint(object):
         f3 = rbigint.fromlong(z)
         v = f1.pow(f2, f3)
         assert v.tolong() == pow(x, y, z)
+        f3n = f3.neg()
+        v = f1.pow(f2, f3n)
+        assert v.tolong() == pow(x, y, -z)
+        #
         f1, f2, f3 = [rbigint.fromlong(i)
                       for i in (10L, -1L, 42L)]
         py.test.raises(TypeError, f1.pow, f2, f3)
         f1, f2, f3 = [rbigint.fromlong(i)
                       for i in (10L, 5L, 0L)]
         py.test.raises(ValueError, f1.pow, f2, f3)
+        #
+        MAX = 1E40
+        x = long(random() * MAX) + 1
+        y = long(random() * MAX) + 1
+        z = long(random() * MAX) + 1
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        f3 = rbigint.fromlong(z)
+        print f1
+        print f2
+        print f3
+        v = f1.pow(f2, f3)
+        print '--->', v
+        assert v.tolong() == pow(x, y, z)
 
     def test_pow_lln(self):
         x = 10L
@@ -285,10 +382,10 @@ class Test_rbigint(object):
         assert v.tolong() == x ** y
 
     def test_normalize(self):
-        f1 = rbigint([1, 0], 1)
+        f1 = bigint([1, 0], 1)
         f1._normalize()
-        assert len(f1.digits) == 1
-        f0 = rbigint([0], 0)
+        assert len(f1._digits) == 1
+        f0 = bigint([0], 0)
         assert f1.sub(f1).eq(f0)
 
     def test_invert(self):
@@ -342,15 +439,44 @@ class Test_rbigint(object):
         b = rbigint.fromlong(-1<<3000)
         assert a.mul(b).tolong() == (-1<<10000)*(-1<<3000)
 
+    def test_bit_length(self):
+        assert rbigint.fromlong(0).bit_length() == 0
+        assert rbigint.fromlong(1).bit_length() == 1
+        assert rbigint.fromlong(2).bit_length() == 2
+        assert rbigint.fromlong(3).bit_length() == 2
+        assert rbigint.fromlong(4).bit_length() == 3
+        assert rbigint.fromlong(-3).bit_length() == 2
+        assert rbigint.fromlong(-4).bit_length() == 3
+        assert rbigint.fromlong(1<<40).bit_length() == 41
+
+    def test_hash(self):
+        for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                  sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
+                  ] + [randint(0, sys.maxint) for _ in range(100)]:
+            # hash of machine-sized integers
+            assert rbigint.fromint(i).hash() == i
+            # hash of negative machine-sized integers
+            assert rbigint.fromint(-i-1).hash() == -i-1
+        #
+        for i in range(200):
+            # hash of large integers: should be equal to the hash of the
+            # integer reduced modulo 2**64-1, to make decimal.py happy
+            x = randint(0, sys.maxint**5)
+            y = x % (2**64-1)
+            assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
+            assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
+
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
         for x, y in [(1238585838347L, 3), (1234123412311231L, 1231231), (99, 100)]:
+            if y > MASK:
+                continue
             f1 = rbigint.fromlong(x)
             f2 = y
             remainder = lobj._inplace_divrem1(f1, f1, f2)
             assert (f1.tolong(), remainder) == divmod(x, y)
-        out = rbigint([99, 99], 1)
+        out = bigint([99, 99], 1)
         remainder = lobj._inplace_divrem1(out, out, 100)
 
     def test__divrem1(self):
@@ -399,16 +525,16 @@ class TestInternalFunctions(object):
 
     # testing Karatsuba stuff
     def test__v_iadd(self):
-        f1 = rbigint([lobj.MASK] * 10, 1)
-        f2 = rbigint([1], 1)
-        carry = lobj._v_iadd(f1, 1, len(f1.digits)-1, f2, 1)
+        f1 = bigint([lobj.MASK] * 10, 1)
+        f2 = bigint([1], 1)
+        carry = lobj._v_iadd(f1, 1, len(f1._digits)-1, f2, 1)
         assert carry == 1
         assert f1.tolong() == lobj.MASK
 
     def test__v_isub(self):
-        f1 = rbigint([lobj.MASK] + [0] * 9 + [1], 1)
-        f2 = rbigint([1], 1)
-        borrow = lobj._v_isub(f1, 1, len(f1.digits)-1, f2, 1)
+        f1 = bigint([lobj.MASK] + [0] * 9 + [1], 1)
+        f2 = bigint([1], 1)
+        borrow = lobj._v_isub(f1, 1, len(f1._digits)-1, f2, 1)
         assert borrow == 0
         assert f1.tolong() == (1 << lobj.SHIFT) ** 10 - 1
 
@@ -416,23 +542,23 @@ class TestInternalFunctions(object):
         split = 5
         diglo = [0] * split
         dighi = [lobj.MASK] * split
-        f1 = rbigint(diglo + dighi, 1)
+        f1 = bigint(diglo + dighi, 1)
         hi, lo = lobj._kmul_split(f1, split)
-        assert lo.digits == [0]
-        assert hi.digits == dighi
+        assert lo._digits == [_store_digit(0)]
+        assert hi._digits == map(_store_digit, dighi)
 
     def test__k_mul(self):
         digs = KARATSUBA_CUTOFF * 5
-        f1 = rbigint([lobj.MASK] * digs, 1)
-        f2 = lobj._x_add(f1,rbigint([1], 1))
+        f1 = bigint([lobj.MASK] * digs, 1)
+        f2 = lobj._x_add(f1, bigint([1], 1))
         ret = lobj._k_mul(f1, f2)
         assert ret.tolong() == f1.tolong() * f2.tolong()
 
     def test__k_lopsided_mul(self):
         digs_a = KARATSUBA_CUTOFF + 3
         digs_b = 3 * digs_a
-        f1 = rbigint([lobj.MASK] * digs_a, 1)
-        f2 = rbigint([lobj.MASK] * digs_b, 1)
+        f1 = bigint([lobj.MASK] * digs_a, 1)
+        f2 = bigint([lobj.MASK] * digs_b, 1)
         ret = lobj._k_lopsided_mul(f1, f2)
         assert ret.tolong() == f1.tolong() * f2.tolong()
 
@@ -499,7 +625,9 @@ BASE = 2 ** SHIFT
 class TestTranslatable(object):
     def test_square(self):
         def test():
-            x = rbigint([1410065408, 4], 1)
+            xlo = rbigint.fromint(1410065408)
+            xhi = rbigint.fromint(4)
+            x = xlo.or_(xhi.lshift(31))
             y = x.mul(x)
             return y.str()
         res = interpret(test, [])
@@ -544,3 +672,16 @@ class TestTranslatable(object):
                 assert res == str(long(values[i]))
                 res = interpret(fn, [i])
                 assert ''.join(res.chars) == str(long(values[i]))
+
+    def test_truediv_overflow(self):
+        overflowing = 2**1024 - 2**(1024-53-1)
+        op1 = rbigint.fromlong(overflowing)
+
+        def fn():
+            try:
+                return op1.truediv(rbigint.fromint(1))
+            except OverflowError:
+                return -42.0
+
+        res = interpret(fn, [])
+        assert res == -42.0

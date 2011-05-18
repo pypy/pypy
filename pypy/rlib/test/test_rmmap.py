@@ -1,6 +1,7 @@
 from pypy.tool.udir import udir
-import os
+import os, sys
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rmmap as mmap
 from pypy.rlib.rmmap import RTypeError, RValueError, alloc, free
 
@@ -137,21 +138,46 @@ class TestMMap:
         interpret(func, [f.fileno()])
         f.close()
 
+    def test_find_rfind(self):
+        f = open(self.tmpname + "g", "w+")
+        f.write("foobarfoobar\0")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 13)
+
+        for s1 in range(-20, 20):
+            for e1 in range(-20, 20):
+                expected = "foobarfoobar\0".find("ob", s1, e1)
+                assert m.find("ob", s1, e1, False) == expected
+                expected = "foobarfoobar\0".rfind("ob", s1, e1)
+                assert m.find("ob", s1, e1, True) == expected
+
+        m.close()
+        f.close()
+
     def test_find(self):
         f = open(self.tmpname + "g", "w+")
-
-        f.write("foobar\0")
+        f.write("foobarfoobar\0")
         f.flush()
 
         def func(no):
-            m = mmap.mmap(no, 7)
-            assert m.find("b") == 3
-            assert m.find("z") == -1
-            assert m.find("o", 5) == -1
-            assert m.find("ob") == 2
-            assert m.find("\0") == 6
+            m = mmap.mmap(no, 12)
+            assert m.find("\0", 0, 13) == -1    # no searching past the stop
+            assert m.find("\0", 0, 13, True) == -1
+            m.close()
+            #
+            m = mmap.mmap(no, 13)
+            assert m.find("b", 0, 7) == 3
+            assert m.find("z", 0, 7) == -1
+            assert m.find("o", 11, 13) == -1
+            assert m.find("ob", 0, 7) == 2
+            assert m.find("\0", 0, 13) == 12
+            assert m.find("o", 1, 4) == 1
+            assert m.find("o", 2, 4) == 2
+            assert m.find("o", 2, -4) == 2
+            assert m.find("o", 8, -5) == -1
             m.close()
 
+        func(f.fileno())
         interpret(func, [f.fileno()])
         f.close()
 
@@ -229,6 +255,16 @@ class TestMMap:
         interpret(func, [f.fileno()])
         f.close()
 
+    def test_write_readonly(self):
+        if os.name == "nt":
+            skip("Needs PROT_READ")
+        f = open(self.tmpname + "l", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ)
+        raises(RTypeError, m.write, "foo")
+        f.close()
+
     def test_size(self):
         f = open(self.tmpname + "l", "w+")
         
@@ -277,7 +313,6 @@ class TestMMap:
         f.close()
     
     def test_resize(self):
-        import sys
         if ("darwin" in sys.platform) or ("freebsd" in sys.platform):
             skip("resize does not work under OSX or FreeBSD")
         
@@ -290,10 +325,10 @@ class TestMMap:
         def func(no):
             m = mmap.mmap(no, 6, access=mmap.ACCESS_WRITE)
             f_size = os.fstat(no).st_size
-            assert m.file_size() == f_size == 6
+            assert intmask(m.file_size()) == f_size == 6
             m.resize(10)
             f_size = os.fstat(no).st_size
-            assert m.file_size() == f_size == 10
+            assert intmask(m.file_size()) == f_size == 10
             m.close()
 
         interpret(func, [f.fileno()])
@@ -381,6 +416,34 @@ class TestMMap:
             return r
 
         compile(func, [int])
+
+    def test_windows_crasher_1(self):
+        if sys.platform != "win32":
+            skip("Windows-only test")
+
+        m = mmap.mmap(-1, 1000, tagname="foo")
+        # same tagname, but larger size
+        try:
+            m2 = mmap.mmap(-1, 5000, tagname="foo")
+            m2.getitem(4500)
+        except WindowsError:
+            pass
+        m.close()
+
+    def test_windows_crasher_2(self):
+        if sys.platform != "win32":
+            skip("Windows-only test")
+
+        f = open(self.tmpname + "t", "w+")
+        f.write("foobar")
+        f.flush()
+
+        f = open(self.tmpname + "t", "r+b")
+        m = mmap.mmap(f.fileno(), 0)
+        f.close()
+        raises(WindowsError, m.resize, 0)
+        raises(RValueError, m.getitem, 0)
+        m.close()
 
 def test_alloc_free():
     map_size = 65536

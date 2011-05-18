@@ -1613,6 +1613,13 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(fn, [0])
         assert res == -1
 
+    def test_is_none(self):
+        from pypy.rlib.nonconst import NonConstant
+        def g(x):
+            return NonConstant(g) is None
+        res = self.interpret(g, [1])
+        assert not res
+
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
 
@@ -1974,4 +1981,3 @@ def test_smallfuncsets_basic():
     assert res == -1
     res = interp.eval_graph(graph, [0, 1])
     assert res == 1
-

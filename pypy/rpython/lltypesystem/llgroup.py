@@ -76,6 +76,9 @@ class GroupMemberOffset(llmemory.Symbolic):
         self.index = memberindex
         self.member = grp.members[memberindex]._as_ptr()
 
+    def __nonzero__(self):
+        return True
+
     def _get_group_member(self, grpptr):
         assert grpptr == self.grpptr, "get_group_member: wrong group!"
         return self.member
@@ -116,6 +119,9 @@ class CombinedSymbolic(llmemory.Symbolic):
 
     def __repr__(self):
         return '<CombinedSymbolic %r|%s>' % (self.lowpart, self.rest)
+
+    def __nonzero__(self):
+        return True
 
     def __and__(self, other):
         if (other & CombinedSymbolic.MASK) == 0:

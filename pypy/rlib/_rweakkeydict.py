@@ -123,7 +123,7 @@ def ll_new_weakdict():
 @jit.dont_look_inside
 def ll_get(d, llkey):
     hash = compute_identity_hash(llkey)
-    i = rdict.ll_dict_lookup(d, llkey, hash)
+    i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
     #llop.debug_print(lltype.Void, i, 'get', hex(hash),
     #                 ll_debugrepr(d.entries[i].key),
     #                 ll_debugrepr(d.entries[i].value))
@@ -143,7 +143,7 @@ def ll_set(d, llkey, llvalue):
 def ll_set_nonnull(d, llkey, llvalue):
     hash = compute_identity_hash(llkey)
     keyref = weakref_create(llkey)    # GC effects here, before the rest
-    i = rdict.ll_dict_lookup(d, llkey, hash)
+    i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
     everused = d.entries.everused(i)
     d.entries[i].key = keyref
     d.entries[i].value = llvalue
@@ -160,7 +160,7 @@ def ll_set_nonnull(d, llkey, llvalue):
 @jit.dont_look_inside
 def ll_set_null(d, llkey):
     hash = compute_identity_hash(llkey)
-    i = rdict.ll_dict_lookup(d, llkey, hash)
+    i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
     if d.entries.everused(i):
         # If the entry was ever used, clean up its key and value.
         # We don't store a NULL value, but a dead weakref, because

@@ -446,17 +446,17 @@ class FunctionGcRootTracker(object):
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
         'cmp', 'test', 'set', 'sahf', 'lahf', 'cltd', 'cld', 'std',
         'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'cwde', 'prefetch',
-        'pslld', 
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
-        'movap', 'movd', 'movlp', 'sqrtsd',
+        'movap', 'movd', 'movlp', 'sqrtsd', 'movhpd',
         'mins', 'minp', 'maxs', 'maxp', 'unpck', 'pxor', 'por', # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
-        'punpck', 'pshufd', 
+        'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
+        'paddq', 'pinsr',
         # zero-extending moves should not produce GC pointers
         'movz', 
         ])
@@ -799,7 +799,8 @@ class FunctionGcRootTracker(object):
                 insns.append(InsnStackAdjust(int(target.rsplit('@', 1)[1])))
             # Some (intrinsic?) functions use the "fastcall" calling convention
             # XXX without any declaration, how can we guess the stack effect?
-            if target in ['__alldiv', '__allrem', '__allmul', '__alldvrm']:
+            if target in ['__alldiv', '__allrem', '__allmul', '__alldvrm',
+                          '__aulldiv', '__aullrem', '__aullmul', '__aulldvrm']:
                 insns.append(InsnStackAdjust(16))
         return insns
 
@@ -1442,6 +1443,7 @@ class DarwinAssemblerParser64(DarwinAssemblerParser):
 
 class Mingw32AssemblerParser(DarwinAssemblerParser):
     format = "mingw32"
+    r_sectionstart = re.compile(r"^_loc()")
     FunctionGcRootTracker = Mingw32FunctionGcRootTracker
 
 class MsvcAssemblerParser(AssemblerParser):
@@ -1644,8 +1646,9 @@ class GcRootTracker(object):
                      darwin64='')
             print >> output, "%s:" % _globalname('pypy_asm_stackwalk')
 
-            print >> output, """\
+            s = """\
             /* See description in asmgcroot.py */
+            .cfi_startproc
             movq\t%rdi, %rdx\t/* 1st argument, which is the callback */
             movq\t%rsi, %rcx\t/* 2nd argument, which is gcrootanchor */
             movq\t%rsp, %rax\t/* my frame top address */
@@ -1665,6 +1668,7 @@ class GcRootTracker(object):
             pushq\t%rcx\t\t\t/* self->prev = gcrootanchor */
             movq\t%rsp, 8(%rcx)\t/* gcrootanchor->next = self */
             movq\t%rsp, 0(%rax)\t\t\t/* next->prev = self */
+            .cfi_def_cfa_offset 80\t/* 9 pushes + the retaddr = 80 bytes */
 
             /* note: the Mac OS X 16 bytes aligment must be respected. */
             call\t*%rdx\t\t/* invoke the callback */
@@ -1686,7 +1690,14 @@ class GcRootTracker(object):
             /* the return value is the one of the 'call' above, */
             /* because %rax (and possibly %rdx) are unmodified  */
             ret
+            .cfi_endproc
             """
+            if self.format == 'darwin64':
+                # obscure.  gcc there seems not to support .cfi_...
+                # hack it out...
+                s = re.sub(r'([.]cfi_[^/\n]+)([/\n])',
+                           r'/* \1 disabled on darwin */\2', s)
+            print >> output, s
             _variant(elf64='.size pypy_asm_stackwalk, .-pypy_asm_stackwalk',
                      darwin64='')
         else:

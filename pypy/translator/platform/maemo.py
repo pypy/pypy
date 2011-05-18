@@ -1,9 +1,11 @@
+"""Support for Maemo."""
+
 import py, os
-from pypy.translator.platform.linux import Linux
-from pypy.translator.platform.posix import _run_subprocess, GnuMakefile
-from pypy.translator.platform import ExecutionResult, log
+
 from pypy.tool.udir import udir
-from pypy.tool import autopath
+from pypy.translator.platform import ExecutionResult, log
+from pypy.translator.platform.linux import Linux
+from pypy.translator.platform.posix import GnuMakefile, _run_subprocess
 
 def check_scratchbox():
     # in order to work, that file must exist and be executable by us
@@ -61,7 +63,7 @@ class Maemo(Linux):
         log.execute('/scratchbox/login ' + cc + ' ' + ' '.join(args))
         args = [cc] + args
         returncode, stdout, stderr = _run_subprocess('/scratchbox/login', args)
-        self._handle_error(returncode, stderr, stdout, outname)
+        self._handle_error(returncode, stdout, stderr, outname)
     
     def execute(self, executable, args=[], env=None):
         if isinstance(args, str):
@@ -74,11 +76,11 @@ class Maemo(Linux):
                                                      env)
         return ExecutionResult(returncode, stdout, stderr)
 
-    def include_dirs_for_libffi(self):
+    def _include_dirs_for_libffi(self):
         # insanely obscure dir
         return ['/usr/include/arm-linux-gnueabi/']
 
-    def library_dirs_for_libffi(self):
+    def _library_dirs_for_libffi(self):
         # on the other hand, library lands in usual place...
         return []
 

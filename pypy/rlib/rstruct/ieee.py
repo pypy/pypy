@@ -3,107 +3,151 @@ Packing and unpacking of floats in the IEEE 32-bit and 64-bit formats.
 """
 
 import math
-from pypy.rlib.rarithmetic import r_longlong, isinf, isnan, INFINITY, NAN
 
-def pack_float(result, number, size, bigendian):
-    """Append to 'result' the 'size' characters of the 32-bit or 64-bit
-    IEEE representation of the number.
+from pypy.rlib import rarithmetic, rfloat, objectmodel
+from pypy.rlib.rarithmetic import r_ulonglong
+
+
+def round_to_nearest(x):
+    """Python 3 style round:  round a float x to the nearest int, but
+    unlike the builtin Python 2.x round function:
+
+      - return an int, not a float
+      - do round-half-to-even, not round-half-away-from-zero.
+
+    We assume that x is finite and nonnegative; except wrong results
+    if you use this for negative x.
+
     """
-    if size == 4:
-        bias = 127
-        exp = 8
-        prec = 23
-    else:
-        bias = 1023
-        exp = 11
-        prec = 52
+    int_part = r_ulonglong(x)
+    frac_part = x - int_part
+    if frac_part > 0.5 or frac_part == 0.5 and int_part & 1:
+        int_part += 1
+    return int_part
 
-    if isnan(number):
-        sign = 0x80
-        man, e = 1.5, bias + 1
+
+def float_unpack(Q, size):
+    """Convert a 32-bit or 64-bit integer created
+    by float_pack into a Python float."""
+
+    if size == 8:
+        MIN_EXP = -1021  # = sys.float_info.min_exp
+        MAX_EXP = 1024   # = sys.float_info.max_exp
+        MANT_DIG = 53    # = sys.float_info.mant_dig
+        BITS = 64
+    elif size == 4:
+        MIN_EXP = -125   # C's FLT_MIN_EXP
+        MAX_EXP = 128    # FLT_MAX_EXP
+        MANT_DIG = 24    # FLT_MANT_DIG
+        BITS = 32
     else:
-        if number < 0:
-            sign = 0x80
-            number *= -1
-        elif number == 0.0:
-            for i in range(size):
-                result.append('\x00')
-            return
+        raise ValueError("invalid size value")
+
+    if not objectmodel.we_are_translated():
+        # This tests generates wrong code when translated:
+        # with gcc, shifting a 64bit int by 64 bits does
+        # not change the value.
+        if Q >> BITS:
+            raise ValueError("input out of range")
+
+    # extract pieces
+    one = r_ulonglong(1)
+    sign = rarithmetic.intmask(Q >> BITS - 1)
+    exp = rarithmetic.intmask((Q & ((one << BITS - 1) - (one << MANT_DIG - 1))) >> MANT_DIG - 1)
+    mant = Q & ((one << MANT_DIG - 1) - 1)
+
+    if exp == MAX_EXP - MIN_EXP + 2:
+        # nan or infinity
+        result = rfloat.NAN if mant else rfloat.INFINITY
+    elif exp == 0:
+        # subnormal or zero
+        result = math.ldexp(mant, MIN_EXP - MANT_DIG)
+    else:
+        # normal
+        mant += one << MANT_DIG - 1
+        result = math.ldexp(mant, exp + MIN_EXP - MANT_DIG - 1)
+    return -result if sign else result
+
+
+def float_pack(x, size):
+    """Convert a Python float x into a 64-bit unsigned integer
+    with the same byte representation."""
+
+    if size == 8:
+        MIN_EXP = -1021  # = sys.float_info.min_exp
+        MAX_EXP = 1024   # = sys.float_info.max_exp
+        MANT_DIG = 53    # = sys.float_info.mant_dig
+        BITS = 64
+    elif size == 4:
+        MIN_EXP = -125   # C's FLT_MIN_EXP
+        MAX_EXP = 128    # FLT_MAX_EXP
+        MANT_DIG = 24    # FLT_MANT_DIG
+        BITS = 32
+    else:
+        raise ValueError("invalid size value")
+
+    sign = rfloat.copysign(1.0, x) < 0.0
+    if not rfloat.isfinite(x):
+        if rfloat.isinf(x):
+            mant = r_ulonglong(0)
+            exp = MAX_EXP - MIN_EXP + 2
+        else:  # rfloat.isnan(x):
+            mant = r_ulonglong(1) << (MANT_DIG-2) # other values possible
+            exp = MAX_EXP - MIN_EXP + 2
+    elif x == 0.0:
+        mant = r_ulonglong(0)
+        exp = 0
+    else:
+        m, e = math.frexp(abs(x))  # abs(x) == m * 2**e
+        exp = e - (MIN_EXP - 1)
+        if exp > 0:
+            # Normal case.
+            mant = round_to_nearest(m * (r_ulonglong(1) << MANT_DIG))
+            mant -= r_ulonglong(1) << MANT_DIG - 1
         else:
-            sign = 0x00
-        if isinf(number):
-            man, e = 1.0, bias + 1
-        else:
-            man, e = math.frexp(number)
+            # Subnormal case.
+            if exp + MANT_DIG - 1 >= 0:
+                mant = round_to_nearest(m * (r_ulonglong(1) << exp + MANT_DIG - 1))
+            else:
+                mant = r_ulonglong(0)
+            exp = 0
 
-    if 0.5 <= man and man < 1.0:
-        man *= 2
-        e -= 1
-    man -= 1
-    e += bias
-    power_of_two = r_longlong(1) << prec
-    mantissa = r_longlong(power_of_two * man + 0.5)
-    if mantissa >> prec :
-        mantissa = 0
-        e += 1
+        # Special case: rounding produced a MANT_DIG-bit mantissa.
+        if not objectmodel.we_are_translated():
+            assert 0 <= mant <= 1 << MANT_DIG - 1
+        if mant == r_ulonglong(1) << MANT_DIG - 1:
+            mant = r_ulonglong(0)
+            exp += 1
 
-    for i in range(size-2):
-        result.append(chr(mantissa & 0xff))
-        mantissa >>= 8
-    x = (mantissa & ((1<<(15-exp))-1)) | ((e & ((1<<(exp-7))-1))<<(15-exp))
-    result.append(chr(x))
-    x = sign | e >> (exp - 7)
-    result.append(chr(x))
-    if bigendian:
-        first = len(result) - size
-        last = len(result) - 1
-        for i in range(size // 2):
-            (result[first + i], result[last - i]) = (
-                result[last - i], result[first + i])
+        # Raise on overflow (in some circumstances, may want to return
+        # infinity instead).
+        if exp >= MAX_EXP - MIN_EXP + 2:
+             raise OverflowError("float too large to pack in this format")
 
-def unpack_float(input, bigendian):
-    """Interpret the 'input' string into a 32-bit or 64-bit
-    IEEE representation a the number.
-    """
-    size = len(input)
-    bytes = []
-    if bigendian:
-        reverse_mask = size - 1
-    else:
-        reverse_mask = 0
-    nonzero = False
+    # check constraints
+    if not objectmodel.we_are_translated():
+        assert 0 <= mant < 1 << MANT_DIG - 1
+        assert 0 <= exp <= MAX_EXP - MIN_EXP + 2
+        assert 0 <= sign <= 1
+
+    exp = r_ulonglong(exp)
+    sign = r_ulonglong(sign)
+    return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
+
+
+def pack_float(result, x, size, be):
+    l = [] if be else result
+    unsigned = float_pack(x, size)
     for i in range(size):
-        x = ord(input[i ^ reverse_mask])
-        bytes.append(x)
-        nonzero |= x
-    if not nonzero:
-        return 0.0
-    if size == 4:
-        bias = 127
-        exp = 8
-        prec = 23
-    else:
-        bias = 1023
-        exp = 11
-        prec = 52
-    mantissa_scale_factor = 0.5 ** prec   # this is constant-folded if it's
-                                          # right after the 'if'
-    mantissa = r_longlong(bytes[size-2] & ((1<<(15-exp))-1))
-    for i in range(size-3, -1, -1):
-        mantissa = mantissa << 8 | bytes[i]
-    mantissa = 1 + mantissa * mantissa_scale_factor
-    mantissa *= 0.5
-    e = (bytes[-1] & 0x7f) << (exp - 7)
-    e += (bytes[size-2] >> (15 - exp)) & ((1<<(exp - 7)) -1)
-    e -= bias
-    e += 1
-    sign = bytes[-1] & 0x80
-    if e == bias + 2:
-        if mantissa == 0.5:
-            number = INFINITY
-        else:
-            return NAN
-    else:
-        number = math.ldexp(mantissa,e)
-    if sign : number = -number
-    return number
+        l.append(chr((unsigned >> (i * 8)) & 0xFF))
+    if be:
+        l.reverse()
+        result.extend(l)
+
+
+def unpack_float(s, be):
+    unsigned = r_ulonglong(0)
+    for i in range(len(s)):
+        c = ord(s[len(s) - 1 - i if be else i])
+        unsigned |= r_ulonglong(c) << (i * 8)
+    return float_unpack(unsigned, len(s))

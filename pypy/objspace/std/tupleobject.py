@@ -5,6 +5,7 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
 
@@ -87,7 +88,7 @@ def mul_tuple_times(space, w_tuple, w_times):
     if times == 1 and space.type(w_tuple) == space.w_tuple:
         return w_tuple
     items = w_tuple.wrappeditems
-    return W_TupleObject(items * times)    
+    return W_TupleObject(items * times)
 
 def mul__Tuple_ANY(space, w_tuple, w_times):
     return mul_tuple_times(space, w_tuple, w_times)
@@ -145,19 +146,49 @@ def repr__Tuple(space, w_tuple):
                       + ")")
 
 def hash__Tuple(space, w_tuple):
+    return space.wrap(hash_tuple(space, w_tuple.wrappeditems))
+
+def hash_tuple(space, wrappeditems):
     # this is the CPython 2.4 algorithm (changed from 2.3)
     mult = 1000003
     x = 0x345678
-    z = len(w_tuple.wrappeditems)
-    for w_item in w_tuple.wrappeditems:
+    z = len(wrappeditems)
+    for w_item in wrappeditems:
         y = space.int_w(space.hash(w_item))
         x = (x ^ y) * mult
         z -= 1
         mult += 82520 + z + z
     x += 97531
-    return space.wrap(intmask(x))
+    return intmask(x)
 
 def getnewargs__Tuple(space, w_tuple):
     return space.newtuple([W_TupleObject(w_tuple.wrappeditems)])
 
-register_all(vars())
+def tuple_count__Tuple_ANY(space, w_tuple, w_obj):
+    count = 0
+    for w_item in w_tuple.wrappeditems:
+        if space.eq_w(w_item, w_obj):
+            count += 1
+    return space.wrap(count)
+
+def tuple_index__Tuple_ANY_ANY_ANY(space, w_tuple, w_obj, w_start, w_stop):
+    start = slicetype._Eval_SliceIndex(space, w_start)
+    stop = slicetype._Eval_SliceIndex(space, w_stop)
+    length = len(w_tuple.wrappeditems)
+    if start < 0:
+        start += length
+        if start < 0:
+            start = 0
+    if stop < 0:
+        stop += length
+        if stop < 0:
+            stop = 0
+    for i in range(start, min(stop, length)):
+        w_item = w_tuple.wrappeditems[i]
+        if space.eq_w(w_item, w_obj):
+            return space.wrap(i)
+    raise OperationError(space.w_ValueError,
+                         space.wrap("tuple.index(x): x not in tuple"))
+
+from pypy.objspace.std import tupletype
+register_all(vars(), tupletype)

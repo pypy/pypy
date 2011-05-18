@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.rstring import StringBuilder
 
 MAXLINESIZE = 76
@@ -14,6 +14,7 @@ def hexval(c):
         return ord(c) - (ord('a') - 10)
 hexval._always_inline_ = True
 
+@unwrap_spec(data='bufferstr', header=int)
 def a2b_qp(space, data, header=0):
     "Decode a string of qp-encoded data."
 
@@ -56,7 +57,6 @@ def a2b_qp(space, data, header=0):
                 c = ' '
             odata.append(c)
     return space.wrap(odata.build())
-a2b_qp.unwrap_spec = [ObjSpace, 'bufferstr', int]
 
 # ____________________________________________________________
 
@@ -92,6 +92,7 @@ class StringBuilderWithOneCharCancellable(object):
         self._flush()
         return self.builder.build()
 
+@unwrap_spec(data='bufferstr', quotetabs=int, istext=int, header=int)
 def b2a_qp(space, data, quotetabs=0, istext=1, header=0):
     """Encode a string using quoted-printable encoding.
 
@@ -159,4 +160,3 @@ both encoded.  When quotetabs is set, space and tabs are encoded."""
                 inp += 1
 
     return space.wrap(odata.build())
-b2a_qp.unwrap_spec = [ObjSpace, 'bufferstr', int, int, int]

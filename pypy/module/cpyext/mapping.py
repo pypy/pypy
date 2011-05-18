@@ -12,11 +12,11 @@ def PyMapping_Check(space, w_obj):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyMapping_Size(space, w_obj):
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyMapping_Length(space, w_obj):
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], PyObject)
 def PyMapping_Keys(space, w_obj):
@@ -74,4 +74,3 @@ def PyMapping_HasKeyString(space, w_obj, key):
         return 1
     except:
         return 0
-

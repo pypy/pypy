@@ -16,9 +16,9 @@ class TestPythonParser:
             info = pyparse.CompileInfo("<test>", mode)
         return self.parser.parse_source(source, info)
 
-    def test_with_and_as_no_future(self):
-        self.parse("with = 23")
-        self.parse("as = 2")
+    def test_with_and_as(self):
+        py.test.raises(SyntaxError, self.parse, "with = 23")
+        py.test.raises(SyntaxError, self.parse, "as = 2")
 
     def test_dont_imply_dedent(self):
         info = pyparse.CompileInfo("<test>", "single",
@@ -42,6 +42,9 @@ stuff = "nothing"
         input = (u"# coding: utf-7\nstuff = %s" % (sentence,)).encode("utf-7")
         tree = self.parse(input, info=info)
         assert info.encoding == "utf-7"
+        input = "# coding: iso-8859-15\nx"
+        self.parse(input, info=info)
+        assert info.encoding == "iso-8859-15"
         input = "\xEF\xBB\xBF# coding: utf-8\nx"
         self.parse(input, info=info)
         assert info.encoding == "utf-8"
@@ -56,6 +59,10 @@ stuff = "nothing"
         input = "# coding: not-here"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "Unknown encoding: not-here"
+        input = u"# coding: ascii\n\xe2".encode('utf-8')
+        exc = py.test.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
+                           "in position 16: ordinal not in range(128)")
 
     def test_syntax_error(self):
         parse = self.parse
@@ -65,13 +72,14 @@ stuff = "nothing"
         assert exc.offset == 5
         assert exc.text.startswith("name another for")
         exc = py.test.raises(SyntaxError, parse, "x = \"blah\n\n\n").value
-        assert exc.msg == "EOL while scanning single-quoted string"
+        assert exc.msg == "EOL while scanning string literal"
         assert exc.lineno == 1
         assert exc.offset == 5
         exc = py.test.raises(SyntaxError, parse, "x = '''\n\n\n").value
-        assert exc.msg == "EOF while scanning triple-quoted string"
+        assert exc.msg == "EOF while scanning triple-quoted string literal"
         assert exc.lineno == 1
         assert exc.offset == 5
+        assert exc.lastlineno == 3
         for input in ("())", "(()", "((", "))"):
             py.test.raises(SyntaxError, parse, input)
         exc = py.test.raises(SyntaxError, parse, "x = (\n\n(),\n(),").value
@@ -112,3 +120,27 @@ pass"""
         py.test.raises(SyntaxError, self.parse, "x = 54", "eval")
         tree = self.parse("x = 43", "single")
         assert tree.type == syms.single_input
+
+    def test_multiline_string(self):
+        self.parse("''' \n '''")
+        self.parse("r''' \n '''")
+
+    def test_bytes_literal(self):
+        self.parse('b" "')
+        self.parse('br" "')
+        self.parse('b""" """')
+        self.parse("b''' '''")
+        self.parse("br'\\\n'")
+
+        py.test.raises(SyntaxError, self.parse, "b'a\\n")
+
+    def test_new_octal_literal(self):
+        self.parse('0777')
+        self.parse('0o777')
+        self.parse('0o777L')
+        py.test.raises(SyntaxError, self.parse, "0o778")
+
+    def test_new_binary_literal(self):
+        self.parse('0b1101')
+        self.parse('0b0l')
+        py.test.raises(SyntaxError, self.parse, "0b112")

@@ -1,6 +1,8 @@
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.basestringtype import basestring_typedef
+from pypy.objspace.std.register_all import register_all
+
 
 from sys import maxint
 from pypy.rlib.objectmodel import specialize
@@ -84,6 +86,7 @@ str_rsplit  = SMM('rsplit', 3, defaults=(None,-1),
                       ' maxsplit is given, at most maxsplit splits are\ndone.'
                       ' If sep is not specified or is None, any whitespace'
                       ' string\nis a separator.')
+str_format     = SMM('format', 1, general__args__=True)
 str_isdigit    = SMM('isdigit', 1,
                      doc='S.isdigit() -> bool\n\nReturn True if all characters'
                          ' in S are digits\nand there is at least one'
@@ -247,6 +250,7 @@ str_translate  = SMM('translate', 3, defaults=('',), #unicode mimic not supporte
                          ' mapped through the given\ntranslation table, which'
                          ' must be a string of length 256.')
 str_decode     = SMM('decode', 3, defaults=(None, None),
+                     argnames=['encoding', 'errors'],
                      doc='S.decode([encoding[,errors]]) -> object\n\nDecodes S'
                          ' using the codec registered for encoding. encoding'
                          ' defaults\nto the default encoding. errors may be'
@@ -257,6 +261,7 @@ str_decode     = SMM('decode', 3, defaults=(None, None),
                          ' name registerd with codecs.register_error that'
                          ' is\nable to handle UnicodeDecodeErrors.')
 str_encode     = SMM('encode', 3, defaults=(None, None),
+                     argnames=['encoding', 'errors'],
                      doc='S.encode([encoding[,errors]]) -> object\n\nEncodes S'
                          ' using the codec registered for encoding. encoding'
                          ' defaults\nto the default encoding. errors may be'
@@ -267,6 +272,21 @@ str_encode     = SMM('encode', 3, defaults=(None, None),
                          ' well as any other name registered'
                          ' with\ncodecs.register_error that is able to handle'
                          ' UnicodeEncodeErrors.')
+
+str_formatter_parser           = SMM('_formatter_parser', 1)
+str_formatter_field_name_split = SMM('_formatter_field_name_split', 1)
+
+def str_formatter_parser__ANY(space, w_str):
+    from pypy.objspace.std.newformat import str_template_formatter
+    tformat = str_template_formatter(space, space.str_w(w_str))
+    return tformat.formatter_parser()
+
+def str_formatter_field_name_split__ANY(space, w_str):
+    from pypy.objspace.std.newformat import str_template_formatter
+    tformat = str_template_formatter(space, space.str_w(w_str))
+    return tformat.formatter_field_name_split()
+
+register_all(vars(), globals())
 
 # ____________________________________________________________
 

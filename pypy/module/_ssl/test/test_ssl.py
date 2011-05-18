@@ -11,8 +11,10 @@ class AppTestSSL:
         import _ssl
     
     def test_sslerror(self):
-        import _ssl
-        assert issubclass(_ssl.sslerror, Exception)
+        import _ssl, _socket
+        assert issubclass(_ssl.SSLError, Exception)
+        assert issubclass(_ssl.SSLError, IOError)
+        assert issubclass(_ssl.SSLError, _socket.error)
 
     def test_constants(self):
         import _ssl
@@ -26,6 +28,12 @@ class AppTestSSL:
         assert isinstance(_ssl.SSL_ERROR_WANT_CONNECT, int)
         assert isinstance(_ssl.SSL_ERROR_EOF, int)
         assert isinstance(_ssl.SSL_ERROR_INVALID_ERROR_CODE, int)
+
+        assert isinstance(_ssl.OPENSSL_VERSION_NUMBER, (int, long))
+        assert isinstance(_ssl.OPENSSL_VERSION_INFO, tuple)
+        assert len(_ssl.OPENSSL_VERSION_INFO) == 5
+        assert isinstance(_ssl.OPENSSL_VERSION, str)
+        assert 'openssl' in _ssl.OPENSSL_VERSION.lower()
     
     def test_RAND_add(self):
         import _ssl
@@ -54,14 +62,36 @@ class AppTestSSL:
             skip("This test needs a running entropy gathering daemon")
         _ssl.RAND_egd("entropy")
 
+    def test_sslwrap(self):
+        import _ssl, _socket, sys
+        if sys.platform == 'darwin':
+            skip("hangs indefinitely on OSX (also on CPython)")
+        s = _socket.socket()
+        ss = _ssl.sslwrap(s, 0)
+        exc = raises(_socket.error, ss.do_handshake)
+        if sys.platform == 'win32':
+            assert exc.value.errno == 2 # Cannot find file (=not a socket)
+        else:
+            assert exc.value.errno == 32 # Broken pipe
+
+    def test_async_closed(self):
+        import _ssl, _socket
+        s = _socket.socket()
+        s.settimeout(3)
+        ss = _ssl.sslwrap(s, 0)
+        s.close()
+        exc = raises(_ssl.SSLError, ss.write, "data")
+        assert exc.value.strerror == "Underlying socket has been closed."
+
+
 class AppTestConnectedSSL:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_ssl', '_socket'))
         cls.space = space
 
     def setup_method(self, method):
-        # https://codespeak.net/
-        ADDR = "codespeak.net", 443
+        # https://www.verisign.net/
+        ADDR = "www.verisign.net", 443
 
         self.w_s = self.space.appexec([self.space.wrap(ADDR)], """(ADDR):
             import socket
@@ -116,7 +146,17 @@ class AppTestConnectedSSL:
         data = ss.read(10)
         assert isinstance(data, str)
         assert len(data) == 10
+        assert ss.pending() > 50 # many more bytes to read
         self.s.close()
+
+    def test_shutdown(self):
+        import socket, ssl, sys
+        if sys.platform == 'darwin':
+            skip("get also on CPython: error: [Errno 0]")
+        ss = socket.ssl(self.s)
+        ss.write("hello\n")
+        assert ss.shutdown() is self.s._sock
+        raises(ssl.SSLError, ss.write, "hello\n")
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout

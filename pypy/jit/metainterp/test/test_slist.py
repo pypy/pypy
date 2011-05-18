@@ -1,8 +1,8 @@
 import py
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from pypy.rlib.jit import JitDriver
 
-class ListTests:
+class ListTests(object):
 
     def test_basic_list(self):
         py.test.skip("not yet")
@@ -50,7 +50,6 @@ class ListTests:
         assert res == 2
 
     def test_make_list(self):
-        from pypy.jit.metainterp import simple_optimize
         myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
         def f(n):
             lst = None
@@ -60,7 +59,7 @@ class ListTests:
                 myjitdriver.jit_merge_point(n=n, lst=lst)
                 n -= 1
             return lst[n]
-        res = self.meta_interp(f, [21], listops=True, optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(f, [21], listops=True, enable_opts='')
         assert res == 0
 
     def test_getitem(self):

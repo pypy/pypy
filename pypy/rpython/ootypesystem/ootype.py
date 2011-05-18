@@ -268,13 +268,14 @@ class Instance(OOType):
         return self._superclass._get_fields_with_default() + self._fields_with_default
 
     def _immutable_field(self, field):
+        if self._hints.get('immutable'):
+            return True
         if 'immutable_fields' in self._hints:
             try:
-                s = self._hints['immutable_fields'].fields[field]
-                return s or True
+                return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return self._hints.get('immutable', False)
+        return False
 
 
 class SpecializableType(OOType):
@@ -443,7 +444,8 @@ class AbstractString(BuiltinADTType):
             "ll_upper": Meth([], self.SELFTYPE_T),
             "ll_lower": Meth([], self.SELFTYPE_T),
             "ll_substring": Meth([Signed, Signed], self.SELFTYPE_T), # ll_substring(start, count)
-            "ll_split_chr": Meth([self.CHAR], Array(self.SELFTYPE_T)), # XXX this is not pure!
+            "ll_split_chr": Meth([self.CHAR, Signed], Array(self.SELFTYPE_T)), # XXX this is not pure!
+            "ll_rsplit_chr": Meth([self.CHAR, Signed], Array(self.SELFTYPE_T)), # XXX this is not pure!
             "ll_contains": Meth([self.CHAR], Bool),
             "ll_replace_chr_chr": Meth([self.CHAR, self.CHAR], self.SELFTYPE_T),
             })
@@ -1480,9 +1482,16 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return self.make_string(self._str[start:start+count])
 
-    def ll_split_chr(self, ch):
+    def ll_split_chr(self, ch, max):
         # NOT_RPYTHON
-        l = [self.make_string(s) for s in self._str.split(ch)]
+        l = [self.make_string(s) for s in self._str.split(ch, max)]
+        res = _array(Array(self._TYPE), len(l))
+        res._array[:] = l
+        return res
+
+    def ll_rsplit_chr(self, ch, max):
+        # NOT_RPYTHON
+        l = [self.make_string(s) for s in self._str.rsplit(ch, max)]
         res = _array(Array(self._TYPE), len(l))
         res._array[:] = l
         return res

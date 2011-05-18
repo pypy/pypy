@@ -5,6 +5,7 @@ from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.jit import purefunction, we_are_jitted
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import inputconst, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
@@ -145,6 +146,8 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     def ll_str(self, s):
         # XXX crazy that this is here, but I don't want to break
         #     rmodel logic
+        if not s:
+            return self.ll.ll_constant('None')
         lgt = len(s.chars)
         result = mallocstr(lgt)
         for i in range(lgt):
@@ -253,6 +256,27 @@ def bloom(mask, c):
 
 
 class LLHelpers(AbstractLLHelpers):
+    @purefunction
+    def ll_str_mul(s, times):
+        if times < 0:
+            times = 0
+        try:
+            size = ovfcheck(len(s.chars) * times)
+        except OverflowError:
+            raise MemoryError
+        newstr = s.malloc(size)
+        i = 0
+        if i < size:
+            s.copy_contents(s, newstr, 0, 0, len(s.chars))
+            i += len(s.chars)
+        while i < size:
+            if i <= size - i:
+                j = i
+            else:
+                j = size - i
+            s.copy_contents(newstr, newstr, 0, i, j)
+            i += j
+        return newstr
 
     @purefunction
     def ll_char_mul(ch, times):
@@ -487,6 +511,7 @@ class LLHelpers(AbstractLLHelpers):
                 return i
             i += 1
         return -1
+    ll_find_char._annenforceargs_ = [None, None, int, int]
 
     @purefunction
     def ll_rfind_char(s, ch, start, end):
@@ -512,7 +537,6 @@ class LLHelpers(AbstractLLHelpers):
         return count
 
     @classmethod
-    @purefunction
     def ll_find(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -526,11 +550,10 @@ class LLHelpers(AbstractLLHelpers):
             return start
         elif m == 1:
             return cls.ll_find_char(s1, s2.chars[0], start, end)
-        
+
         return cls.ll_search(s1, s2, start, end, FAST_FIND)
 
     @classmethod
-    @purefunction
     def ll_rfind(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -544,11 +567,10 @@ class LLHelpers(AbstractLLHelpers):
             return end
         elif m == 1:
             return cls.ll_rfind_char(s1, s2.chars[0], start, end)
-        
+
         return cls.ll_search(s1, s2, start, end, FAST_RFIND)
 
     @classmethod
-    @purefunction
     def ll_count(cls, s1, s2, start, end):
         if start < 0:
             start = 0
@@ -562,7 +584,7 @@ class LLHelpers(AbstractLLHelpers):
             return end - start + 1
         elif m == 1:
             return cls.ll_count_char(s1, s2.chars[0], start, end)
-            
+
         res = cls.ll_search(s1, s2, start, end, FAST_COUNT)
         # For a few cases ll_search can return -1 to indicate an "impossible"
         # condition for a string match, count just returns 0 in these cases.
@@ -675,19 +697,21 @@ class LLHelpers(AbstractLLHelpers):
         return result
     ll_join_strs._annenforceargs_ = [int, None]
 
-    def ll_join_chars(length, chars):
+    def ll_join_chars(length, chars, RES):
         # no need to optimize this, will be replaced by string builder
         # at some point soon
         num_chars = length
-        if typeOf(chars).TO.OF == Char:
+        if RES is StringRepr.lowleveltype:
+            target = Char
             malloc = mallocstr
         else:
+            target = UniChar
             malloc = mallocunicode
         result = malloc(num_chars)
         res_chars = result.chars
         i = 0
         while i < num_chars:
-            res_chars[i] = chars[i]
+            res_chars[i] = cast_primitive(target, chars[i])
             i += 1
         return result
 
@@ -720,29 +744,73 @@ class LLHelpers(AbstractLLHelpers):
         newlen = len(s1.chars) - 1
         return LLHelpers._ll_stringslice(s1, 0, newlen)
 
-    def ll_split_chr(LIST, s, c):
+    def ll_split_chr(LIST, s, c, max):
         chars = s.chars
         strlen = len(chars)
         count = 1
         i = 0
+        if max == 0:
+            i = strlen
         while i < strlen:
             if chars[i] == c:
                 count += 1
+                if max >= 0 and count > max:
+                    break
             i += 1
         res = LIST.ll_newlist(count)
         items = res.ll_items()
         i = 0
         j = 0
         resindex = 0
+        if max == 0:
+            j = strlen
         while j < strlen:
             if chars[j] == c:
                 item = items[resindex] = s.malloc(j - i)
                 item.copy_contents(s, item, i, 0, j - i)
                 resindex += 1
                 i = j + 1
+                if max >= 0 and resindex >= max:
+                    j = strlen
+                    break
             j += 1
         item = items[resindex] = s.malloc(j - i)
         item.copy_contents(s, item, i, 0, j - i)
+        return res
+
+    def ll_rsplit_chr(LIST, s, c, max):
+        chars = s.chars
+        strlen = len(chars)
+        count = 1
+        i = 0
+        if max == 0:
+            i = strlen
+        while i < strlen:
+            if chars[i] == c:
+                count += 1
+                if max >= 0 and count > max:
+                    break
+            i += 1
+        res = LIST.ll_newlist(count)
+        items = res.ll_items()
+        i = strlen
+        j = strlen
+        resindex = count - 1
+        assert resindex >= 0
+        if max == 0:
+            j = 0
+        while j > 0:
+            j -= 1
+            if chars[j] == c:
+                item = items[resindex] = s.malloc(i - j - 1)
+                item.copy_contents(s, item, j + 1, 0, i - j - 1)
+                resindex -= 1
+                i = j
+                if resindex == 0:
+                    j = 0
+                    break
+        item = items[resindex] = s.malloc(i - j)
+        item.copy_contents(s, item, j, 0, i - j)
         return res
 
     @purefunction

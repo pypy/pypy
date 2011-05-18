@@ -124,9 +124,9 @@ class Attribute(object):
                                                     "allowed" %
                                                     (self.name, homedef)
                                                     )
-                                self.bookkeeper.warning("demoting method %s "
-                                                        "to base class %s" % 
-                                                        (self.name, homedef))
+                                #self.bookkeeper.warning("demoting method %s "
+                                #                        "to base class %s" % 
+                                #                        (self.name, homedef))
                                 break
 
         # check for attributes forbidden by slots or _attrs_

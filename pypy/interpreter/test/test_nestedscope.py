@@ -79,3 +79,36 @@ class AppTestNestedScope:
 
         g = f()
         raises(ValueError, "g.func_closure[0].cell_contents")
+
+    def test_compare_cells(self):
+        def f(n):
+            if n:
+                x = 42
+            def f(y):
+                  return x + y
+            return f
+
+        g0 = f(0).func_closure[0]
+        g1 = f(1).func_closure[0]
+        assert cmp(g0, g1) == -1
+
+    def test_leaking_class_locals(self):
+        def f(x):
+            class X:
+                x = 12
+                def f(self):
+                    return x
+                locals()
+            return X
+        assert f(1).x == 12
+
+    def test_nested_scope_locals_mutating_cellvars(self):
+        def f():
+            x = 12
+            def m():
+                locals()
+                x
+                locals()
+                return x
+            return m
+        assert f()() == 12

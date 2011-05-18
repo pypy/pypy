@@ -2,11 +2,12 @@ import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.argument import Signature
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
+from pypy.objspace.std.settype import set_typedef as settypedef
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -32,13 +33,7 @@ class W_DictMultiObject(W_Object):
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, classofinstance=None,
-                                   from_strdict_shared=None, strdict=False):
-        if from_strdict_shared is not None:
-            assert w_type is None
-            assert not module and not instance and classofinstance is None
-            w_self = StrDictImplementation(space)
-            w_self.content = from_strdict_shared
-            return w_self
+                                   strdict=False):
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictImplementation
             assert w_type is None
@@ -66,7 +61,7 @@ class W_DictMultiObject(W_Object):
         assert self.r_dict_content is None
         self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
         return self.r_dict_content
-        
+
 
     def initialize_content(w_self, list_pairs_w):
         for w_k, w_v in list_pairs_w:
@@ -89,7 +84,7 @@ class W_DictMultiObject(W_Object):
             w_missing = space.lookup(w_dict, "__missing__")
             if w_missing is None:
                 return None
-            return space.call_function(w_missing, w_dict, w_key)
+            return space.get_and_call_function(w_missing, w_dict, w_key)
         else:
             return None
 
@@ -105,6 +100,11 @@ class W_DictMultiObject(W_Object):
     def impl_getitem_str(self, key):
         #return w_value or None
         return None
+
+    def impl_setdefault(self, w_key, w_default):
+        # here the dict is always empty
+        self._as_rdict().impl_fallback_setitem(w_key, w_default)
+        return w_default
 
     def impl_setitem(self, w_key, w_value):
         self._as_rdict().impl_fallback_setitem(w_key, w_value)
@@ -179,6 +179,9 @@ class W_DictMultiObject(W_Object):
     # _________________________________________________________________
     # fallback implementation methods
 
+    def impl_fallback_setdefault(self, w_key, w_default):
+        return self.r_dict_content.setdefault(w_key, w_default)
+
     def impl_fallback_setitem(self, w_key, w_value):
         self.r_dict_content[w_key] = w_value
 
@@ -187,7 +190,7 @@ class W_DictMultiObject(W_Object):
 
     def impl_fallback_delitem(self, w_key):
         del self.r_dict_content[w_key]
-        
+
     def impl_fallback_length(self):
         return len(self.r_dict_content)
 
@@ -225,6 +228,7 @@ implementation_methods = [
     ("length", 0),
     ("setitem_str", 2),
     ("setitem", 2),
+    ("setdefault", 2),
     ("delitem", 1),
     ("iter", 0),
     ("items", 0),
@@ -304,7 +308,7 @@ class StrDictImplementation(W_DictMultiObject):
     def __init__(self, space):
         self.space = space
         self.content = {}
-        
+
     def impl_setitem(self, w_key, w_value):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
@@ -314,6 +318,14 @@ class StrDictImplementation(W_DictMultiObject):
 
     def impl_setitem_str(self, key, w_value):
         self.content[key] = w_value
+
+    def impl_setdefault(self, w_key, w_default):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            return self.content.setdefault(space.str_w(w_key), w_default)
+        else:
+            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
+
 
     def impl_delitem(self, w_key):
         space = self.space
@@ -325,7 +337,7 @@ class StrDictImplementation(W_DictMultiObject):
             raise KeyError
         else:
             self._as_rdict().impl_fallback_delitem(w_key)
-        
+
     def impl_length(self):
         return len(self.content)
 
@@ -669,7 +681,7 @@ def delitem__DictMulti_ANY(space, w_dict, w_key):
         w_dict.delitem(w_key)
     except KeyError:
         space.raise_key_error(w_key)
-    
+
 def len__DictMulti(space, w_dict):
     return space.wrap(w_dict.length())
 
@@ -700,7 +712,7 @@ def eq__DictMulti_DictMulti(space, w_left, w_right):
     return space.w_True
 
 def characterize(space, w_a, w_b):
-    """ (similar to CPython) 
+    """ (similar to CPython)
     returns the smallest key in acontent for which b's value is different or absent and this value """
     w_smallest_diff_a_key = None
     w_its_value = None
@@ -734,10 +746,10 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
     w_rightdiff, w_rightval = characterize(space, w_right, w_left)
     if w_rightdiff is None:
         # w_leftdiff is not None, w_rightdiff is None
-        return space.w_True 
+        return space.w_True
     w_res = space.lt(w_leftdiff, w_rightdiff)
     if (not space.is_true(w_res) and
-        space.eq_w(w_leftdiff, w_rightdiff) and 
+        space.eq_w(w_leftdiff, w_rightdiff) and
         w_rightval is not None):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res
@@ -765,6 +777,15 @@ def dict_iterkeys__DictMulti(space, w_self):
 def dict_itervalues__DictMulti(space, w_self):
     return W_DictMultiIterObject(space, w_self.iter(), VALUESITER)
 
+def dict_viewitems__DictMulti(space, w_self):
+    return W_DictViewItemsObject(space, w_self)
+
+def dict_viewkeys__DictMulti(space, w_self):
+    return W_DictViewKeysObject(space, w_self)
+
+def dict_viewvalues__DictMulti(space, w_self):
+    return W_DictViewValuesObject(space, w_self)
+
 def dict_clear__DictMulti(space, w_self):
     w_self.clear()
 
@@ -776,17 +797,10 @@ def dict_get__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
         return w_default
 
 def dict_setdefault__DictMulti_ANY_ANY(space, w_dict, w_key, w_default):
-    # XXX should be more efficient, with only one dict lookup
-    w_value = w_dict.getitem(w_key)
-    if w_value is not None:
-        return w_value
-    else:
-        w_dict.setitem(w_key, w_default)
-        return w_default
+    return w_dict.setdefault(w_key, w_default)
 
-def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
-    defaults = space.listview(w_defaults)
-    len_defaults = len(defaults)
+def dict_pop__DictMulti_ANY(space, w_dict, w_key, defaults_w):
+    len_defaults = len(defaults_w)
     if len_defaults > 1:
         raise operationerrfmt(space.w_TypeError,
                               "pop expected at most 2 arguments, got %d",
@@ -794,7 +808,7 @@ def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
     w_item = w_dict.getitem(w_key)
     if w_item is None:
         if len_defaults > 0:
-            return defaults[0]
+            return defaults_w[0]
         else:
             space.raise_key_error(w_key)
     else:
@@ -845,6 +859,94 @@ def next__DictMultiIterObject(space, w_dictiter):
         else:
             assert 0, "should be unreachable"
     raise OperationError(space.w_StopIteration, space.w_None)
+
+# ____________________________________________________________
+# Views
+
+class W_DictViewObject(W_Object):
+    def __init__(w_self, space, w_dict):
+        w_self.w_dict = w_dict
+
+class W_DictViewKeysObject(W_DictViewObject):
+    from pypy.objspace.std.dicttype import dict_keys_typedef as typedef
+registerimplementation(W_DictViewKeysObject)
+
+class W_DictViewItemsObject(W_DictViewObject):
+    from pypy.objspace.std.dicttype import dict_items_typedef as typedef
+registerimplementation(W_DictViewItemsObject)
+
+class W_DictViewValuesObject(W_DictViewObject):
+    from pypy.objspace.std.dicttype import dict_values_typedef as typedef
+registerimplementation(W_DictViewValuesObject)
+
+def len__DictViewKeys(space, w_dictview):
+    return space.len(w_dictview.w_dict)
+len__DictViewItems = len__DictViewValues = len__DictViewKeys
+
+def iter__DictViewKeys(space, w_dictview):
+    return dict_iterkeys__DictMulti(space, w_dictview.w_dict)
+def iter__DictViewItems(space, w_dictview):
+    return dict_iteritems__DictMulti(space, w_dictview.w_dict)
+def iter__DictViewValues(space, w_dictview):
+    return dict_itervalues__DictMulti(space, w_dictview.w_dict)
+
+def all_contained_in(space, w_dictview, w_otherview):
+    w_iter = space.iter(w_dictview)
+    assert isinstance(w_iter, W_DictMultiIterObject)
+
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if not space.is_true(space.contains(w_otherview, w_item)):
+            return space.w_False
+
+    return space.w_True
+
+def eq__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    if space.eq_w(space.len(w_dictview), space.len(w_otherview)):
+        return all_contained_in(space, w_dictview, w_otherview)
+    return space.w_False
+eq__DictViewKeys_settypedef = eq__DictViewKeys_DictViewKeys
+
+eq__DictViewKeys_DictViewItems = eq__DictViewKeys_DictViewKeys
+eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
+eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
+
+def repr__DictViewKeys(space, w_dictview):
+    w_seq = space.call_function(space.w_list, w_dictview)
+    w_repr = space.repr(w_seq)
+    return space.wrap("%s(%s)" % (space.type(w_dictview).getname(space, "?"),
+                                  space.str_w(w_repr)))
+repr__DictViewItems  = repr__DictViewKeys
+repr__DictViewValues = repr__DictViewKeys
+
+def and__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    w_set = space.call_function(space.w_set, w_dictview)
+    space.call_method(w_set, "intersection_update", w_otherview)
+    return w_set
+and__DictViewKeys_settypedef = and__DictViewKeys_DictViewKeys
+and__DictViewItems_DictViewItems = and__DictViewKeys_DictViewKeys
+and__DictViewItems_settypedef = and__DictViewKeys_DictViewKeys
+
+def or__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    w_set = space.call_function(space.w_set, w_dictview)
+    space.call_method(w_set, "update", w_otherview)
+    return w_set
+or__DictViewKeys_settypedef = or__DictViewKeys_DictViewKeys
+or__DictViewItems_DictViewItems = or__DictViewKeys_DictViewKeys
+or__DictViewItems_settypedef = or__DictViewKeys_DictViewKeys
+
+def xor__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    w_set = space.call_function(space.w_set, w_dictview)
+    space.call_method(w_set, "symmetric_difference_update", w_otherview)
+    return w_set
+xor__DictViewKeys_settypedef = xor__DictViewKeys_DictViewKeys
+xor__DictViewItems_DictViewItems = xor__DictViewKeys_DictViewKeys
+xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
 # ____________________________________________________________
 

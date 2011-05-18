@@ -5,8 +5,7 @@
 import py
 from pypy.interpreter.gateway import interp2app, BuiltinCode
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace, \
-    DescrMismatch
+from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
@@ -19,6 +18,7 @@ class TypeDef:
         self.base = __base
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
+        self.doc = rawdict.pop('__doc__', None)
         if __base is not None:
             self.hasdict     |= __base.hasdict
             self.weakrefable |= __base.weakrefable
@@ -49,13 +49,6 @@ class TypeDef:
 
 def default_identity_hash(space, w_obj):
     return space.wrap(compute_identity_hash(w_obj))
-
-def descr__hash__unhashable(space, w_obj):
-    typename = space.type(w_obj).getname(space)
-    raise operationerrfmt(space.w_TypeError,
-                          "'%s' objects are unhashable", typename)
-
-no_hash_descr = interp2app(descr__hash__unhashable)
 
 # ____________________________________________________________
 #
@@ -110,6 +103,7 @@ def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
     except KeyError:
         subcls = _getusercls(config, cls, hasdict, wants_slots, needsdel,
                              weakrefable)
+        assert key not in _subclass_cache
         _subclass_cache[key] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
@@ -268,7 +262,7 @@ def _builduserclswithfeature(config, supercls, *features):
         if "user_setup" in body:
             base_user_setup = body["user_setup"]
         class Proto(object):
-            def getdict(self):
+            def getdict(self, space):
                 return self.w__dict__
             
             def setdict(self, space, w_dict):
@@ -324,24 +318,10 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
          func.__name__: func,
         'OperationError': OperationError
         }
-    if isinstance(cls, str):
-        assert 0, "unused?"
-        #print "<CHECK", func.__module__ or '?', func.__name__
-        assert cls.startswith('<'),"pythontype typecheck should begin with <"
+    if cls is None:
         source = """
-        def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
-            if not space.is_true(space.isinstance(w_obj, space.w_%(cls_name)s)):
-                # xxx improve msg
-                msg =  "descriptor is for '%(expected)s'"
-                raise OperationError(space.w_TypeError, space.wrap(msg))
-            return %(name)s(%(closure)s space, w_obj, %(extra)s)
-        """
-        cls_name = cls[1:]
-        expected = repr(cls_name)
-    elif cls is None:
-        source = """
-        def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
-            return %(name)s(%(closure)s space, w_obj, %(extra)s)
+        def descr_typecheck_%(name)s(closure, space, obj, %(extra)s):
+            return %(name)s(%(args)s, %(extra)s)
         """
     else:
         cls_name = cls.__name__
@@ -349,16 +329,24 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
         source = """
         def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
             obj = space.descr_self_interp_w(%(cls_name)s, w_obj)
-            return %(name)s(%(closure)s space, obj, %(extra)s)
+            return %(name)s(%(args)s, %(extra)s)
         """
         miniglobals[cls_name] = cls
     
     name = func.__name__
     extra = ', '.join(extraargs)
+    from pypy.interpreter import pycode
+    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
     if use_closure:
-        closure = "closure,"
+        if argnames[1] == 'space':
+            args = "closure, space, obj"
+        else:
+            args = "closure, obj, space"
     else:
-        closure = ""
+        if argnames[0] == 'space':
+            args = "space, obj"
+        else:
+            args = "obj, space"
     source = py.code.Source(source % locals())
     exec source.compile() in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]
@@ -396,6 +384,8 @@ def _make_objclass_getter(cls):
     return res
 
 class GetSetProperty(Wrappable):
+    _immutable_fields_ = ["fget", "fset", "fdel"]
+
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
                  cls=None, use_closure=False, tag=None):
@@ -415,49 +405,53 @@ class GetSetProperty(Wrappable):
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
 
-    def descr_property_get(space, property, w_obj, w_cls=None):
+    def descr_property_get(self, space, w_obj, w_cls=None):
         """property.__get__(obj[, type]) -> value
         Read the value of the property of the given obj."""
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
         if (space.is_w(w_obj, space.w_None)
             and not space.is_w(w_cls, space.type(space.w_None))):
-            #print property, w_obj, w_cls
-            return space.wrap(property)
+            #print self, w_obj, w_cls
+            return space.wrap(self)
         else:
             try:
-                return property.fget(property, space, w_obj)
+                return self.fget(self, space, w_obj)
             except DescrMismatch, e:
-                return w_obj.descr_call_mismatch(space, '__getattribute__',\
-                    property.reqcls, Arguments(space, [w_obj,
-                                           space.wrap(property.name)]))
-    
-    def descr_property_set(space, property, w_obj, w_value):
+                return w_obj.descr_call_mismatch(
+                    space, '__getattribute__',
+                    self.reqcls, Arguments(space, [w_obj,
+                                                   space.wrap(self.name)]))
+
+    def descr_property_set(self, space, w_obj, w_value):
         """property.__set__(obj, value)
         Change the value of the property of the given obj."""
-        fset = property.fset
+        fset = self.fset
         if fset is None:
             raise OperationError(space.w_TypeError,
                                  space.wrap("readonly attribute"))
         try:
-            fset(property, space, w_obj, w_value)
+            fset(self, space, w_obj, w_value)
         except DescrMismatch, e:
-            w_obj.descr_call_mismatch(space, '__setattr__',\
-                property.reqcls, Arguments(space, [w_obj,
-                space.wrap(property.name), w_value]))
-    
-    def descr_property_del(space, property, w_obj):
+            w_obj.descr_call_mismatch(
+                space, '__setattr__',
+                self.reqcls, Arguments(space, [w_obj,
+                                               space.wrap(self.name),
+                                               w_value]))
+
+    def descr_property_del(self, space, w_obj):
         """property.__delete__(obj)
         Delete the value of the property from the given obj."""
-        fdel = property.fdel
+        fdel = self.fdel
         if fdel is None:
             raise OperationError(space.w_AttributeError,
                                  space.wrap("cannot delete attribute"))
         try:
-            fdel(property, space, w_obj)
+            fdel(self, space, w_obj)
         except DescrMismatch, e:
-            w_obj.descr_call_mismatch(space, '__delattr__',\
-                property.reqcls, Arguments(space, [w_obj,
-                space.wrap(property.name)]))
+            w_obj.descr_call_mismatch(
+                space, '__delattr__',
+                self.reqcls, Arguments(space, [w_obj,
+                                               space.wrap(self.name)]))
     
     def descr_get_objclass(space, property):
         return property.objclass_getter(space)
@@ -481,15 +475,9 @@ def interp_attrproperty_w(name, cls, doc=None):
 
 GetSetProperty.typedef = TypeDef(
     "getset_descriptor",
-    __get__ = interp2app(GetSetProperty.descr_property_get.im_func,
-                         unwrap_spec = [ObjSpace,
-                                        GetSetProperty, W_Root, W_Root]),
-    __set__ = interp2app(GetSetProperty.descr_property_set.im_func,
-                         unwrap_spec = [ObjSpace,
-                                        GetSetProperty, W_Root, W_Root]),
-    __delete__ = interp2app(GetSetProperty.descr_property_del.im_func,
-                            unwrap_spec = [ObjSpace,
-                                           GetSetProperty, W_Root]),
+    __get__ = interp2app(GetSetProperty.descr_property_get),
+    __set__ = interp2app(GetSetProperty.descr_property_set),
+    __delete__ = interp2app(GetSetProperty.descr_property_del),
     __name__ = interp_attrproperty('name', cls=GetSetProperty),
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
     __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
@@ -514,13 +502,12 @@ class Member(Wrappable):
                                   self.w_cls.name,
                                   space.type(w_obj).getname(space))
     
-    def descr_member_get(space, member, w_obj, w_w_cls=None):
+    def descr_member_get(self, space, w_obj, w_w_cls=None):
         """member.__get__(obj[, type]) -> value
         Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):
-            return space.wrap(member)
+            return space.wrap(self)
         else:
-            self = member
             self.typecheck(space, w_obj)
             w_result = w_obj.getslotvalue(self.index)
             if w_result is None:
@@ -528,35 +515,41 @@ class Member(Wrappable):
                                      space.wrap(self.name)) # XXX better message
             return w_result
     
-    def descr_member_set(space, member, w_obj, w_value):
+    def descr_member_set(self, space, w_obj, w_value):
         """member.__set__(obj, value)
         Write into the slot 'member' of the given 'obj'."""
-        self = member
         self.typecheck(space, w_obj)
         w_obj.setslotvalue(self.index, w_value)
     
-    def descr_member_del(space, member, w_obj):
+    def descr_member_del(self, space, w_obj):
         """member.__delete__(obj)
         Delete the value of the slot 'member' from the given 'obj'."""
-        self = member
         self.typecheck(space, w_obj)
+        w_oldresult = w_obj.getslotvalue(self.index)
+        if w_oldresult is None:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap(self.name)) # XXX better message
         w_obj.setslotvalue(self.index, None)
 
 Member.typedef = TypeDef(
     "member_descriptor",
-    __get__ = interp2app(Member.descr_member_get.im_func,
-                         unwrap_spec = [ObjSpace,
-                                        Member, W_Root, W_Root]),
-    __set__ = interp2app(Member.descr_member_set.im_func,
-                         unwrap_spec = [ObjSpace,
-                                        Member, W_Root, W_Root]),
-    __delete__ = interp2app(Member.descr_member_del.im_func,
-                            unwrap_spec = [ObjSpace,
-                                           Member, W_Root]),
+    __get__ = interp2app(Member.descr_member_get),
+    __set__ = interp2app(Member.descr_member_set),
+    __delete__ = interp2app(Member.descr_member_del),
     __name__ = interp_attrproperty('name', cls=Member),
     __objclass__ = interp_attrproperty_w('w_cls', cls=Member),
     )
 Member.typedef.acceptable_as_base_class = False
+
+# ____________________________________________________________
+
+def generic_new_descr(W_Type):
+    def descr_new(space, w_subtype, __args__):
+        self = space.allocate_instance(W_Type, w_subtype)
+        W_Type.__init__(self, space)
+        return space.wrap(self)
+    descr_new = func_with_new_name(descr_new, 'descr_new_%s' % W_Type.__name__)
+    return interp2app(descr_new)
 
 # ____________________________________________________________
 #
@@ -576,7 +569,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
 def descr_get_dict(space, w_obj):
-    w_dict = w_obj.getdict()
+    w_dict = w_obj.getdict(space)
     if w_dict is None:
         typename = space.type(w_obj).getname(space)
         raise operationerrfmt(space.w_TypeError,
@@ -621,7 +614,8 @@ def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)
     return space.newtuple([w_docstring])
 
-weakref_descr = GetSetProperty(descr_get_weakref)
+weakref_descr = GetSetProperty(descr_get_weakref,
+                    doc="list of weak references to the object (if defined)")
 weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):
@@ -652,8 +646,7 @@ Code.typedef = TypeDef('internal-code',
 Code.typedef.acceptable_as_base_class = False
 
 BuiltinCode.typedef = TypeDef('builtin-code',
-    __reduce__   = interp2app(BuiltinCode.descr__reduce__,
-                              unwrap_spec=['self', ObjSpace]),
+    __reduce__   = interp2app(BuiltinCode.descr__reduce__),
     co_name = interp_attrproperty('co_name', cls=BuiltinCode),
     co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
     co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
@@ -675,8 +668,7 @@ PyCode.typedef = TypeDef('code',
     __eq__ = interp2app(PyCode.descr_code__eq__),
     __ne__ = descr_generic_ne,
     __hash__ = interp2app(PyCode.descr_code__hash__),
-    __reduce__   = interp2app(PyCode.descr__reduce__,
-                              unwrap_spec=['self', ObjSpace]),
+    __reduce__   = interp2app(PyCode.descr__reduce__),
     __repr__ = interp2app(PyCode.repr),
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode),
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode),
@@ -692,14 +684,13 @@ PyCode.typedef = TypeDef('code',
     co_name = interp_attrproperty('co_name', cls=PyCode),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
     co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode),
+    __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
 
 PyFrame.typedef = TypeDef('frame',
-    __reduce__   = interp2app(PyFrame.descr__reduce__,
-                              unwrap_spec=['self', ObjSpace]),
-    __setstate__ = interp2app(PyFrame.descr__setstate__,
-                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __reduce__   = interp2app(PyFrame.descr__reduce__),
+    __setstate__ = interp2app(PyFrame.descr__setstate__),
     f_builtins = GetSetProperty(PyFrame.fget_f_builtins),
     f_lineno = GetSetProperty(PyFrame.fget_f_lineno, PyFrame.fset_f_lineno),
     f_back = GetSetProperty(PyFrame.fget_f_back),
@@ -714,13 +705,10 @@ PyFrame.typedef = TypeDef('frame',
 PyFrame.typedef.acceptable_as_base_class = False
 
 Module.typedef = TypeDef("module",
-    __new__ = interp2app(Module.descr_module__new__.im_func,
-                         unwrap_spec=[ObjSpace, W_Root, Arguments]),
+    __new__ = interp2app(Module.descr_module__new__.im_func),
     __init__ = interp2app(Module.descr_module__init__),
-    __repr__ = interp2app(Module.descr_module__repr__,
-                          unwrap_spec=['self', ObjSpace]),
-    __reduce__ = interp2app(Module.descr__reduce__,
-                            unwrap_spec=['self', ObjSpace]),
+    __repr__ = interp2app(Module.descr_module__repr__),
+    __reduce__ = interp2app(Module.descr__reduce__),
     __dict__ = GetSetProperty(descr_get_dict, cls=Module), # module dictionaries are readonly attributes
     __doc__ = 'module(name[, doc])\n\nCreate a module object.\nThe name must be a string; the optional doc argument can have any type.'
     )
@@ -751,14 +739,11 @@ getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 Function.typedef = TypeDef("function",
     __new__ = interp2app(Function.descr_function__new__.im_func),
     __call__ = interp2app(Function.descr_function_call,
-                          unwrap_spec=['self', Arguments],
                           descrmismatch='__call__'),
     __get__ = interp2app(descr_function_get),
     __repr__ = interp2app(Function.descr_function_repr, descrmismatch='__repr__'),
-    __reduce__ = interp2app(Function.descr_function__reduce__,
-                            unwrap_spec=['self', ObjSpace]),
-    __setstate__ = interp2app(Function.descr_function__setstate__,
-                             unwrap_spec=['self', ObjSpace, W_Root]),
+    __reduce__ = interp2app(Function.descr_function__reduce__),
+    __setstate__ = interp2app(Function.descr_function__setstate__),
     func_code = getset_func_code,
     func_doc = getset_func_doc,
     func_name = getset_func_name,
@@ -766,9 +751,11 @@ Function.typedef = TypeDef("function",
     func_defaults = getset_func_defaults,
     func_globals = interp_attrproperty_w('w_func_globals', cls=Function),
     func_closure = GetSetProperty( Function.fget_func_closure ),
+    __code__ = getset_func_code,
     __doc__ = getset_func_doc,
     __name__ = getset_func_name,
     __dict__ = getset_func_dict,
+    __defaults__ = getset_func_defaults,
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
     )
@@ -776,8 +763,7 @@ Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef("method",
     __new__ = interp2app(Method.descr_method__new__.im_func),
-    __call__ = interp2app(Method.descr_method_call,
-                          unwrap_spec=['self', Arguments]),
+    __call__ = interp2app(Method.descr_method_call),
     __get__ = interp2app(Method.descr_method_get),
     im_func  = interp_attrproperty_w('w_function', cls=Method),
     im_self  = interp_attrproperty_w('w_instance', cls=Method),
@@ -787,8 +773,7 @@ Method.typedef = TypeDef("method",
     __ne__ = descr_generic_ne,
     __hash__ = interp2app(Method.descr_method_hash),
     __repr__ = interp2app(Method.descr_method_repr),
-    __reduce__ = interp2app(Method.descr_method__reduce__,
-                            unwrap_spec=['self', ObjSpace]),
+    __reduce__ = interp2app(Method.descr_method__reduce__),
     __weakref__ = make_weakref_descr(Method),
     )
 Method.typedef.acceptable_as_base_class = False
@@ -808,16 +793,15 @@ To declare a static method, use this idiom:
 It can be called either on the class (e.g. C.f()) or on an instance
 (e.g. C().f()).  The instance is ignored except for its class.""",
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
-    __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func,
-                         unwrap_spec = [ObjSpace, W_Root, W_Root]),
+    __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func),
+    __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
     )
 
 ClassMethod.typedef = TypeDef(
     'classmethod',
-    __new__ = interp2app(ClassMethod.descr_classmethod__new__.im_func,
-                         unwrap_spec = [ObjSpace, W_Root, W_Root]),
-    __get__ = interp2app(ClassMethod.descr_classmethod_get,
-                         unwrap_spec = ['self', ObjSpace, W_Root, W_Root]),
+    __new__ = interp2app(ClassMethod.descr_classmethod__new__.im_func),
+    __get__ = interp2app(ClassMethod.descr_classmethod_get),
+    __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
     __doc__ = """classmethod(function) -> class method
 
 Convert a function to be a class method.
@@ -843,15 +827,14 @@ BuiltinFunction.typedef.rawdict.update({
     '__new__': interp2app(BuiltinFunction.descr_builtinfunction__new__.im_func),
     '__self__': GetSetProperty(always_none, cls=BuiltinFunction),
     '__repr__': interp2app(BuiltinFunction.descr_function_repr),
+    '__doc__': getset_func_doc,
     })
 del BuiltinFunction.typedef.rawdict['__get__']
 BuiltinFunction.typedef.acceptable_as_base_class = False
 
 PyTraceback.typedef = TypeDef("traceback",
-    __reduce__   = interp2app(PyTraceback.descr__reduce__,
-                              unwrap_spec=['self', ObjSpace]),
-    __setstate__ = interp2app(PyTraceback.descr__setstate__,
-                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __reduce__   = interp2app(PyTraceback.descr__reduce__),
+    __setstate__ = interp2app(PyTraceback.descr__setstate__),
     tb_frame  = interp_attrproperty('frame', cls=PyTraceback),
     tb_lasti  = interp_attrproperty('lasti', cls=PyTraceback),
     tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
@@ -860,8 +843,8 @@ PyTraceback.typedef = TypeDef("traceback",
 PyTraceback.typedef.acceptable_as_base_class = False
 
 GeneratorIterator.typedef = TypeDef("generator",
-    __reduce__   = interp2app(GeneratorIterator.descr__reduce__,
-                              unwrap_spec=['self', ObjSpace]),
+    __repr__   = interp2app(GeneratorIterator.descr__repr__),
+    __reduce__   = interp2app(GeneratorIterator.descr__reduce__),
     next       = interp2app(GeneratorIterator.descr_next,
                             descrmismatch='next'),
     send       = interp2app(GeneratorIterator.descr_send,
@@ -876,19 +859,17 @@ GeneratorIterator.typedef = TypeDef("generator",
                             descrmismatch='__del__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
+    gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),
+    __name__   = GetSetProperty(GeneratorIterator.descr__name__),
     __weakref__ = make_weakref_descr(GeneratorIterator),
 )
 GeneratorIterator.typedef.acceptable_as_base_class = False
 
 Cell.typedef = TypeDef("cell",
-    __eq__       = interp2app(Cell.descr__eq__,
-                              unwrap_spec=['self', ObjSpace, W_Root]),
-    __ne__       = descr_generic_ne,
-    __hash__     = no_hash_descr,
-    __reduce__   = interp2app(Cell.descr__reduce__,
-                              unwrap_spec=['self', ObjSpace]),
-    __setstate__ = interp2app(Cell.descr__setstate__,
-                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __cmp__      = interp2app(Cell.descr__cmp__),
+    __hash__     = None,
+    __reduce__   = interp2app(Cell.descr__reduce__),
+    __setstate__ = interp2app(Cell.descr__setstate__),
     cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
 )
 Cell.typedef.acceptable_as_base_class = False

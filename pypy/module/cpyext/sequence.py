@@ -1,10 +1,15 @@
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
+
+from pypy.module.cpyext.tupleobject import PyTuple_Check, PyTuple_SetItem
+from pypy.module.cpyext.object import Py_IncRef, Py_DecRef
+
+from pypy.module.cpyext.dictobject import PyDict_Check
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_Repeat(space, w_obj, count):
@@ -25,12 +30,11 @@ def PySequence_Size(space, w_obj):
     Returns the number of objects in sequence o on success, and -1 on failure.
     For objects that do not provide sequence protocol, this is equivalent to the
     Python expression len(o)."""
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PySequence_Length(space, w_obj):
-    return space.int_w(space.len(w_obj))
-
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject, CONST_STRING], PyObject)
 def PySequence_Fast(space, w_obj, m):
@@ -91,10 +95,21 @@ def PySequence_DelSlice(space, w_obj, start, end):
     return 0
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
+def PySequence_ITEM(space, w_obj, i):
+    """Return the ith element of o or NULL on failure. Macro form of
+    PySequence_GetItem() but without checking that
+    PySequence_Check(o)() is true and without adjustment for negative
+    indices.
+
+    This function used an int type for i. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    return space.getitem(w_obj, space.wrap(i))
+
+@cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_GetItem(space, w_obj, i):
     """Return the ith element of o, or NULL on failure. This is the equivalent of
     the Python expression o[i]."""
-    return space.getitem(w_obj, space.wrap(i))
+    return PySequence_ITEM(space, w_obj, i)
 
 @cpython_api([PyObject], PyObject)
 def PySequence_List(space, w_obj):
@@ -132,3 +147,44 @@ def PySeqIter_New(space, w_seq):
     """
     return space.iter(w_seq)
 
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+def PySequence_SetItem(space, w_o, i, w_v):
+    """Assign object v to the ith element of o.  Returns -1 on failure.  This
+    is the equivalent of the Python statement o[i] = v.  This function does
+    not steal a reference to v."""
+    if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
+        raise operationerrfmt(space.w_TypeError, "'%s' object does not support item assignment",
+                             space.type(w_o).getname(space))
+    space.setitem(w_o, space.wrap(i), w_v)
+    return 0
+
+@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
+def PySequence_DelItem(space, w_o, i):
+    """Delete the ith element of object o.  Returns -1 on failure.  This is the
+    equivalent of the Python statement del o[i]."""
+    space.delitem(w_o, space.wrap(i))
+    return 0
+
+@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
+def PySequence_Index(space, w_seq, w_obj):
+    """Return the first index i for which o[i] == value.  On error, return
+    -1.    This is equivalent to the Python expression o.index(value).
+
+    This function returned an int type. This might require changes
+    in your code for properly supporting 64-bit systems."""
+
+    w_iter = space.iter(w_seq)
+    idx = 0
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError, e:
+            if e.match(space, space.w_StopIteration):
+                break
+            raise
+        if space.is_true(space.eq(w_next, w_obj)):
+            return idx
+        idx += 1
+
+    raise OperationError(space.w_ValueError, space.wrap(
+        "sequence.index(x): x not in sequence"))

@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
                                       GetSetProperty)
 from pypy.interpreter.gateway import interp2app
@@ -30,6 +30,10 @@ class W_Connection(Wrappable):
         self.w_version = None
         self.release = False
 
+
+    @unwrap_spec(mode=int, handle=int,
+                 threaded=bool, twophase=bool, events=bool,
+                 purity=bool)
     def descr_new(space, w_subtype,
                   w_user=NoneNotWrapped,
                   w_password=NoneNotWrapped,
@@ -76,15 +80,6 @@ class W_Connection(Wrappable):
         else:
             self.connect(space, mode, twophase)
         return space.wrap(self)
-
-    descr_new.unwrap_spec = [ObjSpace, W_Root,
-                             W_Root, W_Root, W_Root,
-                             int, int,
-                             W_Root,
-                             bool, bool, bool,
-                             W_Root,
-                             int,
-                             W_Root]
 
     def __del__(self):
         if self.release:
@@ -418,7 +413,6 @@ class W_Connection(Wrappable):
             roci.OCIHandleFree(self.handle, roci.OCI_HTYPE_SVCCTX)
 
         self.handle = lltype.nullptr(roci.OCISvcCtx.TO)
-    close.unwrap_spec = ['self', ObjSpace]
 
     def commit(self, space):
         # make sure we are actually connected
@@ -431,7 +425,6 @@ class W_Connection(Wrappable):
             status, "Connection_Commit()")
 
         self.commitMode = roci.OCI_DEFAULT
-    commit.unwrap_spec = ['self', ObjSpace]
 
     def rollback(self, space):
         # make sure we are actually connected
@@ -442,11 +435,9 @@ class W_Connection(Wrappable):
             roci.OCI_DEFAULT)
         self.environment.checkForError(
             status, "Connection_Rollback()")
-    rollback.unwrap_spec = ['self', ObjSpace]
 
     def newCursor(self, space):
         return space.wrap(W_Cursor(space, self))
-    newCursor.unwrap_spec = ['self', ObjSpace]
 
     def _getCharacterSetName(self, space, attribute):
         # get character set id
@@ -495,14 +486,14 @@ class W_Connection(Wrappable):
             rffi.keep_buffer_alive_until_here(charsetname_buf, charsetname)
         return space.wrap(charset)
 
-    def get_encoding(space, self):
+    def get_encoding(self, space):
         return self._getCharacterSetName(space, roci.OCI_ATTR_ENV_CHARSET_ID)
-    def get_nationalencoding(space, self):
+    def get_nationalencoding(self, space):
         return self._getCharacterSetName(space, roci.OCI_ATTR_ENV_CHARSET_ID)
-    def get_maxbytespercharacter(space, self):
+    def get_maxbytespercharacter(self, space):
         return space.wrap(self.environment.maxBytesPerCharacter)
 
-    def get_version(space, self):
+    def get_version(self, space):
         # if version has already been determined, no need to determine again
         if self.w_version:
             return self.w_version
@@ -525,8 +516,7 @@ class W_Connection(Wrappable):
 
 W_Connection.typedef = TypeDef(
     "Connection",
-    __new__ = interp2app(W_Connection.descr_new.im_func,
-                         unwrap_spec=W_Connection.descr_new.unwrap_spec),
+    __new__ = interp2app(W_Connection.descr_new.im_func),
     username = interp_attrproperty_w('w_username', W_Connection),
     password = interp_attrproperty_w('w_password', W_Connection),
     tnsentry = interp_attrproperty_w('w_tnsentry', W_Connection),

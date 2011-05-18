@@ -728,6 +728,7 @@ class TestRffiInternals:
     
         for ll, ctp in cache.items():
             assert sizeof(ll) == ctypes.sizeof(ctp)
+            assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
         assert not size_and_sign(lltype.Signed)[1]
         assert not size_and_sign(lltype.Char)[1]
         assert not size_and_sign(lltype.UniChar)[1]
@@ -765,6 +766,9 @@ def test_ptradd():
     
 def test_ptradd_interpret():
     interpret(test_ptradd, [])
+
+def test_voidptr():
+    assert repr(VOIDP) == "<* Array of void >"
 
 class TestCRffi(BaseTestRffi):
     def compile(self, func, args, **kwds):

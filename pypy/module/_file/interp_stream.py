@@ -2,7 +2,7 @@ import py
 from pypy.rlib import streamio
 from pypy.rlib.streamio import StreamErrors
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_oserror2
 from pypy.interpreter.gateway import ObjSpace
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
@@ -17,21 +17,13 @@ def wrap_streamerror(space, e, w_filename=None):
     elif isinstance(e, OSError):
         return wrap_oserror_as_ioerror(space, e, w_filename)
     else:
+        # should not happen: wrap_streamerror() is only called when
+        # StreamErrors = (OSError, StreamError) are raised
         return OperationError(space.w_IOError, space.w_None)
 
 def wrap_oserror_as_ioerror(space, e, w_filename=None):
-    assert isinstance(e, OSError)
-    errno = e.errno
-    try:
-        msg = os.strerror(errno)
-    except ValueError:
-        msg = 'error %d' % errno
-    w_error = space.call_function(space.w_IOError,
-                                  space.wrap(errno),
-                                  space.wrap(msg),
-                                  w_filename)
-    return OperationError(space.w_IOError, w_error)
-
+    return wrap_oserror2(space, e, w_filename,
+                         w_exception_class=space.w_IOError)
 
 class W_AbstractStream(Wrappable):
     """Base class for interp-level objects that expose streams to app-level"""

@@ -16,7 +16,7 @@ from pypy.tool.udir import udir
 from pypy.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
@@ -37,7 +37,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 DEBUG_WRAPPER = True
 
 # update these for other platforms
-Py_ssize_t = lltype.Signed
+Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
@@ -90,8 +90,8 @@ else:
 
 
 constant_names = """
-Py_TPFLAGS_READY Py_TPFLAGS_READYING
-METH_COEXIST METH_STATIC METH_CLASS 
+Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
+METH_COEXIST METH_STATIC METH_CLASS
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
@@ -192,13 +192,20 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
     - set `external` to False to get a C function pointer, but not exported by
       the API headers.
     """
+    if isinstance(restype, lltype.Typedef):
+        real_restype = restype.OF
+    else:
+        real_restype = restype
+
     if error is _NOT_SPECIFIED:
-        if isinstance(restype, lltype.Ptr):
-            error = lltype.nullptr(restype.TO)
-        elif restype is lltype.Void:
+        if isinstance(real_restype, lltype.Ptr):
+            error = lltype.nullptr(real_restype.TO)
+        elif real_restype is lltype.Void:
             error = CANNOT_FAIL
     if type(error) is int:
-        error = rffi.cast(restype, error)
+        error = rffi.cast(real_restype, error)
+    expect_integer = (isinstance(real_restype, lltype.Primitive) and
+                      rffi.cast(restype, 0) == 0)
 
     def decorate(func):
         func_name = func.func_name
@@ -268,6 +275,9 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                             return None
                         else:
                             return api_function.error_value
+                    if not we_are_translated():
+                        got_integer = isinstance(res, (int, long, float))
+                        assert got_integer == expect_integer
                     if res is None:
                         return None
                     elif isinstance(res, Reference):
@@ -303,12 +313,13 @@ FUNCTIONS = {}
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
-    '_PyArg_NoKeywords',
+    'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyString_FromFormat', 'PyString_FromFormatV',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
+    'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
@@ -326,6 +337,8 @@ SYMBOLS_C = [
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
+    
+    'PyOS_getsig', 'PyOS_setsig',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
 ]
@@ -392,23 +405,28 @@ PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
 # So we need a forward and backward mapping in our State instance
 PyObjectStruct = lltype.ForwardReference()
 PyObject = lltype.Ptr(PyObjectStruct)
-PyBufferProcs = lltype.ForwardReference()
 PyObjectFields = (("ob_refcnt", lltype.Signed), ("ob_type", PyTypeObjectPtr))
-def F(ARGS, RESULT=lltype.Signed):
-    return lltype.Ptr(lltype.FuncType(ARGS, RESULT))
-PyBufferProcsFields = (
-    ("bf_getreadbuffer", F([PyObject, lltype.Signed, rffi.VOIDPP])),
-    ("bf_getwritebuffer", F([PyObject, lltype.Signed, rffi.VOIDPP])),
-    ("bf_getsegcount", F([PyObject, rffi.INTP])),
-    ("bf_getcharbuffer", F([PyObject, lltype.Signed, rffi.CCHARPP])),
-# we don't support new buffer interface for now
-    ("bf_getbuffer", rffi.VOIDP),
-    ("bf_releasebuffer", rffi.VOIDP))
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
 cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
-cpython_struct('PyBufferProcs', PyBufferProcsFields, PyBufferProcs)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
+
+Py_buffer = cpython_struct(
+    "Py_buffer", (
+        ('buf', rffi.VOIDP),
+        ('obj', PyObject),
+        ('len', Py_ssize_t),
+        # ('itemsize', Py_ssize_t),
+
+        # ('readonly', lltype.Signed),
+        # ('ndim', lltype.Signed),
+        # ('format', rffi.CCHARP),
+        # ('shape', Py_ssize_tP),
+        # ('strides', Py_ssize_tP),
+        # ('suboffets', Py_ssize_tP),
+        # ('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
+        # ('internal', rffi.VOIDP)
+        ))
 
 @specialize.memo()
 def is_PyObject(TYPE):
@@ -531,7 +549,8 @@ def make_wrapper(space, callable):
 
             elif is_PyObject(callable.api_func.restype):
                 if result is None:
-                    retval = make_ref(space, None)
+                    retval = rffi.cast(callable.api_func.restype,
+                                       make_ref(space, None))
                 elif isinstance(result, Reference):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):
@@ -542,6 +561,7 @@ def make_wrapper(space, callable):
             elif callable.api_func.restype is not lltype.Void:
                 retval = rffi.cast(callable.api_func.restype, result)
         except Exception, e:
+            print 'Fatal error in cpyext, calling', callable.__name__
             if not we_are_translated():
                 import traceback
                 traceback.print_exc()
@@ -827,6 +847,9 @@ def build_eci(building_bridge, export_symbols, code):
         if sys.platform == "win32":
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
+            # Sometimes the library is wrapped into another DLL, ensure that
+            # the correct bootstrap code is installed
+            kwds["link_extra"] = ["msvcrt.lib"]
         elif sys.platform == 'linux2':
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
@@ -873,11 +896,13 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "stringobject.c",
                                source_dir / "mysnprintf.c",
                                source_dir / "pythonrun.c",
+                               source_dir / "sysmodule.c",
                                source_dir / "bufferobject.c",
                                source_dir / "object.c",
                                source_dir / "cobject.c",
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
+                               source_dir / "pysignals.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,
@@ -934,7 +959,7 @@ def setup_library(space):
     copy_header_files(trunk_include)
 
 initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
-@unwrap_spec(ObjSpace, str, str)
+@unwrap_spec(path=str, name=str)
 def load_extension_module(space, path, name):
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
@@ -997,7 +1022,7 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     # exception checking occurs in call_external_function.
     argnames = ', '.join(['a%d' % i for i in range(len(FT.ARGS))])
     source = py.code.Source("""
-        def call_external_function(funcptr, %(argnames)s):
+        def cpy_call_external(funcptr, %(argnames)s):
             # NB. it is essential that no exception checking occurs here!
             res = funcptr(%(argnames)s)
             return res
@@ -1005,12 +1030,10 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     miniglobals = {'__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
-    call_external_function = miniglobals['call_external_function']
+    call_external_function = miniglobals['cpy_call_external']
     call_external_function._dont_inline_ = True
     call_external_function._annspecialcase_ = 'specialize:ll'
     call_external_function._gctransformer_hint_close_stack_ = True
-    call_external_function = func_with_new_name(call_external_function,
-                                                'ccall_' + name)
     # don't inline, as a hack to guarantee that no GC pointer is alive
     # anywhere in call_external_function
 

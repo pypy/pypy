@@ -6,10 +6,9 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.slicetype import _Eval_SliceIndex
 
-
 class W_SliceObject(W_Object):
     from pypy.objspace.std.slicetype import slice_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['w_start', 'w_stop', 'w_step']
 
     def __init__(w_self, w_start, w_stop, w_step):
         assert w_start is not None
@@ -59,9 +58,15 @@ class W_SliceObject(W_Object):
             if stop < 0:
                 stop += length
                 if stop < 0:
-                    stop =-1
-            elif stop > length:
-                stop = length
+                    if step < 0:
+                        stop = -1
+                    else:
+                        stop = 0
+            elif stop >= length:
+                if step < 0:
+                    stop = length - 1
+                else:
+                    stop = length
         return start, stop, step
 
     def indices4(w_slice, space, length):
@@ -73,6 +78,10 @@ class W_SliceObject(W_Object):
         else:
             slicelength = (stop - start - 1) / step + 1
         return start, stop, step, slicelength
+
+    def __repr__(self):
+        return "<W_SliceObject(%r, %r, %r)>" % (
+            self.w_start, self.w_stop, self.w_step)
 
 registerimplementation(W_SliceObject)
 

@@ -1,4 +1,5 @@
-from pypy.jit.metainterp.test import test_basic
+import py
+from pypy.jit.metainterp.test import support
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rsre.test.test_match import get_code
 from pypy.rlib.rsre import rsre_core
@@ -30,7 +31,7 @@ def entrypoint2(r, string, repeat):
 def list2array(lst):
     a = lltype.malloc(lltype.GcArray(lltype.Signed), len(lst))
     for i, x in enumerate(lst):
-        a[i] = x
+        a[i] = int(x)
     return a
 
 def array2list(a):
@@ -44,7 +45,7 @@ def test_jit_unroll_safe():
         assert m._jit_unroll_safe_
 
 
-class TestJitRSre(test_basic.LLJitMixin):
+class TestJitRSre(support.LLJitMixin):
 
     def meta_interp_match(self, pattern, string, repeat=1):
         r = get_code(pattern)
@@ -120,3 +121,42 @@ class TestJitRSre(test_basic.LLJitMixin):
         res = self.meta_interp_match("(a|b)*a", "a" * 100)
         assert res == 100
         self.check_loops(guard_value=0)
+
+
+    # group guards tests
+
+    def test_group_range(self):
+        res = self.meta_interp_match(r"<[^b-c]+>", "<aeaeaea>")
+        assert res == 9
+        self.check_enter_count(1)
+
+    def test_group_single_chars(self):
+        res = self.meta_interp_match(r"<[ae]+>", "<aeaeaea>")
+        assert res == 9
+        self.check_enter_count(1)
+
+    def test_group_digit(self):
+        res = self.meta_interp_match(r"<[^\d]+>", "<..a..aa>")
+        assert res == 9
+        self.check_enter_count(1)
+
+    def test_group_space(self):
+        res = self.meta_interp_match(r"<\S+>", "<..a..aa>")
+        assert res == 9
+        self.check_enter_count(1)
+
+    def test_group_word(self):
+        res = self.meta_interp_match(r"<\w+>", "<ab09_a1>")
+        assert res == 9
+        self.check_enter_count(1)
+
+    def test_group_complex(self):
+        res = self.meta_interp_match(r"<[a@h\d\s]+>", "<a93919a @ a23>")
+        assert res == 15
+        self.check_enter_count(1)
+
+    @py.test.mark.xfail
+    def test_group_space_but_not_space(self):
+        res = self.meta_interp_match(r"<[\S ]+>", "<..a   .. aa>")
+        assert res == 13
+        self.check_enter_count(1)

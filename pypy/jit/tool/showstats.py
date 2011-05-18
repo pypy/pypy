@@ -10,7 +10,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 def main(argv):
     log = logparser.parse_log_file(argv[0])
-    log_count_lines = open(argv[0] + '.count').readlines()
     parts = logparser.extract_category(log, "jit-log-opt-")
     for i, oplist in enumerate(parts):
         loop = parse(oplist, no_namespace=True, nonstrict=True)
@@ -28,7 +27,6 @@ def main(argv):
             print "Loop #%d, length: %d, opcodes: %d, guards: %d" % (i, num_ops, num_dmp, num_guards)
         else:
             print "Loop #%d, length: %d, opcodes: %d, guards: %d, %f" % (i, num_ops, num_dmp, num_guards, num_ops/num_dmp)
-        print loop.comment, "run", log_count_lines[i].split(":")[1].strip(), "times"
         
 if __name__ == '__main__':
     main(sys.argv[1:])

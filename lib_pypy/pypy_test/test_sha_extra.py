@@ -4,11 +4,11 @@
 # Publication 180-1, Secure Hash Standard,  1995 April 17
 # http://www.itl.nist.gov/div897/pubs/fip180-1.htm
 from __future__ import absolute_import
-from .. import sha 
+from lib_pypy import _sha as pysha
 
 class TestSHA: 
     def check(self, data, digest):
-        computed = sha.new(data).hexdigest()
+        computed = pysha.new(data).hexdigest()
         assert computed == digest
 
     def test_case_1(self):
@@ -25,8 +25,8 @@ class TestSHA:
 
 
 def test_attributes():
-    assert sha.digest_size == 20
-    assert sha.digestsize == 20
-    assert sha.blocksize == 1
-    assert sha.sha().digest_size == 20
-    assert sha.sha().digestsize == 20
+    assert pysha.digest_size == 20
+    assert pysha.digestsize == 20
+    assert pysha.blocksize == 1
+    assert pysha.new().digest_size == 20
+    assert pysha.new().digestsize == 20

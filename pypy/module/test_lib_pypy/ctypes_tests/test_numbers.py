@@ -25,7 +25,7 @@ ArgType = type(byref(c_int(0)))
 unsigned_types = [c_ubyte, c_ushort, c_uint, c_ulong]
 signed_types = [c_byte, c_short, c_int, c_long, c_longlong]
 
-float_types = [c_double, c_float]
+float_types = [c_double, c_float, c_longdouble]
 
 try:
     c_ulonglong
@@ -89,6 +89,13 @@ class TestNumber(BaseCTypesTestChecker):
             parm = byref(t())
             assert ArgType == type(parm)
 
+    def test_init_again(self):
+        for t in signed_types + unsigned_types + float_types:
+            parm = t()
+            addr1 = addressof(parm)
+            parm.__init__(0)
+            addr2 = addressof(parm)
+            assert addr1 == addr2
 
     def test_floats(self):
         # c_float and c_double can be created from
@@ -105,6 +112,8 @@ class TestNumber(BaseCTypesTestChecker):
 
     def test_sizes(self):
         for t in signed_types + unsigned_types + float_types:
+            if t is c_longdouble:   # no support for 'g' in the struct module
+                continue
             size = struct.calcsize(t._type_)
             # sizeof of the type...
             assert sizeof(t) == size
@@ -113,6 +122,8 @@ class TestNumber(BaseCTypesTestChecker):
 
     def test_alignments(self):
         for t in signed_types + unsigned_types + float_types:
+            if t is c_longdouble:   # no support for 'g' in the struct module
+                continue
             code = t._type_ # the typecode
             align = struct.calcsize("c%c" % code) - struct.calcsize(code)
 
@@ -145,6 +156,8 @@ class TestNumber(BaseCTypesTestChecker):
     def test_float_from_address(self):
         from array import array
         for t in float_types:
+            if t is c_longdouble:   # no support for 'g' in the array module
+                continue
             a = array(t._type_, [3.14])
             v = t.from_address(a.buffer_info()[0])
             assert v.value == a[0]

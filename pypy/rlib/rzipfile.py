@@ -25,7 +25,7 @@ def crc32(s, crc=0):
         #/* Note:  (crc >> 8) MUST zero fill on left
 
         result = crc ^ r_uint(0xffffffffL)
-    
+
     return result
 
 # parts copied from zipfile library implementation
@@ -150,18 +150,19 @@ class RZipFile(object):
             raise TypeError("Read only support by now")
         self.compression = compression
         self.filename = zipname
-        self.mode = mode
         self.filelist = []
         self.NameToInfo = {}
         if 'b' not in mode:
             mode += 'b'
-        fp = open_file_as_stream(zipname, mode, 1024)
+        self.mode = mode
+        fp = self.get_fp()
         try:
             self._GetContents(fp)
-        except:
+        finally:
             fp.close()
-            raise
-        self.fp = fp
+
+    def get_fp(self):
+        return open_file_as_stream(self.filename, self.mode, 1024)
 
     def _GetContents(self, fp):
         endrec = _EndRecData(fp)
@@ -222,41 +223,41 @@ class RZipFile(object):
                       'File name in directory "%s" and header "%s" differ.' % (
                           data.orig_filename, fname)
         fp.seek(self.start_dir, 0)
-        
+
     def getinfo(self, filename):
         """Return the instance of ZipInfo given 'filename'."""
         return self.NameToInfo[filename]
 
     def read(self, filename):
         zinfo = self.getinfo(filename)
-        filepos = self.fp.tell()
-        self.fp.seek(zinfo.file_offset, 0)
-        bytes = self.fp.read(intmask(zinfo.compress_size))
-        self.fp.seek(filepos, 0)
-        if zinfo.compress_type == ZIP_STORED:
-            pass
-        elif zinfo.compress_type == ZIP_DEFLATED and rzlib is not None:
-            stream = rzlib.inflateInit(wbits=-15)
-            try:
-                bytes, _, _ = rzlib.decompress(stream, bytes)
-                # need to feed in unused pad byte so that zlib won't choke
-                ex, _, _ = rzlib.decompress(stream, 'Z')
-                if ex:
-                    bytes = bytes + ex
-            finally:
-                rzlib.inflateEnd(stream)
-        elif zinfo.compress_type == ZIP_DEFLATED:
-            raise BadZipfile, \
-                  "Cannot decompress file, zlib not installed"
-        else:
-            raise BadZipfile, \
-                  "Unsupported compression method %d for file %s" % \
-            (zinfo.compress_type, filename)
-        crc = crc32(bytes)
-        if crc != zinfo.CRC:
-            raise BadZipfile, "Bad CRC-32 for file %s" % filename
-        return bytes
-
-    def close(self):
-        self.fp.close()
-    
+        fp = self.get_fp()
+        try:
+            filepos = fp.tell()
+            fp.seek(zinfo.file_offset, 0)
+            bytes = fp.read(intmask(zinfo.compress_size))
+            fp.seek(filepos, 0)
+            if zinfo.compress_type == ZIP_STORED:
+                pass
+            elif zinfo.compress_type == ZIP_DEFLATED and rzlib is not None:
+                stream = rzlib.inflateInit(wbits=-15)
+                try:
+                    bytes, _, _ = rzlib.decompress(stream, bytes)
+                    # need to feed in unused pad byte so that zlib won't choke
+                    ex, _, _ = rzlib.decompress(stream, 'Z')
+                    if ex:
+                        bytes = bytes + ex
+                finally:
+                    rzlib.inflateEnd(stream)
+            elif zinfo.compress_type == ZIP_DEFLATED:
+                raise BadZipfile, \
+                      "Cannot decompress file, zlib not installed"
+            else:
+                raise BadZipfile, \
+                      "Unsupported compression method %d for file %s" % \
+                (zinfo.compress_type, filename)
+            crc = crc32(bytes)
+            if crc != zinfo.CRC:
+                raise BadZipfile, "Bad CRC-32 for file %s" % filename
+            return bytes
+        finally:
+            fp.close()

@@ -5,13 +5,15 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
+from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask, r_longlong
+from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
 from pypy.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.blackhole import BlackholeInterpreter, NULL
+from pypy.jit.codewriter import longlong
 
 # ____________________________________________________________
 
@@ -29,7 +31,7 @@ def do_call(cpu, metainterp, argboxes, descr):
     else:       args_i = None
     if count_r: args_r = [NULL] * count_r
     else:       args_r = None
-    if count_f: args_f = [0.0] * count_f
+    if count_f: args_f = [longlong.ZEROF] * count_f
     else:       args_f = None
     # fill in the lists
     count_i = count_r = count_f = 0
@@ -42,7 +44,7 @@ def do_call(cpu, metainterp, argboxes, descr):
             args_r[count_r] = box.getref_base()
             count_r += 1
         elif box.type == FLOAT:
-            args_f[count_f] = box.getfloat()
+            args_f[count_f] = box.getfloatstorage()
             count_f += 1
     # get the function address as an integer
     func = argboxes[0].getint()
@@ -62,12 +64,12 @@ def do_call(cpu, metainterp, argboxes, descr):
             metainterp.execute_raised(e)
             result = NULL
         return BoxPtr(result)
-    if rettype == FLOAT:
+    if rettype == FLOAT or rettype == 'L':
         try:
             result = cpu.bh_call_f(func, descr, args_i, args_r, args_f)
         except Exception, e:
             metainterp.execute_raised(e)
-            result = 0.0
+            result = longlong.ZEROF
         return BoxFloat(result)
     if rettype == VOID:
         try:
@@ -109,7 +111,8 @@ def do_setarrayitem_gc(cpu, _, arraybox, indexbox, itembox, arraydescr):
         cpu.bh_setarrayitem_gc_r(arraydescr, array, index,
                                  itembox.getref_base())
     elif arraydescr.is_array_of_floats():
-        cpu.bh_setarrayitem_gc_f(arraydescr, array, index, itembox.getfloat())
+        cpu.bh_setarrayitem_gc_f(arraydescr, array, index,
+                                 itembox.getfloatstorage())
     else:
         cpu.bh_setarrayitem_gc_i(arraydescr, array, index, itembox.getint())
 
@@ -118,7 +121,8 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
     index = indexbox.getint()
     assert not arraydescr.is_array_of_pointers()
     if arraydescr.is_array_of_floats():
-        cpu.bh_setarrayitem_raw_f(arraydescr, array, index, itembox.getfloat())
+        cpu.bh_setarrayitem_raw_f(arraydescr, array, index,
+                                  itembox.getfloatstorage())
     else:
         cpu.bh_setarrayitem_raw_i(arraydescr, array, index, itembox.getint())
 
@@ -146,7 +150,7 @@ def do_setfield_gc(cpu, _, structbox, itembox, fielddescr):
     if fielddescr.is_pointer_field():
         cpu.bh_setfield_gc_r(struct, fielddescr, itembox.getref_base())
     elif fielddescr.is_float_field():
-        cpu.bh_setfield_gc_f(struct, fielddescr, itembox.getfloat())
+        cpu.bh_setfield_gc_f(struct, fielddescr, itembox.getfloatstorage())
     else:
         cpu.bh_setfield_gc_i(struct, fielddescr, itembox.getint())
 
@@ -155,7 +159,7 @@ def do_setfield_raw(cpu, _, structbox, itembox, fielddescr):
     if fielddescr.is_pointer_field():
         cpu.bh_setfield_raw_r(struct, fielddescr, itembox.getref_base())
     elif fielddescr.is_float_field():
-        cpu.bh_setfield_raw_f(struct, fielddescr, itembox.getfloat())
+        cpu.bh_setfield_raw_f(struct, fielddescr, itembox.getfloatstorage())
     else:
         cpu.bh_setfield_raw_i(struct, fielddescr, itembox.getint())
 
@@ -223,6 +227,15 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
     dststart = dststartbox.getint()
     length = lengthbox.getint()
     rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
+
+def do_read_timestamp(cpu, _):
+    x = read_timestamp()
+    if longlong.is_64_bit:
+        assert isinstance(x, int)         # 64-bit
+        return BoxInt(x)
+    else:
+        assert isinstance(x, r_longlong)  # 32-bit
+        return BoxFloat(x)
 
 # ____________________________________________________________
 
@@ -309,6 +322,7 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
+                         rop.QUASIIMMUT_FIELD,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))
@@ -342,7 +356,7 @@ def make_execute_function_with_boxes(name, func):
                 argboxes = argboxes[1:]
                 if argtype == 'i':   value = argbox.getint()
                 elif argtype == 'r': value = argbox.getref_base()
-                elif argtype == 'f': value = argbox.getfloat()
+                elif argtype == 'f': value = argbox.getfloatstorage()
             newargs = newargs + (value,)
         assert not argboxes
         #

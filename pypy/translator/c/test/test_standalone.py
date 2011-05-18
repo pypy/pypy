@@ -1,6 +1,7 @@
 import py
 import sys, os, re
 
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.debug import ll_assert, have_debug_prints
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
@@ -109,6 +110,7 @@ class TestStandalone(StandaloneTests):
         assert counters == (0,3,2)
 
     def test_prof_inline(self):
+        py.test.skip("broken by 5b0e029514d4, but we don't use it any more")
         if sys.platform == 'win32':
             py.test.skip("instrumentation support is unix only for now")
         def add(a,b):
@@ -162,13 +164,13 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="")
+        t = Translation(entry_point, backend='c', standalone=True, profopt="100")
         # no counters
         t.backendopt()
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
-        t = Translation(entry_point, backend='c', standalone=True, profopt="",
+        t = Translation(entry_point, backend='c', standalone=True, profopt="100",
                         noprofopt=True)
         # no counters
         t.backendopt()
@@ -239,7 +241,7 @@ class TestStandalone(StandaloneTests):
         fname2 = dirname.join("test_genc.c")
         fname2.write("""
         void f() {
-            LL_strtod_formatd("%5f", 12.3);
+            LL_strtod_formatd(12.3, 'f', 5);
         }""")
 
         files = [fname, fname2]
@@ -832,6 +834,7 @@ class TestThread(object):
             ll_thread.release_NOAUTO(state.ll_lock)
         def after():
             ll_thread.acquire_NOAUTO(state.ll_lock, True)
+            ll_thread.gc_thread_run()
 
         class Cons:
             def __init__(self, head, tail):
@@ -839,8 +842,16 @@ class TestThread(object):
                 self.tail = tail
 
         def bootstrap():
+            ll_thread.gc_thread_start()
             state.xlist.append(Cons(123, Cons(456, None)))
             gc.collect()
+            ll_thread.gc_thread_die()
+
+        def new_thread():
+            ll_thread.gc_thread_prepare()
+            ident = ll_thread.start_new_thread(bootstrap, ())
+            time.sleep(0.5)    # enough time to start, hopefully
+            return ident
 
         def entry_point(argv):
             os.write(1, "hello world\n")
@@ -850,14 +861,14 @@ class TestThread(object):
             state.ll_lock = ll_thread.allocate_ll_lock()
             after()
             invoke_around_extcall(before, after)
-            ident1 = ll_thread.start_new_thread(bootstrap, ())
-            ident2 = ll_thread.start_new_thread(bootstrap, ())
+            ident1 = new_thread()
+            ident2 = new_thread()
             #
             gc.collect()
             #
-            ident3 = ll_thread.start_new_thread(bootstrap, ())
-            ident4 = ll_thread.start_new_thread(bootstrap, ())
-            ident5 = ll_thread.start_new_thread(bootstrap, ())
+            ident3 = new_thread()
+            ident4 = new_thread()
+            ident5 = new_thread()
             # wait for the 5 threads to finish
             while True:
                 gc.collect()
@@ -885,3 +896,115 @@ class TestThread(object):
                                      '3 ok',
                                      '4 ok',
                                      '5 ok']
+
+
+    def test_thread_and_gc_with_fork(self):
+        # This checks that memory allocated for the shadow stacks of the
+        # other threads is really released when doing a fork() -- or at
+        # least that the object referenced from stacks that are no longer
+        # alive are really freed.
+        import time, gc, os
+        from pypy.module.thread import ll_thread
+        from pypy.rlib.objectmodel import invoke_around_extcall
+        if not hasattr(os, 'fork'):
+            py.test.skip("requires fork()")
+
+        class State:
+            pass
+        state = State()
+
+        def before():
+            ll_assert(not ll_thread.acquire_NOAUTO(state.ll_lock, False),
+                      "lock not held!")
+            ll_thread.release_NOAUTO(state.ll_lock)
+        def after():
+            ll_thread.acquire_NOAUTO(state.ll_lock, True)
+            ll_thread.gc_thread_run()
+
+        class Cons:
+            def __init__(self, head, tail):
+                self.head = head
+                self.tail = tail
+
+        class Stuff:
+            def __del__(self):
+                os.write(state.write_end, 'd')
+
+        def allocate_stuff():
+            s = Stuff()
+            os.write(state.write_end, 'a')
+            return s
+
+        def run_in_thread():
+            for i in range(10):
+                state.xlist.append(Cons(123, Cons(456, None)))
+                time.sleep(0.01)
+            childpid = os.fork()
+            return childpid
+
+        def bootstrap():
+            ll_thread.gc_thread_start()
+            childpid = run_in_thread()
+            gc.collect()        # collect both in the child and in the parent
+            gc.collect()
+            gc.collect()
+            if childpid == 0:
+                os.write(state.write_end, 'c')   # "I did not die!" from child
+            else:
+                os.write(state.write_end, 'p')   # "I did not die!" from parent
+            ll_thread.gc_thread_die()
+
+        def new_thread():
+            ll_thread.gc_thread_prepare()
+            ident = ll_thread.start_new_thread(bootstrap, ())
+            time.sleep(0.5)    # enough time to start, hopefully
+            return ident
+
+        def start_all_threads():
+            s = allocate_stuff()
+            ident1 = new_thread()
+            ident2 = new_thread()
+            ident3 = new_thread()
+            ident4 = new_thread()
+            ident5 = new_thread()
+            # wait for 4 more seconds, which should be plenty of time
+            time.sleep(4)
+            keepalive_until_here(s)
+
+        def entry_point(argv):
+            os.write(1, "hello world\n")
+            state.xlist = []
+            state.deleted = 0
+            state.read_end, state.write_end = os.pipe()
+            x2 = Cons(51, Cons(62, Cons(74, None)))
+            # start 5 new threads
+            state.ll_lock = ll_thread.allocate_ll_lock()
+            after()
+            invoke_around_extcall(before, after)
+            start_all_threads()
+            # force freeing
+            gc.collect()
+            gc.collect()
+            gc.collect()
+            # return everything that was written to the pipe so far,
+            # followed by the final dot.
+            os.write(state.write_end, '.')
+            result = os.read(state.read_end, 256)
+            os.write(1, "got: %s\n" % result)
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('')
+        print repr(data)
+        header, footer = data.splitlines()
+        assert header == 'hello world'
+        assert footer.startswith('got: ')
+        result = footer[5:]
+        # check that all 5 threads and 5 forked processes
+        # finished successfully, that we did 1 allocation,
+        # and that it was freed 6 times -- once in the parent
+        # process and once in every child process.
+        assert (result[-1] == '.'
+                and result.count('c') == result.count('p') == 5
+                and result.count('a') == 1
+                and result.count('d') == 6)

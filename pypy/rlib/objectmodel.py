@@ -219,6 +219,7 @@ def compute_identity_hash(x):
     same before and after translation, except for RPython instances on the
     lltypesystem.
     """
+    assert x is not None
     result = object.__hash__(x)
     try:
         x.__dict__['__precomputed_identity_hash'] = result
@@ -255,7 +256,7 @@ def _hash_string(s):
     x = ord(s[0]) << 7
     i = 0
     while i < length:
-        x = (1000003*x) ^ ord(s[i])
+        x = intmask((1000003*x) ^ ord(s[i]))
         i += 1
     x ^= length
     return intmask(x)
@@ -266,14 +267,16 @@ def _hash_float(f):
     except the fact that the integer case is not treated specially.
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
-    from pypy.rlib.rarithmetic import intmask, isinf, isnan
-    if isinf(f):
-        if f < 0.0:
-            return -271828
-        else:
-            return 314159
-    elif isnan(f):
-        return 0
+    from pypy.rlib.rarithmetic import intmask
+    from pypy.rlib.rfloat import isfinite, isinf
+    if not isfinite(f):
+        if isinf(f):
+            if f < 0.0:
+                return -271828
+            else:
+                return 314159
+        else: #isnan(f):
+            return 0
     v, expo = math.frexp(f)
     v *= TAKE_NEXT
     hipart = int(v)

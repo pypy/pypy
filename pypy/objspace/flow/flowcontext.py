@@ -148,14 +148,14 @@ class BlockRecorder(Recorder):
 
 
 class Replayer(Recorder):
-    
+
     def __init__(self, block, booloutcome, nextreplayer):
         self.crnt_block = block
         self.listtoreplay = block.operations
         self.booloutcome = booloutcome
         self.nextreplayer = nextreplayer
         self.index = 0
-        
+
     def append(self, operation):
         operation.result = self.listtoreplay[self.index].result
         assert operation == self.listtoreplay[self.index], (
@@ -188,9 +188,9 @@ class FlowExecutionContext(ExecutionContext):
                  name=None):
         ExecutionContext.__init__(self, space)
         self.code = code
-        
+
         self.w_globals = w_globals = space.wrap(globals)
-        
+
         self.crnt_offset = -1
         self.crnt_frame = None
         if closure is None:
@@ -311,8 +311,7 @@ class FlowExecutionContext(ExecutionContext):
         # EggBlocks reuse the variables of their previous block,
         # which is deemed not acceptable for simplicity of the operations
         # that will be performed later on the flow graph.
-        def fixegg(link):
-            if isinstance(link, Link):
+        for link in list(self.graph.iterlinks()):
                 block = link.target
                 if isinstance(block, EggBlock):
                     if (not block.operations and len(block.exits) == 1 and
@@ -324,15 +323,14 @@ class FlowExecutionContext(ExecutionContext):
                         link.args = list(link2.args)
                         link.target = link2.target
                         assert link2.exitcase is None
-                        fixegg(link)
                     else:
                         mapping = {}
                         for a in block.inputargs:
                             mapping[a] = Variable(a)
                         block.renamevariables(mapping)
-            elif isinstance(link, SpamBlock):
+        for block in self.graph.iterblocks():
+            if isinstance(link, SpamBlock):
                 del link.framestate     # memory saver
-        traverse(fixegg, self.graph)
 
     def mergeblock(self, currentblock, currentstate):
         next_instr = currentstate.next_instr
@@ -373,8 +371,7 @@ class FlowExecutionContext(ExecutionContext):
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
 
-    def sys_exc_info(self):
-        operr = ExecutionContext.sys_exc_info(self)
+    def _convert_exc(self, operr):
         if isinstance(operr, operation.ImplicitOperationError):
             # re-raising an implicit operation makes it an explicit one
             w_value = operr.get_w_value(self.space)
@@ -397,71 +394,7 @@ class FlowExecutionContext(ExecutionContext):
                     stack_items_w[i] = w_new
                     break
 
-class FlowSpaceFrame(pyframe.PyFrame):
-    """
-    Execution of host (CPython) opcodes.
-    """
-    bytecode_spec = host_bytecode_spec
-    opcode_method_names = host_bytecode_spec.method_names
-    opcodedesc = host_bytecode_spec.opcodedesc
-    opdescmap = host_bytecode_spec.opdescmap
-    HAVE_ARGUMENT = host_bytecode_spec.HAVE_ARGUMENT
-
-    def BUILD_MAP(self, itemcount, next_instr):
-        if sys.version_info >= (2, 6):
-            # We could pre-allocate a dict here
-            # but for the moment this code is not translated.
-            pass
-        else:
-            if itemcount != 0:
-                raise BytecodeCorruption
-        w_dict = self.space.newdict()
-        self.pushvalue(w_dict)
-
-    def STORE_MAP(self, zero, next_instr):
-        if sys.version_info >= (2, 6):
-            w_key = self.popvalue()
-            w_value = self.popvalue()
-            w_dict = self.peekvalue()
-            self.space.setitem(w_dict, w_key, w_value)
-        else:
-            raise BytecodeCorruption
-
-    def POP_JUMP_IF_FALSE(self, jumpto, next_instr):
-        w_cond = self.popvalue()
-        if not self.space.is_true(w_cond):
-            next_instr = jumpto
-        return next_instr
-
-    def POP_JUMP_IF_TRUE(self, jumpto, next_instr):
-        w_cond = self.popvalue()
-        if self.space.is_true(w_cond):
-            return jumpto
-        return next_instr
-
-    def JUMP_IF_FALSE_OR_POP(self, jumpto, next_instr):
-        w_cond = self.peekvalue()
-        if not self.space.is_true(w_cond):
-            return jumpto
-        self.popvalue()
-        return next_instr
-
-    def JUMP_IF_TRUE_OR_POP(self, jumpto, next_instr):
-        w_cond = self.peekvalue()
-        if self.space.is_true(w_cond):
-            return jumpto
-        self.popvalue()
-        return next_instr
-
-    def LIST_APPEND(self, oparg, next_instr):
-        w = self.popvalue()
-        if sys.version_info < (2, 7):
-            v = self.popvalue()
-        else:
-            v = self.peekvalue(oparg - 1)
-        self.space.call_method(v, 'append', w)
-
-    # `with` statement
+class FlowSpaceFrame(pyframe.CPythonFrame):
 
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
@@ -506,8 +439,10 @@ class FlowSpaceFrame(pyframe.PyFrame):
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
         if w_typ is not self.space.w_None:
             # The annotator won't allow to merge exception types with None.
-            # Replace it with an object which will break translation when used
-            # (except maybe with 'exc_typ is None')
-            w_typ = self.space.wrap(self.space)
-        return self.space.call_function(w_func, w_typ, w_val, w_tb)
+            # Replace it with the exception value...
+            w_typ = w_val
+        self.space.call_function(w_func, w_typ, w_val, w_tb)
+        # Return None so that the flow space statically knows that we didn't
+        # swallow the exception
+        return self.space.w_None
 

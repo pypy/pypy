@@ -1,12 +1,14 @@
+from __future__ import with_statement
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rwin32
 
 eci = ExternalCompilationInfo(
     includes = ['windows.h',
                 ],
-    libraries = ('Advapi32',)
+    libraries = ('Advapi32', 'kernel32')
     )
 class CConfig:
     _compilation_info_ = eci
@@ -26,7 +28,9 @@ REG_DWORD_BIG_ENDIAN REG_LINK REG_MULTI_SZ REG_RESOURCE_LIST
 REG_FULL_RESOURCE_DESCRIPTOR REG_RESOURCE_REQUIREMENTS_LIST
 
 HKEY_LOCAL_MACHINE HKEY_CLASSES_ROOT HKEY_CURRENT_CONFIG HKEY_CURRENT_USER
-HKEY_DYN_DATA HKEY_LOCAL_MACHINE HKEY_PERFORMANCE_DATATA HKEY_USERS
+HKEY_DYN_DATA HKEY_LOCAL_MACHINE HKEY_PERFORMANCE_DATA HKEY_USERS
+
+ERROR_MORE_DATA
 '''.split()
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
@@ -69,6 +73,12 @@ RegQueryValueEx = external(
 RegCreateKey = external(
     'RegCreateKeyA',
     [HKEY, rffi.CCHARP, PHKEY],
+    rffi.LONG)
+
+RegCreateKeyEx = external(
+    'RegCreateKeyExA',
+    [HKEY, rffi.CCHARP, rwin32.DWORD, rffi.CCHARP, rwin32.DWORD,
+     REGSAM, rffi.VOIDP, PHKEY, rwin32.LPDWORD],
     rffi.LONG)
 
 RegDeleteValue = external(
@@ -132,3 +142,21 @@ RegConnectRegistry = external(
     'RegConnectRegistryA',
     [rffi.CCHARP, HKEY, PHKEY],
     rffi.LONG)
+
+_ExpandEnvironmentStringsW = external(
+    'ExpandEnvironmentStringsW',
+    [rffi.CWCHARP, rffi.CWCHARP, rwin32.DWORD],
+    rwin32.DWORD)
+
+def ExpandEnvironmentStrings(source):
+    with rffi.scoped_unicode2wcharp(source) as src_buf:
+        size = _ExpandEnvironmentStringsW(src_buf,
+                                          lltype.nullptr(rffi.CWCHARP.TO), 0)
+        if size == 0:
+            raise rwin32.lastWindowsError("ExpandEnvironmentStrings")
+        size = intmask(size)
+        with rffi.scoped_alloc_unicodebuffer(size) as dest_buf:
+            if _ExpandEnvironmentStringsW(src_buf,
+                                          dest_buf.raw, size) == 0:
+                raise rwin32.lastWindowsError("ExpandEnvironmentStrings")
+            return dest_buf.str(size - 1) # remove trailing \0

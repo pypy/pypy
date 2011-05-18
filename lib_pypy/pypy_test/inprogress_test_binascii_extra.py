@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from .. import binascii
+from lib_pypy import binascii
 
 def test_uu():
     assert binascii.b2a_uu('1234567') == "',3(S-#4V-P  \n"

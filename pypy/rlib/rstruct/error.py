@@ -13,3 +13,10 @@ class StructError(Exception):
         w_module = space.getbuiltinmodule('struct')
         w_error = space.getattr(w_module, space.wrap('error'))
         return OperationError(w_error, space.wrap(self.msg))
+
+
+class StructOverflowError(StructError):
+
+    def at_applevel(self, space):
+        from pypy.interpreter.error import OperationError
+        return OperationError(space.w_OverflowError, space.wrap(self.msg))

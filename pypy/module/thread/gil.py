@@ -48,6 +48,12 @@ class GILThreadLocals(OSThreadLocals):
         invoke_around_extcall(before_external_call, after_external_call)
         return result
 
+    def reinit_threads(self, space):
+        if self.ll_GIL:
+            self.ll_GIL = thread.allocate_ll_lock()
+            thread.acquire_NOAUTO(self.ll_GIL, True)
+            self.enter_thread(space)
+
     def yield_thread(self):
         thread.yield_thread()  # explicitly release the gil (used by test_gil)
 

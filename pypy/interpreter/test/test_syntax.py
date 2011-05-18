@@ -313,12 +313,90 @@ def g():
 @dec2
 def g(): pass""" in ns
         assert record == [2, 1]
+        del record[:]
+        exec """@dec1
+@dec2
+class x: pass""" in ns
+        assert record == [2, 1]
+
+    def test_class_decorators(self):
+        s = """@func
+class x: pass"""
+        ns = {"func" : lambda cls: 4}
+        exec s in ns
+        assert ns["x"] == 4
+
+
+class AppTestPrintFunction:
+
+    def test_simple_print(self):
+        import __builtin__
+        s = """from __future__ import print_function
+x = print
+"""
+        ns = {}
+        exec s in ns
+        assert ns["x"] is getattr(__builtin__, "print")
+
+    def test_print(self):
+        s = """from __future__ import print_function
+import StringIO
+s = StringIO.StringIO()
+print("Hello,", "person", file=s)
+"""
+        ns = {}
+        exec s in ns
+        assert ns["s"].getvalue() == "Hello, person\n"
+
+
+class AppTestUnicodeLiterals:
+
+    def test_simple(self):
+        s = """from __future__ import unicode_literals
+x = 'u'
+y = r'u'
+z = u'u'
+b = b'u'
+c = br'u'"""
+        ns = {}
+        exec s in ns
+        assert isinstance(ns["x"], unicode)
+        assert isinstance(ns["y"], unicode)
+        assert isinstance(ns["z"], unicode)
+        assert isinstance(ns["b"], str)
+        assert isinstance(ns["c"], str)
+
+
+class AppTestComprehensions:
+
+    def test_dictcomps(self):
+        d = eval("{x : x for x in range(10)}")
+        assert isinstance(d, dict)
+        assert d == dict(zip(range(10), range(10)))
+        d = eval("{x : x for x in range(10) if x % 2}")
+        l = [x for x in range(10) if x % 2]
+        assert d == dict(zip(l, l))
+
+    def test_setcomps(self):
+        s = eval("{x for x in range(10)}")
+        assert isinstance(s, set)
+        assert s == set(range(10))
+        s = eval("{x for x in range(10) if x % 2}")
+        assert s == set(x for x in range(10) if x % 2)
+
+    def test_set_literal(self):
+        s = eval("{1}")
+        assert isinstance(s, set)
+        assert s == set((1,))
+        s = eval("{0, 1, 2, 3}")
+        assert isinstance(s, set)
+        assert s == set(range(4))
 
 
 class AppTestWith:
     def test_with_simple(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -338,9 +416,32 @@ if 1:
 
         assert acontext.calls == '__enter__ __exit__'.split()
 
+    def test_compound_with(self):
+        s = """class Context:
+    def __init__(self, var):
+        self.record = []
+        self.var = var
+    def __enter__(self):
+        self.record.append(("__enter__", self.var))
+        return self.var
+    def __exit__(self, tp, value, tb):
+        self.record.append(("__exit__", self.var))
+c1 = Context("blah")
+c2 = Context("bling")
+with c1 as v1, c2 as v2:
+    pass
+    """
+        ns = {}
+        exec s in ns
+        assert ns["v1"] == "blah"
+        assert ns["v2"] == "bling"
+        assert ns["c1"].record == [("__enter__", "blah"), ("__exit__", "blah")]
+        assert ns["c2"].record == [("__enter__", "bling"),
+                                   ("__exit__", "bling")]
+
+
     def test_start_with_blank_line(self):
         s = """
-from __future__ import with_statement
 if 1:
         class Context:
             def __init__(self):
@@ -361,7 +462,6 @@ if 1:
 
     def test_raw_doc_string(self):
         s = """r'doc'
-from __future__ import with_statement
 class Context(object):
     def __enter__(self):
         global enter
@@ -377,7 +477,7 @@ with Context() as w:
 
     def test_with_as_var(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -403,7 +503,7 @@ if 1:
 
     def test_with_raise_exception(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -438,7 +538,7 @@ if 1:
 
     def test_with_swallow_exception(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -469,7 +569,7 @@ if 1:
 
     def test_with_break(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -500,7 +600,7 @@ if 1:
 
     def test_with_continue(self):
 
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -530,7 +630,7 @@ if 1:
         assert acontextfact.exit_params == (None, None, None)
 
     def test_with_return(self):
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         class Context:
             def __init__(self):
@@ -558,20 +658,9 @@ if 1:
         assert acontextfact.calls == '__enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
-    def test_with_as_identifier(self):
-        exec "with = 9"
-
     def test_with_as_keyword(self):
         try:
-            exec "from __future__ import with_statement\nwith = 9"
-        except SyntaxError:
-            pass
-        else:
-            assert False, 'Assignment to with did not raise SyntaxError'
-
-    def test_with_as_keyword_and_docstring(self):
-        try:
-            exec "'Docstring'\nfrom __future__ import with_statement\nwith = 9"
+            exec "with = 9"
         except SyntaxError:
             pass
         else:
@@ -585,33 +674,11 @@ if 1:
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
 
-    def test_with_as_keyword_multiple(self):
-        try:
-            exec "from __future__ import generators\nfrom __future__ import with_statement\nwith = 9"
-        except SyntaxError:
-            pass
-        else:
-            assert False, 'Assignment to with did not raise SyntaxError'
-
-    def test_as_as_identifier(self):
-        exec "as = 9"
-        exec "import sys as foo"
-
-    def test_as_as_keyword(self):
-        try:
-            exec "from __future__ import with_statement\nas = 9"
-        except SyntaxError:
-            pass
-        else:
-            assert False, 'Assignment to as did not raise SyntaxError'
-
-        exec "from __future__ import with_statement\nimport sys as foo"
-
     def test_missing_as_SyntaxError(self):
         snippets = [
             "import os.path a bar ",
             "from os import path a bar",
-            """from __future__ import with_statement
+            """
 with foo a bar:
     pass
 """]
@@ -625,7 +692,7 @@ with foo a bar:
 
 
     def test_with_propagate_compileflag(self):
-        s = """from __future__ import with_statement
+        s = """
 if 1:
         compile('''with x:
         pass''', '', 'exec')

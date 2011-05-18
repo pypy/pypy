@@ -5,7 +5,7 @@ from ctypes import *
 try:
     from ctypes_support import standard_c_lib, get_errno, set_errno
 except ImportError:    # on top of cpython
-    from ..ctypes_support import standard_c_lib, get_errno, set_errno
+    from lib_pypy.ctypes_support import standard_c_lib, get_errno, set_errno
 
 
 def test_stdlib_and_errno():

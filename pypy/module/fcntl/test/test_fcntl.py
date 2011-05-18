@@ -18,32 +18,14 @@ class AppTestFcntl:
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = space.wrap(tmpprefix)
 
-    def test_conv_descriptor(self):
-        import fcntl
-        if not hasattr(fcntl, '_conv_descriptor'):
-            skip("PyPy only")
-        
-        f = open(self.tmp + "a", "w+")
-        
-        raises(TypeError, fcntl._conv_descriptor, "foo")
-        raises(TypeError, fcntl._conv_descriptor, 2.0)
-        import cStringIO
-        raises(TypeError, fcntl._conv_descriptor, cStringIO.StringIO())
-        res = fcntl._conv_descriptor(10)
-        res_1 = fcntl._conv_descriptor(f)
-        assert res == 10
-        assert res_1 == f.fileno()
-        
-        f.close()
-
     def test_fcntl(self):
         import fcntl
         import os
         import sys
         import struct
-        
+
         f = open(self.tmp + "b", "w+")
-        
+
         fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
         raises(TypeError, fcntl.fcntl, "foo")
@@ -52,7 +34,7 @@ class AppTestFcntl:
         assert fcntl.fcntl(f, 1, 0) == 0
         assert fcntl.fcntl(f, 2, "foo") == "foo"
         assert fcntl.fcntl(f, 2, buffer("foo")) == "foo"
-        
+
         try:
             os.O_LARGEFILE
         except AttributeError:
@@ -60,7 +42,7 @@ class AppTestFcntl:
         else:
             start_len = "qq"
 
-        if sys.platform in ('netbsd1', 'netbsd2', 'netbsd3', 
+        if sys.platform in ('netbsd1', 'netbsd2', 'netbsd3',
                             'Darwin1.2', 'darwin',
                             'freebsd2', 'freebsd3', 'freebsd4', 'freebsd5',
                             'freebsd6', 'freebsd7', 'freebsd8', 'freebsd9',
@@ -118,15 +100,15 @@ class AppTestFcntl:
             # with "Inappropriate ioctl for device"
             raises(IOError, fcntl.fcntl, f, fcntl.F_GETOWN)
             raises(IOError, fcntl.fcntl, f, fcntl.F_SETOWN, 20)
-        
+
         f.close()
 
     def test_flock(self):
         import fcntl
         import sys
-        
+
         f = open(self.tmp + "c", "w+")
-        
+
         raises(TypeError, fcntl.flock, "foo")
         raises(TypeError, fcntl.flock, f, "foo")
         fcntl.flock(f, fcntl.LOCK_SH)
@@ -134,22 +116,22 @@ class AppTestFcntl:
         # LOCK_NB flag was selected.
         raises(IOError, fcntl.flock, f, fcntl.LOCK_NB)
         fcntl.flock(f, fcntl.LOCK_UN)
-        
+
         f.close()
 
     def test_lockf(self):
         import fcntl
-        
+
         f = open(self.tmp + "d", "w+")
-        
+
         raises(TypeError, fcntl.lockf, f, "foo")
         raises(TypeError, fcntl.lockf, f, fcntl.LOCK_UN, "foo")
         raises(ValueError, fcntl.lockf, f, -256)
         raises(ValueError, fcntl.lockf, f, 256)
-        
+
         fcntl.lockf(f, fcntl.LOCK_SH)
         fcntl.lockf(f, fcntl.LOCK_UN)
-        
+
         f.close()
 
     def test_ioctl(self):
@@ -163,7 +145,7 @@ class AppTestFcntl:
             TIOCGPGRP = 0x40047477
         else:
             skip("don't know how to test ioctl() on this platform")
-        
+
         raises(TypeError, fcntl.ioctl, "foo")
         raises(TypeError, fcntl.ioctl, 0, "foo")
         #raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, float(0))
@@ -196,3 +178,14 @@ class AppTestFcntl:
         import fcntl
         f = open(self.tmp, "w")
         fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_large_flag(self):
+        import sys
+        if sys.platform == "darwin":
+            skip("Mac OS doesn't have any large flag in fcntl.h")
+        import fcntl, sys
+        if sys.maxint == 2147483647:
+            assert fcntl.DN_MULTISHOT == -2147483648
+        else:
+            assert fcntl.DN_MULTISHOT == 2147483648
+        fcntl.fcntl(0, fcntl.F_NOTIFY, fcntl.DN_MULTISHOT)

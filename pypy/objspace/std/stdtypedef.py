@@ -2,7 +2,7 @@ from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
-from pypy.interpreter.typedef import no_hash_descr, descr_del_dict
+from pypy.interpreter.typedef import descr_del_dict
 from pypy.interpreter.baseobjspace import SpaceCache
 from pypy.objspace.std import model
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
@@ -10,7 +10,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib import jit
 from pypy.tool.sourcetools import compile2
 
-__all__ = ['StdTypeDef', 'SMM', 'no_hash_descr']
+__all__ = ['StdTypeDef', 'SMM']
 
 SMM = StdObjSpaceMultiMethod
 
@@ -38,7 +38,8 @@ def issubtypedef(a, b):
         a = a.base
     return True
 
-std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict)
+std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
+                    doc="dictionary for instance variables (if defined)")
 std_dict_descr.name = '__dict__'
 
 # ____________________________________________________________
@@ -88,6 +89,8 @@ class TypeCache(SpaceCache):
             overridetypedef = typedef
         w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
                               overridetypedef=overridetypedef)
+        if typedef is not overridetypedef:
+            w_type.w_doc = space.wrap(typedef.doc)
         w_type.lazyloaders = lazyloaders
         return w_type
 
@@ -168,8 +171,6 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
     wrapper_arglist = solid_arglist[:]
     if multimethod.extras.get('varargs_w', False):
         wrapper_arglist.append('args_w')
-    if multimethod.extras.get('w_varargs', False):
-        wrapper_arglist.append('w_args')        
     if multimethod.extras.get('keywords', False):
         raise Exception, "no longer supported, use __args__"
     if multimethod.extras.get('general__args__', False):
@@ -239,16 +240,9 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
 
 def wrap_trampoline_in_gateway(func, methname, multimethod):
     """NOT_RPYTHON"""
-    unwrap_spec = [baseobjspace.ObjSpace] + [baseobjspace.W_Root]*multimethod.arity
-    if multimethod.extras.get('varargs_w', False):
-        unwrap_spec.append('args_w')
-    if multimethod.extras.get('w_varargs', False):
-        unwrap_spec.append('w_args')        
-    if multimethod.extras.get('general__args__', False):
-        unwrap_spec.append(argument.Arguments)
     if 'doc' in multimethod.extras:
         func.__doc__ = multimethod.extras['doc']
-    return gateway.interp2app(func, app_name=methname, unwrap_spec=unwrap_spec)
+    return gateway.interp2app(func, app_name=methname)
 
 def slicemultimethod(space, multimethod, typedef, result, local=False):
     """NOT_RPYTHON"""    

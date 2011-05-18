@@ -359,16 +359,14 @@ class AppTestInterpObjectPickling:
         raises(TypeError, len, liter)
         assert list(liter) == list(result)
 
-    @py.test.mark.xfail
+    # This test used to be marked xfail and it tried to test for the past
+    # support of pickling dictiter objects.
     def test_pickle_dictiter(self):
         import pickle
         tdict = {'2':2, '3':3, '5':5}
         diter  = iter(tdict)
         diter.next()
-        pckl   = pickle.dumps(diter)
-        result = pickle.loads(pckl)
-        raises(TypeError, len, diter)
-        assert list(diter) == list(result)
+        raises(TypeError, pickle.dumps, diter)
 
     def test_pickle_reversed(self):
         import pickle

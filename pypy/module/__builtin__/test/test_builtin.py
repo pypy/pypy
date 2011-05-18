@@ -16,6 +16,10 @@ class AppTestBuiltinApp:
         except KeyError:
             cls.w_sane_lookup = cls.space.wrap(False)
 
+    def test_bytes_alias(self):
+        assert bytes is str
+        assert isinstance(eval("b'hi'"), str)
+
     def test_import(self):
         m = __import__('pprint')
         assert m.pformat({}) == '{}'
@@ -27,6 +31,13 @@ class AppTestBuiltinApp:
         assert chr(65) == 'A'
         raises(ValueError, chr, -1)
         raises(TypeError, chr, 'a')
+
+    def test_bin(self):
+        assert bin(0) == "0b0"
+        assert bin(-1) == "-0b1"
+        assert bin(2L) == "0b10"
+        assert bin(-2L) == "-0b10"
+        raises(TypeError, bin, 0.)
 
     def test_unichr(self):
         import sys
@@ -93,6 +104,39 @@ class AppTestBuiltinApp:
                 return 'a'    # not a list!
         raises(TypeError, eval, "dir()", {}, C())
 
+    def test_dir_broken_module(self):
+        import types
+        class Foo(types.ModuleType):
+            __dict__ = 8
+        raises(TypeError, dir, Foo("foo"))
+
+    def test_dir_broken_object(self):
+        class Foo(object):
+            x = 3
+            def __getattribute__(self, name):
+                return name
+        assert dir(Foo()) == []
+
+    def test_dir_custom(self):
+        class Foo(object):
+            def __dir__(self):
+                return [1, 3, 2]
+        f = Foo()
+        assert dir(f) == [1, 2, 3]
+        #
+        class Foo(object):
+            def __dir__(self):
+                return 42
+        f = Foo()
+        raises(TypeError, dir, f)
+
+    def test_format(self):
+        assert format(4) == "4"
+        assert format(10, "o") == "12"
+        assert format(10, "#o") == "0o12"
+        assert format("hi") == "hi"
+        assert isinstance(format(4, u""), unicode)
+
     def test_vars(self):
         def f():
             return vars()
@@ -129,6 +173,12 @@ class AppTestBuiltinApp:
         assert sum([1,2,3]) ==6
         assert sum([],5) ==5
         assert sum([1,2,3],4) ==10
+        #
+        class Foo(object):
+            def __radd__(self, other):
+                assert other is None
+                return 42
+        assert sum([Foo()], None) == 42
 
     def test_type_selftest(self):
         assert type(type) is type
@@ -175,7 +225,28 @@ class AppTestBuiltinApp:
         raises(StopIteration, enum.next)
         raises(TypeError, enumerate, 1)
         raises(TypeError, enumerate, None)
-        
+        enum = enumerate(range(5), 2)
+        assert list(enum) == zip(range(2, 7), range(5))
+
+    def test_next(self):
+        x = iter(['a', 'b', 'c'])
+        assert next(x) == 'a'
+        assert next(x) == 'b'
+        assert next(x) == 'c'
+        raises(StopIteration, next, x)
+        assert next(x, 42) == 42
+
+    def test_next__next__(self):
+        class Counter:
+            def __init__(self):
+                self.count = 0
+            def next(self):
+                self.count += 1
+                return self.count
+        x = Counter()
+        assert next(x) == 1
+        assert next(x) == 2
+        assert next(x) == 3
 
     def test_xrange_args(self):
 ##        # xrange() attributes are deprecated and were removed in Python 2.3.
@@ -393,6 +464,7 @@ class AppTestBuiltinApp:
         assert eval("3", None, None) == 3
         i = 4
         assert eval("i", None, None) == 4
+        assert eval('a', None, dict(a=42)) == 42
 
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
@@ -413,7 +485,15 @@ class AppTestBuiltinApp:
     def test_unicode_encoding_compile(self):
         code = u"# -*- coding: utf-8 -*-\npass\n"
         raises(SyntaxError, compile, code, "tmp", "exec")
-            
+
+    def test_recompile_ast(self):
+        import _ast
+        # raise exception when node type doesn't match with compile mode
+        co1 = compile('print 1', '<string>', 'exec', _ast.PyCF_ONLY_AST)
+        raises(TypeError, compile, co1, '<ast>', 'eval')
+        co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
+        compile(co2, '<ast>', 'eval')
+
     def test_isinstance(self):
         assert isinstance(5, int)
         assert isinstance(5, object)
@@ -484,6 +564,44 @@ def fn(): pass
         firstlineno = co.co_firstlineno
         assert firstlineno == 2
 
+    def test_print_function(self):
+        import __builtin__
+        import sys
+        import StringIO
+        pr = getattr(__builtin__, "print")
+        save = sys.stdout
+        out = sys.stdout = StringIO.StringIO()
+        try:
+            pr("Hello,", "person!")
+        finally:
+            sys.stdout = save
+        assert out.getvalue() == "Hello, person!\n"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out)
+        assert out.getvalue() == "Hello, person!\n"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out, end="")
+        assert out.getvalue() == "Hello, person!"
+        out = StringIO.StringIO()
+        pr("Hello,", "person!", file=out, sep="X")
+        assert out.getvalue() == "Hello,Xperson!\n"
+        out = StringIO.StringIO()
+        pr(u"Hello,", u"person!", file=out)
+        result = out.getvalue()
+        assert isinstance(result, unicode)
+        assert result == u"Hello, person!\n"
+        pr("Hello", file=None) # This works.
+        out = StringIO.StringIO()
+        pr(None, file=out)
+        assert out.getvalue() == "None\n"
+
+    def test_print_exceptions(self):
+        import __builtin__
+        pr = getattr(__builtin__, "print")
+        raises(TypeError, pr, x=3)
+        raises(TypeError, pr, end=3)
+        raises(TypeError, pr, sep=42)
+
 class AppTestBuiltinOptimized(object):
     def setup_class(cls):
         from pypy.conftest import gettestobjspace
@@ -539,6 +657,35 @@ class AppTestBuiltinOptimized(object):
         exec s in ns
         res = ns["test"]([2,3,4])
         assert res == 18
+
+    def test_round(self):
+        assert round(11.234) == 11.0
+        assert round(11.234, -1) == 10.0
+        assert round(11.234, 0) == 11.0
+        assert round(11.234, 1) == 11.2
+        #
+        assert round(5e15-1) == 5e15-1
+        assert round(5e15) == 5e15
+        assert round(-(5e15-1)) == -(5e15-1)
+        assert round(-5e15) == -5e15
+        #
+        inf = 1e200 * 1e200
+        assert round(inf) == inf
+        assert round(-inf) == -inf
+        nan = inf / inf
+        assert repr(round(nan)) == repr(nan)
+        #
+        raises(OverflowError, round, 1.6e308, -308)
+        #
+        assert round(562949953421312.5, 1) == 562949953421312.5
+        assert round(56294995342131.5, 3) == 56294995342131.5
+
+    def test_vars_obscure_case(self):
+        class C_get_vars(object):
+            def getDict(self):
+                return {'a':2}
+            __dict__ = property(fget=getDict)
+        assert vars(C_get_vars()) == {'a':2}
 
 
 class TestInternal:

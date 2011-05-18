@@ -1,8 +1,8 @@
 import py
 from pypy.jit.metainterp.warmspot import rpython_ll_meta_interp, ll_meta_interp
 from pypy.jit.backend.llgraph import runner
-from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, unroll_parameters
-from pypy.rlib.jit import PARAMETERS, dont_look_inside
+from pypy.rlib.jit import JitDriver, unroll_parameters
+from pypy.rlib.jit import PARAMETERS, dont_look_inside, hint
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.rpython.lltypesystem import lltype, llmemory
 
@@ -24,6 +24,23 @@ class TranslationTest:
         # - string concatenation, slicing and comparison
 
         class Frame(object):
+            _virtualizable2_ = ['l[*]']
+
+            def __init__(self, i):
+                self = hint(self, fresh_virtualizable=True,
+                            access_directly=True)
+                self.l = [i]
+
+        class OtherFrame(object):
+            _virtualizable2_ = ['i', 'l[*]']
+
+            def __init__(self, i):
+                self = hint(self, fresh_virtualizable=True,
+                            access_directly=True)
+                self.i = i
+                self.l = [float(i)]
+
+        class OtherFrame(object):
             _virtualizable2_ = ['i']
 
             def __init__(self, i):
@@ -45,45 +62,50 @@ class TranslationTest:
                               set_jitcell_at=set_jitcell_at,
                               get_printable_location=get_printable_location)
         def f(i):
-            for param in unroll_parameters:
-                defl = PARAMETERS[param]
+            for param, defl in unroll_parameters:
                 jitdriver.set_param(param, defl)
             jitdriver.set_param("threshold", 3)
             jitdriver.set_param("trace_eagerness", 2)
             total = 0
             frame = Frame(i)
-            while frame.i > 3:
+            while frame.l[0] > 3:
                 jitdriver.can_enter_jit(frame=frame, total=total)
                 jitdriver.jit_merge_point(frame=frame, total=total)
-                total += frame.i
-                if frame.i >= 20:
-                    frame.i -= 2
-                frame.i -= 1
+                total += frame.l[0]
+                if frame.l[0] >= 20:
+                    frame.l[0] -= 2
+                frame.l[0] -= 1
             return total * 10
         #
-        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 'x', 's'])
+        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 's', 'f'],
+                                 virtualizables = ['f'])
         def f2(g, m, x):
             s = ""
+            f = OtherFrame(x)
+            float_s = 0.0
             while m > 0:
-                myjitdriver2.can_enter_jit(g=g, m=m, x=x, s=s)
-                myjitdriver2.jit_merge_point(g=g, m=m, x=x, s=s)
+                myjitdriver2.can_enter_jit(g=g, m=m, f=f, s=s, float_s=float_s)
+                myjitdriver2.jit_merge_point(g=g, m=m, f=f, s=s,
+                                             float_s=float_s)
                 s += 'xy'
                 if s[:2] == 'yz':
                     return -666
                 m -= 1
-                x += 3
-            return x
+                f.i += 3
+                float_s += f.l[0]
+            return f.i
         #
         def main(i, j):
             return f(i) - f2(i+j, i, j)
         res = ll_meta_interp(main, [40, 5], CPUClass=self.CPUClass,
-                             type_system=self.type_system)
+                             type_system=self.type_system,
+                             listops=True)
         assert res == main(40, 5)
         res = rpython_ll_meta_interp(main, [40, 5],
                                      CPUClass=self.CPUClass,
                                      type_system=self.type_system,
-                                     optimizer=OPTIMIZER_FULL,
-                                     ProfilerClass=Profiler)
+                                     ProfilerClass=Profiler,
+                                     listops=True)
         assert res == main(40, 5)
 
     def test_external_exception_handling_translates(self):
@@ -122,11 +144,9 @@ class TranslationTest:
         assert res == main(40)
         res = rpython_ll_meta_interp(main, [40], CPUClass=self.CPUClass,
                                      type_system=self.type_system,
-                                     optimizer=OPTIMIZER_FULL,
+                                     enable_opts='',
                                      ProfilerClass=Profiler)
         assert res == main(40)
-
-
 
 class TestTranslationLLtype(TranslationTest):
 

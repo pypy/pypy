@@ -69,7 +69,9 @@ class OptValue(object):
         pass
 
     def make_virtual_info(self, modifier, fieldnums):
-        raise NotImplementedError # should not be called on this level
+        #raise NotImplementedError # should not be called on this level
+        assert fieldnums is None
+        return modifier.make_not_virtual(self)
 
     def is_constant(self):
         return self.level == LEVEL_CONSTANT
@@ -162,14 +164,17 @@ class ConstantValue(OptValue):
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
-CVAL_ZERO_FLOAT = ConstantValue(ConstFloat(0.0))
+CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
 CVAL_UNINITIALIZED_ZERO = ConstantValue(CONST_0)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 
 class Optimization(object):
     next_optimization = None
-    
+
+    def __init__(self):
+        pass # make rpython happy
+
     def propagate_forward(self, op):
         raise NotImplementedError
 
@@ -178,7 +183,7 @@ class Optimization(object):
 
     def test_emittable(self, op):
         return self.is_emittable(op)
-    
+
     def is_emittable(self, op):
         return self.next_optimization.test_emittable(op)
 
@@ -214,6 +219,14 @@ class Optimization(object):
         op = ResOperation(opnum, args, result)
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
+    def has_pure_result(self, opnum, args, descr):
+        op = ResOperation(opnum, args, None, descr)
+        key = self.optimizer.make_args_key(op)
+        op = self.optimizer.pure_operations.get(key, None)
+        if op is None:
+            return False
+        return op.getdescr() is descr
+
     def setup(self):
         pass
 
@@ -226,7 +239,7 @@ class Optimization(object):
     def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
         #return self.__class__()
         raise NotImplementedError
-    
+
 
 class Optimizer(Optimization):
 
@@ -244,7 +257,10 @@ class Optimizer(Optimization):
         self.pendingfields = []
         self.posponedop = None
         self.exception_might_have_happened = False
+        self.quasi_immutable_deps = None
         self.newoperations = []
+        if loop is not None:
+            self.call_pure_results = loop.call_pure_results
 
         self.set_optimizations(optimizations)
 
@@ -260,20 +276,20 @@ class Optimizer(Optimization):
         else:
             optimizations = []
             self.first_optimization = self
-            
-        self.optimizations  = optimizations 
+
+        self.optimizations  = optimizations
 
     def force_at_end_of_preamble(self):
         self.resumedata_memo = resume.ResumeDataLoopMemo(self.metainterp_sd)
         for o in self.optimizations:
             o.force_at_end_of_preamble()
-            
+
     def reconstruct_for_next_iteration(self, optimizer=None, valuemap=None):
         assert optimizer is None
         assert valuemap is None
         valuemap = {}
         new = Optimizer(self.metainterp_sd, self.loop)
-        optimizations = [o.reconstruct_for_next_iteration(new, valuemap) for o in 
+        optimizations = [o.reconstruct_for_next_iteration(new, valuemap) for o in
                          self.optimizations]
         new.set_optimizations(optimizations)
 
@@ -290,10 +306,11 @@ class Optimizer(Optimization):
         for key, value in self.loop_invariant_results.items():
             new.loop_invariant_results[key] = \
                                  value.get_reconstructed(new, valuemap)
-            
+
         new.pure_operations = self.pure_operations
         new.producer = self.producer
         assert self.posponedop is None
+        new.quasi_immutable_deps = self.quasi_immutable_deps
 
         return new
 
@@ -395,6 +412,7 @@ class Optimizer(Optimization):
             self.first_optimization.propagate_forward(op)
             self.i += 1
         self.loop.operations = self.newoperations
+        self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
 
@@ -414,7 +432,7 @@ class Optimizer(Optimization):
 
     def test_emittable(self, op):
         return True
-    
+
     def emit_operation(self, op):
         ###self.heap_op_optimizer.emitting_operation(op)
         self._emit_operation(op)
@@ -436,9 +454,6 @@ class Optimizer(Optimization):
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
-        ###pendingfields = self.heap_op_optimizer.force_lazy_setfields_for_guard()
-        if op.getjumptarget():
-            return op
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
@@ -470,7 +485,7 @@ class Optimizer(Optimization):
 
     def make_args_key(self, op):
         n = op.numargs()
-        args = [None] * (n + 1)
+        args = [None] * (n + 2)
         for i in range(n):
             arg = op.getarg(i)
             try:
@@ -481,6 +496,7 @@ class Optimizer(Optimization):
                 arg = value.get_key_box()
             args[i] = arg
         args[n] = ConstInt(op.getopnum())
+        args[n+1] = op.getdescr()
         return args
 
     def optimize_default(self, op):
@@ -495,19 +511,17 @@ class Optimizer(Optimization):
             canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
         else:
             nextop = None
-            
+
         if canfold:
             for i in range(op.numargs()):
                 if self.get_constant_box(op.getarg(i)) is None:
                     break
             else:
                 # all constant arguments: constant-fold away
-                argboxes = [self.get_constant_box(op.getarg(i))
-                            for i in range(op.numargs())]
-                resbox = execute_nonspec(self.cpu, None,
-                                         op.getopnum(), argboxes, op.getdescr())
-                # FIXME: Don't we need to check for an overflow here?
-                self.make_constant(op.result, resbox.constbox())
+                resbox = self.constant_fold(op)
+                # note that INT_xxx_OVF is not done from here, and the
+                # overflows in the INT_xxx operations are ignored
+                self.make_constant(op.result, resbox)
                 return
 
             # did we do the exact same operation already?
@@ -525,6 +539,13 @@ class Optimizer(Optimization):
         self.emit_operation(op)
         if nextop:
             self.emit_operation(nextop)
+
+    def constant_fold(self, op):
+        argboxes = [self.get_constant_box(op.getarg(i))
+                    for i in range(op.numargs())]
+        resbox = execute_nonspec(self.cpu, None,
+                                 op.getopnum(), argboxes, op.getdescr())
+        return resbox.constbox()
 
     #def optimize_GUARD_NO_OVERFLOW(self, op):
     #    # otherwise the default optimizer will clear fields, which is unwanted

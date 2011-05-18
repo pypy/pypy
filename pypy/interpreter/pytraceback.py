@@ -21,7 +21,7 @@ class PyTraceback(baseobjspace.Wrappable):
     def get_lineno(self):
         return offset2lineno(self.frame.pycode, self.lasti)
 
-    def descr_tb_lineno(space, self):
+    def descr_tb_lineno(self, space):
         return space.wrap(self.get_lineno())
 
     def descr__reduce__(self, space):

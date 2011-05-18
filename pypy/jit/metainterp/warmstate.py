@@ -7,18 +7,17 @@ from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import (PARAMETERS, OPTIMIZER_SIMPLE, OPTIMIZER_FULL,
-                           OPTIMIZER_NO_UNROLL)
+from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp import history
-from pypy.jit.codewriter import support, heaptracker
+from pypy.jit.codewriter import support, heaptracker, longlong
 
 # ____________________________________________________________
 
 @specialize.arg(0)
 def specialize_value(TYPE, x):
-    """'x' must be a Signed, a GCREF or a Float.
+    """'x' must be a Signed, a GCREF or a FLOATSTORAGE.
     This function casts it to a more specialized type, like Char or Ptr(..).
     """
     INPUT = lltype.typeOf(x)
@@ -28,15 +27,15 @@ def specialize_value(TYPE, x):
             return rffi.cast(TYPE, x)
         else:
             return lltype.cast_primitive(TYPE, x)
-    elif INPUT is lltype.Float:
+    elif INPUT is longlong.FLOATSTORAGE:
         assert TYPE is lltype.Float
-        return x
+        return longlong.getrealfloat(x)
     else:
         return lltype.cast_opaque_ptr(TYPE, x)
 
 @specialize.ll()
 def unspecialize_value(value):
-    """Casts 'value' to a Signed, a GCREF or a Float."""
+    """Casts 'value' to a Signed, a GCREF or a FLOATSTORAGE."""
     if isinstance(lltype.typeOf(value), lltype.Ptr):
         if lltype.typeOf(value).TO._gckind == 'gc':
             return lltype.cast_opaque_ptr(llmemory.GCREF, value)
@@ -46,16 +45,19 @@ def unspecialize_value(value):
     elif isinstance(lltype.typeOf(value), ootype.OOType):
         return ootype.cast_to_object(value)
     elif isinstance(value, float):
-        return value
+        return longlong.getfloatstorage(value)
     else:
-        return intmask(value)
+        return lltype.cast_primitive(lltype.Signed, value)
 
 @specialize.arg(0)
 def unwrap(TYPE, box):
     if TYPE is lltype.Void:
         return None
     if isinstance(TYPE, lltype.Ptr):
-        return box.getref(TYPE)
+        if TYPE.TO._gckind == "gc":
+            return box.getref(TYPE)
+        else:
+            return llmemory.cast_adr_to_ptr(box.getaddr(), TYPE)
     if isinstance(TYPE, ootype.OOType):
         return box.getref(TYPE)
     if TYPE == lltype.Float:
@@ -83,6 +85,7 @@ def wrap(cpu, value, in_const_box=False):
         else:
             return history.BoxObj(value)
     elif isinstance(value, float):
+        value = longlong.getfloatstorage(value)
         if in_const_box:
             return history.ConstFloat(value)
         else:
@@ -138,7 +141,11 @@ def set_future_value(cpu, j, value, typecode):
         intvalue = lltype.cast_primitive(lltype.Signed, value)
         cpu.set_future_value_int(j, intvalue)
     elif typecode == 'float':
-        assert isinstance(value, float)
+        if lltype.typeOf(value) is lltype.Float:
+            value = longlong.getfloatstorage(value)
+        else:
+            assert longlong.is_longlong(lltype.typeOf(value))
+            value = rffi.cast(lltype.SignedLongLong, value)
         cpu.set_future_value_float(j, value)
     else:
         assert False
@@ -219,27 +226,31 @@ class WarmEnterState(object):
     def set_param_inlining(self, value):
         self.inlining = value
 
-    def set_param_optimizer(self, optimizer):
-        if optimizer == OPTIMIZER_SIMPLE:
-            from pypy.jit.metainterp import simple_optimize
-            self.optimize_loop = simple_optimize.optimize_loop
-            self.optimize_bridge = simple_optimize.optimize_bridge
-        elif optimizer == OPTIMIZER_NO_UNROLL:
-            from pypy.jit.metainterp import nounroll_optimize
-            self.optimize_loop = nounroll_optimize.optimize_loop
-            self.optimize_bridge = nounroll_optimize.optimize_bridge
-        elif optimizer == OPTIMIZER_FULL:
-            from pypy.jit.metainterp import optimize
-            self.optimize_loop = optimize.optimize_loop
-            self.optimize_bridge = optimize.optimize_bridge
-        else:
-            raise ValueError("unknown optimizer")
+    def set_param_enable_opts(self, value):
+        from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
+
+        d = {}
+        if NonConstant(False):
+            value = 'blah' # not a constant ''
+        if value is None:
+            value = ALL_OPTS_NAMES
+        for name in value.split(":"):
+            if name:
+                if name not in ALL_OPTS_DICT:
+                    raise ValueError('Unknown optimization ' + name)
+                d[name] = None
+        self.enable_opts = d
 
     def set_param_loop_longevity(self, value):
         # note: it's a global parameter, not a per-jitdriver one
         if (self.warmrunnerdesc is not None and
             self.warmrunnerdesc.memory_manager is not None):   # all for tests
             self.warmrunnerdesc.memory_manager.set_max_age(value)
+
+    def set_param_retrace_limit(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.retrace_limit = value
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
@@ -284,12 +295,6 @@ class WarmEnterState(object):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
-            if NonConstant(False):
-                # make sure we always see the saner optimizer from an
-                # annotation point of view, otherwise we get lots of
-                # blocked ops
-                self.set_param_optimizer(OPTIMIZER_FULL)
-
             if vinfo is not None:
                 virtualizable = args[num_green_args + index_of_virtualizable]
                 virtualizable = vinfo.cast_to_vtype(virtualizable)
@@ -576,7 +581,7 @@ class WarmEnterState(object):
                 cell.set_entry_loop_token(entry_loop_token)
             return entry_loop_token
         self.get_assembler_token = get_assembler_token
-        
+
         #
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:

@@ -88,7 +88,7 @@ class AbstractTestRstr(BaseRtypingTest):
         for i in range(3):
             res = self.interpret(fn, [i])
             assert res is True
-        
+
     def test_char_constant(self):
         const = self.const
         def fn(s):
@@ -140,6 +140,16 @@ class AbstractTestRstr(BaseRtypingTest):
         assert res == 333331
         res = self.interpret(fn, [const('5'), 3])
         assert res == 5551
+
+    def test_str_mul(self):
+        const = self.const
+        def fn(i, mul):
+            s = ["", "a", "aba"][i]
+            return s * mul
+        for i in xrange(3):
+            for m in [0, 1, 4]:
+                res = self.interpret(fn, [i, m])
+                assert self.ll_to_string(res) == fn(i, m)
 
     def test_is_none(self):
         const = self.const
@@ -295,7 +305,7 @@ class AbstractTestRstr(BaseRtypingTest):
         for i, expected in enumerate([0, 1110, 2220, 3330, -1110, -1110]):
             res = self.interpret(f, [i])
             assert res == expected
-            
+
     def test_rfind(self):
         const = self.const
         def fn():
@@ -404,6 +414,13 @@ class AbstractTestRstr(BaseRtypingTest):
             for j in range(3):
                 res = self.interpret(fn, [i,j])
                 assert self.ll_to_string(res) == fn(i, j)
+
+        def fn(i):
+            c = ["a", "b", "c"]
+            assert i >= 0
+            return const('').join(c[i:])
+        res = self.interpret(fn, [0])
+        assert self.ll_to_string(res) == const("abc")
 
     def test_str_slice(self):
         const = self.const
@@ -524,7 +541,7 @@ class AbstractTestRstr(BaseRtypingTest):
         assert res.find('>, much nicer than <D object') != -1
 
         res = self.ll_to_string(self.interpret(dummy, [0]))
-        res = res.replace('pypy.rpython.test.test_rstr.', '')        
+        res = res.replace('pypy.rpython.test.test_rstr.', '')
         assert res.find('what a nice <D object') != -1
         assert res.find('>, much nicer than <C object') != -1
 
@@ -569,19 +586,55 @@ class AbstractTestRstr(BaseRtypingTest):
                 res = self.interpret(f, [i, newlines])
                 assert res == f(i, newlines)
 
-    def test_split(self):
+    def _make_split_test(self, split_fn):
         const = self.const
         def fn(i):
             s = [const(''), const('0.1.2.4.8'), const('.1.2'), const('1.2.'), const('.1.2.4.')][i]
-            l = s.split(const('.'))
+            l = getattr(s, split_fn)(const('.'))
             sum = 0
             for num in l:
-                 if len(num):
-                     sum += ord(num[0]) - ord(const('0')[0])
+                if len(num):
+                    sum += ord(num[0]) - ord(const('0')[0])
             return sum + len(l) * 100
+        return fn
+
+    def test_split(self):
+        fn = self._make_split_test('split')
         for i in range(5):
             res = self.interpret(fn, [i])
             assert res == fn(i)
+
+    def test_rsplit(self):
+        fn = self._make_split_test('rsplit')
+        for i in range(5):
+            res = self.interpret(fn, [i])
+            assert res == fn(i)
+
+    def _make_split_limit_test(self, split_fn):
+        const = self.const
+        def fn(i, j):
+            s = [const(''), const('0.1.2.4.8'), const('.1.2'), const('1.2.'), const('.1.2.4.')][i]
+            l = getattr(s, split_fn)(const('.'), j)
+            sum = 0
+            for num in l:
+                if len(num):
+                    sum += ord(num[0]) - ord(const('0')[0])
+            return sum + len(l) * 100
+        return fn
+
+    def test_split_limit(self):
+        fn = self._make_split_limit_test('split')
+        for i in range(5):
+            for j in range(4):
+                res = self.interpret(fn, [i, j])
+                assert res == fn(i, j)
+
+    def test_rsplit_limit(self):
+        fn = self._make_split_limit_test('rsplit')
+        for i in range(5):
+            for j in range(4):
+                res = self.interpret(fn, [i, j])
+                assert res == fn(i, j)
 
     def test_contains(self):
         const = self.const
@@ -743,7 +796,7 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('ababa').count(const('aba'))
         res = self.interpret(fn, [])
         assert res == 1
-       
+
     def test_count_TyperError(self):
         const = self.const
         def f():
@@ -754,7 +807,7 @@ class AbstractTestRstr(BaseRtypingTest):
             s = const('abc')
             s.count(s, -10)
         raises(TyperError, self.interpret, f, ())
-    
+
     def test_getitem_exc(self):
         const = self.const
         def f(x):
@@ -769,7 +822,7 @@ class AbstractTestRstr(BaseRtypingTest):
             pass
         else:
             assert False
-    
+
         def f(x):
             s = const("z")
             try:
@@ -782,7 +835,7 @@ class AbstractTestRstr(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res == 'z'
         res = self.interpret(f, [1])
-        assert res == 'X'        
+        assert res == 'X'
 
         def f(x):
             s = const("z")
@@ -839,7 +892,7 @@ class AbstractTestRstr(BaseRtypingTest):
 
         assert self.ll_to_string(self.interpret(f, [1,
                                        self.string_to_ll('abc')])) == 'ababc'
-        
+
     def test_hlstr(self):
         const = self.const
         from pypy.rpython.annlowlevel import hlstr
@@ -881,6 +934,22 @@ class AbstractTestRstr(BaseRtypingTest):
             return c[i].encode("latin-1")
         assert self.ll_to_string(self.interpret(f, [0])) == "a"
 
+    def test_str_none(self):
+        const = self.const
+        def g():
+            pass
+        def f(i):
+            if i > 5:
+                u = None
+            else:
+                u = const('xxx')
+            g()    # hack for flow object space
+            return str(u)
+        assert self.ll_to_string(self.interpret(f, [3])) == 'xxx'
+        got = self.interpret(f, [7])
+        assert self.ll_to_string(got) == 'None'
+
+
 def FIXME_test_str_to_pystringobj():
     def f(n):
         if n >= 0:
@@ -906,7 +975,7 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
     def test_ll_find_rfind(self):
         llstr = self.string_to_ll
-        
+
         for i in range(50):
             n1 = random.randint(0, 10)
             s1 = ''.join([random.choice("ab") for i in range(n1)])

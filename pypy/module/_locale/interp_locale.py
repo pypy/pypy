@@ -3,7 +3,7 @@ from pypy.rlib import rposix
 from pypy.rlib.rarithmetic import intmask
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, W_Root
+from pypy.interpreter.gateway import unwrap_spec
 
 from pypy.rlib import rlocale
 from pypy.module.exceptions.interp_exceptions import _new_exception, W_Exception
@@ -45,6 +45,7 @@ def _fixup_ulcase(space):
             ul.append(chr(c))
     space.setattr(stringmod, space.wrap('letters'), space.wrap(''.join(ul)))
 
+@unwrap_spec(category=int)
 def setlocale(space, category, w_locale=None):
     "(integer,string=None) -> string. Activates/queries locale processing."
 
@@ -63,11 +64,6 @@ def setlocale(space, category, w_locale=None):
 
     return space.wrap(result)
 
-setlocale.unwrap_spec = [ObjSpace, int, W_Root]
-
-_lconv = lltype.Ptr(rlocale.cConfig.lconv)
-_localeconv = rlocale.external('localeconv', [], _lconv)
-
 def _w_copy_grouping(space, text):
     groups = [ space.wrap(ord(group)) for group in text ]
     if groups:
@@ -76,7 +72,7 @@ def _w_copy_grouping(space, text):
 
 def localeconv(space):
     "() -> dict. Returns numeric and monetary locale-specific parameters."
-    lp = _localeconv()
+    lp = rlocale.localeconv()
 
     # Numeric information
     w_result = space.newdict()
@@ -120,8 +116,6 @@ def localeconv(space):
 
     return w_result
 
-localeconv.unwrap_spec = [ObjSpace]
-
 _strcoll = rlocale.external('strcoll', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
 _wcscoll = rlocale.external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 
@@ -157,11 +151,10 @@ def strcoll(space, w_s1, w_s2):
 
     return space.wrap(result)
 
-strcoll.unwrap_spec = [ObjSpace, W_Root, W_Root]
-
 _strxfrm = rlocale.external('strxfrm',
                     [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T)
 
+@unwrap_spec(s=str)
 def strxfrm(space, s):
     "string -> string. Returns a string that behaves for cmp locale-aware."
     n1 = len(s) + 1
@@ -188,10 +181,9 @@ def strxfrm(space, s):
 
     return space.wrap(val)
 
-strxfrm.unwrap_spec = [ObjSpace, str]
-
 if rlocale.HAVE_LANGINFO:
 
+    @unwrap_spec(key=int)
     def nl_langinfo(space, key):
         """nl_langinfo(key) -> string
         Return the value for the locale information associated with key."""
@@ -202,14 +194,13 @@ if rlocale.HAVE_LANGINFO:
             raise OperationError(space.w_ValueError,
                                  space.wrap("unsupported langinfo constant"))
 
-    nl_langinfo.unwrap_spec = [ObjSpace, int]
-
 #___________________________________________________________________
 # HAVE_LIBINTL dependence
 
 if rlocale.HAVE_LIBINTL:
     _gettext = rlocale.external('gettext', [rffi.CCHARP], rffi.CCHARP)
 
+    @unwrap_spec(msg=str)
     def gettext(space, msg):
         """gettext(msg) -> string
         Return translation of msg."""
@@ -219,10 +210,9 @@ if rlocale.HAVE_LIBINTL:
         finally:
             rffi.free_charp(msg_c)
 
-    gettext.unwrap_spec = [ObjSpace, str]
-
     _dgettext = rlocale.external('dgettext', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
+    @unwrap_spec(msg=str)
     def dgettext(space, w_domain, msg):
         """dgettext(domain, msg) -> string
         Return translation of msg in domain."""
@@ -231,6 +221,10 @@ if rlocale.HAVE_LIBINTL:
             msg_c = rffi.str2charp(msg)
             try:
                 result = _dgettext(domain, msg_c)
+                # note that 'result' may be the same pointer as 'msg_c',
+                # so it must be converted to an RPython string *before*
+                # we free msg_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(msg_c)
         else:
@@ -239,17 +233,20 @@ if rlocale.HAVE_LIBINTL:
             msg_c = rffi.str2charp(msg)
             try:
                 result = _dgettext(domain_c, msg_c)
+                # note that 'result' may be the same pointer as 'msg_c',
+                # so it must be converted to an RPython string *before*
+                # we free msg_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(domain_c)
                 rffi.free_charp(msg_c)
 
-        return space.wrap(rffi.charp2str(result))
-
-    dgettext.unwrap_spec = [ObjSpace, W_Root, str]
+        return space.wrap(result)
 
     _dcgettext = rlocale.external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT],
                                                                 rffi.CCHARP)
 
+    @unwrap_spec(msg=str, category=int)
     def dcgettext(space, w_domain, msg, category):
         """dcgettext(domain, msg, category) -> string
         Return translation of msg in domain and category."""
@@ -259,6 +256,10 @@ if rlocale.HAVE_LIBINTL:
             msg_c = rffi.str2charp(msg)
             try:
                 result = _dcgettext(domain, msg_c, rffi.cast(rffi.INT, category))
+                # note that 'result' may be the same pointer as 'msg_c',
+                # so it must be converted to an RPython string *before*
+                # we free msg_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(msg_c)
         else:
@@ -268,13 +269,15 @@ if rlocale.HAVE_LIBINTL:
             try:
                 result = _dcgettext(domain_c, msg_c,
                                     rffi.cast(rffi.INT, category))
+                # note that 'result' may be the same pointer as 'msg_c',
+                # so it must be converted to an RPython string *before*
+                # we free msg_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(domain_c)
                 rffi.free_charp(msg_c)
 
-        return space.wrap(rffi.charp2str(result))
-
-    dcgettext.unwrap_spec = [ObjSpace, W_Root, str, int]
+        return space.wrap(result)
 
 
     _textdomain = rlocale.external('textdomain', [rffi.CCHARP], rffi.CCHARP)
@@ -286,21 +289,25 @@ if rlocale.HAVE_LIBINTL:
         if space.is_w(w_domain, space.w_None):
             domain = None
             result = _textdomain(domain)
+            result = rffi.charp2str(result)
         else:
             domain = space.str_w(w_domain)
             domain_c = rffi.str2charp(domain)
             try:
                 result = _textdomain(domain_c)
+                # note that 'result' may be the same pointer as 'domain_c'
+                # (maybe?) so it must be converted to an RPython string
+                # *before* we free domain_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(domain_c)
 
-        return space.wrap(rffi.charp2str(result))
-
-    textdomain.unwrap_spec = [ObjSpace, W_Root]
+        return space.wrap(result)
 
     _bindtextdomain = rlocale.external('bindtextdomain', [rffi.CCHARP, rffi.CCHARP],
                                                                 rffi.CCHARP)
 
+    @unwrap_spec(domain=str)
     def bindtextdomain(space, domain, w_dir):
         """bindtextdomain(domain, dir) -> string
         Bind the C library's domain to dir."""
@@ -327,12 +334,11 @@ if rlocale.HAVE_LIBINTL:
             raise OperationError(space.w_OSError, space.wrap(errno))
         return space.wrap(rffi.charp2str(dirname))
 
-    bindtextdomain.unwrap_spec = [ObjSpace, str, W_Root]
-
     _bind_textdomain_codeset = rlocale.external('bind_textdomain_codeset',
                                     [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
     if rlocale.HAVE_BIND_TEXTDOMAIN_CODESET:
+        @unwrap_spec(domain=str)
         def bind_textdomain_codeset(space, domain, w_codeset):
             """bind_textdomain_codeset(domain, codeset) -> string
             Bind the C library's domain to codeset."""
@@ -358,8 +364,6 @@ if rlocale.HAVE_LIBINTL:
                 return space.w_None
             else:
                 return space.wrap(rffi.charp2str(result))
-
-        bind_textdomain_codeset.unwrap_spec = [ObjSpace, str, W_Root]
 
 if sys.platform == 'win32':
     def getdefaultlocale(space):

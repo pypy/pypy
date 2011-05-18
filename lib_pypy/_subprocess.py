@@ -42,6 +42,10 @@ _GetExitCodeProcess = _kernel32.GetExitCodeProcess
 _GetExitCodeProcess.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
 _GetExitCodeProcess.restype = ctypes.c_int
 
+_TerminateProcess = _kernel32.TerminateProcess
+_TerminateProcess.argtypes = [ctypes.c_int, ctypes.c_int]
+_TerminateProcess.restype = ctypes.c_int
+
 _GetStdHandle = _kernel32.GetStdHandle
 _GetStdHandle.argtypes = [ctypes.c_int]
 _GetStdHandle.restype = ctypes.c_int
@@ -92,6 +96,10 @@ class _handle:
     def __int__(self):
         return self.handle
 
+    def __del__(self):
+        if self.handle is not None:
+            _CloseHandle(self.handle)
+
     def Detach(self):
         handle, self.handle = self.handle, None
         return handle
@@ -133,14 +141,15 @@ DUPLICATE_SAME_ACCESS = 2
 def CreateProcess(name, command_line, process_attr, thread_attr,
                   inherit, flags, env, start_dir, startup_info):
     si = _STARTUPINFO()
-    si.dwFlags = startup_info.dwFlags
-    si.wShowWindow = getattr(startup_info, 'wShowWindow', 0)
-    if startup_info.hStdInput:
-        si.hStdInput = startup_info.hStdInput.handle
-    if startup_info.hStdOutput:
-        si.hStdOutput = startup_info.hStdOutput.handle
-    if startup_info.hStdError:
-        si.hStdError = startup_info.hStdError.handle
+    if startup_info is not None:
+        si.dwFlags = startup_info.dwFlags
+        si.wShowWindow = startup_info.wShowWindow
+        if startup_info.hStdInput:
+            si.hStdInput = int(startup_info.hStdInput)
+        if startup_info.hStdOutput:
+            si.hStdOutput = int(startup_info.hStdOutput)
+        if startup_info.hStdError:
+            si.hStdError = int(startup_info.hStdError)
 
     pi = _PROCESS_INFORMATION()
 
@@ -162,10 +171,11 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
 STARTF_USESHOWWINDOW = 0x001
 STARTF_USESTDHANDLES = 0x100
 SW_HIDE              = 0
-CREATE_NEW_CONSOLE   = 0x010
+CREATE_NEW_CONSOLE       = 0x010
+CREATE_NEW_PROCESS_GROUP = 0x200
 
 def WaitForSingleObject(handle, milliseconds):
-    res = _WaitForSingleObject(handle.handle, milliseconds)
+    res = _WaitForSingleObject(int(handle), milliseconds)
 
     if res < 0:
         raise WindowsError("Error")
@@ -177,12 +187,18 @@ WAIT_OBJECT_0 = 0
 def GetExitCodeProcess(handle):
     code = _c_int()
     
-    res = _GetExitCodeProcess(handle.handle, _byref(code))
+    res = _GetExitCodeProcess(int(handle), _byref(code))
 
     if not res:
         raise WindowsError("Error")
 
     return code.value
+
+def TerminateProcess(handle, exitcode):
+    res = _TerminateProcess(int(handle), exitcode)
+
+    if not res:
+        raise WindowsError("Error")
 
 def GetStdHandle(stdhandle):
     res = _GetStdHandle(stdhandle)

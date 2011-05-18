@@ -166,6 +166,12 @@ EXPORT(int) _testfunc_callback_opaque(int (*func)(void*), void* arg)
   return (*func)(arg);
 }
 
+EXPORT(int) _testfunc_callback_void(void (*func)(void))
+{
+    func();
+    return 0;
+}
+
 #ifdef HAVE_LONG_LONG
 EXPORT(LONG_LONG) _testfunc_q_bhilfdq(signed char b, short h, int i, long l, float f,
 				     double d, LONG_LONG q)

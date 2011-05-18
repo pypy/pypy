@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rstruct.error import StructError
 from pypy.module.struct.formatiterator import CalcSizeFormatIterator
@@ -6,6 +6,7 @@ from pypy.module.struct.formatiterator import PackFormatIterator
 from pypy.module.struct.formatiterator import UnpackFormatIterator
 
 
+@unwrap_spec(format=str)
 def calcsize(space, format):
     fmtiter = CalcSizeFormatIterator()
     try:
@@ -13,9 +14,9 @@ def calcsize(space, format):
     except StructError, e:
         raise e.at_applevel(space)
     return space.wrap(fmtiter.totalsize)
-calcsize.unwrap_spec = [ObjSpace, str]
 
 
+@unwrap_spec(format=str)
 def pack(space, format, args_w):
     fmtiter = PackFormatIterator(space, args_w)
     try:
@@ -24,9 +25,9 @@ def pack(space, format, args_w):
         raise e.at_applevel(space)
     result = ''.join(fmtiter.result)
     return space.wrap(result)
-pack.unwrap_spec = [ObjSpace, str, 'args_w']
 
 
+@unwrap_spec(format=str, input='bufferstr')
 def unpack(space, format, input):
     fmtiter = UnpackFormatIterator(space, input)
     try:
@@ -34,4 +35,3 @@ def unpack(space, format, input):
     except StructError, e:
         raise e.at_applevel(space)
     return space.newtuple(fmtiter.result_w[:])
-unpack.unwrap_spec = [ObjSpace, str, 'bufferstr']

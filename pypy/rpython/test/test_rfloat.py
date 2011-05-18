@@ -2,8 +2,8 @@ import sys
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test import snippet
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_singlefloat,\
-     isnan, isinf
+from pypy.rlib.rarithmetic import (
+    r_int, r_uint, r_longlong, r_ulonglong, r_singlefloat)
 from pypy.rlib.objectmodel import compute_hash
 
 class TestSnippet(object):
@@ -114,6 +114,21 @@ class BaseTestRfloat(BaseRtypingTest):
         res = self.interpret(fn, [-9])
         assert self.float_eq(res, 0.5 * ((sys.maxint+1)*2 - 9))
 
+    def test_to_r_ulonglong(self):
+        def fn(x):
+            return r_ulonglong(x)
+        res = self.interpret(fn, [12.34])
+        assert res == 12
+        bigval = sys.maxint * 1.234
+        res = self.interpret(fn, [bigval])
+        assert long(res) == long(bigval)
+
+    def test_from_r_ulonglong(self):
+        def fn(n):
+            return float(r_ulonglong(n)) / 2
+        res = self.interpret(fn, [41])
+        assert self.float_eq(res, 20.5)
+
     def test_r_singlefloat(self):
         def fn(x):
             y = r_singlefloat(x)
@@ -140,6 +155,66 @@ class BaseTestRfloat(BaseRtypingTest):
             finally:
                 return x
         self.interpret(fn, [1.0, 2.0, 3.0])
+
+    def test_copysign(self):
+        from pypy.rlib import rfloat
+        def fn(x, y):
+            return rfloat.copysign(x, y)
+        assert self.interpret(fn, [42, -1]) == -42
+        assert self.interpret(fn, [42, -0.0]) == -42
+        assert self.interpret(fn, [42, 0.0]) == 42
+
+    def test_rstring_to_float(self):
+        from pypy.rlib.rfloat import rstring_to_float
+        def fn(i):
+            s = ['42.3', '123.4'][i]
+            return rstring_to_float(s)
+        assert self.interpret(fn, [0]) == 42.3
+
+    def test_isnan(self):
+        from pypy.rlib import rfloat
+        def fn(x, y):
+            n1 = x * x
+            n2 = y * y * y
+            return rfloat.isnan(n1 / n2)
+        if self.__class__.__name__ != 'TestCliFloat':
+            # the next line currently fails on mono 2.6.7 (ubuntu 11.04), see:
+            # https://bugzilla.novell.com/show_bug.cgi?id=692493
+            assert self.interpret(fn, [1e200, 1e200])   # nan
+        #
+        assert not self.interpret(fn, [1e200, 1.0])   # +inf
+        assert not self.interpret(fn, [1e200, -1.0])  # -inf
+        assert not self.interpret(fn, [42.5, 2.3])    # +finite
+        assert not self.interpret(fn, [42.5, -2.3])   # -finite
+
+    def test_isinf(self):
+        from pypy.rlib import rfloat
+        def fn(x, y):
+            n1 = x * x
+            n2 = y * y * y
+            return rfloat.isinf(n1 / n2)
+        assert self.interpret(fn, [1e200, 1.0])       # +inf
+        assert self.interpret(fn, [1e200, -1.0])      # -inf
+        assert not self.interpret(fn, [1e200, 1e200]) # nan
+        assert not self.interpret(fn, [42.5, 2.3])    # +finite
+        assert not self.interpret(fn, [42.5, -2.3])   # -finite
+
+    def test_isfinite(self):
+        from pypy.rlib import rfloat
+        def fn(x, y):
+            n1 = x * x
+            n2 = y * y * y
+            return rfloat.isfinite(n1 / n2)
+        assert self.interpret(fn, [42.5, 2.3])        # +finite
+        assert self.interpret(fn, [42.5, -2.3])       # -finite
+        assert not self.interpret(fn, [1e200, 1.0])   # +inf
+        assert not self.interpret(fn, [1e200, -1.0])  # -inf
+        #
+        if self.__class__.__name__ != 'TestCliFloat':
+            # the next line currently fails on mono 2.6.7 (ubuntu 11.04), see:
+            # https://bugzilla.novell.com/show_bug.cgi?id=692493
+            assert not self.interpret(fn, [1e200, 1e200]) # nan
+
 
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 

@@ -15,6 +15,7 @@ _WIN32 = sys.platform == "win32"
 _MSVC  = target_platform.name == "msvc"
 _MINGW = target_platform.name == "mingw32"
 _SOLARIS = sys.platform == "sunos5"
+_MACOSX = sys.platform == "darwin"
 
 if _POSIX:
     includes = ('sys/types.h',
@@ -60,46 +61,39 @@ if _WIN32:
         ]
     if _MSVC:
         header_lines.extend([
+            '#include <Mstcpip.h>',
             # these types do not exist on microsoft compilers
             'typedef int ssize_t;',
             'typedef unsigned __int16 uint16_t;',
             'typedef unsigned __int32 uint32_t;',
             ])
-    else:
+    else: # MINGW
         includes = ('stdint.h',)
+        header_lines.extend([
+            '''\
+            #ifndef _WIN32_WINNT
+            #define _WIN32_WINNT 0x0501
+            #endif''',
+            '#define SIO_RCVALL             _WSAIOW(IOC_VENDOR,1)',
+            '#define SIO_KEEPALIVE_VALS     _WSAIOW(IOC_VENDOR,4)',
+            '#define RCVALL_OFF             0',
+            '#define RCVALL_ON              1',
+            '#define RCVALL_SOCKETLEVELONLY 2',
+            '''\
+            struct tcp_keepalive {
+                u_long  onoff;
+                u_long  keepalivetime;
+                u_long  keepaliveinterval;
+            };'''
+            ])
     HEADER = '\n'.join(header_lines)
     COND_HEADER = ''
 constants = {}
-
-sources = ["""
-    void pypy_macro_wrapper_FD_SET(int fd, fd_set *set)
-    {
-        FD_SET(fd, set);
-    }
-    void pypy_macro_wrapper_FD_ZERO(fd_set *set)
-    {
-        FD_ZERO(set);
-    }
-    void pypy_macro_wrapper_FD_CLR(int fd, fd_set *set)
-    {
-        FD_CLR(fd, set);
-    }
-    int pypy_macro_wrapper_FD_ISSET(int fd, fd_set *set)
-    {
-        return FD_ISSET(fd, set);
-    }
-    """]
 
 eci = ExternalCompilationInfo(
     post_include_bits = [HEADER, COND_HEADER],
     includes = includes,
     libraries = libraries,
-    separate_module_sources = sources,
-    export_symbols = ['pypy_macro_wrapper_FD_ZERO',
-                      'pypy_macro_wrapper_FD_SET',
-                      'pypy_macro_wrapper_FD_CLR',
-                      'pypy_macro_wrapper_FD_ISSET',
-                      ],
 )
 
 class CConfig:
@@ -116,6 +110,8 @@ class CConfig:
     INVALID_SOCKET = platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = platform.DefinedConstantInteger('INET_ADDRSTRLEN')
     INET6_ADDRSTRLEN= platform.DefinedConstantInteger('INET6_ADDRSTRLEN')
+    EINTR = platform.DefinedConstantInteger('EINTR')
+    WSAEINTR = platform.DefinedConstantInteger('WSAEINTR')
     EINPROGRESS = platform.DefinedConstantInteger('EINPROGRESS')
     WSAEINPROGRESS = platform.DefinedConstantInteger('WSAEINPROGRESS')
     EWOULDBLOCK = platform.DefinedConstantInteger('EWOULDBLOCK')
@@ -195,13 +191,20 @@ WSA_WAIT_TIMEOUT WSA_WAIT_FAILED INFINITE
 FD_CONNECT_BIT FD_CLOSE_BIT
 WSA_IO_PENDING WSA_IO_INCOMPLETE WSA_INVALID_HANDLE
 WSA_INVALID_PARAMETER WSA_NOT_ENOUGH_MEMORY WSA_OPERATION_ABORTED
+SIO_RCVALL SIO_KEEPALIVE_VALS
 
 SIOCGIFNAME
 '''.split()
 
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
-    
+
+if _WIN32:
+    # some SDKs define these values with an enum, #ifdef won't work
+    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY'):
+        setattr(CConfig, name, platform.ConstantInteger(name))
+        constant_names.append(name)
+
 constants["BDADDR_ANY"] =  "00:00:00:00:00:00"
 constants["BDADDR_LOCAL"] = "00:00:00:FF:FF:FF"
 
@@ -354,6 +357,12 @@ if _WIN32:
                                       ('iMaxUdpDg', rffi.USHORT),
                                       ('lpVendorInfo', CCHARP)])
 
+    CConfig.tcp_keepalive = platform.Struct(
+        'struct tcp_keepalive',
+        [('onoff', rffi.ULONG),
+         ('keepalivetime', rffi.ULONG),
+         ('keepaliveinterval', rffi.ULONG)])
+
 
 class cConfig:
     pass
@@ -392,6 +401,7 @@ F_SETFL = cConfig.F_SETFL
 FIONBIO = cConfig.FIONBIO
 INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN
 INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
+EINTR = cConfig.EINTR or cConfig.WSAEINTR
 EINPROGRESS = cConfig.EINPROGRESS or cConfig.WSAEINPROGRESS
 EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
 EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT
@@ -401,7 +411,7 @@ linux = cConfig.linux
 WIN32 = cConfig.WIN32
 assert WIN32 == _WIN32
 
-if WIN32:
+if _MSVC:
     def invalid_socket(fd):
         return fd == INVALID_SOCKET
     INVALID_SOCKET = cConfig.INVALID_SOCKET
@@ -429,7 +439,8 @@ addrinfo = cConfig.addrinfo
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
-    sockaddr_ll = cConfig.sockaddr_ll
+    if cConfig.sockaddr_ll is not None:
+        sockaddr_ll = cConfig.sockaddr_ll
     ifreq = cConfig.ifreq
 if WIN32:
     WSAEVENT = cConfig.WSAEVENT
@@ -448,9 +459,9 @@ def external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            calling_conv=calling_conv)
 
-def external_c(name, args, result):
+def external_c(name, args, result, **kwargs):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           calling_conv='c')
+                           calling_conv='c', **kwargs)
 
 if _POSIX:
     dup = external('dup', [socketfd_type], socketfd_type)
@@ -547,17 +558,22 @@ select = external('select',
                    fd_set, lltype.Ptr(timeval)],
                   rffi.INT)
 
-FD_CLR = external_c('pypy_macro_wrapper_FD_CLR', [rffi.INT, fd_set], lltype.Void)
-FD_ISSET = external_c('pypy_macro_wrapper_FD_ISSET', [rffi.INT, fd_set], rffi.INT)
-FD_SET = external_c('pypy_macro_wrapper_FD_SET', [rffi.INT, fd_set], lltype.Void)
-FD_ZERO = external_c('pypy_macro_wrapper_FD_ZERO', [fd_set], lltype.Void)
+FD_CLR = external_c('FD_CLR', [rffi.INT, fd_set], lltype.Void, macro=True)
+FD_ISSET = external_c('FD_ISSET', [rffi.INT, fd_set], rffi.INT, macro=True)
+FD_SET = external_c('FD_SET', [rffi.INT, fd_set], lltype.Void, macro=True)
+FD_ZERO = external_c('FD_ZERO', [fd_set], lltype.Void, macro=True)
 
 if _POSIX:
     pollfdarray = rffi.CArray(pollfd)
     poll = external('poll', [lltype.Ptr(pollfdarray), nfds_t, rffi.INT],
                     rffi.INT)
-    
+    # workaround for Mac OS/X on which poll() seems to behave a bit strangely
+    # (see test_recv_send_timeout in pypy.module._socket.test.test_sock_app)
+    # https://issues.apache.org/bugzilla/show_bug.cgi?id=34332
+    poll_may_be_broken = _MACOSX
+
 elif WIN32:
+    from pypy.rlib import rwin32
     #
     # The following is for pypy.rlib.rpoll
     #
@@ -580,6 +596,14 @@ elif WIN32:
                                     [socketfd_type, WSAEVENT,
                                      lltype.Ptr(WSANETWORKEVENTS)],
                                     rffi.INT)
+
+    WSAIoctl = external('WSAIoctl',
+                        [socketfd_type, rwin32.DWORD,
+                         rffi.VOIDP, rwin32.DWORD,
+                         rffi.VOIDP, rwin32.DWORD,
+                         rwin32.LPDWORD, rffi.VOIDP, rffi.VOIDP],
+                        rffi.INT)
+    tcp_keepalive = cConfig.tcp_keepalive
 
 if WIN32:
     WSAData = cConfig.WSAData

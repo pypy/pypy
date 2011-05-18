@@ -1,6 +1,7 @@
 from pypy.interpreter import typedef
 from pypy.tool.udir import udir
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.gateway import ObjSpace
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
@@ -126,12 +127,15 @@ class TestTypeDef:
                                checks[2], checks[3]))
         subclasses = {}
         for key, subcls in typedef._subclass_cache.items():
+            if key[0] is not space.config:
+                continue
             cls = key[1]
             subclasses.setdefault(cls, {})
-            subclasses[cls][subcls] = True
+            prevsubcls = subclasses[cls].setdefault(subcls.__name__, subcls)
+            assert subcls is prevsubcls
         for cls, set in subclasses.items():
             assert len(set) <= 6, "%s has %d subclasses:\n%r" % (
-                cls, len(set), [subcls.__name__ for subcls in set])
+                cls, len(set), list(set))
 
     def test_getsetproperty(self):
         class W_SomeType(Wrappable):
@@ -144,6 +148,37 @@ class TestTypeDef:
             x=prop)
         w_obj = self.space.wrap(W_SomeType())
         assert self.space.getattr(w_obj, self.space.wrap('x')) is self.space.w_None
+
+    def test_getsetproperty_arguments(self):
+        class W_SomeType(Wrappable):
+            def fget1(space, w_self):
+                assert isinstance(space, ObjSpace)
+                assert isinstance(w_self, W_SomeType)
+            def fget2(self, space):
+                assert isinstance(space, ObjSpace)
+                assert isinstance(self, W_SomeType)
+        W_SomeType.typedef = typedef.TypeDef(
+            'some_type',
+            x1=typedef.GetSetProperty(W_SomeType.fget1),
+            x2=typedef.GetSetProperty(W_SomeType.fget2),
+            )
+        space = self.space
+        w_obj = space.wrap(W_SomeType())
+        assert space.getattr(w_obj, space.wrap('x1')) == space.w_None
+        assert space.getattr(w_obj, space.wrap('x2')) == space.w_None
+
+    def test_unhashable(self):
+        class W_SomeType(Wrappable):
+            pass
+        W_SomeType.typedef = typedef.TypeDef(
+            'some_type',
+            __hash__ = None)
+        w_obj = self.space.wrap(W_SomeType())
+        self.space.appexec([w_obj], """(obj):
+            assert type(obj).__hash__ is None
+            err = raises(TypeError, hash, obj)
+            assert err.value.message == "'some_type' objects are unhashable"
+            """)
 
 
 class AppTestTypeDef:

@@ -26,6 +26,21 @@ class TestSliceObject(BaseApiTest):
             return rv
         assert get_indices(w(10), w(20), w(1), 200) == (10, 20, 1, 10)
 
+    def test_GetIndices(self, space, api):
+        w = space.wrap
+        def get_indices(w_start, w_stop, w_step, length):
+            w_slice = space.newslice(w_start, w_stop, w_step)
+            values = lltype.malloc(Py_ssize_tP.TO, 3, flavor='raw')
+            
+            res = api.PySlice_GetIndices(w_slice, 100, values, 
+                rffi.ptradd(values, 1), 
+                rffi.ptradd(values, 2))
+            assert res == 0
+            rv = values[0], values[1], values[2]
+            lltype.free(values, flavor='raw')
+            return rv
+        assert get_indices(w(10), w(20), w(1), 200) == (10, 20, 1)
+
 class AppTestSliceMembers(AppTestCpythonExtensionBase):
     def test_members(self):
         module = self.import_extension('foo', [

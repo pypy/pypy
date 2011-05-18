@@ -10,11 +10,13 @@
 typedef struct { char c; long long x; } s_long_long;
 typedef struct { char c; float x; } s_float;
 typedef struct { char c; double x; } s_double;
+typedef struct { char c; long double x; } s_long_double;
 typedef struct { char c; void *x; } s_void_p;
 #define FLOAT_ALIGN (sizeof(s_float) - sizeof(float))
 #define DOUBLE_ALIGN (sizeof(s_double) - sizeof(double))
 #define LONG_LONG_ALIGN (sizeof(s_long_long) - sizeof(long long))
 #define VOID_P_ALIGN (sizeof(s_void_p) - sizeof(void*))
+#define LONGDOUBLE_ALIGN (sizeof(s_long_double) - sizeof(long double))
 
 /* align and size are bogus for void, but they must not be zero */
 ffi_type ffi_type_void = { 1, 1, FFI_TYPE_VOID };
@@ -33,6 +35,7 @@ ffi_type ffi_type_sint64 = { 8, LONG_LONG_ALIGN, FFI_TYPE_SINT64 };
 
 ffi_type ffi_type_float = { sizeof(float), FLOAT_ALIGN, FFI_TYPE_FLOAT };
 ffi_type ffi_type_double = { sizeof(double), DOUBLE_ALIGN, FFI_TYPE_DOUBLE };
+ffi_type ffi_type_longdouble = { sizeof(long double), LONGDOUBLE_ALIGN, FFI_TYPE_LONGDOUBLE };
 
 ffi_type ffi_type_pointer = { sizeof(void *), VOID_P_ALIGN, FFI_TYPE_POINTER };
 

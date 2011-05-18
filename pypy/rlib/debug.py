@@ -175,6 +175,7 @@ class Entry(ExtRegistryEntry):
         c_pythonfunction = hop.inputconst(lltype.Void, pythonfunction)
         args_v = [hop.inputarg(hop.args_r[i], arg=i)
                   for i in range(2, hop.nb_args)]
+        hop.exception_is_here()
         return hop.genop('debug_llinterpcall', [c_pythonfunction] + args_v,
                          resulttype=RESTYPE)
 
@@ -233,6 +234,9 @@ class IntegerCanBeNegative(Exception):
 class UnexpectedRUInt(Exception):
     pass
 
+class ExpectedRegularInt(Exception):
+    pass
+
 def check_nonneg(x):
     """Give a translation-time error if 'x' is not known to be non-negative.
     To help debugging, this also gives a translation-time error if 'x' is
@@ -254,6 +258,26 @@ class Entry(ExtRegistryEntry):
         s_nonneg = SomeInteger(nonneg=True)
         if not s_nonneg.contains(s_arg):
             raise IntegerCanBeNegative
+        return s_arg
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
+def check_regular_int(x):
+    """Give a translation-time error if 'x' is not a plain int
+    (e.g. if it's a r_longlong or an r_uint).
+    """
+    assert type(x) is int
+    return x
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_regular_int
+
+    def compute_result_annotation(self, s_arg):
+        from pypy.annotation.model import SomeInteger
+        if not SomeInteger().contains(s_arg):
+            raise ExpectedRegularInt(s_arg)
         return s_arg
 
     def specialize_call(self, hop):

@@ -7,17 +7,26 @@ from pypy.jit.metainterp.warmstate import equal_whatever, hash_whatever
 from pypy.jit.metainterp.warmstate import WarmEnterState, JitCell
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
+from pypy.jit.codewriter import longlong
+
+def boxfloat(x):
+    return BoxFloat(longlong.getfloatstorage(x))
+
+def constfloat(x):
+    return ConstFloat(longlong.getfloatstorage(x))
 
 
 def test_unwrap():
     S = lltype.GcStruct('S')
+    RS = lltype.Struct('S')
     p = lltype.malloc(S)
     po = lltype.cast_opaque_ptr(llmemory.GCREF, p)
     assert unwrap(lltype.Void, BoxInt(42)) is None
     assert unwrap(lltype.Signed, BoxInt(42)) == 42
     assert unwrap(lltype.Char, BoxInt(42)) == chr(42)
-    assert unwrap(lltype.Float, BoxFloat(42.5)) == 42.5
+    assert unwrap(lltype.Float, boxfloat(42.5)) == 42.5
     assert unwrap(lltype.Ptr(S), BoxPtr(po)) == p
+    assert unwrap(lltype.Ptr(RS), BoxInt(0)) == lltype.nullptr(RS)
 
 def test_wrap():
     def _is(box1, box2):
@@ -26,10 +35,10 @@ def test_wrap():
     p = lltype.malloc(lltype.GcStruct('S'))
     po = lltype.cast_opaque_ptr(llmemory.GCREF, p)
     assert _is(wrap(None, 42), BoxInt(42))
-    assert _is(wrap(None, 42.5), BoxFloat(42.5))
+    assert _is(wrap(None, 42.5), boxfloat(42.5))
     assert _is(wrap(None, p), BoxPtr(po))
     assert _is(wrap(None, 42, in_const_box=True), ConstInt(42))
-    assert _is(wrap(None, 42.5, in_const_box=True), ConstFloat(42.5))
+    assert _is(wrap(None, 42.5, in_const_box=True), constfloat(42.5))
     assert _is(wrap(None, p, in_const_box=True), ConstPtr(po))
 
 def test_hash_equal_whatever_lltype():
@@ -138,7 +147,7 @@ def test_make_set_future_values():
     set_future_values(5, 42.5)
     assert future_values == {
         0: ("int", 5),
-        1: ("float", 42.5),
+        1: ("float", longlong.getfloatstorage(42.5)),
     }
     assert set_future_values is state.make_set_future_values()
 
@@ -147,7 +156,7 @@ def test_make_unwrap_greenkey():
         _green_args_spec = [lltype.Signed, lltype.Float]
     state = WarmEnterState(None, FakeJitDriverSD())
     unwrap_greenkey = state.make_unwrap_greenkey()
-    greenargs = unwrap_greenkey([ConstInt(42), ConstFloat(42.5)])
+    greenargs = unwrap_greenkey([ConstInt(42), constfloat(42.5)])
     assert greenargs == (42, 42.5)
     assert type(greenargs[0]) is int
 
@@ -161,7 +170,7 @@ def test_attach_unoptimized_bridge_from_interp():
         pass
     looptoken = FakeLoopToken()
     state.attach_unoptimized_bridge_from_interp([ConstInt(5),
-                                                 ConstFloat(2.25)],
+                                                 constfloat(2.25)],
                                                 looptoken)
     cell1 = get_jitcell(True, 5, 2.25)
     assert cell1.counter < 0
@@ -183,7 +192,7 @@ def test_make_jitdriver_callbacks_1():
         return FakeCell()
     state.jit_getter = jit_getter
     state.make_jitdriver_callbacks()
-    res = state.get_location_str([ConstInt(5), ConstFloat(42.5)])
+    res = state.get_location_str([ConstInt(5), constfloat(42.5)])
     assert res == '(no jitdriver.get_printable_location!)'
 
 def test_make_jitdriver_callbacks_3():
@@ -205,7 +214,7 @@ def test_make_jitdriver_callbacks_3():
         _get_jitcell_at_ptr = None
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
-    res = state.get_location_str([ConstInt(5), ConstFloat(42.5)])
+    res = state.get_location_str([ConstInt(5), constfloat(42.5)])
     assert res == "hi there"
 
 def test_make_jitdriver_callbacks_4():

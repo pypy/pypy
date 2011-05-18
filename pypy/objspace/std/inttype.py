@@ -1,6 +1,8 @@
-from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter import gateway, typedef
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.buffer import Buffer
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import (string_to_int, string_to_bigint,
                                        ParseStringError,
                                        ParseStringOverflowError)
@@ -8,6 +10,25 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.objectmodel import instantiate
 
 # ____________________________________________________________
+
+int_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any int.")
+
+def int_conjugate__ANY(space, w_int):
+    return space.pos(w_int)
+
+int_bit_length = SMM("bit_length", 1, doc="int.bit_length() -> int\n\nNumber of bits necessary to represent self in binary.\n>>> bin(37)\n'0b100101'\n>>> (37).bit_length()\n6")
+
+def int_bit_length__ANY(space, w_int):
+    val = space.int_w(w_int)
+    if val < 0:
+        val = -val
+    bits = 0
+    while val:
+        bits += 1
+        val >>= 1
+    return space.wrap(bits)
+
+register_all(vars(), globals())
 
 
 def wrapint(space, x):
@@ -42,6 +63,18 @@ def wrapint(space, x):
 
 # ____________________________________________________________
 
+def string_to_int_or_long(space, string, base=10):
+    w_longval = None
+    value = 0
+    try:
+        value = string_to_int(string, base)
+    except ParseStringError, e:
+        raise OperationError(space.w_ValueError,
+                             space.wrap(e.msg))
+    except ParseStringOverflowError, e:
+        w_longval = retry_to_w_long(space, e.parser)
+    return value, w_longval
+
 def retry_to_w_long(space, parser, base=0):
     parser.rewind()
     try:
@@ -49,8 +82,8 @@ def retry_to_w_long(space, parser, base=0):
     except ParseStringError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
-    from pypy.objspace.std.longobject import W_LongObject
-    return W_LongObject(bigint)
+    from pypy.objspace.std.longobject import newlong
+    return newlong(space, bigint)
 
 def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject
@@ -58,34 +91,42 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
     w_value = w_x     # 'x' is the keyword argument name in CPython
     value = 0
     if w_base is None:
+        ok = False
         # check for easy cases
         if type(w_value) is W_IntObject:
             value = w_value.intval
+            ok = True
         elif space.is_true(space.isinstance(w_value, space.w_str)):
-            try:
-                value = string_to_int(space.str_w(w_value))
-            except ParseStringError, e:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(e.msg))
-            except ParseStringOverflowError, e:
-                 w_longval = retry_to_w_long(space, e.parser)
+            value, w_longval = string_to_int_or_long(space, space.str_w(w_value))
+            ok = True
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
             else:
                 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             string = unicode_to_decimal_w(space, w_value)
-            try:
-                value = string_to_int(string)
-            except ParseStringError, e:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(e.msg))
-            except ParseStringOverflowError, e:
-                 w_longval = retry_to_w_long(space, e.parser)
+            value, w_longval = string_to_int_or_long(space, string)
+            ok = True
         else:
-            # otherwise, use the __int__() method
-            w_obj = space.int(w_value)
-            # 'int(x)' should return whatever x.__int__() returned
+            # If object supports the buffer interface
+            try:
+                w_buffer = space.buffer(w_value)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+            else:
+                buf = space.interp_w(Buffer, w_buffer)
+                value, w_longval = string_to_int_or_long(space, buf.as_str())
+                ok = True
+
+        if not ok:
+            # otherwise, use the __int__() or the __trunc__() methods
+            w_obj = w_value
+            if space.lookup(w_obj, '__int__') is None:
+                w_obj = space.trunc(w_obj)
+            w_obj = space.int(w_obj)
+            # 'int(x)' should return what x.__int__() returned, which should
+            # be an int or long or a subclass thereof.
             if space.is_w(w_inttype, space.w_int):
                 return w_obj
             # int_w is effectively what we want in this case,
@@ -114,13 +155,8 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("int() can't convert non-string "
                                                 "with explicit base"))
-        try:
-            value = string_to_int(s, base)
-        except ParseStringError, e:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap(e.msg))
-        except ParseStringOverflowError, e:
-            w_longval = retry_to_w_long(space, e.parser, base)
+
+        value, w_longval = string_to_int_or_long(space, s, base)
 
     if w_longval is not None:
         if not space.is_w(w_inttype, space.w_int):
@@ -136,6 +172,18 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
         W_IntObject.__init__(w_obj, value)
         return w_obj
 
+def descr_get_numerator(space, w_obj):
+    return space.int(w_obj)
+
+def descr_get_denominator(space, w_obj):
+    return space.wrap(1)
+
+def descr_get_real(space, w_obj):
+    return space.int(w_obj)
+
+def descr_get_imag(space, w_obj):
+    return space.wrap(0)
+
 # ____________________________________________________________
 
 int_typedef = StdTypeDef("int",
@@ -148,4 +196,9 @@ the optional base.  It is an error to supply a base when converting a
 non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
     __new__ = gateway.interp2app(descr__new__),
-    )
+    numerator = typedef.GetSetProperty(descr_get_numerator),
+    denominator = typedef.GetSetProperty(descr_get_denominator),
+    real = typedef.GetSetProperty(descr_get_real),
+    imag = typedef.GetSetProperty(descr_get_imag),
+)
+int_typedef.registermethods(globals())

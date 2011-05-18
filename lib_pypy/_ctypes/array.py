@@ -5,14 +5,6 @@ from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject
 
-def _create_unicode(buffer, maxlength):
-    res = []
-    for i in range(maxlength):
-        if buffer[i] == '\x00':
-            break
-        res.append(buffer[i])
-    return u''.join(res)
-
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
@@ -39,13 +31,15 @@ class ArrayMeta(_CDataMeta):
                                                    self._length_)
 
                 def setraw(self, buffer):
+                    if len(buffer) > self._length_:
+                        raise ValueError("%r too long" % (buffer,))
                     for i in range(len(buffer)):
                         self[i] = buffer[i]
                 res.raw = property(getraw, setraw)
             elif subletter == 'u':
                 def getvalue(self):
-                    # rawffi support anyone?
-                    return _create_unicode(self._buffer, self._length_)
+                    return _rawffi.wcharp2unicode(self._buffer.buffer,
+                                                  self._length_)
 
                 def setvalue(self, val):
                     # we don't want to have buffers here
@@ -79,7 +73,7 @@ class ArrayMeta(_CDataMeta):
         if self._type_ is c_char:
             return _rawffi.charp2string(resarray.buffer, self._length_)
         if self._type_ is c_wchar:
-            xxx
+            return _rawffi.wcharp2unicode(resarray.buffer, self._length_)
         res = self.__new__(self)
         ffiarray = self._ffiarray.fromaddress(resarray.buffer, self._length_)
         res._buffer = ffiarray

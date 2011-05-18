@@ -61,7 +61,7 @@ def test_bogus_return():
         tla.RETURN # stack depth == 2 here, error!
         ]
     py.test.raises(AssertionError, "interp(code, tla.W_IntObject(234))")
-    
+
 def test_add():
     code = [
         tla.CONST_INT, 20,
@@ -90,7 +90,7 @@ def test_jump_if():
         ]
     res = interp(code, tla.W_IntObject(0))
     assert res.intvalue == 123
-    
+
     res = interp(code, tla.W_IntObject(1))
     assert res.intvalue == 234
 
@@ -138,7 +138,7 @@ def test_mul_strings():
         tla.CONST_INT, 3,
         tla.MUL,
         tla.RETURN
-        ] 
+        ]
     res = interp(code, tla.W_StringObject('foo '))
     assert res.strvalue == 'foo foo foo '
 
@@ -153,10 +153,9 @@ def test_div_float():
     assert isinstance(res, tla.W_FloatObject)
     assert res.floatval == 2.5
 
-# ____________________________________________________________ 
+# ____________________________________________________________
 
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
-from pypy.rlib.jit import OPTIMIZER_FULL, OPTIMIZER_NO_UNROLL
+from pypy.jit.metainterp.test.support import LLJitMixin
 
 class TestLLtype(LLJitMixin):
     def test_loop(self):
@@ -177,6 +176,5 @@ class TestLLtype(LLJitMixin):
             w_result = interp(code, tla.W_IntObject(intvalue))
             assert isinstance(w_result, tla.W_IntObject)
             return w_result.intvalue
-        res = self.meta_interp(interp_w, [42], listops=True,
-                               optimizer=OPTIMIZER_NO_UNROLL)
+        res = self.meta_interp(interp_w, [42], listops=True)
         assert res == 0

@@ -158,6 +158,12 @@ class AppTestXRange:
        raises(OverflowError, xrange, 0, a)
        raises(OverflowError, xrange, 0, 1, a)
 
+   def test_xrange_reduce(self):
+      x = xrange(2, 9, 3)
+      callable, args = x.__reduce__()
+      y = callable(*args)
+      assert list(y) == list(x)
+
 class AppTestReversed:
    def test_reversed(self):
       r = reversed("hello")

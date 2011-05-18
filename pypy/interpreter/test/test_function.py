@@ -32,7 +32,15 @@ class AppTestFunctionIntrospection:
         assert f.__name__ == f.func_name
         assert f.__doc__ == f.func_doc
         assert f.__dict__ is f.func_dict
+        assert f.__code__ is f.func_code
+        assert f.__defaults__ is f.func_defaults
         assert hasattr(f, '__class__')
+
+    def test_classmethod(self):
+        def f():
+            pass
+        assert classmethod(f).__func__ is f
+        assert staticmethod(f).__func__ is f
 
     def test_write_doc(self):
         def f(): "hello"
@@ -89,6 +97,14 @@ class AppTestFunctionIntrospection:
             return 42
             raises(TypeError, "dir.func_code = f.func_code")
             raises(TypeError, "list.append.im_func.func_code = f.func_code")
+
+    def test_set_module_to_name_eagerly(self):
+        skip("fails on PyPy but works on CPython.  Unsure we want to care")
+        exec '''if 1:
+            __name__ = "foo"
+            def f(): pass
+            __name__ = "bar"
+            assert f.__module__ == "foo"''' in {}
 
 
 class AppTestFunction:
@@ -163,6 +179,21 @@ class AppTestFunction:
             return arg1, kw
         raises(
             TypeError, func, 42, {'arg1': 23})
+
+    def test_kwargs_nondict_mapping(self):
+        class Mapping:
+            def keys(self):
+                return ('a', 'b')
+            def __getitem__(self, key):
+                return key
+        def func(arg1, **kw):
+            return arg1, kw
+        res = func(23, **Mapping())
+        assert res[0] == 23
+        assert res[1] == {'a': 'a', 'b': 'b'}
+        error = raises(TypeError, lambda: func(42, **[]))
+        assert error.value.message == ('argument after ** must be a mapping, '
+                                       'not list')
 
     def test_default_arg(self):
         def func(arg1,arg2=42):

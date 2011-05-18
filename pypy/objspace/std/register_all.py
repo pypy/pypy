@@ -21,7 +21,7 @@ def register_all(module_dict, *alt_ns):
         if name.find('__')<1 or name.startswith('app_'):
             continue
         funcname, sig = name.split('__')
-        l=[]
+        l = []
         for i in sig.split('_'):
             if i == 'ANY':        # just in case W_ANY is not in module_dict
                 icls = model.W_ANY

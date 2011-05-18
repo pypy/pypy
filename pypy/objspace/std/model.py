@@ -16,6 +16,7 @@ def registerimplementation(implcls):
 
 option_to_typename = {
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
+    "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
     "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
@@ -48,11 +49,11 @@ class StdTypeModel:
             from pypy.objspace.std.dicttype   import dict_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
+            from pypy.objspace.std.bytearraytype import bytearray_typedef
             from pypy.objspace.std.typetype   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef
-            from pypy.objspace.std.dictproxytype import dictproxy_typedef
             from pypy.objspace.std.nonetype import none_typedef
             from pypy.objspace.std.itertype import iter_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
@@ -68,10 +69,12 @@ class StdTypeModel:
         from pypy.objspace.std import complexobject
         from pypy.objspace.std import setobject
         from pypy.objspace.std import smallintobject
+        from pypy.objspace.std import smalllongobject
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import stringobject
+        from pypy.objspace.std import bytearrayobject
         from pypy.objspace.std import ropeobject
         from pypy.objspace.std import ropeunicodeobject
         from pypy.objspace.std import strsliceobject
@@ -104,6 +107,7 @@ class StdTypeModel:
             dictmultiobject.W_DictMultiObject: [],
             dictmultiobject.W_DictMultiIterObject: [],
             stringobject.W_StringObject: [],
+            bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
             longobject.W_LongObject: [],
@@ -118,7 +122,9 @@ class StdTypeModel:
             iterobject.W_FastTupleIterObject: [],
             iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
-            dictproxyobject.W_DictProxyObject: [],
+            dictmultiobject.W_DictViewKeysObject: [],
+            dictmultiobject.W_DictViewItemsObject: [],
+            dictmultiobject.W_DictViewValuesObject: [],
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
@@ -180,6 +186,18 @@ class StdTypeModel:
             (longobject.W_LongObject,   longobject.delegate_Int2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
+        if config.objspace.std.withsmalllong:
+            self.typeorder[boolobject.W_BoolObject] += [
+                (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Bool2SmallLong),
+                ]
+            self.typeorder[intobject.W_IntObject] += [
+                (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Int2SmallLong),
+                ]
+            self.typeorder[smalllongobject.W_SmallLongObject] += [
+                (longobject.W_LongObject, smalllongobject.delegate_SmallLong2Long),
+                (floatobject.W_FloatObject, smalllongobject.delegate_SmallLong2Float),
+                (complexobject.W_ComplexObject, smalllongobject.delegate_SmallLong2Complex),
+                ]
         self.typeorder[longobject.W_LongObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
             (complexobject.W_ComplexObject,
@@ -209,7 +227,6 @@ class StdTypeModel:
                 self.typeorder[ropeobject.W_RopeObject] += [
                  (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
                     ]
-
         if config.objspace.std.withstrslice:
             self.typeorder[strsliceobject.W_StringSliceObject] += [
                 (stringobject.W_StringObject,
@@ -371,6 +388,7 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
         self.operatorsymbol = operatorsymbol
         if specialnames is None:
             specialnames = [operatorsymbol]
+        assert isinstance(specialnames, list)
         self.specialnames = specialnames  # e.g. ['__xxx__', '__rxxx__']
         self.extras = extras
         # transform  '+'  =>  'add'  etc.
@@ -384,8 +402,6 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
 
         if extras.get('general__args__', False):
             self.argnames_after = ['__args__']
-        if extras.get('w_varargs', False):
-            self.argnames_after = ['w_args']
         if extras.get('varargs_w', False):
             self.argnames_after = ['args_w']
         self.argnames_after += extras.get('extra_args', [])

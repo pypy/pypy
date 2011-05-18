@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error
 from pypy.rlib.rarithmetic import ovfcheck
@@ -35,6 +35,7 @@ table_a2b_base64 = ''.join(map(_transform, table_a2b_base64))
 assert len(table_a2b_base64) == 256
 
 
+@unwrap_spec(ascii='bufferstr')
 def a2b_base64(space, ascii):
     "Decode a line of base64 data."
 
@@ -71,13 +72,13 @@ def a2b_base64(space, ascii):
             raise_Error(space, "Incorrect padding")
 
     return space.wrap(res.build())
-a2b_base64.unwrap_spec = [ObjSpace, 'bufferstr']
 
 # ____________________________________________________________
 
 table_b2a_base64 = (
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
 
+@unwrap_spec(bin='bufferstr')
 def b2a_base64(space, bin):
     "Base64-code line of data."
 
@@ -110,4 +111,3 @@ def b2a_base64(space, bin):
         res.append(PAD)
     res.append('\n')
     return space.wrap(res.build())
-b2a_base64.unwrap_spec = [ObjSpace, 'bufferstr']

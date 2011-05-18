@@ -1,8 +1,8 @@
 from __future__ import absolute_import
-from ..ctypes_config_cache import rebuild
+from lib_pypy.ctypes_config_cache import rebuild
 rebuild.rebuild_one('resource.ctc.py')
 
-from .. import resource
+from lib_pypy import resource
 
 def test_resource():
     x = resource.getrusage(resource.RUSAGE_SELF)

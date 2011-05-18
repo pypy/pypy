@@ -84,6 +84,9 @@ static __declspec(noinline) void pypy_asm_stack_bottom() { }
 #endif
 
 
+/* used by pypy.rlib.rstack, but also by asmgcc */
+#define OP_STACK_CURRENT(r)  r = (long)&r
+
 
 #define RAW_MALLOC_ZERO_FILLED 0
 

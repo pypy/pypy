@@ -37,7 +37,7 @@ def handle_sys_exit(e):
             except AttributeError:
                 pass   # too bad
             else:
-                print >> stderr, exitcode
+                stderr.write(exitcode)
             exitcode = 1
     raise SystemExit(exitcode)
 
@@ -164,13 +164,20 @@ def print_error(msg):
     print >> sys.stderr, 'usage: %s [options]' % (sys.executable,)
     print >> sys.stderr, 'Try `%s -h` for more information.' % (sys.executable,)
 
+def fdopen(fd, mode, bufsize=-1):
+    try:
+        fdopen = file.fdopen
+    except AttributeError:     # only on top of CPython, running tests
+        from os import fdopen
+    return fdopen(fd, mode, bufsize)
+
 def set_unbuffered_io():
-    sys.stdin  = sys.__stdin__  = os.fdopen(0, 'rb', 0)
-    sys.stdout = sys.__stdout__ = os.fdopen(1, 'wb', 0)
-    sys.stderr = sys.__stderr__ = os.fdopen(2, 'wb', 0)
+    sys.stdin  = sys.__stdin__  = fdopen(0, 'rb', 0)
+    sys.stdout = sys.__stdout__ = fdopen(1, 'wb', 0)
+    sys.stderr = sys.__stderr__ = fdopen(2, 'wb', 0)
 
 def set_fully_buffered_io():
-    sys.stdout = sys.__stdout__ = os.fdopen(1, 'w')
+    sys.stdout = sys.__stdout__ = fdopen(1, 'w')
 
 # ____________________________________________________________
 # Main entry point
@@ -197,8 +204,11 @@ def get_library_path(executable):
         dirname = resolvedirof(search)
         if dirname == search:
             # not found!  let's hope that the compiled-in path is ok
-            print >> sys.stderr, ('debug: WARNING: library path not found, '
-                                  'using compiled-in sys.path')
+            print >> sys.stderr, """\
+debug: WARNING: Library path not found, using compiled-in sys.path.
+debug: WARNING: 'sys.prefix' will not be set.
+debug: WARNING: Make sure the pypy binary is kept inside its tree of files.
+debug: WARNING: It is ok to create a symlink to it from somewhere else."""
             newpath = sys.path[:]
             break
         newpath = sys.pypy_initial_path(dirname)
@@ -227,6 +237,11 @@ def setup_sys_executable(executable, nanos):
                     executable = fn
                     break
     sys.executable = os.path.abspath(executable)
+    #
+    # 'sys.executable' should not end up being an non-existing file;
+    # just use '' in this case. (CPython issue #7774)
+    if not os.path.isfile(sys.executable):
+        sys.executable = ''
 
 def setup_initial_paths(ignore_environment=False, **extra):
     newpath = get_library_path(sys.executable)
@@ -241,6 +256,22 @@ def setup_initial_paths(ignore_environment=False, **extra):
         if dir not in _seen:
             sys.path.append(dir)
             _seen[dir] = True
+
+def set_io_encoding(io_encoding):
+    try:
+        import _file
+    except ImportError:
+        import ctypes # HACK: while running on top of CPython
+        set_file_encoding = ctypes.pythonapi.PyFile_SetEncodingAndErrors
+        set_file_encoding.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p]
+    else:
+        set_file_encoding = _file.set_file_encoding
+    if ":" in io_encoding:
+        encoding, errors = io_encoding.split(":", 1)
+    else:
+        encoding, errors = io_encoding, None
+    for f in [sys.stdin, sys.stdout, sys.stderr]:
+        set_file_encoding(f, encoding, errors)
 
 # Order is significant!
 sys_flags = (
@@ -271,7 +302,7 @@ default_options = dict.fromkeys(
     "unbuffered"), 0)
 
 
-PYTHON26 = False
+PYTHON26 = True
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -392,6 +423,9 @@ def parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
+    if (PYTHON26 and not options["ignore_environment"] and os.getenv('PYTHONNOUSERSITE')):
+        options["no_user_site"] = True
+
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = True
@@ -400,6 +434,10 @@ def parse_command_line(argv):
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = sys.flags.py3k_warning
+
+        if sys.py3kwarning:
+            print >> sys.stderr, (
+                "Warning: pypy does not implement py3k warnings")
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):
@@ -428,7 +466,6 @@ def run_command_line(interactive,
     elif not sys.stdout.isatty():
         set_fully_buffered_io()
 
-
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
@@ -439,6 +476,10 @@ def run_command_line(interactive,
             print >> sys.stderr, "'import site' failed"
 
     readenv = not ignore_environment
+    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    if io_encoding:
+        set_io_encoding(io_encoding)
+
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
         warnoptions.extend(pythonwarnings.split(','))
@@ -488,10 +529,10 @@ def run_command_line(interactive,
             success = run_toplevel(run_it)
         elif run_module:
             # handle the "-m" command
-            def run_it():
-                import runpy
-                runpy.run_module(sys.argv[0], None, '__main__', True)
-            success = run_toplevel(run_it)
+            # '' on sys.path is required also here
+            sys.path.insert(0, '')
+            import runpy
+            success = run_toplevel(runpy._run_module_as_main, sys.argv[0])
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.
@@ -534,10 +575,32 @@ def run_command_line(interactive,
         else:
             # handle the common case where a filename is specified
             # on the command-line.
-            mainmodule.__file__ = sys.argv[0]
-            scriptdir = resolvedirof(sys.argv[0])
-            sys.path.insert(0, scriptdir)
-            success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
+            filename = sys.argv[0]
+            mainmodule.__file__ = filename
+            sys.path.insert(0, resolvedirof(filename))
+            # assume it's a pyc file only if its name says so.
+            # CPython goes to great lengths to detect other cases
+            # of pyc file format, but I think it's ok not to care.
+            import imp
+            if IS_WINDOWS:
+                filename = filename.lower()
+            if filename.endswith('.pyc') or filename.endswith('.pyo'):
+                args = (imp._run_compiled_module, '__main__',
+                        sys.argv[0], None, mainmodule)
+            else:
+                # maybe it's the name of a directory or a zip file
+                filename = sys.argv[0]
+                importer = imp._getimporter(filename)
+                if not isinstance(importer, imp.NullImporter):
+                    # yes.  put the filename in sys.path[0] and import
+                    # the module __main__
+                    import runpy
+                    sys.path.insert(0, filename)
+                    args = (runpy._run_module_as_main, '__main__', False)
+                else:
+                    # no.  That's the normal path, "pypy stuff.py".
+                    args = (execfile, filename, mainmodule.__dict__)
+            success = run_toplevel(*args)
 
     except SystemExit, e:
         status = e.code
@@ -606,6 +669,27 @@ if __name__ == '__main__':
             return getinitialpath(s)
         except OSError:
             return None
+
+    # add an emulator for these pypy-only or 2.7-only functions
+    # (for test_pyc_commandline_argument)
+    import imp, runpy
+    def _run_compiled_module(modulename, filename, file, module):
+        import os
+        assert modulename == '__main__'
+        assert os.path.isfile(filename)
+        assert filename.endswith('.pyc')
+        assert file is None
+        assert module.__name__ == '__main__'
+        print 'in _run_compiled_module'
+    def _getimporter(path):
+        import os, imp
+        if os.path.isdir(path):
+            return None
+        else:
+            return imp.NullImporter(path)
+
+    imp._run_compiled_module = _run_compiled_module
+    imp._getimporter = _getimporter
 
     # stick the current sys.path into $PYTHONPATH, so that CPython still
     # finds its own extension modules :-/

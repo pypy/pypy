@@ -7,11 +7,11 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import we_are_translated, compute_hash
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
+from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rstring import StringBuilder, string_repeat
+from pypy.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import StringBuffer
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
@@ -21,7 +21,7 @@ from pypy.objspace.std.formatting import mod_format
 
 class W_StringObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['_value']
 
     def __init__(w_self, str):
         w_self._value = str
@@ -44,7 +44,7 @@ def unicode_w__String(space, w_self):
     from pypy.objspace.std.unicodetype import plain_str2unicode
     return plain_str2unicode(space, w_self._value)
 
-def _is_generic(space, w_self, fun): 
+def _is_generic(space, w_self, fun):
     v = w_self._value
     if len(v) == 0:
         return space.w_False
@@ -52,11 +52,15 @@ def _is_generic(space, w_self, fun):
         c = v[0]
         return space.newbool(fun(c))
     else:
-        for idx in range(len(v)):
-            if not fun(v[idx]):
-                return space.w_False
-        return space.w_True
+        return _is_generic_loop(space, v, fun)
 _is_generic._annspecialcase_ = "specialize:arg(2)"
+
+def _is_generic_loop(space, v, fun):
+    for idx in range(len(v)):
+        if not fun(v[idx]):
+            return space.w_False
+    return space.w_True
+_is_generic_loop._annspecialcase_ = "specialize:arg(2)"
 
 def _upper(ch):
     if ch.islower():
@@ -64,7 +68,7 @@ def _upper(ch):
         return chr(o)
     else:
         return ch
-    
+
 def _lower(ch):
     if ch.isupper():
         o = ord(ch) + 32
@@ -168,7 +172,7 @@ def str_swapcase__String(space, w_self):
 
     return space.wrap("".join(res))
 
-    
+
 def str_capitalize__String(space, w_self):
     input = w_self._value
     buffer = [' '] * len(input)
@@ -189,7 +193,7 @@ def str_capitalize__String(space, w_self):
                 buffer[i] = ch
 
     return space.wrap("".join(buffer))
-         
+
 def str_title__String(space, w_self):
     input = w_self._value
     buffer = [' '] * len(input)
@@ -255,7 +259,7 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         res_w.append(sliced(space, value, start, next, w_self))
         start = next + bylen
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-    
+
     res_w.append(sliced(space, value, start, len(value), w_self))
     return space.newlist(res_w)
 
@@ -318,7 +322,7 @@ def make_rsplit_with_delim(funcname, sliced):
         res_w.append(sliced(space, value, 0, end, w_self))
         res_w.reverse()
         return space.newlist(res_w)
-    
+
     return func_with_new_name(fn, funcname)
 
 str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_String_ANY',
@@ -326,32 +330,44 @@ str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_Strin
 
 def str_join__String_ANY(space, w_self, w_list):
     list_w = space.listview(w_list)
-    if list_w:
-        self = w_self._value
-        reslen = 0
-        for i in range(len(list_w)):
-            w_s = list_w[i]
-            if not space.is_true(space.isinstance(w_s, space.w_str)):
-                if space.is_true(space.isinstance(w_s, space.w_unicode)):
-                    # we need to rebuild w_list here, because the original
-                    # w_list might be an iterable which we already consumed
-                    w_list = space.newlist(list_w)
-                    w_u = space.call_function(space.w_unicode, w_self)
-                    return space.call_method(w_u, "join", w_list)
-                raise operationerrfmt(
-                    space.w_TypeError,
-                    "sequence item %d: expected string, %s "
-                    "found", i, space.type(w_s).getname(space))
-            reslen += len(space.str_w(w_s))
-        reslen += len(self) * (len(list_w) - 1)
-        sb = StringBuilder(reslen)
-        for i in range(len(list_w)):
-            if self and i != 0:
-                sb.append(self)
-            sb.append(space.str_w(list_w[i]))
-        return space.wrap(sb.build())
-    else:
+    size = len(list_w)
+
+    if size == 0:
         return W_StringObject.EMPTY
+
+    if size == 1:
+        w_s = list_w[0]
+        # only one item,  return it if it's not a subclass of str
+        if (space.is_w(space.type(w_s), space.w_str) or
+            space.is_w(space.type(w_s), space.w_unicode)):
+            return w_s
+
+    return _str_join_many_items(space, w_self, list_w, size)
+
+def _str_join_many_items(space, w_self, list_w, size):
+    self = w_self._value
+    reslen = len(self) * (size - 1)
+    for i in range(size):
+        w_s = list_w[i]
+        if not space.is_true(space.isinstance(w_s, space.w_str)):
+            if space.is_true(space.isinstance(w_s, space.w_unicode)):
+                # we need to rebuild w_list here, because the original
+                # w_list might be an iterable which we already consumed
+                w_list = space.newlist(list_w)
+                w_u = space.call_function(space.w_unicode, w_self)
+                return space.call_method(w_u, "join", w_list)
+            raise operationerrfmt(
+                space.w_TypeError,
+                "sequence item %d: expected string, %s "
+                "found", i, space.type(w_s).getname(space))
+        reslen += len(space.str_w(w_s))
+
+    sb = StringBuilder(reslen)
+    for i in range(size):
+        if self and i != 0:
+            sb.append(self)
+        sb.append(space.str_w(list_w[i]))
+    return space.wrap(sb.build())
 
 def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_arg = space.int_w(w_arg)
@@ -360,12 +376,12 @@ def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("rjust() argument 2 must be a single character"))
-    
+
     d = u_arg - len(u_self)
     if d>0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self = d * fillchar + u_self
-        
+
     return space.wrap(u_self)
 
 
@@ -381,12 +397,17 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     if d>0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self += d * fillchar
-        
+
     return space.wrap(u_self)
 
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False):
     self = w_self._value
     sub = w_sub._value
+
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
+    if space.is_w(w_end, space.w_None):
+        w_end = space.len(w_self)
     if upper_bound:
         start = slicetype.adapt_bound(space, len(self), w_start)
         end = slicetype.adapt_bound(space, len(self), w_end)
@@ -488,7 +509,7 @@ def _string_replace(space, input, sub, by, maxsplit):
             substrings_w.append(input[start:next])
             start = next + sublen
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-            
+
         substrings_w.append(input[start:])
 
     try:
@@ -498,11 +519,11 @@ def _string_replace(space, input, sub, by, maxsplit):
         ovfcheck(one + len(input))
     except OverflowError:
         raise OperationError(
-            space.w_OverflowError, 
+            space.w_OverflowError,
             space.wrap("replace string is too long"))
-    
+
     return space.wrap(by.join(substrings_w))
-    
+
 
 def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):
     return _string_replace(space, w_self._value, space.buffer_w(w_sub).as_str(),
@@ -520,38 +541,38 @@ def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
     u_self = w_self._value
     u_chars = w_chars._value
-    
+
     lpos = 0
     rpos = len(u_self)
-    
+
     if left:
         #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, u_self[lpos],w_chars)
         while lpos < rpos and u_self[lpos] in u_chars:
-           lpos += 1
-       
+            lpos += 1
+
     if right:
         while rpos > lpos and u_self[rpos - 1] in u_chars:
-           rpos -= 1
-       
+            rpos -= 1
+
     assert rpos >= lpos    # annotator hint, don't remove
     return sliced(space, u_self, lpos, rpos, w_self)
 
 def _strip_none(space, w_self, left, right):
     "internal function called by str_xstrip methods"
     u_self = w_self._value
-    
+
     lpos = 0
     rpos = len(u_self)
-    
+
     if left:
         #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, u_self[lpos],w_chars)
         while lpos < rpos and u_self[lpos].isspace():
            lpos += 1
-       
+
     if right:
         while rpos > lpos and u_self[rpos - 1].isspace():
            rpos -= 1
-       
+
     assert rpos >= lpos    # annotator hint, don't remove
     return sliced(space, u_self, lpos, rpos, w_self)
 
@@ -560,14 +581,14 @@ def str_strip__String_String(space, w_self, w_chars):
 
 def str_strip__String_None(space, w_self, w_chars):
     return _strip_none(space, w_self, left=1, right=1)
-   
+
 def str_rstrip__String_String(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=0, right=1)
 
 def str_rstrip__String_None(space, w_self, w_chars):
     return _strip_none(space, w_self, left=0, right=1)
 
-   
+
 def str_lstrip__String_String(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=1, right=0)
 
@@ -584,7 +605,7 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
         raise OperationError(space.w_TypeError,
             space.wrap("center() argument 2 must be a single character"))
 
-    d = u_arg - len(u_self) 
+    d = u_arg - len(u_self)
     if d>0:
         offset = d//2 + (d & u_arg & 1)
         fillchar = fillchar[0]    # annotator hint: it's a single character
@@ -594,7 +615,7 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     return wrapstr(space, u_centered)
 
-def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end): 
+def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     u_self, u_arg, u_start, u_end = _convert_idx_params(space, w_self, w_arg,
                                                         w_start, w_end)
     return wrapint(space, u_self.count(u_arg, u_start, u_end))
@@ -614,7 +635,7 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
-        suffix = space.str_w(w_suffix) 
+        suffix = space.str_w(w_suffix)
         if stringendswith(u_self, suffix, start, end):
             return space.w_True
     return space.w_False
@@ -637,12 +658,12 @@ def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_e
         if stringstartswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False
-    
+
 def _tabindent(u_token, u_tabsize):
     "calculates distance behind the token to the next tabstop"
-    
+
     distance = u_tabsize
-    if u_token:    
+    if u_token:
         distance = 0
         offset = len(u_token)
 
@@ -654,33 +675,39 @@ def _tabindent(u_token, u_tabsize):
             offset -= 1
             if offset == 0:
                 break
-                
+
         #the same like distance = len(u_token) - (offset + 1)
         #print '<offset:%d distance:%d tabsize:%d token:%s>' % (offset, distance, u_tabsize, u_token)
         distance = (u_tabsize-distance) % u_tabsize
         if distance == 0:
             distance=u_tabsize
 
-    return distance    
-    
-    
-def str_expandtabs__String_ANY(space, w_self, w_tabsize):   
+    return distance
+
+
+def str_expandtabs__String_ANY(space, w_self, w_tabsize):
     u_self = w_self._value
-    u_tabsize  = space.int_w(w_tabsize)
-    
+    u_tabsize = space.int_w(w_tabsize)
+
     u_expanded = ""
     if u_self:
         split = u_self.split("\t")
-        u_expanded =oldtoken = split.pop(0)
+        try:
+            ovfcheck(len(split) * u_tabsize)
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                space.wrap("new string is too long")
+            )
+        u_expanded = oldtoken = split.pop(0)
 
-        for token in split:  
+        for token in split:
             #print  "%d#%d -%s-" % (_tabindent(oldtoken,u_tabsize), u_tabsize, token)
             u_expanded += " " * _tabindent(oldtoken,u_tabsize) + token
             oldtoken = token
-            
-    return wrapstr(space, u_expanded)        
- 
- 
+
+    return wrapstr(space, u_expanded)
+
+
 def str_splitlines__String_ANY(space, w_self, w_keepends):
     u_keepends  = space.int_w(w_keepends)  # truth value, but type checked
     data = w_self._value
@@ -728,7 +755,7 @@ def str_zfill__String_ANY(space, w_self, w_width):
     for i in range(middle, width):
         buf[i] = input[start]
         start = start + 1
-    
+
     return space.wrap("".join(buf))
 
 def str_w__String(space, w_str):
@@ -745,7 +772,7 @@ def lt__String_String(space, w_str1, w_str2):
     if s1 < s2:
         return space.w_True
     else:
-        return space.w_False    
+        return space.w_False
 
 def le__String_String(space, w_str1, w_str2):
     s1 = w_str1._value
@@ -833,7 +860,7 @@ def mul_string_times(space, w_str, w_times):
     if len(input) == 1:
         s = input[0] * mul
     else:
-        s = string_repeat(input, mul)
+        s = input * mul
     # xxx support again space.config.objspace.std.withstrjoin?
     return W_StringObject(s)
 
@@ -919,36 +946,41 @@ def repr__String(space, w_str):
 
     return space.wrap(buf.build())
 
-   
+
+DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])
+
 def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     """charfilter - unicode handling is not implemented
-    
-    Return a copy of the string where all characters occurring 
-    in the optional argument deletechars are removed, and the 
-    remaining characters have been mapped through the given translation table, 
+
+    Return a copy of the string where all characters occurring
+    in the optional argument deletechars are removed, and the
+    remaining characters have been mapped through the given translation table,
     which must be a string of length 256"""
 
-    # XXX CPython accepts buffers, too, not sure what we should do
-    table = space.str_w(w_table)
-    if len(table) != 256:
-        raise OperationError(
-            space.w_ValueError,
-            space.wrap("translation table must be 256 characters long"))
+    if space.is_w(w_table, space.w_None):
+        table = DEFAULT_NOOP_TABLE
+    else:
+        table = space.bufferstr_w(w_table)
+        if len(table) != 256:
+            raise OperationError(
+                space.w_ValueError,
+                space.wrap("translation table must be 256 characters long"))
 
     string = w_string._value
-    chars = []
     deletechars = space.str_w(w_deletechars)
     if len(deletechars) == 0:
+        buf = StringBuilder(len(string))
         for char in string:
-            chars.append(table[ord(char)])
+            buf.append(table[ord(char)])
     else:
+        buf = StringBuilder()
         deletion_table = [False] * 256
         for c in deletechars:
             deletion_table[ord(c)] = True
         for char in string:
             if not deletion_table[ord(char)]:
-                chars.append(table[ord(char)])
-    return W_StringObject(''.join(chars))
+                buf.append(table[ord(char)])
+    return W_StringObject(buf.build())
 
 def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
@@ -969,6 +1001,16 @@ def str_encode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
 # (values is of a mapping type)
 def mod__String_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=False)
+
+def str_format__String(space, w_string, __args__):
+    return newformat.format_method(space, w_string, __args__, False)
+
+def format__String_ANY(space, w_string, w_format_spec):
+    if not space.isinstance_w(w_format_spec, space.w_str):
+        w_format_spec = space.str(w_format_spec)
+    spec = space.str_w(w_format_spec)
+    formatter = newformat.str_formatter(space, spec)
+    return formatter.format_string(w_string._value)
 
 def buffer__String(space, w_string):
     return space.wrap(StringBuffer(w_string._value))

@@ -3,30 +3,23 @@
 little use of termios module on RPython level by itself
 """
 
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.rpython.module import ll_termios
 from pypy.rlib.objectmodel import we_are_translated
 import os
 from pypy.rlib import rtermios
 import termios
 
-# proper semantics are to have termios.error, but since it's not documented
-# anyway, let's have it as OSError on interplevel. We need to have
-# some details what is missing in RPython modules though
+class Cache:
+    def __init__(self, space):
+        self.w_error = space.new_exception_class("termios.error")
 
 def convert_error(space, error):
-    errno = error.errno
-    w_module = space.getbuiltinmodule('termios')
-    w_exception_class = space.getattr(w_module, space.wrap('error'))
-    try:
-        msg = os.strerror(errno)
-    except ValueError:
-        msg = 'error %d' % errno
-    w_exception = space.call_function(w_exception_class, space.wrap(errno),
-                                      space.wrap(msg))
-    return OperationError(w_exception_class, w_exception)
+    w_exception_class = space.fromcache(Cache).w_error
+    return wrap_oserror(space, error, w_exception_class=w_exception_class)
 
+@unwrap_spec(fd=int, when=int)
 def tcsetattr(space, fd, when, w_attributes):
     w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed, w_cc = \
              space.unpackiterable(w_attributes, expected_length=7)
@@ -44,16 +37,14 @@ def tcsetattr(space, fd, when, w_attributes):
            space.int_w(w_ispeed), space.int_w(w_ospeed), cc)
     try:
         rtermios.tcsetattr(fd, when, tup)
-    except termios.error, e:
-        e.errno = e.args[0]
+    except OSError, e:
         raise convert_error(space, e)
-tcsetattr.unwrap_spec = [ObjSpace, int, int, W_Root]
 
+@unwrap_spec(fd=int)
 def tcgetattr(space, fd):
     try:
         tup = rtermios.tcgetattr(fd)
-    except termios.error, e:
-        e.errno = e.args[0]
+    except OSError, e:
         raise convert_error(space, e)
     iflag, oflag, cflag, lflag, ispeed, ospeed, cc = tup
     l_w = [space.wrap(i) for i in [iflag, oflag, cflag, lflag, ispeed, ospeed]]
@@ -65,36 +56,31 @@ def tcgetattr(space, fd):
     w_cc = space.newlist(cc_w)
     l_w.append(w_cc)
     return space.newlist(l_w)
-tcgetattr.unwrap_spec = [ObjSpace, int]
 
+@unwrap_spec(fd=int, duration=int)
 def tcsendbreak(space, fd, duration):
     try:
         termios.tcsendbreak(fd, duration)
-    except termios.error, e:
-        e.errno = e.args[0]
+    except OSError, e:
         raise convert_error(space, e)
-tcsendbreak.unwrap_spec = [ObjSpace, int, int]
 
+@unwrap_spec(fd=int)
 def tcdrain(space, fd):
     try:
         termios.tcdrain(fd)
-    except termios.error, e:
-        e.errno = e.args[0]
+    except OSError, e:
         raise convert_error(space, e)
-tcdrain.unwrap_spec = [ObjSpace, int]
 
+@unwrap_spec(fd=int, queue=int)
 def tcflush(space, fd, queue):
     try:
         termios.tcflush(fd, queue)
-    except termios.error, e:
-        e.errno = e.args[0]
+    except OSError, e:
         raise convert_error(space, e)
-tcflush.unwrap_spec = [ObjSpace, int, int]
 
+@unwrap_spec(fd=int, action=int)
 def tcflow(space, fd, action):
     try:
         termios.tcflow(fd, action)
-    except termios.error, e:
-        e.errno = e.args[0]
+    except OSError, e:
         raise convert_error(space, e)
-tcflow.unwrap_spec = [ObjSpace, int, int]

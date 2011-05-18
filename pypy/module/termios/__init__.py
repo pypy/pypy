@@ -14,7 +14,6 @@ class Module(MixedModule):
     sys.stdin.fileno(), or a file object, such as sys.stdin itself."
 
     appleveldefs = {
-        'error'       : 'app_termios.error',
     }
     
     interpleveldefs = {
@@ -24,6 +23,7 @@ class Module(MixedModule):
         'tcgetattr'   : 'interp_termios.tcgetattr',
         'tcsendbreak' : 'interp_termios.tcsendbreak',
         'tcsetattr'   : 'interp_termios.tcsetattr',
+        'error'       : 'space.fromcache(interp_termios.Cache).w_error',
     }
 
 import termios
