@@ -1,5 +1,11 @@
+from pypy.tool import udir
+
 
 class AppTestPyFrame:
+
+    def setup_class(cls):
+        cls.w_udir = cls.space.wrap(str(udir.udir))
+        cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
 
     # test for the presence of the attributes, not functionality
 
@@ -45,21 +51,44 @@ class AppTestPyFrame:
     def test_f_lineno_set(self):
         def tracer(f, *args):
             def x(f, *args):
-                if f.f_lineno == origin + 1:
-                    f.f_lineno = origin + 2
+                f.f_lineno += 1
             return x
 
         def function():
             xyz
             return 3
         
+        import sys
+        sys.settrace(tracer)
+        function()
+        sys.settrace(None)
+        # assert did not crash
+
+    def test_f_lineno_set_firstline(self):
+        seen = []
+        def tracer(f, event, *args):
+            seen.append((event, f.f_lineno))
+            if len(seen) == 5:
+                f.f_lineno = 1       # bug shown only when setting lineno to 1
+            return tracer
+
         def g():
             import sys
             sys.settrace(tracer)
-            function()
+            exec "x=1\ny=x+1\nz=y+1\nt=z+1\ns=t+1\n" in {}
             sys.settrace(None)
-        origin = function.func_code.co_firstlineno
-        g() # assert did not crash
+
+        g()
+        assert seen == [('call', 1),
+                        ('line', 1),
+                        ('line', 2),
+                        ('line', 3),
+                        ('line', 4),
+                        ('line', 2),
+                        ('line', 3),
+                        ('line', 4),
+                        ('line', 5),
+                        ('return', 5)]
 
     def test_f_back(self):
         import sys
@@ -179,6 +208,32 @@ class AppTestPyFrame:
         assert l[0][1] == 'call'
         assert res == 'hidden' # sanity
 
+    def test_trace_hidden_prints(self):
+        import sys
+
+        l = []
+        def trace(a,b,c):
+            l.append((a,b,c))
+            return trace
+
+        outputf = open(self.tempfile1, 'w')
+        def f():
+            print >> outputf, 1
+            print >> outputf, 2
+            print >> outputf, 3
+            return "that's the return value"
+
+        sys.settrace(trace)
+        f()
+        sys.settrace(None)
+        outputf.close()
+        # should get 1 "call", 3 "line" and 1 "return" events, and no call
+        # or return for the internal app-level implementation of 'print'
+        assert len(l) == 6
+        assert [what for (frame, what, arg) in l] == [
+            'call', 'line', 'line', 'line', 'line', 'return']
+        assert l[-1][2] == "that's the return value"
+
     def test_trace_return_exc(self):
         import sys
         l = []
@@ -279,12 +334,13 @@ class AppTestPyFrame:
         
 
     def test_trace_generator_finalisation(self):
-        # XXX expand to check more aspects
         import sys
         l = []
+        got_exc = []
         def trace(frame, event, arg):
+            l.append((frame.f_lineno, event))
             if event == 'exception':
-                l.append(arg)
+                got_exc.append(arg)
             return trace
 
         d = {}
@@ -308,8 +364,22 @@ class AppTestPyFrame:
         sys.settrace(trace)
         f()
         sys.settrace(None)
-        assert len(l) == 1
-        assert issubclass(l[0][0], GeneratorExit)
+        assert len(got_exc) == 1
+        assert issubclass(got_exc[0][0], GeneratorExit)
+        assert l == [(8, 'call'),
+                     (9, 'line'),
+                     (10, 'line'),
+                     (11, 'line'),
+                     (2, 'call'),
+                     (3, 'line'),
+                     (4, 'line'),
+                     (4, 'return'),
+                     (12, 'line'),
+                     (4, 'call'),
+                     (4, 'exception'),
+                     (6, 'line'),
+                     (6, 'return'),
+                     (12, 'return')]
 
     def test_dont_trace_on_reraise(self):
         import sys
@@ -369,3 +439,29 @@ class AppTestPyFrame:
         res = f(1)
         sys.settrace(None)
         assert res == 42
+
+    def test_set_unset_f_trace(self):
+        import sys
+        seen = []
+        def trace1(frame, what, arg):
+            seen.append((1, frame, frame.f_lineno, what, arg))
+            return trace1
+        def trace2(frame, what, arg):
+            seen.append((2, frame, frame.f_lineno, what, arg))
+            return trace2
+        def set_the_trace(f):
+            f.f_trace = trace1
+            sys.settrace(trace2)
+            len(seen)     # take one line: should not be traced
+        f = sys._getframe()
+        set_the_trace(f)
+        len(seen)     # take one line: should not be traced
+        len(seen)     # take one line: should not be traced
+        sys.settrace(None)   # and this line should be the last line traced
+        len(seen)     # take one line
+        del f.f_trace
+        len(seen)     # take one line
+        firstline = set_the_trace.func_code.co_firstlineno
+        assert seen == [(1, f, firstline + 6, 'line', None),
+                        (1, f, firstline + 7, 'line', None),
+                        (1, f, firstline + 8, 'line', None)]

@@ -3,6 +3,7 @@ import py, random
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
@@ -12,6 +13,7 @@ from pypy.jit.metainterp.optimizeutil import sort_descrs, InvalidLoop
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.heaptracker import register_known_gctype, adr2int
 from pypy.jit.tool.oparser import parse
+from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -62,11 +64,35 @@ class LLtypeMixin(object):
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
+    accessor = FieldListAccessor()
+    accessor.initialize(None, {'inst_field': IR_QUASIIMMUTABLE})
+    QUASI = lltype.GcStruct('QUASIIMMUT', ('inst_field', lltype.Signed),
+                            ('mutate_field', rclass.OBJECTPTR),
+                            hints={'immutable_fields': accessor})
+    quasisize = cpu.sizeof(QUASI)
+    quasi = lltype.malloc(QUASI, immortal=True)
+    quasi.inst_field = -4247
+    quasifielddescr = cpu.fielddescrof(QUASI, 'inst_field')
+    quasibox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, quasi))
+    quasiimmutdescr = QuasiImmutDescr(cpu, quasibox,
+                                      quasifielddescr,
+                                      cpu.fielddescrof(QUASI, 'mutate_field'))
+
     NODEOBJ = lltype.GcStruct('NODEOBJ', ('parent', OBJECT),
                                          ('ref', lltype.Ptr(OBJECT)))
     nodeobj = lltype.malloc(NODEOBJ)
     nodeobjvalue = lltype.cast_opaque_ptr(llmemory.GCREF, nodeobj)
     refdescr = cpu.fielddescrof(NODEOBJ, 'ref')
+
+    INTOBJ_NOIMMUT = lltype.GcStruct('INTOBJ_NOIMMUT', ('parent', OBJECT),
+                                                ('intval', lltype.Signed))
+    INTOBJ_IMMUT = lltype.GcStruct('INTOBJ_IMMUT', ('parent', OBJECT),
+                                            ('intval', lltype.Signed),
+                                            hints={'immutable': True})
+    intobj_noimmut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    intobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    noimmut_intval = cpu.fielddescrof(INTOBJ_NOIMMUT, 'intval')
+    immut_intval = cpu.fielddescrof(INTOBJ_IMMUT, 'intval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
@@ -107,7 +133,8 @@ class LLtypeMixin(object):
                                  EffectInfo([adescr], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                  EffectInfo([nextdescr], [], [],
-                            EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE))
+                            EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE,
+                            can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                  EffectInfo([], [], [], oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
@@ -147,7 +174,6 @@ class LLtypeMixin(object):
     FakeWarmRunnerDesc.cpu = cpu
     vrefinfo = VirtualRefInfo(FakeWarmRunnerDesc)
     virtualtokendescr = vrefinfo.descr_virtual_token
-    virtualrefindexdescr = vrefinfo.descr_virtualref_index
     virtualforceddescr = vrefinfo.descr_forced
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
@@ -156,6 +182,8 @@ class LLtypeMixin(object):
     register_known_gctype(cpu, node_vtable2, NODE2)
     register_known_gctype(cpu, u_vtable,     U)
     register_known_gctype(cpu, jit_virtual_ref_vtable,vrefinfo.JIT_VIRTUAL_REF)
+    register_known_gctype(cpu, intobj_noimmut_vtable, INTOBJ_NOIMMUT)
+    register_known_gctype(cpu, intobj_immut_vtable,   INTOBJ_IMMUT)
 
     namespace = locals()
 

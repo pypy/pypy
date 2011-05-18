@@ -81,7 +81,7 @@ def checkmodule(modname, backend, interactive=False, basepath='pypy.module'):
     ModuleClass = __import__(basepath + '.%s' % modname,
                              None, None, ['Module']).Module
     module = ModuleClass(space, space.wrap(modname))
-    w_moduledict = module.getdict()
+    w_moduledict = module.getdict(space)
 
     gateways = find_gateways(modname, basepath, module)
     functions = [gw.__spacebind__(space) for gw in gateways]

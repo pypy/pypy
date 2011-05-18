@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
@@ -767,6 +768,25 @@ class AppTestOldstyle(object):
         finally:
             warnings.simplefilter('default', RuntimeWarning)
 
+    def test_context_manager(self):
+        class Context:
+            def __enter__(self):
+                self.got_enter = True
+                return 23
+            def __exit__(self, exc, value, tp):
+                self.got_exit = True
+        c = Context()
+        with c as a:
+            assert c.got_enter
+            assert a == 23
+        assert c.got_exit
+
+    def test_reverse(self):
+        class X:
+            def __reversed__(self):
+                return [1, 2]
+        assert reversed(X()) == [1, 2]
+
     def test_special_method_via_getattr(self):
         class A:
             def __getattr__(self, attr):
@@ -879,9 +899,17 @@ class AppTestOldstyle(object):
                       "long": long}
         for opname, opfunc in op_by_name.items():
             assert opfunc(b) == 42
-            assert b.called == ("__" + opname + "__", ())
+            called = b.called
+            assert called == ("__" + opname + "__", ())
         assert oct(a) == '__oct__()'
         assert hex(a) == '__hex__()'
+        #
+        class JustTrunc:
+            def __trunc__(self):
+                return 42
+        assert int(JustTrunc()) == 42
+        assert long(JustTrunc()) == 42
+        #
         #
         class C:
             def __getattr__(self, name):
@@ -960,7 +988,7 @@ class AppTestOldStyleClassStrDict(object):
             py.test.skip("can only be run on py.py")
         def is_strdict(space, w_class):
             from pypy.objspace.std.dictmultiobject import StrDictImplementation
-            w_d = w_class.getdict()
+            w_d = w_class.getdict(space)
             return space.wrap(isinstance(w_d, StrDictImplementation) and w_d.r_dict_content is None)
 
         cls.w_is_strdict = cls.space.wrap(gateway.interp2app(is_strdict))

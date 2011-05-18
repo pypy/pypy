@@ -40,6 +40,12 @@ class TestW_LongObject:
 
 
 class AppTestLong:
+
+    def test_trunc(self):
+        import math
+        assert math.trunc(1L) == 1L
+        assert math.trunc(-1L) == -1L
+
     def test_add(self):
         x = 123L
         assert int(x + 12443L) == 123 + 12443
@@ -64,6 +70,12 @@ class AppTestLong:
         x = 31415926L
         a = x // 10000000L
         assert a == 3L
+
+    def test_numerator_denominator(self):
+        assert (1L).numerator == 1L
+        assert (1L).denominator == 1L
+        assert (42L).numerator == 42L
+        assert (42L).denominator == 1L
 
     def test_compare(self):
         Z = 0
@@ -246,6 +258,12 @@ class AppTestLong:
         raises(OverflowError, operator.truediv, huge, 3)
         raises(OverflowError, operator.truediv, huge, 3L)
 
+    def test_just_trunc(self):
+        class myint(object):
+            def __trunc__(self):
+                return 42
+        assert long(myint()) == 42
+
     def test_override___long__(self):
         class mylong(long):
             def __long__(self):
@@ -255,6 +273,57 @@ class AppTestLong:
             pass
         assert long(myotherlong(21)) == 21L
 
+    def test___long__(self):
+        class A(object):
+            def __long__(self):
+                return 42
+        assert long(A()) == 42L
+        class B(object):
+            def __int__(self):
+                return 42
+        raises(TypeError, long, B())
+        # but!: (blame CPython 2.7)
+        class Integral(object):
+            def __int__(self):
+                return 42
+        class TruncReturnsNonLong(object):
+            def __trunc__(self):
+                return Integral()
+        assert long(TruncReturnsNonLong()) == 42
+
+    def test_conjugate(self):
+        assert (7L).conjugate() == 7L
+        assert (-7L).conjugate() == -7L
+
+        class L(long):
+            pass
+
+        assert type(L(7).conjugate()) is long
+
+    def test_bit_length(self):
+        assert 8L.bit_length() == 4
+        assert (-1<<40).bit_length() == 41
+        assert ((2**31)-1).bit_length() == 31
+
+
     def test_negative_zero(self):
         x = eval("-0L")
         assert x == 0L
+
+    def test_mix_int_and_long(self):
+        class IntLongMixClass(object):
+            def __int__(self):
+                return 42L
+
+            def __long__(self):
+                return 64
+
+        mixIntAndLong = IntLongMixClass()
+        as_long = long(mixIntAndLong)
+        assert type(as_long) is long
+        assert as_long == 64
+
+    def test_long_real(self):
+        class A(long): pass
+        b = A(5).real
+        assert type(b) is long

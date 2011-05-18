@@ -17,6 +17,12 @@ class AppTestBuiltinApp:
         assert d.f("abc", "def") == "abcdef"
         assert D.f("abc", "def") == "abcdef"
 
+    def test_staticmethod_subclass(self):
+        class Static(staticmethod):
+            pass
+        x = Static(1)
+        assert isinstance(x, Static)
+
     def test_classmethod(self):
         class C(object):
             def f(cls, stuff):
@@ -31,6 +37,12 @@ class AppTestBuiltinApp:
         assert C.f("abc") == (C, "abc")
         assert d.f("abc") == (D, "abc")
         assert D.f("abc") == (D, "abc")
+
+    def test_classmethod_subclass(self):
+        class Classm(classmethod):
+            pass
+        x = Classm(1)
+        assert isinstance(x, Classm)
 
     def test_property_simple(self):
         
@@ -226,7 +238,9 @@ class AppTestBuiltinApp:
         assert super(D,D).goo() == (D,)
         assert super(D,d).goo() == (D,)
 
-        raises(TypeError, "classmethod(1).__get__(1)")
+        meth = classmethod(1).__get__(1)
+        raises(TypeError, meth)
+
 
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
@@ -325,3 +339,37 @@ class AppTestBuiltinApp:
 
         X().x
         assert l
+
+        class P(property):
+            def __init__(self, awesome):
+                property.__init__(self, x)
+                self.awesome = awesome
+
+        l[:] = []
+        class X(object):
+            x = P(awesome=True)
+
+        X().x
+        assert l
+        assert X.x.awesome
+
+    def test_property_decorator(self):
+        class X(object):
+            @property
+            def x(self):
+                return 4
+            @x.getter
+            def x(self):
+                return 2
+            @x.setter
+            def x(self, new):
+                self.y = 42
+            @x.deleter
+            def x(self):
+                self.z = 42
+        x = X()
+        assert x.x == 2
+        x.x = 32
+        assert x.y == 42
+        del x.x
+        assert x.z == 42

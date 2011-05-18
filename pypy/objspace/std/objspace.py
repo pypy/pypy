@@ -12,6 +12,7 @@ from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint
+from pypy.rlib.rbigint import rbigint
 from pypy.tool.sourcetools import func_with_new_name
 
 # Object imports
@@ -21,7 +22,7 @@ from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import W_ListObject
-from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.ropeobject import W_RopeObject
@@ -176,13 +177,24 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
+            if self.config.objspace.std.withsmalllong:
+                from pypy.objspace.std.smalllongobject import W_SmallLongObject
+                from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+                from pypy.rlib.rarithmetic import longlongmax
+                if (not isinstance(x, r_ulonglong)
+                    or x <= r_ulonglong(longlongmax)):
+                    return W_SmallLongObject(r_longlong(x))
             x = widen(x)
             if isinstance(x, int):
                 return self.newint(x)
             else:
                 return W_LongObject.fromrarith_int(x)
+        return self._wrap_not_rpython(x)
+    wrap._annspecialcase_ = "specialize:wrap"
 
-        # _____ below here is where the annotator should not get _____
+    def _wrap_not_rpython(self, x):
+        "NOT_RPYTHON"
+        # _____ this code is here to support testing only _____
 
         # wrap() of a container works on CPython, but the code is
         # not RPython.  Don't use -- it is kept around mostly for tests.
@@ -202,6 +214,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # The following cases are even stranger.
         # Really really only for tests.
         if type(x) is long:
+            if self.config.objspace.std.withsmalllong:
+                from pypy.rlib.rarithmetic import r_longlong
+                try:
+                    rx = r_longlong(x)
+                except OverflowError:
+                    pass
+                else:
+                    from pypy.objspace.std.smalllongobject import \
+                                                   W_SmallLongObject
+                    return W_SmallLongObject(rx)
             return W_LongObject.fromlong(x)
         if isinstance(x, slice):
             return W_SliceObject(self.wrap(x.start),
@@ -226,9 +248,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.w_Ellipsis
 
         if self.config.objspace.nofaking:
-            # annotation should actually not get here.  If it does, you get
-            # an error during rtyping because '%r' is not supported.  It tells
-            # you that there was a space.wrap() on a strange object.
             raise OperationError(self.w_RuntimeError,
                                  self.wrap("nofaking enabled: refusing "
                                            "to wrap cpython value %r" %(x,)))
@@ -238,8 +257,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return w_result
         from fake import fake_object
         return fake_object(self, x)
-
-    wrap._annspecialcase_ = "specialize:wrap"
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
@@ -264,8 +281,18 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newcomplex(self, realval, imagval):
         return W_ComplexObject(realval, imagval)
 
+    def unpackcomplex(self, w_complex):
+        from pypy.objspace.std.complextype import unpackcomplex
+        return unpackcomplex(self, w_complex)
+
     def newlong(self, val): # val is an int
+        if self.config.objspace.std.withsmalllong:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            return W_SmallLongObject.fromint(val)
         return W_LongObject.fromint(self, val)
+
+    def newlong_from_rbigint(self, val):
+        return newlong(self, val)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)
@@ -276,11 +303,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_ListObject(list_w)
 
     def newdict(self, module=False, instance=False, classofinstance=None,
-                from_strdict_shared=None, strdict=False):
+                strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
                 classofinstance=classofinstance,
-                from_strdict_shared=from_strdict_shared,
                 strdict=strdict)
 
     def newslice(self, w_start, w_end, w_step):
@@ -354,7 +380,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def _wrap_expected_length(self, expected, got):
         return OperationError(self.w_ValueError,
-                self.wrap("Expected length %d, got %d" % (expected, got)))
+                self.wrap("expected length %d, got %d" % (expected, got)))
 
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_TupleObject):
@@ -532,3 +558,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def raise_key_error(self, w_key):
         e = self.call_function(self.w_KeyError, w_key)
         raise OperationError(self.w_KeyError, e)
+
+    def _type_issubtype(self, w_sub, w_type):
+        if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
+            return self.wrap(w_sub.issubtype(w_type))
+        raise OperationError(self.w_TypeError, self.wrap("need type objects"))

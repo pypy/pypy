@@ -51,6 +51,13 @@ def test_plain_attribute():
 
     assert aa.get_terminator() is aa.back.back
 
+def test_huge_chain():
+    current = Terminator(space, "cls")
+    for i in range(20000):
+        current = PlainAttribute((str(i), DICT), current)
+    assert current.index(("0", DICT)) == 0
+
+
 def test_search():
     aa = PlainAttribute(("b", DICT), PlainAttribute(("a", DICT), Terminator(None, None)))
     assert aa.search(DICT) is aa
@@ -223,8 +230,8 @@ def test_getdict():
     obj.setdictvalue(space, "a", 51)
     obj.setdictvalue(space, "b", 61)
     obj.setdictvalue(space, "c", 71)
-    assert obj.getdict() is obj.getdict()
-    assert obj.getdict().length() == 3
+    assert obj.getdict(space) is obj.getdict(space)
+    assert obj.getdict(space).length() == 3
 
 
 def test_materialize_r_dict():
@@ -282,7 +289,7 @@ from pypy.objspace.std.test.test_dictmultiobject import BaseTestRDictImplementat
 def get_impl(self):
     cls = Class()
     w_obj = cls.instantiate(self.fakespace)
-    return w_obj.getdict()
+    return w_obj.getdict(self.fakespace)
 class TestMapDictImplementation(BaseTestRDictImplementation):
     ImplementionClass = MapDictImplementation
     get_impl = get_impl
@@ -293,8 +300,8 @@ class TestDevolvedMapDictImplementation(BaseTestDevolvedDictImplementation):
 # ___________________________________________________________
 # tests that check the obj interface after the dict has devolved
 
-def devolve_dict(obj):
-    w_d = obj.getdict()
+def devolve_dict(space, obj):
+    w_d = obj.getdict(space)
     w_d._as_rdict()
 
 def test_get_setdictvalue_after_devolve():
@@ -310,7 +317,7 @@ def test_get_setdictvalue_after_devolve():
     obj.setdictvalue(space, "b", 6)
     obj.setdictvalue(space, "c", 7)
     obj.setdictvalue(space, "weakref", 42)
-    devolve_dict(obj)
+    devolve_dict(space, obj)
     assert obj.getdictvalue(space, "a") == 5
     assert obj.getdictvalue(space, "b") == 6
     assert obj.getdictvalue(space, "c") == 7
@@ -348,10 +355,10 @@ def test_setdict():
     obj.setdictvalue(space, "a", 5)
     obj.setdictvalue(space, "b", 6)
     obj.setdictvalue(space, "c", 7)
-    w_d = obj.getdict()
+    w_d = obj.getdict(space)
     obj2 = cls.instantiate()
     obj2.setdictvalue(space, "d", 8)
-    obj.setdict(space, obj2.getdict())
+    obj.setdict(space, obj2.getdict(space))
     assert obj.getdictvalue(space, "a") is None
     assert obj.getdictvalue(space, "b") is None
     assert obj.getdictvalue(space, "c") is None
@@ -366,7 +373,6 @@ def test_setdict():
 
 def test_specialized_class():
     from pypy.objspace.std.objectobject import W_ObjectObject
-    from pypy.rlib import rerased
     classes = memo_get_subclass_of_correct_size(space, W_ObjectObject)
     w1 = W_Root()
     w2 = W_Root()
@@ -379,12 +385,12 @@ def test_specialized_class():
         obj = objectcls()
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
-        assert rerased.unerase(obj._value0, W_Root) is w1
+        assert unerase_item(obj._value0) is w1
         assert obj.getdictvalue(space, "a") is w1
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
-        assert rerased.unerase(obj._value0, W_Root) is w2
+        assert unerase_item(obj._value0) is w2
         assert obj.getdictvalue(space, "a") == w2
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
@@ -402,7 +408,7 @@ def test_specialized_class():
 
         res = obj.deldictvalue(space, "a")
         assert res
-        assert rerased.unerase(obj._value0, W_Root) is w4
+        assert unerase_item(obj._value0) is w4
         assert obj.getdictvalue(space, "a") is None
         assert obj.getdictvalue(space, "b") is w4
         assert obj.getdictvalue(space, "c") is None
@@ -598,273 +604,49 @@ class AppTestWithMapDict(object):
         assert a.__dict__ is d
         assert isinstance(a, B)
 
+    def test_dont_keep_class_alive(self):
+        import weakref
+        import gc
+        def f():
+            class C(object):
+                def m(self):
+                    pass
+            r = weakref.ref(C)
+            # Trigger cache.
+            C().m()
+            del C
+            gc.collect(); gc.collect(); gc.collect()
+            assert r() is None
+            return 42
+        f()
 
-class AppTestWithMapDictAndCounters(object):
-    def setup_class(cls):
-        from pypy.interpreter import gateway
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmapdict": True,
-               "objspace.std.withmethodcachecounter": True,
-               "objspace.opcodes.CALL_METHOD": True})
-        #
-        def check(space, w_func, name):
-            w_code = space.getattr(w_func, space.wrap('func_code'))
-            nameindex = map(space.str_w, w_code.co_names_w).index(name)
-            entry = w_code._mapdict_caches[nameindex]
-            entry.failure_counter = 0
-            entry.success_counter = 0
-            INVALID_CACHE_ENTRY.failure_counter = 0
-            #
-            w_res = space.call_function(w_func)
-            assert space.eq_w(w_res, space.wrap(42))
-            #
-            entry = w_code._mapdict_caches[nameindex]
-            if entry is INVALID_CACHE_ENTRY:
-                failures = successes = 0
-            else:
-                failures = entry.failure_counter
-                successes = entry.success_counter
-            globalfailures = INVALID_CACHE_ENTRY.failure_counter
-            return space.wrap((failures, successes, globalfailures))
-        check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, str]
-        cls.w_check = cls.space.wrap(gateway.interp2app(check))
+    def test_instance_keeps_class_alive(self):
+        import weakref
+        import gc
+        def f():
+            class C(object):
+                def m(self):
+                    return 42
+            r = weakref.ref(C)
+            c = C()
+            del C
+            gc.collect(); gc.collect(); gc.collect()
+            return c.m()
+        val = f()
+        assert val == 42
+        f()
 
-    def test_simple(self):
+    def test_bug_lookup_method_devolved_dict_caching(self):
         class A(object):
-            pass
-        a = A()
-        a.x = 42
-        def f():
-            return a.x
-        #
-        res = self.check(f, 'x')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        #
-        A.y = 5     # unrelated, but changes the version_tag
-        res = self.check(f, 'x')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        #
-        A.x = 8     # but shadowed by 'a.x'
-        res = self.check(f, 'x')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-
-    def test_property(self):
-        class A(object):
-            x = property(lambda self: 42)
-        a = A()
-        def f():
-            return a.x
-        #
-        res = self.check(f, 'x')
-        assert res == (0, 0, 1)
-        res = self.check(f, 'x')
-        assert res == (0, 0, 1)
-        res = self.check(f, 'x')
-        assert res == (0, 0, 1)
-
-    def test_slots(self):
-        class A(object):
-            __slots__ = ['x']
-        a = A()
-        a.x = 42
-        def f():
-            return a.x
-        #
-        res = self.check(f, 'x')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-
-    def test_two_attributes(self):
-        class A(object):
-            pass
-        a = A()
-        a.x = 40
-        a.y = -2
-        def f():
-            return a.x - a.y
-        #
-        res = self.check(f, 'x')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        #
-        res = self.check(f, 'y')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'y')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'y')
-        assert res == (0, 1, 0)
-
-    def test_two_maps(self):
-        class A(object):
-            pass
-        a = A()
-        a.x = 42
-        def f():
-            return a.x
-        #
-        res = self.check(f, 'x')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        #
-        a.y = "foo"      # changes the map
-        res = self.check(f, 'x')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        #
-        a.y = "bar"      # does not change the map any more
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-
-    def test_custom_metaclass(self):
-        class A(object):
-            class __metaclass__(type):
-                pass
-        a = A()
-        a.x = 42
-        def f():
-            return a.x
-        #
-        res = self.check(f, 'x')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'x')
-        assert res == (0, 1, 0)
-
-    def test_old_style_base(self):
-        class B:
-            pass
-        class C(object):
-            pass
-        class A(C, B):
-            pass
-        a = A()
-        a.x = 42
-        def f():
-            return a.x
-        #
-        res = self.check(f, 'x')
-        assert res == (0, 0, 1)
-        res = self.check(f, 'x')
-        assert res == (0, 0, 1)
-        res = self.check(f, 'x')
-        assert res == (0, 0, 1)
-
-    def test_call_method_uses_cache(self):
-        # bit sucky
-        global C
-
-        class C(object):
-            def m(*args):
-                return args
-        C.sm = staticmethod(C.m.im_func)
-        C.cm = classmethod(C.m.im_func)
-
-        exec """if 1:
-
-            def f():
-                c = C()
-                res = c.m(1)
-                assert res == (c, 1)
+            def method(self):
                 return 42
-
-            def g():
-                c = C()
-                res = c.sm(1)
-                assert res == (1, )
-                return 42
-
-            def h():
-                c = C()
-                res = c.cm(1)
-                assert res == (C, 1)
-                return 42
-        """
-        res = self.check(f, 'm')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'm')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'm')
-        assert res == (0, 1, 0)
-        res = self.check(f, 'm')
-        assert res == (0, 1, 0)
-
-        # static methods are not cached
-        res = self.check(g, 'sm')
-        assert res == (0, 0, 0)
-        res = self.check(g, 'sm')
-        assert res == (0, 0, 0)
-
-        # neither are class methods
-        res = self.check(h, 'cm')
-        assert res == (0, 0, 0)
-        res = self.check(h, 'cm')
-        assert res == (0, 0, 0)
-
-    def test_mix_cache_bug(self):
-        # bit sucky
-        global C
-
-        class C(object):
-            def m(*args):
-                return args
-
-        exec """if 1:
-
-            def f():
-                c = C()
-                res = c.m(1)
-                assert res == (c, 1)
-                bm = c.m
-                res = bm(1)
-                assert res == (c, 1)
-                return 42
-
-        """
-        res = self.check(f, 'm')
-        assert res == (1, 1, 1)
-        res = self.check(f, 'm')
-        assert res == (0, 2, 1)
-        res = self.check(f, 'm')
-        assert res == (0, 2, 1)
-        res = self.check(f, 'm')
-        assert res == (0, 2, 1)
+        a = A()
+        a.__dict__[1] = 'foo'
+        got = a.method()
+        assert got == 42
+        a.__dict__['method'] = lambda: 43
+        got = a.method()
+        assert got == 43
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):

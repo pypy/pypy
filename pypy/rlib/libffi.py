@@ -6,6 +6,7 @@ from pypy.rlib import clibffi
 from pypy.rlib.clibffi import get_libc_name, FUNCFLAG_CDECL, AbstractFuncPtr, \
     push_arg_as_ffiptr, c_ffi_call
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
+from pypy.rlib.rdynload import DLLHANDLE
 
 class types(object):
     """
@@ -289,7 +290,7 @@ class Func(AbstractFuncPtr):
 class CDLL(object):
     def __init__(self, libname):
         """Load the library, or raises DLOpenError."""
-        self.lib = lltype.nullptr(rffi.CCHARP.TO)
+        self.lib = rffi.cast(DLLHANDLE, 0)
         ll_libname = rffi.str2charp(libname)
         try:
             self.lib = dlopen(ll_libname)
@@ -299,7 +300,7 @@ class CDLL(object):
     def __del__(self):
         if self.lib:
             dlclose(self.lib)
-            self.lib = lltype.nullptr(rffi.CCHARP.TO)
+            self.lib = rffi.cast(DLLHANDLE, 0)
 
     def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         return Func(name, argtypes, restype, dlsym(self.lib, name),

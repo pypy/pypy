@@ -13,6 +13,22 @@ class Test_DescrOperation:
         space.call_method(l, 'append', space.w_False)
         assert space.nonzero(l) is space.w_True
 
+    def test_isinstance_and_issubtype_ignore_special(self):
+        space = self.space
+        w_tup = space.appexec((), """():
+        class Meta(type):
+            def __subclasscheck__(mcls, cls):
+                return False
+        class Base:
+            __metaclass__ = Meta
+        class Sub(Base):
+            pass
+        return Base, Sub""")
+        w_base, w_sub = space.unpackiterable(w_tup)
+        assert space.is_true(space.issubtype(w_sub, w_base))
+        w_inst = space.call_function(w_sub)
+        assert space.isinstance_w(w_inst, w_base)
+
 
 class AppTest_Descroperation:
     OPTIONS = {}
@@ -457,6 +473,12 @@ class AppTest_Descroperation:
         else:
             assert False, "did not raise"
 
+    def test_invalid_iterator(self):
+        class x(object):
+            def __iter__(self):
+                return self
+        raises(TypeError, iter, x())
+
     def test_attribute_error(self):
         class classmethodonly(classmethod):
             def __get__(self, instance, type):
@@ -470,6 +492,37 @@ class AppTest_Descroperation:
                 return 3
 
         raises(AttributeError, lambda: A().a)
+
+    def test_non_callable(self):
+        meth = classmethod(1).__get__(1)
+        raises(TypeError, meth)
+
+    def test_isinstance_and_issubclass(self):
+        class Meta(type):
+            def __instancecheck__(cls, instance):
+                if cls is A:
+                    return True
+                return False
+            def __subclasscheck__(cls, sub):
+                if cls is B:
+                    return True
+                return False
+        class A:
+            __metaclass__ = Meta
+        class B(A):
+            pass
+        a = A()
+        b = B()
+        assert isinstance(a, A)
+        assert not isinstance(a, B)
+        assert isinstance(b, A)
+        assert not isinstance(b, B)
+        assert isinstance(4, A)
+        assert not issubclass(A, A)
+        assert not issubclass(B, A)
+        assert issubclass(A, B)
+        assert issubclass(B, B)
+        assert issubclass(23, B)
 
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):

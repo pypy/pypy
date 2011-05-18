@@ -6,8 +6,8 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.signature import annotation
 from pypy.annotation.listdef import ListDef, TooLateForChange
 from pypy.tool.pairtype import pair, pairtype
-from pypy.rlib.rarithmetic import formatd, r_longlong, intmask, LONG_BIT
-from pypy.rlib.rarithmetic import break_up_float, parts_to_float
+from pypy.rlib.rarithmetic import r_longlong, intmask, LONG_BIT
+from pypy.rlib.rfloat import formatd, rstring_to_float
 from pypy.rlib.unroll import unrolling_iterable
 
 class CannotMarshal(Exception):
@@ -195,7 +195,7 @@ add_loader(annotation(r_longlong), load_longlong)
 
 def dump_float(buf, x):
     buf.append(TYPE_FLOAT)
-    s = formatd("%.17g", x)
+    s = formatd(x, 'g', 17)
     buf.append(chr(len(s)))
     buf += s
 add_dumper(annmodel.SomeFloat(), dump_float)
@@ -205,7 +205,7 @@ def load_float(loader):
         raise ValueError("expected a float")
     length = ord(readchr(loader))
     s = readstr(loader, length)
-    return parts_to_float(*break_up_float(s))
+    return rstring_to_float(s)
 add_loader(annmodel.SomeFloat(), load_float)
 
 def dump_string_or_none(buf, x):

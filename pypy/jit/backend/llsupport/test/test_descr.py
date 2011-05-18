@@ -5,7 +5,8 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp import history
-import struct
+from pypy.jit.codewriter import longlong
+import sys, struct, py
 
 def test_get_size_descr():
     c0 = GcCache(False)
@@ -17,12 +18,33 @@ def test_get_size_descr():
     descr_t = get_size_descr(c0, T)
     assert descr_s.size == symbolic.get_size(S, False)
     assert descr_t.size == symbolic.get_size(T, False)
+    assert descr_s.count_fields_if_immutable() == -1
+    assert descr_t.count_fields_if_immutable() == -1
     assert descr_s == get_size_descr(c0, S)
     assert descr_s != get_size_descr(c1, S)
     #
     descr_s = get_size_descr(c1, S)
     assert isinstance(descr_s.size, Symbolic)
+    assert descr_s.count_fields_if_immutable() == -1
 
+def test_get_size_descr_immut():
+    S = lltype.GcStruct('S', hints={'immutable': True})
+    T = lltype.GcStruct('T', ('parent', S),
+                        ('x', lltype.Char),
+                        hints={'immutable': True})
+    U = lltype.GcStruct('U', ('parent', T),
+                        ('u', lltype.Ptr(T)),
+                        ('v', lltype.Signed),
+                        hints={'immutable': True})
+    V = lltype.GcStruct('V', ('parent', U),
+                        ('miss1', lltype.Void),
+                        ('miss2', lltype.Void),
+                        hints={'immutable': True})
+    for STRUCT, expected in [(S, 0), (T, 1), (U, 3), (V, 3)]:
+        for translated in [False, True]:
+            c0 = GcCache(translated)
+            descr_s = get_size_descr(c0, STRUCT)
+            assert descr_s.count_fields_if_immutable() == expected
 
 def test_get_field_descr():
     U = lltype.Struct('U')
@@ -94,6 +116,16 @@ def test_get_field_descr_sign():
             c2 = GcCache(tsc)
             descr_x = get_field_descr(c2, S, 'x')
             assert descr_x.is_field_signed() == signed
+
+def test_get_field_descr_longlong():
+    if sys.maxint > 2147483647:
+        py.test.skip("long long: for 32-bit only")
+    c0 = GcCache(False)
+    S = lltype.GcStruct('S', ('y', lltype.UnsignedLongLong))
+    descr = get_field_descr(c0, S, 'y')
+    assert not descr.is_pointer_field()
+    assert descr.is_float_field()
+    assert descr.get_field_size(False) == 8
 
 
 def test_get_array_descr():
@@ -226,6 +258,21 @@ def test_get_call_descr_not_translated():
     assert descr4.get_return_type() == history.FLOAT
     assert descr4.arg_classes == "ff"
 
+def test_get_call_descr_not_translated_longlong():
+    if sys.maxint > 2147483647:
+        py.test.skip("long long: for 32-bit only")
+    c0 = GcCache(False)
+    #
+    descr5 = get_call_descr(c0, [lltype.SignedLongLong], lltype.Signed)
+    assert descr5.get_result_size(False) == 4
+    assert descr5.get_return_type() == history.INT
+    assert descr5.arg_classes == "L"
+    #
+    descr6 = get_call_descr(c0, [lltype.Signed], lltype.SignedLongLong)
+    assert descr6.get_result_size(False) == 8
+    assert descr6.get_return_type() == "L"
+    assert descr6.arg_classes == "i"
+
 def test_get_call_descr_translated():
     c1 = GcCache(True)
     T = lltype.GcStruct('T')
@@ -326,5 +373,5 @@ def test_call_stubs():
     opaquea = lltype.cast_opaque_ptr(llmemory.GCREF, a)
     a[0] = 1
     res = descr2.call_stub(rffi.cast(lltype.Signed, fnptr),
-                           [], [opaquea], [3.5])
-    assert res == 4.5
+                           [], [opaquea], [longlong.getfloatstorage(3.5)])
+    assert longlong.getrealfloat(res) == 4.5

@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app
 from pypy.module._stackless.interp_coroutine import AppCoroutine, AppCoState
 from pypy.module._stackless.interp_coroutine import makeStaticMethod
 from pypy.module._stackless.rcoroutine import AbstractThunk
@@ -58,8 +58,7 @@ AppClonableCoroutine.typedef = TypeDef("clonable", AppCoroutine.typedef,
     __new__    = interp2app(AppClonableCoroutine.descr_method__new__.im_func),
     getcurrent = interp2app(AppClonableCoroutine.w_getcurrent),
     clone      = interp2app(AppClonableCoroutine.w_clone),
-    __reduce__ = interp2app(AppClonableCoroutine.descr__reduce__,
-                            unwrap_spec=['self', ObjSpace]),
+    __reduce__ = interp2app(AppClonableCoroutine.descr__reduce__),
 )
 
 class AppClonableCoState(AppCoState):
@@ -105,4 +104,3 @@ def fork(space):
     # we resume here twice.  The following would need explanations about
     # why it returns the correct thing in both the parent and the child...
     return space.wrap(thunk.newcoroutine)
-fork.unwrap_spec = [ObjSpace]

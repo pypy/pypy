@@ -1,7 +1,7 @@
 from pypy.rlib import rgc
 from pypy.interpreter.baseobjspace import W_Root, Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -140,7 +140,6 @@ def get_referents(space, args_w):
         gcref = rgc.cast_instance_to_gcref(w_obj)
         _list_w_obj_referents(gcref, result)
     return space.newlist(result)
-get_referents.unwrap_spec = [ObjSpace, 'args_w']
 
 def get_referrers(space, args_w):
     """Return the list of objects that directly refer to any of objs."""
@@ -167,8 +166,8 @@ def get_referrers(space, args_w):
                         result_w[w_obj] = None
                 pending_w += referents_w
     return space.newlist(result_w.keys())
-get_referrers.unwrap_spec = [ObjSpace, 'args_w']
 
+@unwrap_spec(fd=int)
 def _dump_rpy_heap(space, fd):
     try:
         ok = rgc.dump_rpy_heap(fd)
@@ -176,10 +175,8 @@ def _dump_rpy_heap(space, fd):
         raise wrap_oserror(space, e)
     if not ok:
         raise missing_operation(space)
-_dump_rpy_heap.unwrap_spec = [ObjSpace, int]
 
 def get_typeids_z(space):
     a = rgc.get_typeids_z()
     s = ''.join([a[i] for i in range(len(a))])
     return space.wrap(s)
-get_typeids_z.unwrap_spec = [ObjSpace]

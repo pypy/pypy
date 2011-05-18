@@ -227,6 +227,14 @@ def op_int_or(x, y):
     assert isinstance(y, int)
     return x | y
 
+def op_int_xor(x, y):
+    # used in computing hashes
+    if isinstance(x, AddressAsInt): x = llmemory.cast_adr_to_int(x.adr)
+    if isinstance(y, AddressAsInt): y = llmemory.cast_adr_to_int(y.adr)
+    assert isinstance(x, int)
+    assert isinstance(y, int)
+    return x ^ y
+
 def op_int_mul(x, y):
     assert isinstance(x, (int, llmemory.AddressOffset))
     assert isinstance(y, (int, llmemory.AddressOffset))
@@ -271,6 +279,36 @@ def op_llong_mod(x, y):
         r -= y
     return r
 
+def op_uint_lshift(x, y):
+    assert isinstance(x, r_uint)
+    assert isinstance(y, int)
+    return r_uint(x << y)
+
+def op_uint_rshift(x, y):
+    assert isinstance(x, r_uint)
+    assert isinstance(y, int)
+    return r_uint(x >> y)
+
+def op_llong_lshift(x, y):
+    assert isinstance(x, r_longlong_arg)
+    assert isinstance(y, int)
+    return r_longlong_result(x << y)
+
+def op_llong_rshift(x, y):
+    assert isinstance(x, r_longlong_arg)
+    assert isinstance(y, int)
+    return r_longlong_result(x >> y)
+
+def op_ullong_lshift(x, y):
+    assert isinstance(x, r_ulonglong)
+    assert isinstance(y, int)
+    return r_ulonglong(x << y)
+
+def op_ullong_rshift(x, y):
+    assert isinstance(x, r_ulonglong)
+    assert isinstance(y, int)
+    return r_ulonglong(x >> y)
+
 def op_same_as(x):
     return x
 
@@ -292,6 +330,13 @@ def op_cast_longlong_to_float(i):
     # take first 31 bits
     li = float(int(i & r_longlong(0x7fffffff)))
     ui = float(int(i >> 31)) * float(0x80000000)
+    return ui + li
+
+def op_cast_ulonglong_to_float(i):
+    assert isinstance(i, r_ulonglong)
+    # take first 32 bits
+    li = float(int(i & r_ulonglong(0xffffffff)))
+    ui = float(int(i >> 32)) * float(0x100000000)
     return ui + li
 
 def op_cast_int_to_char(b):
@@ -322,6 +367,10 @@ def op_cast_float_to_longlong(f):
     truncated = int((small - high) * r)
     return r_longlong_result(high) * 0x100000000 + truncated
 
+def op_cast_float_to_ulonglong(f):
+    assert type(f) is float
+    return r_ulonglong(r_longlong(f))
+
 def op_cast_char_to_int(b):
     assert type(b) is str and len(b) == 1
     return ord(b)
@@ -331,7 +380,7 @@ def op_cast_unichar_to_int(b):
     return ord(b)
 
 def op_cast_int_to_unichar(b):
-    assert type(b) is int 
+    assert type(b) is int
     return unichr(b)
 
 def op_cast_int_to_uint(b):
@@ -476,6 +525,9 @@ def op_jit_force_virtualizable(*args):
 def op_jit_force_virtual(x):
     return x
 
+def op_jit_force_quasi_immutable(*args):
+    pass
+
 def op_get_group_member(TYPE, grpptr, memberoffset):
     from pypy.rpython.lltypesystem import llgroup
     assert isinstance(memberoffset, llgroup.GroupMemberOffset)
@@ -528,6 +580,10 @@ def op_gc_assume_young_pointers(addr):
 
 def op_shrink_array(array, smallersize):
     return False
+
+def op_ll_read_timestamp():
+    from pypy.rlib.rtimer import read_timestamp
+    return read_timestamp()
 
 # ____________________________________________________________
 

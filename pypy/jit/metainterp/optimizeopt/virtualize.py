@@ -4,6 +4,8 @@ from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
 from pypy.jit.metainterp.optimizeutil import descrlist_dict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.optimizeopt import optimizer
+from pypy.jit.metainterp.executor import execute
+from pypy.jit.codewriter.heaptracker import vtable2descr
 
 
 class AbstractVirtualValue(optimizer.OptValue):
@@ -30,6 +32,8 @@ class AbstractVirtualValue(optimizer.OptValue):
         return self.box
 
     def make_virtual_info(self, modifier, fieldnums):
+        if fieldnums is None:
+            return self._make_virtual(modifier)
         vinfo = self._cached_vinfo
         if vinfo is not None and vinfo.equals(fieldnums):
             return vinfo
@@ -70,36 +74,68 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         assert isinstance(fieldvalue, optimizer.OptValue)
         self._fields[ofs] = fieldvalue
 
+    def _get_descr(self):
+        raise NotImplementedError
+
+    def _is_immutable_and_filled_with_constants(self):
+        count = self._get_descr().count_fields_if_immutable()
+        if count != len(self._fields):    # always the case if count == -1
+            return False
+        for value in self._fields.itervalues():
+            subbox = value.force_box()
+            if not isinstance(subbox, Const):
+                return False
+        return True
+
     def _really_force(self):
-        assert self.source_op is not None
+        op = self.source_op
+        assert op is not None
         # ^^^ This case should not occur any more (see test_bug_3).
         #
         if not we_are_translated():
-            self.source_op.name = 'FORCE ' + self.source_op.name
-        newoperations = self.optimizer.newoperations
-        newoperations.append(self.source_op)
-        self.box = box = self.source_op.result
-        #
-        iteritems = self._fields.iteritems()
-        if not we_are_translated(): #random order is fine, except for tests
-            iteritems = list(iteritems)
-            iteritems.sort(key = lambda (x,y): x.sort_key())
-        for ofs, value in iteritems:
-            if value.is_null():
-                continue
-            subbox = value.force_box()
-            op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
-                              descr=ofs)
+            op.name = 'FORCE ' + self.source_op.name
+
+        if self._is_immutable_and_filled_with_constants():
+            box = self.optimizer.constant_fold(op)
+            self.make_constant(box)
+            for ofs, value in self._fields.iteritems():
+                subbox = value.force_box()
+                assert isinstance(subbox, Const)
+                execute(self.optimizer.cpu, None, rop.SETFIELD_GC,
+                        ofs, box, subbox)
+            # keep self._fields, because it's all immutable anyway
+        else:
+            newoperations = self.optimizer.newoperations
             newoperations.append(op)
-        self._fields = None
+            self.box = box = op.result
+            #
+            iteritems = self._fields.iteritems()
+            if not we_are_translated(): #random order is fine, except for tests
+                iteritems = list(iteritems)
+                iteritems.sort(key = lambda (x,y): x.sort_key())
+            for ofs, value in iteritems:
+                if value.is_null():
+                    continue
+                subbox = value.force_box()
+                op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
+                                  descr=ofs)
+                newoperations.append(op)
+            self._fields = None
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
+        if self._fields is None:
+            nfields = 0
+        else:
+            nfields = len(self._fields)
         if (_cached_sorted_fields is not None and
-            len(self._fields) == len(_cached_sorted_fields)):
+            nfields == len(_cached_sorted_fields)):
             lst = self._cached_sorted_fields
         else:
-            lst = self._fields.keys()
+            if self._fields is None:
+                lst = []
+            else:
+                lst = self._fields.keys()
             sort_descrs(lst)
             cache = get_fielddescrlist_cache(self.optimizer.cpu)
             result = cache.get(lst, None)
@@ -159,6 +195,9 @@ class VirtualValue(AbstractVirtualStructValue):
         fielddescrs = self._get_field_descr_list()
         return modifier.make_virtual(self.known_class, fielddescrs)
 
+    def _get_descr(self):
+        return vtable2descr(self.optimizer.cpu, self.known_class.getint())
+
     def __repr__(self):
         cls_name = self.known_class.value.adr.ptr._obj._TYPE._name
         if self._fields is None:
@@ -175,6 +214,9 @@ class VStructValue(AbstractVirtualStructValue):
     def _make_virtual(self, modifier):
         fielddescrs = self._get_field_descr_list()
         return modifier.make_vstruct(self.structdescr, fielddescrs)
+
+    def _get_descr(self):
+        return self.structdescr
 
 class VArrayValue(AbstractVirtualValue):
 
@@ -277,7 +319,6 @@ class OptVirtualize(optimizer.Optimization):
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         c_cls = vrefinfo.jit_virtual_ref_const_class
         descr_virtual_token = vrefinfo.descr_virtual_token
-        descr_virtualref_index = vrefinfo.descr_virtualref_index
         #
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
@@ -287,7 +328,6 @@ class OptVirtualize(optimizer.Optimization):
         tokenbox = BoxInt()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
-        vrefvalue.setfield(descr_virtualref_index, self.getvalue(indexbox))
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         # Set the 'forced' field of the virtual_ref.

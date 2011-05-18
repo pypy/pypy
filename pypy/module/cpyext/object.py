@@ -1,15 +1,14 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite, build_type_checkers)
+    PyVarObject, Py_buffer,
+    Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
+    Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    track_reference, get_typedescr, RefcountState)
+    track_reference, get_typedescr, _Py_NewReference, RefcountState)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
-from pypy.module._file.interp_file import W_File
-from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.error import OperationError
 import pypy.module.__builtin__.operation as operation
@@ -20,7 +19,7 @@ def PyObject_MALLOC(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw', zero=True)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_FREE(space, ptr):
     lltype.free(ptr, flavor='raw')
 
@@ -42,14 +41,14 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Del(space, obj):
     lltype.free(obj, flavor='raw')
 
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
     pto = obj.c_ob_type
-    obj_voidp = rffi.cast(rffi.VOIDP_real, obj)
+    obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         Py_DecRef(space, rffi.cast(PyObject, pto))
@@ -58,11 +57,11 @@ def PyObject_dealloc(space, obj):
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
     PyObject_Del(space, obj)
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Track(space, op):
     """Adds the object op to the set of container objects tracked by the
     collector.  The collector can run at unexpected times so objects must be
@@ -71,7 +70,7 @@ def PyObject_GC_Track(space, op):
     end of the constructor."""
     pass
 
-@cpython_api([rffi.VOIDP_real], lltype.Void)
+@cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_UnTrack(space, op):
     """Remove the object op from the set of container objects tracked by the
     collector.  Note that PyObject_GC_Track() can be called again on
@@ -156,7 +155,7 @@ def PyObject_ClearWeakRefs(space, w_object):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyObject_Size(space, w_obj):
-    return space.int_w(space.len(w_obj))
+    return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCallable_Check(space, w_obj):
@@ -185,26 +184,17 @@ def PyObject_DelItem(space, w_obj, w_key):
     return 0
 
 @cpython_api([PyObject, PyTypeObjectPtr], PyObject)
-def PyObject_Init(space, py_obj, type):
+def PyObject_Init(space, obj, type):
     """Initialize a newly-allocated object op with its type and initial
     reference.  Returns the initialized object.  If type indicates that the
     object participates in the cyclic garbage detector, it is added to the
     detector's set of observed objects. Other fields of the object are not
     affected."""
-    if not py_obj:
+    if not obj:
         PyErr_NoMemory(space)
-    py_obj.c_ob_type = type
-    py_obj.c_ob_refcnt = 1
-    w_type = from_ref(space, rffi.cast(PyObject, type))
-    assert isinstance(w_type, W_TypeObject)
-    if w_type.is_cpytype():
-        w_obj = space.allocate_instance(W_ObjectObject, w_type)
-        track_reference(space, py_obj, w_obj)
-        state = space.fromcache(RefcountState)
-        state.set_lifeline(w_obj, py_obj)
-    else:
-        assert False, "Please add more cases in PyObject_Init"
-    return py_obj
+    obj.c_ob_type = type
+    _Py_NewReference(space, obj)
+    return obj
 
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
 def PyObject_InitVar(space, py_obj, type, size):
@@ -255,6 +245,16 @@ def PyObject_Compare(space, w_o1, w_o2):
     PyErr_Occurred() to detect an error.  This is equivalent to the Python
     expression cmp(o1, o2)."""
     return space.int_w(space.cmp(w_o1, w_o2))
+
+@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
+def PyObject_Cmp(space, w_o1, w_o2, result):
+    """Compare the values of o1 and o2 using a routine provided by o1, if one
+    exists, otherwise with a routine provided by o2.  The result of the
+    comparison is returned in result.  Returns -1 on failure.  This is the
+    equivalent of the Python statement result = cmp(o1, o2)."""
+    res = space.int_w(space.cmp(w_o1, w_o2))
+    result[0] = rffi.cast(rffi.INT, res)
+    return 0
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
@@ -396,10 +396,10 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a character buffer object"))
     if generic_cpy_call(space, pb.c_bf_getsegcount,
-                        obj, lltype.nullptr(rffi.INTP.TO)) != 1:
+                        obj, lltype.nullptr(Py_ssize_tP.TO)) != 1:
         raise OperationError(space.w_TypeError, space.wrap(
             "expected a single-segment buffer object"))
-    size = generic_cpy_call(space, pb.c_bf_getreadbuffer,
+    size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
                             obj, 0, bufferp)
     if size < 0:
         return -1
@@ -420,7 +420,7 @@ def PyObject_Print(space, w_obj, fp, flags):
     else:
         w_str = space.repr(w_obj)
 
-    count = space.int_w(space.len(w_str))
+    count = space.len_w(w_str)
     data = space.str_w(w_str)
     buf = rffi.get_nonmovingbuffer(data)
     try:
@@ -429,40 +429,31 @@ def PyObject_Print(space, w_obj, fp, flags):
         rffi.free_nonmovingbuffer(data, buf)
     return 0
 
-PyFile_Check, PyFile_CheckExact = build_type_checkers("File", W_File)
 
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyFile_GetLine(space, w_obj, n):
+@cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
+              lltype.Signed, lltype.Signed], rffi.INT, error=CANNOT_FAIL)
+def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     """
-    Equivalent to p.readline([n]), this function reads one line from the
-    object p.  p may be a file object or any object with a readline()
-    method.  If n is 0, exactly one line is read, regardless of the length of
-    the line.  If n is greater than 0, no more than n bytes will be read
-    from the file; a partial line can be returned.  In both cases, an empty string
-    is returned if the end of the file is reached immediately.  If n is less than
-    0, however, one line is read regardless of length, but EOFError is
-    raised if the end of the file is reached immediately."""
-    try:
-        w_readline = space.getattr(w_obj, space.wrap('readline'))
-    except OperationError:
-        raise OperationError(
-            space.w_TypeError, space.wrap(
-            "argument must be a file, or have a readline() method."))
+    Fills in a buffer-info structure correctly for an exporter that can only
+    share a contiguous chunk of memory of "unsigned bytes" of the given
+    length. Returns 0 on success and -1 (with raising an error) on error.
 
-    n = rffi.cast(lltype.Signed, n)
-    if space.is_true(space.gt(space.wrap(n), space.wrap(0))):
-        return space.call_function(w_readline, space.wrap(n))
-    elif space.is_true(space.lt(space.wrap(n), space.wrap(0))):
-        return space.call_function(w_readline)
-    else:
-        # XXX Raise EOFError as specified
-        return space.call_function(w_readline)
-@cpython_api([CONST_STRING, CONST_STRING], PyObject)
-def PyFile_FromString(space, filename, mode):
+    This is not a complete re-implementation of the CPython API; it only
+    provides a subset of CPython's behavior.
     """
-    On success, return a new file object that is opened on the file given by
-    filename, with a file mode given by mode, where mode has the same
-    semantics as the standard C routine fopen().  On failure, return NULL."""
-    w_filename = space.wrap(rffi.charp2str(filename))
-    w_mode = space.wrap(rffi.charp2str(mode))
-    return space.call_method(space.builtin, 'file', w_filename, w_mode)
+    view.c_buf = buf
+    view.c_len = length
+    view.c_obj = obj
+    Py_IncRef(space, obj)
+    return 0
+
+
+@cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
+def PyBuffer_Release(space, view):
+    """
+    Releases a Py_buffer obtained from getbuffer ParseTuple's s*.
+
+    This is not a complete re-implementation of the CPython API; it only
+    provides a subset of CPython's behavior.
+    """
+    Py_DecRef(space, view.c_obj)

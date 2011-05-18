@@ -1,14 +1,16 @@
 import py
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rlib import rarithmetic
+from pypy.rlib import rfloat
 
 class BaseTestStrtod(BaseRtypingTest):    
     def test_formatd(self):
-        def f(y):
-            return rarithmetic.formatd("%.2f", y)
+        for flags in [0,
+                      rfloat.DTSF_ADD_DOT_0]:
+            def f(y):
+                return rfloat.formatd(y, 'g', 2, flags)
 
-        assert self.ll_to_string(self.interpret(f, [3.0])) == f(3.0)
+            assert self.ll_to_string(self.interpret(f, [3.0])) == f(3.0)
 
     def test_parts_to_float(self):
         from pypy.rpython.annlowlevel import hlstr
@@ -16,7 +18,7 @@ class BaseTestStrtod(BaseRtypingTest):
         def f(a, b, c, d):
             a,b,c,d = hlstr(a), hlstr(b), hlstr(c), hlstr(d)
             
-            return rarithmetic.parts_to_float(a, b, c, d)
+            return rfloat.parts_to_float(a, b, c, d)
         
         data = [
         (("","1","","")     , 1.0),

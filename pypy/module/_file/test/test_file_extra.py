@@ -382,6 +382,20 @@ class AppTestAFewExtra:
         assert len(somelines) > 200
         assert somelines == lines[:len(somelines)]
 
+    def test_nasty_writelines(self):
+        # The stream lock should be released between writes
+        fn = self.temptestfile
+        f = file(fn, 'w')
+        def nasty():
+            for i in range(5):
+                if i == 3:
+                    # should not raise because of acquired lock
+                    f.close()
+                yield str(i)
+        exc = raises(ValueError, f.writelines, nasty())
+        assert exc.value.message == "I/O operation on closed file"
+        f.close()
+
     def test_rw_bin(self):
         import random
         flags = 'w+b'
@@ -504,6 +518,18 @@ class AppTestAFewExtra:
         f.truncate(3)
         data = f.read(123)
         assert data == 'hel'
+        f.close()
+
+        import errno, sys
+        f = open(fn)
+        exc = raises(EnvironmentError, f.truncate, 3)
+        if sys.platform == 'win32':
+            assert exc.value.winerror == 5 # ERROR_ACCESS_DENIED
+        else:
+            # CPython explicitely checks the file mode
+            # PyPy relies on the libc to raise the error
+            assert (exc.value.message == "File not open for writing" or
+                    exc.value.errno == errno.EINVAL)
         f.close()
 
     def test_readinto(self):

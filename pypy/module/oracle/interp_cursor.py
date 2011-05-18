@@ -1,9 +1,8 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 
@@ -68,7 +67,6 @@ class W_Cursor(Wrappable):
         self._checkOpen(space)
 
         return self._execute(space, w_stmt, w_vars)
-    execute.unwrap_spec = ['self', ObjSpace, W_Root, Arguments]
 
     def prepare(self, space, w_stmt, w_tag=None):
         # make sure the cursor is open
@@ -76,7 +74,6 @@ class W_Cursor(Wrappable):
 
         # prepare the statement
         self._internalPrepare(space, w_stmt, w_tag)
-    prepare.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def _execute(self, space, w_stmt, w_vars):
 
@@ -153,7 +150,6 @@ class W_Cursor(Wrappable):
         # zero since Oracle raises an error otherwise
         if numrows > 0:
             self._internalExecute(space, numIters=numrows)
-    executemany.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def close(self, space):
         # make sure we are actually open
@@ -164,8 +160,8 @@ class W_Cursor(Wrappable):
 
         self.isOpen = False
         self.handle = lltype.nullptr(roci.OCIStmt.TO)
-    close.unwrap_spec = ['self', ObjSpace]
 
+    @unwrap_spec(name=str)
     def callfunc(self, space, name, w_returnType, w_parameters=None):
         retvar = interp_variable.newVariableByType(space, self, w_returnType, 1)
         if space.is_w(w_parameters, space.w_None):
@@ -175,8 +171,8 @@ class W_Cursor(Wrappable):
 
         # determine the results
         return retvar.getValue(space, 0)
-    callfunc.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root]
 
+    @unwrap_spec(name=str)
     def callproc(self, space, name, w_parameters=None):
         if space.is_w(w_parameters, space.w_None):
             w_parameters = None
@@ -191,12 +187,10 @@ class W_Cursor(Wrappable):
                 ret_w.append(v.getValue(space, 0))
         return space.newlist(ret_w)
 
-    callproc.unwrap_spec = ['self', ObjSpace, str, W_Root]
-
     def _call(self, space, name, retvar, w_args):
         # determine the number of arguments passed
         if w_args:
-            numArguments = space.int_w(space.len(w_args))
+            numArguments = space.len_w(w_args)
         else:
             numArguments = 0
 
@@ -375,7 +369,7 @@ class W_Cursor(Wrappable):
 
         self.fetchVariables = None
 
-    def getDescription(space, self):
+    def getDescription(self, space):
         "Return a list of 7-tuples consisting of the description of "
         "the define variables"
 
@@ -768,7 +762,6 @@ class W_Cursor(Wrappable):
             return self._createRow(space)
 
         return space.w_None
-    fetchone.unwrap_spec = ['self', ObjSpace]
 
     def fetchmany(self, space, w_numRows=NoneNotWrapped):
         if w_numRows is not None:
@@ -780,19 +773,16 @@ class W_Cursor(Wrappable):
         self._verifyFetch(space)
 
         return self._multiFetch(space, limit=numRows)
-    fetchmany.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def fetchall(self, space):
         # verify fetch can be performed
         self._verifyFetch(space)
 
         return self._multiFetch(space, limit=0)
-    fetchall.unwrap_spec = ['self', ObjSpace]
 
     def descr_iter(self, space):
         self._verifyFetch(space)
         return space.wrap(self)
-    descr_iter.unwrap_spec = ['self', ObjSpace]
 
     def descr_next(self, space):
         # verify fetch can be performed
@@ -803,7 +793,6 @@ class W_Cursor(Wrappable):
             return self._createRow(space)
 
         raise OperationError(space.w_StopIteration, space.w_None)
-    descr_next.unwrap_spec = ['self', ObjSpace]
 
     def _moreRows(self, space):
         if self.rowNum < self.actualRows:
@@ -964,8 +953,8 @@ class W_Cursor(Wrappable):
         if nbElements:
             _, names = self._get_bind_info(space, nbElements)
         return space.newlist(names)
-    bindnames.unwrap_spec = ['self', ObjSpace]
 
+    @unwrap_spec(size=int)
     def var(self, space, w_type, size=0, w_arraysize=None,
             w_inconverter=None, w_outconverter=None):
         if space.is_w(w_arraysize, space.w_None):
@@ -984,8 +973,8 @@ class W_Cursor(Wrappable):
         var.w_outconverter = w_outconverter
 
         return space.wrap(var)
-    var.unwrap_spec = ['self', ObjSpace, W_Root, int, W_Root, W_Root, W_Root]
 
+    @unwrap_spec(size=int)
     def arrayvar(self, space, w_type, w_value, size=0):
         # determine the type of variable
         varType = interp_variable.typeByPythonType(space, self, w_type)
@@ -994,7 +983,7 @@ class W_Cursor(Wrappable):
 
         # determine the number of elements to create
         if space.is_true(space.isinstance(w_value, space.w_list)):
-            numElements = space.int_w(space.len(w_value))
+            numElements = space.len_w(w_value)
         elif space.is_true(space.isinstance(w_value, space.w_int)):
             numElements = space.int_w(w_value)
         else:
@@ -1011,7 +1000,6 @@ class W_Cursor(Wrappable):
             var.setArrayValue(space, w_value)
 
         return var
-    arrayvar.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, int]
 
     def setinputsizes(self, space, __args__):
         args_w, kw_w = __args__.unpack()
@@ -1051,31 +1039,30 @@ class W_Cursor(Wrappable):
                         space, self, w_value, self.bindArraySize)
                 self.bindList[i] = var
             return space.newlist(self.bindList)
-    setinputsizes.unwrap_spec = ['self', ObjSpace, Arguments]
 
+    @unwrap_spec(outputSize=int, outputSizeColumn=int)
     def setoutputsize(self, space, outputSize, outputSizeColumn=-1):
         self.outputSize = outputSize
         self.outputSizeColumn = outputSizeColumn
-    setoutputsize.unwrap_spec = ['self', ObjSpace, int, int]
 
 
-    def arraysize_get(space, self):
+    def arraysize_get(self, space):
         return space.wrap(self.arraySize)
-    def arraysize_set(space, self, w_value):
+    def arraysize_set(self, space, w_value):
         self.arraySize = space.int_w(w_value)
 
-    def bindarraysize_get(space, self):
+    def bindarraysize_get(self, space):
         return space.wrap(self.bindArraySize)
-    def bindarraysize_set(space, self, w_value):
+    def bindarraysize_set(self, space, w_value):
         self.bindArraySize = space.int_w(w_value)
 
-    def bindvars_get(space, self):
+    def bindvars_get(self, space):
         if self.bindList:
             return space.newlist(self.bindList)
         if self.bindDict:
             return self.bindDict
 
-    def fetchvars_get(space, self):
+    def fetchvars_get(self, space):
         return space.newlist(self.fetchVariables)
 
 W_Cursor.typedef = TypeDef(

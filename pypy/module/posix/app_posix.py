@@ -19,6 +19,8 @@ error = OSError
 class stat_result:
     __metaclass__ = structseqtype
 
+    name = "posix.stat_result"
+
     st_mode  = structseqfield(0, "protection bits")
     st_ino   = structseqfield(1, "inode")
     st_dev   = structseqfield(2, "device")
@@ -62,6 +64,21 @@ class stat_result:
         if self.st_ctime is None:
             self.__dict__['st_ctime'] = self[9]
 
+if osname == 'posix':
+    def _validate_fd(fd):
+        try:
+            import fcntl
+        except ImportError:
+            return
+        try:
+            fcntl.fcntl(fd, fcntl.F_GETFD)
+        except IOError, e:
+            raise OSError(e.errno, e.strerror, e.filename)
+else:
+    def _validate_fd(fd):
+        # XXX for the moment
+        return
+
 # Capture file.fdopen at import time, as some code replaces
 # __builtins__.file with a custom function.
 _fdopen = file.fdopen
@@ -70,7 +87,7 @@ def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
     Return an open file object connected to a file descriptor."""
-
+    _validate_fd(fd)
     return _fdopen(fd, mode, buffering)
 
 
@@ -87,6 +104,20 @@ def tmpfile():
     return f
 
 
+def tmpnam():
+    """Return an absolute pathname of a file that did not exist at the
+    time the call is made."""
+    import tempfile
+    return tempfile.mktemp()
+
+def tempnam(dir=None, prefix=None):
+    """Return an absolute pathname of a file that did not exist at the
+    time the call is made.  The directory and a prefix may be specified
+    as strings; they may be omitted or None if not needed."""
+    import tempfile
+    return tempfile.mktemp('', prefix or 'tmp', dir)
+
+
 # Implement popen() for platforms which have os.fork()
 if osname == 'posix':
 
@@ -99,8 +130,9 @@ if osname == 'posix':
             pid = self._childpid
             if pid is not None:
                 self._childpid = None
-                return os.waitpid(pid, 0)[1]
-            return 0
+                sts = os.waitpid(pid, 0)[1]
+                if sts != 0:
+                    return sts
         __del__ = close     # as in CPython, __del__ may call os.waitpid()
 
     def popen(command, mode='r', bufsize=-1):
@@ -158,14 +190,30 @@ if osname == 'posix':
 
     def wait():
         """ wait() -> (pid, status)
-    
+
         Wait for completion of a child process.
         """
         return posix.waitpid(-1, 0)
 
+    def wait3(options):
+        """ wait3(options) -> (pid, status, rusage)
+
+        Wait for completion of a child process and provides resource usage informations
+        """
+        from _pypy_wait import wait3
+        return wait3(options)
+
+    def wait4(pid, options):
+        """ wait4(pid, options) -> (pid, status, rusage)
+
+        Wait for completion of the child process "pid" and provides resource usage informations
+        """
+        from _pypy_wait import wait4
+        return wait4(pid, options)
+
 else:
     # Windows implementations
-    
+
     # Supply os.popen() based on subprocess
     def popen(cmd, mode="r", bufsize=-1):
         """popen(command [, mode='r' [, bufsize]]) -> pipe
@@ -253,7 +301,7 @@ else:
             raise TypeError("invalid cmd type (%s, expected string)" %
                             (type(cmd),))
         return cmd
-        
+
     # A proxy for a file whose close waits for the process
     class _wrap_close(object):
         def __init__(self, stream, proc):

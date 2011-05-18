@@ -1,10 +1,14 @@
 import py, math
 from pypy.module.math.test import test_direct
 from pypy.translator.c.test.test_standalone import StandaloneTests
+from pypy.rlib import rfloat
 
 
 def get_test_case((fnname, args, expected)):
-    fn = getattr(math, fnname)
+    try:
+        fn = getattr(math, fnname)
+    except AttributeError:
+        fn = getattr(rfloat, fnname)
     expect_valueerror = (expected == ValueError)
     expect_overflowerror = (expected == OverflowError)
     check = test_direct.get_tester(expected)

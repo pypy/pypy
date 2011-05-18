@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
@@ -11,6 +11,7 @@ else:
 c_crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP,
                           compilation_info=eci, threadsafe=False)
 
+@unwrap_spec(word=str, salt=str)
 def crypt(space, word, salt):
     """word will usually be a user's password. salt is a 2-character string
     which will be used to select one of 4096 variations of DES. The characters
@@ -22,5 +23,3 @@ def crypt(space, word, salt):
         return space.w_None
     str_res = rffi.charp2str(res)
     return space.wrap(str_res) 
-
-crypt.unwrap_spec = [ObjSpace, str, str]

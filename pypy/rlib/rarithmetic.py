@@ -33,10 +33,10 @@ mark where overflow checking is required.
 
 
 """
-import sys, math
+import sys
 from pypy.rpython import extregistry
-
 from pypy.rlib import objectmodel
+
 # set up of machine internals
 _bits = 0
 _itest = 1
@@ -49,20 +49,14 @@ while _itest == _Ltest and type(_itest) is int:
 LONG_BIT = _bits+1
 LONG_MASK = _Ltest*2-1
 LONG_TEST = _Ltest
+LONGLONG_BIT  = 64
+LONGLONG_MASK = (2**LONGLONG_BIT)-1
+LONGLONG_TEST = 2**(LONGLONG_BIT-1)
 
 LONG_BIT_SHIFT = 0
 while (1 << LONG_BIT_SHIFT) != LONG_BIT:
     LONG_BIT_SHIFT += 1
     assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
-
-INFINITY = 1e200 * 1e200
-NAN = INFINITY / INFINITY
-
-def isinf(x):
-    return x == INFINITY or x == -INFINITY
-
-def isnan(v):
-    return v != v
 
 def intmask(n):
     if isinstance(n, int):
@@ -75,6 +69,15 @@ def intmask(n):
     if n >= LONG_TEST:
         n -= 2*LONG_TEST
     return int(n)
+
+def longlongmask(n):
+    if isinstance(n, int):
+        n = long(n)
+    assert isinstance(n, long)
+    n &= LONGLONG_MASK
+    if n >= LONGLONG_TEST:
+        n -= 2*LONGLONG_TEST
+    return r_longlong(n)
 
 def widen(n):
     from pypy.rpython.lltypesystem import lltype
@@ -103,6 +106,8 @@ def ovfcheck(r):
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
+    assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
+    assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
     if type(r) is long:
         raise OverflowError, "signed integer expression did overflow"
     return r
@@ -125,6 +130,9 @@ def ovfcheck_lshift(a, b):
 # successfully be casted to an int.
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
+        from pypy.rlib.rfloat import isnan
+        if isnan(x):
+            raise OverflowError
         if -2147483649.0 < x < 2147483648.0:
             return int(x)
         raise OverflowError
@@ -133,6 +141,9 @@ else:
     # Note the "<= x <" here, as opposed to "< x <" above.
     # This is justified by test_typed in translator/c/test.
     def ovfcheck_float_to_int(x):
+        from pypy.rlib.rfloat import isnan
+        if isnan(x):
+            raise OverflowError
         if -9223372036854776832.0 <= x < 9223372036854775296.0:
             return int(x)
         raise OverflowError
@@ -155,6 +166,7 @@ def signedtype(t):
         return True
     else:
         return t.SIGNED
+signedtype._annspecialcase_ = 'specialize:memo'
 
 def normalizedinttype(t):
     if t is int:
@@ -164,6 +176,23 @@ def normalizedinttype(t):
     else:
         assert t.BITS <= r_longlong.BITS
         return build_int(None, t.SIGNED, r_longlong.BITS)
+
+def most_neg_value_of_same_type(x):
+    from pypy.rpython.lltypesystem import lltype
+    return most_neg_value_of(lltype.typeOf(x))
+most_neg_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
+
+def most_neg_value_of(tp):
+    from pypy.rpython.lltypesystem import lltype, rffi
+    if tp is lltype.Signed:
+        return -sys.maxint-1
+    r_class = rffi.platform.numbertype_to_rclass[tp]
+    assert issubclass(r_class, base_int)
+    if r_class.SIGNED:
+        return r_class(-(r_class.MASK >> 1) - 1)
+    else:
+        return r_class(0)
+most_neg_value_of._annspecialcase_ = 'specialize:memo'
 
 def highest_bit(n):
     """
@@ -176,6 +205,7 @@ def highest_bit(n):
         i += 1
         n >>= 1
     return i
+
 
 class base_int(long):
     """ fake unsigned integer implementation """
@@ -336,7 +366,7 @@ class signed_int(base_int):
 class unsigned_int(base_int):
     SIGNED = False
     def __new__(klass, val=0):
-        if type(val) is float:
+        if isinstance(val, (float, long)):
             val = long(val)
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
@@ -402,97 +432,13 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+longlongmax = r_longlong(LONGLONG_TEST - 1)
+
 if r_longlong is not r_int:
     r_int64 = r_longlong
 else:
     r_int64 = int
 
-
-# float as string  -> sign, beforept, afterpt, exponent
-
-def break_up_float(s):
-    i = 0
-
-    sign = ''
-    before_point = ''
-    after_point = ''
-    exponent = ''
-
-    if s[i] in '+-':
-        sign = s[i]
-        i += 1
-
-    while i < len(s) and s[i] in '0123456789':
-        before_point += s[i]
-        i += 1
-
-    if i == len(s):
-        return sign, before_point, after_point, exponent
-
-    if s[i] == '.':
-        i += 1
-        while i < len(s) and s[i] in '0123456789':
-            after_point += s[i]
-            i += 1
-            
-        if i == len(s):
-            return sign, before_point, after_point, exponent
-
-    if s[i] not in  'eE':
-        raise ValueError
-
-    i += 1
-    if i == len(s):
-        raise ValueError
-
-    if s[i] in '-+':
-        exponent += s[i]
-        i += 1
-
-    if i == len(s):
-        raise ValueError
-    
-    while i < len(s) and s[i] in '0123456789':
-        exponent += s[i]
-        i += 1
-
-    if i != len(s):
-        raise ValueError
-
-    return sign, before_point, after_point, exponent
-
-# string -> float helper
-
-def parts_to_float(sign, beforept, afterpt, exponent):
-    if not exponent:
-        exponent = '0'
-    return float("%s%s.%se%s" % (sign, beforept, afterpt, exponent))
-
-# float -> string
-
-formatd_max_length = 120
-
-def formatd(fmt, x):
-    return fmt % (x,)
-
-def formatd_overflow(alt, prec, kind, x):
-    # msvcrt does not support the %F format.
-    # OTOH %F and %f only differ for 'inf' or 'nan' numbers
-    # which are already handled elsewhere
-    if kind == 'F':
-        kind = 'f'
-
-    if ((kind in 'gG' and formatd_max_length <= 10+prec) or
-        (kind in 'fF' and formatd_max_length <= 53+prec)):
-        raise OverflowError("formatted float is too long (precision too large?)")
-    if alt:
-        alt = '#'
-    else:
-        alt = ''
-
-    fmt = "%%%s.%d%s" % (alt, prec, kind)
-
-    return formatd(fmt, x)
 
 # the 'float' C type
 
@@ -525,6 +471,31 @@ class r_singlefloat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+class r_longfloat(object):
+    """A value of the C type 'long double'.
+
+    Note that we consider this as a black box for now - the only thing
+    you can do with it is cast it back to a regular float."""
+
+    def __init__(self, floatval):
+        self.value = floatval
+
+    def __float__(self):
+        return self.value
+
+    def __nonzero__(self):
+        raise TypeError("not supported on r_longfloat instances")
+
+    def __cmp__(self, other):
+        raise TypeError("not supported on r_longfloat instances")
+
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and self.value == other.value
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
 class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
     _type_ = r_singlefloat
 
@@ -546,3 +517,13 @@ class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
         # we use cast_primitive to go between Float and SingleFloat.
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.SingleFloat)
+
+
+def int_between(n, m, p):
+    """ check that n <= m < p. This assumes that n <= p. This is useful because
+    the JIT special-cases it. """
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.lltypesystem.lloperation import llop
+    if not objectmodel.we_are_translated():
+        assert n <= p
+    return llop.int_between(lltype.Bool, n, m, p)

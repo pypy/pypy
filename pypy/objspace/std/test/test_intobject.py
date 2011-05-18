@@ -285,8 +285,19 @@ class TestW_IntObject:
 
 class AppTestInt:
 
+    def test_trunc(self):
+        import math
+        assert math.trunc(1) == 1
+        assert math.trunc(-1) == -1
+
     def test_int_callable(self):
         assert 43 == int(43)
+
+    def test_numerator_denominator(self):
+        assert (1).numerator == 1
+        assert (1).denominator == 1
+        assert (42).numerator == 42
+        assert (42).denominator == 1
 
     def test_int_string(self):
         assert 42 == int("42")
@@ -381,6 +392,30 @@ class AppTestInt:
         assert (5 << j(100),  type(5 << j(100))) == (5 << 100, long)
         assert (j(100) >> 2,  type(j(100) >> 2)) == (      25, int)
 
+    def test_int_subclass_int(self):
+        class j(int):
+            def __int__(self):
+                return value
+            def __repr__(self):
+                return '<instance of j>'
+        class subint(int):
+            pass
+        class sublong(long):
+            pass
+        value = 42L
+        assert int(j()) == 42
+        value = 4200000000000000000000000000000000L
+        assert int(j()) == 4200000000000000000000000000000000L
+        value = subint(42)
+        assert int(j()) == 42 and type(int(j())) is subint
+        value = sublong(4200000000000000000000000000000000L)
+        assert (int(j()) == 4200000000000000000000000000000000L
+                and type(int(j())) is sublong)
+        value = 42.0
+        raises(TypeError, int, j())
+        value = "foo"
+        raises(TypeError, int, j())
+
     def test_special_int(self):
         class a(object):
             def __int__(self): 
@@ -407,6 +442,12 @@ class AppTestInt:
             pass 
         raises((AttributeError,TypeError), long, b())
 
+    def test_just_trunc(self):
+        class myint(object):
+            def __trunc__(self):
+                return 42
+        assert int(myint()) == 42
+
     def test_override___int__(self):
         class myint(int):
             def __int__(self):
@@ -426,6 +467,23 @@ class AppTestInt:
         # __eq__ & the others.
         assert 1 .__cmp__
         assert int .__cmp__
+    
+    def test_bit_length(self):
+        for val, bits in [
+            (0, 0),
+            (1, 1),
+            (10, 4),
+            (150, 8),
+            (-1, 1),
+            (-10, 4),
+            (-150, 8),
+        ]:
+            assert val.bit_length() == bits
+
+    def test_int_real(self):
+        class A(int): pass
+        b = A(5).real
+        assert type(b) is int
 
 
 class AppTestIntOptimizedAdd(AppTestInt):

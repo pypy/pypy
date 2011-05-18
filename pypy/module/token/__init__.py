@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyparser import pytoken, pygram
 
 
@@ -25,14 +25,14 @@ def _init_tokens():
 _init_tokens()
 
 
+@unwrap_spec(tok=int)
 def isterminal(space, tok):
     return space.wrap(tok < 256)
-isterminal.unwrap_spec = [ObjSpace, int]
 
+@unwrap_spec(tok=int)
 def isnonterminal(space, tok):
     return space.wrap(tok >= 256)
-isnonterminal.unwrap_spec = [ObjSpace, int]
 
+@unwrap_spec(tok=int)
 def iseof(space, tok):
     return space.wrap(tok == pygram.tokens.ENDMARKER)
-iseof.unwrap_spec = [ObjSpace, int]

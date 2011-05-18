@@ -3,7 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 import pypy
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 
 import sys, os, stat, errno
 
@@ -37,9 +37,8 @@ platform = sys.platform
 
 def getinitialpath(prefix):
     from pypy.module.sys.version import CPYTHON_VERSION
-    dirname = '%d.%d.%d' % (CPYTHON_VERSION[0],
-                            CPYTHON_VERSION[1],
-                            CPYTHON_VERSION[2])
+    dirname = '%d.%d' % (CPYTHON_VERSION[0],
+                         CPYTHON_VERSION[1])
     lib_python = os.path.join(prefix, 'lib-python')
     python_std_lib = os.path.join(lib_python, dirname)
     checkdir(python_std_lib)
@@ -54,6 +53,11 @@ def getinitialpath(prefix):
     importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
     #
+    lib_tk_modified = os.path.join(python_std_lib_modified, 'lib-tk')
+    lib_tk = os.path.join(python_std_lib, 'lib-tk')
+    importlist.append(lib_tk_modified)
+    importlist.append(lib_tk)
+    #
     # List here the extra platform-specific paths.
     if platform != 'win32':
         importlist.append(os.path.join(python_std_lib, 'plat-'+platform))
@@ -64,6 +68,7 @@ def getinitialpath(prefix):
     #
     return importlist
 
+@unwrap_spec(srcdir=str)
 def pypy_initial_path(space, srcdir):
     try:
         path = getinitialpath(srcdir)
@@ -75,8 +80,6 @@ def pypy_initial_path(space, srcdir):
         space.setitem(space.sys.w_dict, space.wrap('exec_prefix'),
                                         space.wrap(srcdir))
         return space.newlist([space.wrap(p) for p in path])
-
-pypy_initial_path.unwrap_spec = [ObjSpace, str]
 
 def get(space):
     return space.fromcache(State)

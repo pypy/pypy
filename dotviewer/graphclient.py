@@ -127,7 +127,7 @@ def spawn_handler():
 
 def spawn_local_handler():
     if hasattr(sys, 'pypy_objspaceclass'):
-        python = 'python'
+        python = '/usr/bin/python'
     else:
         python = sys.executable
     args = [python, '-u', GRAPHSERVER, '--stdio']

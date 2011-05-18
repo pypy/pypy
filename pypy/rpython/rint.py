@@ -196,7 +196,11 @@ def _rtype_template(hop, func, implicit_excs=[]):
         repr = signed_repr
     else:
         repr = r_result
-    vlist = hop.inputargs(repr, repr)
+    if func.startswith(('lshift', 'rshift')):
+        repr2 = signed_repr
+    else:
+        repr2 = repr
+    vlist = hop.inputargs(repr, repr2)
     hop.exception_is_here()
 
     prefix = repr.opprefix
@@ -208,50 +212,46 @@ def _rtype_template(hop, func, implicit_excs=[]):
         # cpython, and rpython, assumed that integer division truncates
         # towards -infinity.  however, in C99 and most (all?) other
         # backends, integer division truncates towards 0.  so assuming
-        # that, we can generate scary code that applies the necessary
+        # that, we call a helper function that applies the necessary
         # correction in the right cases.
-        # paper and pencil are encouraged for this :)
-
-        from pypy.rpython.rbool import bool_repr
-        assert isinstance(repr.lowleveltype, Number)
-        c_zero = inputconst(repr.lowleveltype, repr.lowleveltype._default)
 
         op = func.split('_', 1)[0]
 
         if op == 'floordiv':
-            # return (x/y) - (((x^y)<0)&((x%y)!=0));
-            v_xor = hop.genop(prefix + 'xor', vlist,
-                            resulttype=repr)
-            v_xor_le = hop.genop(prefix + 'lt', [v_xor, c_zero],
-                                 resulttype=Bool)
-            v_xor_le = hop.llops.convertvar(v_xor_le, bool_repr, repr)
-            v_mod = hop.genop(prefix + 'mod', vlist,
-                            resulttype=repr)
-            v_mod_ne = hop.genop(prefix + 'ne', [v_mod, c_zero],
-                               resulttype=Bool)
-            v_mod_ne = hop.llops.convertvar(v_mod_ne, bool_repr, repr)
-            v_corr = hop.genop(prefix + 'and', [v_xor_le, v_mod_ne],
-                             resulttype=repr)
-            v_res = hop.genop(prefix + 'sub', [v_res, v_corr],
-                              resulttype=repr)
+            llfunc = globals()['ll_correct_' + prefix + 'floordiv']
+            v_res = hop.gendirectcall(llfunc, vlist[0], vlist[1], v_res)
         elif op == 'mod':
-            # return r + y*(((x^y)<0)&(r!=0));
-            v_xor = hop.genop(prefix + 'xor', vlist,
-                            resulttype=repr)
-            v_xor_le = hop.genop(prefix + 'lt', [v_xor, c_zero],
-                               resulttype=Bool)
-            v_xor_le = hop.llops.convertvar(v_xor_le, bool_repr, repr)
-            v_mod_ne = hop.genop(prefix + 'ne', [v_res, c_zero],
-                               resulttype=Bool)
-            v_mod_ne = hop.llops.convertvar(v_mod_ne, bool_repr, repr)
-            v_corr1 = hop.genop(prefix + 'and', [v_xor_le, v_mod_ne],
-                             resulttype=repr)
-            v_corr = hop.genop(prefix + 'mul', [v_corr1, vlist[1]],
-                             resulttype=repr)
-            v_res = hop.genop(prefix + 'add', [v_res, v_corr],
-                              resulttype=repr)
+            llfunc = globals()['ll_correct_' + prefix + 'mod']
+            v_res = hop.gendirectcall(llfunc, vlist[1], v_res)
+
     v_res = hop.llops.convertvar(v_res, repr, r_result)
     return v_res
+
+
+INT_BITS_1 = r_int.BITS - 1
+LLONG_BITS_1 = r_longlong.BITS - 1
+
+def ll_correct_int_floordiv(x, y, r):
+    p = r * y
+    if y < 0: u = p - x
+    else:     u = x - p
+    return r + (u >> INT_BITS_1)
+
+def ll_correct_llong_floordiv(x, y, r):
+    p = r * y
+    if y < 0: u = p - x
+    else:     u = x - p
+    return r + (u >> LLONG_BITS_1)
+
+def ll_correct_int_mod(y, r):
+    if y < 0: u = -r
+    else:     u = r
+    return r + (y & (u >> INT_BITS_1))
+
+def ll_correct_llong_mod(y, r):
+    if y < 0: u = -r
+    else:     u = r
+    return r + (y & (u >> LLONG_BITS_1))
 
 
 #Helper functions for comparisons
@@ -291,6 +291,9 @@ class __extend__(IntegerRepr):
         return None 
 
     def get_ll_hash_function(self):
+        if (sys.maxint == 2147483647 and
+            self.lowleveltype in (SignedLongLong, UnsignedLongLong)):
+            return ll_hash_long_long
         return ll_hash_int
 
     get_ll_fasthash_function = get_ll_hash_function
@@ -410,6 +413,9 @@ class __extend__(IntegerRepr):
 
 def ll_hash_int(n):
     return intmask(n)
+
+def ll_hash_long_long(n):
+    return intmask(intmask(n) + 9 * intmask(n >> 32))
 
 def ll_check_chr(n):
     if 0 <= n <= 255:

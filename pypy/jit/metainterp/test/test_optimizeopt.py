@@ -5,7 +5,7 @@ from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
                                                         BaseTest)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
@@ -14,6 +14,7 @@ from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp.test.test_optimizebasic import equaloplists
+from pypy.jit.metainterp.optimizeutil import args_dict
 
 class Fake(object):
     failargs_limit = 1000
@@ -134,7 +135,7 @@ class Storage(compile.ResumeGuardDescr):
         return type(self) is type(other)      # xxx obscure
     def clone_if_mutable(self):
         res = Storage(self.metainterp_sd, self.original_greenkey)
-        self.copy_all_attrbutes_into(res)
+        self.copy_all_attributes_into(res)
         return res
 
 def _sortboxes(boxes):
@@ -161,13 +162,21 @@ class BaseTestOptimizeOpt(BaseTest):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def optimize_loop(self, ops, optops, expected_preamble=None):
+    def optimize_loop(self, ops, optops, expected_preamble=None,
+                      call_pure_results=None):
         loop = self.parse(ops)
-        expected = self.parse(optops)
+        if optops != "crash!":
+            expected = self.parse(optops)
+        else:
+            expected = "crash!"
         if expected_preamble:
             expected_preamble = self.parse(expected_preamble)
         #
         self.loop = loop
+        loop.call_pure_results = args_dict()
+        if call_pure_results is not None:
+            for k, v in call_pure_results.items():
+                loop.call_pure_results[list(k)] = v
         loop.preamble = TreeLoop('preamble')
         loop.preamble.inputargs = loop.inputargs
         loop.preamble.token = LoopToken()
@@ -176,17 +185,27 @@ class BaseTestOptimizeOpt(BaseTest):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
-        optimize_loop_1(metainterp_sd, loop)
+        class FakeDescr(compile.ResumeGuardDescr):
+            class rd_snapshot:
+                class prev:
+                    prev = None
+                    boxes = []
+                boxes = []
+            def clone_if_mutable(self):
+                return self
+        loop.preamble.start_resumedescr = FakeDescr()
+        optimize_loop_1(metainterp_sd, loop, ALL_OPTS_DICT)
         #
 
         print
         print loop.preamble.inputargs
         print '\n'.join([str(o) for o in loop.preamble.operations])
-        print 
+        print
         print loop.inputargs
         print '\n'.join([str(o) for o in loop.operations])
         print
-        
+
+        assert expected != "crash!", "should have raised an exception"
         self.assert_equal(loop, expected)
         if expected_preamble:
             self.assert_equal(loop.preamble, expected_preamble,
@@ -552,21 +571,42 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_int_is_true_is_zero(self):
-        py.test.skip("XXX implement me")
+    def test_bound_int_is_true(self):
         ops = """
         [i0]
-        i1 = int_is_true(i0)
-        guard_true(i1) []
-        i2 = int_is_zero(i0)
-        guard_false(i2) []
-        jump(i0)
+        i1 = int_add(i0, 1)
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        i3 = int_is_true(i1)
+        guard_true(i3) []
+        jump(i1)
         """
         expected = """
         [i0]
-        i1 = int_is_true(i0)
-        guard_true(i1) []
-        jump(i0)
+        i1 = int_add(i0, 1)
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected, expected)
+
+    def test_int_is_true_is_zero(self):
+        py.test.skip("in-progress")
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_is_true(i1)
+        guard_true(i2) []
+        i3 = int_is_zero(i1)
+        guard_false(i3) []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_is_true(i1)
+        guard_true(i2) []
+        jump(i1)
         """
         self.optimize_loop(ops, expected)
 
@@ -665,12 +705,16 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_nonnull(p0) []
         jump(p0)
         """
-        expected = """
+        preamble = """
         [p0]
         setfield_gc(p0, 5, descr=valuedescr)
         jump(p0)
         """
-        self.optimize_loop(ops, expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_const_guard_value(self):
         ops = """
@@ -772,6 +816,52 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_compare_with_itself(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = int_lt(i0, i0)
+        guard_false(i1) []
+        i2 = int_le(i0, i0)
+        guard_true(i2) []
+        i3 = int_eq(i0, i0)
+        guard_true(i3) []
+        i4 = int_ne(i0, i0)
+        guard_false(i4) []
+        i5 = int_gt(i0, i0)
+        guard_false(i5) []
+        i6 = int_ge(i0, i0)
+        guard_true(i6) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_compare_with_itself_uint(self):
+        py.test.skip("implement me")
+        ops = """
+        []
+        i0 = escape()
+        i7 = uint_lt(i0, i0)
+        guard_false(i7) []
+        i8 = uint_le(i0, i0)
+        guard_true(i8) []
+        i9 = uint_gt(i0, i0)
+        guard_false(i9) []
+        i10 = uint_ge(i0, i0)
+        guard_true(i10) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
 
 
@@ -795,7 +885,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         i3 = getfield_gc(p2, descr=valuedescr)
         escape(i3)
         p3 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p3, i1, descr=valuedescr)        
+        setfield_gc(p3, i1, descr=valuedescr)
         jump(i1, p3)
         """
         # We cannot track virtuals that survive for more than two iterations.
@@ -855,7 +945,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         escape(i3)
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
-        setfield_gc(p2, p2sub, descr=nextdescr)        
+        setfield_gc(p2, p2sub, descr=nextdescr)
         jump(i1, p2, p2sub)
         """
         expected = """
@@ -980,7 +1070,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         preamble = """
         [i, p0]
-        i0 = getfield_gc(p0, descr=valuedescr)        
+        i0 = getfield_gc(p0, descr=valuedescr)
         i1 = int_add(i0, i)
         jump(i, i1)
         """
@@ -1310,6 +1400,26 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         jump()
         """
         self.node.value = 5
+        self.optimize_loop(ops, expected)
+
+    def test_getfield_gc_pure_3(self):
+        ops = """
+        []
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        escape(p2)
+        p3 = getfield_gc_pure(p1, descr=nextdescr)
+        escape(p3)
+        jump()
+        """
+        expected = """
+        []
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        escape(p2)
+        escape(p2)
+        jump()
+        """
         self.optimize_loop(ops, expected)
 
     def test_getfield_gc_nonpure_2(self):
@@ -1727,7 +1837,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, ops)
 
-    def test_duplicate_setfield_1(self):
+    def test_duplicate_setfield_0(self):
         ops = """
         [p1, i1, i2]
         setfield_gc(p1, i1, descr=valuedescr)
@@ -1736,8 +1846,27 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         expected = """
         [p1, i1, i2]
-        setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
+        """
+        # in this case, all setfields are removed, because we can prove
+        # that in the loop it will always have the same value
+        self.optimize_loop(ops, expected)
+
+    def test_duplicate_setfield_1(self):
+        ops = """
+        [p1]
+        i1 = escape()
+        i2 = escape()
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p1, i2, descr=valuedescr)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i1 = escape()
+        i2 = escape()
+        setfield_gc(p1, i2, descr=valuedescr)
+        jump(p1)
         """
         self.optimize_loop(ops, expected)
 
@@ -1784,6 +1913,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p1, i4, descr=nextdescr)
         #
         setfield_gc(p1, i2, descr=valuedescr)
+        escape()
         jump(p1, i1, i2, p3)
         """
         preamble = """
@@ -1796,6 +1926,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         #
         setfield_gc(p1, i2, descr=valuedescr)
         setfield_gc(p1, i4, descr=nextdescr)
+        escape()
         jump(p1, i1, i2, p3, i3)
         """
         expected = """
@@ -1807,6 +1938,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         #
         setfield_gc(p1, i2, descr=valuedescr)
         setfield_gc(p1, i4, descr=nextdescr)
+        escape()
         jump(p1, i1, i2, p3, i3)
         """
         self.optimize_loop(ops, expected, preamble)
@@ -1879,6 +2011,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i3) []
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
+        escape()
         jump(p1, i2, i4)
         """
         preamble = """
@@ -1886,12 +2019,14 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i3) [p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
+        escape()
         jump(p1, i2, i4)
         """
         expected = """
         [p1, i2, i4]
         guard_true(i4) [p1]
         setfield_gc(p1, NULL, descr=nextdescr)
+        escape()
         jump(p1, i2, 1)
         """
         self.optimize_loop(ops, expected, preamble)
@@ -1905,6 +2040,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i3) []
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
+        escape()
         jump(p1, i2, i4)
         """
         preamble = """
@@ -1912,12 +2048,14 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_true(i3) [i2, p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
+        escape()
         jump(p1, i2, i4)
         """
         expected = """
         [p1, i2, i4]
         guard_true(i4) [i2, p1]
         setfield_gc(p1, NULL, descr=nextdescr)
+        escape()
         jump(p1, i2, 1)
         """
         self.optimize_loop(ops, expected)
@@ -1963,12 +2101,31 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         guard_value(p1, ConstPtr(myptr)) []
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(ConstPtr(myptr), i2, descr=valuedescr)
+        escape()
         jump(p1, i1, i2)
         """
         expected = """
         [i1, i2]
         setfield_gc(ConstPtr(myptr), i2, descr=valuedescr)
+        escape()
         jump(i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_dont_force_setfield_around_copystrcontent(self):
+        ops = """
+        [p0, i0, p1, i1, i2]
+        setfield_gc(p0, i1, descr=valuedescr)
+        copystrcontent(p0, i0, p1, i1, i2)
+        escape()
+        jump(p0, i0, p1, i1, i2)
+        """
+        expected = """
+        [p0, i0, p1, i1, i2]
+        copystrcontent(p0, i0, p1, i1, i2)
+        setfield_gc(p0, i1, descr=valuedescr)
+        escape()
+        jump(p0, i0, p1, i1, i2)
         """
         self.optimize_loop(ops, expected)
 
@@ -2292,6 +2449,33 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_bug_5(self):
+        ops = """
+        [p0]
+        i0 = escape()
+        i2 = getfield_gc(p0, descr=valuedescr)
+        i4 = int_add(i2, 1)
+        setfield_gc(p0, i4, descr=valuedescr)
+        guard_true(i0) []
+        i6 = getfield_gc(p0, descr=valuedescr)
+        i8 = int_sub(i6, 1)
+        setfield_gc(p0, i8, descr=valuedescr)
+        escape()
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = escape()
+        i2 = getfield_gc(p0, descr=valuedescr)
+        i4 = int_add(i2, 1)
+        setfield_gc(p0, i4, descr=valuedescr)
+        guard_true(i0) []
+        setfield_gc(p0, i2, descr=valuedescr)
+        escape()
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_invalid_loop_1(self):
         ops = """
         [p1]
@@ -2573,7 +2757,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
-    def test_fold_partially_constant_ops(self):
+    def test_fold_partially_constant_add_sub(self):
         ops = """
         [i0]
         i1 = int_sub(i0, 0)
@@ -2607,7 +2791,7 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
-    def test_fold_partially_constant_ops_ovf(self):
+    def test_fold_partially_constant_add_sub_ovf(self):
         ops = """
         [i0]
         i1 = int_sub_ovf(i0, 0)
@@ -2636,6 +2820,33 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         [i0]
         i1 = int_add_ovf(0, i0)
         guard_no_overflow() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_fold_partially_constant_shift(self):
+        ops = """
+        [i0]
+        i1 = int_lshift(i0, 0)
+        i2 = int_rshift(i1, 0)
+        i3 = int_eq(i2, i0)
+        guard_true(i3) []
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_fold_partially_constant_uint_floordiv(self):
+        ops = """
+        [i0]
+        i1 = uint_floordiv(i0, 1)
         jump(i1)
         """
         expected = """
@@ -2812,31 +3023,59 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
 
     def test_call_assembler_invalidates_caches(self):
         ops = '''
-        [p1, i1]
+        [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_assembler(i1, descr=asmdescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        jump(p1, i3)
+        jump(p1, i4, i3)
         '''
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, ops, ops)
+
+    def test_call_assembler_invalidates_heap_knowledge(self):
+        ops = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_assembler(i1, descr=asmdescr)
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        self.optimize_loop(ops, ops, ops)
 
     def test_call_pure_invalidates_caches(self):
         # CALL_PURE should still force the setfield_gc() to occur before it
         ops = '''
-        [p1, i1]
+        [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(42, p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        jump(p1, i3)
+        jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i1]
+        [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        jump(p1, i3)
+        jump(p1, i4, i3)
         '''
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, expected)
+
+    def test_call_pure_invalidates_heap_knowledge(self):
+        # CALL_PURE should still force the setfield_gc() to occur before it
+        ops = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_pure(p1, descr=plaincalldescr)
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        expected = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=plaincalldescr)
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        self.optimize_loop(ops, expected, expected)
 
     def test_call_pure_constant_folding(self):
         # CALL_PURE is not marked as is_always_pure(), because it is wrong
@@ -2845,12 +3084,14 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # the result of the call, recorded as the first arg), or turned into
         # a regular CALL.
         # XXX can this test be improved with unrolling?
+        arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
+        call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i3 = call_pure(42, 123456, 4, 5, 6, descr=plaincalldescr)
-        i4 = call_pure(43, 123456, 4, i0, 6, descr=plaincalldescr)
+        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, i3, i4)
         '''
         preamble = '''
@@ -2867,7 +3108,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, i4)
         '''
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble, call_pure_results)
 
     # ----------
 
@@ -2898,7 +3139,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i0, descr=virtualtokendescr)
-        setfield_gc(p2, 5, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, -3, descr=virtualtokendescr)
@@ -2931,7 +3171,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 3, descr=virtualrefindexdescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -2971,7 +3210,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 2, descr=virtualrefindexdescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -3009,6 +3247,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_no_exception(descr=fdescr) [p2, p1]
         virtual_ref_finish(p2, p1)
         setfield_gc(p0, NULL, descr=refdescr)
+        escape()
         jump(p0, i1)
         """
         preamble = """
@@ -3017,6 +3256,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         call(i1, descr=nonwritedescr)
         guard_no_exception(descr=fdescr) [i3, i1, p0]
         setfield_gc(p0, NULL, descr=refdescr)
+        escape()
         jump(p0, i1)
         """
         expected = """
@@ -3025,6 +3265,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         call(i1, descr=nonwritedescr)
         guard_no_exception(descr=fdescr2) [i3, i1, p0]
         setfield_gc(p0, NULL, descr=refdescr)
+        escape()
         jump(p0, i1)
         """
         self.optimize_loop(ops, expected, preamble)
@@ -3035,7 +3276,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         #self.loop.inputargs[0].value = self.nodeobjvalue
         #self.check_expanded_fail_descr('''p2, p1
         #    p0.refdescr = p2
-        #    where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3, virtualrefindexdescr=2
+        #    where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3
         #    where p1 is a node_vtable, nextdescr=p1b
         #    where p1b is a node_vtable, valuedescr=i1
         #    ''', rop.GUARD_NO_EXCEPTION)
@@ -3056,7 +3297,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 7, descr=virtualrefindexdescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3082,7 +3322,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 23, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, -3, descr=virtualtokendescr)
@@ -3358,12 +3597,11 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [i0]
-        i2 = int_add(i0, 10)
         jump(i0)
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_bound_lt_sub(self):
+    def test_bound_lt_sub1(self):
         ops = """
         [i0]
         i1 = int_lt(i0, 4)
@@ -3377,6 +3615,35 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
+        i2 = int_sub(i0, 10)
+        i3 = int_lt(i2, -5)
+        guard_true(i3) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_bound_lt_sub2(self):
+        ops = """
+        [i0]
+        i1 = int_lt(i0, 4)
+        guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []
+        i2 = int_sub(i0, 10)
+        i3 = int_lt(i2, -5)
+        guard_true(i3) []
+        jump(i0)
+        """
+        preamble = """
+        [i0]
+        i1 = int_lt(i0, 4)
+        guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []
         i2 = int_sub(i0, 10)
         jump(i0)
         """
@@ -3571,13 +3838,16 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i1) []
         jump(p0)
         """
-        # The dead strlen will be eliminated be the backend.
-        expected = """
+        preamble = """
         [p0]
         i0 = strlen(p0)
         jump(p0)
         """
-        self.optimize_strunicode_loop(ops, expected, expected)
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_addsub_const(self):
         ops = """
@@ -3649,10 +3919,9 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p0, i22)
         """
         expected = """
-        [p0, i22, i1]
+        [p0, i22]
         i331 = force_token()
-        setfield_gc(p0, i1, descr=valuedescr)
-        jump(p0, i22, i1)
+        jump(p0, i22)
         """
         self.optimize_loop(ops, expected)
 
@@ -3660,7 +3929,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         ops = """
         [p4, p7, i30]
         p16 = getfield_gc(p4, descr=valuedescr)
-        p17 = getarrayitem_gc(p4, 1, descr=arraydescr)        
+        p17 = getarrayitem_gc(p4, 1, descr=arraydescr)
         guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
         i1 = getfield_raw(p7, descr=nextdescr)
         i2 = int_add(i1, i30)
@@ -3716,6 +3985,47 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.node.value = 5
         self.optimize_loop(ops, expected)
+
+    def test_complains_getfieldpure_setfield(self):
+        from pypy.jit.metainterp.optimizeopt.heap import BogusPureField
+        ops = """
+        [p3]
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        setfield_gc(p1, p3, descr=nextdescr)
+        jump(p3)
+        """
+        py.test.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+
+    def test_dont_complains_different_field(self):
+        ops = """
+        [p3]
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        setfield_gc(p1, p3, descr=otherdescr)
+        escape(p2)
+        jump(p3)
+        """
+        expected = """
+        [p3]
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        setfield_gc(p1, p3, descr=otherdescr)
+        escape(p2)
+        jump(p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_dont_complains_different_object(self):
+        ops = """
+        []
+        p1 = escape()
+        p2 = getfield_gc_pure(p1, descr=nextdescr)
+        p3 = escape()
+        setfield_gc(p3, p1, descr=nextdescr)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
 
     def test_getfield_guard_const(self):
         ops = """
@@ -3786,7 +4096,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p0)
         """
         self.optimize_loop(ops, expected, expected)
-        
+
     def test_addsub_ovf(self):
         ops = """
         [i0]
@@ -3906,7 +4216,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [i0, i1, i2]
-        jump(i0, i1, i2)        
+        jump(i0, i1, i2)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -3945,7 +4255,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [i0, i1, i2]
-        jump(i0, i1, i2)        
+        jump(i0, i1, i2)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -3963,7 +4273,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_false(i7) []
         i8 = int_gt(i2c, -7)
         guard_true(i8) []
-        i9 = int_is_zero(i2c)        
+        i9 = int_is_zero(i2c)
         jump(i1, i2a, i2b, i2c)
         """
         preamble = """
@@ -3975,12 +4285,12 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i6) []
         i8 = int_gt(i2c, -7)
         guard_true(i8) []
-        i9 = int_is_zero(i2c)        
+        i9 = int_is_zero(i2c)
         jump(i1, i2a, i2b, i2c)
         """
         expected = """
         [i0, i1, i2, i3]
-        jump(i0, i1, i2, i3)        
+        jump(i0, i1, i2, i3)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -4038,7 +4348,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
     def test_division_to_rshift(self):
         ops = """
         [i1, i2]
-        it = int_gt(i1, 0) 
+        it = int_gt(i1, 0)
         guard_true(it)[]
         i3 = int_floordiv(i1, i2)
         i4 = int_floordiv(2, i2)
@@ -4056,15 +4366,15 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [i1, i2]
-        it = int_gt(i1, 0) 
-        guard_true(it)[]        
+        it = int_gt(i1, 0)
+        guard_true(it)[]
         i3 = int_floordiv(i1, i2)
         i4 = int_floordiv(2, i2)
         i5 = int_rshift(i1, 1)
         i6 = int_floordiv(3, i2)
         i7 = int_floordiv(i1, 3)
         i8 = int_floordiv(4, i2)
-        i9 = int_rshift(i1, 2)        
+        i9 = int_rshift(i1, 2)
         i10 = int_floordiv(i1, 0)
         i11 = int_rshift(i1, 0)
         i12 = int_floordiv(i2, 2)
@@ -4100,12 +4410,14 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = int_rshift(i3, i2)
         i5 = int_lshift(i1, 2)
         i6 = int_rshift(i5, 2)
+        i6t= int_eq(i6, i1)
+        guard_true(i6t) []
         i7 = int_lshift(i1, 100)
         i8 = int_rshift(i7, 100)
         i9 = int_lt(i1b, 100)
         guard_true(i9) []
         i10 = int_gt(i1b, -100)
-        guard_true(i10) []        
+        guard_true(i10) []
         i13 = int_lshift(i1b, i2)
         i14 = int_rshift(i13, i2)
         i15 = int_lshift(i1b, 2)
@@ -4124,12 +4436,14 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i4 = int_rshift(i3, i2)
         i5 = int_lshift(i1, 2)
         i6 = int_rshift(i5, 2)
+        i6t= int_eq(i6, i1)
+        guard_true(i6t) []
         i7 = int_lshift(i1, 100)
         i8 = int_rshift(i7, 100)
         i9 = int_lt(i1b, 100)
         guard_true(i9) []
         i10 = int_gt(i1b, -100)
-        guard_true(i10) []        
+        guard_true(i10) []
         i13 = int_lshift(i1b, i2)
         i14 = int_rshift(i13, i2)
         i15 = int_lshift(i1b, 2)
@@ -4138,7 +4452,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i2, i3, i1b, i2b)
         """
         self.optimize_loop(ops, expected)
-        
+
     def test_subsub_ovf(self):
         ops = """
         [i0]
@@ -4158,7 +4472,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_no_overflow() []
         i2 = int_gt(i1, 1)
         guard_true(i2) []
-        i3 = int_sub(1, i0)
         jump(i0)
         """
         expected = """
@@ -4323,7 +4636,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i0, i1, i1b, i2, i3)
         """
         preamble = """
-        [i0, i1, i1b, i2, i3]        
+        [i0, i1, i1b, i2, i3]
         i4 = int_lt(i1, 7)
         guard_true(i4) []
         i4b = int_lt(i1b, 7)
@@ -4351,9 +4664,9 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [i0, i1, i1b, i2, i3]
-        jump(i0, i1, i1b, i2, i3)        
+        jump(i0, i1, i1b, i2, i3)
         """
-        self.optimize_loop(ops, expected, preamble)        
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_rshift(self):
         ops = """
@@ -4388,7 +4701,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i0, i1, i1b, i2, i3)
         """
         preamble = """
-        [i0, i1, i1b, i2, i3]        
+        [i0, i1, i1b, i2, i3]
         i4 = int_lt(i1, 7)
         guard_true(i4) []
         i4b = int_lt(i1b, 7)
@@ -4416,9 +4729,9 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [i0, i1, i1b, i2, i3]
-        jump(i0, i1, i1b, i2, i3)        
+        jump(i0, i1, i1b, i2, i3)
         """
-        self.optimize_loop(ops, expected, preamble)        
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_dont_backpropagate_rshift(self):
         ops = """
@@ -4431,7 +4744,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, ops, ops)
 
-        
+
     def test_mul_ovf(self):
         ops = """
         [i0, i1]
@@ -4493,16 +4806,11 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i4) []
         i5 = int_gt(i3, 2)
         guard_true(i5) []
-        jump(i0, i1, i22)
+        jump(i0, i1)
         """
         expected = """
-        [i0, i1, i22]
-        i3 = int_mul(i22, i1)
-        i4 = int_lt(i3, 10)
-        guard_true(i4) []
-        i5 = int_gt(i3, 2)
-        guard_true(i5) []
-        jump(i0, i1, i22)
+        [i0, i1]
+        jump(i0, i1)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -4531,18 +4839,42 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         guard_true(i4) []
         i5 = int_ge(i3, 2)
         guard_true(i5) []
-        jump(i0, i1, i2)
+        jump(i0, i1)
         """
         expected = """
-        [i0, i1, i2]
-        i3 = int_sub(i2, i1)
-        i4 = int_le(i3, 10)
-        guard_true(i4) []
-        i5 = int_ge(i3, 2)
-        guard_true(i5) []
-        jump(i0, i1, i2)
+        [i0, i1]
+        jump(i0, i1)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_invariant_ovf(self):
+        ops = """
+        [i0, i1, i10, i11, i12]
+        i2 = int_add_ovf(i0, i1)
+        guard_no_overflow() []
+        i3 = int_sub_ovf(i0, i1)
+        guard_no_overflow() []
+        i4 = int_mul_ovf(i0, i1)
+        guard_no_overflow() []
+        i24 = int_mul_ovf(i10, i11)
+        guard_no_overflow() []
+        i23 = int_sub_ovf(i10, i11)
+        guard_no_overflow() []
+        i22 = int_add_ovf(i10, i11)
+        guard_no_overflow() []
+        jump(i0, i1, i2, i3, i4)
+        """
+        expected = """
+        [i0, i1, i10, i11, i12]
+        i24 = int_mul_ovf(i10, i11)
+        guard_no_overflow() []
+        i23 = int_sub_ovf(i10, i11)
+        guard_no_overflow() []
+        i22 = int_add_ovf(i10, i11)
+        guard_no_overflow() []
+        jump(i0, i1, i10, i11, i12)
+        """
+        self.optimize_loop(ops, expected, ops)
 
     def test_value_proven_to_be_constant_after_two_iterations(self):
         class FakeDescr(AbstractDescr):
@@ -4551,7 +4883,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
             def sort_key(self):
                 return id(self)
 
-                
+
         for n in ('inst_w_seq', 'inst_index', 'inst_w_list', 'inst_length',
                   'inst_start', 'inst_step'):
             self.namespace[n] = FakeDescr(n)
@@ -4593,7 +4925,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i87 = int_add(i84, i86)
         i91 = int_add(i80, 1)
         setfield_gc(p75, i91, descr=inst_index)
-        
+
         p110 = same_as(ConstPtr(myptr))
         i112 = same_as(3)
         i114 = same_as(39)
@@ -4607,6 +4939,47 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
+    def test_let_getfield_kill_setfields(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        setfield_gc(p0, p1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=valuedescr)
+        setfield_gc(p0, p0, descr=valuedescr)
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        setfield_gc(p0, p0, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_let_getfield_kill_chained_setfields(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        setfield_gc(p0, p0, descr=valuedescr)
+        setfield_gc(p0, p1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=valuedescr)
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        p1 = getfield_gc(p0, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_inputargs_added_by_forcing_jumpargs(self):
         # FXIME: Can this occur?
         ops = """
@@ -4615,7 +4988,59 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         p2 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, i1, descr=nextdescr)
         """
-        
+        py.test.skip("no test here")
+
+    def test_immutable_not(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_noimmut_vtable))
+        setfield_gc(p0, 42, descr=noimmut_intval)
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_variable(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p0, i0, descr=immut_intval)
+        escape(p0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_incomplete(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_immutable_constantfold(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p0, 1242, descr=immut_intval)
+        escape(p0)
+        jump()
+        """
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        class IntObj1242(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(self, other):
+                return other.container.intval == 1242
+        self.namespace['intobj1242'] = lltype._ptr(llmemory.GCREF,
+                                                   IntObj1242())
+        expected = """
+        []
+        escape(ConstPtr(intobj1242))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble=None):
         if not preamble:
@@ -4896,6 +5321,54 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p4, i1, i2, p2)
         """
         self.optimize_strunicode_loop(ops, expected)
+
+    def test_strgetitem_small(self):
+        ops = """
+        [p0, i0]
+        i1 = strgetitem(p0, i0)
+        i2 = int_lt(i1, 256)
+        guard_true(i2) []
+        i3 = int_ge(i1, 0)
+        guard_true(i3) []
+        jump(p0, i0)
+        """
+        expected = """
+        [p0, i0]
+        i1 = strgetitem(p0, i0)
+        jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_strlen_positive(self):
+        ops = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_ge(i0, 0)
+        guard_true(i1) []
+        i2 = int_gt(i0, -1)
+        guard_true(i2) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_strlen_repeated(self):
+        ops = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = strlen(p0)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
 
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops, preamble=None):
@@ -5257,33 +5730,121 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
+    def test_quasi_immut(self):
+        ops = """
+        [p0, p1, i0]
+        quasiimmut_field(p0, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(p0, descr=quasifielddescr)
+        escape(i1)
+        jump(p1, p0, i1)
+        """
+        expected = """
+        [p0, p1, i0]
+        i1 = getfield_gc(p0, descr=quasifielddescr)
+        escape(i1)
+        jump(p1, p0, i1)
+        """
+        self.optimize_loop(ops, expected)
 
+    def test_quasi_immut_2(self):
+        ops = """
+        []
+        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        escape(i1)
+        jump()
+        """
+        expected = """
+        []
+        guard_not_invalidated() []
+        escape(-4247)
+        jump()
+        """
+        self.optimize_loop(ops, expected, expected)
 
-##class TestOOtype(OptimizeOptTest, OOtypeMixin):
+    def test_remove_extra_guards_not_invalidated(self):
+        ops = """
+        [i0]
+        guard_not_invalidated() []
+        guard_not_invalidated() []
+        i1 = int_add(i0, 1)
+        guard_not_invalidated() []
+        guard_not_invalidated() []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        guard_not_invalidated() []
+        i1 = int_add(i0, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
 
-##    def test_instanceof(self):
-##        ops = """
-##        [i0]
-##        p0 = new_with_vtable(ConstClass(node_vtable))
-##        i1 = instanceof(p0, descr=nodesize)
-##        jump(i1)
-##        """
-##        expected = """
-##        [i0]
-##        jump(1)
-##        """
-##        self.optimize_loop(ops, expected)
+    def test_call_may_force_invalidated_guards(self):
+        ops = """
+        [i0]
+        guard_not_invalidated() []
+        call_may_force(i0, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        guard_not_invalidated() []
+        call_may_force(i0, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
 
-##    def test_instanceof_guard_class(self):
-##        ops = """
-##        [i0, p0]
-##        guard_class(p0, ConstClass(node_vtable)) []
-##        i1 = instanceof(p0, descr=nodesize)
-##        jump(i1, p0)
-##        """
-##        expected = """
-##        [i0, p0]
-##        guard_class(p0, ConstClass(node_vtable)) []
-##        jump(1, p0)
-##        """
-##        self.optimize_loop(ops, expected)
+    def test_call_may_force_invalidated_guards_reload(self):
+        ops = """
+        [i0a, i0b]
+        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i2 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i3 = escape(i1)
+        i4 = escape(i2)
+        jump(i3, i4)
+        """
+        expected = """
+        [i0a, i0b]
+        guard_not_invalidated() []
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
+        i3 = escape(-4247)
+        i4 = escape(-4247)
+        jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_call_may_force_invalidated_guards_virtual(self):
+        ops = """
+        [i0a, i0b]
+        p = new(descr=quasisize)
+        setfield_gc(p, 421, descr=quasifielddescr)
+        quasiimmut_field(p, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i1 = getfield_gc(p, descr=quasifielddescr)
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        quasiimmut_field(p, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i2 = getfield_gc(p, descr=quasifielddescr)
+        i3 = escape(i1)
+        i4 = escape(i2)
+        jump(i3, i4)
+        """
+        expected = """
+        [i0a, i0b]
+        call_may_force(i0b, descr=mayforcevirtdescr)
+        i3 = escape(421)
+        i4 = escape(421)
+        jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)

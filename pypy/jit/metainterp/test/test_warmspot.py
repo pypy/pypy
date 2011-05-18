@@ -1,12 +1,13 @@
 import py
 from pypy.jit.metainterp.warmspot import ll_meta_interp
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.rlib.jit import JitDriver, OPTIMIZER_FULL, OPTIMIZER_SIMPLE
+from pypy.rlib.jit import JitDriver
 from pypy.rlib.jit import unroll_safe
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import BoxInt
 
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 
 class Exit(Exception):
@@ -81,7 +82,9 @@ class WarmspotTests(object):
         for loc in get_stats().locations:
             assert loc == 'GREEN IS 123.'
 
-    def test_set_param_optimizer(self):
+    def test_set_param_enable_opts(self):
+        from pypy.rpython.annlowlevel import llstr, hlstr
+        
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         class A(object):
             def m(self, n):
@@ -93,44 +96,19 @@ class WarmspotTests(object):
                 myjitdriver.jit_merge_point(n=n)
                 n = A().m(n)
             return n
-        def f(n, optimizer):
-            myjitdriver.set_param('optimizer', optimizer)
+        def f(n, enable_opts):
+            myjitdriver.set_param('enable_opts', hlstr(enable_opts))
             return g(n)
 
         # check that the set_param will override the default
-        res = self.meta_interp(f, [10, OPTIMIZER_SIMPLE],
-                               optimizer=OPTIMIZER_FULL)
+        res = self.meta_interp(f, [10, llstr('')])
         assert res == 0
         self.check_loops(new_with_vtable=1)
 
-        res = self.meta_interp(f, [10, OPTIMIZER_FULL],
-                               optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(f, [10, llstr(ALL_OPTS_NAMES)],
+                               enable_opts='')
         assert res == 0
         self.check_loops(new_with_vtable=0)
-
-    def test_optimizer_default_choice(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n'])
-        def f(n):
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n)
-                myjitdriver.jit_merge_point(n=n)
-                n -= 1
-            return n
-
-        from pypy.rpython.test.test_llinterp import gengraph
-        t, rtyper, graph = gengraph(f, [int], type_system=self.type_system,
-                                    **{'translation.gc': 'boehm'})
-        
-        from pypy.jit.metainterp.warmspot import WarmRunnerDesc
-
-        warmrunnerdescr = WarmRunnerDesc(t, CPUClass=self.CPUClass,
-                                         optimizer=None) # pick default
-
-        from pypy.jit.metainterp import optimize
-
-        state = warmrunnerdescr.jitdrivers_sd[0].warmstate
-        assert state.optimize_loop is optimize.optimize_loop
-        assert state.optimize_bridge is optimize.optimize_bridge
 
     def test_unwanted_loops(self):
         mydriver = JitDriver(reds = ['n', 'total', 'm'], greens = [])
@@ -324,6 +302,7 @@ class TestWarmspotDirect(object):
 
         class FakeCPU(object):
             supports_floats = False
+            supports_longlong = False
             ts = llhelper
             translate_support_code = False
             stats = "stats"

@@ -1,16 +1,19 @@
 from pypy.rlib.rsre import rsre_char
-from pypy.rlib.rsre.rsre_char import SRE_FLAG_UNICODE
+from pypy.rlib.rsre.rsre_char import SRE_FLAG_LOCALE, SRE_FLAG_UNICODE
 
 def setup_module(mod):
-    from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
+    from pypy.module.unicodedata import unicodedb
     rsre_char.set_unicode_db(unicodedb)
 
 UPPER_PI = 0x3a0
 LOWER_PI = 0x3c0
 INDIAN_DIGIT = 0x966
+ROMAN_NUMERAL = 0x2165
+FULLWIDTH_DIGIT = 0xff10
+CIRCLED_NUMBER = 0x32b4
+DINGBAT_CIRCLED = 0x2781
 EM_SPACE = 0x2001
 LINE_SEP = 0x2028
-
 
 # XXX very incomplete test
 
@@ -24,6 +27,12 @@ def test_getlower():
     assert rsre_char.getlower(ord('2'), SRE_FLAG_UNICODE) == ord('2')
     assert rsre_char.getlower(10, SRE_FLAG_UNICODE) == 10
     assert rsre_char.getlower(UPPER_PI, SRE_FLAG_UNICODE) == LOWER_PI
+    #
+    # xxx the following cases are like CPython's.  They are obscure.
+    # (iko) that's a nice way to say "broken"
+    assert rsre_char.getlower(UPPER_PI, SRE_FLAG_LOCALE) == UPPER_PI
+    assert rsre_char.getlower(UPPER_PI, SRE_FLAG_LOCALE | SRE_FLAG_UNICODE) \
+                                                         == UPPER_PI
 
 def test_is_word():
     assert rsre_char.is_word(ord('A'))
@@ -105,3 +114,15 @@ def test_category():
     assert     cat(CHCODES["category_uni_not_linebreak"], ord(' '))
     assert     cat(CHCODES["category_uni_not_linebreak"], ord('s'))
     assert not cat(CHCODES["category_uni_not_linebreak"], LINE_SEP)
+    #
+    assert     cat(CHCODES["category_uni_digit"], INDIAN_DIGIT)
+    assert     cat(CHCODES["category_uni_digit"], FULLWIDTH_DIGIT)
+    assert not cat(CHCODES["category_uni_digit"], ROMAN_NUMERAL)
+    assert not cat(CHCODES["category_uni_digit"], CIRCLED_NUMBER)
+    assert not cat(CHCODES["category_uni_digit"], DINGBAT_CIRCLED)
+    #
+    assert not cat(CHCODES["category_uni_not_digit"], INDIAN_DIGIT)
+    assert not cat(CHCODES["category_uni_not_digit"], FULLWIDTH_DIGIT)
+    assert     cat(CHCODES["category_uni_not_digit"], ROMAN_NUMERAL)
+    assert     cat(CHCODES["category_uni_not_digit"], CIRCLED_NUMBER)
+    assert     cat(CHCODES["category_uni_not_digit"], DINGBAT_CIRCLED)

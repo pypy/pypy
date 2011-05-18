@@ -64,7 +64,7 @@ def dir(*args):
 
     if isinstance(obj, types.ModuleType):
         try:
-            result = list(obj.__dict__.keys())
+            result = list(obj.__dict__)
             result.sort()
             return result
         except AttributeError:
@@ -76,14 +76,25 @@ def dir(*args):
         result.sort()
         return result
 
+    elif hasattr(type(obj), '__dir__'):
+        result = type(obj).__dir__(obj)
+        if not isinstance(result, list):
+            raise TypeError("__dir__() must return a list, not %r" % (
+                type(result),))
+        result.sort()
+        return result
+
     else: #(regular item)
         Dict = {}
         try:
-            Dict.update(obj.__dict__)
-        except AttributeError: pass
+            if isinstance(obj.__dict__, dict):
+                Dict.update(obj.__dict__)
+        except AttributeError:
+            pass
         try:
             Dict.update(_classdir(obj.__class__))
-        except AttributeError: pass
+        except AttributeError:
+            pass
 
         ## Comment from object.c:
         ## /* Merge in __members__ and __methods__ (if any).
@@ -91,10 +102,14 @@ def dir(*args):
         ## XXX needed to get at im_self etc of method objects. */
         for attr in ['__members__','__methods__']:
             try:
-                for item in getattr(obj, attr):
+                l = getattr(obj, attr)
+                if not isinstance(l, list):
+                    continue
+                for item in l:
                     if isinstance(item, types.StringTypes):
                         Dict[item] = None
-            except (AttributeError, TypeError): pass
+            except (AttributeError, TypeError):
+                pass
 
         result = Dict.keys()
         result.sort()

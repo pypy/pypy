@@ -105,13 +105,9 @@ class PyPyTarget(object):
         return parser
 
     def handle_config(self, config, translateconfig):
-        if config.translation.type_system == 'ootype':
-            print
-            print 'Translation to cli and jvm is known to be broken at the moment'
-            print 'Please try the "cli-jit" branch at:'
-            print 'http://codespeak.net/svn/pypy/branch/cli-jit/'
-            sys.exit(1)
-
+        if translateconfig._cfgimpl_value_owners['opt'] == 'default':
+            raise Exception("You have to specify the --opt level.\n"
+                    "Try --opt=2 or --opt=jit, or equivalently -O2 or -Ojit .")
         self.translateconfig = translateconfig
         # set up the objspace optimizations based on the --opt argument
         from pypy.config.pypyoption import set_pypy_opt_level
@@ -159,8 +155,8 @@ class PyPyTarget(object):
             from pypy.config.pypyoption import enable_translationmodules
             enable_translationmodules(config)
 
-        if config.translation.type_system == 'ootype':
-            config.objspace.usemodules.suggest(rbench=True)
+        ## if config.translation.type_system == 'ootype':
+        ##     config.objspace.usemodules.suggest(rbench=True)
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True

@@ -7,6 +7,7 @@ from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.rweakref import RWeakKeyDictionary
 from pypy.rpython.annlowlevel import llhelper
@@ -144,14 +145,11 @@ class RefcountState:
         # { w_container -> { w_containee -> None } }
         # the None entry manages references borrowed during a call to
         # generic_cpy_call()
-        self.borrowed_objects = {}
-        # { addr of containee -> None }
 
         # For tests
         self.non_heaptypes_w = []
 
     def _freeze_(self):
-        assert not self.borrowed_objects
         assert self.borrow_mapping == {None: {}}
         self.py_objects_r2w.clear() # is not valid anymore after translation
         return False
@@ -187,22 +185,19 @@ class RefcountState:
         """
         ref = make_ref(self.space, w_borrowed)
         obj_ptr = rffi.cast(ADDR, ref)
-        if obj_ptr not in self.borrowed_objects:
-            # borrowed_objects owns the reference
-            self.borrowed_objects[obj_ptr] = None
-        else:
-            Py_DecRef(self.space, ref) # already in borrowed list
 
         borrowees = self.borrow_mapping.setdefault(w_container, {})
-        borrowees[w_borrowed] = None
+        if w_borrowed in borrowees:
+            Py_DecRef(self.space, w_borrowed) # cancel incref from make_ref()
+        else:
+            borrowees[w_borrowed] = None
+
         return ref
 
     def reset_borrowed_references(self):
         "Used in tests"
-        while self.borrowed_objects:
-            addr, _ = self.borrowed_objects.popitem()
-            w_obj = self.py_objects_r2w[addr]
-            Py_DecRef(self.space, w_obj)
+        for w_container, w_borrowed in self.borrow_mapping.items():
+            Py_DecRef(self.space, w_borrowed)
         self.borrow_mapping = {None: {}}
 
     def delete_borrower(self, w_obj):
@@ -232,17 +227,10 @@ class RefcountState:
         ref = self.py_objects_w2r.get(w_obj, lltype.nullptr(PyObject.TO))
         if not ref:
             if DEBUG_REFCOUNT:
-                print >>sys.stderr, "Borrowed object is already gone:", \
-                      hex(containee)
+                print >>sys.stderr, "Borrowed object is already gone!"
             return
 
-        containee_ptr = rffi.cast(ADDR, ref)
-        try:
-            del self.borrowed_objects[containee_ptr]
-        except KeyError:
-            pass
-        else:
-            Py_DecRef(self.space, ref)
+        Py_DecRef(self.space, ref)
 
 class InvalidPointerException(Exception):
     pass
@@ -290,7 +278,6 @@ def track_reference(space, py_obj, w_obj, replace=False):
         if not replace:
             assert w_obj not in state.py_objects_w2r
         assert ptr not in state.py_objects_r2w
-        assert ptr not in state.borrowed_objects
     state.py_objects_w2r[w_obj] = py_obj
     if ptr: # init_typeobject() bootstraps with NULL references
         state.py_objects_r2w[ptr] = w_obj
@@ -384,6 +371,15 @@ def Py_IncRef(space, obj):
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    assert isinstance(w_type, W_TypeObject)
+    if w_type.is_cpytype():
+        w_obj = space.allocate_instance(W_ObjectObject, w_type)
+        track_reference(space, obj, w_obj)
+        state = space.fromcache(RefcountState)
+        state.set_lifeline(w_obj, obj)
+    else:
+        assert False, "Please add more cases in _Py_NewReference()"
 
 def _Py_Dealloc(space, obj):
     from pypy.module.cpyext.api import generic_cpy_call_dont_decref
@@ -454,6 +450,6 @@ def borrow_from(container, borrowed):
 
 #___________________________________________________________
 
-@cpython_api([rffi.VOIDP_real], lltype.Signed, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)

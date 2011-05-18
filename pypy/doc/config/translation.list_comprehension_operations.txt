@@ -1,2 +1,2 @@
-Experimental optimisation for list comprehensions in RPython.
+Experimental optimization for list comprehensions in RPython.
 

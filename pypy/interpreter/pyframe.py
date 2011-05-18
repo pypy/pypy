@@ -46,15 +46,15 @@ class PyFrame(eval.Frame):
     w_f_trace                = None
     # For tracing
     instr_lb                 = 0
-    instr_ub                 = -1
-    instr_prev               = -1
+    instr_ub                 = 0
+    instr_prev_plus_one      = 0
     is_being_profiled        = False
 
     def __init__(self, space, code, w_globals, closure):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.pycode = code
-        eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
+        eval.Frame.__init__(self, space, w_globals)
         self.valuestack_w = [None] * code.co_stacksize
         self.valuestackdepth = 0
         self.lastblock = None
@@ -63,11 +63,9 @@ class PyFrame(eval.Frame):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         self.initialize_frame_scopes(closure, code)
-        self.fastlocals_w = [None]*self.numlocals
+        self.fastlocals_w = [None] * code.co_nlocals
         make_sure_not_resized(self.fastlocals_w)
         self.f_lineno = code.co_firstlineno
-        # Keep from having to call space.wrap in a RuntimeError
-        self._recursion_error = space.wrap("maximum recursion depth exceeded")
 
     def append_block(self, block):
         block.previous = self.lastblock
@@ -127,17 +125,12 @@ class PyFrame(eval.Frame):
         else:
             return self.execute_frame()
 
-    def execute_generator_frame(self, w_inputvalue, operr=None):
-        if operr is not None:
-            ec = self.space.getexecutioncontext()
-            next_instr = self.handle_operation_error(ec, operr)
-            self.last_instr = intmask(next_instr - 1)
-        elif self.last_instr != -1:
-            self.pushvalue(w_inputvalue)
-        return self.execute_frame()
-
-    def execute_frame(self):
-        """Execute this frame.  Main entry point to the interpreter."""
+    def execute_frame(self, w_inputvalue=None, operr=None):
+        """Execute this frame.  Main entry point to the interpreter.
+        The optional arguments are there to handle a generator's frame:
+        w_inputvalue is for generator.send()) and operr is for
+        generator.throw()).
+        """
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -145,12 +138,22 @@ class PyFrame(eval.Frame):
                 not self.space.config.translating)
         executioncontext = self.space.getexecutioncontext()
         executioncontext.enter(self)
+        w_exitvalue = self.space.w_None
         try:
             executioncontext.call_trace(self)
-            # Execution starts just after the last_instr.  Initially,
-            # last_instr is -1.  After a generator suspends it points to
-            # the YIELD_VALUE instruction.
-            next_instr = self.last_instr + 1
+            #
+            if operr is not None:
+                ec = self.space.getexecutioncontext()
+                next_instr = self.handle_operation_error(ec, operr)
+                self.last_instr = intmask(next_instr - 1)
+            else:
+                # Execution starts just after the last_instr.  Initially,
+                # last_instr is -1.  After a generator suspends it points to
+                # the YIELD_VALUE instruction.
+                next_instr = self.last_instr + 1
+                if next_instr != 0:
+                    self.pushvalue(w_inputvalue)
+            #
             try:
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
                                             executioncontext)
@@ -164,7 +167,7 @@ class PyFrame(eval.Frame):
             # allocating exception objects in some cases
             self.last_exception = None
         finally:
-            executioncontext.leave(self)
+            executioncontext.leave(self, w_exitvalue)
         return w_exitvalue
     execute_frame.insert_stack_check_here = True
 
@@ -333,7 +336,7 @@ class PyFrame(eval.Frame):
 
             w(self.instr_lb), #do we need these three (that are for tracing)
             w(self.instr_ub),
-            w(self.instr_prev),
+            w(self.instr_prev_plus_one),
             w_cells,
             ]
 
@@ -347,7 +350,7 @@ class PyFrame(eval.Frame):
         args_w = space.unpackiterable(w_args)
         w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_exc_value, w_tb,\
             w_globals, w_last_instr, w_finished, w_f_lineno, w_fastlocals, w_f_locals, \
-            w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev, w_cells = args_w
+            w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev_plus_one, w_cells = args_w
 
         new_frame = self
         pycode = space.interp_w(PyCode, w_pycode)
@@ -395,7 +398,7 @@ class PyFrame(eval.Frame):
 
         new_frame.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
         new_frame.instr_ub = space.int_w(w_instr_ub)
-        new_frame.instr_prev = space.int_w(w_instr_prev)
+        new_frame.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
 
         self._setcellvars(cellvars)
         # XXX what if the frame is in another thread??
@@ -428,7 +431,10 @@ class PyFrame(eval.Frame):
         """Initialize cellvars from self.fastlocals_w
         This is overridden in nestedscope.py"""
         pass
-    
+
+    def getfastscopelength(self):
+        return self.pycode.co_nlocals
+
     def getclosure(self):
         return None
 
@@ -440,16 +446,14 @@ class PyFrame(eval.Frame):
 
     ### line numbers ###
 
-    # for f*_f_* unwrapping through unwrap_spec in typedef.py
-
-    def fget_f_lineno(space, self): 
+    def fget_f_lineno(self, space): 
         "Returns the line number of the instruction currently being executed."
         if self.w_f_trace is None:
             return space.wrap(self.get_last_lineno())
         else:
             return space.wrap(self.f_lineno)
 
-    def fset_f_lineno(space, self, w_new_lineno):
+    def fset_f_lineno(self, space, w_new_lineno):
         "Returns the line number of the instruction currently being executed."
         try:
             new_lineno = space.int_w(w_new_lineno)
@@ -461,28 +465,30 @@ class PyFrame(eval.Frame):
             raise OperationError(space.w_ValueError,
                   space.wrap("f_lineno can only be set by a trace function."))
 
-        if new_lineno < self.pycode.co_firstlineno:
+        line = self.pycode.co_firstlineno
+        if new_lineno < line:
             raise operationerrfmt(space.w_ValueError,
                   "line %d comes before the current code.", new_lineno)
-        code = self.pycode.co_code
-        addr = 0
-        line = self.pycode.co_firstlineno
-        new_lasti = -1
-        offset = 0
-        lnotab = self.pycode.co_lnotab
-        for offset in xrange(0, len(lnotab), 2):
-            addr += ord(lnotab[offset])
-            line += ord(lnotab[offset + 1])
-            if line >= new_lineno:
-                new_lasti = addr
-                new_lineno = line
-                break
+        elif new_lineno == line:
+            new_lasti = 0
+        else:
+            new_lasti = -1
+            addr = 0
+            lnotab = self.pycode.co_lnotab
+            for offset in xrange(0, len(lnotab), 2):
+                addr += ord(lnotab[offset])
+                line += ord(lnotab[offset + 1])
+                if line >= new_lineno:
+                    new_lasti = addr
+                    new_lineno = line
+                    break
 
         if new_lasti == -1:
             raise operationerrfmt(space.w_ValueError,
                   "line %d comes after the current code.", new_lineno)
 
         # Don't jump to a line with an except in it.
+        code = self.pycode.co_code
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
             raise OperationError(space.w_ValueError,
                   space.wrap("can't jump to 'except' line as there's no exception"))
@@ -581,19 +587,19 @@ class PyFrame(eval.Frame):
         "Returns the line number of the instruction currently being executed."
         return pytraceback.offset2lineno(self.pycode, self.last_instr)
 
-    def fget_f_builtins(space, self):
-        return self.get_builtin().getdict()
+    def fget_f_builtins(self, space):
+        return self.get_builtin().getdict(space)
 
-    def fget_f_back(space, self):
+    def fget_f_back(self, space):
         return self.space.wrap(self.f_backref())
 
-    def fget_f_lasti(space, self):
+    def fget_f_lasti(self, space):
         return self.space.wrap(self.last_instr)
 
-    def fget_f_trace(space, self):
+    def fget_f_trace(self, space):
         return self.w_f_trace
 
-    def fset_f_trace(space, self, w_trace):
+    def fset_f_trace(self, space, w_trace):
         if space.is_w(w_trace, space.w_None):
             self.w_f_trace = None
         else:
@@ -601,10 +607,10 @@ class PyFrame(eval.Frame):
             self.f_lineno = self.get_last_lineno()
             space.frame_trace_action.fire()
 
-    def fdel_f_trace(space, self): 
+    def fdel_f_trace(self, space): 
         self.w_f_trace = None 
 
-    def fget_f_exc_type(space, self):
+    def fget_f_exc_type(self, space):
         if self.last_exception is not None:
             f = self.f_backref()
             while f is not None and f.last_exception is None:
@@ -613,7 +619,7 @@ class PyFrame(eval.Frame):
                 return f.last_exception.w_type
         return space.w_None
          
-    def fget_f_exc_value(space, self):
+    def fget_f_exc_value(self, space):
         if self.last_exception is not None:
             f = self.f_backref()
             while f is not None and f.last_exception is None:
@@ -622,7 +628,7 @@ class PyFrame(eval.Frame):
                 return f.last_exception.get_w_value(space)
         return space.w_None
 
-    def fget_f_exc_traceback(space, self):
+    def fget_f_exc_traceback(self, space):
         if self.last_exception is not None:
             f = self.f_backref()
             while f is not None and f.last_exception is None:
@@ -631,7 +637,7 @@ class PyFrame(eval.Frame):
                 return space.wrap(f.last_exception.application_traceback)
         return space.w_None
          
-    def fget_f_restricted(space, self):
+    def fget_f_restricted(self, space):
         if space.config.objspace.honor__builtins__:
             return space.wrap(self.builtin is not space.builtin)
         return space.w_False

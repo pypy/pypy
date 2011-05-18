@@ -117,7 +117,6 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
-    BoolOption("jit_ffi", "optimize libffi calls", default=False),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
@@ -164,9 +163,6 @@ translation_optiondescription = OptionDescription(
                cmdline="--cflags"),
     StrOption("linkerflags", "Specify flags for the linker (C backend only)",
                cmdline="--ldflags"),
-    BoolOption("force_make", "Force execution of makefile instead of"
-               " calling platform", cmdline="--force-make",
-               default=False, negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),
@@ -224,17 +220,17 @@ translation_optiondescription = OptionDescription(
         StrOption("profile_based_inline",
                   "Use call count profiling to drive inlining"
                   ", specify arguments",
-                  default=None, cmdline="--prof-based-inline"),
+                  default=None),   # cmdline="--prof-based-inline" fix me
         FloatOption("profile_based_inline_threshold",
                     "Threshold when to inline functions "
                     "for profile based inlining",
                   default=DEFL_PROF_BASED_INLINE_THRESHOLD,
-                  cmdline="--prof-based-inline-threshold"),
+                  ),   # cmdline="--prof-based-inline-threshold" fix me
         StrOption("profile_based_inline_heuristic",
                   "Dotted name of an heuristic function "
                   "for profile based inlining",
                 default="pypy.translator.backendopt.inline.inlining_heuristic",
-                cmdline="--prof-based-inline-heuristic"),
+                ),  # cmdline="--prof-based-inline-heuristic" fix me
         # control clever malloc removal
         BoolOption("clever_malloc_removal",
                    "Drives inlining to remove mallocs in a clever way",
@@ -344,7 +340,11 @@ OPT_TABLE = {
     }
 
 def final_check_config(config):
-    pass
+    # XXX: this should be a real config option, but it is hard to refactor it;
+    # instead, we "just" patch it from here
+    from pypy.rlib import rfloat
+    if config.translation.type_system == 'ootype':
+        rfloat.USE_SHORT_FLOAT_REPR = False
 
 def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.
@@ -387,8 +387,9 @@ def set_opt_level(config, level):
         else:
             raise ValueError(word)
 
-    hasbackendopts = 'nobackendopt' not in words
-    config.translation.suggest(list_comprehension_operations=hasbackendopts)
+    # list_comprehension_operations is needed for translation, because
+    # make_sure_not_resized often relies on it, so we always enable them
+    config.translation.suggest(list_comprehension_operations=True)
 
 # ----------------------------------------------------------------
 

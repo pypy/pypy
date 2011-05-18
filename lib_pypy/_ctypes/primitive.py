@@ -2,7 +2,7 @@ import _rawffi
 import weakref
 import sys
 
-SIMPLE_TYPE_CHARS = "cbBhHiIlLdfuzZqQPXOv"
+SIMPLE_TYPE_CHARS = "cbBhHiIlLdfguzZqQPXOv?"
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
      CArgObject
@@ -29,11 +29,13 @@ TP_TO_DEFAULT = {
         'Q': 0,
         'f': 0.0,
         'd': 0.0,
+        'g': 0.0,
         'P': None,
         # not part of struct
         'O': NULL,
         'z': None,
         'Z': None,
+        '?': False,
 }
 
 if sys.platform == 'win32':
@@ -140,13 +142,12 @@ class SimpleType(_CDataMeta):
             result.value = property(_getvalue, _setvalue)
         elif tp == 'Z':
             # c_wchar_p
-            from _ctypes import _wstring_at
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
                     return None
                 else:
-                    return _wstring_at(addr, -1)
+                    return _rawffi.wcharp2unicode(addr)
 
             def _setvalue(self, value):
                 if isinstance(value, basestring):
@@ -215,14 +216,13 @@ class SimpleType(_CDataMeta):
             SysAllocStringLen = windll.oleaut32.SysAllocStringLen
             SysStringLen = windll.oleaut32.SysStringLen
             SysFreeString = windll.oleaut32.SysFreeString
-            from _ctypes import _wstring_at
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
                     return None
                 else:
                     size = SysStringLen(addr)
-                    return _wstring_at(addr, size)
+                    return _rawffi.wcharp2rawunicode(addr, size)
 
             def _setvalue(self, value):
                 if isinstance(value, basestring):

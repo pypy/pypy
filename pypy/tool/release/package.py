@@ -36,6 +36,10 @@ def ignore_patterns(*patterns):
 class PyPyCNotFound(Exception):
     pass
 
+def fix_permissions(basedir):
+    if sys.platform != 'win32':
+        os.system("chmod -R a+rX %s" % basedir)
+
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             copy_to_dir = None, override_pypy_c = None):
     basedir = py.path.local(basedir)
@@ -93,6 +97,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         archive = bindir.join(target)
         shutil.copy(str(source), str(archive))
     old_dir = os.getcwd()
+    fix_permissions(builddir)
     try:
         os.chdir(str(builddir))
         #
@@ -117,7 +122,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            e = os.system('tar cvjf ' + archive + " " + name)
+            e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:

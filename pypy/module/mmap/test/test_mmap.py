@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 import os
@@ -11,8 +12,11 @@ class AppTestMMap:
     def test_page_size(self):
         import mmap
         assert mmap.PAGESIZE > 0
+        assert mmap.ALLOCATIONGRANULARITY > 0
         assert isinstance(mmap.PAGESIZE, int)
-        
+        assert isinstance(mmap.ALLOCATIONGRANULARITY, int)
+        assert mmap.ALLOCATIONGRANULARITY % mmap.PAGESIZE == 0
+
     def test_attributes(self):
         import mmap
         import os
@@ -27,19 +31,21 @@ class AppTestMMap:
             assert isinstance(mmap.PROT_EXEC, int)
             assert isinstance(mmap.PROT_READ, int)
             assert isinstance(mmap.PROT_WRITE, int)
-        
-        assert mmap.error is EnvironmentError
-            
+
+        assert 'mmap.error' in str(mmap.error)
+        assert mmap.error is not EnvironmentError
+        assert issubclass(mmap.error, EnvironmentError)
+
     def test_args(self):
         from mmap import mmap
         import os
         import sys
-        
+
         raises(TypeError, mmap, "foo")
         raises(TypeError, mmap, 0, "foo")
              
         if os.name == "posix":
-            raises(TypeError, mmap, 0, 1, 2, 3, 4, 5)
+            raises(ValueError, mmap, 0, 1, 2, 3, 4)
             raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
             raises(TypeError, mmap, 0, 1, foo="foo")
             raises((TypeError, OverflowError), mmap, 0, -1)
@@ -51,6 +57,13 @@ class AppTestMMap:
             raises(TypeError, mmap, 0, 1, tagname=123)
             raises(TypeError, mmap, 0, 1, access="foo")
             raises(ValueError, mmap, 0, 1, access=-1)
+
+    def test_subclass(self):
+        import mmap
+        class anon_mmap(mmap.mmap):
+            def __new__(klass, *args, **kwargs):
+                return mmap.mmap.__new__(klass, -1, *args, **kwargs)
+        anon_mmap(mmap.PAGESIZE)
 
     def test_file_size(self):
         import os
@@ -143,6 +156,61 @@ class AppTestMMap:
         assert m.find("o", 5) == -1
         assert m.find("ob") == 2
         assert m.find("\0") == 6
+        assert m.find("ob", 1) == 2
+        assert m.find("ob", 2) == 2
+        assert m.find("ob", 3) == -1
+        assert m.find("ob", -4) == -1
+        assert m.find("ob", -5) == 2
+        assert m.find("ob", -999999999) == 2
+        assert m.find("ob", 1, 3) == -1
+        assert m.find("ob", 1, 4) == 2
+        assert m.find("ob", 1, 999999999) == 2
+        assert m.find("ob", 1, 0) == -1
+        assert m.find("ob", 1, -1) == 2
+        assert m.find("ob", 1, -3) == 2
+        assert m.find("ob", 1, -4) == -1
+        #
+        data = m.read(2)
+        assert data == "fo"
+        assert m.find("o") == 2
+        assert m.find("oo") == -1
+        assert m.find("o", 0) == 1
+        m.close()
+        f.close()
+
+    def test_rfind(self):
+        from mmap import mmap
+        f = open(self.tmpname + "g", "w+")
+
+        f.write("foobarfoobar\0")
+        f.flush()
+        m = mmap(f.fileno(), 13)
+        raises(TypeError, m.rfind, 123)
+        raises(TypeError, m.rfind, "foo", "baz")
+        assert m.rfind("b") == 9
+        assert m.rfind("z") == -1
+        assert m.rfind("o", 11) == -1
+        assert m.rfind("ob") == 8
+        assert m.rfind("\0") == 12
+        assert m.rfind("ob", 7) == 8
+        assert m.rfind("ob", 8) == 8
+        assert m.rfind("ob", 9) == -1
+        assert m.rfind("ob", -4) == -1
+        assert m.rfind("ob", -5) == 8
+        assert m.rfind("ob", -999999999) == 8
+        assert m.rfind("ob", 1, 3) == -1
+        assert m.rfind("ob", 1, 4) == 2
+        assert m.rfind("ob", 1, 999999999) == 8
+        assert m.rfind("ob", 1, 0) == -1
+        assert m.rfind("ob", 1, -1) == 8
+        assert m.rfind("ob", 1, -3) == 8
+        assert m.rfind("ob", 1, -4) == 2
+        #
+        data = m.read(8)
+        assert data == "foobarfo"
+        assert m.rfind("o") == 8
+        assert m.rfind("oo") == -1
+        assert m.rfind("o", 0) == 8
         m.close()
         f.close()
 
@@ -296,6 +364,28 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_resize_bsd(self):
+        import sys
+        if ("darwin" not in sys.platform) and ("freebsd" not in sys.platform):
+            skip("resize works under not OSX or FreeBSD")
+        
+        import mmap
+        import os
+        
+        f = open(self.tmpname + "p", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        raises(TypeError, m.resize, 1)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_COPY)
+        raises(TypeError, m.resize, 1)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
+        f_size = os.fstat(f.fileno()).st_size
+        assert m.size() == f_size == 6
+        raises(SystemError, m.resize, 10)
+        f_size = os.fstat(f.fileno()).st_size
+        assert m.size() == f_size == 6
+
     def test_len(self):
         from mmap import mmap
         
@@ -322,8 +412,8 @@ class AppTestMMap:
         raises(IndexError, fn)
         assert m[0] == 'f'
         assert m[-1] == 'r'
-        # sl = slice(1, 2)
-        # assert m.get_item(sl) == 'o'
+        assert m[1::2] == 'obr'
+        assert m[4:1:-2] == 'ao'
         m.close()
         f.close()
     
@@ -345,21 +435,24 @@ class AppTestMMap:
         def fn(): m[0] = 'ab'
         raises((IndexError, ValueError), fn)     # IndexError is in CPython,
                                                  # but doesn't make much sense
-        # def f(m): m[1:3] = u'xx'
-        # py.test.raises(IndexError, f, m)
-        # def f(m): m[1:4] = "zz"
-        # py.test.raises(IndexError, f, m)
-        # def f(m): m[1:6] = "z" * 6
-        # py.test.raises(IndexError, f, m)
-        # def f(m): m[:2] = "z" * 5
-        # m[1:3] = 'xx'
-        # assert m.read(6) == "fxxbar"
-        # m.seek(0)
+        def fn(): m[1:3] = u'xx'
+        raises((IndexError, TypeError), fn)      # IndexError is in CPython,
+                                                 # but doesn't make much sense
+        def fn(): m[1:4] = "zz"
+        raises((IndexError, ValueError), fn)
+        def fn(): m[1:6] = "z" * 6
+        raises((IndexError, ValueError), fn)
+        def fn(): m[:2] = "z" * 5
+        raises((IndexError, ValueError), fn)
+        m[1:3] = 'xx'
+        assert m.read(6) == "fxxbar"
         m[0] = 'x'
         assert m[0] == 'x'
         m[-6] = 'y'
+        m[3:6:2] = 'BR'
+        m.seek(0)
         data = m.read(6)
-        assert data == "yoobar" # yxxbar with slice's stuff
+        assert data == "yxxBaR"
         m.close()
         f.close()
     
@@ -373,8 +466,8 @@ class AppTestMMap:
         m = mmap(f.fileno(), 6)
         def fn(): del m["foo"]
         raises(TypeError, fn)
-        # def f(m): del m[1:3]
-        # py.test.raises(TypeError, f, m)
+        def fn(): del m[1:3]
+        raises(TypeError, fn)
         def fn(): del m[1]
         raises(TypeError, fn)
         m.close()
@@ -413,12 +506,19 @@ class AppTestMMap:
         raises((SystemError, TypeError), fn)
         m.close()
         f.close()
-#         
-#     def test_slicing(self):
-#         self.f.seek(0)
-#         m = mmap(self.f.fileno(), 6)
-#         assert m[-3:7] == "bar"
-# 
+         
+    def test_slicing(self):
+        from mmap import mmap
+
+        f = open(self.tmpname + "v", "w+")
+        f.write("foobar")
+        f.flush()
+        
+        f.seek(0)
+        m = mmap(f.fileno(), 6)
+        assert m[-3:7] == "bar"
+
+        f.close()
 
     def test_sequence_type(self):
         from mmap import mmap
@@ -440,6 +540,48 @@ class AppTestMMap:
         assert len(b) == 6
         assert b[3] == "b"
         assert b[:] == "foobar"
+
+    def test_offset(self):
+        from mmap import mmap, ALLOCATIONGRANULARITY
+        f = open(self.tmpname + "y", "w+")
+        f.write("foobar" * ALLOCATIONGRANULARITY)
+        f.flush()
+        size = ALLOCATIONGRANULARITY
+        offset = 2 * ALLOCATIONGRANULARITY
+        m = mmap(f.fileno(), size, offset=offset)
+        assert m[:] == ("foobar" * ALLOCATIONGRANULARITY)[offset:offset+size]
+        assert len(m) == size
+        m.close()
+        f.close()
+
+    def test_offset_more(self):
+        from mmap import mmap, ALLOCATIONGRANULARITY
+
+        with open(self.tmpname, "w+b") as f:
+            halfsize = ALLOCATIONGRANULARITY
+            f.write("\0" * halfsize)
+            f.write("foo")
+            f.write("\0" * (halfsize - 3))
+            m = mmap(f.fileno(), 0)
+            m.close()
+
+        with open(self.tmpname, "r+b") as f:
+            m = mmap(f.fileno(), halfsize, offset=halfsize)
+            assert m[0:3] == "foo"
+
+        try:
+            m.resize(512)
+        except SystemError:
+            pass
+        else:
+            assert len(m) == 512
+            raises(ValueError, m.seek, 513, 0)
+            assert m[0:3] == "foo"
+            with open(self.tmpname) as f:
+                f.seek(0, 2)
+                assert f.tell() == halfsize + 512
+            assert m.size() == halfsize + 512
+        m.close()
 
     def test_all(self):
         # this is a global test, ported from test_mmap.py
@@ -464,16 +606,16 @@ class AppTestMMap:
         assert m.find("foo") == PAGESIZE
         assert len(m) == 2 * PAGESIZE
         assert m[0] == '\0'
-        # assert m[0:3] == '\0\0\0'
+        assert m[0:3] == '\0\0\0'
     
         # modify the file's content
         m[0] = '3'
-        # m[PAGESIZE+3:PAGESIZE+3+3] = 'bar'
+        m[PAGESIZE+3:PAGESIZE+3+3] = 'bar'
     
         # check that the modification worked
         assert m[0] == '3'
-        # assert m[0:3] == '3\0\0'
-        # assert m[PAGESIZE-1:PAGESIZE+7] == '\0foobar\0'
+        assert m[0:3] == '3\0\0'
+        assert m[PAGESIZE-1:PAGESIZE+7] == '\0foobar\0'
 
         m.flush()
     
@@ -513,9 +655,9 @@ class AppTestMMap:
         f.close()
         f = open(filename, "rb")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_READ)
-        # assert m[:] == 'a' * mapsize
-        # def f(m): m[:] = 'b' * mapsize
-        # py.test.raises(TypeError, f, m)
+        assert m[:] == 'a' * mapsize
+        def f(m): m[:] = 'b' * mapsize
+        raises(TypeError, f, m)
         def fn(): m[0] = 'b'
         raises(TypeError, fn)
         def fn(m): m.seek(0, 0); m.write("abc")
@@ -622,4 +764,3 @@ class AppTestMMap:
         assert m.read(10) == "ABCDEABCDE"
         m.close()
         f.close()
-

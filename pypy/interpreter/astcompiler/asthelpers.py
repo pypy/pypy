@@ -40,9 +40,10 @@ class __extend__(ast.List):
         return self.elts
 
     def set_context(self, ctx):
-        for elt in self.elts:
-            elt.set_context(ctx)
-        self.ctx = ctx
+        if self.elts:
+            for elt in self.elts:
+                elt.set_context(ctx)
+            self.ctx = ctx
 
 
 class __extend__(ast.Attribute):
@@ -113,7 +114,17 @@ class __extend__(ast.ListComp):
     _description = "list comprehension"
 
 
-class __extend__(ast.Dict, ast.Str, ast.Num, ast.Const):
+class __extend__(ast.SetComp):
+
+    _description = "set comprehension"
+
+
+class __extend__(ast.DictComp):
+
+    _description = "dict comprehension"
+
+
+class __extend__(ast.Dict, ast.Set, ast.Str, ast.Num, ast.Const):
 
     _description = "literal"
 

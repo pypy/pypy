@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rpython.lltypesystem import rffi
 
@@ -61,6 +61,7 @@ crc_32_tab = [
 crc_32_tab = map(r_uint, crc_32_tab)
 
 
+@unwrap_spec(data='bufferstr', oldcrc='c_int')
 def crc32(space, data, oldcrc=0):
     "Compute the CRC-32 incrementally."
 
@@ -72,4 +73,3 @@ def crc32(space, data, oldcrc=0):
 
     crc = ~intmask(rffi.cast(rffi.INT, crc))   # unsigned => 32-bit signed
     return space.wrap(crc)
-crc32.unwrap_spec = [ObjSpace, 'bufferstr', 'c_int']

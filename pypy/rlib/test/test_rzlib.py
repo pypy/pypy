@@ -165,9 +165,11 @@ def test_decompression_truncated_input():
     assert finished2 is False
     assert unused2 == 0
     assert expanded.startswith(data)
-    py.test.raises(rzlib.RZlibError,
-                   rzlib.decompress, stream, compressed[2000:-500],
-                   rzlib.Z_FINISH)
+    exc = py.test.raises(
+        rzlib.RZlibError,
+        rzlib.decompress, stream, compressed[2000:-500], rzlib.Z_FINISH)
+    msg = "Error -5 while decompressing data: incomplete or truncated stream"
+    assert str(exc.value) == msg
     rzlib.inflateEnd(stream)
 
 

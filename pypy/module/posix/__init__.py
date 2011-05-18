@@ -5,6 +5,25 @@ from pypy.rpython.module.ll_os import RegisterOs
 import os, sys
 exec 'import %s as posix' % os.name
 
+# this is the list of function which is *not* present in the posix module of
+# IronPython 2.6, and that we want to ignore for now
+lltype_only_defs = [
+    'chown', 'chroot', 'closerange', 'confstr', 'confstr_names', 'ctermid', 'dup',
+    'dup2', 'execv', 'execve', 'fchdir', 'fchmod', 'fchown', 'fdatasync', 'fork',
+    'forkpty', 'fpathconf', 'fstatvfs', 'fsync', 'ftruncate', 'getegid', 'geteuid',
+    'getgid', 'getgroups', 'getloadavg', 'getlogin', 'getpgid', 'getpgrp', 'getppid',
+    'getsid', 'getuid', 'kill', 'killpg', 'lchown', 'link', 'lseek', 'major',
+    'makedev', 'minor', 'mkfifo', 'mknod', 'nice', 'openpty', 'pathconf', 'pathconf_names',
+    'pipe', 'readlink', 'setegid', 'seteuid', 'setgid', 'setgroups', 'setpgid', 'setpgrp',
+    'setregid', 'setreuid', 'setsid', 'setuid', 'stat_float_times', 'statvfs',
+    'statvfs_result', 'symlink', 'sysconf', 'sysconf_names', 'tcgetpgrp', 'tcsetpgrp',
+    'ttyname', 'uname', 'wait', 'wait3', 'wait4'
+    ]
+
+# the Win32 urandom implementation isn't going to translate on JVM or CLI so
+# we have to remove it
+lltype_only_defs.append('urandom')
+
 class Module(MixedModule):
     """This module provides access to operating system functionality that is
 standardized by the C Standard and the POSIX standard (a thinly
@@ -19,6 +38,8 @@ corresponding Unix manual entries for more information on calls."""
     'fdopen'     : 'app_posix.fdopen',
     'tmpfile'    : 'app_posix.tmpfile',
     'popen'      : 'app_posix.popen',
+    'tmpnam'     : 'app_posix.tmpnam',
+    'tempnam'    : 'app_posix.tempnam',
     }
     if os.name == 'nt':
         appleveldefs.update({
@@ -29,6 +50,10 @@ corresponding Unix manual entries for more information on calls."""
 
     if hasattr(os, 'wait'):
         appleveldefs['wait'] = 'app_posix.wait'
+    if hasattr(os, 'wait3'):
+        appleveldefs['wait3'] = 'app_posix.wait3'
+    if hasattr(os, 'wait4'):
+        appleveldefs['wait4'] = 'app_posix.wait4'
         
     interpleveldefs = {
     'open'      : 'interp_posix.open',
@@ -110,15 +135,26 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['execv'] = 'interp_posix.execv'
     if hasattr(os, 'execve'):
         interpleveldefs['execve'] = 'interp_posix.execve'
+    if hasattr(posix, 'spawnv'):
+        interpleveldefs['spawnv'] = 'interp_posix.spawnv'
     if hasattr(os, 'uname'):
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'sysconf'):
         interpleveldefs['sysconf'] = 'interp_posix.sysconf'
         interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
+    if hasattr(os, 'fpathconf'):
+        interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
+        interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):
         interpleveldefs['getloadavg'] = 'interp_posix.getloadavg'
+    if hasattr(os, 'makedev'):
+        interpleveldefs['makedev'] = 'interp_posix.makedev'
+    if hasattr(os, 'major'):
+        interpleveldefs['major'] = 'interp_posix.major'
+    if hasattr(os, 'minor'):
+        interpleveldefs['minor'] = 'interp_posix.minor'
     if hasattr(os, 'mkfifo'):
         interpleveldefs['mkfifo'] = 'interp_posix.mkfifo'
     if hasattr(os, 'mknod'):
@@ -127,9 +163,9 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['nice'] = 'interp_posix.nice'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
-                 'seteuid', 'setgid', 'setegid', 'getpgrp', 'setpgrp',
-                 'getppid', 'getpgid', 'setpgid', 'setreuid', 'setregid',
-                 'getsid', 'setsid']:
+                 'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp', 
+                 'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid', 
+                 'setregid', 'getsid', 'setsid']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:
@@ -143,11 +179,12 @@ corresponding Unix manual entries for more information on calls."""
             interpleveldefs[name] = 'interp_posix.' + name
 
     def __init__(self, space, w_name):
+        # if it's an ootype translation, remove all the defs that are lltype
+        # only
         backend = space.config.translation.backend
-        # the Win32 urandom implementation isn't going to translate on JVM or CLI
-        # so we have to remove it
-        if 'urandom' in self.interpleveldefs and (backend == 'cli' or backend == 'jvm'):
-            del self.interpleveldefs['urandom']
+        if backend == 'cli' or backend == 'jvm':
+            for name in lltype_only_defs:
+                self.interpleveldefs.pop(name, None)
         MixedModule.__init__(self, space, w_name)
 
     def startup(self, space):

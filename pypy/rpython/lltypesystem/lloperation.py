@@ -32,7 +32,7 @@ class LLOp(object):
         assert isinstance(canraise, tuple)
 
         assert not canraise or not canfold
-        
+
         # The operation manipulates PyObjects
         self.pyobj = pyobj
 
@@ -265,8 +265,8 @@ LL_OPERATIONS = {
     'uint_ge':              LLOp(canfold=True),
     'uint_and':             LLOp(canfold=True),
     'uint_or':              LLOp(canfold=True),
-    'uint_lshift':          LLOp(canfold=True),
-    'uint_rshift':          LLOp(canfold=True),
+    'uint_lshift':          LLOp(canfold=True),  # args (r_uint, int)
+    'uint_rshift':          LLOp(canfold=True),  # args (r_uint, int)
     'uint_xor':             LLOp(canfold=True),
 
     'float_is_true':        LLOp(canfold=True),  # it really means "x != 0.0"
@@ -288,9 +288,7 @@ LL_OPERATIONS = {
 
     'llong_is_true':        LLOp(canfold=True),
     'llong_neg':            LLOp(canfold=True),
-    'llong_neg_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
     'llong_abs':            LLOp(canfold=True),
-    'llong_abs_ovf':        LLOp(canraise=(OverflowError,), tryfold=True),
     'llong_invert':         LLOp(canfold=True),
 
     'llong_add':            LLOp(canfold=True),
@@ -308,8 +306,8 @@ LL_OPERATIONS = {
     'llong_ge':             LLOp(canfold=True),
     'llong_and':            LLOp(canfold=True),
     'llong_or':             LLOp(canfold=True),
-    'llong_lshift':         LLOp(canfold=True),
-    'llong_rshift':         LLOp(canfold=True),
+    'llong_lshift':         LLOp(canfold=True),  # args (r_longlong, int)
+    'llong_rshift':         LLOp(canfold=True),  # args (r_longlong, int)
     'llong_xor':            LLOp(canfold=True),
 
     'ullong_is_true':       LLOp(canfold=True),
@@ -330,8 +328,8 @@ LL_OPERATIONS = {
     'ullong_ge':            LLOp(canfold=True),
     'ullong_and':           LLOp(canfold=True),
     'ullong_or':            LLOp(canfold=True),
-    'ullong_lshift':        LLOp(canfold=True),
-    'ullong_rshift':        LLOp(canfold=True),
+    'ullong_lshift':        LLOp(canfold=True),  # args (r_ulonglong, int)
+    'ullong_rshift':        LLOp(canfold=True),  # args (r_ulonglong, int)
     'ullong_xor':           LLOp(canfold=True),
 
     'cast_primitive':       LLOp(canfold=True),
@@ -347,10 +345,12 @@ LL_OPERATIONS = {
     'cast_int_to_longlong': LLOp(canfold=True),
     'cast_uint_to_int':     LLOp(canfold=True),
     'cast_uint_to_float':   LLOp(canfold=True),
-    'cast_longlong_to_float':LLOp(canfold=True),
+    'cast_longlong_to_float' :LLOp(canfold=True),
+    'cast_ulonglong_to_float':LLOp(canfold=True),
     'cast_float_to_int':    LLOp(canraise=(OverflowError,), tryfold=True),
     'cast_float_to_uint':   LLOp(canfold=True),    # XXX need OverflowError?
-    'cast_float_to_longlong':LLOp(canfold=True),
+    'cast_float_to_longlong' :LLOp(canfold=True),
+    'cast_float_to_ulonglong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
     'force_cast':           LLOp(sideeffects=False),    # only for rffi.cast()
 
@@ -433,6 +433,7 @@ LL_OPERATIONS = {
     'jit_marker':           LLOp(),
     'jit_force_virtualizable':LLOp(canrun=True),
     'jit_force_virtual':    LLOp(canrun=True),
+    'jit_force_quasi_immutable': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear':LLOp(canraise=(MemoryError,),canunwindgc=True),
@@ -440,6 +441,7 @@ LL_OPERATIONS = {
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
+    'll_read_timestamp': LLOp(canrun=True),
 
     # __________ GC operations __________
 
@@ -465,7 +467,10 @@ LL_OPERATIONS = {
                                  # ^^^ but canunwindgc=False, as it is
                                  # allocating non-GC structures only
     'gc_thread_run'       : LLOp(),
+    'gc_thread_start'     : LLOp(),
     'gc_thread_die'       : LLOp(),
+    'gc_thread_before_fork':LLOp(),   # returns an opaque address
+    'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
     'gc_assume_young_pointers': LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canunwindgc=True),
@@ -479,12 +484,14 @@ LL_OPERATIONS = {
     'gc_typeids_z'        : LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
-    
+
     'gc_adr_of_nursery_free' : LLOp(),
     # ^^^ returns an address of nursery free pointer, for later modifications
     'gc_adr_of_nursery_top' : LLOp(),
     # ^^^ returns an address of pointer, since it can change at runtime
-    
+    'gc_adr_of_root_stack_top': LLOp(),
+    # ^^^ returns the address of gcdata.root_stack_top (for shadowstack only)
+
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC
     'gc_x_swap_pool':       LLOp(canraise=(MemoryError,), canunwindgc=True),
@@ -546,10 +553,10 @@ LL_OPERATIONS = {
     'debug_start':          LLOp(canrun=True),
     'debug_stop':           LLOp(canrun=True),
     'have_debug_prints':    LLOp(canrun=True),
-    'debug_pdb':            LLOp(),
     'debug_assert':         LLOp(tryfold=True),
     'debug_fatalerror':     LLOp(),
-    'debug_llinterpcall':   LLOp(), # Python func call 'res=arg[0](*arg[1:])'
+    'debug_llinterpcall':   LLOp(canraise=(Exception,)),
+                                    # Python func call 'res=arg[0](*arg[1:])'
                                     # in backends, abort() or whatever is fine
     'debug_start_traceback':   LLOp(),
     'debug_record_traceback':  LLOp(),

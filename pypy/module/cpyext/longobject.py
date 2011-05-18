@@ -4,6 +4,8 @@ from pypy.module.cpyext.api import (cpython_api, PyObject, build_type_checkers,
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
+from pypy.rlib.rbigint import rbigint
+from pypy.rlib.rarithmetic import intmask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -151,7 +153,7 @@ def PyLong_FromString(space, str, pend, base):
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_long, w_str, w_base)
 
-@cpython_api([rffi.VOIDP_real], PyObject)
+@cpython_api([rffi.VOIDP], PyObject)
 def PyLong_FromVoidPtr(space, p):
     """Create a Python integer or long integer from the pointer p. The pointer value
     can be retrieved from the resulting value using PyLong_AsVoidPtr().
@@ -159,14 +161,14 @@ def PyLong_FromVoidPtr(space, p):
     If the integer is larger than LONG_MAX, a positive long integer is returned."""
     return space.wrap(rffi.cast(ADDR, p))
 
-@cpython_api([PyObject], rffi.VOIDP_real, error=lltype.nullptr(rffi.VOIDP_real.TO))
+@cpython_api([PyObject], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
 def PyLong_AsVoidPtr(space, w_long):
     """Convert a Python integer or long integer pylong to a C void pointer.
     If pylong cannot be converted, an OverflowError will be raised.  This
     is only assured to produce a usable void pointer for values created
     with PyLong_FromVoidPtr().
     For values outside 0..LONG_MAX, both signed and unsigned integers are accepted."""
-    return rffi.cast(rffi.VOIDP_real, space.uint_w(w_long))
+    return rffi.cast(rffi.VOIDP, space.uint_w(w_long))
 
 @cpython_api([PyObject], rffi.SIZE_T, error=-1)
 def _PyLong_NumBits(space, w_long):
@@ -177,4 +179,31 @@ def _PyLong_Sign(space, w_long):
     assert isinstance(w_long, W_LongObject)
     return w_long.num.sign
 
+UCHARP = rffi.CArrayPtr(rffi.UCHAR)
+@cpython_api([UCHARP, rffi.SIZE_T, rffi.INT_real, rffi.INT_real], PyObject)
+def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
+    little_endian = rffi.cast(lltype.Signed, little_endian)
+    signed = rffi.cast(lltype.Signed, signed)
+
+    result = rbigint()
+    negative = False
+
+    for i in range(0, n):
+        if little_endian:
+            c = intmask(bytes[i])
+        else:
+            c = intmask(bytes[n - i - 1])
+        if i == 0 and signed and c & 0x80:
+            negative = True
+        if negative:
+            c = c ^ 0xFF
+        digit = rbigint.fromint(c)
+
+        result = result.lshift(8)
+        result = result.add(digit)
+
+    if negative:
+        result = result.neg()
+
+    return space.newlong_from_rbigint(result)
 

@@ -508,27 +508,15 @@ class CStandaloneBuilder(CBuilder):
 
         shared = self.config.translation.shared
 
-        if (self.config.translation.gcrootfinder == "asmgcc" or
-            self.config.translation.force_make):
-            extra_opts = []
-            if self.config.translation.make_jobs != 1:
-                extra_opts += ['-j', str(self.config.translation.make_jobs)]
-            self.translator.platform.execute_makefile(self.targetdir,
-                                                      extra_opts)
-            if shared:
-                self.shared_library_name = self.executable_name.new(
-                    purebasename='lib' + self.executable_name.purebasename,
-                    ext=self.translator.platform.so_ext)
-        else:
-            compiler = CCompilerDriver(self.translator.platform,
-                                       [self.c_source_filename] + self.extrafiles,
-                                       self.eci, profbased=self.getprofbased(),
-                                       outputfilename=exe_name)
-            self.executable_name = compiler.build(shared=shared)
-            if shared:
-                self.executable_name = self.build_main_for_shared(
-                    self.executable_name, "pypy_main_startup", exe_name)
-            assert self.executable_name
+        extra_opts = []
+        if self.config.translation.make_jobs != 1:
+            extra_opts += ['-j', str(self.config.translation.make_jobs)]
+        self.translator.platform.execute_makefile(self.targetdir,
+                                                  extra_opts)
+        if shared:
+            self.shared_library_name = self.executable_name.new(
+                purebasename='lib' + self.executable_name.purebasename,
+                ext=self.translator.platform.so_ext)
         self._compiled = True
         return self.executable_name
 
@@ -936,6 +924,14 @@ def commondefs(defines):
     from pypy.rlib.rarithmetic import LONG_BIT
     defines['PYPY_LONG_BIT'] = LONG_BIT
 
+def add_extra_files(eci):
+    srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')
+    files = [
+        srcdir / 'profiling.c',
+        srcdir / 'debug_print.c',
+    ]
+    return eci.merge(ExternalCompilationInfo(separate_module_files=files))
+
 def gen_source_standalone(database, modulename, targetdir, eci,
                           entrypointname, defines={}): 
     assert database.standalone
@@ -985,6 +981,7 @@ def gen_source_standalone(database, modulename, targetdir, eci,
         print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
+    eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files(being_main=True)
     files, eci = eci.get_module_files()
     return eci, filename, sg.getextrafiles() + list(files)
@@ -1031,6 +1028,7 @@ def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
     gen_startupcode(f, database)
     f.close()
 
+    eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files(being_main=True)
     files, eci = eci.get_module_files()
     return eci, filename, sg.getextrafiles() + list(files)

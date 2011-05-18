@@ -1,8 +1,8 @@
 from __future__ import with_statement
 import new
 import py
-from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
-from pypy.objspace.flow.model import flatten, mkentrymap, c_last_exception
+from pypy.objspace.flow.model import Constant, Block, Link, Variable
+from pypy.objspace.flow.model import mkentrymap, c_last_exception
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 from pypy.objspace.flow.objspace import FlowObjSpace, error
@@ -37,12 +37,10 @@ class Base:
 
     def all_operations(self, graph):
         result = {}
-        def visit(node):
-            if isinstance(node, Block):
-                for op in node.operations:
-                    result.setdefault(op.opname, 0)
-                    result[op.opname] += 1
-        traverse(visit, graph)
+        for node in graph.iterblocks():
+            for op in node.operations:
+                result.setdefault(op.opname, 0)
+                result[op.opname] += 1
         return result
 
 
@@ -246,12 +244,9 @@ class TestFlowObjSpace(Base):
         x = self.codetest(self.implicitException)
         simplify_graph(x)
         self.show(x)
-        def cannot_reach_exceptblock(link):
-            if isinstance(link, Link):
-                assert link.target is not x.exceptblock
-        traverse(cannot_reach_exceptblock, x)
+        for link in x.iterlinks():
+            assert link.target is not x.exceptblock
 
-    
     def implicitAttributeError(x):
         try:
             x = getattr(x, "y")
@@ -263,10 +258,8 @@ class TestFlowObjSpace(Base):
         x = self.codetest(self.implicitAttributeError)
         simplify_graph(x)
         self.show(x)
-        def cannot_reach_exceptblock(link):
-            if isinstance(link, Link):
-                assert link.target is not x.exceptblock
-        traverse(cannot_reach_exceptblock, x)
+        for link in x.iterlinks():
+            assert link.target is not x.exceptblock
 
     #__________________________________________________________
     def implicitException_int_and_id(x):
@@ -311,14 +304,12 @@ class TestFlowObjSpace(Base):
         simplify_graph(x)
         self.show(x)
         found = {}
-        def find_exceptions(link):
-            if isinstance(link, Link):
+        for link in x.iterlinks():
                 if link.target is x.exceptblock:
                     if isinstance(link.args[0], Constant):
                         found[link.args[0].value] = True
                     else:
                         found[link.exitcase] = None
-        traverse(find_exceptions, x)
         assert found == {IndexError: True, KeyError: True, Exception: None}
     
     def reraiseAnything(x):
@@ -332,12 +323,10 @@ class TestFlowObjSpace(Base):
         simplify_graph(x)
         self.show(x)
         found = {}
-        def find_exceptions(link):
-            if isinstance(link, Link):
+        for link in x.iterlinks():
                 if link.target is x.exceptblock:
                     assert isinstance(link.args[0], Constant)
                     found[link.args[0].value] = True
-        traverse(find_exceptions, x)
         assert found == {ValueError: True, ZeroDivisionError: True, OverflowError: True}
 
     def loop_in_bare_except_bug(lst):
@@ -521,11 +510,9 @@ class TestFlowObjSpace(Base):
 
     def test_jump_target_specialization(self):
         x = self.codetest(self.jump_target_specialization)
-        def visitor(node):
-            if isinstance(node, Block):
-                for op in node.operations:
-                    assert op.opname != 'mul', "mul should have disappeared"
-        traverse(visitor, x)
+        for block in x.iterblocks():
+            for op in block.operations:
+                assert op.opname != 'mul', "mul should have disappeared"
 
     #__________________________________________________________
     def highly_branching_example(a,b,c,d,e,f,g,h,i,j):
@@ -573,7 +560,8 @@ class TestFlowObjSpace(Base):
 
     def test_highly_branching_example(self):
         x = self.codetest(self.highly_branching_example)
-        assert len(flatten(x)) < 60   # roughly 20 blocks + 30 links
+        # roughly 20 blocks + 30 links
+        assert len(list(x.iterblocks())) + len(list(x.iterlinks())) < 60
 
     #__________________________________________________________
     def test_unfrozen_user_class1(self):
@@ -589,11 +577,9 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
 
         results = []
-        def visit(link):
-            if isinstance(link, Link):
-                if link.target == graph.returnblock:
-                    results.extend(link.args)
-        traverse(visit, graph)
+        for link in graph.iterlinks():
+            if link.target == graph.returnblock:
+                results.extend(link.args)
         assert len(results) == 2
 
     def test_unfrozen_user_class2(self):
@@ -607,11 +593,9 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
 
         results = []
-        def visit(link):
-            if isinstance(link, Link):
-                if link.target == graph.returnblock:
-                    results.extend(link.args)
-        traverse(visit, graph)
+        for link in graph.iterlinks():
+            if link.target == graph.returnblock:
+                results.extend(link.args)
         assert not isinstance(results[0], Constant)
 
     def test_frozen_user_class1(self):
@@ -630,11 +614,9 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
 
         results = []
-        def visit(link):
-            if isinstance(link, Link):
-                if link.target == graph.returnblock:
-                    results.extend(link.args)
-        traverse(visit, graph)
+        for link in graph.iterlinks():
+            if link.target == graph.returnblock:
+                results.extend(link.args)
         assert len(results) == 1
 
     def test_frozen_user_class2(self):
@@ -650,11 +632,9 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
 
         results = []
-        def visit(link):
-            if isinstance(link, Link):
-                if link.target == graph.returnblock:
-                    results.extend(link.args)
-        traverse(visit, graph)
+        for link in graph.iterlinks():
+            if link.target == graph.returnblock:
+                results.extend(link.args)
         assert results == [Constant(4)]
 
     def test_const_star_call(self):
@@ -663,14 +643,9 @@ class TestFlowObjSpace(Base):
         def f():
             return g(1,*(2,3))
         graph = self.codetest(f)
-        call_args = []
-        def visit(block):
-            if isinstance(block, Block):
-                for op in block.operations:
-                    if op.opname == "call_args":
-                        call_args.append(op)
-        traverse(visit, graph)
-        assert not call_args
+        for block in graph.iterblocks():
+            for op in block.operations:
+                assert not op.opname == "call_args"
 
     def test_catch_importerror_1(self):
         def f():
@@ -841,12 +816,13 @@ class TestFlowObjSpace(Base):
         def g(): pass
         def f(c, x):
             with x:
-                g()
+                res = g()
+            return res
         graph = self.codetest(f)
         assert self.all_operations(graph) == {
             'getattr': 2,     # __enter__ and __exit__
             'simple_call': 4, # __enter__, g and 2 possible calls to __exit__
-            'is_true': 1}     # check the result of __exit__()
+            }
 
     def monkey_patch_code(self, code, stacksize, flags, codestring, names, varnames):
         c = code
@@ -875,7 +851,7 @@ class TestFlowObjSpace(Base):
                 return x.m()
 
             # this code is generated by pypy-c when compiling above f
-            pypy_code = 't\x00\x00\x83\x00\x00}\x00\x00|\x00\x00\x91\x02\x00\x92\x00\x00Sd\x00\x00S'
+            pypy_code = 't\x00\x00\x83\x00\x00}\x00\x00|\x00\x00\xc9\x01\x00\xca\x00\x00S'
             new_c = self.monkey_patch_code(f.func_code, 3, 3, pypy_code, ('X', 'x', 'm'), ('x',))
             f2 = new.function(new_c, locals(), 'f')
 
@@ -996,11 +972,9 @@ class TestGenInterpStyle(Base):
         simplify_graph(x)
         self.show(x)
         excfound = []
-        def check(link):
-            if isinstance(link, Link):
-                if link.target is x.exceptblock:
-                    excfound.append(link.exitcase)
-        traverse(check, x)
+        for link in x.iterlinks():
+            if link.target is x.exceptblock:
+                excfound.append(link.exitcase)
         assert len(excfound) == 2
         excfound.sort()
         expected = [Exception, AttributeError]
@@ -1018,11 +992,9 @@ class TestGenInterpStyle(Base):
         simplify_graph(x)
         self.show(x)
         excfound = []
-        def check(link):
-            if isinstance(link, Link):
-                if link.target is x.exceptblock:
-                    excfound.append(link.exitcase)
-        traverse(check, x)
+        for link in x.iterlinks():
+            if link.target is x.exceptblock:
+                excfound.append(link.exitcase)
         assert len(excfound) == 2
         excfound.sort()
         expected = [Exception, TypeError]

@@ -1,8 +1,8 @@
-from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import BuiltinFunction, Method, StaticMethod
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -16,7 +16,7 @@ from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.tupleobject import W_TupleObject
 
-PyCFunction_typedef = rffi.COpaquePtr('PyCFunction')
+PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
 PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject], PyObject))
 
@@ -102,7 +102,7 @@ class W_PyCFunctionObject(Wrappable):
                 w_arg = w_args
             return generic_cpy_call(space, func, w_self, w_arg)
 
-    def get_doc(space, self):
+    def get_doc(self, space):
         doc = self.ml.c_ml_doc
         if doc:
             return space.wrap(rffi.charp2str(doc))
@@ -153,7 +153,6 @@ class W_PyCWrapperObject(Wrappable):
         return self.space.wrap("<slot wrapper '%s' of '%s' objects>" % (self.method_name,
             self.w_objclass.getname(self.space, '?')))
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)
     args_w, kw_w = __args__.unpack()
@@ -165,7 +164,6 @@ def cwrapper_descr_call(space, w_self, __args__):
     return self.call(space, w_self, w_args, w_kw)
 
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
 def cfunction_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()
@@ -176,7 +174,6 @@ def cfunction_descr_call(space, w_self, __args__):
     ret = self.call(space, None, w_args, w_kw)
     return ret
 
-@unwrap_spec(ObjSpace, W_Root, Arguments)
 def cmethod_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCFunctionObject, w_self)
     args_w, kw_w = __args__.unpack()

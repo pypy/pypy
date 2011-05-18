@@ -11,6 +11,7 @@ from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
+from pypy.jit.metainterp.optimizeutil import args_dict
 
 ##class FakeFrame(object):
 ##    parent_resumedata_snapshot = None
@@ -245,10 +246,14 @@ class BaseTestBasic(BaseTest):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap)
 
-    def optimize_loop(self, ops, optops):
+    def optimize_loop(self, ops, optops, call_pure_results=None):
         loop = self.parse(ops)
         #
         self.loop = loop
+        loop.call_pure_results = args_dict()
+        if call_pure_results is not None:
+            for k, v in call_pure_results.items():
+                loop.call_pure_results[list(k)] = v
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
@@ -2861,7 +2866,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         ops = '''
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(42, p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3)
         '''
@@ -2880,12 +2885,14 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         # time.  Check that it is either constant-folded (and replaced by
         # the result of the call, recorded as the first arg), or turned into
         # a regular CALL.
+        arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
+        call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i3 = call_pure(42, 123456, 4, 5, 6, descr=plaincalldescr)
-        i4 = call_pure(43, 123456, 4, i0, 6, descr=plaincalldescr)
+        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, i3, i4)
         '''
         expected = '''
@@ -2895,7 +2902,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, 42, i4)
         '''
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, call_pure_results)
 
     def test_vref_nonvirtual_nonescape(self):
         ops = """
@@ -2924,7 +2931,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i0, descr=virtualtokendescr)
-        setfield_gc(p2, 5, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, -3, descr=virtualtokendescr)
@@ -2957,7 +2963,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 3, descr=virtualrefindexdescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -2998,7 +3003,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 2, descr=virtualrefindexdescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -3055,7 +3059,7 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         self.loop.inputargs[0].value = self.nodeobjvalue
         self.check_expanded_fail_descr('''p2, p1
             p0.refdescr = p2
-            where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3, virtualrefindexdescr=2
+            where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3
             where p1 is a node_vtable, nextdescr=p1b
             where p1b is a node_vtable, valuedescr=i1
             ''', rop.GUARD_NO_EXCEPTION)
@@ -3077,7 +3081,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 7, descr=virtualrefindexdescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3104,7 +3107,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         i3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, i3, descr=virtualtokendescr)
-        setfield_gc(p2, 23, descr=virtualrefindexdescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, -3, descr=virtualtokendescr)
@@ -3352,6 +3354,8 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []
         i2 = int_sub(i0, 10)
         i3 = int_lt(i2, -5)
         guard_true(i3) []
@@ -3361,6 +3365,8 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
+        i1p = int_gt(i0, -4)
+        guard_true(i1p) []
         i2 = int_sub(i0, 10)
         jump(i0)
         """
@@ -3604,7 +3610,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_false(i2) []
         i3 = int_add(i1, 1)
         i331 = force_token()
-        setfield_gc(p0, i1, descr=valuedescr)
         jump(p0, i22)
         """
         self.optimize_loop(ops, expected)
@@ -3709,7 +3714,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         guard_no_overflow() []
         i2 = int_gt(i1, 1)
         guard_true(i2) []
-        i3 = int_sub(1, i0)
         jump(i0)
         """
         self.optimize_loop(ops, expected)

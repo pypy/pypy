@@ -11,8 +11,8 @@ import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.setobject import _initialize_set
 from pypy.objspace.std.setobject import newset, make_setdata_from_w_iterable
-from pypy.objspace.std.setobject import set_intersection__Set_Set
-from pypy.objspace.std.setobject import set_intersection__Set_ANY
+from pypy.objspace.std.setobject import and__Set_Set
+from pypy.objspace.std.setobject import set_intersection__Set
 from pypy.objspace.std.setobject import eq__Set_Set
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -35,10 +35,10 @@ class TestW_SetObject:
         _initialize_set(self.space, t0, self.otherword)
         t1 = W_FrozensetObject(self.space,
                 make_setdata_from_w_iterable(self.space, self.otherword))
-        r0 = set_intersection__Set_Set(self.space, s, t0)
-        r1 = set_intersection__Set_Set(self.space, s, t1)
+        r0 = and__Set_Set(self.space, s, t0)
+        r1 = and__Set_Set(self.space, s, t1)
         assert eq__Set_Set(self.space, r0, r1) == self.true
-        sr = set_intersection__Set_ANY(self.space, s, self.otherword)
+        sr = set_intersection__Set(self.space, s, [self.otherword])
         assert eq__Set_Set(self.space, r0, sr) == self.true
 
     def test_compare(self):
@@ -57,10 +57,40 @@ class AppTestAppSetTest:
         b = a | set('abc')
         assert type(b) is subset
 
+    def test_init_new_behavior(self):
+        s = set.__new__(set, 'abc')
+        assert s == set()                # empty
+        s.__init__('def')
+        assert s == set('def')
+        #
+        s = frozenset.__new__(frozenset, 'abc')
+        assert s == frozenset('abc')     # non-empty
+        s.__init__('def')
+        assert s == frozenset('abc')     # the __init__ is ignored
+
+    def test_subtype_bug(self):
+        class subset(set): pass
+        b = subset('abc')
+        subset.__new__ = lambda *args: foobar   # not called
+        b = b.copy()
+        assert type(b) is subset
+        assert set(b) == set('abc')
+        #
+        class frozensubset(frozenset): pass
+        b = frozensubset('abc')
+        frozensubset.__new__ = lambda *args: foobar   # not called
+        b = b.copy()
+        assert type(b) is frozensubset
+        assert frozenset(b) == frozenset('abc')
+
     def test_union(self):
         a = set([4, 5])
         b = a.union([5, 7])
         assert sorted(b) == [4, 5, 7]
+        c = a.union([5, 7], [1], set([9,7]), frozenset([2]), frozenset())
+        assert sorted(c) == [1, 2, 4, 5, 7, 9]
+        d = a.union()
+        assert d == a
 
     def test_compare(self):
         raises(TypeError, cmp, set('abc'), set('abd'))
@@ -127,11 +157,6 @@ class AppTestAppSetTest:
         assert s1 is not s2
         assert s1 == s2
         assert type(s2) is myfrozen
-        class myfrozen(frozenset):
-            def __new__(cls):
-                return frozenset.__new__(cls, 'abc')
-        s1 = myfrozen()
-        raises(TypeError, s1.copy)
 
     def test_update(self):
         s1 = set('abc')
@@ -140,6 +165,15 @@ class AppTestAppSetTest:
         s1 = set('abc')
         s1.update(frozenset('fro'))
         assert s1 == set('abcfro')
+        s1 = set('abc')
+        s1.update('def')
+        assert s1 == set('abcdef')
+        s1 = set('abc')
+        s1.update()
+        assert s1 == set('abc')
+        s1 = set('abc')
+        s1.update('d', 'ef', frozenset('g'))
+        assert s1 == set('abcdefg')
 
     def test_recursive_repr(self):
         class A(object):
@@ -224,11 +258,11 @@ class AppTestAppSetTest:
 
     def test_autoconvert_key_error(self):
         s = set([frozenset([1, 2]), frozenset([3, 4])])
+        key = set([2, 3])
         try:
-            s.remove(set([2, 3]))
+            s.remove(key)
         except KeyError, e:
-            assert isinstance(e.args[0], frozenset)
-            assert e.args[0] == frozenset([2, 3])
+            assert e.args[0] is key
 
     def test_contains(self):
         letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -270,3 +304,76 @@ class AppTestAppSetTest:
         efs = [f, Frozenset(f)]
         # All empty frozenset subclass instances should have different ids
         assert len(set(map(id, efs))) == len(efs)
+
+    def test_subclass_union(self):
+        for base in [set, frozenset]:
+            class subset(base):
+                def __init__(self, *args):
+                    self.x = args
+            s = subset([2])
+            assert s.x == ([2],)
+            t = s | base([5])
+            # obscure CPython behavior:
+            assert type(t) is subset
+            assert not hasattr(t, 'x')
+
+    def test_isdisjoint(self):
+        assert set([1,2,3]).isdisjoint(set([4,5,6]))
+        assert set([1,2,3]).isdisjoint(frozenset([4,5,6]))
+        assert set([1,2,3]).isdisjoint([4,5,6])
+        assert set([1,2,3]).isdisjoint((4,5,6))
+        assert not set([1,2,5]).isdisjoint(set([4,5,6]))
+        assert not set([1,2,5]).isdisjoint(frozenset([4,5,6]))
+        assert not set([1,2,5]).isdisjoint([4,5,6])
+        assert not set([1,2,5]).isdisjoint((4,5,6))
+
+    def test_intersection(self):
+        assert set([1,2,3]).intersection(set([2,3,4])) == set([2,3])
+        assert set([1,2,3]).intersection(frozenset([2,3,4])) == set([2,3])
+        assert set([1,2,3]).intersection([2,3,4]) == set([2,3])
+        assert set([1,2,3]).intersection((2,3,4)) == set([2,3])
+        assert frozenset([1,2,3]).intersection(set([2,3,4])) == frozenset([2,3])
+        assert frozenset([1,2,3]).intersection(frozenset([2,3,4]))== frozenset([2,3])
+        assert frozenset([1,2,3]).intersection([2,3,4]) == frozenset([2,3])
+        assert frozenset([1,2,3]).intersection((2,3,4)) == frozenset([2,3])
+        assert set([1,2,3,4]).intersection([2,3,4,5], set((1,2,3))) == set([2,3])
+        assert frozenset([1,2,3,4]).intersection((2,3,4,5), [1,2,3]) == \
+                   frozenset([2,3])
+        s = set([1,2,3])
+        assert s.intersection() == s
+        assert s.intersection() is not s
+
+    def test_difference(self):
+        assert set([1,2,3]).difference(set([2,3,4])) == set([1])
+        assert set([1,2,3]).difference(frozenset([2,3,4])) == set([1])
+        assert set([1,2,3]).difference([2,3,4]) == set([1])
+        assert set([1,2,3]).difference((2,3,4)) == set([1])
+        assert frozenset([1,2,3]).difference(set([2,3,4])) == frozenset([1])
+        assert frozenset([1,2,3]).difference(frozenset([2,3,4]))== frozenset([1])
+        assert frozenset([1,2,3]).difference([2,3,4]) == frozenset([1])
+        assert frozenset([1,2,3]).difference((2,3,4)) == frozenset([1])
+        assert set([1,2,3,4]).difference([4,5], set((0,1))) == set([2,3])
+        assert frozenset([1,2,3,4]).difference((4,5), [0,1]) == frozenset([2,3])
+        s = set([1,2,3])
+        assert s.difference() == s
+        assert s.difference() is not s
+
+    def test_intersection_update(self):
+        s = set([1,2,3,4,7])
+        s.intersection_update([0,1,2,3,4,5,6])
+        assert s == set([1,2,3,4])
+        s.intersection_update((2,3,4,5), frozenset([0,1,2,3]))
+        assert s == set([2,3])
+        s.intersection_update()
+        assert s == set([2,3])
+
+    def test_difference_update(self):
+        s = set([1,2,3,4,7])
+        s.difference_update([0,7,8,9])
+        assert s == set([1,2,3,4])
+        s.difference_update((0,1), frozenset([4,5,6]))
+        assert s == set([2,3])
+        s.difference_update()
+        assert s == set([2,3])
+        s.difference_update(s)
+        assert s == set([])

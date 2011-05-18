@@ -1,7 +1,8 @@
 from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem.lltype import \
-     Signed, Unsigned, SignedLongLong, Bool, Float, Void, pyobjectptr
+from pypy.rpython.lltypesystem.lltype import (
+    Signed, Unsigned, SignedLongLong, UnsignedLongLong,
+    Bool, Float, Void, pyobjectptr)
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr
@@ -157,6 +158,9 @@ class __extend__(pairtype(IntegerRepr, FloatRepr)):
         if r_from.lowleveltype == SignedLongLong and r_to.lowleveltype == Float:
             log.debug('explicit cast_longlong_to_float')
             return llops.genop('cast_longlong_to_float', [v], resulttype=Float)
+        if r_from.lowleveltype == UnsignedLongLong and r_to.lowleveltype == Float:
+            log.debug('explicit cast_ulonglong_to_float')
+            return llops.genop('cast_ulonglong_to_float', [v], resulttype=Float)
         return NotImplemented
 
 class __extend__(pairtype(FloatRepr, IntegerRepr)):
@@ -170,6 +174,9 @@ class __extend__(pairtype(FloatRepr, IntegerRepr)):
         if r_from.lowleveltype == Float and r_to.lowleveltype == SignedLongLong:
             log.debug('explicit cast_float_to_longlong')
             return llops.genop('cast_float_to_longlong', [v], resulttype=SignedLongLong)
+        if r_from.lowleveltype == Float and r_to.lowleveltype == UnsignedLongLong:
+            log.debug('explicit cast_float_to_ulonglong')
+            return llops.genop('cast_float_to_ulonglong', [v], resulttype=UnsignedLongLong)
         return NotImplemented
 
 class __extend__(pairtype(BoolRepr, FloatRepr)):
@@ -202,8 +209,8 @@ class __extend__(pairtype(FloatRepr, PyObjRepr)):
                                      _callable=lambda x: pyobjectptr(x))
         return NotImplemented
 
-# ____________________________________________________________
-# Support for r_singlefloat from pypy.rlib.rarithmetic
+# ______________________________________________________________________
+# Support for r_singlefloat and r_longfloat from pypy.rlib.rarithmetic
 
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rmodel import Repr
@@ -221,5 +228,21 @@ class SingleFloatRepr(Repr):
         v, = hop.inputargs(lltype.SingleFloat)
         hop.exception_cannot_occur()
         # we use cast_primitive to go between Float and SingleFloat.
+        return hop.genop('cast_primitive', [v],
+                         resulttype = lltype.Float)
+
+class __extend__(annmodel.SomeLongFloat):
+    def rtyper_makerepr(self, rtyper):
+        return LongFloatRepr()
+    def rtyper_makekey(self):
+        return self.__class__,
+
+class LongFloatRepr(Repr):
+    lowleveltype = lltype.LongFloat
+
+    def rtype_float(self, hop):
+        v, = hop.inputargs(lltype.LongFloat)
+        hop.exception_cannot_occur()
+        # we use cast_primitive to go between Float and LongFloat.
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.Float)

@@ -347,8 +347,9 @@ class AppTestW_ListObject(object):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']
         assert list((1, 2)) == [1, 2]
-        l = []
+        l = [1]
         assert list(l) is not l
+        assert list(l) == l
         assert list(range(10)) == range(10)
 
     def test_explicit_new_init(self):
@@ -547,6 +548,15 @@ class AppTestW_ListObject(object):
         l += iter([4,5])
         assert l is l0
         assert l == [1,2,3,4,5]
+
+    def test_iadd_subclass(self):
+        class Bar(object):
+            def __radd__(self, other):
+                return ('radd', self, other)
+        bar = Bar()
+        l1 = [1,2,3]
+        l1 += bar
+        assert l1 == ('radd', bar, [1,2,3])
 
     def test_imul(self):
         l = l0 = [4,3]

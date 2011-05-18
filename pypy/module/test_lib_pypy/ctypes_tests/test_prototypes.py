@@ -27,6 +27,55 @@ def setup_module(mod):
     _ctypes_test = str(conftest.sofile)
     mod.testdll = CDLL(_ctypes_test)
 
+class TestFuncPrototypes(BaseCTypesTestChecker):
+
+    def test_restype_setattr(self):
+        func = testdll._testfunc_p_p
+        raises(TypeError, setattr, func, 'restype', 20)
+
+    def test_argtypes_setattr(self):
+        func = testdll._testfunc_p_p
+        raises(TypeError, setattr, func, 'argtypes', 20)
+        raises(TypeError, setattr, func, 'argtypes', [20])
+
+        func = CFUNCTYPE(c_long, c_void_p, c_long)(lambda: None)
+        assert func.argtypes == (c_void_p, c_long)
+
+    def test_paramflags_setattr(self):
+        func = CFUNCTYPE(c_long, c_void_p, c_long)(lambda: None)
+        raises(TypeError, setattr, func, 'paramflags', 'spam')
+        raises(ValueError, setattr, func, 'paramflags', (1, 2, 3, 4))
+        raises(TypeError, setattr, func, 'paramflags', ((1,), ('a',)))
+        func.paramflags = (1,), (1|4,)
+
+    def test_kwargs(self):
+        proto = CFUNCTYPE(c_char_p, c_char_p, c_int)
+        paramflags = (1, 'text', "tavino"), (1, 'letter', ord('v'))
+        func = proto(('my_strchr', testdll), paramflags)
+        assert func.argtypes == (c_char_p, c_int)
+        assert func.restype == c_char_p
+
+        result = func("abcd", ord('b'))
+        assert result == "bcd"
+
+        result = func()
+        assert result == "vino"
+
+        result = func("grapevine")
+        assert result == "vine"
+
+        result = func(text="grapevine")
+        assert result == "vine"
+
+        result = func(letter=ord('i'))
+        assert result == "ino"
+
+        result = func(letter=ord('p'), text="impossible")
+        assert result == "possible"
+
+        result = func(text="impossible", letter=ord('p'))
+        assert result == "possible"
+
 # Return machine address `a` as a (possibly long) non-negative integer.
 # Starting with Python 2.5, id(anything) is always non-negative, and
 # the ctypes addressof() inherits that via PyLong_FromVoidPtr().

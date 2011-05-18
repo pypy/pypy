@@ -31,5 +31,8 @@ def thread_prepare():
 def thread_run():
     pass
 
+def thread_start():
+    pass
+
 def thread_die():
     pass

@@ -77,6 +77,7 @@ class TestLibffiCall(BaseFfiTest):
         c_file = udir.ensure("test_libffi", dir=1).join("foolib.c")
         # automatically collect the C source from the docstrings of the tests
         snippets = []
+        exports = []
         for name in dir(cls):
             if name.startswith('test_'):
                 meth = getattr(cls, name)
@@ -84,9 +85,12 @@ class TestLibffiCall(BaseFfiTest):
                 # improved: so far we just check that there is a '{' :-)
                 if meth.__doc__ is not None and '{' in meth.__doc__:
                     snippets.append(meth.__doc__)
+                    import re
+                    for match in re.finditer(" ([a-z_]+)\(", meth.__doc__):
+                        exports.append(match.group(1))
         #
         c_file.write(py.code.Source('\n'.join(snippets)))
-        eci = ExternalCompilationInfo(export_symbols=[])
+        eci = ExternalCompilationInfo(export_symbols=exports)
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
 

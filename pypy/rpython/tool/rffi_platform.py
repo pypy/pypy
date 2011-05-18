@@ -1,6 +1,9 @@
 #! /usr/bin/env python
 
-import os, py, sys
+import os
+import sys
+import struct
+import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import llmemory
@@ -44,6 +47,12 @@ def getdefined(macro, c_header_source):
     class CConfig:
         _compilation_info_ = eci_from_header(c_header_source)
         DEFINED = Defined(macro)
+    return configure(CConfig)['DEFINED']
+
+def getdefineddouble(macro, c_header_source):
+    class CConfig:
+        _compilation_info_ = eci_from_header(c_header_source)
+        DEFINED = DefinedConstantDouble(macro)
     return configure(CConfig)['DEFINED']
 
 def has(name, c_header_source, include_dirs=None):
@@ -401,17 +410,42 @@ class DefinedConstantInteger(CConfigEntry):
             return expose_value_as_rpython(info['value'])
         return None
 
+class DefinedConstantDouble(CConfigEntry):
+
+    def __init__(self, macro):
+        self.name = self.macro = macro
+
+    def prepare_code(self):
+        yield '#ifdef %s' % (self.macro,)
+        yield 'int i;'
+        yield 'double x = %s;' % (self.macro,)
+        yield 'unsigned char *p = (unsigned char *)&x;'
+        yield 'dump("defined", 1);'
+        yield 'for (i = 0; i < 8; i++) {'
+        yield ' printf("value_%d: %d\\n", i, p[i]);'
+        yield '}'
+        yield '#else'
+        yield 'dump("defined", 0);'
+        yield '#endif'
+
+    def build_result(self, info, config_result):
+        if info["defined"]:
+            data = [chr(info["value_%d" % (i,)]) for i in range(8)]
+            # N.B. This depends on IEEE 754 being implemented.
+            return struct.unpack("d", ''.join(data))[0]
+        return None
+
 class DefinedConstantString(CConfigEntry):
     """
     """
-    def __init__(self, macro):
+    def __init__(self, macro, name=None):
         self.macro = macro
-        self.name = macro
+        self.name = name or macro
 
     def prepare_code(self):
         yield '#ifdef %s' % self.macro
         yield 'int i;'
-        yield 'char *p = %s;' % self.macro
+        yield 'char *p = %s;' % self.name
         yield 'dump("defined", 1);'
         yield 'for (i = 0; p[i] != 0; i++ ) {'
         yield '  printf("value_%d: %d\\n", i, (int)(unsigned char)p[i]);'
@@ -753,7 +787,7 @@ def configure_boehm(platform=None):
     eci = ExternalCompilationInfo(
         platform=platform,
         includes=includes,
-        libraries=['gc'],
+        libraries=['gc', 'dl'],
         )
     return configure_external_library(
         'gc', eci,

@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error, raise_Incomplete
 from pypy.rlib.rarithmetic import ovfcheck
@@ -62,6 +62,7 @@ table_a2b_hqx = [
 ]
 table_a2b_hqx = ''.join(map(chr, table_a2b_hqx))
 
+@unwrap_spec(ascii='bufferstr')
 def a2b_hqx(space, ascii):
     """Decode .hqx coding.  Returns (bin, done)."""
 
@@ -97,13 +98,13 @@ def a2b_hqx(space, ascii):
         if pending_bits > 0:
             raise_Incomplete(space, 'String has incomplete number of bytes')
     return space.newtuple([space.wrap(res.build()), space.wrap(done)])
-a2b_hqx.unwrap_spec = [ObjSpace, 'bufferstr']
 
 # ____________________________________________________________
 
 hqx_encoding = (
     '!"#$%&\'()*+,-012345689@ABCDEFGHIJKLMNPQRSTUVXYZ[`abcdefhijklmpqr')
 
+@unwrap_spec(bin='bufferstr')
 def b2a_hqx(space, bin):
     "Encode .hqx data."
     extra = (len(bin) + 2) // 3
@@ -128,10 +129,10 @@ def b2a_hqx(space, bin):
         leftchar <<= (6 - leftbits)
         res.append(hqx_encoding[leftchar & 0x3f])
     return space.wrap(res.build())
-b2a_hqx.unwrap_spec = [ObjSpace, 'bufferstr']
 
 # ____________________________________________________________
 
+@unwrap_spec(hexbin='bufferstr')
 def rledecode_hqx(space, hexbin):
     "Decode hexbin RLE-coded string."
 
@@ -160,10 +161,10 @@ def rledecode_hqx(space, hexbin):
                     raise_Error(space, 'String starts with the RLE code \x90')
                 res.append_multiple_char(chr(lastpushed), count)
     return space.wrap(res.build())
-rledecode_hqx.unwrap_spec = [ObjSpace, 'bufferstr']
 
 # ____________________________________________________________
 
+@unwrap_spec(data='bufferstr')
 def rlecode_hqx(space, data):
     "Binhex RLE-code binary data."
 
@@ -197,7 +198,6 @@ def rlecode_hqx(space, data):
     # some programs somewhere that would start failing obscurely in rare
     # cases.
     return space.wrap(res.build())
-rlecode_hqx.unwrap_spec = [ObjSpace, 'bufferstr']
 
 # ____________________________________________________________
 
@@ -236,10 +236,10 @@ crctab_hqx = [
         0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0,
 ]
 
+@unwrap_spec(data='bufferstr', oldcrc=int)
 def crc_hqx(space, data, oldcrc):
     "Compute hqx CRC incrementally."
     crc = oldcrc
     for c in data:
         crc = ((crc << 8) & 0xff00) ^ crctab_hqx[((crc >> 8) & 0xff) ^ ord(c)]
     return space.wrap(crc)
-crc_hqx.unwrap_spec = [ObjSpace, 'bufferstr', int]

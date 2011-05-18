@@ -4,7 +4,7 @@ and the mapping between the OOTypeSystem and the Java type system.
 """
 
 from cStringIO import StringIO
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.ootypesystem import ootype, rclass
 from pypy.rpython.ootypesystem.module import ll_os
 from pypy.translator.jvm import node, methods
@@ -229,9 +229,15 @@ class Database(OODatabase):
                 if not ootype.isSubclass(OOTYPE, SELF): continue
                 mobj = self._function_for_graph(
                     clsobj, mname, False, mimpl.graph)
-                graphs = OOTYPE._lookup_graphs(mname)
-                if len(graphs) == 1:
-                    mobj.is_final = True
+                # XXX: this logic is broken: it might happen that there are
+                # ootype.Instance which contains a meth whose graph is exactly
+                # the same as the meth in the superclass: in this case,
+                # len(graphs) == 1 but we cannot just mark the method as final
+                # (or we can, but we should avoid to emit the method in the
+                # subclass, then)
+                ## graphs = OOTYPE._lookup_graphs(mname)
+                ## if len(graphs) == 1:
+                ##     mobj.is_final = True
                 clsobj.add_method(mobj)
 
         # currently, we always include a special "dump" method for debugging
@@ -359,6 +365,7 @@ class Database(OODatabase):
         ootype.UniChar:jvm.PYPYESCAPEDUNICHAR,
         ootype.String:jvm.PYPYESCAPEDSTRING,
         ootype.Unicode:jvm.PYPYESCAPEDUNICODE,
+        rffi.SHORT:jvm.SHORTTOSTRINGS,
         }
 
     def toString_method_for_ootype(self, OOTYPE):
@@ -406,6 +413,7 @@ class Database(OODatabase):
         ootype.UniChar:          jvm.jChar,
         ootype.Class:            jvm.jClass,
         ootype.ROOT:             jvm.jObject,  # treat like a scalar
+        rffi.SHORT:              jvm.jShort,
     }
 
     # Dictionary for non-scalar types; in this case, if we see the key, we

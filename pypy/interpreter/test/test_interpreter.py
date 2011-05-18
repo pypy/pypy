@@ -1,13 +1,12 @@
 import py 
 import sys
+from pypy.interpreter import gateway, module, error
 
 class TestInterpreter: 
 
     def codetest(self, source, functionname, args):
         """Compile and run the given code string, and then call its function
         named by 'functionname' with arguments 'args'."""
-        from pypy.interpreter import baseobjspace
-        from pypy.interpreter import pyframe, gateway, module
         space = self.space
 
         source = str(py.code.Source(source).strip()) + '\n'
@@ -27,7 +26,7 @@ class TestInterpreter:
         wrappedfunc = space.getitem(w_glob, w(functionname))
         try:
             w_output = space.call_function(wrappedfunc, *wrappedargs)
-        except baseobjspace.OperationError, e:
+        except error.OperationError, e:
             #e.print_detailed_traceback(space)
             return '<<<%s>>>' % e.errorstr(space)
         else:
@@ -67,12 +66,14 @@ class TestInterpreter:
         assert self.codetest(code, 'f', [0]) == -12
         assert self.codetest(code, 'f', [1]) == 1
 
-##     def test_raise(self):
-##         x = self.codetest('''
-## def f():
-##     raise 1
-## ''', 'f', [])
-##         self.assertEquals(x, '<<<TypeError: exceptions must be instances or subclasses of Exception or strings (deprecated), not int>>>')
+    def test_raise(self):
+        x = self.codetest('''
+            def f():
+                raise 1
+            ''', 'f', [])
+        assert "TypeError:" in x
+        assert ("exceptions must be old-style classes "
+                "or derived from BaseException") in x
 
     def test_except2(self):
         x = self.codetest('''
@@ -101,11 +102,9 @@ class TestInterpreter:
                 '''
         assert self.codetest(code, 'f', [2]) == 0
         assert self.codetest(code, 'f', [0]) == "infinite result"
-        ess = "TypeError: unsupported operand type"
         res = self.codetest(code, 'f', ['x'])
-        assert res.find(ess) >= 0
-        # the following (original) test was a bit too strict...:
-        # self.assertEquals(self.codetest(code, 'f', ['x']), "<<<TypeError: unsupported operand type(s) for //: 'int' and 'str'>>>")
+        assert "TypeError:" in res
+        assert "unsupported operand type" in res
 
     def test_break(self):
         code = '''
@@ -230,13 +229,6 @@ class TestInterpreter:
             '''
         assert self.codetest(code, 'callme', [1, 2, 3]) == 6
 
-    def test_list_comprehension(self):
-        code = '''
-            def f():
-                return [dir() for i in [1]][0]
-        '''
-        assert self.codetest(code, 'f', [])[0] == '_[1]'
-
     def test_import_statement(self):
         for x in range(10):
             import os
@@ -275,6 +267,35 @@ class AppTestInterpreter:
             sys.stdout = out
             print 10
             assert out.args == ['10','\n']
+        finally:
+            sys.stdout = save
+
+    def test_print_unicode(self):
+        import sys
+
+        save = sys.stdout
+        class Out(object):
+            def __init__(self):
+                self.data = []
+            def write(self, x):
+                self.data.append((type(x), x))
+        sys.stdout = out = Out()
+        try:
+            print unichr(0xa2)
+            assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
+            out.data = []
+            out.encoding = "cp424"     # ignored!
+            print unichr(0xa2)
+            assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
+            del out.data[:]
+            del out.encoding
+            print u"foo\t", u"bar\n", u"trick", u"baz\n"  # softspace handling
+            assert out.data == [(unicode, "foo\t"),
+                                (unicode, "bar\n"),
+                                (unicode, "trick"),
+                                (str, " "),
+                                (unicode, "baz\n"),
+                                (str, "\n")]
         finally:
             sys.stdout = save
 

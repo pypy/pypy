@@ -177,7 +177,6 @@ class TestAstBuilder:
         assert a2.name == "y"
         assert a2.asname == "w"
         exc = py.test.raises(SyntaxError, self.get_ast, "import x a b").value
-        assert exc.msg == "must use 'as' in import"
 
     def test_from_import(self):
         im = self.get_first_stmt("from x import y")
@@ -224,7 +223,6 @@ class TestAstBuilder:
             assert a2.asname is None
         input = "from x import y a b"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "must use 'as' in import"
         input = "from x import a, b,"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "trailing comma is only allowed with surronding " \
@@ -405,6 +403,15 @@ class TestAstBuilder:
         assert isinstance(h2.type, ast.Name)
         assert h2.name is None
         assert isinstance(h2.body[0], ast.Pass)
+        tr = self.get_first_stmt("try: x\nexcept Exc as a: 5\nexcept F: pass")
+        assert len(tr.handlers) == 2
+        h1, h2 = tr.handlers
+        assert isinstance(h1.type, ast.Name)
+        assert isinstance(h1.name, ast.Name)
+        assert isinstance(h1.body[0].value, ast.Num)
+        assert isinstance(h2.type, ast.Name)
+        assert h2.name is None
+        assert isinstance(h2.body[0], ast.Pass)
         tr = self.get_first_stmt("try: x\nexcept: 4\nfinally: pass")
         assert isinstance(tr, ast.TryFinally)
         assert len(tr.finalbody) == 1
@@ -448,7 +455,20 @@ class TestAstBuilder:
         assert wi.optional_vars.elts[0].ctx == ast.Store
         input = "with x hi y: pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "expected \"with [expr] as [var]\""
+        wi = self.get_first_stmt("with x as y, b: pass")
+        assert isinstance(wi, ast.With)
+        assert isinstance(wi.context_expr, ast.Name)
+        assert wi.context_expr.id == "x"
+        assert isinstance(wi.optional_vars, ast.Name)
+        assert wi.optional_vars.id == "y"
+        assert len(wi.body) == 1
+        wi = wi.body[0]
+        assert isinstance(wi, ast.With)
+        assert isinstance(wi.context_expr, ast.Name)
+        assert wi.context_expr.id == "b"
+        assert wi.optional_vars is None
+        assert len(wi.body) == 1
+        assert isinstance(wi.body[0], ast.Pass)
 
     def test_class(self):
         for input in ("class X: pass", "class X(): pass"):
@@ -458,6 +478,7 @@ class TestAstBuilder:
             assert len(cls.body) == 1
             assert isinstance(cls.body[0], ast.Pass)
             assert cls.bases is None
+            assert cls.decorator_list is None
         for input in ("class X(Y): pass", "class X(Y,): pass"):
             cls = self.get_first_stmt(input)
             assert len(cls.bases) == 1
@@ -465,6 +486,7 @@ class TestAstBuilder:
             assert isinstance(base, ast.Name)
             assert base.ctx == ast.Load
             assert base.id == "Y"
+            assert cls.decorator_list is None
         cls = self.get_first_stmt("class X(Y, Z): pass")
         assert len(cls.bases) == 2
         for b in cls.bases:
@@ -477,7 +499,7 @@ class TestAstBuilder:
         assert func.name == "f"
         assert len(func.body) == 1
         assert isinstance(func.body[0], ast.Pass)
-        assert func.decorators is None
+        assert func.decorator_list is None
         args = func.args
         assert isinstance(args, ast.arguments)
         assert args.args is None
@@ -558,51 +580,57 @@ class TestAstBuilder:
         input = "def f(a=b, c): pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "non-default argument follows default argument"
+        input = "def f((x)=23): pass"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "parenthesized arg with default"
 
-    def test_decorator(self):
-        func = self.get_first_stmt("@dec\ndef f(): pass")
-        assert isinstance(func, ast.FunctionDef)
-        assert len(func.decorators) == 1
-        dec = func.decorators[0]
-        assert isinstance(dec, ast.Name)
-        assert dec.id == "dec"
-        assert dec.ctx == ast.Load
-        func = self.get_first_stmt("@mod.hi.dec\ndef f(): pass")
-        assert len(func.decorators) == 1
-        dec = func.decorators[0]
-        assert isinstance(dec, ast.Attribute)
-        assert dec.ctx == ast.Load
-        assert dec.attr == "dec"
-        assert isinstance(dec.value, ast.Attribute)
-        assert dec.value.attr == "hi"
-        assert isinstance(dec.value.value, ast.Name)
-        assert dec.value.value.id == "mod"
-        func = self.get_first_stmt("@dec\n@dec2\ndef f(): pass")
-        assert len(func.decorators) == 2
-        for dec in func.decorators:
+    def test_decorators(self):
+        to_examine = (("def f(): pass", ast.FunctionDef),
+                      ("class x: pass", ast.ClassDef))
+        for stmt, node in to_examine:
+            definition = self.get_first_stmt("@dec\n%s" % (stmt,))
+            assert isinstance(definition, node)
+            assert len(definition.decorator_list) == 1
+            dec = definition.decorator_list[0]
             assert isinstance(dec, ast.Name)
+            assert dec.id == "dec"
             assert dec.ctx == ast.Load
-        assert func.decorators[0].id == "dec"
-        assert func.decorators[1].id == "dec2"
-        func = self.get_first_stmt("@dec()\ndef f(): pass")
-        assert len(func.decorators) == 1
-        dec = func.decorators[0]
-        assert isinstance(dec, ast.Call)
-        assert isinstance(dec.func, ast.Name)
-        assert dec.func.id == "dec"
-        assert dec.args is None
-        assert dec.keywords is None
-        assert dec.starargs is None
-        assert dec.kwargs is None
-        func = self.get_first_stmt("@dec(a, b)\ndef f(): pass")
-        assert len(func.decorators) == 1
-        dec = func.decorators[0]
-        assert isinstance(dec, ast.Call)
-        assert dec.func.id == "dec"
-        assert len(dec.args) == 2
-        assert dec.keywords is None
-        assert dec.starargs is None
-        assert dec.kwargs is None
+            definition = self.get_first_stmt("@mod.hi.dec\n%s" % (stmt,))
+            assert len(definition.decorator_list) == 1
+            dec = definition.decorator_list[0]
+            assert isinstance(dec, ast.Attribute)
+            assert dec.ctx == ast.Load
+            assert dec.attr == "dec"
+            assert isinstance(dec.value, ast.Attribute)
+            assert dec.value.attr == "hi"
+            assert isinstance(dec.value.value, ast.Name)
+            assert dec.value.value.id == "mod"
+            definition = self.get_first_stmt("@dec\n@dec2\n%s" % (stmt,))
+            assert len(definition.decorator_list) == 2
+            for dec in definition.decorator_list:
+                assert isinstance(dec, ast.Name)
+                assert dec.ctx == ast.Load
+            assert definition.decorator_list[0].id == "dec"
+            assert definition.decorator_list[1].id == "dec2"
+            definition = self.get_first_stmt("@dec()\n%s" % (stmt,))
+            assert len(definition.decorator_list) == 1
+            dec = definition.decorator_list[0]
+            assert isinstance(dec, ast.Call)
+            assert isinstance(dec.func, ast.Name)
+            assert dec.func.id == "dec"
+            assert dec.args is None
+            assert dec.keywords is None
+            assert dec.starargs is None
+            assert dec.kwargs is None
+            definition = self.get_first_stmt("@dec(a, b)\n%s" % (stmt,))
+            assert len(definition.decorator_list) == 1
+            dec = definition.decorator_list[0]
+            assert isinstance(dec, ast.Call)
+            assert dec.func.id == "dec"
+            assert len(dec.args) == 2
+            assert dec.keywords is None
+            assert dec.starargs is None
+            assert dec.kwargs is None
 
     def test_augassign(self):
         aug_assigns = (
@@ -693,6 +721,19 @@ class TestAstBuilder:
         assert v1.ctx == ast.Load
         assert isinstance(v2, ast.Num)
 
+    def test_set(self):
+        s = self.get_first_expr("{1}")
+        assert isinstance(s, ast.Set)
+        assert len(s.elts) == 1
+        assert isinstance(s.elts[0], ast.Num)
+        assert self.space.eq_w(s.elts[0].n, self.space.wrap(1))
+        s = self.get_first_expr("{0, 1, 2, 3, 4, 5}")
+        assert isinstance(s, ast.Set)
+        assert len(s.elts) == 6
+        for i, elt in enumerate(s.elts):
+            assert isinstance(elt, ast.Num)
+            assert self.space.eq_w(elt.n, self.space.wrap(i))
+
     def test_set_context(self):
         tup = self.get_ast("(a, b) = c").body[0].targets[0]
         assert all(elt.ctx == ast.Store for elt in tup.elts)
@@ -710,10 +751,15 @@ class TestAstBuilder:
             ("(x for y in g)", "generator expression"),
             ("(yield x)", "yield expression"),
             ("[x for y in g]", "list comprehension"),
+            ("{x for x in z}", "set comprehension"),
+            ("{x : x for x in z}", "dict comprehension"),
             ("'str'", "literal"),
+            ("u'str'", "literal"),
+            ("b'bytes'", "literal"),
             ("()", "()"),
             ("23", "literal"),
             ("{}", "literal"),
+            ("{1, 2, 3}", "literal"),
             ("(x > 4)", "comparison"),
             ("(x if y else a)", "conditional expression"),
             ("`x`", "repr")
@@ -750,7 +796,11 @@ class TestAstBuilder:
             for template in invalid:
                 input = template % (name,)
                 exc = py.test.raises(SyntaxError, self.get_ast, input).value
-                assert exc.msg == "assignment to %s" % (name,)
+                assert exc.msg == "cannot assign to %s" % (name,)
+        # This is ok.
+        self.get_ast("from None import x")
+        self.get_ast("from x import None as y")
+        self.get_ast("import None as x")
 
     def test_lambda(self):
         lam = self.get_first_expr("lambda x: expr")
@@ -951,6 +1001,8 @@ class TestAstBuilder:
         assert exc.msg == "keyword can't be an expression"
         exc = py.test.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
         assert exc.msg == "keyword argument repeated"
+        exc = py.test.raises(SyntaxError, self.get_ast, "f(x, *a, b)").value
+        assert exc.msg == "only named arguments may follow *expression"
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")
@@ -1083,6 +1135,7 @@ class TestAstBuilder:
         assert space.eq_w(get_num("00053"), space.wrap(053))
         for num in ("0x53", "0X53", "0x0000053", "0X00053"):
             assert space.eq_w(get_num(num), space.wrap(0x53))
+        assert space.eq_w(get_num("0Xb0d2"), space.wrap(0xb0d2))
         assert space.eq_w(get_num("0X53"), space.wrap(0x53))
         assert space.eq_w(get_num("0"), space.wrap(0))
         assert space.eq_w(get_num("00000"), space.wrap(0))
@@ -1091,6 +1144,14 @@ class TestAstBuilder:
         assert space.eq_w(get_num("-0xAAAAAAL"), space.wrap(-0xAAAAAAL))
         n = get_num(str(-sys.maxint - 1))
         assert space.is_true(space.isinstance(n, space.w_int))
+        for num in ("0o53", "0O53", "0o0000053", "0O00053"):
+            assert space.eq_w(get_num(num), space.wrap(053))
+        for num in ("0b00101", "0B00101", "0b101", "0B101"):
+            assert space.eq_w(get_num(num), space.wrap(5))
+
+        py.test.raises(SyntaxError, self.get_ast, "0x")
+        py.test.raises(SyntaxError, self.get_ast, "0b")
+        py.test.raises(SyntaxError, self.get_ast, "0o")
 
     def check_comprehension(self, brackets, ast_type):
         def brack(s):
@@ -1136,3 +1197,45 @@ class TestAstBuilder:
 
     def test_listcomp(self):
         self.check_comprehension("[%s]", ast.ListComp)
+
+    def test_setcomp(self):
+        self.check_comprehension("{%s}", ast.SetComp)
+
+    def test_dictcomp(self):
+        gen = self.get_first_expr("{x : z for x in y}")
+        assert isinstance(gen, ast.DictComp)
+        assert isinstance(gen.key, ast.Name)
+        assert gen.key.ctx == ast.Load
+        assert isinstance(gen.value, ast.Name)
+        assert gen.value.ctx == ast.Load
+        assert len(gen.generators) == 1
+        comp = gen.generators[0]
+        assert isinstance(comp, ast.comprehension)
+        assert comp.ifs is None
+        assert isinstance(comp.target, ast.Name)
+        assert isinstance(comp.iter, ast.Name)
+        assert comp.target.ctx == ast.Store
+        gen = self.get_first_expr("{x : z for x in y if w}")
+        comp = gen.generators[0]
+        assert len(comp.ifs) == 1
+        test = comp.ifs[0]
+        assert isinstance(test, ast.Name)
+        gen = self.get_first_expr("{x : z for x, in y if w}")
+        tup = gen.generators[0].target
+        assert isinstance(tup, ast.Tuple)
+        assert len(tup.elts) == 1
+        assert tup.ctx == ast.Store
+        gen = self.get_first_expr("{a : b for w in x for m in p if g}")
+        gens = gen.generators
+        assert len(gens) == 2
+        comp1, comp2 = gens
+        assert comp1.ifs is None
+        assert len(comp2.ifs) == 1
+        assert isinstance(comp2.ifs[0], ast.Name)
+        gen = self.get_first_expr("{x : z for x in y if m if g}")
+        comps = gen.generators
+        assert len(comps) == 1
+        assert len(comps[0].ifs) == 2
+        if1, if2 = comps[0].ifs
+        assert isinstance(if1, ast.Name)
+        assert isinstance(if2, ast.Name)

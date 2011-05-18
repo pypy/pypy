@@ -9,6 +9,8 @@ class Module(MixedModule):
         'AssertionError' : 'interp_exceptions.W_AssertionError',
         'AttributeError' : 'interp_exceptions.W_AttributeError',
         'BaseException' : 'interp_exceptions.W_BaseException',
+        'BufferError' : 'interp_exceptions.W_BufferError',
+        'BytesWarning'  : 'interp_exceptions.W_BytesWarning',
         'DeprecationWarning' : 'interp_exceptions.W_DeprecationWarning',
         'EOFError' : 'interp_exceptions.W_EOFError',
         'EnvironmentError' : 'interp_exceptions.W_EnvironmentError',

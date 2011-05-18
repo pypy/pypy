@@ -217,6 +217,11 @@ def _wrap_strftime(object, format, timetuple):
                                 # strftime is going to have at this: escape %
                                 Zreplace = s.replace('%', '%%')
                     newformat.append(Zreplace)
+                elif ch == 'f':
+                    if isinstance(object, (time, datetime)):
+                        newformat.append('%06d' % object.microsecond)
+                    else:
+                        newformat.append('000000')
                 else:
                     push('%')
                     push(ch)
@@ -575,6 +580,10 @@ class timedelta(object):
     microseconds = property(lambda self: self.__microseconds,
                             doc="microseconds")
 
+    def total_seconds(self):
+        return ((self.days * 86400 + self.seconds) * 10**6
+                + self.microseconds) / 1e6
+
     def __add__(self, other):
         if isinstance(other, timedelta):
             # for CPython compatibility, we cannot use
@@ -802,6 +811,14 @@ class date(object):
         return "%04d-%02d-%02d" % (self.__year, self.__month, self.__day)
 
     __str__ = isoformat
+
+    def __format__(self, format):
+        if not isinstance(format, (str, unicode)):
+            raise ValueError("__format__ excepts str or unicode, not %s" %
+                             format.__class__.__name__)
+        if not format:
+            return str(self)
+        return self.strftime(format)
 
     # Read-only field accessors
     year = property(lambda self: self.__year,
@@ -1238,6 +1255,14 @@ class time(object):
 
     __str__ = isoformat
 
+    def __format__(self, format):
+        if not isinstance(format, (str, unicode)):
+            raise ValueError("__format__ excepts str or unicode, not %s" %
+                             format.__class__.__name__)
+        if not format:
+            return str(self)
+        return self.strftime(format)
+
     def strftime(self, fmt):
         """Format using strftime().  The date part of the timestamp passed
         to underlying strftime should not be used.
@@ -1587,7 +1612,12 @@ class datetime(date):
     @classmethod
     def strptime(cls, date_string, format):
         'string, format -> new datetime parsed from a string (like time.strptime()).'
-        return cls(*_time.strptime(date_string, format)[0:6])
+        from _strptime import _strptime
+        # _strptime._strptime returns a two-element tuple.  The first
+        # element is a time.struct_time object.  The second is the
+        # microseconds (which are not defined for time.struct_time).
+        struct, micros = _strptime(date_string, format)
+        return cls(*(struct[0:6] + (micros,)))
 
     def utcoffset(self):
         """Return the timezone offset in minutes east of UTC (negative west of

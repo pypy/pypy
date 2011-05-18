@@ -25,10 +25,11 @@ def _normalize_encoding(encoding):
         return None
     # lower() + '_' / '-' conversion
     encoding = encoding.replace('_', '-').lower()
-    if encoding.startswith('utf-8'):
+    if encoding == 'utf-8' or encoding.startswith('utf-8-'):
         return 'utf-8'
     for variant in ['latin-1', 'iso-latin-1', 'iso-8859-1']:
-        if encoding.startswith(variant):
+        if (encoding == variant or
+            encoding.startswith(variant + '-')):
             return 'iso-8859-1'
     return encoding
 
@@ -122,22 +123,22 @@ class PythonParser(parser.Parser):
                     # check using 'is_w' not to mask potential IndexError or
                     # KeyError
                     space = self.space
-                    if space.is_w(e.w_type, space.w_LookupError):
+                    if e.match(space, space.w_LookupError):
                         raise error.SyntaxError("Unknown encoding: %s" % enc,
                                                 filename=compile_info.filename)
+                    # Transform unicode errors into SyntaxError
+                    if e.match(space, space.w_UnicodeDecodeError):
+                        e.normalize_exception(space)
+                        w_message = space.str(e.get_w_value(space))
+                        raise error.SyntaxError(space.str_w(w_message))
                     raise
 
         flags = compile_info.flags
 
-        # In order to not raise errors when 'as' or 'with' are used as names in
-        # code that does not explicitly enable the with statement, we have two
-        # grammars.  One with 'as' and 'with' and keywords and one without.
-        # This is far better than CPython, where the parser is hacked up to
-        # check for __future__ imports and recognize new keywords accordingly.
-        if flags & consts.CO_FUTURE_WITH_STATEMENT:
-            self.grammar = pygram.python_grammar
+        if flags & consts.CO_FUTURE_PRINT_FUNCTION:
+            self.grammar = pygram.python_grammar_no_print
         else:
-            self.grammar = pygram.python_grammar_no_with_statement
+            self.grammar = pygram.python_grammar
 
         # The tokenizer is very picky about how it wants its input.
         source_lines = textsrc.splitlines(True)

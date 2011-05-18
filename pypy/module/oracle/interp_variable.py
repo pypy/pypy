@@ -1,8 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty
-from pypy.interpreter.gateway import ObjSpace, W_Root
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import ovfcheck
@@ -148,7 +147,7 @@ class W_Variable(Wrappable):
 
         # allocate the data for the variable
         self.allocateData(self.environment.space)
-    
+
         # allocate the indicator for the variable
         self.indicator = lltype.malloc(rffi.CArrayPtr(roci.sb2).TO,
                                        self.allocatedElements,
@@ -390,11 +389,11 @@ class W_Variable(Wrappable):
             [self.getSingleValue(space, i)
              for i in range(numElements)])
 
+    @unwrap_spec(pos=int)
     def getValue(self, space, pos=0):
         if self.isArray:
             return self.getArrayValue(space, self.actualElementsPtr[0])
         return self.getSingleValue(space, pos)
-    getValue.unwrap_spec = ['self', ObjSpace, int]
 
     def setSingleValue(self, space, pos, w_value):
         # ensure we do not exceed the number of allocated elements
@@ -437,12 +436,12 @@ class W_Variable(Wrappable):
         for i in range(len(elements_w)):
             self.setSingleValue(space, i, elements_w[i])
 
+    @unwrap_spec(pos=int)
     def setValue(self, space, pos, w_value):
         if self.isArray:
             self.setArrayValue(space, w_value)
         else:
             self.setSingleValue(space, pos, w_value)
-    setValue.unwrap_spec = ['self', ObjSpace, int, W_Root]
 
 
 W_Variable.typedef = TypeDef(
@@ -1424,14 +1423,14 @@ def typeByValue(space, w_value, numElements):
         return VT_String, 1, numElements
 
     if space.is_true(space.isinstance(w_value, space.w_str)):
-        size = space.int_w(space.len(w_value))
+        size = space.len_w(w_value)
         if size > config.MAX_STRING_CHARS:
             return VT_LongString, size, numElements
         else:
             return VT_String, size, numElements
 
     if space.is_true(space.isinstance(w_value, space.w_unicode)):
-        size = space.int_w(space.len(w_value))
+        size = space.len_w(w_value)
         return VT_NationalCharString, size, numElements
 
     if space.is_true(space.isinstance(w_value, space.w_int)):

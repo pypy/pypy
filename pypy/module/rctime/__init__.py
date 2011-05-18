@@ -2,6 +2,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
 import os
 
+_WIN = os.name == "nt"
+
 class Module(MixedModule):
     applevel_name = 'time'
 
@@ -27,6 +29,10 @@ class Module(MixedModule):
     }
 
     def startup(self, space):
+        if _WIN:
+            from pypy.module.rctime.interp_time import State
+            space.fromcache(State).startup(space)
+
         # this machinery is needed to expose constants
         # that have to be initialized one time only
         from pypy.module.rctime import interp_time

@@ -4,14 +4,15 @@ from pypy.rlib import rmmap
 class Module(MixedModule):
     interpleveldefs = {
         'PAGESIZE': 'space.wrap(interp_mmap.PAGESIZE)',
-        'mmap': 'interp_mmap.mmap'
+        'ALLOCATIONGRANULARITY': 'space.wrap(interp_mmap.ALLOCATIONGRANULARITY)',
+        'ACCESS_READ' : 'space.wrap(interp_mmap.ACCESS_READ)',
+        'ACCESS_WRITE': 'space.wrap(interp_mmap.ACCESS_WRITE)',
+        'ACCESS_COPY' : 'space.wrap(interp_mmap.ACCESS_COPY)',
+        'mmap': 'interp_mmap.W_MMap',
+        'error': 'space.fromcache(interp_mmap.Cache).w_error',
     }
 
     appleveldefs = {
-        'ACCESS_READ': 'app_mmap.ACCESS_READ',
-        'ACCESS_WRITE': 'app_mmap.ACCESS_WRITE',
-        'ACCESS_COPY': 'app_mmap.ACCESS_COPY',
-        'error': 'app_mmap.error'
     }
     
     def buildloaders(cls):

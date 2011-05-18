@@ -1,6 +1,5 @@
 import sys
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
-    Arguments
+from pypy.interpreter.baseobjspace import Wrappable, Arguments
 from pypy.interpreter.error import OperationError, wrap_oserror, \
     operationerrfmt
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
@@ -18,7 +17,6 @@ class W_FFIType(Wrappable):
         self.name = name
         self.ffitype = ffitype
 
-    @unwrap_spec('self', ObjSpace)
     def str(self, space):
         return space.wrap('<ffi type %s>' % self.name)
 
@@ -83,7 +81,6 @@ class W_FuncPtr(Wrappable):
                 assert False, "Argument kind '%s' not supported" % kind
         return argchain
 
-    @unwrap_spec('self', ObjSpace, 'args_w')
     def call(self, space, args_w):
         self = jit.hint(self, promote=True)
         argchain = self.build_argchain(space, self.func.argtypes, args_w)
@@ -152,7 +149,6 @@ class W_FuncPtr(Wrappable):
                                  space.wrap('Unsupported restype'))
         return space.wrap(intres)
 
-    @unwrap_spec('self', ObjSpace)
     def getaddr(self, space):
         """
         Return the physical address in memory of the function
@@ -187,7 +183,7 @@ class W_CDLL(Wrappable):
             raise OperationError(space.w_TypeError, space.wrap(msg))
         return res
 
-    @unwrap_spec('self', ObjSpace, str, W_Root, W_Root)
+    @unwrap_spec(name=str)
     def getfunc(self, space, name, w_argtypes, w_restype):
         argtypes = [self.ffitype(w_argtype) for w_argtype in
                     space.listview(w_argtypes)]
@@ -196,7 +192,7 @@ class W_CDLL(Wrappable):
         return W_FuncPtr(func)
 
 
-@unwrap_spec(ObjSpace, W_Root, str)
+@unwrap_spec(name=str)
 def descr_new_cdll(space, w_type, name):
     return space.wrap(W_CDLL(space, name))
 

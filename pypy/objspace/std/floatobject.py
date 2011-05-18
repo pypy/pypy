@@ -1,16 +1,22 @@
-import operator, new
+import operator
+import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std import model
+from pypy.objspace.std import model, newformat
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf, isnan
-from pypy.rlib.rarithmetic import formatd, LONG_BIT
+from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
+from pypy.rlib.rfloat import (
+    isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from pypy.rlib.rbigint import rbigint
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
+
 
 import math
 from pypy.objspace.std.intobject import W_IntObject
@@ -20,7 +26,7 @@ class W_FloatObject(W_Object):
        it is assumed that the constructor takes a real Python float as
        an argument"""
     from pypy.objspace.std.floattype import float_typedef as typedef
-    _immutable_ = True
+    _immutable_fields_ = ['floatval']
 
     def __init__(w_self, floatval):
         w_self.floatval = floatval
@@ -69,42 +75,86 @@ def int__Float(space, w_value):
 
 def long__Float(space, w_floatobj):
     try:
-        return W_LongObject.fromfloat(w_floatobj.floatval)
+        return W_LongObject.fromfloat(space, w_floatobj.floatval)
     except OverflowError:
+        if isnan(w_floatobj.floatval):
+            raise OperationError(
+                space.w_ValueError,
+                space.wrap("cannot convert float NaN to integer"))
         raise OperationError(space.w_OverflowError,
                              space.wrap("cannot convert float infinity to long"))
+def trunc__Float(space, w_floatobj):
+    whole = math.modf(w_floatobj.floatval)[1]
+    try:
+        value = ovfcheck_float_to_int(whole)
+    except OverflowError:
+        return long__Float(space, w_floatobj)
+    else:
+        return space.newint(value)
 
 def float_w__Float(space, w_float):
     return w_float.floatval
 
-def float2string(space, w_float, format):
+def _char_from_hex(number):
+    return "0123456789abcdef"[number]
+
+TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
+
+def float_hex__Float(space, w_float):
+    value = w_float.floatval
+    if not isfinite(value):
+        return str__Float(space, w_float)
+    if value == 0.0:
+        if copysign(1., value) == -1.:
+            return space.wrap("-0x0.0p+0")
+        else:
+            return space.wrap("0x0.0p+0")
+    mant, exp = math.frexp(value)
+    shift = 1 - max(rfloat.DBL_MIN_EXP - exp, 0)
+    mant = math.ldexp(mant, shift)
+    mant = abs(mant)
+    exp -= shift
+    result = ['\0'] * ((TOHEX_NBITS - 1) // 4 + 2)
+    result[0] = _char_from_hex(int(mant))
+    mant -= int(mant)
+    result[1] = "."
+    for i in range((TOHEX_NBITS - 1) // 4):
+        mant *= 16.0
+        result[i + 2] = _char_from_hex(int(mant))
+        mant -= int(mant)
+    if exp < 0:
+        sign = "-"
+    else:
+        sign = "+"
+    exp = abs(exp)
+    s = ''.join(result)
+    if value < 0.0:
+        return space.wrap("-0x%sp%s%d" % (s, sign, exp))
+    else:
+        return space.wrap("0x%sp%s%d" % (s, sign, exp))
+
+def float2string(space, w_float, code, precision):
     x = w_float.floatval
     # we special-case explicitly inf and nan here
-    if isinf(x):
+    if isfinite(x):
+        s = formatd(x, code, precision, DTSF_ADD_DOT_0)
+    elif isinf(x):
         if x > 0.0:
             s = "inf"
         else:
             s = "-inf"
-    elif isnan(x):
+    else:  # isnan(x):
         s = "nan"
-    else:
-        s = formatd(format, x)
-        # We want float numbers to be recognizable as such,
-        # i.e., they should contain a decimal point or an exponent.
-        # However, %g may print the number as an integer;
-        # in such cases, we append ".0" to the string.
-        for c in s:
-            if c in '.eE':
-                break
-        else:
-            s += '.0'
     return space.wrap(s)
 
 def repr__Float(space, w_float):
-    return float2string(space, w_float, "%.17g")
+    return float2string(space, w_float, 'r', 0)
 
 def str__Float(space, w_float):
-    return float2string(space, w_float, "%.12g")
+    return float2string(space, w_float, 'g', DTSF_STR_PRECISION)
+
+def format__Float_ANY(space, w_float, w_spec):
+    return newformat.run_formatter(space, w_spec, "format_float", w_float)
 
 # ____________________________________________________________
 # A mess to handle all cases of float comparison without relying
@@ -129,7 +179,7 @@ def declare_compare_bigint(opname):
     if opname == 'eq' or opname == 'ne':
         def do_compare_bigint(f1, b2):
             """f1 is a float.  b2 is a bigint."""
-            if isinf(f1) or isnan(f1) or math.floor(f1) != f1:
+            if not isfinite(f1) or math.floor(f1) != f1:
                 return opname == 'ne'
             b1 = rbigint.fromfloat(f1)
             res = b1.eq(b2)
@@ -139,7 +189,7 @@ def declare_compare_bigint(opname):
     else:
         def do_compare_bigint(f1, b2):
             """f1 is a float.  b2 is a bigint."""
-            if isinf(f1) or isnan(f1):
+            if not isfinite(f1):
                 return op(f1, 0.0)
             if opname == 'gt' or opname == 'le':
                 # 'float > long'   <==>  'ceil(float) > long'
@@ -239,14 +289,14 @@ def _hash_float(space, v):
         except OverflowError:
             # Convert to long and use its hash.
             try:
-                w_lval = W_LongObject.fromfloat(v)
+                w_lval = W_LongObject.fromfloat(space, v)
             except OverflowError:
                 # can't convert to long int -- arbitrary
                 if v < 0:
                     return -271828
                 else:
                     return 314159
-            return space.int_w(hash__Long(space, w_lval))
+            return space.int_w(space.hash(w_lval))
 
     # The fractional part is non-zero, so we don't have to worry about
     # making this match the hash of some other type.
@@ -292,7 +342,7 @@ def div__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))
     return W_FloatObject(x / y)
 
 truediv__Float_Float = div__Float_Float
@@ -362,6 +412,79 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
             "pow() 3rd argument not allowed unless all arguments are integers"))
     x = w_float1.floatval
     y = w_float2.floatval
+
+    # Sort out special cases here instead of relying on pow()
+    if y == 0.0:
+        # x**0 is 1, even 0**0
+        return W_FloatObject(1.0)
+    if isnan(x):
+        # nan**y = nan, unless y == 0
+        return W_FloatObject(x)
+    if isnan(y):
+        # x**nan = nan, unless x == 1; x**nan = x
+        if x == 1.0:
+            return W_FloatObject(1.0)
+        else:
+            return W_FloatObject(y)
+    if isinf(y):
+        # x**inf is: 0.0 if abs(x) < 1; 1.0 if abs(x) == 1; inf if
+        # abs(x) > 1 (including case where x infinite)
+        #
+        # x**-inf is: inf if abs(x) < 1; 1.0 if abs(x) == 1; 0.0 if
+        # abs(x) > 1 (including case where v infinite)
+        x = abs(x)
+        if x == 1.0:
+            return W_FloatObject(1.0)
+        elif (y > 0.0) == (x > 1.0):
+            return W_FloatObject(INFINITY)
+        else:
+            return W_FloatObject(0.0)
+    if isinf(x):
+        # (+-inf)**w is: inf for w positive, 0 for w negative; in oth
+        # cases, we need to add the appropriate sign if w is an odd
+        # integer.
+        y_is_odd = math.fmod(abs(y), 2.0) == 1.0
+        if y > 0.0:
+            if y_is_odd:
+                return W_FloatObject(x)
+            else:
+                return W_FloatObject(abs(x))
+        else:
+            if y_is_odd:
+                return W_FloatObject(copysign(0.0, x))
+            else:
+                return W_FloatObject(0.0)
+
+    if x == 0.0:
+        if y < 0.0:
+            raise OperationError(space.w_ZeroDivisionError,
+                                 space.wrap("0.0 cannot be raised to "
+                                            "a negative power"))
+
+    negate_result = False
+    # special case: "(-1.0) ** bignum" should not raise ValueError,
+    # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
+    # -           pipermail/python-bugs-list/2003-March/016795.html
+    if x < 0.0:
+        if isnan(y):
+            return W_FloatObject(NAN)
+        if math.floor(y) != y:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative number cannot be "
+                                            "raised to a fractional power"))
+        # y is an exact integer, albeit perhaps a very large one.
+        # Replace x by its absolute value and remember to negate the
+        # pow result if y is odd.
+        x = -x
+        negate_result = math.fmod(abs(y), 2.0) == 1.0
+
+    if x == 1.0:
+        # (-1) ** large_integer also ends up here
+        if negate_result:
+            return W_FloatObject(-1.0)
+        else:
+            return W_FloatObject(1.0)
+
     try:
         # We delegate to our implementation of math.pow() the error detection.
         z = math.pow(x,y)
@@ -369,24 +492,11 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("float power"))
     except ValueError:
-        # special case: "(-1.0) ** bignum" should not raise ValueError,
-        # unlike "math.pow(-1.0, bignum)".  See http://mail.python.org/
-        # -           pipermail/python-bugs-list/2003-March/016795.html
-        if x < 0.0:
-            if math.floor(y) != y:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("negative number cannot be "
-                                                "raised to a fractional power"))
-            if x == -1.0:
-                if math.floor(y * 0.5) * 2.0 == y:
-                     return space.wrap(1.0)
-                else:
-                     return space.wrap( -1.0)
-        elif x == 0.0 and y < 0.0:
-            raise OperationError(space.w_ZeroDivisionError,
-                space.wrap("0.0 cannot be raised to a negative power"))
         raise OperationError(space.w_ValueError,
                              space.wrap("float power"))
+
+    if negate_result:
+        z = -z
     return W_FloatObject(z)
 
 
@@ -405,7 +515,33 @@ def nonzero__Float(space, w_float):
 def getnewargs__Float(space, w_float):
     return space.newtuple([W_FloatObject(w_float.floatval)])
 
-register_all(vars())
+def float_as_integer_ratio__Float(space, w_float):
+    value = w_float.floatval
+    if isinf(value):
+        w_msg = space.wrap("cannot pass infinity to as_integer_ratio()")
+        raise OperationError(space.w_OverflowError, w_msg)
+    elif isnan(value):
+        w_msg = space.wrap("cannot pass nan to as_integer_ratio()")
+        raise OperationError(space.w_ValueError, w_msg)
+    float_part, exp = math.frexp(value)
+    for i in range(300):
+        if float_part == math.floor(float_part):
+            break
+        float_part *= 2.0
+        exp -= 1
+    w_num = W_LongObject.fromfloat(space, float_part)
+    w_den = space.newlong(1)
+    w_exp = space.newlong(abs(exp))
+    w_exp = space.lshift(w_den, w_exp)
+    if exp > 0:
+        w_num = space.mul(w_num, w_exp)
+    else:
+        w_den = w_exp
+    # Try to return int.
+    return space.newtuple([space.int(w_num), space.int(w_den)])
+
+from pypy.objspace.std import floattype
+register_all(vars(), floattype)
 
 # pow delegation for negative 2nd arg
 def pow_neg__Long_Long_None(space, w_int1, w_int2, thirdarg):

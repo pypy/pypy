@@ -39,13 +39,17 @@ def PyErr_Clear(space):
     state = space.fromcache(State)
     state.clear_exception()
 
+@cpython_api([PyObject], PyObject)
+def PyExceptionInstance_Class(space, w_obj):
+    return space.type(w_obj)
+
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     """Retrieve the error indicator into three variables whose addresses are passed.
     If the error indicator is not set, set all three variables to NULL.  If it is
     set, it will be cleared and you own a reference to each object retrieved.  The
     value and traceback object may be NULL even when the type object is not.
-    
+
     This function is normally only used by code that needs to handle exceptions or
     by code that needs to save and restore the error indicator temporarily."""
     state = space.fromcache(State)
@@ -70,11 +74,14 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     reference to each object before the call and after the call you no longer own
     these references.  (If you don't understand this, don't use this function.  I
     warned you.)
-    
+
     This function is normally only used by code that needs to save and restore the
     error indicator temporarily; use PyErr_Fetch() to save the current
     exception state."""
     state = space.fromcache(State)
+    if w_type is None:
+        state.clear_exception()
+        return
     state.set_exception(OperationError(w_type, w_value))
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
@@ -100,7 +107,7 @@ def PyErr_BadArgument(space):
     """This is a shorthand for PyErr_SetString(PyExc_TypeError, message), where
     message indicates that a built-in operation was invoked with an illegal
     argument.  It is mostly for internal use."""
-    raise OperationError(space.w_TypeError, 
+    raise OperationError(space.w_TypeError,
             space.wrap("bad argument type for built-in operation"))
 
 @cpython_api([], lltype.Void)
@@ -198,7 +205,7 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     the  currently executing line of code in that stack frame.  A stacklevel of 1
     is the function calling PyErr_WarnEx(), 2 is  the function above that,
     and so forth.
-    
+
     This function normally prints a warning message to sys.stderr; however, it is
     also possible that the user has specified that warnings are to be turned into
     errors, and in that case this will raise an exception.  It is also possible that
@@ -210,7 +217,7 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     intentional.)  If an exception is raised, the caller should do its normal
     exception handling (for example, Py_DECREF() owned references and return
     an error value).
-    
+
     Warning categories must be subclasses of Warning; the default warning
     category is RuntimeWarning.  The standard Python warning categories are
     available as global variables whose names are PyExc_ followed by the Python
@@ -221,7 +228,7 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     PyExc_FutureWarning.  PyExc_Warning is a subclass of
     PyExc_Exception; the other warning categories are subclasses of
     PyExc_Warning.
-    
+
     For information about warning control, see the documentation for the
     warnings module and the -W option in the command line
     documentation.  There is no C API for warning control."""
@@ -241,7 +248,7 @@ def PyErr_Warn(space, w_category, message):
     below) or NULL; the message argument is a message string.  The warning will
     appear to be issued from the function calling PyErr_Warn(), equivalent to
     calling PyErr_WarnEx() with a stacklevel of 1.
-    
+
     Deprecated; use PyErr_WarnEx() instead."""
     return PyErr_WarnEx(space, w_category, message, 1)
 
@@ -284,3 +291,27 @@ def PyTraceBack_Print(space, w_tb, w_file):
                                     space.wrap("traceback"))
     space.call_method(w_traceback, "print_tb", w_tb, space.w_None, w_file)
     return 0
+
+@cpython_api([PyObject], lltype.Void)
+def PyErr_WriteUnraisable(space, w_where):
+    """This utility function prints a warning message to sys.stderr when an
+    exception has been set but it is impossible for the interpreter to actually
+    raise the exception.  It is used, for example, when an exception occurs in
+    an __del__() method.
+
+    The function is called with a single argument obj that identifies the
+    context in which the unraisable exception occurred. The repr of obj will be
+    printed in the warning message."""
+
+    state = space.fromcache(State)
+    operror = state.clear_exception()
+    if operror:
+        operror.write_unraisable(space, space.str_w(space.repr(w_where)))
+
+@cpython_api([], lltype.Void)
+def PyErr_SetInterrupt(space):
+    """This function simulates the effect of a SIGINT signal arriving --- the
+    next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
+    It may be called without holding the interpreter lock."""
+    space.check_signal_action.set_interrupt()
+

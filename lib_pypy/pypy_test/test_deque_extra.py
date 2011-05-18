@@ -7,7 +7,7 @@ n = 10
 class Test_deque:
     def setup_method(self,method):
         
-        from ..collections import deque
+        from lib_pypy._collections import deque
         self.deque = deque
         self.d = deque(range(n))
         

@@ -6,7 +6,7 @@ The format table for standard sizes and alignments.
 # values when packing.
 
 import struct
-from pypy.rlib.rstruct.error import StructError
+from pypy.rlib.rstruct.error import StructError, StructOverflowError
 from pypy.rlib.rstruct import ieee
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
@@ -29,6 +29,10 @@ def pack_char(fmtiter):
     if len(string) != 1:
         raise StructError("expected a string of length 1")
     c = string[0]   # string->char conversion for the annotator
+    fmtiter.result.append(c)
+
+def pack_bool(fmtiter):
+    c = '\x01' if fmtiter.accept_bool_arg() else '\x00'
     fmtiter.result.append(c)
 
 def pack_string(fmtiter, count):
@@ -57,10 +61,14 @@ def pack_pascal(fmtiter, count):
         fmtiter.result.append('\x00')
 
 def make_float_packer(size):
-    return lambda fmtiter: ieee.pack_float(fmtiter.result,
-                                           fmtiter.accept_float_arg(),
-                                           size,
-                                           fmtiter.bigendian)
+    def packer(fmtiter):
+        fl = fmtiter.accept_float_arg()
+        try:
+            return ieee.pack_float(fmtiter.result, fl, size, fmtiter.bigendian)
+        except OverflowError:
+            assert size == 4
+            raise StructOverflowError("float too large for format 'f'")
+    return packer
 
 # ____________________________________________________________
 
@@ -141,6 +149,11 @@ def unpack_char(fmtiter):
     fmtiter.appendobj(fmtiter.read(1))
 
 @specialize.argtype(0)
+def unpack_bool(fmtiter):
+    c = ord(fmtiter.read(1)[0])
+    fmtiter.appendobj(bool(c))
+
+@specialize.argtype(0)
 def unpack_string(fmtiter, count):
     fmtiter.appendobj(fmtiter.read(count))
 
@@ -155,10 +168,11 @@ def unpack_pascal(fmtiter, count):
     fmtiter.appendobj(data[1:end])
 
 def make_float_unpacker(size):
-    return specialize.argtype(0)(
-        lambda fmtiter: fmtiter.appendobj(ieee.unpack_float(
-        fmtiter.read(size),
-        fmtiter.bigendian)))
+    @specialize.argtype(0)
+    def unpacker(fmtiter):
+        data = fmtiter.read(size)
+        fmtiter.appendobj(ieee.unpack_float(data, fmtiter.bigendian))
+    return unpacker
 
 # ____________________________________________________________
 
@@ -220,13 +234,13 @@ standard_fmttable = {
                     'unpack' : make_float_unpacker(4)},
     'd':{ 'size' : 8, 'pack' : make_float_packer(8),
                     'unpack' : make_float_unpacker(8)},
-    }    
+    '?':{ 'size' : 1, 'pack' : pack_bool, 'unpack' : unpack_bool},
+    }
 
 for c, size in [('b', 1), ('h', 2), ('i', 4), ('l', 4), ('q', 8)]:
     standard_fmttable[c] = {'size': size,
-                            'pack': make_int_packer(size, True, False),
+                            'pack': make_int_packer(size, True, True),
                             'unpack': make_int_unpacker(size, True)}
     standard_fmttable[c.upper()] = {'size': size,
-                                    'pack': make_int_packer(size, False,
-                                                            False),
+                                    'pack': make_int_packer(size, False, True),
                                     'unpack': make_int_unpacker(size, False)}

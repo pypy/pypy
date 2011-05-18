@@ -19,7 +19,6 @@ def transparent_class(name, BaseCls):
         def __init__(self, space, w_type, w_controller):
             self.w_type = w_type
             self.w_controller = w_controller
-            self.space = space
     
         def descr_call_mismatch(self, space, name, reqcls, args):
             args_w = args.arguments_w[:]
@@ -63,8 +62,8 @@ def transparent_class(name, BaseCls):
                     raise
                 return False
         
-        def getdict(self):
-            return self.getdictvalue(self.space, '__dict__')
+        def getdict(self, space):
+            return self.getdictvalue(space, '__dict__')
         
         def setdict(self, space, w_dict):
             if not self.setdictvalue(space, '__dict__', w_dict):

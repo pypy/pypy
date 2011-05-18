@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
+from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
 from pypy.module._socket.interp_socket import converted_error, W_RSocket
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import SocketError
@@ -15,20 +15,19 @@ def gethostname(space):
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(res)
-gethostname.unwrap_spec = [ObjSpace]
 
-def gethostbyname(space, hostname):
+@unwrap_spec(host=str)
+def gethostbyname(space, host):
     """gethostbyname(host) -> address
 
     Return the IP address (a string of the form '255.255.255.255') for a host.
     """
     try:
-        addr = rsocket.gethostbyname(hostname)
+        addr = rsocket.gethostbyname(host)
         ip = addr.get_host()
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(ip)
-gethostbyname.unwrap_spec = [ObjSpace, str]
 
 def common_wrapgethost(space, (name, aliases, address_list)):
     aliases = [space.wrap(alias) for alias in aliases]
@@ -37,6 +36,7 @@ def common_wrapgethost(space, (name, aliases, address_list)):
                            space.newlist(aliases),
                            space.newlist(address_list)])
 
+@unwrap_spec(host=str)
 def gethostbyname_ex(space, host):
     """gethostbyname_ex(host) -> (name, aliaslist, addresslist)
 
@@ -48,8 +48,8 @@ def gethostbyname_ex(space, host):
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
-gethostbyname_ex.unwrap_spec = [ObjSpace, str]
 
+@unwrap_spec(host=str)
 def gethostbyaddr(space, host):
     """gethostbyaddr(host) -> (name, aliaslist, addresslist)
 
@@ -61,8 +61,8 @@ def gethostbyaddr(space, host):
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
-gethostbyaddr.unwrap_spec = [ObjSpace, str]
 
+@unwrap_spec(name=str)
 def getservbyname(space, name, w_proto=None):
     """getservbyname(servicename[, protocolname]) -> integer
 
@@ -79,8 +79,8 @@ def getservbyname(space, name, w_proto=None):
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(port)
-getservbyname.unwrap_spec = [ObjSpace, str, W_Root]
 
+@unwrap_spec(port=int)
 def getservbyport(space, port, w_proto=None):
     """getservbyport(port[, protocolname]) -> string
 
@@ -92,13 +92,18 @@ def getservbyport(space, port, w_proto=None):
         proto = None
     else:
         proto = space.str_w(w_proto)
+
+    if port < 0 or port > 0xffff:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "getservbyport: port must be 0-65535."))
+
     try:
         service = rsocket.getservbyport(port, proto)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(service)
-getservbyport.unwrap_spec = [ObjSpace, int, W_Root]
 
+@unwrap_spec(name=str)
 def getprotobyname(space, name):
     """getprotobyname(name) -> integer
 
@@ -109,8 +114,8 @@ def getprotobyname(space, name):
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(proto)
-getprotobyname.unwrap_spec = [ObjSpace, str]
 
+@unwrap_spec(flags=int)
 def getnameinfo(space, w_sockaddr, flags):
     """getnameinfo(sockaddr, flags) --> (host, port)
 
@@ -121,8 +126,8 @@ def getnameinfo(space, w_sockaddr, flags):
     except SocketError, e:
         raise converted_error(space, e)
     return space.newtuple([space.wrap(host), space.wrap(servport)])
-getnameinfo.unwrap_spec = [ObjSpace, W_Root, int]
 
+@unwrap_spec(fd=int, family=int, type=int, proto=int)
 def fromfd(space, fd, family, type, proto=0):
     """fromfd(fd, family, type[, proto]) -> socket object
 
@@ -134,11 +139,11 @@ def fromfd(space, fd, family, type, proto=0):
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(sock)
-fromfd.unwrap_spec = [ObjSpace, int, int, int, int]
 
-def socketpair(space, family = rsocket.socketpair_default_family,
-                      type   = rsocket.SOCK_STREAM,
-                      proto  = 0):
+@unwrap_spec(family=int, type=int, proto=int)
+def socketpair(space, family=rsocket.socketpair_default_family,
+                      type  =rsocket.SOCK_STREAM,
+                      proto =0):
     """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
     Create a pair of socket objects from the sockets returned by the platform
@@ -151,43 +156,43 @@ def socketpair(space, family = rsocket.socketpair_default_family,
     except SocketError, e:
         raise converted_error(space, e)
     return space.newtuple([space.wrap(sock1), space.wrap(sock2)])
-socketpair.unwrap_spec = [ObjSpace, int, int, int]
 
 # The following 4 functions refuse all negative numbers, like CPython 2.6.
 # They could also check that the argument is not too large, but CPython 2.6
 # is not doing that consistently.
+@unwrap_spec(x="c_uint")
 def ntohs(space, x):
     """ntohs(integer) -> integer
 
     Convert a 16-bit integer from network to host byte order.
     """
     return space.wrap(rsocket.ntohs(x))
-ntohs.unwrap_spec = [ObjSpace, "c_uint"]
 
+@unwrap_spec(x="c_uint")
 def ntohl(space, x):
     """ntohl(integer) -> integer
 
     Convert a 32-bit integer from network to host byte order.
     """
     return space.wrap(rsocket.ntohl(x))
-ntohl.unwrap_spec = [ObjSpace, "c_uint"]
 
+@unwrap_spec(x="c_uint")
 def htons(space, x):
     """htons(integer) -> integer
 
     Convert a 16-bit integer from host to network byte order.
     """
     return space.wrap(rsocket.htons(x))
-htons.unwrap_spec = [ObjSpace, "c_uint"]
 
+@unwrap_spec(x="c_uint")
 def htonl(space, x):
     """htonl(integer) -> integer
 
     Convert a 32-bit integer from host to network byte order.
     """
     return space.wrap(rsocket.htonl(x))
-htonl.unwrap_spec = [ObjSpace, "c_uint"]
 
+@unwrap_spec(ip=str)
 def inet_aton(space, ip):
     """inet_aton(string) -> packed 32-bit IP representation
 
@@ -199,8 +204,8 @@ def inet_aton(space, ip):
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(buf)
-inet_aton.unwrap_spec = [ObjSpace, str]
 
+@unwrap_spec(packed=str)
 def inet_ntoa(space, packed):
     """inet_ntoa(packed_ip) -> ip_address_string
 
@@ -211,8 +216,8 @@ def inet_ntoa(space, packed):
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(ip)
-inet_ntoa.unwrap_spec = [ObjSpace, str]
 
+@unwrap_spec(family=int, ip=str)
 def inet_pton(space, family, ip):
     """inet_pton(family, ip) -> packed IP address string
 
@@ -224,8 +229,8 @@ def inet_pton(space, family, ip):
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(buf)
-inet_pton.unwrap_spec = [ObjSpace, int, str]
 
+@unwrap_spec(family=int, packed=str)
 def inet_ntop(space, family, packed):
     """inet_ntop(family, packed_ip) -> string formatted IP address
 
@@ -239,8 +244,8 @@ def inet_ntop(space, family, packed):
         raise OperationError(space.w_ValueError,
                   space.wrap(str(e)))
     return space.wrap(ip)
-inet_ntop.unwrap_spec = [ObjSpace, int, str]
 
+@unwrap_spec(family=int, socktype=int, proto=int, flags=int)
 def getaddrinfo(space, w_host, w_port,
                 family=rsocket.AF_UNSPEC, socktype=0, proto=0, flags=0):
     """getaddrinfo(host, port [, family, socktype, proto, flags])
@@ -283,7 +288,6 @@ def getaddrinfo(space, w_host, w_port,
                             addr.as_object(-1, space)]) # -1 as per cpython
             for (family, socktype, protocol, canonname, addr) in lst]
     return space.newlist(lst1)
-getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
 
 def getdefaulttimeout(space):
     """getdefaulttimeout() -> timeout
@@ -296,7 +300,6 @@ def getdefaulttimeout(space):
     if timeout < 0.0:
         return space.w_None
     return space.wrap(timeout)
-getdefaulttimeout.unwrap_spec = [ObjSpace]
 
 def setdefaulttimeout(space, w_timeout):
     if space.is_w(w_timeout, space.w_None):

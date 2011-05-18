@@ -1,10 +1,10 @@
 
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py, os
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rlib import jit
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -20,7 +20,8 @@ eci = ExternalCompilationInfo(
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadReleaseLock',
                       'RPyThreadYield',
-                      'RPyThreadGetStackSize', 'RPyThreadSetStackSize']
+                      'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
+                      'RPyThreadAfterFork']
 )
 
 def llexternal(name, args, result, **kwds):
@@ -49,7 +50,8 @@ c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.LONG,
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
 
-c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
+c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT,
+                                threadsafe=False)   # may add in a global list
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   threadsafe=True)    # release the GIL
@@ -79,6 +81,7 @@ def ll_start_new_thread(func):
 
 # wrappers...
 
+@jit.loop_invariant
 def get_ident():
     return rffi.cast(lltype.Signed, c_thread_get_ident())
 
@@ -111,7 +114,15 @@ class Lock(object):
             c_thread_releaselock(self._lock)
 
     def __del__(self):
-        lltype.free(self._lock, flavor='raw', track_allocation=False)
+        if free_ll_lock is None:  # happens when tests are shutting down
+            return
+        free_ll_lock(self._lock)
+
+    def __enter__(self):
+        self.acquire(True)
+        
+    def __exit__(self, *args):
+        self.release()
 
 # ____________________________________________________________
 #
@@ -120,6 +131,12 @@ class Lock(object):
 get_stacksize = llexternal('RPyThreadGetStackSize', [], lltype.Signed)
 set_stacksize = llexternal('RPyThreadSetStackSize', [lltype.Signed],
                            lltype.Signed)
+
+# ____________________________________________________________
+#
+# Hack
+
+thread_after_fork = llexternal('RPyThreadAfterFork', [], lltype.Void)
 
 # ____________________________________________________________
 #
@@ -133,10 +150,13 @@ def allocate_ll_lock():
     # lock objects, as well as from the GIL, which exists at shutdown.
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw', track_allocation=False)
     res = c_thread_lock_init(ll_lock)
-    if res == -1:
+    if rffi.cast(lltype.Signed, res) <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
     return ll_lock
+
+def free_ll_lock(ll_lock):
+    lltype.free(ll_lock, flavor='raw', track_allocation=False)
 
 def acquire_NOAUTO(ll_lock, flag):
     flag = rffi.cast(rffi.INT, int(flag))
@@ -152,7 +172,7 @@ def release_NOAUTO(ll_lock):
 # ____________________________________________________________
 #
 # Thread integration.
-# These are three completely ad-hoc operations at the moment.
+# These are six completely ad-hoc operations at the moment.
 
 def gc_thread_prepare():
     """To call just before thread.start_new_thread().  This
@@ -171,6 +191,12 @@ def gc_thread_run():
         llop.gc_thread_run(lltype.Void)
 gc_thread_run._always_inline_ = True
 
+def gc_thread_start():
+    """To call at the beginning of a new thread.
+    """
+    if we_are_translated():
+        llop.gc_thread_start(lltype.Void)
+
 def gc_thread_die():
     """To call just before the final GIL release done by a dying
     thread.  After a thread_die(), no more gc operation should
@@ -179,3 +205,20 @@ def gc_thread_die():
     if we_are_translated():
         llop.gc_thread_die(lltype.Void)
 gc_thread_die._always_inline_ = True
+
+def gc_thread_before_fork():
+    """To call just before fork().  Prepares for forking, after
+    which only the current thread will be alive.
+    """
+    if we_are_translated():
+        return llop.gc_thread_before_fork(llmemory.Address)
+    else:
+        return llmemory.NULL
+
+def gc_thread_after_fork(result_of_fork, opaqueaddr):
+    """To call just after fork().
+    """
+    if we_are_translated():
+        llop.gc_thread_after_fork(lltype.Void, result_of_fork, opaqueaddr)
+    else:
+        assert opaqueaddr == llmemory.NULL

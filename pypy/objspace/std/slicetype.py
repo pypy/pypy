@@ -1,6 +1,6 @@
 from pypy.interpreter import baseobjspace, gateway
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
@@ -68,9 +68,16 @@ def descr__new__(space, w_slicetype, args_w):
     w_obj = space.allocate_instance(W_SliceObject, w_slicetype)
     W_SliceObject.__init__(w_obj, w_start, w_stop, w_step)
     return w_obj
-#
-descr__new__.unwrap_spec = [baseobjspace.ObjSpace, baseobjspace.W_Root,
-                            'args_w']
+
+def descr__reduce__(space, w_self):
+    from pypy.objspace.std.sliceobject import W_SliceObject
+    assert isinstance(w_self, W_SliceObject)
+    return space.newtuple([
+        space.type(w_self),
+        space.newtuple([w_self.w_start,
+                        w_self.w_stop,
+                        w_self.w_step]),
+        ])
 
 # ____________________________________________________________
 
@@ -89,7 +96,8 @@ slice_typedef = StdTypeDef("slice",
 
 Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',
     __new__ = gateway.interp2app(descr__new__),
-    __hash__ = no_hash_descr,
+    __hash__ = None,
+    __reduce__ = gateway.interp2app(descr__reduce__),
     start = slicewprop('w_start'),
     stop  = slicewprop('w_stop'),
     step  = slicewprop('w_step'),

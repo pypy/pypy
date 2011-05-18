@@ -61,3 +61,27 @@ class AppTestThread(GenericTestThread):
         assert not imp.lock_held()
         self.waitfor(lambda: done)
         assert done
+
+class TestImportLock:
+    def test_lock(self, space, monkeypatch):
+        from pypy.module.imp.importing import getimportlock, importhook
+
+        # Monkeypatch the import lock and add a counter
+        importlock = getimportlock(space)
+        original_acquire = importlock.acquire_lock
+        def acquire_lock():
+            importlock.count += 1
+            original_acquire()
+        importlock.count = 0
+        monkeypatch.setattr(importlock, 'acquire_lock', acquire_lock)
+
+        # An already imported module
+        importhook(space, 'sys')
+        assert importlock.count == 0
+        # A new module
+        importhook(space, 're')
+        assert importlock.count == 7
+        # Import it again
+        previous_count = importlock.count
+        importhook(space, 're')
+        assert importlock.count == previous_count

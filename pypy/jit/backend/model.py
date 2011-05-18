@@ -4,6 +4,11 @@ from pypy.jit.metainterp import history, compile
 
 class AbstractCPU(object):
     supports_floats = False
+    supports_longlong = False
+    # ^^^ This is only useful on 32-bit platforms.  If True,
+    # longlongs are supported by the JIT, but stored as doubles.
+    # Boxes and Consts are BoxFloats and ConstFloats.
+
     done_with_this_frame_void_v = -1
     done_with_this_frame_int_v = -1
     done_with_this_frame_ref_v = -1
@@ -18,18 +23,22 @@ class AbstractCPU(object):
         self.fail_descr_list = []
         self.fail_descr_free_list = []
 
+    def reserve_some_free_fail_descr_number(self):
+        lst = self.fail_descr_list
+        if len(self.fail_descr_free_list) > 0:
+            n = self.fail_descr_free_list.pop()
+            assert lst[n] is None
+        else:
+            n = len(lst)
+            lst.append(None)
+        return n
+
     def get_fail_descr_number(self, descr):
         assert isinstance(descr, history.AbstractFailDescr)
         n = descr.index
         if n < 0:
-            lst = self.fail_descr_list
-            if len(self.fail_descr_free_list) > 0:
-                n = self.fail_descr_free_list.pop()
-                assert lst[n] is None
-                lst[n] = descr
-            else:
-                n = len(lst)
-                lst.append(descr)
+            n = self.reserve_some_free_fail_descr_number()
+            self.fail_descr_list[n] = descr
             descr.index = n
         return n
 
@@ -44,12 +53,19 @@ class AbstractCPU(object):
         """Called once by the front-end when the program stops."""
         pass
 
-
     def compile_loop(self, inputargs, operations, looptoken, log=True):
         """Assemble the given loop.
         Should create and attach a fresh CompiledLoopToken to
         looptoken.compiled_loop_token and stick extra attributes
         on it to point to the compiled loop in assembler.
+
+        Optionally, return a ``ops_offset`` dictionary, which maps each operation
+        to its offset in the compiled code.  The ``ops_offset`` dictionary is then
+        used by the operation logger to print the offsets in the log.  The
+        offset representing the end of the last operation is stored in
+        ``ops_offset[None]``: note that this might not coincide with the end of
+        the loop, because usually in the loop footer there is code which does
+        not belong to any particular operation.
         """
         raise NotImplementedError
 
@@ -57,8 +73,15 @@ class AbstractCPU(object):
                        original_loop_token, log=True):
         """Assemble the bridge.
         The FailDescr is the descr of the original guard that failed.
+
+        Optionally, return a ``ops_offset`` dictionary.  See the docstring of
+        ``compiled_loop`` for more informations about it.
         """
         raise NotImplementedError    
+
+    def dump_loop_token(self, looptoken):
+        """Print a disassembled version of looptoken to stdout"""
+        raise NotImplementedError
 
     def execute_token(self, looptoken):
         """Execute the generated code referenced by the looptoken.
@@ -127,6 +150,16 @@ class AbstractCPU(object):
         oldlooptoken so that from now own they will call newlooptoken."""
         raise NotImplementedError
 
+    def invalidate_loop(self, looptoken):
+        """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
+        bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
+        after this call, they all fail.  Note that afterwards, if one such
+        guard fails often enough, it has a bridge attached to it; it is
+        possible then to re-call invalidate_loop() on the same looptoken,
+        which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
+        old one that already has a bridge attached to it."""
+        raise NotImplementedError
+
     def free_loop_and_bridges(self, compiled_loop_token):
         """This method is called to free resources (machine code,
         references to resume guards, etc.) allocated by the compilation
@@ -178,12 +211,6 @@ class AbstractCPU(object):
     @staticmethod
     def typedescrof(TYPE):
         raise NotImplementedError
-
-    #def cast_adr_to_int(self, adr):
-    #    raise NotImplementedError
-
-    #def cast_int_to_adr(self, int):
-    #    raise NotImplementedError
 
     # ---------- the backend-dependent operations ----------
 
@@ -288,12 +315,20 @@ class CompiledLoopToken(object):
         # that belong to this loop or to a bridge attached to it.
         # Filled by the frontend calling record_faildescr_index().
         self.faildescr_indices = []
+        self.invalidate_positions = []
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")
 
     def record_faildescr_index(self, n):
         self.faildescr_indices.append(n)
+
+    def reserve_and_record_some_faildescr_index(self):
+        # like record_faildescr_index(), but invent and return a new,
+        # unused faildescr index
+        n = self.cpu.reserve_some_free_fail_descr_number()
+        self.record_faildescr_index(n)
+        return n
 
     def compiling_a_bridge(self):
         self.cpu.total_compiled_bridges += 1

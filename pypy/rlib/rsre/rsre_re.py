@@ -5,8 +5,8 @@ It exports the same interface as the Python 're' module.
 import re, sys
 from pypy.rlib.rsre import rsre_core, rsre_char
 from pypy.rlib.rsre.test.test_match import get_code as _get_code
-from pypy.module.unicodedata import unicodedb_3_2_0
-rsre_char.unicodedb = unicodedb_3_2_0
+from pypy.module.unicodedata import unicodedb
+rsre_char.set_unicode_db(unicodedb)
 
 
 I = IGNORECASE = re.I   # ignore case

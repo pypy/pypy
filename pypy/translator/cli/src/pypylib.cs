@@ -26,7 +26,10 @@ namespace pypy.test
             else {
                 string res = "";
                 foreach(char ch in x)
-                    res+= string.Format("\\x{0:X2}", (int)ch);
+                    if (ch >= 32 && ch < 128)
+                        res+= ch;
+                    else
+                        res+= string.Format("\\x{0:X2}", (int)ch);
                 return string.Format("'{0}'", res);
             }
         }
@@ -498,6 +501,11 @@ namespace pypy.runtime
             }
         }
 
+        public static bool IntBetween(int a, int b, int c)
+        {
+            return a <= b && b < c;
+        }
+
         public static bool Equal<T>(T t1, T t2) 
         { 
             if (t1 == null)
@@ -717,9 +725,31 @@ namespace pypy.runtime
             return s.Substring(start, count);
         }
 
-        public static string[] ll_split_chr(string s, char ch)
+        public static string[] ll_split_chr(string s, char ch, int max)
         {
-            return s.Split(ch);
+            if (max < 0)
+                return s.Split(ch);
+            else
+                return s.Split(new Char[] {ch}, max + 1);
+        }
+
+        public static string[] ll_rsplit_chr(string s, char ch, int max)
+        {
+            string[] splits = s.Split(ch);
+            if (max < 0 || splits.Length <= max + 1)
+                return splits;
+            else {
+                /* XXX not very efficient */
+                string first = splits[0];
+                // join the first (length - max - 1) items
+                int i;
+                for (i = 1; i < splits.Length - max; i++)
+                    first += ch + splits[i];
+                splits[0] = first;
+                Array.Copy(splits, i, splits, 1, max);
+                Array.Resize(ref splits, max + 1);
+                return splits;
+            }
         }
 
         public static bool ll_contains(string s, char ch)
@@ -1123,10 +1153,36 @@ namespace pypy.builtin
 
     public class rffi
     {
-      public static int tolower(int chr)
-      {
-        return (int)Char.ToLower((char)chr);
-      }
+        public static int tolower(int chr)
+        {
+            return (int)Char.ToLower((char)chr);
+        }
+
+        public static int locale_tolower(int chr)
+        {
+            return (int)Char.ToLower((char)chr);
+        }
+
+        public static int locale_isupper(int chr)
+        {
+            return Convert.ToInt32(Char.IsUpper((char)chr));
+        }
+
+        public static int locale_islower(int chr)
+        {
+            return Convert.ToInt32(Char.IsLower((char)chr));
+        }
+
+        public static int locale_isalpha(int chr)
+        {
+            return Convert.ToInt32(Char.IsLetter((char)chr));
+        }
+
+        public static int locale_isalnum(int chr)
+        {
+            return Convert.ToInt32(Char.IsLetterOrDigit((char)chr));
+        }
+
     }
 
 }

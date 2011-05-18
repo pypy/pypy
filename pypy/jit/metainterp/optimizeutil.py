@@ -99,7 +99,9 @@ def args_hash(args):
     make_sure_not_resized(args)
     res = 0x345678
     for arg in args:
-        if isinstance(arg, history.Const):
+        if arg is None:
+            y = 17
+        elif isinstance(arg, history.Const):
             y = arg._get_hash_()
         else:
             y = compute_identity_hash(arg)
@@ -107,4 +109,7 @@ def args_hash(args):
     return res
 
 def args_dict():
+    return r_dict(args_eq, args_hash)
+
+def args_dict_box():
     return r_dict(args_eq, args_hash)

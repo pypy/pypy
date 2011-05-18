@@ -3,9 +3,10 @@ from pypy.jit.backend.x86 import rx86
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, instantiate
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.history import FLOAT
+from pypy.jit.codewriter import longlong
 
 #
 # This module adds support for "locations", which can be either in a Const,
@@ -44,9 +45,6 @@ class StackLoc(AssemblerLocation):
         self.width = num_words * WORD
         # One of INT, REF, FLOAT
         self.type = type
-
-    def frame_size(self):
-        return self.width // WORD
 
     def __repr__(self):
         return '%d(%%ebp)' % (self.value,)
@@ -175,6 +173,19 @@ class AddressLoc(AssemblerLocation):
                 return edx
         return eax
 
+    def add_offset(self, ofs):
+        result = instantiate(AddressLoc)
+        result._location_code = self._location_code
+        if self._location_code == 'm':
+            result.loc_m = (self.loc_m[0], self.loc_m[1] + ofs)
+        elif self._location_code == 'a':
+            result.loc_a = self.loc_a[:3] + (self.loc_a[3] + ofs,)
+        elif self._location_code == 'j':
+            result.value = self.value + ofs
+        else:
+            raise AssertionError(self._location_code)
+        return result
+
 class ConstFloatLoc(AssemblerLocation):
     # XXX: We have to use this class instead of just AddressLoc because
     # we want a width of 8  (... I think.  Check this!)
@@ -189,6 +200,44 @@ class ConstFloatLoc(AssemblerLocation):
 
     def location_code(self):
         return 'j'
+
+if IS_X86_32:
+    class FloatImmedLoc(AssemblerLocation):
+        # This stands for an immediate float.  It cannot be directly used in
+        # any assembler instruction.  Instead, it is meant to be decomposed
+        # in two 32-bit halves.  On 64-bit, FloatImmedLoc() is a function
+        # instead; see below.
+        _immutable_ = True
+        width = 8
+
+        def __init__(self, floatstorage):
+            self.aslonglong = floatstorage
+
+        def low_part(self):
+            return intmask(self.aslonglong)
+
+        def high_part(self):
+            return intmask(self.aslonglong >> 32)
+
+        def low_part_loc(self):
+            return ImmedLoc(self.low_part())
+
+        def high_part_loc(self):
+            return ImmedLoc(self.high_part())
+
+        def __repr__(self):
+            floatvalue = longlong.getrealfloat(self.aslonglong)
+            return '<FloatImmedLoc(%s)>' % (floatvalue,)
+
+        def location_code(self):
+            raise NotImplementedError
+
+if IS_X86_64:
+    def FloatImmedLoc(floatstorage):
+        from pypy.rlib.longlong2float import float2longlong
+        value = intmask(float2longlong(floatstorage))
+        return ImmedLoc(value)
+
 
 REGLOCS = [RegLoc(i, is_xmm=False) for i in range(16)]
 XMMREGLOCS = [RegLoc(i, is_xmm=True) for i in range(16)]
@@ -234,9 +283,15 @@ class LocationCodeBuilder(object):
             # These are the worst cases:
             val2 = loc2.value_i()
             code1 = loc1.location_code()
-            if (code1 == 'j'
-                or (code1 == 'm' and not rx86.fits_in_32bits(loc1.value_m()[1]))
-                or (code1 == 'a' and not rx86.fits_in_32bits(loc1.value_a()[3]))):
+            if code1 == 'j':
+                checkvalue = loc1.value_j()
+            elif code1 == 'm':
+                checkvalue = loc1.value_m()[1]
+            elif code1 == 'a':
+                checkvalue = loc1.value_a()[3]
+            else:
+                checkvalue = 0
+            if not rx86.fits_in_32bits(checkvalue):
                 # INSN_ji, and both operands are 64-bit; or INSN_mi or INSN_ai
                 # and the constant offset in the address is 64-bit.
                 # Hopefully this doesn't happen too often
@@ -281,10 +336,10 @@ class LocationCodeBuilder(object):
                         if code1 == possible_code1:
                             val1 = getattr(loc1, "value_" + possible_code1)()
                             # More faking out of certain operations for x86_64
-                            if self.WORD == 8 and possible_code1 == 'j':
+                            if possible_code1 == 'j' and not rx86.fits_in_32bits(val1):
                                 val1 = self._addr_as_reg_offset(val1)
                                 invoke(self, "m" + possible_code2, val1, val2)
-                            elif self.WORD == 8 and possible_code2 == 'j':
+                            elif possible_code2 == 'j' and not rx86.fits_in_32bits(val2):
                                 val2 = self._addr_as_reg_offset(val2)
                                 invoke(self, possible_code1 + "m", val1, val2)
                             elif possible_code1 == 'm' and not rx86.fits_in_32bits(val1[1]):
@@ -329,6 +384,10 @@ class LocationCodeBuilder(object):
                             _rx86_getattr(self, name + "_l")(val)
                             self.add_pending_relocation()
                         else:
+                            # xxx can we avoid "MOV r11, $val; JMP/CALL *r11"
+                            # in case it would fit a 32-bit displacement?
+                            # Hard, because we don't know yet where this insn
+                            # will end up...
                             assert self.WORD == 8
                             self._load_scratch(val)
                             _rx86_getattr(self, name + "_r")(X86_64_SCRATCH_REG.value)
@@ -421,6 +480,7 @@ class LocationCodeBuilder(object):
     SHR = _binaryop('SHR')
     SAR = _binaryop('SAR')
     TEST = _binaryop('TEST')
+    TEST8 = _binaryop('TEST8')
 
     ADD = _binaryop('ADD')
     SUB = _binaryop('SUB')
@@ -438,7 +498,9 @@ class LocationCodeBuilder(object):
     MOVSX16 = _binaryop('MOVSX16')
     MOV32 = _binaryop('MOV32')
     MOVSX32 = _binaryop('MOVSX32')
-    XCHG = _binaryop('XCHG')
+    # Avoid XCHG because it always implies atomic semantics, which is
+    # slower and does not pair well for dispatch.
+    #XCHG = _binaryop('XCHG')
 
     PUSH = _unaryop('PUSH')
     POP = _unaryop('POP')
@@ -446,16 +508,27 @@ class LocationCodeBuilder(object):
     LEA = _binaryop('LEA')
 
     MOVSD = _binaryop('MOVSD')
+    MOVAPD = _binaryop('MOVAPD')
     ADDSD = _binaryop('ADDSD')
+    ADDPD = _binaryop('ADDPD')
     SUBSD = _binaryop('SUBSD')
     MULSD = _binaryop('MULSD')
     DIVSD = _binaryop('DIVSD')
     UCOMISD = _binaryop('UCOMISD')
     CVTSI2SD = _binaryop('CVTSI2SD')
     CVTTSD2SI = _binaryop('CVTTSD2SI')
+    
+    SQRTSD = _binaryop('SQRTSD')
 
     ANDPD = _binaryop('ANDPD')
     XORPD = _binaryop('XORPD')
+
+    PADDQ = _binaryop('PADDQ')
+    PSUBQ = _binaryop('PSUBQ')
+    PAND  = _binaryop('PAND')
+    POR   = _binaryop('POR')
+    PXOR  = _binaryop('PXOR')
+    PCMPEQD = _binaryop('PCMPEQD')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')

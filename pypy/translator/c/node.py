@@ -11,7 +11,7 @@ from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from pypy.translator.c.support import c_char_array_constant, barebonearray
 from pypy.translator.c.primitive import PrimitiveType, name_signed
 from pypy.rlib import exports
-from pypy.rlib.rarithmetic import isinf, isnan
+from pypy.rlib.rfloat import isfinite
 from pypy.rlib.rstackovf import _StackOverflow
 from pypy.translator.c import extfunc
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -337,12 +337,15 @@ class BareBoneArrayDefNode:
         self.varlength = varlength
         self.dependencies = {}
         contained_type = ARRAY.OF
-        if ARRAY._hints.get("render_as_void"):
-            contained_type = Void
+        # There is no such thing as an array of voids:
+        # we use a an array of chars instead; only the pointer can be void*.
         self.itemtypename = db.gettype(contained_type, who_asks=self)
         self.fulltypename = self.itemtypename.replace('@', '(@)[%d]' %
                                                       (self.varlength,))
-        self.fullptrtypename = self.itemtypename.replace('@', '*@')
+        if ARRAY._hints.get("render_as_void"):
+            self.fullptrtypename = 'void *@'
+        else:
+            self.fullptrtypename = self.itemtypename.replace('@', '*@')
 
     def setup(self):
         """Array loops are forbidden by ForwardReference.become() because
@@ -363,7 +366,10 @@ class BareBoneArrayDefNode:
         return self.itemindex_access_expr(baseexpr, index)
 
     def itemindex_access_expr(self, baseexpr, indexexpr):
-        return 'RPyBareItem(%s, %s)' % (baseexpr, indexexpr)
+        if self.ARRAY._hints.get("render_as_void"):
+            return 'RPyBareItem((char*)%s, %s)' % (baseexpr, indexexpr)
+        else:
+            return 'RPyBareItem(%s, %s)' % (baseexpr, indexexpr)
 
     def definition(self):
         return []    # no declaration is needed
@@ -787,7 +793,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             node = db.getcontainernode(value._obj)
             expr = 'NULL /*%s*/' % node.name
             node.where_to_copy_me.append('&%s' % access_expr)
-        elif typeOf(value) == Float and (isinf(value) or isnan(value)):
+        elif typeOf(value) == Float and not isfinite(value):
             db.late_initializations.append(('%s' % access_expr, db.get(value)))
             expr = '0.0 /* patched later by %sinfinity */' % (
                 '-+'[value > 0])

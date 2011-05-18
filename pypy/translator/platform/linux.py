@@ -1,6 +1,5 @@
+"""Support for Linux."""
 
-import py, os
-from pypy.translator.platform import _run_subprocess
 from pypy.translator.platform.posix import BasePosix
 
 class BaseLinux(BasePosix):
@@ -17,11 +16,11 @@ class BaseLinux(BasePosix):
     def _args_for_shared(self, args):
         return ['-shared'] + args
 
-    def include_dirs_for_libffi(self):
+    def _include_dirs_for_libffi(self):
         return self._pkg_config("libffi", "--cflags-only-I",
                                 ['/usr/include/libffi'])
 
-    def library_dirs_for_libffi(self):
+    def _library_dirs_for_libffi(self):
         return self._pkg_config("libffi", "--libs-only-L",
                                 ['/usr/lib/libffi'])
 
@@ -29,6 +28,7 @@ class BaseLinux(BasePosix):
 class Linux(BaseLinux):
     shared_only = ()    # it seems that on 32-bit linux, compiling with -fPIC
                         # gives assembler that asmgcc is not happy about.
+
     def library_dirs_for_libffi_a(self):
         # places where we need to look for libffi.a
         return self.library_dirs_for_libffi() + ['/usr/lib']

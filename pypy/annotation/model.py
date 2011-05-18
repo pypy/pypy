@@ -34,7 +34,7 @@ from pypy.tool import descriptor
 from pypy.tool.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
-from pypy.rlib.rarithmetic import r_singlefloat, isnan
+from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat
 import inspect, weakref
 
 DEBUG = False    # set to False to disable recording of debugging information
@@ -163,10 +163,16 @@ class SomeFloat(SomeObject):
     immutable = True
 
     def __eq__(self, other):
-        # NaN unpleasantness.
-        if (self.is_constant() and other.is_constant() and
-            isnan(self.const) and isnan(other.const)):
-            return True
+        if (type(self) is SomeFloat and type(other) is SomeFloat and
+            self.is_constant() and other.is_constant()):
+            from pypy.rlib.rfloat import isnan, copysign
+            # NaN unpleasantness.
+            if isnan(self.const) and isnan(other.const):
+                return True
+            # 0.0 vs -0.0 unpleasantness.
+            if not self.const and not other.const:
+                return copysign(1., self.const) == copysign(1., other.const)
+            #
         return super(SomeFloat, self).__eq__(other)
 
     def can_be_none(self):
@@ -176,6 +182,15 @@ class SomeSingleFloat(SomeObject):
     "Stands for an r_singlefloat."
     # No operation supported, not even union with a regular float
     knowntype = r_singlefloat
+    immutable = True
+
+    def can_be_none(self):
+        return False
+
+class SomeLongFloat(SomeObject):
+    "Stands for an r_longfloat."
+    # No operation supported, not even union with a regular float
+    knowntype = r_longfloat
     immutable = True
 
     def can_be_none(self):
@@ -582,6 +597,7 @@ annotation_to_ll_map = [
     (s_Bool, lltype.Bool),
     (SomeInteger(knowntype=r_ulonglong), NUMBER),    
     (SomeFloat(), lltype.Float),
+    (SomeLongFloat(), lltype.LongFloat),
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), llmemory.Address),
@@ -625,6 +641,8 @@ def lltype_to_annotation(T):
     except TypeError:
         s = None    # unhashable T, e.g. a Ptr(GcForwardReference())
     if s is None:
+        if isinstance(T, lltype.Typedef):
+            return lltype_to_annotation(T.OF)
         if isinstance(T, lltype.Number):
             return SomeInteger(knowntype=T._type)
         if isinstance(T, (ootype.Instance, ootype.BuiltinType)):

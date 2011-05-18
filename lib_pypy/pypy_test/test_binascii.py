@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 import py
-from .. import binascii
+from lib_pypy import binascii
 
 # Create binary test data
 data = "The quick brown fox jumps over the lazy dog.\r\n"

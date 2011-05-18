@@ -31,6 +31,16 @@ class AppTestExc(object):
         assert x[1:2] == (2,)
         x.message = "xyz"
         assert x.message == "xyz"
+        del x.message
+        assert not hasattr(x, "message")
+
+    def test_unicode_message(self):
+        assert unicode(Exception(u"\xe1")) == u"\xe1"
+        class E(BaseException):
+            def __str__(self):
+                return u"\xe1"
+        e = E()
+        assert unicode(e) == u"\xe1"
 
     def test_kwargs(self):
         from exceptions import Exception
@@ -58,6 +68,8 @@ class AppTestExc(object):
         assert isinstance(Exception(), BaseException)
         assert repr(Exception(3, "x")) == "Exception(3, 'x')"
         assert str(IOError("foo", "bar")) == "[Errno foo] bar"
+        assert isinstance(IOError("foo", "bar"), IOError)
+        assert str(IOError(1, 2)) == "[Errno 1] 2"
 
     def test_custom_class(self):
         from exceptions import Exception, BaseException, LookupError
@@ -121,6 +133,8 @@ class AppTestExc(object):
 
     def test_syntax_error(self):
         from exceptions import SyntaxError
+        s = SyntaxError()
+        assert s.msg is None
         s = SyntaxError(3)
         assert str(s) == '3'
         assert str(SyntaxError("a", "b", 123)) == "a"
@@ -173,7 +187,7 @@ class AppTestExc(object):
         raises(TypeError, UnicodeEncodeError, u"x", u"y", 1, 5, "bah")
 
     def test_multiple_inheritance(self):
-        from exceptions import LookupError, ValueError, Exception
+        from exceptions import LookupError, ValueError, Exception, IOError
         class A(LookupError, ValueError):
             pass
         assert issubclass(A, A)
@@ -197,12 +211,24 @@ class AppTestExc(object):
         else:
             fail("bah")
 
+        class C(ValueError, IOError):
+            pass
+        c = C()
+        assert isinstance(ValueError(), ValueError)
+        assert isinstance(c, C)
+        assert isinstance(c, Exception)
+        assert isinstance(c, ValueError)
+        assert isinstance(c, IOError)
+        assert isinstance(c, EnvironmentError)
+        assert not isinstance(c, KeyError)
+
     def test_doc_and_module(self):
         import exceptions
         for name, e in exceptions.__dict__.items():
             if isinstance(e, type) and issubclass(e, exceptions.BaseException):
                 assert e.__doc__, e
                 assert e.__module__ == 'exceptions', e
+        assert 'run-time' in RuntimeError.__doc__
 
     def test_reduce(self):
         from exceptions import LookupError, EnvironmentError

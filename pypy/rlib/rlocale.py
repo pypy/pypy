@@ -7,6 +7,7 @@ import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
+from pypy.rpython.extfunc import register_external
 
 class LocaleError(Exception):
     def __init__(self, message):
@@ -14,15 +15,22 @@ class LocaleError(Exception):
 
 HAVE_LANGINFO = sys.platform != 'win32'
 HAVE_LIBINTL  = sys.platform != 'win32'
+libraries = []
 
 if HAVE_LIBINTL:
     try:
-        platform.verify_eci(ExternalCompilationInfo(includes=['libintl.h']))
+        platform.verify_eci(ExternalCompilationInfo(includes=['libintl.h'],
+                                                    libraries=['intl']))
+        libraries.append('intl')
     except platform.CompilationError:
-        HAVE_LIBINTL = False
+        try:
+            platform.verify_eci(ExternalCompilationInfo(includes=['libintl.h']))
+        except platform.CompilationError:
+            HAVE_LIBINTL = False
 
 class CConfig:
-    includes = ['locale.h', 'limits.h']
+    includes = ['locale.h', 'limits.h', 'ctype.h']
+    libraries = libraries
 
     if HAVE_LANGINFO:
         includes += ['langinfo.h']
@@ -31,7 +39,7 @@ class CConfig:
     if sys.platform == 'win32':
         includes += ['windows.h']
     _compilation_info_ = ExternalCompilationInfo(
-        includes=includes
+        includes=includes, libraries=libraries
     )
     HAVE_BIND_TEXTDOMAIN_CODESET = platform.Has('bind_textdomain_codeset')
     lconv = platform.Struct("struct lconv", [
@@ -149,11 +157,34 @@ locals().update(constants)
 
 HAVE_BIND_TEXTDOMAIN_CODESET = cConfig.HAVE_BIND_TEXTDOMAIN_CODESET
 
-def external(name, args, result, calling_conv='c'):
+def external(name, args, result, calling_conv='c', **kwds):
     return rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
                            calling_conv=calling_conv,
-                           sandboxsafe=True)
+                           sandboxsafe=True, **kwds)
+
+_lconv = lltype.Ptr(cConfig.lconv)
+localeconv = external('localeconv', [], _lconv)
+
+def numeric_formatting():
+    """Specialized function to get formatting for numbers"""
+    return numeric_formatting_impl()
+
+def numeric_formatting_impl():
+    conv = localeconv()
+    decimal_point = rffi.charp2str(conv.c_decimal_point)
+    thousands_sep = rffi.charp2str(conv.c_thousands_sep)
+    grouping = rffi.charp2str(conv.c_grouping)
+    return decimal_point, thousands_sep, grouping
+
+def oo_numeric_formatting():
+    return '.', '', ''
+
+register_external(numeric_formatting, [], (str, str, str),
+                  llimpl=numeric_formatting_impl,
+                  ooimpl=oo_numeric_formatting,
+                  sandboxsafe=True)
+
 
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
@@ -166,11 +197,11 @@ def setlocale(category, locale):
         raise LocaleError("unsupported locale setting")
     return rffi.charp2str(ll_result)
 
-isalpha = external('isalpha', [rffi.INT], rffi.INT)
-isupper = external('isupper', [rffi.INT], rffi.INT)
-islower = external('islower', [rffi.INT], rffi.INT)
-tolower = external('tolower', [rffi.INT], rffi.INT)
-isalnum = external('isalnum', [rffi.INT], rffi.INT)
+isalpha = external('isalpha', [rffi.INT], rffi.INT, oo_primitive='locale_isalpha')
+isupper = external('isupper', [rffi.INT], rffi.INT, oo_primitive='locale_isupper')
+islower = external('islower', [rffi.INT], rffi.INT, oo_primitive='locale_islower')
+tolower = external('tolower', [rffi.INT], rffi.INT, oo_primitive='locale_tolower')
+isalnum = external('isalnum', [rffi.INT], rffi.INT, oo_primitive='locale_isalnum')
 
 if HAVE_LANGINFO:
     _nl_langinfo = external('nl_langinfo', [rffi.INT], rffi.CCHARP)

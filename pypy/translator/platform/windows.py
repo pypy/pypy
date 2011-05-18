@@ -1,9 +1,11 @@
+"""Support for Windows."""
 
 import py, os, sys, re
-from pypy.translator.platform import CompilationError, ExecutionResult
+
+from pypy.tool import autopath
+from pypy.translator.platform import CompilationError
 from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
-from pypy.tool import autopath
 
 def Windows(cc=None):
     if cc == 'mingw32':
@@ -37,7 +39,7 @@ def _get_msvc_env(vsver):
         key, value = line.split('=', 1)
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
             env[key.upper()] = value
-    log.msg("Updated environment with %s" % (vcvars,))
+    ## log.msg("Updated environment with %s" % (vcvars,))
     return env
 
 def find_msvc_env():
@@ -89,7 +91,7 @@ class MsvcPlatform(Platform):
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
                                                      env=self.c_environ)
-        r = re.search('[Vv]ersion\W([0-9]+)\.([0-9]+)', stderr)
+        r = re.match(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
             self.version = int(''.join(r.groups())) / 10 - 60
         else:
@@ -120,7 +122,13 @@ class MsvcPlatform(Platform):
         return ['/I%s' % (idir,) for idir in include_dirs]
 
     def _libs(self, libraries):
-        return ['%s.lib' % (lib,) for lib in libraries]
+        libs = []
+        for lib in libraries:
+            lib = str(lib)
+            if lib.endswith('.dll'):
+                lib = lib[:-4]
+            libs.append('%s.lib' % (lib,))
+        return libs
 
     def _libdirs(self, library_dirs):
         return ['/LIBPATH:%s' % (ldir,) for ldir in library_dirs]
@@ -169,8 +177,8 @@ class MsvcPlatform(Platform):
 
         if self.version >= 80:
             # Tell the linker to generate a manifest file
-            temp_manifest = ofile.dirpath().join(
-                ofile.purebasename + '.manifest')
+            temp_manifest = exe_name.dirpath().join(
+                exe_name.purebasename + '.manifest')
             args += ["/MANIFEST", "/MANIFESTFILE:%s" % (temp_manifest,)]
 
         self._execute_c_compiler(self.link, args, exe_name)
@@ -187,7 +195,7 @@ class MsvcPlatform(Platform):
 
         return exe_name
 
-    def _handle_error(self, returncode, stderr, stdout, outname):
+    def _handle_error(self, returncode, stdout, stderr, outname):
         if returncode != 0:
             # Microsoft compilers write compilation errors to stdout
             stderr = stdout + stderr
@@ -349,13 +357,13 @@ class MingwPlatform(posix.BasePosix):
     def _args_for_shared(self, args):
         return ['-shared'] + args
 
-    def include_dirs_for_libffi(self):
+    def _include_dirs_for_libffi(self):
         return []
 
-    def library_dirs_for_libffi(self):
+    def _library_dirs_for_libffi(self):
         return []
 
-    def _handle_error(self, returncode, stderr, stdout, outname):
+    def _handle_error(self, returncode, stdout, stderr, outname):
         # Mingw tools write compilation errors to stdout
         super(MingwPlatform, self)._handle_error(
-            returncode, stderr + stdout, '', outname)
+            returncode, '', stderr + stdout, outname)

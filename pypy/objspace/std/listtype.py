@@ -1,6 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM, no_hash_descr
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from sys import maxint
 
@@ -51,10 +51,8 @@ def descr__new__(space, w_listtype, __args__):
 list_typedef = StdTypeDef("list",
     __doc__ = '''list() -> new list
 list(sequence) -> new list initialized from sequence's items''',
-    __new__ = gateway.interp2app(descr__new__, unwrap_spec=[gateway.ObjSpace,
-                                               gateway.W_Root,
-                                               gateway.Arguments]),
-    __hash__ = no_hash_descr,
+    __new__ = gateway.interp2app(descr__new__),
+    __hash__ = None,
     )
 list_typedef.registermethods(globals())
 

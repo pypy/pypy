@@ -118,11 +118,6 @@ def test_set_ir():
     s.SET_ir(5, dl)
     assert s.getvalue() == '\x0F\x95\xC2'
 
-def test_xchg_rj():
-    s = CodeBuilder32()
-    s.XCHG_rj(edx, 0x01234567)
-    assert s.getvalue() == '\x87\x15\x67\x45\x23\x01'
-
 def test_movsd_rj():
     s = CodeBuilder32()
     s.MOVSD_xj(xmm2, 0x01234567)
@@ -174,7 +169,12 @@ def test_or8_rr():
     assert_encodes_as(CodeBuilder32, 'OR8_rr', (bl, bh), '\x08\xFB')
 
 def test_test8_mi():
-    assert_encodes_as(CodeBuilder32, 'TEST8_mi', ((edx, 16), 99), '\xF6\x42\x10\x63')
+    assert_encodes_as(CodeBuilder32, 'TEST8_mi', ((edx, 16), 99),
+                      '\xF6\x42\x10\x63')
+
+def test_test8_ji():
+    assert_encodes_as(CodeBuilder32, 'TEST8_ji', (0x12345678, 99),
+                      '\xF6\x05\x78\x56\x34\x12\x63')
 
 def test_mov8():
     cb = CodeBuilder32
@@ -206,3 +206,8 @@ def test_mov_rm_negative_64():
     s = CodeBuilder64()
     s.MOV_rm(edx, (edi, -1))
     assert s.getvalue() == '\x48\x8B\x57\xFF'
+
+def test_movsd_xj_64():
+    s = CodeBuilder64()
+    s.MOVSD_xj(xmm2, 0x01234567)
+    assert s.getvalue() == '\xF2\x0F\x10\x14\x25\x67\x45\x23\x01'

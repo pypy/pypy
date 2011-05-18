@@ -37,25 +37,15 @@
 #include "src/llgroup.h"
 
 #include "src/instrument.h"
+#include "src/asm.h"
 
-/* optional assembler bits */
-#if defined(__GNUC__) && defined(__i386__)
-#  include "src/asm_gcc_x86.h"
-#endif
+#include "src/profiling.h"
 
-#if defined(__GNUC__) && defined(__amd64__)
-#  include "src/asm_gcc_x86_64.h"
-#endif
-
-#if defined(__GNUC__) && defined(__ppc__)
-#  include "src/asm_ppc.h"
-#endif
-
+#include "src/debug_print.h"
 
 /*** modules ***/
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"
-#  include "src/debug_print.h"
 #  include "src/debug_traceback.h"
 #  include "src/debug_alloc.h"
 #ifndef AVR

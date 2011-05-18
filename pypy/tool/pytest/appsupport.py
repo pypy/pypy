@@ -163,7 +163,7 @@ def build_pytest_assertion(space):
             except py.error.ENOENT: 
                 source = None
             from pypy import conftest
-            if source and not conftest.option.nomagic: 
+            if source and not py.test.config.option.nomagic:
                 msg = py.code._reinterpret_old(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),
                             space.newtuple([space.wrap(msg)]))
@@ -176,10 +176,7 @@ def build_pytest_assertion(space):
     w_BuiltinAssertionError = space.getitem(space.builtin.w_dict, 
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
-    w_init = space.wrap(gateway.interp2app_temp(my_init,
-                                                unwrap_spec=[gateway.ObjSpace,
-                                                             gateway.W_Root,
-                                                             gateway.Arguments]))
+    w_init = space.wrap(gateway.interp2app_temp(my_init))
     w_dict = space.newdict()
     space.setitem(w_dict, space.wrap('__init__'), w_init)
     return space.call_function(w_metaclass,
@@ -199,7 +196,7 @@ def _exc_info(space, err):
     class _ExceptionInfo(object):
         def __init__(self):
             import sys
-            self.type, self.value, _ = sys.exc_info()
+            self.type, self.value, self.traceback = sys.exc_info()
 
     return _ExceptionInfo
 """)    
@@ -247,11 +244,7 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
     raise OperationError(space.w_AssertionError,
                          space.wrap("DID NOT RAISE"))
 
-app_raises = gateway.interp2app_temp(pypyraises,
-                                     unwrap_spec=[gateway.ObjSpace,
-                                                  gateway.W_Root,
-                                                  gateway.W_Root,
-                                                  gateway.Arguments])
+app_raises = gateway.interp2app_temp(pypyraises)
 
 def pypyskip(space, w_message): 
     """skip a test at app-level. """ 

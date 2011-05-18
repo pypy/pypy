@@ -10,6 +10,30 @@ def adr2int(addr):
 def int2adr(int):
     return llmemory.cast_int_to_adr(int)
 
+def count_fields_if_immutable(STRUCT):
+    assert isinstance(STRUCT, lltype.GcStruct)
+    if STRUCT._hints.get('immutable', False):
+        try:
+            return _count_fields(STRUCT)
+        except ValueError:
+            pass
+    return -1
+
+def _count_fields(STRUCT):
+    if STRUCT == rclass.OBJECT:
+        return 0    # don't count 'typeptr'
+    result = 0
+    for fieldname, TYPE in STRUCT._flds.items():
+        if TYPE is lltype.Void:
+            pass       # ignore Voids
+        elif not isinstance(TYPE, lltype.ContainerType):
+            result += 1
+        elif isinstance(TYPE, lltype.GcStruct):
+            result += _count_fields(TYPE)
+        else:
+            raise ValueError(TYPE)
+    return result
+
 # ____________________________________________________________
 
 def has_gcstruct_a_vtable(GCSTRUCT):

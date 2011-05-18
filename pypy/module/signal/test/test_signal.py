@@ -162,6 +162,72 @@ class AppTestSignal:
         finally:
             signal(SIGALRM, SIG_DFL)
 
+    def test_set_wakeup_fd(self):
+        import signal, posix, fcntl
+        def myhandler(signum, frame):
+            pass
+        signal.signal(signal.SIGUSR1, myhandler)
+        #
+        def cannot_read():
+            try:
+                posix.read(fd_read, 1)
+            except OSError:
+                pass
+            else:
+                raise AssertionError, "os.read(fd_read, 1) succeeded?"
+        #
+        fd_read, fd_write = posix.pipe()
+        flags = fcntl.fcntl(fd_write, fcntl.F_GETFL, 0)
+        flags = flags | posix.O_NONBLOCK
+        fcntl.fcntl(fd_write, fcntl.F_SETFL, flags)
+        flags = fcntl.fcntl(fd_read, fcntl.F_GETFL, 0)
+        flags = flags | posix.O_NONBLOCK
+        fcntl.fcntl(fd_read, fcntl.F_SETFL, flags)
+        #
+        old_wakeup = signal.set_wakeup_fd(fd_write)
+        try:
+            cannot_read()
+            posix.kill(posix.getpid(), signal.SIGUSR1)
+            res = posix.read(fd_read, 1)
+            assert res == '\x00'
+            cannot_read()
+        finally:
+            old_wakeup = signal.set_wakeup_fd(old_wakeup)
+        #
+        signal.signal(signal.SIGUSR1, signal.SIG_DFL)
+
+    def test_siginterrupt(self):
+        import signal, os, time
+        signum = signal.SIGUSR1
+        def readpipe_is_not_interrupted():
+            # from CPython's test_signal.readpipe_interrupted()
+            r, w = os.pipe()
+            ppid = os.getpid()
+            pid = os.fork()
+            if pid == 0:
+                try:
+                    time.sleep(1)
+                    os.kill(ppid, signum)
+                    time.sleep(1)
+                finally:
+                    os._exit(0)
+            else:
+                try:
+                    os.close(w)
+                    # we expect not to be interrupted.  If we are, the
+                    # following line raises OSError(EINTR).
+                    os.read(r, 1)
+                finally:
+                    os.waitpid(pid, 0)
+                    os.close(r)
+        #
+        oldhandler = signal.signal(signum, lambda x,y: None)
+        try:
+            signal.siginterrupt(signum, 0)
+            readpipe_is_not_interrupted()
+            readpipe_is_not_interrupted()
+        finally:
+            signal.signal(signum, oldhandler)
 
 class AppTestSignalSocket:
 
@@ -195,3 +261,27 @@ class AppTestSignalSocket:
         finally:
             signal(SIGALRM, SIG_DFL)
 
+class AppTestItimer:
+    spaceconfig = dict(usemodules=['signal'])
+
+    def test_itimer_real(self):
+        import signal
+
+        def sig_alrm(*args):
+            self.called = True
+
+        signal.signal(signal.SIGALRM, sig_alrm)
+        old = signal.setitimer(signal.ITIMER_REAL, 1.0)
+        assert old == (0, 0)
+
+        val, interval = signal.getitimer(signal.ITIMER_REAL)
+        assert val <= 1.0
+        assert interval == 0.0
+
+        signal.pause()
+        assert self.called
+
+    def test_itimer_exc(self):
+        import signal
+
+        raises(signal.ItimerError, signal.setitimer, -1, 0)

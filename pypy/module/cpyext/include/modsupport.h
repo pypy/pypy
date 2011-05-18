@@ -18,6 +18,11 @@ int PyArg_ParseTupleAndKeywords(PyObject *, PyObject *,
 				const char *, char **, ...);
 int PyArg_VaParseTupleAndKeywords(PyObject *, PyObject *,
 				const char *, char **, va_list);
+  
+/* to make sure that modules compiled with CPython's or PyPy's Python.h
+   are not importable on the other interpreter, use a #define to expect a
+   different symbol: (this function is implemented in ../modsupport.py) */
+#define Py_InitModule4 _Py_InitPyPyModule
 
 #define Py_InitModule(name, methods) \
 	Py_InitModule4(name, methods, (char *)NULL, (PyObject *)NULL, \
@@ -33,7 +38,9 @@ int PyModule_AddStringConstant(PyObject *m, const char *name, const char *value)
 
 
 PyObject * Py_BuildValue(const char *, ...);
+PyObject * Py_VaBuildValue(const char *, va_list);
 PyObject * _Py_BuildValue_SizeT(const char *, ...);
+PyObject * _Py_VaBuildValue_SizeT(const char *, va_list);
 int _PyArg_NoKeywords(const char *funcname, PyObject *kw);
 
 int PyArg_UnpackTuple(PyObject *args, const char *name, Py_ssize_t min, Py_ssize_t max, ...);

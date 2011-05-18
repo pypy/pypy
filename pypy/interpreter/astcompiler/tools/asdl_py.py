@@ -78,15 +78,14 @@ class ASTNodeVisitor(ASDLVisitor):
             self.emit("")
         else:
             self.emit("class %s(AST):" % (base,))
-            self.emit("")
-            slots = ", ".join(repr(attr.name.value) for attr in sum.attributes)
-            self.emit("__slots__ = (%s)" % (slots,), 1)
-            self.emit("")
             if sum.attributes:
                 args = ", ".join(attr.name.value for attr in sum.attributes)
                 self.emit("def __init__(self, %s):" % (args,), 1)
                 for attr in sum.attributes:
                     self.visit(attr)
+                self.emit("")
+            else:
+                self.emit("pass", 1)
                 self.emit("")
             for cons in sum.types:
                 self.visit(cons, base, sum.attributes)
@@ -95,9 +94,6 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitProduct(self, product, name):
         self.emit("class %s(AST):" % (name,))
         self.emit("")
-        slots = self.make_slots(product.fields)
-        self.emit("__slots__ = (%s)" % (slots,), 1)
-        self.emit("")
         self.make_constructor(product.fields, product)
         self.emit("")
         self.make_mutate_over(product, name)
@@ -105,15 +101,6 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
         self.make_var_syncer(product.fields, product, name)
-
-    def make_slots(self, fields):
-        slots = []
-        for field in fields:
-            name = repr(field.name.value)
-            slots.append(name)
-            if field.seq:
-                slots.append("'w_%s'" % (field.name,))
-        return ", ".join(slots)
 
     def make_var_syncer(self, fields, node, name):
         self.emit("def sync_app_attrs(self, space):", 1)
@@ -207,9 +194,6 @@ class ASTNodeVisitor(ASDLVisitor):
 
     def visitConstructor(self, cons, base, extra_attributes):
         self.emit("class %s(%s):" % (cons.name, base))
-        self.emit("")
-        slots = self.make_slots(cons.fields)
-        self.emit("__slots__ = (%s)" % (slots,), 1)
         self.emit("")
         for field in self.data.cons_attributes[cons]:
             subst = (field.name, self.data.field_masks[field])
@@ -357,6 +341,7 @@ class AppExposeVisitor(ASDLVisitor):
             display_name = name
         self.emit("%s.typedef = typedef.TypeDef(\"%s\"," % (name, display_name))
         self.emit("%s.typedef," % (base,), 1)
+        self.emit("__module__='_ast',", 1)
         comma_fields = ", ".join(repr(field.name.value) for field in fields)
         self.emit("%s=_FieldsWrapper([%s])," % (fields_name, comma_fields), 1)
         for field in fields:
@@ -364,34 +349,30 @@ class AppExposeVisitor(ASDLVisitor):
             setter = "%s_set_%s" % (name, field.name)
             config = (field.name, getter, setter, name)
             self.emit("%s=typedef.GetSetProperty(%s, %s, cls=%s)," % config, 1)
-        # CPython lets you create instances of "abstract" AST nodes
-        # like ast.expr or even ast.AST.  This doesn't seem to useful
-        # and would be a pain to implement safely, so we don't allow
-        # it.
-        if concrete:
-            self.emit("__new__=interp2app(get_AST_new(%s))," % (name,), 1)
-            if needs_init:
-                self.emit("__init__=interp2app(%s_init)," % (name,), 1)
+        self.emit("__new__=interp2app(get_AST_new(%s))," % (name,), 1)
+        if needs_init:
+            self.emit("__init__=interp2app(%s_init)," % (name,), 1)
         self.emit(")")
-        self.emit("%s.typedef.acceptable_as_base_class = False" % (name,))
         self.emit("")
 
     def make_init(self, name, fields):
         comma_fields = ", ".join(repr(field.name.value) for field in fields)
-        config = (name, comma_fields)
-        self.emit("_%s_field_unroller = unrolling_iterable([%s])" % config)
-        self.emit("def %s_init(space, w_self, args):" % (name,))
+        if fields:
+            config = (name, comma_fields)
+            self.emit("_%s_field_unroller = unrolling_iterable([%s])" % config)
+        self.emit("def %s_init(space, w_self, __args__):" % (name,))
         self.emit("w_self = space.descr_self_interp_w(%s, w_self)" % (name,), 1)
         for field in fields:
             if field.seq:
                 self.emit("w_self.w_%s = None" % (field.name,), 1)
-        self.emit("args_w, kwargs_w = args.unpack()", 1)
+        self.emit("args_w, kwargs_w = __args__.unpack()", 1)
         self.emit("if args_w:", 1)
         arity = len(fields)
         if arity:
             self.emit("if len(args_w) != %i:" % (arity,), 2)
-            self.emit("w_err = space.wrap(\"%s constructor takes 0 or %i " \
-                          "positional arguments\")" % (name, arity), 3)
+            plural = arity > 1 and "s" or ""
+            self.emit("w_err = space.wrap(\"%s constructor takes either 0 or %i " \
+                          "positional argument%s\")" % (name, arity, plural), 3)
             self.emit("raise OperationError(space.w_TypeError, w_err)", 3)
             self.emit("i = 0", 2)
             self.emit("for field in _%s_field_unroller:" % (name,), 2)
@@ -399,17 +380,15 @@ class AppExposeVisitor(ASDLVisitor):
             self.emit("i += 1", 3)
         else:
             self.emit("w_err = space.wrap(\"%s constructor takes no " \
-                          " arguments\")" % (name,), 2)
+                          "arguments\")" % (name,), 2)
             self.emit("raise OperationError(space.w_TypeError, w_err)", 2)
         self.emit("for field, w_value in kwargs_w.iteritems():", 1)
         self.emit("space.setattr(w_self, space.wrap(field), w_value)", 2)
-        self.emit("%s_init.unwrap_spec = [ObjSpace, W_Root, Arguments]"
-                  % (name,))
         self.emit("")
 
     def visitConstructor(self, cons, base):
         super(AppExposeVisitor, self).visitConstructor(cons, cons.name)
-        self.make_init(cons.name, cons.fields + self.data.cons_attributes[cons])
+        self.make_init(cons.name, cons.fields)
         self.make_typedef(cons.name, base, cons.fields, concrete=True,
                           needs_init=True)
 
@@ -429,8 +408,14 @@ class AppExposeVisitor(ASDLVisitor):
             flag = "w_self._%s_mask" % (field.name,)
         else:
             flag = self.data.field_masks[field]
+        if not field.seq:
+            self.emit("if w_self.w_dict is not None:", 1)
+            self.emit("    w_obj = w_self.getdictvalue(space, '%s')" % (field.name,), 1)
+            self.emit("    if w_obj is not None:", 1)
+            self.emit("        return w_obj", 1)
         self.emit("if not w_self.initialization_state & %s:" % (flag,), 1)
-        self.emit("w_err = space.wrap(\"attribute '%s' has not been set\")" %
+        self.emit("typename = space.type(w_self).getname(space)", 2)
+        self.emit("w_err = space.wrap(\"'%%s' object has no attribute '%s'\" %% typename)" %
                   (field.name,), 2)
         self.emit("raise OperationError(space.w_AttributeError, w_err)", 2)
         if field.seq:
@@ -460,38 +445,41 @@ class AppExposeVisitor(ASDLVisitor):
         self.emit(func)
         if field.seq:
             self.emit("w_self.w_%s = w_new_value" % (field.name,), 1)
-        elif field.type.value not in asdl.builtin_types:
-            # These are always other AST nodes.
-            if field.type.value in self.data.simple_types:
-                self.emit("obj = space.interp_w(%s, w_new_value)" % \
-                              (field.type,), 1)
-                self.emit("w_self.%s = obj.to_simple_int(space)" %
-                          (field.name,), 1)
-            else:
-                config = (field.name, field.type, repr(field.opt))
-                self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
-                          config, 1)
         else:
-            level = 1
-            if field.opt and field.type.value != "int":
-                self.emit("if space.is_w(w_new_value, space.w_None):", 1)
-                self.emit("w_self.%s = None" % (field.name,), 2)
-                level += 1
-                self.emit("else:", 1)
-            if field.type.value == "object":
-                self.emit("w_self.%s = w_new_value" % (field.name,), level)
-            elif field.type.value == "string":
-                self.emit("if not space.is_true(space.isinstance(" \
-                              "w_new_value, space.w_basestring)):", level)
-                line = "w_err = space.wrap(\"some kind of string required\")"
-                self.emit(line, level + 1)
-                self.emit("raise OperationError(space.w_TypeError, w_err)",
-                          level + 1)
-                self.emit("w_self.%s = w_new_value" % (field.name,), level)
+            self.emit("try:", 1)
+            if field.type.value not in asdl.builtin_types:
+                # These are always other AST nodes.
+                if field.type.value in self.data.simple_types:
+                    self.emit("obj = space.interp_w(%s, w_new_value)" % \
+                                  (field.type,), 2)
+                    self.emit("w_self.%s = obj.to_simple_int(space)" %
+                              (field.name,), 2)
+                    self.emit("# need to save the original object too", 2)
+                    self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
+                              % (field.name,), 2)
+                else:
+                    config = (field.name, field.type, repr(field.opt))
+                    self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
+                              config, 2)
             else:
-                space_method = asdl_type_map[field.type.value]
-                config = (field.name, space_method)
-                self.emit("w_self.%s = space.%s(w_new_value)" % config, level)
+                level = 2
+                if field.opt and field.type.value != "int":
+                    self.emit("if space.is_w(w_new_value, space.w_None):", 2)
+                    self.emit("w_self.%s = None" % (field.name,), 3)
+                    level += 1
+                    self.emit("else:", 2)
+                if field.type.value in ("object", "string"):
+                    self.emit("w_self.%s = w_new_value" % (field.name,), level)
+                else:
+                    space_method = asdl_type_map[field.type.value]
+                    config = (field.name, space_method)
+                    self.emit("w_self.%s = space.%s(w_new_value)" % config, level)
+            self.emit("except OperationError, e:", 1)
+            self.emit("    if not e.match(space, space.w_TypeError):", 1)
+            self.emit("        raise", 1)
+            self.emit("    w_self.setdictvalue(space, '%s', w_new_value)"
+                      % (field.name,), 1)
+            self.emit("    return", 1)
         self.emit("w_self.initialization_state |= %s" % (flag,), 1)
         self.emit("")
 
@@ -545,10 +533,9 @@ class ASDLData(object):
 
 
 HEAD = """# Generated by tools/asdl_py.py
-from pypy.interpreter.baseobjspace import Wrappable, ObjSpace, W_Root
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.pairtype import extendabletype
@@ -557,7 +544,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 class AST(Wrappable):
 
-    __slots__ = ("initialization_state",)
+    w_dict = None
 
     __metaclass__ = extendabletype
 
@@ -570,13 +557,41 @@ class AST(Wrappable):
     def sync_app_attrs(self, space):
         raise NotImplementedError
 
+    def getdict(self, space):
+        if self.w_dict is None:
+            self.w_dict = space.newdict(instance=True)
+        return self.w_dict
+
+    def reduce_w(self, space):
+        w_dict = self.w_dict
+        if w_dict is None:
+            w_dict = space.newdict()
+        w_type = space.type(self)
+        w_fields = w_type.getdictvalue(space, "_fields")
+        for w_name in space.fixedview(w_fields):
+            space.setitem(w_dict, w_name,
+                          space.getattr(self, w_name))
+        w_attrs = space.findattr(w_type, space.wrap("_attributes"))
+        if w_attrs:
+            for w_name in space.fixedview(w_attrs):
+                space.setitem(w_dict, w_name,
+                              space.getattr(self, w_name))
+        return space.newtuple([space.type(self),
+                               space.newtuple([]),
+                               w_dict])
+
+    def setstate_w(self, space, w_state):
+        for w_name in space.unpackiterable(w_state):
+            space.setattr(self, w_name,
+                          space.getitem(w_state, w_name))
+
 
 class NodeVisitorNotImplemented(Exception):
     pass
 
 
 class _FieldsWrapper(Wrappable):
-    "Hack around the fact we can't store tuples on a TypeDef."
+    "Hack around the fact we can\'t store tuples on a TypeDef."
 
     def __init__(self, fields):
         self.fields = fields
@@ -590,15 +605,27 @@ def get_AST_new(node_class):
         node = space.allocate_instance(node_class, w_type)
         node.initialization_state = 0
         return space.wrap(node)
-    generic_AST_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
     return func_with_new_name(generic_AST_new, "new_%s" % node_class.__name__)
 
+def AST_init(space, w_self, __args__):
+    args_w, kwargs_w = __args__.unpack()
+    if args_w and len(args_w) != 0:
+        w_err = space.wrap("_ast.AST constructor takes 0 positional arguments")
+        raise OperationError(space.w_TypeError, w_err)
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
 
 AST.typedef = typedef.TypeDef("AST",
     _fields=_FieldsWrapper([]),
     _attributes=_FieldsWrapper([]),
+    __module__='_ast',
+    __reduce__=interp2app(AST.reduce_w),
+    __setstate__=interp2app(AST.setstate_w),
+    __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,
+                                      typedef.descr_set_dict, cls=AST),
+    __new__=interp2app(get_AST_new(AST)),
+    __init__=interp2app(AST_init),
 )
-AST.typedef.acceptable_as_base_class = False
 
 
 def missing_field(space, state, required, host):
@@ -607,7 +634,7 @@ def missing_field(space, state, required, host):
         if not (state >> i) & 1:
             missing = required[i]
             if missing is not None:
-                 err = "required attribute '%s' missing from %s"
+                 err = "required field \\"%s\\" missing from %s"
                  err = err % (missing, host)
                  w_err = space.wrap(err)
                  raise OperationError(space.w_TypeError, w_err)

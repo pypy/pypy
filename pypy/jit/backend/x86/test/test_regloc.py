@@ -21,10 +21,12 @@ def test_mov_16():
     assert_encodes_as(cb32, "MOV16", (ecx, ImmedLoc(12345)), '\x66\xB9\x39\x30')
 
     # 64-bit
-    assert_encodes_as(cb64, "MOV16", (ecx, ebx), '\x66\x89\xD9')
+    assert_encodes_as(cb64, "MOV16", (r8, ebx), '\x66\x41\x89\xD8')  # 11 011 000
+    assert_encodes_as(cb64, "MOV16", (ebx, r8), '\x66\x44\x89\xC3')  # 11 000 011
+    assert_encodes_as(cb64, "MOV16", (ecx, ebx), '\x66\x40\x89\xD9')
     # XXX: What we are testing for here is actually not the most compact
     # encoding.
-    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(12345)), '\x66\xC7\xC1\x39\x30')
+    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(12345)), '\x66\x40\xC7\xC1\x39\x30')
     assert_encodes_as(cb64, "MOV16", (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)), '\x66\x41\xC7\x45\x00\x39\x30')
 
 def test_cmp_16():
@@ -33,8 +35,10 @@ def test_cmp_16():
     assert_encodes_as(cb32, "CMP16", (ecx, ImmedLoc(12345)), '\x66\x81\xF9\x39\x30')
 
     # 64-bit
-    assert_encodes_as(cb64, "CMP16", (ecx, ebx), '\x66\x39\xD9')
-    assert_encodes_as(cb64, "CMP16", (ecx, ImmedLoc(12345)), '\x66\x81\xF9\x39\x30')
+    assert_encodes_as(cb64, "CMP16", (r8, ebx), '\x66\x41\x39\xD8')  # 11 011 000
+    assert_encodes_as(cb64, "CMP16", (ebx, r8), '\x66\x44\x39\xC3')  # 11 000 011
+    assert_encodes_as(cb64, "CMP16", (ecx, ebx), '\x66\x40\x39\xD9')
+    assert_encodes_as(cb64, "CMP16", (ecx, ImmedLoc(12345)), '\x66\x40\x81\xF9\x39\x30')
     assert_encodes_as(cb64, "CMP16", (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)), '\x66\x41\x81\x7D\x00\x39\x30')
 
 def test_relocation():

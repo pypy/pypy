@@ -227,11 +227,12 @@ class MatchResult(object):
     subresult = None
 
     def move_to_next_result(self, ctx):
+        # returns either 'self' or None
         result = self.subresult
         if result is None:
             return
         if result.move_to_next_result(ctx):
-            return result
+            return self
         return self.find_next_result(ctx)
 
     def find_next_result(self, ctx):
@@ -385,10 +386,13 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
                 marks = p.marks
                 enum = p.enum.move_to_next_result(ctx)
             #
+            # zero-width match protection
             min = ctx.pat(ppos+1)
-            if (enum is not None and
-                (ptr != ctx.match_end or self.num_pending < min)):
-                #               ^^^^^^^^^^ zero-width match protection
+            if self.num_pending >= min:
+                while enum is not None and ptr == ctx.match_end:
+                    enum = enum.move_to_next_result(ctx)
+            #
+            if enum is not None:
                 # matched one more 'item'.  record it and continue.
                 self.pending = Pending(ptr, marks, enum, self.pending)
                 self.num_pending += 1
@@ -436,12 +440,15 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
             if max == 65535 or self.num_pending < max:
                 # try to match one more 'item'
                 enum = sre_match(ctx, ppos + 3, ptr, marks)
+                #
+                # zero-width match protection
+                if self.num_pending >= min:
+                    while enum is not None and ptr == ctx.match_end:
+                        enum = enum.move_to_next_result(ctx)
             else:
                 enum = None    # 'max' reached, no more matches
 
-            while (enum is None or
-                   (ptr == ctx.match_end and self.num_pending >= min)):
-                #                   ^^^^^^^^^^ zero-width match protection
+            while enum is None:
                 # 'item' does not match; try to get further results from
                 # the 'pending' list.
                 p = self.pending
@@ -802,7 +809,7 @@ def _make_fre(checkerfn):
         def fre(ctx, ptr, end, ppos):
             return end
     elif checkerfn == match_IN:
-        install_jitdriver_spec('MatchIn', 
+        install_jitdriver_spec('MatchIn',
                                greens=['ppos', 'ctx.pattern'],
                                reds=['ptr', 'end', 'ctx'],
                                debugprint=(1, 0))
@@ -816,7 +823,7 @@ def _make_fre(checkerfn):
                 else:
                     return ptr
     elif checkerfn == match_IN_IGNORE:
-        install_jitdriver_spec('MatchInIgnore', 
+        install_jitdriver_spec('MatchInIgnore',
                                greens=['ppos', 'ctx.pattern'],
                                reds=['ptr', 'end', 'ctx'],
                                debugprint=(1, 0))

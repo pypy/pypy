@@ -1,9 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.lltype import Ptr, FuncType, Void
-from pypy.module.cpyext.api import cpython_struct, \
-    PyVarObjectFields, Py_ssize_t, Py_TPFLAGS_READYING, \
-    Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE, \
-    PyTypeObject, PyTypeObjectPtr, PyBufferProcs
+from pypy.module.cpyext.api import (cpython_struct, Py_ssize_t, Py_ssize_tP,
+    PyVarObjectFields, PyTypeObject, PyTypeObjectPtr, FILEP,
+    Py_TPFLAGS_READYING, Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
 
@@ -11,9 +10,9 @@ from pypy.module.cpyext.modsupport import PyMethodDef
 P, FT, PyO = Ptr, FuncType, PyObject
 PyOPtr = Ptr(lltype.Array(PyO, hints={'nolength': True}))
 
-freefunc = P(FT([rffi.VOIDP_real], Void))
+freefunc = P(FT([rffi.VOIDP], Void))
 destructor = P(FT([PyO], Void))
-printfunc = P(FT([PyO, rffi.VOIDP_real, rffi.INT_real], rffi.INT))
+printfunc = P(FT([PyO, FILEP, rffi.INT_real], rffi.INT))
 getattrfunc = P(FT([PyO, rffi.CCHARP], PyO))
 getattrofunc = P(FT([PyO, PyO], PyO))
 setattrfunc = P(FT([PyO, rffi.CCHARP, PyO], rffi.INT_real))
@@ -46,14 +45,22 @@ ssizessizeobjargproc = P(FT([PyO, Py_ssize_t, Py_ssize_t, PyO], rffi.INT_real))
 objobjargproc = P(FT([PyO, PyO, PyO], rffi.INT_real))
 
 objobjproc = P(FT([PyO, PyO], rffi.INT_real))
-visitproc = P(FT([PyO, rffi.VOIDP_real], rffi.INT_real))
-traverseproc = P(FT([PyO, visitproc, rffi.VOIDP_real], rffi.INT_real))
+visitproc = P(FT([PyO, rffi.VOIDP], rffi.INT_real))
+traverseproc = P(FT([PyO, visitproc, rffi.VOIDP], rffi.INT_real))
 
-getter = P(FT([PyO, rffi.VOIDP_real], PyO))
-setter = P(FT([PyO, PyO, rffi.VOIDP_real], rffi.INT_real))
+getter = P(FT([PyO, rffi.VOIDP], PyO))
+setter = P(FT([PyO, PyO, rffi.VOIDP], rffi.INT_real))
 
-wrapperfunc = P(FT([PyO, PyO, rffi.VOIDP_real], PyO))
-wrapperfunc_kwds = P(FT([PyO, PyO, rffi.VOIDP_real, PyO], PyO))
+wrapperfunc = P(FT([PyO, PyO, rffi.VOIDP], PyO))
+wrapperfunc_kwds = P(FT([PyO, PyO, rffi.VOIDP, PyO], PyO))
+
+readbufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
+writebufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
+segcountproc = P(FT([PyO, Py_ssize_tP], Py_ssize_t))
+charbufferproc = P(FT([PyO, Py_ssize_t, rffi.CCHARPP], Py_ssize_t))
+## We don't support new buffer interface for now
+getbufferproc = rffi.VOIDP
+releasebufferproc = rffi.VOIDP
 
 
 PyGetSetDef = cpython_struct("PyGetSetDef", (
@@ -61,7 +68,7 @@ PyGetSetDef = cpython_struct("PyGetSetDef", (
     ("get", getter),
     ("set", setter),
     ("doc", rffi.CCHARP),
-    ("closure", rffi.VOIDP_real),
+    ("closure", rffi.VOIDP),
 ))
 
 PyNumberMethods = cpython_struct("PyNumberMethods", (
@@ -127,7 +134,6 @@ PyMappingMethods = cpython_struct("PyMappingMethods", (
     ("mp_ass_subscript", objobjargproc),
 ))
 
-"""
 PyBufferProcs = cpython_struct("PyBufferProcs", (
     ("bf_getreadbuffer", readbufferproc),
     ("bf_getwritebuffer", writebufferproc),
@@ -136,7 +142,6 @@ PyBufferProcs = cpython_struct("PyBufferProcs", (
     ("bf_getbuffer", getbufferproc),
     ("bf_releasebuffer", releasebufferproc),
 ))
-"""
 
 PyMemberDef = cpython_struct("PyMemberDef", (
     ("name", rffi.CCHARP),

@@ -49,7 +49,7 @@ def test_immutable_fields():
     accessor = rclass.FieldListAccessor()
     S2 = lltype.GcStruct('S2', ('x', lltype.Signed),
                          hints={'immutable_fields': accessor})
-    accessor.initialize(S2, {'x': ''})
+    accessor.initialize(S2, {'x': rclass.IR_IMMUTABLE})
     test_simple(S2)
 
 
@@ -183,27 +183,6 @@ def xxx_test_later_along_link():
                               'int_sub': 1}
     check_graph(graph, [-1], 124, t)
     check_graph(graph, [0], 61, t)
-
-
-def test_keepalive_const_substruct():
-    py.test.skip("do we want partial folding of getinteriorfield?")
-    S2 = lltype.Struct('S2', ('x', lltype.Signed))
-    S1 = lltype.GcStruct('S1', ('sub', S2))
-    s1 = lltype.malloc(S1)
-    s1.sub.x = 1234
-    def fn():
-        return s1.sub.x
-    graph, t = get_graph(fn, [])
-    assert summary(graph) == {'getinteriorfield': 1}
-    constant_fold_graph(graph)
-
-    # kill all references to 's1'
-    s1 = fn = None
-    del graph.func
-    import gc; gc.collect()
-
-    assert summary(graph) == {'getfield': 1}
-    check_graph(graph, [], 1234, t)
 
 
 def test_keepalive_const_fieldptr():

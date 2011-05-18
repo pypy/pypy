@@ -5,13 +5,13 @@ however, is the correct handling of GC, i.e. if objects are freed as
 soon as possible (at least in a simple case).
 """
 
-import weakref, random
-import py
+import weakref
+import py, os
 from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.jit import JitDriver, OPTIMIZER_SIMPLE, dont_look_inside
+from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.jit import purefunction, unroll_safe
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
@@ -72,6 +72,20 @@ def get_entry(g):
     return entrypoint
 
 
+def get_functions_to_patch():
+    from pypy.jit.backend.llsupport import gc
+    #
+    can_inline_malloc1 = gc.GcLLDescr_framework.can_inline_malloc
+    def can_inline_malloc2(*args):
+        try:
+            if os.environ['PYPY_NO_INLINE_MALLOC']:
+                return False
+        except KeyError:
+            pass
+        return can_inline_malloc1(*args)
+    #
+    return {(gc.GcLLDescr_framework, 'can_inline_malloc'): can_inline_malloc2}
+
 def compile(f, gc, **kwds):
     from pypy.annotation.listdef import s_list_of_strings
     from pypy.translator.translator import TranslationContext
@@ -87,8 +101,21 @@ def compile(f, gc, **kwds):
     ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
     ann.build_types(f, [s_list_of_strings], main_entry_point=True)
     t.buildrtyper().specialize()
+
     if kwds['jit']:
-        apply_jit(t, optimizer=OPTIMIZER_SIMPLE)
+        patch = get_functions_to_patch()
+        old_value = {}
+        try:
+            for (obj, attr), value in patch.items():
+                old_value[obj, attr] = getattr(obj, attr)
+                setattr(obj, attr, value)
+            #
+            apply_jit(t, enable_opts='')
+            #
+        finally:
+            for (obj, attr), oldvalue in old_value.items():
+                setattr(obj, attr, oldvalue)
+
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
     cbuilder.generate_source()
     cbuilder.compile()
@@ -127,7 +154,7 @@ def test_compile_boehm():
 
 # ______________________________________________________________________
 
-class TestCompileFramework(object):
+class CompileFrameworkTests(object):
     # Test suite using (so far) the minimark GC.
     def setup_class(cls):
         funcs = []
@@ -158,7 +185,7 @@ class TestCompileFramework(object):
             x.foo = 5
             return weakref.ref(x)
         def main_allfuncs(name, n, x):
-            num = name_to_func[name]            
+            num = name_to_func[name]
             n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s = funcs[num][0](n, x)
             while n > 0:
                 myjitdriver.can_enter_jit(num=num, n=n, x=x, x0=x0, x1=x1,
@@ -178,15 +205,21 @@ class TestCompileFramework(object):
         try:
             GcLLDescr_framework.DEBUG = True
             cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
-                                   gcrootfinder="asmgcc", jit=True)
+                                   gcrootfinder=cls.gcrootfinder, jit=True)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
+    def _run(self, name, n, env):
+        res = self.cbuilder.cmdexec("%s %d" %(name, n), env=env)
+        assert int(res) == 20
+
     def run(self, name, n=2000):
         pypylog = udir.join('TestCompileFramework.log')
-        res = self.cbuilder.cmdexec("%s %d" %(name, n),
-                                    env={'PYPYLOG': ':%s' % pypylog})
-        assert int(res) == 20
+        env = {'PYPYLOG': ':%s' % pypylog,
+               'PYPY_NO_INLINE_MALLOC': '1'}
+        self._run(name, n, env)
+        env['PYPY_NO_INLINE_MALLOC'] = ''
+        self._run(name, n, env)
 
     def run_orig(self, name, n, x):
         self.main_allfuncs(name, n, x)
@@ -426,7 +459,7 @@ class TestCompileFramework(object):
     def define_compile_framework_external_exception_handling(cls):
         def before(n, x):
             x = X(0)
-            return n, x, None, None, None, None, None, None, None, None, None, None        
+            return n, x, None, None, None, None, None, None, None, None, None, None
 
         @dont_look_inside
         def g(x):
@@ -458,7 +491,7 @@ class TestCompileFramework(object):
 
     def test_compile_framework_external_exception_handling(self):
         self.run('compile_framework_external_exception_handling')
-            
+
     def define_compile_framework_bug1(self):
         @purefunction
         def nonmoving():
@@ -576,3 +609,10 @@ class TestCompileFramework(object):
 
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
+
+
+class TestShadowStack(CompileFrameworkTests):
+    gcrootfinder = "shadowstack"
+
+class TestAsmGcc(CompileFrameworkTests):
+    gcrootfinder = "asmgcc"

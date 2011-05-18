@@ -1,5 +1,5 @@
 import py
-import time, gc
+import time, gc, thread, os
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
 from pypy.module.thread import gil
@@ -19,17 +19,24 @@ def waitfor(space, w_condition, delay=1):
             return
         adaptivedelay *= 1.05
     print '*** timed out ***'
-waitfor.unwrap_spec = [ObjSpace, W_Root, float]
 
+def timeout_killer(pid, delay):
+    def kill():
+        for x in range(delay * 10):
+            time.sleep(0.1)
+            os.kill(pid, 0)
+        os.kill(pid, 9)
+        print "process %s killed!" % (pid,)
+    thread.start_new_thread(kill, ())
 
 class GenericTestThread:
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('thread', 'time'))
+        space = gettestobjspace(usemodules=('thread', 'time', 'signal'))
         cls.space = space
 
         if option.runappdirect:
-            def plain_waitfor(condition, delay=1):
+            def plain_waitfor(self, condition, delay=1):
                 adaptivedelay = 0.04
                 limit = time.time() + NORMAL_TIMEOUT * delay
                 while time.time() <= limit:
@@ -42,8 +49,10 @@ class GenericTestThread:
                 
             cls.w_waitfor = plain_waitfor
         else:
-            cls.w_waitfor = space.wrap(interp2app_temp(waitfor))
+            cls.w_waitfor = space.wrap(lambda self, condition, delay=1: waitfor(space, condition, delay))
         cls.w_busywait = space.appexec([], """():
             import time
             return time.sleep
         """)
+        
+        cls.w_timeout_killer = space.wrap(lambda self, *args, **kwargs: timeout_killer(*args, **kwargs))

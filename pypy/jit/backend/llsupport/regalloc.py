@@ -1,5 +1,5 @@
 
-from pypy.jit.metainterp.history import Const, Box
+from pypy.jit.metainterp.history import Const, Box, REF
 from pypy.rlib.objectmodel import we_are_translated
 
 class TempBox(Box):
@@ -26,16 +26,24 @@ class FrameManager(object):
         res = self.get(box)
         if res is not None:
             return res
+        size = self.frame_size(box.type)
+        self.frame_depth += ((-self.frame_depth) & (size-1))
+        # ^^^ frame_depth is rounded up to a multiple of 'size', assuming
+        # that 'size' is a power of two.  The reason for doing so is to
+        # avoid obscure issues in jump.py with stack locations that try
+        # to move from position (6,7) to position (7,8).
         newloc = self.frame_pos(self.frame_depth, box.type)
         self.frame_bindings[box] = newloc
-        # Objects returned by frame_pos must support frame_size()
-        self.frame_depth += newloc.frame_size()
+        self.frame_depth += size
         return newloc
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
     def frame_pos(loc, type):
         raise NotImplementedError("Purely abstract")
+    @staticmethod
+    def frame_size(type):
+        return 1
 
 class RegisterManager(object):
     """ Class that keeps track of register allocations
@@ -158,9 +166,10 @@ class RegisterManager(object):
 
     def _pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
                                 need_lower_byte=False):
-        """ Silly algorithm.
+        """ Slightly less silly algorithm.
         """
-        candidates = []
+        cur_max_age = -1
+        candidate = None
         for next in self.reg_bindings:
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
@@ -172,8 +181,13 @@ class RegisterManager(object):
                     continue
             if need_lower_byte and reg in self.no_lower_byte_regs:
                 continue
-            return next
-        raise NoVariableToSpill
+            max_age = self.longevity[next][1]
+            if cur_max_age < max_age:
+                cur_max_age = max_age
+                candidate = next
+        if candidate is None:
+            raise NoVariableToSpill
+        return candidate
 
     def force_allocate_reg(self, v, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
@@ -210,40 +224,32 @@ class RegisterManager(object):
         except KeyError:
             return self.frame_manager.loc(box)
 
-    def return_constant(self, v, forbidden_vars=[], selected_reg=None,
-                        imm_fine=True):
-        """ Return the location of the constant v.  If 'imm_fine' is False,
-        or if 'selected_reg' is not None, it will first load its value into
-        a register.  See 'force_allocate_reg' for the meaning of 'selected_reg'
-        and 'forbidden_vars'.
+    def return_constant(self, v, forbidden_vars=[], selected_reg=None):
+        """ Return the location of the constant v.  If 'selected_reg' is
+        not None, it will first load its value into this register.
         """
         self._check_type(v)
         assert isinstance(v, Const)
-        if selected_reg or not imm_fine:
-            # this means we cannot have it in IMM, eh
+        immloc = self.convert_to_imm(v)
+        if selected_reg:
             if selected_reg in self.free_regs:
-                self.assembler.regalloc_mov(self.convert_to_imm(v), selected_reg)
+                self.assembler.regalloc_mov(immloc, selected_reg)
                 return selected_reg
-            if selected_reg is None and self.free_regs:
-                loc = self.free_regs[-1]
-                self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
-                return loc
             loc = self._spill_var(v, forbidden_vars, selected_reg)
             self.free_regs.append(loc)
-            self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
+            self.assembler.regalloc_mov(immloc, loc)
             return loc
-        return self.convert_to_imm(v)
+        return immloc
 
     def make_sure_var_in_reg(self, v, forbidden_vars=[], selected_reg=None,
-                             imm_fine=True, need_lower_byte=False):
+                             need_lower_byte=False):
         """ Make sure that an already-allocated variable v is in some
-        register.  Return the register.  See 'return_constant' and
-        'force_allocate_reg' for the meaning of the optional arguments.
+        register.  Return the register.  See 'force_allocate_reg' for
+        the meaning of the optional arguments.
         """
         self._check_type(v)
         if isinstance(v, Const):
-            return self.return_constant(v, forbidden_vars, selected_reg,
-                                        imm_fine)
+            return self.return_constant(v, forbidden_vars, selected_reg)
         
         prev_loc = self.loc(v)
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
@@ -275,13 +281,12 @@ class RegisterManager(object):
         self._check_type(result_v)
         self._check_type(v)
         if isinstance(v, Const):
-            loc = self.make_sure_var_in_reg(v, forbidden_vars,
-                                            imm_fine=False)
-            # note that calling make_sure_var_in_reg with imm_fine=False
-            # will not allocate place in reg_bindings, we need to do it
-            # on our own
+            if self.free_regs:
+                loc = self.free_regs.pop()
+            else:
+                loc = self._spill_var(v, forbidden_vars, None)
+            self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
             self.reg_bindings[result_v] = loc
-            self.free_regs = [reg for reg in self.free_regs if reg is not loc]
             return loc
         if v not in self.reg_bindings:
             prev_loc = self.frame_manager.loc(v)
@@ -308,11 +313,12 @@ class RegisterManager(object):
             self.assembler.regalloc_mov(reg, to)
         # otherwise it's clean
 
-    def before_call(self, force_store=[], save_all_regs=False):
+    def before_call(self, force_store=[], save_all_regs=0):
         """ Spill registers before a call, as described by
         'self.save_around_call_regs'.  Registers are not spilled if
         they don't survive past the current operation, unless they
-        are listed in 'force_store'.
+        are listed in 'force_store'.  'save_all_regs' can be 0 (default),
+        1 (save all), or 2 (save default+PTRs).
         """
         for v, reg in self.reg_bindings.items():
             if v not in force_store and self.longevity[v][1] <= self.position:
@@ -320,9 +326,11 @@ class RegisterManager(object):
                 del self.reg_bindings[v]
                 self.free_regs.append(reg)
                 continue
-            if not save_all_regs and reg not in self.save_around_call_regs:
-                # we don't have to
-                continue
+            if save_all_regs != 1 and reg not in self.save_around_call_regs:
+                if save_all_regs == 0:
+                    continue    # we don't have to
+                if v.type != REF:
+                    continue    # only save GC pointers
             self._sync_var(v)
             del self.reg_bindings[v]
             self.free_regs.append(reg)

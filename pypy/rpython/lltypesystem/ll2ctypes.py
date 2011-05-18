@@ -3,6 +3,9 @@ import sys
 try:
     import ctypes
     import ctypes.util
+
+    if not hasattr(ctypes, 'c_longdouble'):
+        ctypes.c_longdouble = ctypes.c_double
 except ImportError:
     ctypes = None
 
@@ -18,7 +21,7 @@ from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
 from pypy.tool.tls import tlsobject
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, intmask
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -91,6 +94,7 @@ def _setup_ctypes_cache():
         lltype.Char:     ctypes.c_ubyte,
         rffi.DOUBLE:     ctypes.c_double,
         rffi.FLOAT:      ctypes.c_float,
+        rffi.LONGDOUBLE: ctypes.c_longdouble,
         rffi.SIGNEDCHAR: ctypes.c_byte,
         rffi.UCHAR:      ctypes.c_ubyte,
         rffi.SHORT:      ctypes.c_short,
@@ -251,6 +255,9 @@ def get_ctypes_type(T, delayed_builders=None):
         return cls
 
 def build_new_ctypes_type(T, delayed_builders):
+    if isinstance(T, lltype.Typedef):
+        T = T.OF
+
     if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.FuncType):
             argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS
@@ -571,6 +578,7 @@ _all_callbacks = {}
 _all_callbacks_results = []
 _int2obj = {}
 _callback_exc_info = None
+_opaque_objs = [None]
 
 def get_rtyper():
     llinterp = LLInterpreter.current_interpreter
@@ -608,7 +616,11 @@ def lltype2ctypes(llobj, normalize=True):
             container = llobj._obj.container
             T = lltype.Ptr(lltype.typeOf(container))
             # otherwise it came from integer and we want a c_void_p with
-            # the same valu
+            # the same value
+            if getattr(container, 'llopaque', None):
+                no = len(_opaque_objs)
+                _opaque_objs.append(container)
+                return no * 2 + 1
         else:
             container = llobj._obj
         if isinstance(T.TO, lltype.FuncType):
@@ -754,11 +766,17 @@ def ctypes2lltype(T, cobj):
     """
     if T is lltype.Void:
         return None
+    if isinstance(T, lltype.Typedef):
+        T = T.OF
     if isinstance(T, lltype.Ptr):
-        if not cobj or not ctypes.cast(cobj, ctypes.c_void_p).value:   # NULL pointer
+        ptrval = ctypes.cast(cobj, ctypes.c_void_p).value
+        if not cobj or not ptrval:   # NULL pointer
             # CFunctionType.__nonzero__ is broken before Python 2.6
             return lltype.nullptr(T.TO)
         if isinstance(T.TO, lltype.Struct):
+            if T.TO._gckind == 'gc' and ptrval & 1: # a tagged pointer
+                gcref = _opaque_objs[ptrval // 2].hide()
+                return lltype.cast_opaque_ptr(T, gcref)
             REAL_TYPE = T.TO
             if T.TO._arrayfld is not None:
                 carray = getattr(cobj.contents, T.TO._arrayfld)
@@ -842,6 +860,10 @@ def ctypes2lltype(T, cobj):
         if isinstance(cobj, ctypes.c_float):
             cobj = cobj.value
         llobj = r_singlefloat(cobj)
+    elif T is lltype.LongFloat:
+        if isinstance(cobj, ctypes.c_longdouble):
+            cobj = cobj.value
+        llobj = r_longfloat(cobj)
     elif T is lltype.Void:
         llobj = cobj
     else:
@@ -948,13 +970,13 @@ def get_ctypes_callable(funcptr, calling_conv):
     old_eci = funcptr._obj.compilation_info
     funcname = funcptr._obj._name
     if hasattr(old_eci, '_with_ctypes'):
-        eci = old_eci._with_ctypes
-    else:
-        try:
-            eci = _eci_cache[old_eci]
-        except KeyError:
-            eci = old_eci.compile_shared_lib()
-            _eci_cache[old_eci] = eci
+        old_eci = old_eci._with_ctypes
+
+    try:
+        eci = _eci_cache[old_eci]
+    except KeyError:
+        eci = old_eci.compile_shared_lib()
+        _eci_cache[old_eci] = eci
 
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks
 
@@ -1018,7 +1040,10 @@ def get_ctypes_callable(funcptr, calling_conv):
             funcname, place))
 
     # get_ctypes_type() can raise NotImplementedError too
-    cfunc.argtypes = [get_ctypes_type(T) for T in FUNCTYPE.ARGS
+    from pypy.rpython.lltypesystem import rffi
+    cfunc.argtypes = [get_ctypes_type(T) if T is not rffi.VOIDP
+                                         else ctypes.c_void_p
+                      for T in FUNCTYPE.ARGS
                       if not T is lltype.Void]
     if FUNCTYPE.RESULT is lltype.Void:
         cfunc.restype = None
@@ -1212,7 +1237,9 @@ class _llgcopaque(lltype._container):
         return not self == other
 
     def _cast_to_ptr(self, PTRTYPE):
-         return force_cast(PTRTYPE, self.intval)
+        if self.intval & 1:
+            return _opaque_objs[self.intval // 2]
+        return force_cast(PTRTYPE, self.intval)
 
 ##     def _cast_to_int(self):
 ##         return self.intval

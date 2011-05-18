@@ -42,6 +42,8 @@ class AppTestBisect:
         assert bisect_left(a, 6, 0, 3) == 1
         assert bisect_left(a, 6, 0, 4) == 1
 
+        raises(ValueError, bisect_left, [1, 2, 3], 5, -1, 3)
+
     def test_bisect_right(self):
         from _bisect import bisect_right
         a = [0, 5, 6, 6, 6, 7]

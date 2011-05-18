@@ -6,6 +6,7 @@
 from pypy.jit.codewriter import support
 from pypy.jit.codewriter.jitcode import JitCode
 from pypy.jit.codewriter.effectinfo import VirtualizableAnalyzer
+from pypy.jit.codewriter.effectinfo import QuasiImmutAnalyzer
 from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze
 from pypy.jit.codewriter.effectinfo import EffectInfo, CallInfoCollection
 from pypy.translator.simplify import get_funcobj, get_functype
@@ -30,6 +31,7 @@ class CallControl(object):
             self.raise_analyzer = RaiseAnalyzer(translator)
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
+            self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
@@ -188,7 +190,8 @@ class CallControl(object):
                                          FUNC.RESULT)
         return (fnaddr, calldescr)
 
-    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE):
+    def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
+                     extraeffect=None):
         """Return the calldescr that describes all calls done by 'op'.
         This returns a calldescr that we can put in the corresponding
         call operation in the calling jitcode.  It gets an effectinfo
@@ -216,25 +219,30 @@ class CallControl(object):
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
         # build the extraeffect
-        if self.virtualizable_analyzer.analyze(op):
-            extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
-        elif loopinvariant:
-            extraeffect = EffectInfo.EF_LOOPINVARIANT
-        elif pure:
-            # XXX check what to do about exceptions (also MemoryError?)
-            extraeffect = EffectInfo.EF_PURE
-        elif self._canraise(op):
-            extraeffect = EffectInfo.EF_CAN_RAISE
-        else:
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        can_invalidate = self.quasiimmut_analyzer.analyze(op)
+        if extraeffect is None:
+            if self.virtualizable_analyzer.analyze(op):
+                extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            elif loopinvariant:
+                extraeffect = EffectInfo.EF_LOOPINVARIANT
+            elif pure:
+                # XXX check what to do about exceptions (also MemoryError?)
+                extraeffect = EffectInfo.EF_PURE
+            elif self._canraise(op):
+                extraeffect = EffectInfo.EF_CAN_RAISE
+            else:
+                extraeffect = EffectInfo.EF_CANNOT_RAISE
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex)
+            oopspecindex, can_invalidate)
         #
         if pure or loopinvariant:
             assert effectinfo is not None
             assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            # XXX this should also say assert not can_invalidate, but
+            #     it can't because our analyzer is not good enough for now
+            #     (and getexecutioncontext() can't really invalidate)
         #
         return self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT,
                                     effectinfo)

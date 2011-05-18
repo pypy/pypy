@@ -1,9 +1,9 @@
 import py
-from pypy.rlib.jit import JitDriver, we_are_jitted, OPTIMIZER_SIMPLE, hint
+from pypy.rlib.jit import JitDriver, we_are_jitted, hint
 from pypy.rlib.jit import unroll_safe, dont_look_inside
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rpython.annlowlevel import hlstr
 from pypy.jit.metainterp.warmspot import get_stats
@@ -25,7 +25,7 @@ class RecursiveTests:
                 return f(n+1)
             else:
                 return 1
-        res = self.meta_interp(main, [20], optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(main, [20], enable_opts='')
         assert res == main(20)
         self.check_history(call=0)
 
@@ -52,7 +52,7 @@ class RecursiveTests:
                 return f(n+1)
             else:
                 return 1
-        res = self.meta_interp(main, [20], optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(main, [20], enable_opts='')
         assert res == main(20)
 
     def test_recursion_three_times(self):
@@ -75,7 +75,7 @@ class RecursiveTests:
         print
         for i in range(1, 11):
             print '%3d %9d' % (i, f(i))
-        res = self.meta_interp(main, [10], optimizer=OPTIMIZER_SIMPLE)
+        res = self.meta_interp(main, [10], enable_opts='')
         assert res == main(10)
         self.check_enter_count_at_most(11)
 
@@ -95,7 +95,7 @@ class RecursiveTests:
                 opaque(n, i)
                 i += 1
             return stack.pop()
-        res = self.meta_interp(f, [1], optimizer=OPTIMIZER_SIMPLE, repeat=2,
+        res = self.meta_interp(f, [1], enable_opts='', repeat=2,
                                policy=StopAtXPolicy(opaque))
         assert res == 1
 
@@ -142,9 +142,9 @@ class RecursiveTests:
         codes = [code, subcode]
         f = self.get_interpreter(codes)
 
-        assert self.meta_interp(f, [0, 0, 0], optimizer=OPTIMIZER_SIMPLE) == 42
+        assert self.meta_interp(f, [0, 0, 0], enable_opts='') == 42
         self.check_loops(int_add = 1, call_may_force = 1, call = 0)
-        assert self.meta_interp(f, [0, 0, 0], optimizer=OPTIMIZER_SIMPLE,
+        assert self.meta_interp(f, [0, 0, 0], enable_opts='',
                                 inline=True) == 42
         self.check_loops(int_add = 2, call_may_force = 0, call = 0,
                          guard_no_exception = 0)
@@ -156,7 +156,7 @@ class RecursiveTests:
 
         f = self.get_interpreter(codes)
 
-        assert self.meta_interp(f, [0, 0, 0], optimizer=OPTIMIZER_SIMPLE,
+        assert self.meta_interp(f, [0, 0, 0], enable_opts='',
                                 inline=True) == 42
         # the call is fully inlined, because we jump to subcode[1], thus
         # skipping completely the JUMP_BACK in subcode[0]
@@ -193,7 +193,7 @@ class RecursiveTests:
         def main(n):
             return f("c-l", n)
         print main(100)
-        res = self.meta_interp(main, [100], optimizer=OPTIMIZER_SIMPLE, inline=True)
+        res = self.meta_interp(main, [100], enable_opts='', inline=True)
         assert res == 0
 
     def test_guard_failure_and_then_exception_in_inlined_function(self):
@@ -234,7 +234,7 @@ class RecursiveTests:
         def main(n):
             return f("c-l", n)
         print main(1000)
-        res = self.meta_interp(main, [1000], optimizer=OPTIMIZER_SIMPLE, inline=True)
+        res = self.meta_interp(main, [1000], enable_opts='', inline=True)
         assert res == main(1000)
 
     def test_exception_in_inlined_function(self):
@@ -274,7 +274,7 @@ class RecursiveTests:
             return n
         def main(n):
             return f("c-l", n)
-        res = self.meta_interp(main, [100], optimizer=OPTIMIZER_SIMPLE, inline=True)
+        res = self.meta_interp(main, [100], enable_opts='', inline=True)
         assert res == main(100)
 
     def test_recurse_during_blackholing(self):
@@ -312,7 +312,7 @@ class RecursiveTests:
             myjitdriver.set_param('trace_eagerness', 5)            
             return f("c-l", n)
         expected = main(100)
-        res = self.meta_interp(main, [100], optimizer=OPTIMIZER_SIMPLE, inline=True)
+        res = self.meta_interp(main, [100], enable_opts='', inline=True)
         assert res == expected
 
     def check_max_trace_length(self, length):
@@ -338,7 +338,7 @@ class RecursiveTests:
                 n -= 1
             return n
         TRACE_LIMIT = 66
-        res = self.meta_interp(loop, [100], optimizer=OPTIMIZER_SIMPLE, inline=True, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(loop, [100], enable_opts='', inline=True, trace_limit=TRACE_LIMIT)
         assert res == 0
         self.check_max_trace_length(TRACE_LIMIT)
         self.check_enter_count_at_most(10) # maybe
@@ -363,7 +363,7 @@ class RecursiveTests:
                 n -= 1
             return n
         TRACE_LIMIT = 20
-        res = self.meta_interp(loop, [100], optimizer=OPTIMIZER_SIMPLE, inline=True, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(loop, [100], enable_opts='', inline=True, trace_limit=TRACE_LIMIT)
         self.check_max_trace_length(TRACE_LIMIT)
         self.check_aborted_count(8)
         self.check_enter_count_at_most(30)
@@ -489,10 +489,10 @@ class RecursiveTests:
                 myjitdriver.set_param('inlining', False)
             return loop(100)
 
-        res = self.meta_interp(main, [0], optimizer=OPTIMIZER_SIMPLE, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(main, [0], enable_opts='', trace_limit=TRACE_LIMIT)
         self.check_loops(call_may_force=1, call=0)
 
-        res = self.meta_interp(main, [1], optimizer=OPTIMIZER_SIMPLE, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(main, [1], enable_opts='', trace_limit=TRACE_LIMIT)
         self.check_loops(call_may_force=0, call=0)
 
     def test_trace_from_start(self):
@@ -1070,7 +1070,7 @@ class RecursiveTests:
         assert portal(0, 1) == 2095
         res = self.meta_interp(portal, [0, 1], inline=True)
         assert res == 2095
-        self.check_loops(call_assembler=6, everywhere=True)
+        self.check_loops(call_assembler=12, everywhere=True)
 
     def test_inline_with_hitting_the_loop_sometimes_exc(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
@@ -1108,7 +1108,7 @@ class RecursiveTests:
         assert main(0, 1) == 2095
         res = self.meta_interp(main, [0, 1], inline=True)
         assert res == 2095
-        self.check_loops(call_assembler=6, everywhere=True)
+        self.check_loops(call_assembler=12, everywhere=True)
 
     def test_handle_jitexception_in_portal(self):
         # a test for _handle_jitexception_in_portal in blackhole.py
@@ -1145,6 +1145,40 @@ class RecursiveTests:
             print 'tlimit =', tlimit
             res = self.meta_interp(main, [], inline=True, trace_limit=tlimit)
             assert ''.join(res.chars) == 'ABCDEFGHIabcdefghijJ' * 5
+
+    def test_handle_jitexception_in_portal_returns_void(self):
+        # a test for _handle_jitexception_in_portal in blackhole.py
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 'str'],
+                           get_printable_location = lambda codeno: str(codeno))
+        def do_can_enter_jit(codeno, i, str):
+            i = (i+1)-1    # some operations
+            driver.can_enter_jit(codeno=codeno, i=i, str=str)
+        def intermediate(codeno, i, str):
+            if i == 9:
+                do_can_enter_jit(codeno, i, str)
+        def portal(codeno, str):
+            i = value.initial
+            while i < 10:
+                intermediate(codeno, i, str)
+                driver.jit_merge_point(codeno=codeno, i=i, str=str)
+                i += 1
+                if codeno == 64 and i == 10:
+                    portal(96, str)
+                str += chr(codeno+i)
+        class Value:
+            initial = -1
+        value = Value()
+        def main():
+            value.initial = 0
+            portal(64, '')
+            portal(64, '')
+            portal(64, '')
+            portal(64, '')
+            portal(64, '')
+        main()
+        for tlimit in [95, 90, 102]:
+            print 'tlimit =', tlimit
+            self.meta_interp(main, [], inline=True, trace_limit=tlimit)
 
     def test_no_duplicates_bug(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i'],

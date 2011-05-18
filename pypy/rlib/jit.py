@@ -2,7 +2,7 @@ import py
 import sys
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.nonconst import NonConstant
 
@@ -25,7 +25,14 @@ def hint(x, **kwds):
     """ Hint for the JIT
 
     possible arguments are:
-    XXX
+
+    * promote - promote the argument from a variable into a constant
+    * access_directly - directly access a virtualizable, as a structure
+                        and don't treat it as a virtualizable
+    * fresh_virtualizable - means that virtualizable was just allocated.
+                            Useful in say Frame.__init__ when we do want
+                            to store things directly on it. Has to come with
+                            access_directly=True
     """
     return x
 
@@ -106,7 +113,7 @@ class Entry(ExtRegistryEntry):
                         flags['fresh_virtualizable'] = True
                     s_x = annmodel.SomeInstance(s_x.classdef,
                                                 s_x.can_be_None,
-                                                flags)        
+                                                flags)
         return s_x
 
     def specialize_call(self, hop, **kwds_i):
@@ -172,29 +179,11 @@ class AssertGreenFailed(Exception):
     pass
 
 
-##def force_virtualizable(virtualizable):
-##    pass
-
-##class Entry(ExtRegistryEntry):
-##    _about_ = force_virtualizable
-
-##    def compute_result_annotation(self):
-##        from pypy.annotation import model as annmodel
-##        return annmodel.s_None
-
-##    def specialize_call(self, hop):
-##        [vinst] = hop.inputargs(hop.args_r[0])
-##        cname = inputconst(lltype.Void, None)
-##        cflags = inputconst(lltype.Void, {})
-##        hop.exception_cannot_occur()
-##        return hop.genop('jit_force_virtualizable', [vinst, cname, cflags],
-##                         resulttype=lltype.Void)
-
 # ____________________________________________________________
 # VRefs
 
 def virtual_ref(x):
-    
+
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
     is that the object 'x' is supposed to be JITted as a virtual between
@@ -251,27 +240,24 @@ class Entry(ExtRegistryEntry):
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
-# User interface for the hotpath JIT policy
+# User interface for the warmspot JIT policy
 
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-OPTIMIZER_SIMPLE = 0
-OPTIMIZER_NO_UNROLL = 1
-OPTIMIZER_FULL = 2
-
 PARAMETERS = {'threshold': 1000,
               'trace_eagerness': 200,
-              'trace_limit': 10000,
-              'inlining': False,
-              'optimizer': OPTIMIZER_FULL,
+              'trace_limit': 12000,
+              'inlining': 0,
               'loop_longevity': 1000,
+              'retrace_limit': 5,
+              'enable_opts': None, # patched later by optimizeopt/__init__.py
               }
-unroll_parameters = unrolling_iterable(PARAMETERS.keys())
+unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
 # ____________________________________________________________
 
-class JitDriver:    
+class JitDriver(object):
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
     will allow us (later) to support a single RPython program with
@@ -324,14 +310,14 @@ class JitDriver:
         # (internal, must receive a constant 'name')
         assert name in PARAMETERS
 
+    @specialize.arg(0, 1)
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""
-        for name1 in unroll_parameters:
+        for name1, _ in unroll_parameters:
             if name1 == name:
                 self._set_param(name1, value)
                 return
         raise ValueError("no such parameter")
-    set_param._annspecialcase_ = 'specialize:arg(0)'
 
     def set_user_param(self, text):
         """Set the tunable JIT parameters from a user-supplied string
@@ -343,12 +329,17 @@ class JitDriver:
             parts = s.split('=')
             if len(parts) != 2:
                 raise ValueError
-            try:
-                value = int(parts[1])
-            except ValueError:
-                raise    # re-raise the ValueError (annotator hint)
             name = parts[0]
-            self.set_param(name, value)
+            value = parts[1]
+            if name == 'enable_opts':
+                self.set_param('enable_opts', value)
+            else:
+                for name1, _ in unroll_parameters:
+                    if name1 == name and name1 != 'enable_opts':
+                        try:
+                            self.set_param(name1, int(value))
+                        except ValueError:
+                            raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
     def _make_extregistryentries(self):
@@ -448,6 +439,12 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
 
+    def get_getfield_op(self, rtyper):
+        if rtyper.type_system.name == 'ootypesystem':
+            return 'oogetfield'
+        else:
+            return 'getfield'
+
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
         # of the variables are the same for each of the calls.
@@ -462,8 +459,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 r_green = hop.args_r[i]
                 v_green = hop.inputarg(r_green, arg=i)
             else:
-                if hop.rtyper.type_system.name == 'ootypesystem':
-                    py.test.skip("lltype only")
                 objname, fieldname = name.split('.')   # see test_green_field
                 assert objname in driver.reds
                 i = kwds_i['i_' + objname]
@@ -479,7 +474,10 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                         "field %r not found in %r" % (name,
                                                       r_red.lowleveltype.TO))
                     r_red = r_red.rbase
-                GTYPE = r_red.lowleveltype.TO
+                if hop.rtyper.type_system.name == 'ootypesystem':
+                    GTYPE = r_red.lowleveltype
+                else:
+                    GTYPE = r_red.lowleveltype.TO
                 assert GTYPE._immutable_field(mangled_name), (
                     "field %r must be declared as immutable" % name)
                 if not hasattr(driver, 'll_greenfields'):
@@ -488,7 +486,8 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 #
                 v_red = hop.inputarg(r_red, arg=i)
                 c_llname = hop.inputconst(lltype.Void, mangled_name)
-                v_green = hop.genop('getfield', [v_red, c_llname],
+                getfield_op = self.get_getfield_op(hop.rtyper)
+                v_green = hop.genop(getfield_op, [v_red, c_llname],
                                     resulttype = r_field)
                 s_green = s_red.classdef.about_attribute(fieldname)
                 assert s_green is not None
@@ -529,15 +528,24 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        assert annmodel.SomeInteger().contains(s_value)
+        if s_name.const == 'enable_opts':
+            assert annmodel.SomeString(can_be_None=True).contains(s_value)
+        else:
+            assert annmodel.SomeInteger().contains(s_value)
         return annmodel.s_None
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.lltypesystem.rstr import string_repr
+
         hop.exception_cannot_occur()
         driver = self.instance.im_self
         name = hop.args_s[0].const
-        v_value = hop.inputarg(lltype.Signed, arg=1)
+        if name == 'enable_opts':
+            repr = string_repr
+        else:
+            repr = lltype.Signed
+        v_value = hop.inputarg(repr, arg=1)
         vlist = [hop.inputconst(lltype.Void, "set_param"),
                  hop.inputconst(lltype.Void, driver),
                  hop.inputconst(lltype.Void, name),

@@ -49,7 +49,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert module.get_hello2() == 'Hello world'
         assert module.test_Size()
         raises(TypeError, module.test_Size_exception)
-    
+
         assert module.test_is_string("")
         assert not module.test_is_string(())
 
@@ -152,7 +152,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ''')
         res = module.test_string_format_v(1, "xyz")
         assert res == "bla 1 ble xyz\n"
-        
+
     def test_format(self):
         module = self.import_extension('foo', [
             ("test_string_format", "METH_VARARGS",
@@ -194,8 +194,8 @@ class TestString(BaseApiTest):
         c_buf = py_str.c_ob_type.c_tp_as_buffer
         assert c_buf
         py_obj = rffi.cast(PyObject, py_str)
-        assert c_buf.c_bf_getsegcount(py_obj, lltype.nullptr(rffi.INTP.TO)) == 1
-        ref = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        assert c_buf.c_bf_getsegcount(py_obj, lltype.nullptr(Py_ssize_tP.TO)) == 1
+        ref = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
         assert c_buf.c_bf_getsegcount(py_obj, ref) == 1
         assert ref[0] == 10
         lltype.free(ref, flavor='raw')
@@ -203,7 +203,7 @@ class TestString(BaseApiTest):
         assert c_buf.c_bf_getreadbuffer(py_obj, 0, ref) == 10
         lltype.free(ref, flavor='raw')
         Py_DecRef(space, py_obj)
-        
+
     def test_Concat(self, space, api):
         ref = make_ref(space, space.wrap('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
@@ -215,7 +215,7 @@ class TestString(BaseApiTest):
         ptr[0] = lltype.nullptr(PyObject.TO)
         api.PyString_Concat(ptr, space.wrap('def')) # should not crash
         lltype.free(ptr, flavor='raw')
-    
+
     def test_ConcatAndDel(self, space, api):
         ref1 = make_ref(space, space.wrap('abc'))
         ref2 = make_ref(space, space.wrap('def'))
@@ -236,7 +236,7 @@ class TestString(BaseApiTest):
             api.PyString_Format(space.wrap('%s %d'), space.wrap((1, 2))))
 
     def test_asbuffer(self, space, api):
-        bufp = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
+        bufp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
         w_text = space.wrap("text")
@@ -253,3 +253,33 @@ class TestString(BaseApiTest):
         w_s2 = api.PyString_InternFromString(buf)
         rffi.free_charp(buf)
         assert w_s1 is w_s2
+
+    def test_AsEncodedObject(self, space, api):
+        ptr = space.wrap('abc')
+
+        errors = rffi.str2charp("strict")
+
+        encoding = rffi.str2charp("hex")
+        res = api.PyString_AsEncodedObject(
+            ptr, encoding, errors)
+        assert space.unwrap(res) == "616263"
+
+        res = api.PyString_AsEncodedObject(
+            ptr, encoding, lltype.nullptr(rffi.CCHARP.TO))
+        assert space.unwrap(res) == "616263"
+        rffi.free_charp(encoding)
+
+        encoding = rffi.str2charp("unknown_encoding")
+        self.raises(space, api, LookupError, api.PyString_AsEncodedObject,
+                    ptr, encoding, errors)
+        rffi.free_charp(encoding)
+
+        rffi.free_charp(errors)
+
+        res = api.PyString_AsEncodedObject(
+            ptr, lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.unwrap(res) == "abc"
+
+        self.raises(space, api, TypeError, api.PyString_AsEncodedObject,
+            space.wrap(2), lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO)
+        )

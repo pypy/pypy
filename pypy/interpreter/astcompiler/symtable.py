@@ -89,8 +89,8 @@ class Scope(object):
         self.has_exec = True
 
     def note_import_star(self, imp):
-        """Called when a start import is found."""
-        pass
+        """Called when a star import is found."""
+        return False
 
     def mangle(self, name):
         if self.parent:
@@ -107,7 +107,7 @@ class Scope(object):
         """Decide on the scope of a name."""
         if flags & SYM_GLOBAL:
             if flags & SYM_PARAM:
-                err = "name '%s' is both local and global" % (name,)
+                err = "name '%s' is local and global" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
             globs[name] = None
@@ -237,6 +237,7 @@ class FunctionScope(Scope):
     def note_import_star(self, imp):
         self.optimized = False
         self.import_star = imp
+        return True
 
     def note_variable_arg(self, vararg):
         self.has_variable_arg = True
@@ -357,8 +358,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(args, ast.arguments)
         if args.defaults:
             self.visit_sequence(args.defaults)
-        if func.decorators:
-            self.visit_sequence(func.decorators)
+        if func.decorator_list:
+            self.visit_sequence(func.decorator_list)
         new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
         self.push_scope(new_scope, func)
         func.args.walkabout(self)
@@ -373,6 +374,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.note_symbol(clsdef.name, SYM_ASSIGNED)
         if clsdef.bases:
             self.visit_sequence(clsdef.bases)
+        if clsdef.decorator_list:
+            self.visit_sequence(clsdef.decorator_list)
         self.push_scope(ClassScope(clsdef), clsdef)
         self.visit_sequence(clsdef.body)
         self.pop_scope()
@@ -380,7 +383,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_ImportFrom(self, imp):
         for alias in imp.names:
             if self._visit_alias(alias):
-                self.scope.note_import_star(imp)
+                if self.scope.note_import_star(imp):
+                    msg = "import * only allowed at module level"
+                    misc.syntax_warning(
+                        self.space, msg, self.compile_info.filename,
+                        imp.lineno, imp.col_offset)
 
     def _visit_alias(self, alias):
         assert isinstance(alias, ast.alias)
@@ -432,23 +439,30 @@ class SymtableBuilder(ast.GenericASTVisitor):
         lamb.body.walkabout(self)
         self.pop_scope()
 
-    def visit_GeneratorExp(self, genexp):
-        outer = genexp.generators[0]
+    def _visit_comprehension(self, node, comps, *consider):
+        outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         outer.iter.walkabout(self)
-        new_scope = FunctionScope("genexp", genexp.lineno, genexp.col_offset)
-        self.push_scope(new_scope, genexp)
+        new_scope = FunctionScope("genexp", node.lineno, node.col_offset)
+        self.push_scope(new_scope, node)
         self.implicit_arg(0)
         outer.target.walkabout(self)
         if outer.ifs:
             self.visit_sequence(outer.ifs)
-        self.visit_sequence(genexp.generators[1:])
-        genexp.elt.walkabout(self)
+        self.visit_sequence(comps[1:])
+        for item in list(consider):
+            item.walkabout(self)
         self.pop_scope()
 
-    def visit_ListComp(self, lc):
-        self.scope.new_temporary_name()
-        ast.GenericASTVisitor.visit_ListComp(self, lc)
+    def visit_GeneratorExp(self, genexp):
+        self._visit_comprehension(genexp, genexp.generators, genexp.elt)
+
+    def visit_SetComp(self, setcomp):
+        self._visit_comprehension(setcomp, setcomp.generators, setcomp.elt)
+
+    def visit_DictComp(self, dictcomp):
+        self._visit_comprehension(dictcomp, dictcomp.generators,
+                                  dictcomp.value, dictcomp.key)
 
     def visit_With(self, wih):
         self.scope.new_temporary_name()

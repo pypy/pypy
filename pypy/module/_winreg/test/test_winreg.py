@@ -58,6 +58,12 @@ class AppTestFfi:
         except WindowsError:
             pass
 
+    def test_constants(self):
+        from _winreg import (
+            HKEY_LOCAL_MACHINE, HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG,
+            HKEY_CURRENT_USER, HKEY_DYN_DATA, HKEY_LOCAL_MACHINE,
+            HKEY_PERFORMANCE_DATA, HKEY_USERS)
+
     def test_simple_write(self):
         from _winreg import SetValue, QueryValue, REG_SZ
         value = "Some Default value"
@@ -68,6 +74,18 @@ class AppTestFfi:
         from _winreg import CreateKey, QueryInfoKey
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, "sub_key")
+
+        nkeys, nvalues, since_mod = QueryInfoKey(key)
+        assert nkeys == 1
+
+        nkeys, nvalues, since_mod = QueryInfoKey(sub_key)
+        assert nkeys == 0
+
+    def test_CreateKeyEx(self):
+        from _winreg import CreateKeyEx, QueryInfoKey
+        from _winreg import KEY_ALL_ACCESS, KEY_READ
+        key = CreateKeyEx(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
+        sub_key = CreateKeyEx(key, "sub_key", 0, KEY_READ)
 
         nkeys, nvalues, since_mod = QueryInfoKey(key)
         assert nkeys == 1
@@ -96,6 +114,15 @@ class AppTestFfi:
         QueryInfoKey(int_key) # still works
         CloseKey(int_key)
         raises(EnvironmentError, QueryInfoKey, int_key) # now closed
+
+    def test_with(self):
+        from _winreg import OpenKey
+        with OpenKey(self.root_key, self.test_key_name) as key:
+            with OpenKey(key, "sub_key") as sub_key:
+                assert key.handle != 0
+                assert sub_key.handle != 0
+        assert key.handle == 0
+        assert sub_key.handle == 0
 
     def test_exception(self):
         from _winreg import QueryInfoKey
@@ -165,3 +192,46 @@ class AppTestFfi:
 
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         SaveKey(key, self.tmpfilename)
+
+    def test_expand_environment_string(self):
+        from _winreg import ExpandEnvironmentStrings
+        import nt
+        r = ExpandEnvironmentStrings(u"%windir%\\test")
+        assert isinstance(r, unicode)
+        assert r == nt.environ["WINDIR"] + "\\test"
+
+    def test_long_key(self):
+        from _winreg import (
+            HKEY_CURRENT_USER, KEY_ALL_ACCESS, CreateKey, SetValue, EnumKey,
+            REG_SZ, QueryInfoKey, OpenKey, DeleteKey)
+        name = 'x'*256
+        try:
+            with CreateKey(HKEY_CURRENT_USER, self.test_key_name) as key:
+                SetValue(key, name, REG_SZ, 'x')
+                num_subkeys, num_values, t = QueryInfoKey(key)
+                EnumKey(key, 0)
+        finally:
+            with OpenKey(HKEY_CURRENT_USER, self.test_key_name, 0,
+                         KEY_ALL_ACCESS) as key:
+                DeleteKey(key, name)
+            DeleteKey(HKEY_CURRENT_USER, self.test_key_name)
+
+    def test_dynamic_key(self):
+        from _winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
+        EnumValue(HKEY_PERFORMANCE_DATA, 0)
+        QueryValueEx(HKEY_PERFORMANCE_DATA, None)
+
+    def test_reflection_unsupported(self):
+        import sys
+        if sys.getwindowsversion() >= (5, 2):
+            skip("Requires Windows XP")
+        from _winreg import (
+            CreateKey, DisableReflectionKey, EnableReflectionKey,
+            QueryReflectionKey, DeleteKeyEx)
+        with CreateKey(self.root_key, self.test_key_name) as key:
+            raises(NotImplementedError, DisableReflectionKey, key)
+            raises(NotImplementedError, EnableReflectionKey, key)
+            raises(NotImplementedError, QueryReflectionKey, key)
+            raises(NotImplementedError, DeleteKeyEx, self.root_key,
+                   self.test_key_name)
+

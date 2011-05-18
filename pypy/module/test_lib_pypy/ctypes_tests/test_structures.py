@@ -22,6 +22,8 @@ class TestSubclasses(BaseCTypesTestChecker):
         assert Y._fields_ == [("b", c_int)]
         assert Z._fields_ == [("a", c_int)]
 
+        assert Y._names == ['a', 'b']
+
     def test_subclass_delayed(self):
         class X(Structure):
             pass
@@ -65,7 +67,7 @@ class TestStructure(BaseCTypesTestChecker):
                 _fields_ = [("x", c_char),
                             ("y", tp)]
             assert (sizeof(X), code) == (
-                                 (calcsize("c%c0%c" % (code, code)), code))
+                                 (calcsize("c%c" % (code,)), code))
 
     def test_unions(self):
         for code, tp in self.formats.items():
@@ -495,6 +497,24 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
         else:
             raise AssertionError, "AttributeError not raised"
 
+    def test_nonfinal_struct(self):
+        class X(Structure):
+            pass
+        assert sizeof(X) == 0
+        X._fields_ = [("a", c_int),]
+        raises(AttributeError, setattr, X, "_fields_", [])
+
+        class X(Structure):
+            pass
+        X()
+        raises(AttributeError, setattr, X, "_fields_", [])
+
+        class X(Structure):
+            pass
+        class Y(X):
+            pass
+        raises(AttributeError, setattr, X, "_fields_", [])
+        Y.__fields__ = []
 
 class TestPatologicalCases(BaseCTypesTestChecker):
     def test_structure_overloading_getattr(self):

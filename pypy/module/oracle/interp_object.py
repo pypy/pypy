@@ -1,8 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
-from pypy.interpreter.gateway import ObjSpace
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 
@@ -272,7 +271,7 @@ class W_ObjectType(Wrappable):
             self.attributes.append(attribute)
             self.attributesByName[attribute.name] = attribute
 
-    def get_attributes(space, self):
+    def get_attributes(self, space):
         return space.newlist([space.wrap(attr) for attr in self.attributes])
 
 W_ObjectType.typedef = TypeDef(
@@ -344,6 +343,7 @@ class W_ExternalObject(Wrappable):
         self.indicator = indicator
         self.isIndependent = isIndependent
 
+    @unwrap_spec(attr=str)
     def getattr(self, space, attr):
         try:
             attribute = self.objectType.attributesByName[attr]
@@ -404,8 +404,6 @@ class W_ExternalObject(Wrappable):
             rffi.free_charp(nameptr[0])
             lltype.free(nameptr, flavor='raw')
             lltype.free(namelenptr, flavor='raw')
-
-    getattr.unwrap_spec = ['self', ObjSpace, str]
 
 W_ExternalObject.typedef = TypeDef(
     'ExternalObject',
