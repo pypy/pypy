@@ -122,7 +122,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            e = os.system('tar cvjf ' + archive + " " + name)
+            e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:
