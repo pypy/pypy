@@ -6,11 +6,14 @@ class CppyyClass(type):
      pass
 
 class CppyyObject(object):
+    __metaclass__ = CppyyClass
+
     def __init__(self, *args):
         self._cppinstance = self._cppyyclass.construct(*args)
         
     def destruct(self):
         self._cppinstance.destruct()
+
 
 def bind_object(cppobj, cppclass):
     if cppobj is None:
@@ -52,7 +55,6 @@ def get_cppclass(name):
 
     # if failed, create
 
-    # TODO: handle base classes through lookup
     cpptype = cppyy._type_byname(name)
     d = {"_cppyyclass" : cpptype}
 
@@ -64,8 +66,14 @@ def get_cppclass(name):
         else:
             d[f] = make_method(f, cppol.get_returntype())
 
+    # get a list of base classes for class creation
+    bases = tuple([get_cppclass(base) for base in cpptype.get_base_names()])
+    if not bases:
+         bases = (CppyyObject,)
+
     # create a meta class to allow properties (for static data write access)
-    metacpp = type(CppyyClass)(name+'_meta', (type,), {})
+    metabases = tuple([type(base) for base in bases])
+    metacpp = type(CppyyClass)(name+'_meta', metabases, {})
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
@@ -77,7 +85,10 @@ def get_cppclass(name):
             setattr(metacpp, dm, cppdm)
 
     # create the python-side C++ class representation
-    pycpptype = metacpp(name, (CppyyObject,), d)
+    pycpptype = metacpp(name, bases, d)
+ 
+    # cache result and return
+    _existing_classes[name] = pycpptype
     return pycpptype
 
     # TODO: better error reporting

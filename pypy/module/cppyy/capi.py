@@ -42,6 +42,28 @@ c_deallocate = rffi.llexternal(
     [C_TYPEHANDLE, C_OBJECT], lltype.Void,
     compilation_info=eci)
 
+c_destruct = rffi.llexternal(
+    "cppyy_destruct",
+    [C_TYPEHANDLE, C_OBJECT], lltype.Void,
+    compilation_info=eci)
+
+
+c_num_bases = rffi.llexternal(
+    "cppyy_num_bases",
+    [C_TYPEHANDLE], rffi.INT,
+    compilation_info=eci)
+
+c_base_name = rffi.llexternal(
+    "cppyy_base_name",
+    [C_TYPEHANDLE, rffi.INT], rffi.CCHARP,
+    compilation_info=eci)
+
+c_is_subtype = rffi.llexternal(
+    "cppyy_is_subtype",
+    [C_TYPEHANDLE, C_TYPEHANDLE], rffi.INT,
+    compilation_info=eci)
+
+
 c_call_v = rffi.llexternal(
     "cppyy_call_v",
     [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDPP], lltype.Void,
@@ -71,20 +93,12 @@ c_call_d = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDPP], rffi.DOUBLE,
     compilation_info=eci)
 
-c_destruct = rffi.llexternal(
-    "cppyy_destruct",
-    [C_TYPEHANDLE, C_OBJECT], lltype.Void,
-    compilation_info=eci)
 
 c_get_methptr_getter = rffi.llexternal(
     "cppyy_get_methptr_getter",
     [C_TYPEHANDLE, rffi.INT], C_METHPTRGETTER_PTR,
     compilation_info=eci)
 
-c_is_subtype = rffi.llexternal(
-    "cppyy_is_subtype",
-    [C_TYPEHANDLE, C_TYPEHANDLE], rffi.INT,
-    compilation_info=eci)
 
 c_num_methods = rffi.llexternal(
     "cppyy_num_methods",

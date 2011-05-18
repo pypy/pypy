@@ -338,6 +338,14 @@ class W_CPPType(Wrappable):
                 data_member = W_CPPDataMember(self.space, cpptype, offset)
             self.data_members[data_member_name] = data_member
 
+    def get_base_names(self):
+        bases = []
+        num_bases = capi.c_num_bases(self.handle)
+        for i in range(num_bases):
+            base_name = capi.charp2str_free(capi.c_base_name(self.handle, i))
+            bases.append(self.space.wrap(base_name))
+        return self.space.newlist(bases)
+
     def get_method_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.methods])
 
@@ -362,6 +370,7 @@ class W_CPPType(Wrappable):
 
 W_CPPType.typedef = TypeDef(
     'CPPType',
+    get_base_names = interp2app(W_CPPType.get_base_names, unwrap_spec=['self']),
     get_method_names = interp2app(W_CPPType.get_method_names, unwrap_spec=['self']),
     get_overload = interp2app(W_CPPType.get_overload, unwrap_spec=['self', str]),
     get_data_member_names = interp2app(W_CPPType.get_data_member_names, unwrap_spec=['self']),

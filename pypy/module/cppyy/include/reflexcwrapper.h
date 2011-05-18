@@ -9,10 +9,13 @@ extern "C" {
     typedef void* cppyy_object_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 
+    /* name to handle */
     cppyy_typehandle_t cppyy_get_typehandle(const char* class_name);
 
+    /* memory management */
     void* cppyy_allocate(cppyy_typehandle_t handle);
     void cppyy_deallocate(cppyy_typehandle_t handle, cppyy_object_t instance);
+    void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self);
 
     /* method/function dispatching */
     void   cppyy_call_v(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
@@ -23,10 +26,11 @@ extern "C" {
     double cppyy_call_f(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
     double cppyy_call_d(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
 
-    void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self);
     cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int method_index);
 
-    /* type properties */
+    /* type/class reflection information -------------------------------------- */
+    int cppyy_num_bases(cppyy_typehandle_t handle);
+    char* cppyy_base_name(cppyy_typehandle_t handle, int base_index);
     int cppyy_is_subtype(cppyy_typehandle_t h1, cppyy_typehandle_t h2);
 
     /* method/function reflection information */

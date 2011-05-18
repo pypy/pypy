@@ -1,20 +1,36 @@
 #include "cppyy.h"
 #include "reflexcwrapper.h"
-#include <vector>
 #include <iostream>
+#include <string>
+#include <vector>
 
 
+/* local helpers ---------------------------------------------------------- */
+static inline char* cppstring_to_cstring( const std::string& name ) {
+    char* name_char = (char*)malloc(name.size() + 1);
+    strcpy(name_char, name.c_str());
+    return name_char;
+}
+
+
+/* name to handle --------------------------------------------------------- */
 cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
    return Reflex::Type::ByName(class_name).Id();
 }
 
 
+/* memory management ------------------------------------------------------ */
 void* cppyy_allocate(cppyy_typehandle_t handle) {
     return Reflex::Type((Reflex::TypeName*)handle).Allocate();
 }
 
 void cppyy_deallocate(cppyy_typehandle_t handle, cppyy_object_t instance) {
     Reflex::Type((Reflex::TypeName*)handle).Deallocate(instance);
+}
+
+void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self) {
+    Reflex::Type t((Reflex::TypeName*)handle);
+    t.Destruct(self, true);
 }
 
 
@@ -78,11 +94,6 @@ double cppyy_call_d(cppyy_typehandle_t handle, int method_index,
     return cppyy_call_T<double>(handle, method_index, self, numargs, args);
 }   
 
-void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self) {
-    Reflex::Type t((Reflex::TypeName*)handle);
-    t.Destruct(self, true);
-}
-
 
 static cppyy_methptrgetter_t get_methptr_getter(Reflex::Member m) {
   Reflex::PropertyList plist = m.Properties();
@@ -103,6 +114,18 @@ cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int me
 
 
 /* type/class reflection information -------------------------------------- */
+int cppyy_num_bases(cppyy_typehandle_t handle) {
+    Reflex::Type t((Reflex::TypeName*)handle);
+    return t.BaseSize();
+}
+
+char* cppyy_base_name(cppyy_typehandle_t handle, int base_index) {
+    Reflex::Type t((Reflex::TypeName*)handle);
+    Reflex::Base b = t.BaseAt(base_index);
+    std::string name = b.Name(Reflex::FINAL|Reflex::SCOPED);
+    return cppstring_to_cstring(name);
+}
+
 int cppyy_is_subtype(cppyy_typehandle_t h1, cppyy_typehandle_t h2) {
     if (h1 == h2)
         return 1;
@@ -132,9 +155,7 @@ char* cppyy_method_name(cppyy_typehandle_t handle, int method_index) {
     Reflex::Type t((Reflex::TypeName*)handle);
     Reflex::Member m = t.FunctionMemberAt(method_index);
     std::string name = m.Name();
-    char* name_char = (char*)malloc(name.size() + 1);
-    strcpy(name_char, name.c_str());
-    return name_char;
+    return cppstring_to_cstring(name);
 }
 
 char* cppyy_method_result_type(cppyy_typehandle_t handle, int method_index) {
@@ -142,9 +163,7 @@ char* cppyy_method_result_type(cppyy_typehandle_t handle, int method_index) {
     Reflex::Member m = t.FunctionMemberAt(method_index);
     Reflex::Type rt = m.TypeOf().ReturnType();
     std::string name = rt.Name(Reflex::FINAL|Reflex::SCOPED|Reflex::QUALIFIED);
-    char* name_char = (char*)malloc(name.size() + 1);
-    strcpy(name_char, name.c_str());
-    return name_char;
+    return cppstring_to_cstring(name);
 }
 
 int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index) {
@@ -158,9 +177,7 @@ char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int arg
     Reflex::Member m = t.FunctionMemberAt(method_index);
     Reflex::Type at = m.TypeOf().FunctionParameterAt(arg_index);
     std::string name = at.Name(Reflex::FINAL|Reflex::SCOPED|Reflex::QUALIFIED);
-    char* name_char = (char*)malloc(name.size() + 1);
-    strcpy(name_char, name.c_str());
-    return name_char;
+    return cppstring_to_cstring(name);
 }
 
 

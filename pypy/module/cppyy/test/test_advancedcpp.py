@@ -26,4 +26,15 @@ class AppTestADVANCEDCPP:
     def test1_simple_inheritence(self):
         """Test binding of a basic inheritance structure"""
 
-        pass
+        import cppyy
+        base_class    = cppyy.gbl.base_class
+        derived_class = cppyy.gbl.derived_class
+
+        assert issubclass(derived_class, base_class)
+        assert not issubclass(base_class, derived_class)
+
+        c = derived_class()
+        assert isinstance( c, derived_class )
+        assert isinstance( c, base_class )
+
+        c.destruct()
