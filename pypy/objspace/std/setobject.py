@@ -288,7 +288,7 @@ class EmptySetStrategy(SetStrategy):
         w_set.update(w_other)
 
 class AbstractUnwrappedSetStrategy(object):
-    __mixin__ = True
+    _mixin_ = True
 
     def get_empty_storage(self):
         raise NotImplementedError
