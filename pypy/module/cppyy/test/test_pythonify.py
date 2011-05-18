@@ -24,13 +24,13 @@ class AppTestPYTHONIFY:
             import cppyy
             return cppyy.load_lib(%r)""" % (shared_lib, ))
 
-    def testLoadLibCache(self):
+    def test0_load_lib_cache(self):
         """Test whether loading a library twice results in the same object."""
         import cppyy
         lib2 = cppyy.load_lib(self.shared_lib)
         assert self.example01 is lib2
 
-    def testFindingAClass(self):
+    def test1_finding_classes(self):
         """Test the lookup of a class, and its caching."""
         import cppyy
         example01_class = cppyy.gbl.example01
@@ -39,7 +39,7 @@ class AppTestPYTHONIFY:
 
         raises(AttributeError, "cppyy.gbl.nonexistingclass")
 
-    def testCallingAStaticFunction(self):
+    def test2_calling_static_functions(self):
         """Test calling of static methods."""
         import cppyy, sys
         example01_class = cppyy.gbl.example01
@@ -74,7 +74,7 @@ class AppTestPYTHONIFY:
 
         raises(TypeError, 'example01_class.staticStrcpy(1.)')
 
-    def test_ConstructingAndCalling(self):
+    def test3_constructing_and_calling(self):
         """Test object and method calls."""
         import cppyy
         example01_class = cppyy.gbl.example01
@@ -125,7 +125,7 @@ class AppTestPYTHONIFY:
         instance.destruct()
         assert example01_class.getCount() == 0
 
-    def testPassingOfAnObjectByPointer(self):
+    def test4_passing_object_by_pointer(self):
         import cppyy
         example01_class = cppyy.gbl.example01
         payload_class = cppyy.gbl.payload
@@ -148,7 +148,7 @@ class AppTestPYTHONIFY:
         e.destruct()
         assert example01_class.getCount() == 0
 
-    def testReturningOfAnObjectByPointer(self):
+    def test5_returning_object_by_pointer(self):
         import cppyy
         example01_class = cppyy.gbl.example01
         payload_class = cppyy.gbl.payload
