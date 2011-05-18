@@ -391,34 +391,50 @@ class AbstractUnwrappedSetStrategy(object):
         return True
 
     def difference(self, w_set, w_other):
-        #XXX return clone if other is Empty
-        result = w_set._newobj(self.space, None)
         if not isinstance(w_other, W_BaseSetObject):
             w_other = w_set._newobj(self.space, w_other)
-        # lookup is faster when w_other is set
-        for w_key in w_set.getkeys():
-            if not w_other.has_key(w_key):
-                result.add(w_key)
+
+        if w_other.strategy is self.space.fromcache(ObjectSetStrategy):
+            return self.difference_wrapped(w_set, w_other)
+
+        if w_set.strategy is not w_other.strategy:
+            return w_set.copy()
+
+        return self.difference_unwrapped(w_set, w_other)
+
+    def difference_wrapped(self, w_set, w_other):
+        result = w_set._newobj(self.space, None)
+        w_iter = self.space.iter(w_set)
+        while True:
+            try:
+                w_item = self.space.next(w_iter)
+                if not w_other.has_key(w_key):
+                    result.add(w_key)
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_StopIteration):
+                    raise
+                return
+        return result
+
+    def difference_unwrapped(self, w_set, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            w_other = w_set._newobj(self.space, w_other)
+        iterator = self.cast_from_void_star(w_set.sstorage).iterkeys()
+        other_dict = self.cast_from_void_star(w_other.sstorage)
+        result_dict = self.get_empty_dict()
+        for key in iterator:
+            if key not in other_dict:
+                result_dict[key] = None
+        result = w_set._newobj(self.space, None)
+        result.strategy = self
+        result.sstorage = self.cast_to_void_star(result_dict)
         return result
 
     def difference_update(self, w_set, w_other):
-        if w_other.strategy is EmptySetStrategy:
-            return
-        if w_set is w_other:
-            w_set.clear()     # for the case 'a.difference_update(a)'
-        else:
-            w_iter = self.space.iter(w_other)
-            while True:
-                try:
-                    w_item = self.space.next(w_iter)
-                    try:
-                        self.delitem(w_set, w_item)
-                    except KeyError:
-                        pass
-                except OperationError, e:
-                    if not e.match(self.space, self.space.w_StopIteration):
-                        raise
-                    return
+        #XXX this way we unnecessarily create a new set
+        result = self.difference(w_set, w_other)
+        w_set.strategy = result.strategy
+        w_set.sstorage = result.sstorage
 
     def symmetric_difference(self, w_set, w_other):
         #XXX no wrapping when strategies are equal
