@@ -77,7 +77,7 @@ class ARM(Linux):
             log.message('executing sb2 ' + args)
         else:
             args = SB2ARGS + [str(executable)] + args
-            log.message('executing ' + ' '.join(args))
+            log.message('executing sb2 ' + ' '.join(args))
         returncode, stdout, stderr = _run_subprocess('sb2', args,
                                                      env)
         return ExecutionResult(returncode, stdout, stderr)
