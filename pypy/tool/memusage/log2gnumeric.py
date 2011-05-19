@@ -40,7 +40,6 @@ import optparse
 
 
 def main(logname, options):
-    logname = sys.argv[1]
     outname = logname + '.gnumeric'
     data = open(logname).read()
     data = data.replace('\n', '')
@@ -177,7 +176,7 @@ def vmrss_rows(filename, maxtime):
         try:
             lines = open(filename).readlines()
         except IOError:
-            print 'Warning: cannot find file %s, skipping this sheet'
+            print 'Warning: cannot find file %s, skipping this sheet' % filename
     for row in vmrss_rows_impl(lines, maxtime):
         yield row
 
