@@ -151,7 +151,7 @@ def loops_rows(time0, data):
 
 def vmrss_rows(filename, maxtime):
     lines = []
-    if options.cpython_vmrss:
+    if filename:
         try:
             lines = open(filename).readlines()
         except IOError:
