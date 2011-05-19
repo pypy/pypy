@@ -910,7 +910,9 @@ class Regalloc(object):
     def prepare_op_newstr(self, op, fcond):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newstr is not None:
-            raise NotImplementedError
+            loc = self.loc(op.getarg(0))
+            self.assembler._emit_call(self.assembler.malloc_str_func_addr, [loc], self, op.result)
+            return []
         # boehm GC
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
                             self.cpu.translate_support_code)
@@ -920,7 +922,9 @@ class Regalloc(object):
     def prepare_op_newunicode(self, op, fcond):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            raise NotImplementedError
+            loc = self.loc(op.getarg(0))
+            self.assembler._emit_call(self.assembler.malloc_unicode_func_addr, [loc], self, op.result)
+            return []
         # boehm GC
         ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
                             self.cpu.translate_support_code)
