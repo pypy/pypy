@@ -1,12 +1,34 @@
 #! /usr/bin/env python
 """
-Usage: log2gnumeric logfile
-
 Produces a logfile.gnumeric file which contains the data extracted from the
 logfile generated with the PYPYLOG env variable.
 
-Currently, it expects log to contain the translation-task and gc-collect
-categories.
+Run your program like this::
+
+    $ PYPYLOG=gc-collect,jit-mem:logfile pypy your-program.py
+
+This will produce "logfile", containing informations about the memory used by
+the GC and the number of loops created/freed by the JIT.
+
+If you want, you can also measure the amout of used memory as seen by the OS
+(the VmRSS) using memusage.py::
+
+    $ PYPYLOG=gc-collect,jit-mem:logfile ./memusage.py -o logfile.vmrss /path/to/pypy your-program.py
+
+log2gnumeric will automatically pick logfile.vmrss, if present.
+
+If you want to compare PyPy to CPython, you can add its VmRSS to the graph, by
+using the -c option.  To produce the .vmrss file, use again ./memusage.py::
+
+    $ ./memusage.py -o cpython.vmrss python your-program.py
+    $ ./log2gnumeric.py -c cpython.vmrss logfile
+
+Note that on CPython it will take a different amout of time to complete, but
+on the graph the plot will be scaled to match the duration of the PyPy run
+(i.e., the two lines will end "at the same time").
+
+If you are benchmarking translate.py, you can add the "translation-task"
+category to the log, by setting PYPYLOG=gc-collect,jit-mem,translation-task.
 
 You can freely edit the graph in log-template.gnumeric: this script will
 create a new file replacing the 'translation-task' and 'gc-collect' sheets.
@@ -171,8 +193,11 @@ def vmrss_rows_impl(lines, maxtime):
 if __name__ == '__main__':
     CLOCK_FACTOR = 1000000000.0 # report GigaTicks instead of Ticks
     parser = optparse.OptionParser(usage="%prog logfile [options]")
+    parser.format_description = lambda fmt: __doc__
+    parser.description = __doc__
     parser.add_option('-c', '--cpython-vmrss', dest='cpython_vmrss', default=None, metavar='FILE', type=str,
                       help='the .vmrss file produced by CPython')
+
     options, args = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
