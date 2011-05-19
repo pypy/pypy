@@ -1589,7 +1589,8 @@ class TestPyPyCNew(BaseTestPyPyC):
             i = 0
             res = 0
             while i < 300:
-                res += pow(2, 3)
+                tmp = pow(2, 3)   # ID: fficall
+                res += tmp
                 i += 1
             return pow.getaddr(), res
         #
@@ -1598,20 +1599,15 @@ class TestPyPyCNew(BaseTestPyPyC):
         pow_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
-        # XXX: write the actual test when we merge this to jitypes2
-        ## ops = self.get_by_bytecode('CALL_FUNCTION')
-        ## assert len(ops) == 2 # we get two loops, because of specialization
-        ## call_function = ops[0]
-        ## last_ops = [op.getopname() for op in call_function[-5:]]
-        ## assert last_ops == ['force_token',
-        ##                     'setfield_gc',
-        ##                     'call_may_force',
-        ##                     'guard_not_forced',
-        ##                     'guard_no_exception']
-        ## call = call_function[-3]
-        ## assert call.getarg(0).value == pow_addr
-        ## assert call.getarg(1).value == 2.0
-        ## assert call.getarg(2).value == 3.0
+        assert loop.match_by_id('fficall', """
+            p16 = getfield_gc(ConstPtr(ptr15), descr=<.* .*Function.inst_name .*>)
+            guard_not_invalidated(descr=...)
+            i17 = force_token()
+            setfield_gc(p0, i17, descr=<.* .*PyFrame.vable_token .*>)
+            f21 = call_release_gil(%d, 2.000000, 3.000000, descr=<FloatCallDescr>)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+        """ % pow_addr)
 
     def test_xor(self):
         def main(b):
