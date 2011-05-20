@@ -725,6 +725,30 @@ class RecursiveTests:
         res = self.meta_interp(main, [2], inline=True)
         assert res == 7
 
+    def test_compile_tmp_callback_and_using_it_with_virtualizable(self):
+        # same as the previous test, but with a virtualizable
+        class Frame(object):
+            _virtualizable2_ = ['j']
+            def __init__(self, j):
+                self.j = j
+
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
+                           virtualizables = ['frame'])
+
+        def main(codeno):
+            frame = Frame(codeno+100)
+            i = 1
+            while i < 7:
+                driver.jit_merge_point(codeno=codeno, i=i, frame=frame)
+                assert frame.j == codeno+100
+                if codeno == 1:
+                    return
+                if i >= 3:
+                    main(1)
+                i += 1
+
+        self.meta_interp(main, [2], inline=True)
+
     def test_directly_call_assembler_return(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
                            get_printable_location = lambda codeno : str(codeno))
