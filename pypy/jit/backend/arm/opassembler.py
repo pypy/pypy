@@ -330,35 +330,28 @@ class OpAssembler(object):
         else:
             saved_regs = r.caller_resp
 
-        # count the number of words used to save the arguments that are passed
-        # on the stack
-        n = 0
-        for i in range(n_args-1, reg_args-1, -1):
-            if args[i].type == FLOAT:
-                n += 2*WORD
-            else:
-                n += WORD
-        change = n + len(saved_regs) * WORD + len(r.caller_vfp_resp) * 2 * WORD
-        if change % 8 != 0:
-            self.mc.SUB_ri(r.sp.value, r.sp.value, 4)
-            n += WORD
 
         # all arguments past the 4th go on the stack
-        #XXXX fix this
+        n = 0   # used to count the number of words pushed on the stack, so we
+                #can later modify the SP back to its original value
         if n_args > reg_args:
             # first we need to prepare the list so it stays aligned
             stack_args = []
             count = 0
             for i in range(reg_args, n_args):
                 arg = args[i]
-                if not arg.type == FLOAT:
+                if arg.type != FLOAT:
                     count += 1
+                    n += WORD
                 else:
+                    n += 2 * WORD
                     if count % 2 != 0:
                         stack_args.append(ConstInt(0))
+                        n += WORD
                         count = 0
                 stack_args.append(arg)
             if count % 2 != 0:
+                n += WORD
                 stack_args.append(ConstInt(0))
             #then we push every thing on the stack
             for i in range(len(stack_args) -1, -1, -1):
