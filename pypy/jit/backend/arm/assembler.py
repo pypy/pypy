@@ -379,20 +379,25 @@ class AssemblerARM(ResOpAssembler):
     def gen_func_epilog(self, mc=None, cond=c.AL):
         if mc is None:
             mc = self.mc
+        offset = 1
+        if self.cpu.supports_floats:
+            offset += 1 # to keep stack alignment
         mc.MOV_rr(r.sp.value, r.fp.value, cond=cond)
-        mc.ADD_ri(r.sp.value, r.sp.value, (N_REGISTERS_SAVED_BY_MALLOC+1)*WORD, cond=cond)
+        mc.ADD_ri(r.sp.value, r.sp.value, (N_REGISTERS_SAVED_BY_MALLOC+offset)*WORD, cond=cond)
         if self.cpu.supports_floats:
             mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers], cond=cond)
         mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
+        offset = 1
         if self.cpu.supports_floats:
             self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
+            offset +=1 # to keep stack alignment
         # here we modify the stack pointer to leave room for the 9 registers
         # that are going to be saved here around malloc calls and one word to
         # store the force index
-        self.mc.SUB_ri(r.sp.value, r.sp.value,  (N_REGISTERS_SAVED_BY_MALLOC+1)*WORD)
+        self.mc.SUB_ri(r.sp.value, r.sp.value, (N_REGISTERS_SAVED_BY_MALLOC+offset)*WORD)
         self.mc.MOV_rr(r.fp.value, r.sp.value)
 
     def gen_bootstrap_code(self, nonfloatlocs, floatlocs, inputargs):
