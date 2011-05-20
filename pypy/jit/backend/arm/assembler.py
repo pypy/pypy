@@ -471,7 +471,8 @@ class AssemblerARM(ResOpAssembler):
 
         stack_position = len(r.callee_saved_registers)*WORD + \
                             len(r.callee_saved_vfp_registers)*2*WORD + \
-                            WORD # for the FAIL INDEX
+                            N_REGISTERS_SAVED_BY_MALLOC * WORD + \
+                            2 * WORD # for the FAIL INDEX and the stack padding
         for i in range(reg_args, len(inputargs)):
             arg = inputargs[i]
             if arg.type == FLOAT:
