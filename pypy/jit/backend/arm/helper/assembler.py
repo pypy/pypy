@@ -2,7 +2,7 @@ from __future__ import with_statement
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
-from pypy.jit.metainterp.history import ConstInt, BoxInt
+from pypy.jit.metainterp.history import ConstInt, BoxInt, FLOAT
 
 def gen_emit_op_unary_cmp(true_cond, false_cond):
     def f(self, op, arglocs, regalloc, fcond):
@@ -115,3 +115,22 @@ class saved_registers(object):
             if reg in vfp_regs_to_save and self.regalloc.stays_alive(box):
                 regs.append(reg)
         self.vfp_regs = regs
+def count_reg_args(args):
+    reg_args = 0
+    words = 0
+    count = 0
+    for x in range(min(len(args), 4)):
+        if args[x].type == FLOAT:
+            words += 2
+            if count % 2 != 0:
+                words += 1
+                count = 0
+        else:
+            count += 1
+            words += 1
+        reg_args += 1
+        if words > 4:
+            reg_args = x
+            break
+    return reg_args
+

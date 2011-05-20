@@ -1,4 +1,4 @@
-from pypy.jit.backend.arm.helper.assembler import saved_registers
+from pypy.jit.backend.arm.helper.assembler import saved_registers, count_reg_args
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
@@ -435,25 +435,11 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.VLDR(r.vfp_ip.value, r.ip.value)
                 self.mov_loc_loc(r.vfp_ip, loc)
 
-    def _count_reg_args(self, args):
-        reg_args = 0
-        words = 0
-        for x in range(min(len(args), 4)):
-            if args[x].type == FLOAT:
-                words += 2
-            else:
-                words += 1
-            reg_args += 1
-            if words > 4:
-                reg_args = x
-                break
-        return reg_args
-
     def gen_direct_bootstrap_code(self, loop_head, looptoken, inputargs):
         self.gen_func_prolog()
         nonfloatlocs, floatlocs = looptoken._arm_arglocs
 
-        reg_args = self._count_reg_args(inputargs)
+        reg_args = count_reg_args(inputargs)
 
         stack_locs = len(inputargs) - reg_args
         selected_reg = 0

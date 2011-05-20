@@ -12,7 +12,9 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_cmp_op,
                                                     gen_emit_float_op,
                                                     gen_emit_float_cmp_op,
-                                                    gen_emit_unary_float_op, saved_registers)
+                                                    gen_emit_unary_float_op, 
+                                                    saved_registers,
+                                                    count_reg_args)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import Regalloc, TempInt, TempPtr
@@ -291,18 +293,7 @@ class OpAssembler(object):
     # XXX improve freeing of stuff here
     def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None):
         n_args = len(args)
-        #XXX replace with _count_reg_args
-        reg_args = 0
-        words = 0
-        for x in range(min(n_args, 4)):
-            if args[x].type == FLOAT:
-                words += 2
-            else:
-                words += 1
-            reg_args += 1
-            if words > 4:
-                reg_args = x
-                break
+        reg_args = count_reg_args(args)
 
         #spill all vars that are stored in caller saved registers
         #XXX good idea??
