@@ -468,8 +468,8 @@ class BaseBackendTest(Runner):
             (func_char, lltype.Char, types.uchar, 12)
             ]
 
+        cpu = self.cpu
         for func, TP, ffi_type, num in functions:
-            cpu = self.cpu
             #
             FPTR = self.Ptr(self.FuncType([TP, TP], TP))
             func_ptr = llhelper(FPTR, func)
@@ -497,17 +497,17 @@ class BaseBackendTest(Runner):
             
 
         if cpu.supports_floats:
-            def func(f0, f1, f2, f3, f4, f5, f6, i0, i1, f7, f8, f9):
+            def func(f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9):
                 return f0 + f1 + f2 + f3 + f4 + f5 + f6 + float(i0 + i1) + f7 + f8 + f9
             F = lltype.Float
             I = lltype.Signed
-            FUNC = self.FuncType([F] * 7 + [I] * 2 + [F] * 3, F)
+            FUNC = self.FuncType([F] * 7 + [I] + [F] + [I] + [F]* 2, F)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
             calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
             args = ([boxfloat(.1) for i in range(7)] +
-                    [BoxInt(1), BoxInt(2), boxfloat(.2), boxfloat(.3),
+                    [BoxInt(1), boxfloat(.2), BoxInt(2), boxfloat(.3),
                      boxfloat(.4)])
             res = self.execute_operation(rop.CALL,
                                          [funcbox] + args,
