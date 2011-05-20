@@ -663,7 +663,7 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     if w_iterable is None :
         w_set.strategy = space.fromcache(EmptySetStrategy)
-        w_set.sstorage = w_set.strategy.cast_to_void_star(None)#w_set.strategy.get_empty_storage()
+        w_set.sstorage = w_set.strategy.get_empty_storage()
         return
 
     if isinstance(w_iterable, W_BaseSetObject):
@@ -677,7 +677,7 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     if len(w_iterable) == 0:
         w_set.strategy = space.fromcache(EmptySetStrategy)
-        w_set.sstorage = w_set.strategy.cast_to_void_star(None)
+        w_set.sstorage = w_set.strategy.get_empty_storage()
         return
 
     # check for integers
