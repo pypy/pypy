@@ -655,8 +655,9 @@ class RecursiveTests:
             i = 1
             while 1:
                 driver.jit_merge_point(codeno=codeno, i=i, frame=frame)
+                assert frame.j >= 100
                 if (i >> 1) == 1:
-                    if frame.j == 0:
+                    if frame.j == 100:
                         return
                     portal(2, Frame(frame.j - 1))
                 elif i == 5:
@@ -665,7 +666,7 @@ class RecursiveTests:
                 driver.can_enter_jit(codeno=codeno, i=i, frame=frame)
 
         def main(codeno, j):
-            portal(codeno, Frame(j))
+            portal(codeno, Frame(j + 100))
 
         main(2, 5)
 
@@ -694,6 +695,35 @@ class RecursiveTests:
         else:
             print redirected
             assert redirected.keys() == trace
+
+    def test_compile_tmp_callback_and_using_it(self):
+        # unlike the previous tests, this test calls compile_tmp_callback()
+        # and actually invokes the compiled temporary callback
+        driver = JitDriver(greens = ['codeno'], reds = ['i'])
+
+        def main(codeno):
+            i = 1
+            while i < 7:
+                driver.jit_merge_point(codeno=codeno, i=i)
+                if codeno == 1:
+                    return 42
+                if i >= 3:
+                    main(1)
+                i += 1
+            return i
+
+        from pypy.rpython.llinterp import LLException
+        from pypy.jit.metainterp import compile
+        compile._compile_bogus_code = True
+        try:
+            e = py.test.raises(LLException, self.meta_interp,
+                               main, [2], inline=True)
+        finally:
+            compile._compile_bogus_code = False
+        assert e.value.args[2][0] is ZeroDivisionError
+
+        res = self.meta_interp(main, [2], inline=True)
+        assert res == 7
 
     def test_directly_call_assembler_return(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],

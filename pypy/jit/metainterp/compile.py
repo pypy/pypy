@@ -650,6 +650,7 @@ class PropagateExceptionDescr(AbstractFailDescr):
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
 propagate_exception_descr = PropagateExceptionDescr()
+_compile_bogus_code = False     # for test_compile_tmp_callback_and_using_it
 
 def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
                          memory_manager=None):
@@ -691,6 +692,11 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
         ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
         ]
     operations[1].setfailargs([])
+    if _compile_bogus_code:      # testing only
+        operations.insert(0, ResOperation(rop.INT_FLOORDIV,
+                                          [history.ConstInt(42),
+                                           history.ConstInt(0)],
+                                          history.BoxInt()))
     operations = get_deep_immutable_oplist(operations)
     cpu.compile_loop(inputargs, operations, loop_token, log=False)
     if memory_manager is not None:    # for tests
