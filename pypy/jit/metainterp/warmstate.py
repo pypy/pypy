@@ -566,6 +566,10 @@ class WarmEnterState(object):
             return can_inline_greenargs(*greenargs)
         self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
+        def on_compile(loop, type, greenkey):
+            greenargs = unwrap_greenkey(greenkey)
+            return jd.jitdriver.on_compile(loop, type, *greenargs)
+        jd.on_compile = on_compile
 
         def get_assembler_token(greenkey, redboxes):
             # 'redboxes' is only used to know the types of red arguments

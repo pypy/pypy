@@ -149,3 +149,6 @@ def residual_call(space, w_callable, __args__):
     '''For testing.  Invokes callable(...), but without letting
     the JIT follow the call.'''
     return space.call_args(w_callable, __args__)
+
+def set_compile_hook(space, w_hook):
+    pass

@@ -342,6 +342,12 @@ class JitDriver(object):
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
+    def on_compile(self, loop, type, *args):
+        """ A hook called when loop or bridge is compiled. Overwrite
+        for your own jitdriver if you want to do something special, like
+        call applevel code
+        """
+
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions
         # used as methods of a frozen object, but we can attach the

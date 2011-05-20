@@ -10,8 +10,33 @@ def getloc1():
 def getloc2(g):
     return "in jitdriver2, with g=%d" % g
 
+class JitDriverTests(object):
+    def test_on_compile(self):
+        called = {}
+        
+        class MyJitDriver(JitDriver):
+            def on_compile(self, loop, type, n, m):
+                called[(m, n, type)] = loop
 
-class MultipleJitDriversTests:
+        driver = MyJitDriver(greens = ['n', 'm'], reds = ['i'])
+
+        def loop(n, m):
+            i = 0
+            while i < n + m:
+                driver.can_enter_jit(n=n, m=m, i=i)
+                driver.jit_merge_point(n=n, m=m, i=i)
+                i += 1
+
+        self.meta_interp(loop, [1, 4])
+        assert sorted(called.keys()) == [(4, 1, "entry bridge"), (4, 1, "loop")]
+        self.meta_interp(loop, [2, 4])
+        assert sorted(called.keys()) == [(4, 1, "entry bridge"), (4, 1, "loop"),
+                                         (4, 2, "entry bridge"), (4, 2, "loop")]
+
+class TestLLtypeSingle(JitDriverTests, LLJitMixin):
+    pass
+
+class MultipleJitDriversTests(object):
 
     def test_simple(self):
         myjitdriver1 = JitDriver(greens=[], reds=['n', 'm'],

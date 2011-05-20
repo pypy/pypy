@@ -124,18 +124,21 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
         return old_loop_token
 
     if loop.preamble.operations is not None:
-        send_loop_to_backend(metainterp_sd, loop, "loop")
+        send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop,
+                             "loop")
         record_loop_or_bridge(metainterp_sd, loop)
         token = loop.preamble.token
         if full_preamble_needed:
-            send_loop_to_backend(metainterp_sd, loop.preamble, "entry bridge")
+            send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd,
+                                 loop.preamble, "entry bridge")
             insert_loop_token(old_loop_tokens, loop.preamble.token)
             jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
                 greenkey, loop.preamble.token)
             record_loop_or_bridge(metainterp_sd, loop.preamble)
         return token
     else:
-        send_loop_to_backend(metainterp_sd, loop, "loop")
+        send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop,
+                             "loop")
         insert_loop_token(old_loop_tokens, loop_token)
         jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
             greenkey, loop.token)
@@ -150,7 +153,8 @@ def insert_loop_token(old_loop_tokens, loop_token):
     # XXX do we still need a list?
     old_loop_tokens.append(loop_token)
 
-def send_loop_to_backend(metainterp_sd, loop, type):
+def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
+    jitdriver_sd.on_compile(loop, type, greenkey)
     globaldata = metainterp_sd.globaldata
     loop_token = loop.token
     loop_token.number = n = globaldata.loopnumbering
@@ -186,8 +190,8 @@ def send_loop_to_backend(metainterp_sd, loop, type):
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
         metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(loop.token)
 
-def send_bridge_to_backend(metainterp_sd, faildescr, inputargs, operations,
-                           original_loop_token):
+def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
+                           operations, original_loop_token):
     if not we_are_translated():
         show_loop(metainterp_sd)
         TreeLoop.check_consistency_of(inputargs, operations)
@@ -390,8 +394,9 @@ class ResumeGuardDescr(ResumeDescr):
         inputargs = metainterp.history.inputargs
         if not we_are_translated():
             self._debug_suboperations = new_loop.operations
-        send_bridge_to_backend(metainterp.staticdata, self, inputargs,
-                               new_loop.operations, new_loop.token)
+        send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
+                               self, inputargs, new_loop.operations,
+                               new_loop.token)
 
     def copy_all_attributes_into(self, res):
         # XXX a bit ugly to have to list them all here
@@ -570,7 +575,8 @@ class ResumeFromInterpDescr(ResumeDescr):
         # to every guard in the loop.
         new_loop_token = make_loop_token(len(redargs), jitdriver_sd)
         new_loop.token = new_loop_token
-        send_loop_to_backend(metainterp_sd, new_loop, "entry bridge")
+        send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
+                             metainterp_sd, new_loop, "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
         jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
             self.original_greenkey,
