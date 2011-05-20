@@ -66,7 +66,6 @@ class W_BaseSetObject(W_Object):
             obj = instantiate(W_FrozensetObject)
         else:
             obj = w_self.space.call_function(w_self.space.type(w_self), None)
-        obj.space = w_self.space
         obj.strategy = strategy
         obj.sstorage = storage
         return obj
