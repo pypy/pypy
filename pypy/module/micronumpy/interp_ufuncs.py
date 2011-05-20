@@ -36,7 +36,10 @@ def copysign(lvalue, rvalue):
 
 @ufunc
 def exp(value):
-    return math.exp(value)
+    try:
+        return math.exp(value)
+    except OverflowError:
+        return rfloat.INFINITY
 
 @ufunc2
 def maximum(lvalue, rvalue):
