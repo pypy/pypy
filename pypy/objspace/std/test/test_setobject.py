@@ -451,6 +451,8 @@ class AppTestAppSetTest:
         s = set([1,2,3])
         assert s.difference() == s
         assert s.difference() is not s
+        assert set([1,2,3]).difference(set([2,3,4,'5'])) == set([1])
+        assert set([1,2,3,'5']).difference(set([2,3,4])) == set([1,'5'])
 
     def test_intersection_update(self):
         s = set([1,2,3,4,7])

@@ -392,7 +392,8 @@ class AbstractUnwrappedSetStrategy(object):
         if not isinstance(w_other, W_BaseSetObject):
             w_other = w_set._newobj(self.space, w_other)
 
-        if w_other.strategy is self.space.fromcache(ObjectSetStrategy):
+        if (w_other.strategy is self.space.fromcache(ObjectSetStrategy) or
+            w_set.strategy is self.space.fromcache(ObjectSetStrategy)):
             return self.difference_wrapped(w_set, w_other)
 
         if w_set.strategy is not w_other.strategy:
@@ -406,12 +407,12 @@ class AbstractUnwrappedSetStrategy(object):
         while True:
             try:
                 w_item = self.space.next(w_iter)
-                if not w_other.has_key(w_key):
-                    result.add(w_key)
+                if not w_other.has_key(w_item):
+                    result.add(w_item)
             except OperationError, e:
                 if not e.match(self.space, self.space.w_StopIteration):
                     raise
-                return
+                break;
         return result
 
     def difference_unwrapped(self, w_set, w_other):
