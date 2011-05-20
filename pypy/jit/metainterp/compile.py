@@ -693,9 +693,11 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
         src_index = nb_red_args
         for descr in vinfo.static_field_descrs:
             valuebox = inputargs[src_index]
+            src_index += 1
             setoperations.append(
                 ResOperation(rop.SETFIELD_GC, [vablebox, valuebox], None,
                              descr=descr))
+        assert src_index == len(inputargs)
         # ... arrays ...
     #
     jd = jitdriver_sd
