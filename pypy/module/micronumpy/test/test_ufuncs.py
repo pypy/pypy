@@ -74,7 +74,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         import math
         from numpy import array, exp
 
-        a = array([-5.0, -0.0, 0.0, float("inf")])
+        a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
+                   -float('inf'), -12343424.0])
         b = exp(a)
         for i in range(4):
-            assert b[i] == math.exp(a[i])
+            try:
+                res = math.exp(a[i])
+            except OverflowError:
+                res = float('inf')
+            assert b[i] == res
