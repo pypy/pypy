@@ -40,12 +40,6 @@ class TranslationTest:
                 self.i = i
                 self.l = [float(i)]
 
-        class OtherFrame(object):
-            _virtualizable2_ = ['i']
-
-            def __init__(self, i):
-                self.i = i
-
         class JitCellCache:
             entry = None
         jitcellcache = JitCellCache()
@@ -77,7 +71,8 @@ class TranslationTest:
                 frame.l[0] -= 1
             return total * 10
         #
-        myjitdriver2 = JitDriver(greens = ['g'], reds = ['m', 's', 'f'],
+        myjitdriver2 = JitDriver(greens = ['g'],
+                                 reds = ['m', 's', 'f', 'float_s'],
                                  virtualizables = ['f'])
         def f2(g, m, x):
             s = ""
