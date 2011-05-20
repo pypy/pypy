@@ -353,14 +353,18 @@ class OpAssembler(object):
                     self.regalloc_push(regalloc.loc(arg))
         # move variables to the argument registers
         num = 0
+        count = 0
         for i in range(reg_args):
             arg = args[i]
+            if arg.type == FLOAT and count % 2 != 0:
+                num += 1
             reg = r.caller_resp[num]
             self.mov_loc_loc(locs[i], reg)
             if arg.type == FLOAT:
                 num += 2
             else:
                 num += 1
+                count += 1
 
         regalloc.before_call(save_all_regs=2)
         #the actual call

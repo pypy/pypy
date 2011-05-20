@@ -80,3 +80,38 @@ class TestCallingConv(Runner):
                                              'float', descr=calldescr)
                 assert abs(res.getfloat() - result) < 0.0001
 
+    def test_call_alignment_register_args(self):
+            from pypy.rlib.libffi import types
+            cpu = self.cpu
+            if not cpu.supports_floats:
+                py.test.skip('requires floats')
+
+
+            def func(*args):
+                return sum(args)
+
+            F = lltype.Float
+            I = lltype.Signed
+            floats = [0.7, 5.8]
+            ints = [7, 11]
+            result = sum(floats + ints)
+            for args in itertools.permutations([I, I, F, F]):
+                local_floats = list(floats)
+                local_ints = list(ints)
+                FUNC = self.FuncType(args, F)
+                FPTR = self.Ptr(FUNC)
+                func_ptr = llhelper(FPTR, func)
+                calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+                funcbox = self.get_funcbox(cpu, func_ptr)
+                argslist = []
+                for x in args:
+                    if x is F:
+                        argslist.append(boxfloat(local_floats.pop()))
+                    else:
+                        argslist.append(BoxInt(local_ints.pop()))
+
+                res = self.execute_operation(rop.CALL,
+                                             [funcbox] + argslist,
+                                             'float', descr=calldescr)
+                assert abs(res.getfloat() - result) < 0.0001
+
