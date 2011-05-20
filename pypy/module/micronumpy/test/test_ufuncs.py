@@ -1,5 +1,3 @@
-import py
-py.test.skip("fails")
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
