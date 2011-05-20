@@ -617,6 +617,12 @@ class AssemblerARM(ResOpAssembler):
         if frame_depth == 1:
             return
         n = (frame_depth-1)*WORD
+
+        # ensure the sp is 8 byte aligned when patching it
+        if n % 8 != 0:
+            n += WORD
+        assert n % 8 == 0
+
         self._adjust_sp(n, cb, base_reg=r.fp)
 
     def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):
