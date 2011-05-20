@@ -1564,6 +1564,9 @@ def cast_call_args(ARGS, args_i, args_r, args_f, args_in_order=None):
     assert list(argsiter_f) == []
     return args
 
+def do_partial_virtualizable(virtualizable):
+    pass
+
 
 # for ootype meth and staticmeth
 def call_maybe_on_top_of_llinterp(meth, args):
