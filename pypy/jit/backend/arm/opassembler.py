@@ -330,43 +330,70 @@ class OpAssembler(object):
         else:
             saved_regs = r.caller_resp
 
-        with saved_registers(self.mc, saved_regs, r.caller_vfp_resp, regalloc):
-            # move variables to the argument registers
-            num = 0
-            for i in range(reg_args):
+        # count the number of words used to save the arguments that are passed
+        # on the stack
+        n = 0
+        for i in range(n_args-1, reg_args-1, -1):
+            if args[i].type == FLOAT:
+                n += 2*WORD
+            else:
+                n += WORD
+        change = n + len(saved_regs) * WORD + len(r.caller_vfp_resp) * 2 * WORD
+        if change % 8 != 0:
+            self.mc.SUB_ri(r.sp.value, r.sp.value, 4)
+            n += WORD
+
+        # all arguments past the 4th go on the stack
+        #XXXX fix this
+        if n_args > reg_args:
+            # first we need to prepare the list so it stays aligned
+            stack_args = []
+            count = 0
+            for i in range(reg_args, n_args):
                 arg = args[i]
-                reg = r.caller_resp[num]
-                self.mov_loc_loc(locs[i], reg)
-                if arg.type == FLOAT:
-                    num += 2
+                if not arg.type == FLOAT:
+                    count += 1
                 else:
-                    num += 1
+                    if count % 2 != 0:
+                        stack_args.append(ConstInt(0))
+                        count = 0
+                stack_args.append(arg)
+            if count % 2 != 0:
+                stack_args.append(ConstInt(0))
+            #then we push every thing on the stack
+            for i in range(len(stack_args) -1, -1, -1):
+                arg = stack_args[i]
+                if isinstance(arg, ConstInt) and arg.value == 0:
+                    self.mc.PUSH([r.ip.value])
+                else:
+                    self.regalloc_push(regalloc.loc(arg))
+        # move variables to the argument registers
+        num = 0
+        for i in range(reg_args):
+            arg = args[i]
+            reg = r.caller_resp[num]
+            self.mov_loc_loc(locs[i], reg)
+            if arg.type == FLOAT:
+                num += 2
+            else:
+                num += 1
 
-            # all arguments past the 4th go on the stack
-            if n_args > reg_args:
-                n = 0
-                for i in range(n_args-1, reg_args-1, -1):
-                    if args[i].type == FLOAT:
-                        n += 2*WORD
-                    else:
-                        n += WORD
-                    self.regalloc_push(regalloc.loc(args[i]))
+        regalloc.before_call(save_all_regs=2)
+        #the actual call
+        self.mc.BL(adr)
+        regalloc.possibly_free_vars(args)
+        # readjust the sp in case we passed some args on the stack
+        if n_args > 4:
+            assert n > 0
+            self._adjust_sp(-n, fcond=fcond)
 
-            #the actual call
-            self.mc.BL(adr)
-            regalloc.possibly_free_vars(args)
-            # readjust the sp in case we passed some args on the stack
-            if n_args > 4:
-                assert n > 0
-                self._adjust_sp(-n, fcond=fcond)
-
-            # restore the argumets stored on the stack
-            if result is not None:
-                resloc = regalloc.after_call(result)
-                # XXX ugly and fragile
-                if result.type == FLOAT:
-                    # move result to the allocated register
-                    self.mov_loc_loc(r.r0, resloc)
+        # restore the argumets stored on the stack
+        if result is not None:
+            resloc = regalloc.after_call(result)
+            # XXX ugly and fragile
+            if result.type == FLOAT:
+                # move result to the allocated register
+                self.mov_loc_loc(r.r0, resloc)
 
         return fcond
 

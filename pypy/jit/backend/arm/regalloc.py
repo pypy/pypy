@@ -281,6 +281,9 @@ class Regalloc(object):
         else:
             self.rm.force_spill_var(var)
 
+    def before_call(self, force_store=[], save_all_regs=False):
+        self.rm.before_call(force_store, save_all_regs)
+        self.vfprm.before_call(force_store, save_all_regs)
     def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         box = None
         loc = None
