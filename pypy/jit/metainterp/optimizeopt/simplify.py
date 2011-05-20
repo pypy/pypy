@@ -25,6 +25,9 @@ class OptSimplify(Optimization):
         #     but it's a bit hard to implement robustly if heap.py is also run
         pass
 
+    def optimize_PARTIAL_VIRTUALIZABLE(self, op):
+        pass
+
     def propagate_forward(self, op):
         opnum = op.getopnum()
         for value, func in optimize_ops:
