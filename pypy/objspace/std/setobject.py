@@ -81,6 +81,7 @@ class W_BaseSetObject(W_Object):
             obj = W_FrozensetObject(space, w_iterable)
         else:
             obj = space.call_function(space.type(w_self), w_iterable)
+            assert isinstance(obj, W_BaseSetObject)
         return obj
 
     _lifeline_ = None
