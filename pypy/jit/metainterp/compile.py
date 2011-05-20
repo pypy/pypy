@@ -684,6 +684,20 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
     else:
         finishargs = []
     #
+    # must cancel the optimization done by optimize_PARTIAL_VIRTUALIZABLE
+    # in optimizeopt/virtualize.py
+    setoperations = []
+    vinfo = jitdriver_sd.virtualizable_info
+    if vinfo is not None:
+        vablebox = inputargs[jitdriver_sd.index_of_virtualizable]
+        src_index = nb_red_args
+        for descr in vinfo.static_field_descrs:
+            valuebox = inputargs[src_index]
+            setoperations.append(
+                ResOperation(rop.SETFIELD_GC, [vablebox, valuebox], None,
+                             descr=descr))
+        # ... arrays ...
+    #
     jd = jitdriver_sd
     faildescr = propagate_exception_descr
     operations = [
@@ -697,6 +711,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
                                           [history.ConstInt(42),
                                            history.ConstInt(0)],
                                           history.BoxInt()))
+    operations = setoperations + operations
     operations = get_deep_immutable_oplist(operations)
     cpu.compile_loop(inputargs, operations, loop_token, log=False)
     if memory_manager is not None:    # for tests
