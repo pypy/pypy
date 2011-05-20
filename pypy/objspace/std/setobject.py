@@ -93,8 +93,8 @@ class W_BaseSetObject(W_Object):
 
     def switch_to_object_strategy(self, space):
         d = self.strategy.getdict_w(self)
-        self.strategy = space.fromcache(ObjectSetStrategy)
-        self.sstorage = self.strategy.cast_to_void_star(d)
+        self.strategy = strategy = space.fromcache(ObjectSetStrategy)
+        self.sstorage = strategy.cast_to_void_star(d)
 
     def switch_to_empty_strategy(self):
         self.strategy = self.space.fromcache(EmptySetStrategy)
