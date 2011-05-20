@@ -687,18 +687,34 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
     # must cancel the optimization done by optimize_PARTIAL_VIRTUALIZABLE
     # in optimizeopt/virtualize.py
     setoperations = []
+    src_index = nb_red_args
     vinfo = jitdriver_sd.virtualizable_info
     if vinfo is not None:
         vablebox = inputargs[jitdriver_sd.index_of_virtualizable]
-        src_index = nb_red_args
         for descr in vinfo.static_field_descrs:
             valuebox = inputargs[src_index]
             src_index += 1
             setoperations.append(
                 ResOperation(rop.SETFIELD_GC, [vablebox, valuebox], None,
                              descr=descr))
-        assert src_index == len(inputargs)
-        # ... arrays ...
+        for arrayindex in range(len(vinfo.array_field_descrs)):
+            # xxx fish the virtualizable from the box
+            length = vinfo.get_array_length(vablebox.getref_base(), arrayindex)
+            assert src_index + length <= len(inputargs)
+            arraybox = BoxPtr()
+            arrayfielddescr = vinfo.array_field_descrs[arrayindex]
+            arraydescr = vinfo.array_descrs[arrayindex]
+            setoperations.append(
+                ResOperation(rop.GETFIELD_GC, [vablebox], arraybox,
+                             descr=arrayfielddescr))
+            for i in range(length):
+                valuebox = inputargs[src_index]
+                src_index += 1
+                setoperations.append(
+                    ResOperation(rop.SETARRAYITEM_GC,
+                                 [arraybox, history.ConstInt(i), valuebox],
+                                 None, descr=arraydescr))
+    assert src_index == len(inputargs)
     #
     jd = jitdriver_sd
     faildescr = propagate_exception_descr

@@ -749,6 +749,32 @@ class RecursiveTests:
 
         self.meta_interp(main, [2], inline=True)
 
+    def test_compile_tmp_callback_and_using_it_with_virtualizable_array(self):
+        # same as the previous test, but with a virtualizable with an array
+        class Frame(object):
+            _virtualizable2_ = ['lst[*]']
+            def __init__(self, lst):
+                self = hint(self, fresh_virtualizable=True,
+                                  access_directly=True)
+                self.lst = lst
+
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
+                           virtualizables = ['frame'])
+
+        def main(codeno):
+            frame = Frame([codeno+100])
+            i = 1
+            while i < 7:
+                driver.jit_merge_point(codeno=codeno, i=i, frame=frame)
+                assert frame.lst[0] == codeno+100
+                if codeno == 1:
+                    return
+                if i >= 3:
+                    main(1)
+                i += 1
+
+        self.meta_interp(main, [2], inline=True)
+
     def test_directly_call_assembler_return(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
                            get_printable_location = lambda codeno : str(codeno))
