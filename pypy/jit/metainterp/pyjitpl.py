@@ -1951,10 +1951,7 @@ class MetaInterp(object):
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-
-        assert start > 0
-        assert self.history.operations[start-1].getopnum() == rop.DEBUG_MERGE_POINT
-        loop_token = compile.compile_new_loop(self, [], greenkey, start-1,
+        loop_token = compile.compile_new_loop(self, [], greenkey, start,
                                               start_resumedescr, False)
         self.history.operations.pop()     # remove the JUMP
         if loop_token is None:
