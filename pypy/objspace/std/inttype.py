@@ -179,7 +179,7 @@ def descr_get_denominator(space, w_obj):
     return space.wrap(1)
 
 def descr_get_real(space, w_obj):
-    return w_obj
+    return space.int(w_obj)
 
 def descr_get_imag(space, w_obj):
     return space.wrap(0)

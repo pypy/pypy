@@ -2348,6 +2348,9 @@ class MetaInterp(object):
             vbox = args[index]
             args = args + self.gen_load_from_other_virtualizable(vinfo, vbox)
             # ^^^ and not "+=", which makes 'args' a resizable list
+            jddescr = history.JitDriverDescr(targetjitdriver_sd)
+            self.history.record(rop.PARTIAL_VIRTUALIZABLE, [vbox], None,
+                                descr=jddescr)
         warmrunnerstate = targetjitdriver_sd.warmstate
         token = warmrunnerstate.get_assembler_token(greenargs, args)
         op = op.copy_and_change(rop.CALL_ASSEMBLER, args=args, descr=token)

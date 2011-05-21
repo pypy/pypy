@@ -323,3 +323,7 @@ class AppTestLong:
         assert type(as_long) is long
         assert as_long == 64
 
+    def test_long_real(self):
+        class A(long): pass
+        b = A(5).real
+        assert type(b) is long

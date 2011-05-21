@@ -1,3 +1,4 @@
+from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
@@ -434,6 +435,32 @@ class OptVirtualize(optimizer.Optimization):
         value.ensure_nonnull()
         ###self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
         self.emit_operation(op)
+
+    def optimize_PARTIAL_VIRTUALIZABLE(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            jddescr = op.getdescr()
+            assert isinstance(jddescr, history.JitDriverDescr)
+            vinfo = jddescr.jitdriver_sd.virtualizable_info
+            # XXX giant hack.  The idea is that this virtual will be passed
+            # as the virtualizable to the CALL_ASSEMBLER operation that
+            # follows, so it will be forced.  But we will also pass the
+            # virtualizable fields explicitly as arguments to CALL_ASSEMBLER,
+            # which have already been read out of the virtual just before.
+            # The following hackery resets the fields to their NULL/0 value,
+            # which has (only) the effect that forcing the virtual will not
+            # write anything in these fields.
+            assert isinstance(value, AbstractVirtualStructValue)
+            for descr in vinfo.static_field_descrs:
+                try:
+                    del value._fields[descr]
+                except KeyError:
+                    pass
+            for descr in vinfo.array_field_descrs:
+                avalue = value.getfield(descr, None)
+                if isinstance(avalue, VArrayValue):
+                    for i in range(len(avalue._items)):
+                        avalue._items[i] = avalue.constvalue
 
     def propagate_forward(self, op):
         opnum = op.getopnum()

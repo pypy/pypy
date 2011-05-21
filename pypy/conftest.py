@@ -46,6 +46,10 @@ def pytest_addoption(parser):
     group.addoption('-P', '--platform', action="callback", type="string",
            default="host", callback=_set_platform,
            help="set up tests to use specified platform as compile/run target")
+    group = parser.getgroup("JIT options")
+    group.addoption('--viewloops', action="store_true",
+           default=False, dest="viewloops",
+           help="show only the compiled loops")
 
 def pytest_sessionstart():
     # have python subprocesses avoid startup customizations by default

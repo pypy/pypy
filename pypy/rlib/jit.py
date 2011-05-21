@@ -113,7 +113,7 @@ class Entry(ExtRegistryEntry):
                         flags['fresh_virtualizable'] = True
                     s_x = annmodel.SomeInstance(s_x.classdef,
                                                 s_x.can_be_None,
-                                                flags)        
+                                                flags)
         return s_x
 
     def specialize_call(self, hop, **kwds_i):
@@ -179,29 +179,11 @@ class AssertGreenFailed(Exception):
     pass
 
 
-##def force_virtualizable(virtualizable):
-##    pass
-
-##class Entry(ExtRegistryEntry):
-##    _about_ = force_virtualizable
-
-##    def compute_result_annotation(self):
-##        from pypy.annotation import model as annmodel
-##        return annmodel.s_None
-
-##    def specialize_call(self, hop):
-##        [vinst] = hop.inputargs(hop.args_r[0])
-##        cname = inputconst(lltype.Void, None)
-##        cflags = inputconst(lltype.Void, {})
-##        hop.exception_cannot_occur()
-##        return hop.genop('jit_force_virtualizable', [vinst, cname, cflags],
-##                         resulttype=lltype.Void)
-
 # ____________________________________________________________
 # VRefs
 
 def virtual_ref(x):
-    
+
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
     is that the object 'x' is supposed to be JITted as a virtual between
@@ -258,7 +240,7 @@ class Entry(ExtRegistryEntry):
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
-# User interface for the hotpath JIT policy
+# User interface for the warmspot JIT policy
 
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
@@ -275,7 +257,7 @@ unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
 # ____________________________________________________________
 
-class JitDriver(object):    
+class JitDriver(object):
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
     will allow us (later) to support a single RPython program with
@@ -477,8 +459,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 r_green = hop.args_r[i]
                 v_green = hop.inputarg(r_green, arg=i)
             else:
-                #if hop.rtyper.type_system.name == 'ootypesystem':
-                    #py.test.skip("lltype only")
                 objname, fieldname = name.split('.')   # see test_green_field
                 assert objname in driver.reds
                 i = kwds_i['i_' + objname]
@@ -557,7 +537,7 @@ class ExtSetParam(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         from pypy.rpython.lltypesystem.rstr import string_repr
-        
+
         hop.exception_cannot_occur()
         driver = self.instance.im_self
         name = hop.args_s[0].const

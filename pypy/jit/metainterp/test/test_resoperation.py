@@ -72,7 +72,7 @@ def test_can_malloc():
 def test_get_deep_immutable_oplist():
     ops = [rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c')]
     newops = rop.get_deep_immutable_oplist(ops)
-    py.test.raises(AttributeError, "newops.append('foobar')")
+    py.test.raises(TypeError, "newops.append('foobar')")
     py.test.raises(TypeError, "newops[0] = 'foobar'")
     py.test.raises(AssertionError, "newops[0].setarg(0, 'd')")
     py.test.raises(AssertionError, "newops[0].setdescr('foobar')")

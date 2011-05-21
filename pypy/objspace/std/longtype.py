@@ -104,7 +104,7 @@ def descr_get_denominator(space, w_obj):
     return space.newlong(1)
 
 def descr_get_real(space, w_obj):
-    return w_obj
+    return space.long(w_obj)
 
 def descr_get_imag(space, w_obj):
     return space.newlong(0)

@@ -211,6 +211,10 @@ class AbstractMethDescr(AbstractDescr):
     def get_jitcode_for_class(self, oocls):
         return self.jitcodes[oocls]
 
+class JitDriverDescr(AbstractDescr):
+    def __init__(self, jitdriver_sd):
+        self.jitdriver_sd = jitdriver_sd
+
 
 class Const(AbstractValue):
     __slots__ = ()
@@ -294,8 +298,8 @@ class ConstInt(Const):
         cpu.set_future_value_int(j, self.value)
 
     def same_constant(self, other):
-        if isinstance(other, Const):
-            return self.value == other.getint()
+        if isinstance(other, ConstInt):
+            return self.value == other.value
         return False
 
     def nonnull(self):
