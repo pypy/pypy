@@ -776,19 +776,20 @@ class TestPyPyCNew(BaseTestPyPyC):
             #
             log = self.run(src, [], threshold=400)
             assert log.result == res
-            loop, = log.loops_by_filename(self.filepath)
-            le_ops = log.opnames(loop.ops_by_id('lt'))
-            ge_ops = log.opnames(loop.ops_by_id('ge'))
-            assert le_ops.count('int_lt') == 1
-            #
-            if opt_expected:
-                assert ge_ops.count('int_ge') == 0
-            else:
-                # if this assert fails it means that the optimization was
-                # applied even if we don't expect to. Check whether the
-                # optimization is valid, and either fix the code or fix the
-                # test :-)
-                assert ge_ops.count('int_ge') == 1
+            for loop in log.loops_by_filename(self.filepath):
+                loop.print_ops()            
+                le_ops = log.opnames(loop.ops_by_id('lt'))
+                ge_ops = log.opnames(loop.ops_by_id('ge'))
+                assert le_ops.count('int_lt') == 1
+                #
+                if opt_expected:
+                    assert ge_ops.count('int_ge') == 0
+                else:
+                    # if this assert fails it means that the optimization was
+                    # applied even if we don't expect to. Check whether the
+                    # optimization is valid, and either fix the code or fix the
+                    # test :-)
+                    assert ge_ops.count('int_ge') == 1
 
     def test_boolrewrite_reflex(self):
         """
