@@ -478,7 +478,6 @@ _oplist = [
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
     'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
-    'PARTIAL_VIRTUALIZABLE/1d',  # removed before it's passed to the backend
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',

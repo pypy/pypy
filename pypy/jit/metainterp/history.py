@@ -211,10 +211,6 @@ class AbstractMethDescr(AbstractDescr):
     def get_jitcode_for_class(self, oocls):
         return self.jitcodes[oocls]
 
-class JitDriverDescr(AbstractDescr):
-    def __init__(self, jitdriver_sd):
-        self.jitdriver_sd = jitdriver_sd
-
 
 class Const(AbstractValue):
     __slots__ = ()
