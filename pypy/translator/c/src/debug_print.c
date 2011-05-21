@@ -65,6 +65,15 @@ static void pypy_debug_open(void)
   debug_ready = 1;
 }
 
+long pypy_debug_offset(void)
+{
+  if (!debug_ready)
+    return -1;
+  // note that we deliberately ignore errno, since -1 is fine
+  // in case this is not a real file
+  return ftell(pypy_debug_file);
+}
+
 void pypy_debug_ensure_opened(void)
 {
   if (!debug_ready)

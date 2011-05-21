@@ -294,8 +294,8 @@ class ConstInt(Const):
         cpu.set_future_value_int(j, self.value)
 
     def same_constant(self, other):
-        if isinstance(other, Const):
-            return self.value == other.getint()
+        if isinstance(other, ConstInt):
+            return self.value == other.value
         return False
 
     def nonnull(self):

@@ -330,7 +330,7 @@ class RegAlloc(object):
         if not we_are_translated():
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform_llong(op, arglocs, result_loc)
-        
+
     def PerformMath(self, op, arglocs, result_loc):
         if not we_are_translated():
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
@@ -676,7 +676,7 @@ class RegAlloc(object):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0))
         self.Perform(op, [loc0], loc0)
         self.xrm.possibly_free_var(op.getarg(0))
-        
+
     consider_float_neg = _consider_float_unary_op
     consider_float_abs = _consider_float_unary_op
 
@@ -764,7 +764,7 @@ class RegAlloc(object):
         loc1 = self.rm.make_sure_var_in_reg(op.getarg(1))
         self.PerformLLong(op, [loc1], loc0)
         self.rm.possibly_free_vars_for_op(op)
-        
+
     def _consider_math_sqrt(self, op):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
         self.PerformMath(op, [loc0], loc0)
@@ -1271,12 +1271,12 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
         dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
         # Part about floats
-        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type == FLOAT]
         dst_locations2 = [loc for loc in floatlocs if loc is not None]
         remap_frame_layout_mixed(assembler,

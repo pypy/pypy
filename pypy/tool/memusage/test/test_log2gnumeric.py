@@ -1,4 +1,4 @@
-from pypy.jit.tool import log2gnumeric
+from pypy.tool.memusage import log2gnumeric
 
 log = """
 [1000] ...

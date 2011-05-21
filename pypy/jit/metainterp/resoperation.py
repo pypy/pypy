@@ -627,13 +627,15 @@ opboolreflex = {
     rop.PTR_NE: rop.PTR_NE,
     }
 
+
 def get_deep_immutable_oplist(operations):
     """
-    When not we_are_translated(), turns ``operations`` into a tuple and
+    When not we_are_translated(), turns ``operations`` into a frozenlist and
     monkey-patch its items to make sure they are not mutated.
 
     When we_are_translated(), do nothing and just return the old list.
     """
+    from pypy.tool.frozenlist import frozenlist
     if we_are_translated():
         return operations
     #
@@ -641,7 +643,7 @@ def get_deep_immutable_oplist(operations):
         assert False, "operations cannot change at this point"
     def setdescr(*args):
         assert False, "operations cannot change at this point"
-    newops = tuple(operations)
+    newops = frozenlist(operations)
     for op in newops:
         op.setarg = setarg
         op.setdescr = setdescr

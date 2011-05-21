@@ -24,6 +24,8 @@ class ExecutionContext(object):
     # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
     #     over the place as well as w_tracefunc
 
+    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?']
+
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None

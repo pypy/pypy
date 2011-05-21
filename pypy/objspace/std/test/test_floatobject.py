@@ -417,6 +417,11 @@ class AppTestAppFloatTest:
         f = 1.1234e200
         assert f.__format__("G") == "1.1234E+200"
 
+    def test_float_real(self):
+        class A(float): pass
+        b = A(5).real
+        assert type(b) is float
+
 
 class AppTestFloatHex:
     def w_identical(self, x, y):

@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import ObjSpace, interp2app
+from pypy.interpreter.gateway import ObjSpace, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.error import OperationError
 from pypy.module._multibytecodec import c_codecs
@@ -11,6 +11,7 @@ class MultibyteCodec(Wrappable):
         self.name = name
         self.codec = codec
 
+    @unwrap_spec(input=str, errors="str_or_None")
     def decode(self, space, input, errors=None):
         if errors is not None and errors != 'strict':
             raise OperationError(space.w_NotImplementedError,    # XXX
@@ -33,8 +34,8 @@ class MultibyteCodec(Wrappable):
                                  space.wrap("internal codec error"))
         return space.newtuple([space.wrap(output),
                                space.wrap(len(input))])
-    decode.unwrap_spec = ['self', ObjSpace, str, 'str_or_None']
 
+    @unwrap_spec(input=unicode, errors="str_or_None")
     def encode(self, space, input, errors=None):
         if errors is not None and errors != 'strict':
             raise OperationError(space.w_NotImplementedError,    # XXX
@@ -57,7 +58,6 @@ class MultibyteCodec(Wrappable):
                                  space.wrap("internal codec error"))
         return space.newtuple([space.wrap(output),
                                space.wrap(len(input))])
-    encode.unwrap_spec = ['self', ObjSpace, unicode, 'str_or_None']
 
 
 MultibyteCodec.typedef = TypeDef(
@@ -69,6 +69,7 @@ MultibyteCodec.typedef = TypeDef(
 MultibyteCodec.typedef.acceptable_as_base_class = False
 
 
+@unwrap_spec(name=str)
 def getcodec(space, name):
     try:
         codec = c_codecs.getcodec(name)
@@ -76,4 +77,3 @@ def getcodec(space, name):
         raise OperationError(space.w_LookupError,
                              space.wrap("no such codec is supported."))
     return space.wrap(MultibyteCodec(name, codec))
-getcodec.unwrap_spec = [ObjSpace, str]

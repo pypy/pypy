@@ -2182,7 +2182,8 @@ class Assembler386(object):
         # a no-op.
 
         # reserve room for the argument to the real malloc and the
-        # 8 saved XMM regs
+        # saved XMM regs (on 32 bit: 8 * 2 words; on 64 bit: 16 * 1
+        # word)
         self._regalloc.reserve_param(1+16)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap

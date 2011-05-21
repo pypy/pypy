@@ -513,13 +513,6 @@ class LLFrame(object):
         from pypy.translator.tool.lltracker import track
         track(*ll_objects)
 
-    def op_debug_pdb(self, *ll_args):
-        if self.llinterpreter.tracer:
-            self.llinterpreter.tracer.flush()
-        print "entering pdb...", ll_args
-        import pdb
-        pdb.set_trace()
-
     def op_debug_assert(self, x, msg):
         assert x, msg
 

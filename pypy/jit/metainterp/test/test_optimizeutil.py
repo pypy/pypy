@@ -133,7 +133,8 @@ class LLtypeMixin(object):
                                  EffectInfo([adescr], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                  EffectInfo([nextdescr], [], [],
-                            EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE))
+                            EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE,
+                            can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                  EffectInfo([], [], [], oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
