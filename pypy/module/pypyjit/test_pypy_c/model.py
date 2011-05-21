@@ -74,7 +74,8 @@ class LoopWithIds(Function):
         Function.__init__(self, *args, **kwds)
         self.ids = {}
         self.code = self.chunks[0].getcode()
-        if not self.code and isinstance(self.chunks[1], TraceForOpcode):
+        if not self.code and len(self.chunks)>1 and \
+               isinstance(self.chunks[1], TraceForOpcode):
             # First chunk might be missing the debug_merge_point op
             self.code = self.chunks[1].getcode()
         if self.code:
