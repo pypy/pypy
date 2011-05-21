@@ -1709,3 +1709,22 @@ class TestPyPyCNew(BaseTestPyPyC):
         i29 = int_is_true(i28)
         guard_true(i29, descr=...)
         ''')
+
+    def test_python_contains(self):
+        def main():
+            class A(object):
+                def __contains__(self, v):
+                    return True
+
+            i = 0
+            a = A()
+            while i < 100:
+                i += i in a # ID: contains
+
+            log = self.run(main, [], threshold=80)
+            loop, = log.loops_by_filename(self.filemath)
+            # XXX: haven't confirmed his is correct, it's probably missing a
+            # few instructions
+            loop.match_by_id("contains", """
+                i1 = int_add(i0, 1)
+            """)
