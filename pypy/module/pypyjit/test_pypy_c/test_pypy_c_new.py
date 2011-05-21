@@ -777,7 +777,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             log = self.run(src, [], threshold=400)
             assert log.result == res
             for loop in log.loops_by_filename(self.filepath):
-                loop.print_ops()            
                 le_ops = log.opnames(loop.ops_by_id('lt'))
                 ge_ops = log.opnames(loop.ops_by_id('ge'))
                 assert le_ops.count('int_lt') == 1

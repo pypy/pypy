@@ -74,6 +74,9 @@ class LoopWithIds(Function):
         Function.__init__(self, *args, **kwds)
         self.ids = {}
         self.code = self.chunks[0].getcode()
+        if not self.code and isinstance(self.chunks[1], TraceForOpcode):
+            # First chunk might be missing the debug_merge_point op
+            self.code = self.chunks[1].getcode()
         if self.code:
             self.compute_ids(self.ids)
 
@@ -131,8 +134,9 @@ class LoopWithIds(Function):
     def _allops(self, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         for chunk in self.flatten_chunks():
-            opcode = chunk.getopcode()                                                          
-            if opcode_name is None or opcode.__class__.__name__ == opcode_name:
+            opcode = chunk.getopcode()
+            if opcode_name is None or \
+                   (opcode and opcode.__class__.__name__ == opcode_name):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
 
