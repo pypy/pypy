@@ -47,6 +47,7 @@ type_byname.unwrap_spec = [ObjSpace, str]
 
 class W_CPPLibrary(Wrappable):
     _immutable_ = True
+
     def __init__(self, space, cdll):
         self.cdll = cdll
         self.space = space
@@ -174,6 +175,8 @@ class CPPMethod(object):
 
 
 class CPPFunction(CPPMethod):
+    _immutable_ = True
+
     def call(self, cppthis, args_w):
         if self.executor is None:
             raise OperationError(self.space.w_TypeError, self.space.wrap("return type not handled"))
@@ -188,6 +191,8 @@ class CPPFunction(CPPMethod):
  
 
 class CPPConstructor(CPPMethod):
+    _immutable_=True
+
     def call(self, cppthis, args_w):
         assert not cppthis
         newthis = capi.c_allocate(self.cpptype.handle)
@@ -202,6 +207,7 @@ class CPPConstructor(CPPMethod):
 class W_CPPOverload(Wrappable):
     _immutable_ = True
     _immutable_fields_ = ["func_name", "functions[*]"]
+
     def __init__(self, space, func_name, functions):
         self.space = space
         self.func_name = func_name
@@ -241,7 +247,9 @@ W_CPPOverload.typedef = TypeDef(
 
 
 class W_CPPDataMember(Wrappable):
+    _immutable_=True
     _immutable_fields_ = ["converter", "offset"]
+
     def __init__(self, space, cpptype, offset):
         self.space = space
         self.converter = converter.get_converter(self.space, cpptype)
@@ -266,6 +274,8 @@ W_CPPDataMember.typedef = TypeDef(
 
 
 class W_CPPStaticDataMember(W_CPPDataMember):
+    _immutable_=True
+
     def is_static(self):
         return self.space.w_True
 
@@ -286,6 +296,7 @@ W_CPPStaticDataMember.typedef = TypeDef(
 
 class W_CPPType(Wrappable):
     _immutable_fields_ = ["name", "handle"]
+
     def __init__(self, space, name, handle):
         self.space = space
         self.name = name
@@ -381,6 +392,8 @@ W_CPPType.typedef = TypeDef(
 
 
 class W_CPPInstance(Wrappable):
+    _immutable_fields_ = ["cppclass"]
+
     def __init__(self, space, cppclass, rawobject):
         self.space = space
         self.cppclass = cppclass
