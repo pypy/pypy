@@ -824,19 +824,19 @@ class TestPyPyCNew(BaseTestPyPyC):
             """ % (a, b)
             log = self.run(src, [], threshold=400)
             assert log.result == res
-            loop, = log.loops_by_filename(self.filepath)
-            le_ops = log.opnames(loop.ops_by_id('lt'))
-            gt_ops = log.opnames(loop.ops_by_id('gt'))
-            assert le_ops.count('int_lt') == 1
-            #
-            if opt_expected:
-                assert gt_ops.count('int_gt') == 0
-            else:
-                # if this assert fails it means that the optimization was
-                # applied even if we don't expect to. Check whether the
-                # optimization is valid, and either fix the code or fix the
-                # test :-)
-                assert gt_ops.count('int_gt') == 1
+            for loop in log.loops_by_filename(self.filepath):
+                le_ops = log.opnames(loop.ops_by_id('lt'))
+                gt_ops = log.opnames(loop.ops_by_id('gt'))
+                assert le_ops.count('int_lt') == 1
+                #
+                if opt_expected:
+                    assert gt_ops.count('int_gt') == 0
+                else:
+                    # if this assert fails it means that the optimization was
+                    # applied even if we don't expect to. Check whether the
+                    # optimization is valid, and either fix the code or fix the
+                    # test :-)
+                    assert gt_ops.count('int_gt') == 1
 
 
     def test_boolrewrite_allcases_inverse(self):
