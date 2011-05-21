@@ -20,7 +20,7 @@ def get_rawobject(space, w_obj):
         cpp_instance = space.interp_w(W_CPPInstance, w_cpp_instance, can_be_None=True)
         if cpp_instance:
             return cpp_instance.rawobject
-    return lltype.nullptr(rffi.CCHARP.TO)
+    return lltype.nullptr(rffi.VOIDP.TO)
 
 
 class TypeConverter(object):
@@ -34,7 +34,8 @@ class TypeConverter(object):
     def _get_raw_address(self, space, w_obj, offset):
         rawobject = get_rawobject(space, w_obj)
         if rawobject:
-            fieldptr = lltype.direct_ptradd(rawobject, offset)
+            field_address = lltype.direct_ptradd(rawobject, offset)
+            fieldptr = rffi.cast(rffi.CCHARP, field_address)
         else:
             fieldptr = rffi.cast(rffi.CCHARP, offset)
         return fieldptr
