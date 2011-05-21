@@ -3003,8 +3003,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         setfield_gc(p8, i44, descr=nextdescr)
         i45 = int_add_ovf(i34, i43)
         guard_no_overflow() []
-        i46 = int_add_ovf(i34, i43)
-        guard_no_overflow() []
         jump(p8, p11, i43, i19, p16, i21, i34)
         """
         self.optimize_loop(ops, expected)
