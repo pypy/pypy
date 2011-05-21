@@ -115,3 +115,91 @@ class TestCallingConv(Runner):
                                              'float', descr=calldescr)
                 assert abs(res.getfloat() - result) < 0.0001
 
+
+    def test_call_alignment_call_assembler(self):
+        from pypy.rlib.libffi import types
+        cpu = self.cpu
+        if not cpu.supports_floats:
+            py.test.skip('requires floats')
+        called = []
+
+        fdescr1 = BasicFailDescr(1)
+        fdescr2 = BasicFailDescr(2)
+        fdescr3 = BasicFailDescr(3)
+        fdescr4 = BasicFailDescr(4)
+
+        def assembler_helper(failindex, virtualizable):
+            return 4 + 9
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        arglist = ['i0', 'i1', 'i2', 'f0', 'f1', 'f2', 'f3', 'i3']
+        floats = [0.7, 5.8, 0.1, 0.3]
+        ints = [7, 11, 23, 42]
+        def _prepare_args(args):
+            local_floats = list(floats)
+            local_ints = list(ints)
+            for i in range(len(args)):
+                x = args[i]
+                if x[0] == 'f':
+                    t = longlong.getfloatstorage(local_floats.pop())
+                    cpu.set_future_value_float(i, t)
+                else:
+                    cpu.set_future_value_int(i, (local_ints.pop()))
+
+        for args in itertools.permutations(arglist): 
+            arguments = ', '.join(args)
+            called_ops = '''
+            [%s]
+            i4 = int_add(i0, i1)
+            i5 = int_add(i4, i2)
+            i6 = int_add(i5, i3)
+            guard_value(i6, 83, descr=fdescr1) [i4, i5, i6]
+            f4 = float_add(f0, f1)
+            f5 = float_add(f4, f2)
+            f6 = float_add(f5, f3)
+            i7 = float_lt(f6, 7.0)
+            guard_true(i7, descr=fdescr2) [f4, f5, f6]
+            finish(i6, f6)''' % arguments
+            # compile called loop
+            called_loop = parse(called_ops, namespace=locals())
+            called_looptoken = LoopToken()
+            called_looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+            done_number = self.cpu.get_fail_descr_number(called_loop.operations[-1].getdescr())
+            self.cpu.compile_loop(called_loop.inputargs, called_loop.operations, called_looptoken)
+            _prepare_args(args)
+            res = cpu.execute_token(called_looptoken)
+            assert cpu.get_latest_value_int(0) == 83
+            t = longlong.getrealfloat(cpu.get_latest_value_float(1))
+            assert abs(t - 6.9) < 0.0001
+
+            ARGS = []
+            RES = lltype.Signed
+            for x in args:
+                if x[0] == 'f':
+                    ARGS.append(lltype.Float)
+                else:
+                    ARGS.append(lltype.Signed)
+            FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+                lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
+            ops = '''
+            [%s]
+            i10 = call_assembler(%s, descr=called_looptoken)
+            guard_not_forced()[]
+            finish(i10)
+            ''' % (arguments, arguments)
+            loop = parse(ops, namespace=locals())
+            othertoken = LoopToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+
+            # prepare call to called_loop
+            _prepare_args(args)
+            res = cpu.execute_token(othertoken)
+            x = cpu.get_latest_value_int(0)
+            assert x == 83
