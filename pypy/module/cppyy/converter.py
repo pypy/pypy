@@ -292,23 +292,28 @@ class CStringConverter(TypeConverter):
 
 
 class ShortArrayConverter(ArrayTypeConverter):
+    _immutable_=True
     typecode = 'h'
     typesize = 2
 
 class LongArrayConverter(ArrayTypeConverter):
+    _immutable_=True
     typecode = 'l'
     typesize = 4
 
 class FloatArrayConverter(ArrayTypeConverter):
+    _immutable_=True
     typecode = 'f'
     typesize = 4
 
 class DoubleArrayConverter(ArrayTypeConverter):
+    _immutable_=True
     typecode = 'd'
     typesize = 8
 
 
 class ShortPtrConverter(PtrTypeConverter):
+    _immutable_=True
     typecode = 'h'
     typesize = 2
 
@@ -320,14 +325,17 @@ class ShortPtrConverter(PtrTypeConverter):
 #        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
 
 class LongPtrConverter(PtrTypeConverter):
+    _immutable_=True
     typecode = 'l'
     typesize = 4
 
 class FloatPtrConverter(PtrTypeConverter):
+    _immutable_=True
     typecode = 'f'
     typesize = 4
 
 class DoublePtrConverter(PtrTypeConverter):
+    _immutable_=True
     typecode = 'd'
     typesize = 8
 
