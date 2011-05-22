@@ -1864,7 +1864,7 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [3, 23])
         assert res == 7068153
-        self.check_loop_count(6)
+        self.check_loop_count(7)
         self.check_loops(guard_true=4, guard_class=0, int_add=2, int_mul=2,
                          guard_false=2)
 
@@ -2100,6 +2100,79 @@ class BasicTests:
 
         assert self.meta_interp(f, [5, 100]) == 0
         self.check_loops(int_rshift=1, everywhere=True)
+
+    def test_inputarg_reset_bug(self):
+        ## j = 0
+        ## while j < 100:
+        ##     j += 1
+
+        ## c = 0
+        ## j = 0
+        ## while j < 2:
+        ##     j += 1
+        ##     if c == 0:
+        ##         c = 1
+        ##     else:
+        ##         c = 0
+
+        ## j = 0
+        ## while j < 100:
+        ##     j += 1
+
+        def get_printable_location(i):
+            return str(i)
+        
+        myjitdriver = JitDriver(greens = ['i'], reds = ['j', 'c', 'a'],
+                                get_printable_location=get_printable_location)
+        bytecode = "0j10jc20a3"
+        def f():
+            myjitdriver.set_param('threshold', 7)
+            myjitdriver.set_param('trace_eagerness', 1)
+            i = j = c = a = 1
+            while True:
+                myjitdriver.jit_merge_point(i=i, j=j, c=c, a=a)
+                if i >= len(bytecode):
+                    break
+                op = bytecode[i]
+                if op == 'j':
+                    j += 1
+                elif op == 'c':
+                    c = hint(c, promote=True)
+                    c = 1 - c
+                elif op == '2':
+                    if j < 3:
+                        i -= 3
+                        myjitdriver.can_enter_jit(i=i, j=j, c=c, a=a)
+                elif op == '1':
+                    k = j*a
+                    if j < 100:
+                        i -= 2
+                        a += k
+                        myjitdriver.can_enter_jit(i=i, j=j, c=c, a=a)
+                    else:
+                        a += k*2
+                elif op == '0':
+                    j = c = a = 0
+                elif op == 'a':
+                    j += 1
+                    a += 1
+                elif op == '3':
+                    if a < 100:
+                        i -= 2
+                        myjitdriver.can_enter_jit(i=i, j=j, c=c, a=a)
+
+                else:
+                    return ord(op)
+                i += 1
+            return 42
+        assert f() == 42
+        def g():
+            res = 1
+            for i in range(10):
+                res = f()
+            return res
+        res = self.meta_interp(g, [])
+        assert res == 42
 
     def test_read_timestamp(self):
         import time
