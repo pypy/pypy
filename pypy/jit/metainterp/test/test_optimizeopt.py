@@ -4166,6 +4166,50 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i4, i10)
         """
         self.optimize_loop(ops, expected)
+        
+    def test_add_sub_ovf(self):
+        ops = """
+        [i1]
+        i2 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        i3 = int_sub_ovf(i2, 1)
+        guard_no_overflow() []
+        escape(i3)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        i2 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        escape(i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_add_sub_ovf_virtual_unroll(self):
+        ops = """
+        [p15]
+        i886 = getfield_gc_pure(p15, descr=valuedescr)
+        i888 = int_sub_ovf(i886, 1)
+        guard_no_overflow() []
+        escape(i888)
+        i4360 = getfield_gc_pure(p15, descr=valuedescr)
+        i4362 = int_add_ovf(i4360, 1)
+        guard_no_overflow() []
+        i4360p = int_sub_ovf(i4362, 1)
+        guard_no_overflow() []
+        p4364 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p4364, i4362, descr=valuedescr)
+        jump(p4364)
+        """
+        expected = """
+        [i0, i1]
+        escape(i1)
+        i2 = int_add_ovf(i0, 1)
+        guard_no_overflow() []        
+        jump(i2, i0)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_framestackdepth_overhead(self):
         ops = """
