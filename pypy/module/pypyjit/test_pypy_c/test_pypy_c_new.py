@@ -1468,7 +1468,10 @@ class TestPyPyCNew(BaseTestPyPyC):
             ...
             i17 = int_and(i14, 255)
             f18 = getarrayitem_raw(i8, i17, descr=...)
-            f20 = getarrayitem_raw(i8, i9, descr=...)
+            i19s = int_sub_ovf(i6, 1)
+            guard_no_overflow(descr=...)
+            i22s = int_and(i19s, 255)
+            f20 = getarrayitem_raw(i8, i22s, descr=...)
             f21 = float_add(f18, f20)
             f23 = getarrayitem_raw(i8, i10, descr=...)
             f24 = float_add(f21, f23)

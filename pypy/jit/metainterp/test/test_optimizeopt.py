@@ -4203,11 +4203,13 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p4364)
         """
         expected = """
-        [i0, i1]
+        [i0]
+        i1 = int_sub_ovf(i0, 1)
+        guard_no_overflow() []
         escape(i1)
         i2 = int_add_ovf(i0, 1)
         guard_no_overflow() []        
-        jump(i2, i0)
+        jump(i2)
         """
         self.optimize_loop(ops, expected)
 
