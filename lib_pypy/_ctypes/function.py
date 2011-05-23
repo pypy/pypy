@@ -640,9 +640,18 @@ def make_specialized_subclass(CFuncPtr):
         _is_fastpath = True
         _slowpath_allowed = True # set to False by tests
 
+        def __rollback(self):
+            assert self._slowpath_allowed
+            self.__class__ = CFuncPtr
+
+        # disable the fast path if we reset argtypes
+        def _setargtypes(self, argtypes):
+            self.__rollback()
+            self._setargtypes(argtypes)
+        argtypes = property(CFuncPtr._getargtypes, _setargtypes)
+
         def _are_assumptions_met(self, args):
-            return (self._argtypes_ is not None and
-                    self.callable is None and
+            return (self.callable is None and
                     not self._com_index and
                     self._errcheck_ is None)
 
@@ -655,7 +664,6 @@ def make_specialized_subclass(CFuncPtr):
             assert self.callable is None
             assert not self._com_index
             assert self._argtypes_ is not None
-            argtypes = self._argtypes_
             thisarg = None
             argtypes = self._argtypes_
             restype = self._restype_

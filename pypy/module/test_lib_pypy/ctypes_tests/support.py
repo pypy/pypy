@@ -41,6 +41,7 @@ class BaseCTypesTestChecker:
         #
         mod = sys.modules[cls.__module__]
         del_funcptr_refs_maybe(mod, 'dll')
+        del_funcptr_refs_maybe(mod, 'dll2')
         del_funcptr_refs_maybe(mod, 'lib')
         del_funcptr_refs_maybe(mod, 'testdll')
         del_funcptr_refs_maybe(mod, 'ctdll')

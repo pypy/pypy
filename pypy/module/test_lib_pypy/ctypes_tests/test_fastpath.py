@@ -12,7 +12,8 @@ class MyCDLL(CDLL):
 def setup_module(mod):
     import conftest
     _ctypes_test = str(conftest.sofile)
-    mod.dll = MyCDLL(_ctypes_test)
+    mod.dll = MyCDLL(_ctypes_test)  # slowpath not allowed
+    mod.dll2 = CDLL(_ctypes_test)   # slowpath allowed
 
 
 class TestFastpath(BaseCTypesTestChecker):
@@ -62,3 +63,13 @@ class TestFastpath(BaseCTypesTestChecker):
         # supported only in the slow path so far
         result = f("abcd", ord("b"))
         assert result == "bcd"
+
+
+class TestFallbackToSlowpath(BaseCTypesTestChecker):
+
+    def test_argtypes_is_None(self):
+        tf_b = dll2.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_char_p,)
+        tf_b.argtypes = None # kill the fast path
+        assert tf_b(-126) == -42
