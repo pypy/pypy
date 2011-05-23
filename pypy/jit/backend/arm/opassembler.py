@@ -295,32 +295,6 @@ class OpAssembler(object):
         n_args = len(args)
         reg_args = count_reg_args(args)
 
-        #spill all vars that are stored in caller saved registers
-        #XXX good idea??
-        vars_to_spill = []
-        for v, reg in regalloc.rm.reg_bindings.iteritems():
-            if reg in r.caller_resp:
-                vars_to_spill.append(v)
-
-        for v in vars_to_spill:
-            regalloc.force_spill_var(v)
-        # collect the locations of the arguments that go in the argument
-        # registers
-        locs = []
-        for v in range(reg_args):
-            var = args[v]
-            loc = regalloc.loc(var)
-            locs.append(loc)
-
-        # save caller saved registers
-        if result:
-            if result.type == FLOAT:
-                saved_regs = r.caller_resp[2:]
-            else:
-                saved_regs = r.caller_resp[1:]
-        else:
-            saved_regs = r.caller_resp
-
 
         # all arguments past the 4th go on the stack
         n = 0   # used to count the number of words pushed on the stack, so we
@@ -359,7 +333,7 @@ class OpAssembler(object):
             if arg.type == FLOAT and count % 2 != 0:
                 num += 1
             reg = r.caller_resp[num]
-            self.mov_loc_loc(locs[i], reg)
+            self.mov_loc_loc(regalloc.loc(arg), reg)
             if arg.type == FLOAT:
                 num += 2
             else:
