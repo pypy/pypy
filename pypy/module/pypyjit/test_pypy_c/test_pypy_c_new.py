@@ -502,6 +502,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            i11 = getfield_gc(p4, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             i16 = int_ge(i11, i12)
             guard_false(i16, descr=<Guard3>)
             i17 = int_mul(i11, i14)
@@ -519,7 +520,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(..., descr=<Loop0>)
         """)
-
+        
     def test_exception_inside_loop_1(self):
         def main(n):
             while n:
