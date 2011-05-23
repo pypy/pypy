@@ -5,6 +5,8 @@ program introspection.
 
 import sys
 
+from __pypy__ import lookup_special
+
 def _caller_locals(): 
     # note: the reason why this is working is because the functions in here are
     # compiled by geninterp, so they don't have a frame
@@ -62,9 +64,9 @@ def dir(*args):
 
     obj = args[0]
 
-
-    if hasattr(type(obj), "__dir__"):
-        result = type(obj).__dir__(obj)
+    dir_meth = lookup_special(obj, "__dir__")
+    if dir_meth is not None:
+        result = dir_meth()
         if not isinstance(result, list):
             raise TypeError("__dir__() must return a list, not %r" % (
                 type(result),))
