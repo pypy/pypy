@@ -653,17 +653,17 @@ def make_specialized_subclass(CFuncPtr):
         def _setcallable(self, func):
             self.__rollback()
             self.callable = func
-        callable = property(lambda: None, _setcallable)
+        callable = property(lambda x: None, _setcallable)
 
         def _setcom_index(self, idx):
             self.__rollback()
             self._com_index = idx
-        _com_index = property(lambda: None, _setcom_index)
+        _com_index = property(lambda x: None, _setcom_index)
 
         def _seterrcheck(self, func):
             self.__rollback()
             self.errcheck = func
-        errcheck = property(lambda: None, _seterrcheck)
+        errcheck = property(lambda x: None, _seterrcheck)
 
         def __call__(self, *args):
             thisarg = None
@@ -675,7 +675,6 @@ def make_specialized_subclass(CFuncPtr):
             except TypeError: # XXX, should be FFITypeError
                 assert self._slowpath_allowed
                 return CFuncPtr.__call__(self, *args)
-            assert self._errcheck_ is None
             return result
 
     make_specialized_subclass.memo[CFuncPtr] = CFuncPtrFast
