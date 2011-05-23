@@ -655,9 +655,13 @@ def make_specialized_subclass(CFuncPtr):
             self.callable = func
         callable = property(lambda: None, _setcallable)
 
+        def _setcom_index(self, idx):
+            self.__rollback()
+            self._com_index = idx
+        _com_index = property(lambda: None, _setcom_index)
+
         def _are_assumptions_met(self, args):
-            return (not self._com_index and
-                    self._errcheck_ is None)
+            return (self._errcheck_ is None)
 
         def __call__(self, *args):
             if not self._are_assumptions_met(args):
@@ -665,7 +669,6 @@ def make_specialized_subclass(CFuncPtr):
                 self.__class__ = CFuncPtr
                 return self(*args)
             #
-            assert not self._com_index
             thisarg = None
             argtypes = self._argtypes_
             restype = self._restype_
