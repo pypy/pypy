@@ -121,7 +121,6 @@ class TestCallingConv(Runner):
         cpu = self.cpu
         if not cpu.supports_floats:
             py.test.skip('requires floats')
-        called = []
 
         fdescr1 = BasicFailDescr(1)
         fdescr2 = BasicFailDescr(2)
@@ -129,7 +128,8 @@ class TestCallingConv(Runner):
         fdescr4 = BasicFailDescr(4)
 
         def assembler_helper(failindex, virtualizable):
-            return 4 + 9
+            assert 0, 'should not be called, but was with failindex (%d)' % failindex
+            return 13
 
         FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
                                              lltype.Signed))
@@ -139,7 +139,7 @@ class TestCallingConv(Runner):
             assembler_helper_adr = llmemory.cast_ptr_to_adr(
                 _assembler_helper_ptr)
 
-        arglist = ['i0', 'i1', 'i2', 'f0', 'f1', 'f2', 'f3', 'i3']
+        arglist = ['f0', 'f1', 'f2', 'i0', 'f3']
         floats = [0.7, 5.8, 0.1, 0.3]
         ints = [7, 11, 23, 42]
         def _prepare_args(args):
@@ -153,7 +153,8 @@ class TestCallingConv(Runner):
                 else:
                     cpu.set_future_value_int(i, (local_ints.pop()))
 
-        for args in itertools.permutations(arglist): 
+        for args in itertools.permutations(arglist):
+            args += ('i1', 'i2', 'i3')
             arguments = ', '.join(args)
             called_ops = '''
             [%s]
@@ -164,17 +165,19 @@ class TestCallingConv(Runner):
             f4 = float_add(f0, f1)
             f5 = float_add(f4, f2)
             f6 = float_add(f5, f3)
-            i7 = float_lt(f6, 7.0)
+            i7 = float_lt(f6, 6.99)
             guard_true(i7, descr=fdescr2) [f4, f5, f6]
-            finish(i6, f6)''' % arguments
+            finish(i6, f6, descr=fdescr3)''' % arguments
             # compile called loop
             called_loop = parse(called_ops, namespace=locals())
             called_looptoken = LoopToken()
             called_looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
             done_number = self.cpu.get_fail_descr_number(called_loop.operations[-1].getdescr())
             self.cpu.compile_loop(called_loop.inputargs, called_loop.operations, called_looptoken)
+
             _prepare_args(args)
             res = cpu.execute_token(called_looptoken)
+            assert res.identifier == 3
             assert cpu.get_latest_value_int(0) == 83
             t = longlong.getrealfloat(cpu.get_latest_value_float(1))
             assert abs(t - 6.9) < 0.0001
@@ -192,14 +195,20 @@ class TestCallingConv(Runner):
             [%s]
             i10 = call_assembler(%s, descr=called_looptoken)
             guard_not_forced()[]
-            finish(i10)
+            finish(i10, descr=fdescr4)
             ''' % (arguments, arguments)
             loop = parse(ops, namespace=locals())
-            othertoken = LoopToken()
-            self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+            # we want to take the fast path
+            self.cpu.done_with_this_frame_int_v = done_number
+            try:
+                othertoken = LoopToken()
+                self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
 
-            # prepare call to called_loop
-            _prepare_args(args)
-            res = cpu.execute_token(othertoken)
-            x = cpu.get_latest_value_int(0)
-            assert x == 83
+                # prepare call to called_loop
+                _prepare_args(args)
+                res = cpu.execute_token(othertoken)
+                x = cpu.get_latest_value_int(0)
+                assert res.identifier == 4
+                assert x == 83
+            finally:
+                del self.cpu.done_with_this_frame_int_v

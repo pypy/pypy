@@ -459,6 +459,7 @@ class AssemblerARM(ResOpAssembler):
                             len(r.callee_saved_vfp_registers)*2*WORD + \
                             N_REGISTERS_SAVED_BY_MALLOC * WORD + \
                             2 * WORD # for the FAIL INDEX and the stack padding
+        count = 0
         for i in range(reg_args, len(inputargs)):
             arg = inputargs[i]
             if arg.type == FLOAT:
@@ -467,13 +468,21 @@ class AssemblerARM(ResOpAssembler):
                 loc = nonfloatlocs[i]
             if loc.is_reg():
                 self.mc.LDR_ri(loc.value, r.fp.value, stack_position)
+                count += 1
             elif loc.is_vfp_reg():
+                if count % 2 != 0:
+                    stack_position += WORD
+                    count = 0
                 self.mc.VLDR(loc.value, r.fp.value, stack_position)
             elif loc.is_stack():
                 if loc.type == FLOAT:
+                    if count % 2 != 0:
+                        stack_position += WORD
+                        count = 0
                     self.mc.VLDR(r.vfp_ip.value, r.fp.value, stack_position)
                     self.mov_loc_loc(r.vfp_ip, loc)
                 elif loc.type == INT or loc.type == REF:
+                    count += 1
                     self.mc.LDR_ri(r.ip.value, r.fp.value, stack_position)
                     self.mov_loc_loc(r.ip, loc)
                 else:
