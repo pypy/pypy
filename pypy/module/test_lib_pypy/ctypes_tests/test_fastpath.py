@@ -72,6 +72,7 @@ class TestFallbackToSlowpath(BaseCTypesTestChecker):
         tf_b.restype = c_byte
         tf_b.argtypes = (c_char_p,)  # this is intentionally wrong
         tf_b.argtypes = None # kill the fast path
+        assert not tf_b._is_fastpath
         assert tf_b(-126) == -42
 
     def test_callable_is_None(self):
@@ -79,4 +80,18 @@ class TestFallbackToSlowpath(BaseCTypesTestChecker):
         tf_b.restype = c_byte
         tf_b.argtypes = (c_byte,)
         tf_b.callable = lambda x: x+1
+        assert not tf_b._is_fastpath
         assert tf_b(-126) == -125
+        tf_b.callable = None
+
+    def test_errcheck_is_None(self):
+        def errcheck(result, func, args):
+            return result * 2
+        #
+        tf_b = dll2.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        tf_b.errcheck = errcheck
+        assert not tf_b._is_fastpath
+        assert tf_b(-126) == -84
+        del tf_b.errcheck

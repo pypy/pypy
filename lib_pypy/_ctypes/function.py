@@ -660,15 +660,12 @@ def make_specialized_subclass(CFuncPtr):
             self._com_index = idx
         _com_index = property(lambda: None, _setcom_index)
 
-        def _are_assumptions_met(self, args):
-            return (self._errcheck_ is None)
+        def _seterrcheck(self, func):
+            self.__rollback()
+            self.errcheck = func
+        errcheck = property(lambda: None, _seterrcheck)
 
         def __call__(self, *args):
-            if not self._are_assumptions_met(args):
-                assert self._slowpath_allowed
-                self.__class__ = CFuncPtr
-                return self(*args)
-            #
             thisarg = None
             argtypes = self._argtypes_
             restype = self._restype_
