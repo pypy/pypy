@@ -1,3 +1,4 @@
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.objectmodel import we_are_translated
@@ -59,3 +60,11 @@ def builtinify(space, w_func):
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)
     return space.wrap(bltn)
+
+@unwrap_spec(ObjSpace, W_Root, str)
+def lookup_special(space, w_obj, meth):
+    """Lookup up a special method on an object."""
+    w_descr = space.lookup(w_obj, meth)
+    if w_descr is None:
+        return space.w_None
+    return space.get(w_descr, w_obj)

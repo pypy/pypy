@@ -36,3 +36,11 @@ class AppTest(object):
         assert not hasattr(A.b, 'im_func')
         assert A.a is not A.__dict__['a']
         assert A.b is A.__dict__['b']
+
+    def test_lookup_special(self):
+        from __pypy__ import lookup_special
+        class X(object):
+            def foo(self): return 42
+        x = X()
+        x.foo = 23
+        assert lookup_special(x, "foo")() == 42
