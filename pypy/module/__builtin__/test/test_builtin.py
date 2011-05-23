@@ -123,7 +123,10 @@ class AppTestBuiltinApp:
                 return [1, 3, 2]
         f = Foo()
         assert dir(f) == [1, 2, 3]
-        #
+        class Foo:
+            def __dir__(self):
+                return ["apple"]
+        assert dir(Foo()) == ["apple"]
         class Foo(object):
             def __dir__(self):
                 return 42

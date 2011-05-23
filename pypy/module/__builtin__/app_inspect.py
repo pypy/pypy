@@ -64,7 +64,14 @@ def dir(*args):
 
     obj = args[0]
 
-    dir_meth = lookup_special(obj, "__dir__")
+    dir_meth = None
+    if isinstance(obj, types.InstanceType):
+        try:
+            dir_meth = getattr(obj, "__dir__")
+        except AttributeError:
+            pass
+    else:
+        dir_meth = lookup_special(obj, "__dir__")
     if dir_meth is not None:
         result = dir_meth()
         if not isinstance(result, list):
