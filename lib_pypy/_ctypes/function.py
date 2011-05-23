@@ -96,7 +96,8 @@ class CFuncPtr(_CData):
             #
             # XXX tentative hack to make it jit-friendly
             if all([hasattr(argtype, '_ffiargshape') for argtype in argtypes]):
-                self.__class__ = make_specialized_subclass(self.__class__)
+                fastpath_cls = make_fastpath_subclass(self.__class__)
+                fastpath_cls.enable_fastpath_maybe(self)
             self._argtypes_ = list(argtypes)
     argtypes = property(_getargtypes, _setargtypes)
 
@@ -626,12 +627,12 @@ class CFuncPtr(_CData):
             self._needs_free = False
 
 
-def make_specialized_subclass(CFuncPtr):
+def make_fastpath_subclass(CFuncPtr):
     if CFuncPtr._is_fastpath:
         return CFuncPtr
     #
     try:
-        return make_specialized_subclass.memo[CFuncPtr]
+        return make_fastpath_subclass.memo[CFuncPtr]
     except KeyError:
         pass
 
@@ -639,6 +640,13 @@ def make_specialized_subclass(CFuncPtr):
 
         _is_fastpath = True
         _slowpath_allowed = True # set to False by tests
+
+        @classmethod
+        def enable_fastpath_maybe(cls, obj):
+            if (obj.callable is None and
+                obj._com_index is None and
+                obj._errcheck_ is None):
+                obj.__class__ = cls
 
         def __rollback(self):
             assert self._slowpath_allowed
@@ -677,6 +685,6 @@ def make_specialized_subclass(CFuncPtr):
                 return CFuncPtr.__call__(self, *args)
             return result
 
-    make_specialized_subclass.memo[CFuncPtr] = CFuncPtrFast
+    make_fastpath_subclass.memo[CFuncPtr] = CFuncPtrFast
     return CFuncPtrFast
-make_specialized_subclass.memo = {}
+make_fastpath_subclass.memo = {}

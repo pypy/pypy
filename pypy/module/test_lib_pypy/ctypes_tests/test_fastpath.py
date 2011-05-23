@@ -24,12 +24,21 @@ class TestFastpath(BaseCTypesTestChecker):
         #
         tf_b = dll.tf_b
         tf_b.restype = c_byte
+        #
+        # so far, it's still using the slowpath
+        assert not tf_b._is_fastpath
+        tf_b.errcheck = errcheck
         tf_b.argtypes = (c_byte,)
+        # errcheck prevented the fastpath to kick in
+        assert not tf_b._is_fastpath
+        #
+        del tf_b.errcheck
+        tf_b.argtypes = (c_byte,) # try to re-enable the fastpath
+        assert tf_b._is_fastpath
+        #
+        assert not tf_b._slowpath_allowed
         # errcheck disables the fastpath
         py.test.raises(AssertionError, "tf_b.errcheck = errcheck")
-        #
-        assert tf_b._is_fastpath
-        assert not tf_b._slowpath_allowed
         py.test.raises(AssertionError, "tf_b('aaa')") # force a TypeError
 
     def test_simple_args(self):
