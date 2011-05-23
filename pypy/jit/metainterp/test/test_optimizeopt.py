@@ -6255,3 +6255,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i3, i4)
         """
         self.optimize_loop(ops, expected)
+
+    def test_constant_getfield(self):
+        ops = """
+        [p1, p187, i184]
+        p188 = getarrayitem_gc(p187, i184, descr=<GcPtrArrayDescr>)
+        guard_value(p188, ConstPtr(myptr)) []
+        p25 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        jump(p25, p187, i184)
+        """
+        expected = """
+        [p25, p187, i184]
+        jump(p25, p187, i184)
+        """
+        self.optimize_loop(ops, expected, ops)
+        # FIXME: check jumparg 0 == getfield_gc()

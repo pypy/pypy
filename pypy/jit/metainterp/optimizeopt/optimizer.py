@@ -363,9 +363,9 @@ class Optimizer(Optimization):
 
         for ref, box in self.interned_refs.items():
             value = self.getvalue(box)
-            if isinstance(value, ConstantValue): # These are the only values surviving without being cloned
-                new.interned_refs[ref] = box
-                new.values[box] = value
+            assert value.is_constant()
+            new.interned_refs[ref] = box
+            new.values[box] = value.get_cloned(new, valuemap)
             
         new.pure_operations = args_dict()
         for key, op in self.pure_operations.items():
@@ -389,6 +389,7 @@ class Optimizer(Optimization):
 
         for value in valuemap.values():
             box = value.get_key_box()
+            box = new.getinterned(box)
             if box not in new.values:
                 new.values[box] = value
 
@@ -407,7 +408,7 @@ class Optimizer(Optimization):
         short_boxes = {}
         for box in inputargs:
             short_boxes[box] = None
-        
+
         for box in potential_ops.keys():
             try:
                 self.produce_short_preamble_box(box, short_boxes,

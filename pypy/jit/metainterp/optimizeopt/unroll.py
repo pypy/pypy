@@ -169,7 +169,7 @@ class UnrollOptimizer(Optimization):
             loop.preamble.quasi_immutable_deps = (
                 self.optimizer.quasi_immutable_deps)
             self.optimizer = self.optimizer.reconstruct_for_next_iteration(sb, jump_args)
-
+            
             self.constant_inputargs = {}
             loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps            
             for box in jump_args:
