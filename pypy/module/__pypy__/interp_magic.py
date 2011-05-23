@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.typeobject import MethodCache
@@ -62,6 +63,9 @@ def builtinify(space, w_func):
 @unwrap_spec(ObjSpace, W_Root, str)
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
+    if space.is_oldstyle_instance(w_obj):
+        w_msg = space.wrap("this doesn't do what you want on old-style classes")
+        raise OperationError(space.w_TypeError, w_msg)
     w_descr = space.lookup(w_obj, meth)
     if w_descr is None:
         return space.w_None

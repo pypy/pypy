@@ -44,3 +44,6 @@ class AppTest(object):
         x = X()
         x.foo = 23
         assert lookup_special(x, "foo")() == 42
+        class X:
+            pass
+        raises(TypeError, lookup_special, X(), "foo")
