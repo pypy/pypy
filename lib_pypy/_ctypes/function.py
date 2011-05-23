@@ -650,9 +650,13 @@ def make_specialized_subclass(CFuncPtr):
             self._setargtypes(argtypes)
         argtypes = property(CFuncPtr._getargtypes, _setargtypes)
 
+        def _setcallable(self, func):
+            self.__rollback()
+            self.callable = func
+        callable = property(lambda: None, _setcallable)
+
         def _are_assumptions_met(self, args):
-            return (self.callable is None and
-                    not self._com_index and
+            return (not self._com_index and
                     self._errcheck_ is None)
 
         def __call__(self, *args):
@@ -661,9 +665,7 @@ def make_specialized_subclass(CFuncPtr):
                 self.__class__ = CFuncPtr
                 return self(*args)
             #
-            assert self.callable is None
             assert not self._com_index
-            assert self._argtypes_ is not None
             thisarg = None
             argtypes = self._argtypes_
             restype = self._restype_
