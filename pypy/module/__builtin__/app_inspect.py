@@ -62,7 +62,15 @@ def dir(*args):
 
     obj = args[0]
 
-    if isinstance(obj, types.ModuleType):
+
+    if hasattr(type(obj), "__dir__"):
+        result = type(obj).__dir__(obj)
+        if not isinstance(result, list):
+            raise TypeError("__dir__() must return a list, not %r" % (
+                type(result),))
+        result.sort()
+        return result
+    elif isinstance(obj, types.ModuleType):
         try:
             result = list(obj.__dict__)
             result.sort()
@@ -73,14 +81,6 @@ def dir(*args):
     elif isinstance(obj, (types.TypeType, types.ClassType)):
         #Don't look at __class__, as metaclass methods would be confusing.
         result = _classdir(obj).keys()
-        result.sort()
-        return result
-
-    elif hasattr(type(obj), '__dir__'):
-        result = type(obj).__dir__(obj)
-        if not isinstance(result, list):
-            raise TypeError("__dir__() must return a list, not %r" % (
-                type(result),))
         result.sort()
         return result
 

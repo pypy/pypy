@@ -129,6 +129,11 @@ class AppTestBuiltinApp:
                 return 42
         f = Foo()
         raises(TypeError, dir, f)
+        import types
+        class Foo(types.ModuleType):
+            def __dir__(self):
+                return ["blah"]
+        assert dir(Foo("a_mod")) == ["blah"]
 
     def test_format(self):
         assert format(4) == "4"
