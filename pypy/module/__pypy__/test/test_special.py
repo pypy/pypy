@@ -43,7 +43,9 @@ class AppTest(object):
             def foo(self): return 42
         x = X()
         x.foo = 23
+        x.bar = 80
         assert lookup_special(x, "foo")() == 42
+        assert lookup_special(x, "bar") is None
         class X:
             pass
         raises(TypeError, lookup_special, X(), "foo")
