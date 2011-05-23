@@ -159,5 +159,6 @@ c_free = rffi.llexternal(
 
 def charp2str_free(charp):
     string = rffi.charp2str(charp)
-    c_free(charp)
+    voidp = rffi.cast(rffi.VOIDP, charp)
+    c_free(voidp)
     return string

@@ -111,6 +111,7 @@ class VoidConverter(TypeConverter):
 
 class BoolConverter(TypeConverter):
     _immutable = True
+    libffitype = libffi.types.sint               # TODO: probably incorrect
 
     def convert_argument(self, space, w_obj):
         arg = space.c_int_w(w_obj)
@@ -237,6 +238,7 @@ class ShortConverter(LongConverter):
 
 class FloatConverter(TypeConverter):
     _immutable = True
+    libffitype = libffi.types.float
 
     def _unwrap_object(self, space, w_obj):
         return r_singlefloat(space.float_w(w_obj))
