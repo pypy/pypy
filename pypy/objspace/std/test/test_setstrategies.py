@@ -52,3 +52,12 @@ class TestW_SetStrategies:
         set_remove__Set_ANY(self.space, s1, self.space.wrap(1))
         assert s1.strategy is self.space.fromcache(EmptySetStrategy)
 
+    def test_union(self):
+        from pypy.objspace.std.setobject import set_union__Set
+        s1 = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
+        s2 = W_SetObject(self.space, self.wrapped([4,5,6,7]))
+        s3 = W_SetObject(self.space, self.wrapped([4,'5','6',7]))
+        s4 = set_union__Set(self.space, s1, [s2])
+        s5 = set_union__Set(self.space, s1, [s3])
+        assert s4.strategy is self.space.fromcache(IntegerSetStrategy)
+        assert s5.strategy is self.space.fromcache(ObjectSetStrategy)
