@@ -387,8 +387,11 @@ class AbstractUnwrappedSetStrategy(object):
         return keys_w
 
     def has_key(self, w_set, w_key):
+        from pypy.objspace.std.dictmultiobject import _is_sane_hash
         if not self.is_correct_type(w_key):
-            #XXX switch object strategy, test
+            if not _is_sane_hash(self.space, w_key):
+                w_set.switch_to_object_strategy(self.space)
+                return w_set.has_key(w_key)
             return False
         d = self.cast_from_void_star(w_set.sstorage)
         return self.unwrap(w_key) in d

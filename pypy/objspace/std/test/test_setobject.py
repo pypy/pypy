@@ -578,3 +578,20 @@ class AppTestAppSetTest:
         s.remove(FakeInt(3))
         assert s == set([1,2])
         raises(KeyError, s.remove, FakeInt(16))
+
+
+    def test_fakeobject_and_has_key(test):
+        class FakeInt(object):
+            def __init__(self, value):
+                self.value = value
+            def __hash__(self):
+                return hash(self.value)
+
+            def __eq__(self, other):
+                if other == self.value:
+                    return True
+                return False
+
+        s = set([1,2,3,4,5])
+        assert 5 in s
+        assert FakeInt(5) in s
