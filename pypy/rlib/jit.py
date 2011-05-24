@@ -342,10 +342,15 @@ class JitDriver(object):
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-    def on_compile(self, loop, type, *args):
-        """ A hook called when loop or bridge is compiled. Overwrite
+    def on_compile(self, looptoken, operations, type, *greenargs):
+        """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like
         call applevel code
+        """
+
+    def on_compile_bridge(self, orig_looptoken, operations, n):
+        """ A hook called when a bridge is compiled. Overwrite
+        for your own jitdriver if you want to do something special
         """
 
     def _make_extregistryentries(self):

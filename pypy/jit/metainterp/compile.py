@@ -154,7 +154,7 @@ def insert_loop_token(old_loop_tokens, loop_token):
     old_loop_tokens.append(loop_token)
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
-    jitdriver_sd.on_compile(loop, type, greenkey)
+    jitdriver_sd.on_compile(loop.token, loop.operations, type, greenkey)
     globaldata = metainterp_sd.globaldata
     loop_token = loop.token
     loop_token.number = n = globaldata.loopnumbering
@@ -192,6 +192,8 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
+    n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
+    jitdriver_sd.on_compile_bridge(original_loop_token, operations, n)
     if not we_are_translated():
         show_loop(metainterp_sd)
         TreeLoop.check_consistency_of(inputargs, operations)
@@ -208,7 +210,6 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new bridge")
     #
-    n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, ops_offset)
     #
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
