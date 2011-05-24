@@ -266,6 +266,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return None
 
     def unwrap(self, w_obj):
+        """NOT_RPYTHON"""
         if isinstance(w_obj, Wrappable):
             return w_obj
         if isinstance(w_obj, model.W_Object):
