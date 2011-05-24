@@ -83,14 +83,14 @@ class AssemblerARM(ResOpAssembler):
         self.current_clt = looptoken.compiled_loop_token
         self.mc = ARMv7Builder()
         self.guard_descrs = []
-        self.blocks = []
+        assert self.datablockwrapper is None
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
-                                                            self.blocks)
+                                                        allblocks)
 
     def teardown(self):
         self.current_clt = None
         self._regalloc = None
-        self.datablockwrapper.done()
         self.mc = None
         self.guard_descrs = None
 
@@ -607,9 +607,9 @@ class AssemblerARM(ResOpAssembler):
         self.teardown()
 
     def materialize_loop(self, looptoken):
+        self.datablockwrapper.done()      # finish using cpu.asmmemmgr
+        self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        for block in self.blocks:
-            allblocks.append(block)
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
