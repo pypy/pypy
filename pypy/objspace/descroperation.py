@@ -207,9 +207,11 @@ class DescrOperation(object):
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        w_descr = space.lookup(w_obj, '__nonzero__')
+        method = "__nonzero__"
+        w_descr = space.lookup(w_obj, method)
         if w_descr is None:
-            w_descr = space.lookup(w_obj, '__len__')
+            method = "__len__"
+            w_descr = space.lookup(w_obj, method)
             if w_descr is None:
                 return True
         w_res = space.get_and_call_function(w_descr, w_obj)
@@ -225,9 +227,8 @@ class DescrOperation(object):
             space.is_w(w_restype, space.w_long)):
             return space.int_w(w_res) != 0
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap('__nonzero__ should return '
-                                            'bool or integer'))
+            msg = "%s should return bool or integer" % (method,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
 
     def nonzero(self, w_obj):
         if self.is_true(w_obj):
