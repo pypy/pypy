@@ -329,6 +329,7 @@ class AbstractUnwrappedSetStrategy(object):
             raise
 
     def discard(self, w_set, w_item):
+        from pypy.objspace.std.dictmultiobject import _is_sane_hash
         d = self.cast_from_void_star(w_set.sstorage)
         try:
             del d[self.unwrap(w_item)]
@@ -336,13 +337,28 @@ class AbstractUnwrappedSetStrategy(object):
         except KeyError:
             return False
         except OperationError, e:
+            # raise any error except TypeError
             if not e.match(self.space, self.space.w_TypeError):
                 raise
+            # if error is TypeError and w_item is not None, Int, String, Bool or Float
+            # (i.e. FakeObject) switch to object strategy and discard again
+            if (not _is_sane_hash(self.space, w_item) and
+                    self is not self.space.fromcache(ObjectSetStrategy)):
+                w_set.switch_to_object_strategy(self.space)
+                return w_set.discard(w_item)
+            # else we have two cases:
+            # - w_item is as set: then we convert it to frozenset and check again
+            # - type doesn't match (string in intstrategy): then we raise (cause w_f is none)
             w_f = _convert_set_to_frozenset(self.space, w_item)
             if w_f is None:
                 raise
+
+        # if w_item is a set and we are not in ObjectSetStrategy we are finished here
+        if not self.space.fromcache(ObjectSetStrategy):
+            return False
+
         try:
-            del d[w_f]
+            del d[w_f] # XXX nonsense in intstrategy
             return True
         except KeyError:
             return False
@@ -595,7 +611,7 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     cast_from_void_star = staticmethod(cast_from_void_star)
 
     def get_empty_storage(self):
-        return self.cast_to_void_star(newset(self.space))
+        return self.cast_to_void_star(self.get_empty_dict())
 
     def get_empty_dict(self):
         return newset(self.space)

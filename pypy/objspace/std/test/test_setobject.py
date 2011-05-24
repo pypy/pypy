@@ -545,3 +545,36 @@ class AppTestAppSetTest:
             for i in [1,2,3]:
                 yield i
         set([1,2,3,4,5]).issuperset(foo())
+
+
+    def test_fakeint_intstrategy(self):
+        class FakeInt(object):
+            def __init__(self, value):
+                self.value = value
+            def __hash__(self):
+                return hash(self.value)
+
+            def __eq__(self, other):
+                if other == self.value:
+                    return True
+                return False
+
+        f1 = FakeInt(4)
+        assert f1 == 4
+        assert hash(f1) == hash(4)
+
+        # test with object strategy
+        s = set([1, 2, 'three', 'four'])
+        s.discard(FakeInt(2))
+        assert s == set([1, 'three', 'four'])
+        s.remove(FakeInt(1))
+        assert s == set(['three', 'four'])
+        raises(KeyError, s.remove, FakeInt(16))
+
+        # test with int strategy
+        s = set([1,2,3,4])
+        s.discard(FakeInt(4))
+        assert s == set([1,2,3])
+        s.remove(FakeInt(3))
+        assert s == set([1,2])
+        raises(KeyError, s.remove, FakeInt(16))
