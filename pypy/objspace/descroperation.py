@@ -236,8 +236,19 @@ class DescrOperation(object):
         else:
             return self.w_False
 
-##    def len(self, w_obj):
-##        XXX needs to check that the result is an int (or long?) >= 0
+    def len(space, w_obj):
+        w_descr = space.lookup(w_obj, '__len__')
+        if w_descr is None:
+            name = space.type(w_obj).getname(space)
+            msg = "'%s' has no length" % (name,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        w_res = space.get_and_call_function(w_descr, w_obj)
+        space._check_len_result(w_res)
+        return w_res
+
+    def _check_len_result(space, w_obj):
+        # Will complain if result is too big.
+        space.int_w(w_obj)
 
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
