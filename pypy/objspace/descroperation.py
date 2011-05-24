@@ -216,9 +216,9 @@ class DescrOperation(object):
                 return True
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
-        if w_res is space.w_False:
+        if space.is_w(w_res, space.w_False):
             return False
-        if w_res is space.w_True:
+        if space.is_w(w_res, space.w_True):
             return True
         w_restype = space.type(w_res)
         # Note there is no check for bool here because the only possible
