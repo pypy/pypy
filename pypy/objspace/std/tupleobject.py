@@ -88,7 +88,7 @@ def mul_tuple_times(space, w_tuple, w_times):
     if times == 1 and space.type(w_tuple) == space.w_tuple:
         return w_tuple
     items = w_tuple.wrappeditems
-    return W_TupleObject(items * times)
+    return space.newtuple(items * times)
 
 def mul__Tuple_ANY(space, w_tuple, w_times):
     return mul_tuple_times(space, w_tuple, w_times)
