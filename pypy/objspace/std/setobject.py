@@ -292,12 +292,6 @@ class AbstractUnwrappedSetStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
-    def init_from_setdata_w(self, w_set, setdata_w):
-        d = self.get_empty_dict()
-        for item_w in setdata_w.keys():
-            d[self.unwrap(item_w)] = None
-        w_set.sstorage = self.cast_to_void_star(d)
-
     def get_storage_from_list(self, list_w):
         setdata = self.get_empty_dict()
         for w_item in list_w:
@@ -377,8 +371,11 @@ class AbstractUnwrappedSetStrategy(object):
         return keys_w
 
     def has_key(self, w_set, w_key):
-        dict_w = self.cast_from_void_star(w_set.sstorage)
-        return self.unwrap(w_key) in dict_w
+        if not self.is_correct_type(w_key):
+            #XXX switch object strategy, test
+            return False
+        d = self.cast_from_void_star(w_set.sstorage)
+        return self.unwrap(w_key) in d
 
     def equals(self, w_set, w_other):
         if w_set.length() != w_other.length():
@@ -587,7 +584,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return type(w_key) is W_IntObject
 
     def unwrap(self, w_item):
-        return self.space.unwrap(w_item)
+        return self.space.int_w(w_item)
 
     def wrap(self, item):
         return self.space.wrap(item)
