@@ -137,10 +137,10 @@ class Assembler386(object):
         self.current_clt = looptoken.compiled_loop_token
         self.pending_guard_tokens = []
         self.mc = codebuf.MachineCodeBlockWrapper()
-        if self.datablockwrapper is None:
-            allblocks = self.get_asmmemmgr_blocks(looptoken)
-            self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
-                                                            allblocks)
+        assert self.datablockwrapper is None
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                        allblocks)
 
     def teardown(self):
         self.pending_guard_tokens = None
