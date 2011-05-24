@@ -18,6 +18,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import Regalloc, TempInt, TempPtr
+from pypy.jit.backend.arm.locations import imm
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity

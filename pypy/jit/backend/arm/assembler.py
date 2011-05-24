@@ -194,9 +194,6 @@ class AssemblerARM(ResOpAssembler):
             elif group == self.REF_TYPE:
                 tgt = self.fail_boxes_ptr.get_addr_for_num(fail_index)
                 rffi.cast(rffi.LONGP, tgt)[0] = value
-                #self.fail_boxes_ptr.setitem(fail_index, value)# rffi.cast(llmemory.GCREF, value))
-            elif group == self.FLOAT_TYPE:
-                self.fail_boxes_float.setitem(fail_index, value)
             else:
                 assert 0, 'unknown type'
 
@@ -802,7 +799,7 @@ class AssemblerARM(ResOpAssembler):
                     self.mc.gen_load_int(temp.value, offset.value)
                     self.mc.ADD_rr(temp.value, r.fp.value, temp.value)
                 else:
-                    self.mc.ADD_rr(temp.value, r.fp.value, offset)
+                    self.mc.ADD_rr(temp.value, r.fp.value, offset.value)
                 self.mc.VSTR(prev_loc.value, temp.value, cond=cond)
             elif loc.is_vfp_reg() and prev_loc.is_stack():
                 # load spilled value into vfp reg
@@ -811,7 +808,7 @@ class AssemblerARM(ResOpAssembler):
                     self.mc.gen_load_int(temp.value, offset.value)
                     self.mc.ADD_rr(temp.value, r.fp.value, temp.value)
                 else:
-                    self.mc.ADD_rr(temp.value, r.fp.value, offset)
+                    self.mc.ADD_rr(temp.value, r.fp.value, offset.value)
                 self.mc.VLDR(loc.value, temp.value, cond=cond)
             else:
                 assert 0, 'unsupported case'
