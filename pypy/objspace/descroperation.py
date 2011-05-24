@@ -230,11 +230,11 @@ class DescrOperation(object):
             msg = "%s should return bool or integer" % (method,)
             raise OperationError(space.w_TypeError, space.wrap(msg))
 
-    def nonzero(self, w_obj):
-        if self.is_true(w_obj):
-            return self.w_True
+    def nonzero(space, w_obj):
+        if space.is_true(w_obj):
+            return space.w_True
         else:
-            return self.w_False
+            return space.w_False
 
     def len(space, w_obj):
         w_descr = space.lookup(w_obj, '__len__')
