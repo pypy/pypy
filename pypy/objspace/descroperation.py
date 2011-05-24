@@ -225,7 +225,7 @@ class DescrOperation(object):
         else:
             raise OperationError(space.w_TypeError,
                                  space.wrap('__nonzero__ should return '
-                                            'bool or int'))
+                                            'bool or integer'))
 
     def nonzero(self, w_obj):
         if self.is_true(w_obj):
