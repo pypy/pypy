@@ -12,6 +12,7 @@ N_REGISTERS_SAVED_BY_MALLOC = 9
 MY_COPY_OF_REGS = WORD
 # The Address in the PC points two words befind the current instruction
 PC_OFFSET = 8
+FORCE_INDEX_OFS = 0
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 eci = ExternalCompilationInfo(post_include_bits=["""

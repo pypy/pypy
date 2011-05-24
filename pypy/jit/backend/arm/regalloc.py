@@ -823,7 +823,8 @@ class Regalloc(object):
             self.fastpath_malloc_fixedsize(op, op.getdescr())
         else:
             arglocs = self._prepare_args_for_new_op(op.getdescr())
-            self.assembler._emit_call(self.assembler.malloc_func_addr,
+            force_index = self.assembler.write_new_force_index()
+            self.assembler._emit_call(force_index, self.assembler.malloc_func_addr,
                                     arglocs, self, result=op.result)
             self.possibly_free_vars(arglocs)
         self.possibly_free_var(op.result)
@@ -836,7 +837,8 @@ class Regalloc(object):
             self.fastpath_malloc_fixedsize(op, descrsize)
         else:
             callargs = self._prepare_args_for_new_op(descrsize)
-            self.assembler._emit_call(self.assembler.malloc_func_addr,
+            force_index = self.assembler.write_new_force_index()
+            self.assembler._emit_call(force_index, self.assembler.malloc_func_addr,
                                         callargs, self, result=op.result)
             self.possibly_free_vars(callargs)
         self.possibly_free_var(op.result)
@@ -857,7 +859,9 @@ class Regalloc(object):
                 op.getdescr())
             arglocs = [imm(x) for x in args]
             arglocs.append(self.loc(box_num_elem))
-            self.assembler._emit_call(self.assembler.malloc_array_func_addr, arglocs, self, op.result)
+            force_index = self.write_new_force_index()
+            self.assembler._emit_call(force_index, self.assembler.malloc_array_func_addr,
+                                        arglocs, self, op.result)
             return []
         # boehm GC
         itemsize, scale, basesize, ofs_length, _ = (
@@ -914,7 +918,8 @@ class Regalloc(object):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newstr is not None:
             loc = self.loc(op.getarg(0))
-            self.assembler._emit_call(self.assembler.malloc_str_func_addr, [loc], self, op.result)
+            force_index = self.write_new_force_index()
+            self.assembler._emit_call(force_index, self.assembler.malloc_str_func_addr, [loc], self, op.result)
             return []
         # boehm GC
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
@@ -926,7 +931,9 @@ class Regalloc(object):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newunicode is not None:
             loc = self.loc(op.getarg(0))
-            self.assembler._emit_call(self.assembler.malloc_unicode_func_addr, [loc], self, op.result)
+            force_index = self.write_new_force_index()
+            self.assembler._emit_call(force_index, self.assembler.malloc_unicode_func_addr,
+                                        [loc], self, op.result)
             return []
         # boehm GC
         ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
@@ -976,7 +983,7 @@ class Regalloc(object):
         for v in guard_op.getfailargs():
             if v in self.rm.reg_bindings or v in self.vfprm.reg_bindings:
                 self.force_spill_var(v)
-        self.assembler.emit_op_call(op, args, self, fcond)
+        self.assembler.emit_op_call(op, args, self, fcond, fail_index)
         locs = self._prepare_guard(guard_op)
         self.possibly_free_vars(guard_op.getfailargs())
         return locs

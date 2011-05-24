@@ -29,6 +29,8 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 
+NO_FORCE_INDEX = -1
+
 class IntOpAsslember(object):
 
     _mixin_ = True
@@ -273,11 +275,13 @@ class OpAssembler(object):
         self._gen_path_to_exit_path(op, op.getarglist(), arglocs, c.AL)
         return fcond
 
-    def emit_op_call(self, op, args, regalloc, fcond):
+    def emit_op_call(self, op, args, regalloc, fcond, force_index=-1):
         adr = args[0].value
         arglist = op.getarglist()[1:]
-        cond =  self._emit_call(adr, arglist, regalloc, fcond,
-                                op.result)
+        if force_index == -1:
+            force_index = self.write_new_force_index()
+        cond =  self._emit_call(force_index, adr, arglist, 
+                                    regalloc, fcond, op.result)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
@@ -291,7 +295,7 @@ class OpAssembler(object):
     # XXX improve this interface
     # emit_op_call_may_force
     # XXX improve freeing of stuff here
-    def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None):
+    def _emit_call(self, force_index, adr, args, regalloc, fcond=c.AL, result=None):
         n_args = len(args)
         reg_args = count_reg_args(args)
 
@@ -343,6 +347,7 @@ class OpAssembler(object):
         regalloc.before_call(save_all_regs=2)
         #the actual call
         self.mc.BL(adr)
+        self.mark_gc_roots(force_index)
         regalloc.possibly_free_vars(args)
         # readjust the sp in case we passed some args on the stack
         if n_args > 4:
@@ -636,7 +641,7 @@ class StrOpAssembler(object):
             length_box = bytes_box
             length_loc = bytes_loc
         # call memcpy()
-        self._emit_call(self.memcpy_addr, [dstaddr_box, srcaddr_box, length_box], regalloc)
+        self._emit_call(NO_FORCE_INDEX, self.memcpy_addr, [dstaddr_box, srcaddr_box, length_box], regalloc)
 
         regalloc.possibly_free_vars(args)
         regalloc.possibly_free_var(length_box)
@@ -733,7 +738,7 @@ class ForceOpAssembler(object):
         # XXX check this
         assert op.numargs() == len(descr._arm_arglocs[0])
         resbox = TempInt()
-        self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(),
+        self._emit_call(fail_index, descr._arm_direct_bootstrap_code, op.getarglist(),
                                 regalloc, fcond, result=resbox)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
@@ -849,6 +854,20 @@ class ForceOpAssembler(object):
         self._emit_guard(guard_op, arglocs, c.GE)
         return fcond
 
+    def write_new_force_index(self):
+        # for shadowstack only: get a new, unused force_index number and
+        # write it to FORCE_INDEX_OFS.  Used to record the call shape
+        # (i.e. where the GC pointers are in the stack) around a CALL
+        # instruction that doesn't already have a force_index.
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            clt = self.current_clt
+            force_index = clt.reserve_and_record_some_faildescr_index()
+            self._write_fail_index(force_index)
+            return force_index
+        else:
+            return 0
+
     def _write_fail_index(self, fail_index):
         self.mc.gen_load_int(r.ip.value, fail_index)
         self.mc.STR_ri(r.ip.value, r.fp.value)
@@ -867,7 +886,8 @@ class AllocOpAssembler(object):
             self.mc.ADD_ri(size.value, size.value, ofs_items_loc.value)
         else:
             self.mc.ADD_rr(size.value, size.value, ofs_items_loc.value)
-        self._emit_call(self.malloc_func_addr, [size_box], regalloc,
+        force_index = self.write_new_force_index()
+        self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
                                     result=result)
 
     def emit_op_new(self, op, arglocs, regalloc, fcond):

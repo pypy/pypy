@@ -175,6 +175,8 @@ class AssemblerARM(ResOpAssembler):
                 stack_loc = self.decode32(enc, i+1)
                 if group == self.FLOAT_TYPE:
                     value = self.decode64(stack, frame_depth - stack_loc*WORD)
+                    self.fail_boxes_float.setitem(fail_index, value)
+                    continue
                 else:
                     value = self.decode32(stack, frame_depth - stack_loc*WORD)
                 i += 4
@@ -182,6 +184,8 @@ class AssemblerARM(ResOpAssembler):
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
                     value = self.decode64(vfp_regs, reg*2*WORD)
+                    self.fail_boxes_float.setitem(fail_index, value)
+                    continue
                 else:
                     value = self.decode32(regs, reg*WORD)
 
@@ -377,6 +381,9 @@ class AssemblerARM(ResOpAssembler):
             self.mc.writechar(chr(0))
 
     def gen_func_epilog(self, mc=None, cond=c.AL):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self.gen_footer_shadowstack(gcrootmap)
         if mc is None:
             mc = self.mc
         offset = 1
@@ -399,6 +406,29 @@ class AssemblerARM(ResOpAssembler):
         # store the force index
         self.mc.SUB_ri(r.sp.value, r.sp.value, (N_REGISTERS_SAVED_BY_MALLOC+offset)*WORD)
         self.mc.MOV_rr(r.fp.value, r.sp.value)
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self.gen_shadowstack_header(gcrootmap)
+
+    def gen_shadowstack_header(self, gcrootmap):
+        # we need to put two words into the shadowstack: the MARKER
+        # and the address of the frame (ebp, actually)
+        # XXX add some comments
+        rst = gcrootmap.get_root_stack_top_addr()
+        self.mc.gen_load_int(r.ip.value, rst)
+        self.mc.LDR_ri(r.r4.value, r.ip.value) # LDR r4, [rootstacktop]
+        self.mc.ADD_ri(r.r5.value, r.r4.value, imm=2*WORD) # ADD r5, r4 [2*WORD]
+        self.mc.gen_load_int(r.r6.value, gcrootmap.MARKER)
+        self.mc.STR_ri(r.r6.value, r.r4.value)
+        self.mc.STR_ri(r.fp.value, r.r4.value, WORD) 
+        self.mc.STR_ri(r.r5.value, r.ip.value)
+
+    def gen_footer_shadowstack(self, gcrootmap):
+        rst = gcrootmap.get_root_stack_top_addr()
+        self.mc.gen_load_int(r.ip.value, rst)
+        self.mc.LDR_ri(r.r4.value, r.ip.value) # LDR r4, [rootstacktop]
+        self.mc.SUB_ri(r.r5.value, r.r4.value, imm=2*WORD) # ADD r5, r4 [2*WORD]
+        self.mc.STR_ri(r.r5.value, r.ip.value)
 
     def gen_bootstrap_code(self, nonfloatlocs, floatlocs, inputargs):
         for i in range(len(nonfloatlocs)):
