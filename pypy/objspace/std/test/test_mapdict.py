@@ -253,7 +253,7 @@ def test_materialize_r_dict():
             self.dstorage = d
 
         class strategy:
-            def cast_from_void_star(self, x):
+            def unerase(self, x):
                 return d
         strategy = strategy()
 

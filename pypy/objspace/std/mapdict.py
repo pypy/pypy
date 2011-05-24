@@ -384,7 +384,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
             return w_dict
 
         strategy = space.fromcache(MapDictStrategy)
-        storage = strategy.cast_to_void_star(self)
+        storage = strategy.erase(self)
         w_dict = W_DictMultiObject(space, strategy, storage)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag
@@ -580,19 +580,19 @@ def _make_subclass_size_n(supercls, n):
 
 class MapDictStrategy(DictStrategy):
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("map")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("map")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def __init__(self, space):
         self.space = space
 
     def switch_to_object_strategy(self, w_dict):
-        w_obj = self.cast_from_void_star(w_dict.dstorage)
+        w_obj = self.unerase(w_dict.dstorage)
         strategy = self.space.fromcache(ObjectDictStrategy)
-        dict_w = strategy.cast_from_void_star(strategy.get_empty_storage())
+        dict_w = strategy.unerase(strategy.get_empty_storage())
         w_dict.strategy = strategy
-        w_dict.dstorage = strategy.cast_to_void_star(dict_w)
+        w_dict.dstorage = strategy.erase(dict_w)
         materialize_r_dict(self.space, w_obj, dict_w)
 
     def getitem(self, w_dict, w_lookup):
@@ -607,11 +607,11 @@ class MapDictStrategy(DictStrategy):
             return w_dict.getitem(w_lookup)
 
     def getitem_str(self, w_dict, key):
-        w_obj = self.cast_from_void_star(w_dict.dstorage)
+        w_obj = self.unerase(w_dict.dstorage)
         return w_obj.getdictvalue(self.space, key)
 
     def setitem_str(self, w_dict, key, w_value):
-        w_obj = self.cast_from_void_star(w_dict.dstorage)
+        w_obj = self.unerase(w_dict.dstorage)
         flag = w_obj.setdictvalue(self.space, key, w_value)
         assert flag
 
@@ -639,7 +639,7 @@ class MapDictStrategy(DictStrategy):
     def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        w_obj = self.cast_from_void_star(w_dict.dstorage)
+        w_obj = self.unerase(w_dict.dstorage)
         if space.is_w(w_key_type, space.w_str):
             flag = w_obj.deldictvalue(space, w_key)
             if not flag:
@@ -652,7 +652,7 @@ class MapDictStrategy(DictStrategy):
 
     def length(self, w_dict):
         res = 0
-        curr = self.cast_from_void_star(w_dict.dstorage)._get_mapdict_map().search(DICT)
+        curr = self.unerase(w_dict.dstorage)._get_mapdict_map().search(DICT)
         while curr is not None:
             curr = curr.back
             curr = curr.search(DICT)
@@ -663,7 +663,7 @@ class MapDictStrategy(DictStrategy):
         return MapDictIteratorImplementation(self.space, w_dict)
 
     def clear(self, w_dict):
-        w_obj = self.cast_from_void_star(w_dict.dstorage)
+        w_obj = self.unerase(w_dict.dstorage)
         new_obj = w_obj._get_mapdict_map().remove_dict_entries(w_obj)
         _become(w_obj, new_obj)
 
@@ -681,14 +681,14 @@ class MapDictStrategy(DictStrategy):
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
     w_dict = obj.getdict(space)
-    assert w_dict.strategy.cast_from_void_star(w_dict.dstorage) is dict_w
+    assert w_dict.strategy.unerase(w_dict.dstorage) is dict_w
     new_obj = map.materialize_r_dict(space, obj, dict_w)
     _become(obj, new_obj)
 
 class MapDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        w_obj = dictimplementation.strategy.cast_from_void_star(dictimplementation.dstorage)
+        w_obj = dictimplementation.strategy.unerase(dictimplementation.dstorage)
         self.w_obj = w_obj
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 

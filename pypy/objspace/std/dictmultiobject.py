@@ -170,15 +170,15 @@ class DictStrategy(object):
 
 class EmptyDictStrategy(DictStrategy):
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("empty")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("empty")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def __init__(self, space):
         self.space = space
 
     def get_empty_storage(self):
-       return self.cast_to_void_star(None)
+       return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
         #XXX implement other strategies later
@@ -267,31 +267,31 @@ class EmptyIteratorImplementation(object):
 
 class ObjectDictStrategy(DictStrategy):
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("object")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("object")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def get_empty_storage(self):
        new_dict = r_dict(self.space.eq_w, self.space.hash_w)
-       return self.cast_to_void_star(new_dict)
+       return self.erase(new_dict)
 
     def setdefault(self, w_dict, w_key, w_default):
-        return self.cast_from_void_star(w_dict.dstorage).setdefault(w_key, w_default)
+        return self.unerase(w_dict.dstorage).setdefault(w_key, w_default)
 
     def setitem(self, w_dict, w_key, w_value):
-        self.cast_from_void_star(w_dict.dstorage)[w_key] = w_value
+        self.unerase(w_dict.dstorage)[w_key] = w_value
 
     def setitem_str(self, w_dict, key, w_value):
         return w_dict.setitem(self.space.wrap(key), w_value)
 
     def delitem(self, w_dict, w_key):
-        del self.cast_from_void_star(w_dict.dstorage)[w_key]
+        del self.unerase(w_dict.dstorage)[w_key]
 
     def length(self, w_dict):
-        return len(self.cast_from_void_star(w_dict.dstorage))
+        return len(self.unerase(w_dict.dstorage))
 
     def getitem(self, w_dict, w_key):
-        return self.cast_from_void_star(w_dict.dstorage).get(w_key, None)
+        return self.unerase(w_dict.dstorage).get(w_key, None)
 
     def getitem_str(self, w_dict, key):
         return self.getitem(w_dict, self.space.wrap(key))
@@ -300,17 +300,17 @@ class ObjectDictStrategy(DictStrategy):
         return RDictIteratorImplementation(self.space, w_dict)
 
     def keys(self, w_dict):
-        return self.cast_from_void_star(w_dict.dstorage).keys()
+        return self.unerase(w_dict.dstorage).keys()
 
     def values(self, w_dict):
-        return self.cast_from_void_star(w_dict.dstorage).values()
+        return self.unerase(w_dict.dstorage).values()
 
     def items(self, w_dict):
         return [self.space.newtuple([w_key, w_val])
-                    for w_key, w_val in self.cast_from_void_star(w_dict.dstorage).iteritems()]
+                    for w_key, w_val in self.unerase(w_dict.dstorage).iteritems()]
 
     def popitem(self, w_dict):
-        return self.cast_from_void_star(w_dict.dstorage).popitem()
+        return self.unerase(w_dict.dstorage).popitem()
 
 
 registerimplementation(W_DictMultiObject)
@@ -359,15 +359,15 @@ class IteratorImplementation(object):
 
 class StringDictStrategy(DictStrategy):
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("string")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("string")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def __init__(self, space):
         self.space = space
 
     def get_empty_storage(self):
-       return self.cast_to_void_star({})
+       return self.erase({})
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
@@ -378,12 +378,12 @@ class StringDictStrategy(DictStrategy):
             w_dict.setitem(w_key, w_value)
 
     def setitem_str(self, w_dict, key, w_value):
-        self.cast_from_void_star(w_dict.dstorage)[key] = w_value
+        self.unerase(w_dict.dstorage)[key] = w_value
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
-            return self.cast_from_void_star(w_dict.dstorage).setdefault(space.str_w(w_key), w_default)
+            return self.unerase(w_dict.dstorage).setdefault(space.str_w(w_key), w_default)
         else:
             self.switch_to_object_strategy(w_dict)
             return w_dict.setdefault(w_key, w_default)
@@ -392,7 +392,7 @@ class StringDictStrategy(DictStrategy):
         space = self.space
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
-            del self.cast_from_void_star(w_dict.dstorage)[space.str_w(w_key)]
+            del self.unerase(w_dict.dstorage)[space.str_w(w_key)]
             return
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
@@ -401,10 +401,10 @@ class StringDictStrategy(DictStrategy):
             return w_dict.delitem(w_key)
 
     def length(self, w_dict):
-        return len(self.cast_from_void_star(w_dict.dstorage))
+        return len(self.unerase(w_dict.dstorage))
 
     def getitem_str(self, w_dict, key):
-        return self.cast_from_void_star(w_dict.dstorage).get(key, None)
+        return self.unerase(w_dict.dstorage).get(key, None)
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -426,32 +426,32 @@ class StringDictStrategy(DictStrategy):
 
     def keys(self, w_dict):
         space = self.space
-        return [space.wrap(key) for key in self.cast_from_void_star(w_dict.dstorage).iterkeys()]
+        return [space.wrap(key) for key in self.unerase(w_dict.dstorage).iterkeys()]
 
     def values(self, w_dict):
-        return self.cast_from_void_star(w_dict.dstorage).values()
+        return self.unerase(w_dict.dstorage).values()
 
     def items(self, w_dict):
         space = self.space
-        dict_w = self.cast_from_void_star(w_dict.dstorage)
+        dict_w = self.unerase(w_dict.dstorage)
         return [space.newtuple([space.wrap(key), w_value])
                     for (key, w_value) in dict_w.iteritems()]
 
     def popitem(self, w_dict):
-        key, value = self.cast_from_void_star(w_dict.dstorage).popitem()
+        key, value = self.unerase(w_dict.dstorage).popitem()
         return (self.space.wrap(key), value)
 
     def clear(self, w_dict):
-        self.cast_from_void_star(w_dict.dstorage).clear()
+        self.unerase(w_dict.dstorage).clear()
 
     def switch_to_object_strategy(self, w_dict):
-        d = self.cast_from_void_star(w_dict.dstorage)
+        d = self.unerase(w_dict.dstorage)
         strategy = self.space.fromcache(ObjectDictStrategy)
-        d_new = strategy.cast_from_void_star(strategy.get_empty_storage())
+        d_new = strategy.unerase(strategy.get_empty_storage())
         for key, value in d.iteritems():
             d_new[self.space.wrap(key)] = value
         w_dict.strategy = strategy
-        w_dict.dstorage = strategy.cast_to_void_star(d_new)
+        w_dict.dstorage = strategy.erase(d_new)
 
     def _as_rdict(self):
         r_dict_content = self.initialize_as_rdict()
@@ -466,7 +466,7 @@ class StringDictStrategy(DictStrategy):
 class StrIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        dict_w = dictimplementation.strategy.cast_from_void_star(dictimplementation.dstorage)
+        dict_w = dictimplementation.strategy.unerase(dictimplementation.dstorage)
         self.iterator = dict_w.iteritems()
 
     def next_entry(self):
@@ -486,7 +486,7 @@ class WaryDictStrategy(StringDictStrategy):
         i = BUILTIN_TO_INDEX.get(key, -1)
         if i != -1:
             self.shadowed[i] = w_value
-        self.cast_from_void_star(w_dict.dstorage)[key] = w_value
+        self.unerase(w_dict.dstorage)[key] = w_value
         #self.content[key] = w_value
 
     def delitem(self, w_dict, w_key):
@@ -494,7 +494,7 @@ class WaryDictStrategy(StringDictStrategy):
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
             key = space.str_w(w_key)
-            del self.cast_from_void_star(w_dict.dstorage)[key]
+            del self.unerase(w_dict.dstorage)[key]
             i = BUILTIN_TO_INDEX.get(key, -1)
             if i != -1:
                 self.shadowed[i] = None
@@ -510,7 +510,7 @@ class WaryDictStrategy(StringDictStrategy):
 class RDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        d = dictimplementation.strategy.cast_from_void_star(dictimplementation.dstorage)
+        d = dictimplementation.strategy.unerase(dictimplementation.dstorage)
         self.iterator = d.iteritems()
 
     def next_entry(self):

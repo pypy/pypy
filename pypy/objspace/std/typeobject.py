@@ -428,7 +428,7 @@ class W_TypeObject(W_Object):
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
         strategy = space.fromcache(DictProxyStrategy)
-        storage = strategy.cast_to_void_star(w_self)
+        storage = strategy.erase(w_self)
         return W_DictMultiObject(space, strategy, storage)
 
     def unwrap(w_self, space):

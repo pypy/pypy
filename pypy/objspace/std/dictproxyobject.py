@@ -10,9 +10,9 @@ from pypy.rlib import rerased
 
 class DictProxyStrategy(DictStrategy):
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("dictproxy")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("dictproxy")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def __init__(w_self, space):
         DictStrategy.__init__(w_self, space)
@@ -26,7 +26,7 @@ class DictProxyStrategy(DictStrategy):
             return None
 
     def getitem_str(self, w_dict, lookup):
-        return self.cast_from_void_star(w_dict.dstorage).getdictvalue(self.space, lookup)
+        return self.unerase(w_dict.dstorage).getdictvalue(self.space, lookup)
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
@@ -36,7 +36,7 @@ class DictProxyStrategy(DictStrategy):
             raise OperationError(space.w_TypeError, space.wrap("cannot add non-string keys to dict of a type"))
 
     def setitem_str(self, w_dict, name, w_value):
-        w_type = self.cast_from_void_star(w_dict.dstorage)
+        w_type = self.unerase(w_dict.dstorage)
         try:
             w_type.setdictvalue(self.space, name, w_value)
         except OperationError, e:
@@ -61,37 +61,37 @@ class DictProxyStrategy(DictStrategy):
         space = self.space
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
-            if not self.cast_from_void_star(w_dict.dstorage).deldictvalue(space, w_key):
+            if not self.unerase(w_dict.dstorage).deldictvalue(space, w_key):
                 raise KeyError
         else:
             raise KeyError
 
     def length(self, w_dict):
-        return len(self.cast_from_void_star(w_dict.dstorage).dict_w)
+        return len(self.unerase(w_dict.dstorage).dict_w)
 
     def iter(self, w_dict):
         return DictProxyIteratorImplementation(self.space, w_dict)
 
     def keys(self, w_dict):
         space = self.space
-        return [space.wrap(key) for key in self.cast_from_void_star(w_dict.dstorage).dict_w.iterkeys()]
+        return [space.wrap(key) for key in self.unerase(w_dict.dstorage).dict_w.iterkeys()]
 
     def values(self, w_dict):
-        return [unwrap_cell(self.space, w_value) for w_value in self.cast_from_void_star(w_dict.dstorage).dict_w.itervalues()]
+        return [unwrap_cell(self.space, w_value) for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]
 
     def items(self, w_dict):
         space = self.space
         return [space.newtuple([space.wrap(key), unwrap_cell(self.space, w_value)])
-                    for (key, w_value) in self.cast_from_void_star(w_dict.dstorage).dict_w.iteritems()]
+                    for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
 
     def clear(self, w_dict):
-        self.cast_from_void_star(w_dict.dstorage).dict_w.clear()
-        self.cast_from_void_star(w_dict.dstorage).mutated()
+        self.unerase(w_dict.dstorage).dict_w.clear()
+        self.unerase(w_dict.dstorage).mutated()
 
 class DictProxyIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        w_type = dictimplementation.strategy.cast_from_void_star(dictimplementation.dstorage)
+        w_type = dictimplementation.strategy.unerase(dictimplementation.dstorage)
         self.iterator = w_type.dict_w.iteritems()
 
     def next_entry(self):

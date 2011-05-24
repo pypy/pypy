@@ -22,15 +22,15 @@ class ModuleCell(object):
 
 class ModuleDictStrategy(DictStrategy):
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("modulecell")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("modulecell")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def __init__(self, space):
         self.space = space
 
     def get_empty_storage(self):
-       return self.cast_to_void_star({})
+       return self.erase({})
 
     def getcell(self, w_dict, key, makenew):
         if makenew or jit.we_are_jitted():
@@ -38,11 +38,11 @@ class ModuleDictStrategy(DictStrategy):
             # below, to ensure that we have no residual dict lookup
             self = jit.hint(self, promote=True)
             return self._getcell_makenew(w_dict, key)
-        return self.cast_from_void_star(w_dict.dstorage).get(key, None)
+        return self.unerase(w_dict.dstorage).get(key, None)
 
     @jit.purefunction
     def _getcell_makenew(self, w_dict, key):
-        return self.cast_from_void_star(w_dict.dstorage).setdefault(key, ModuleCell())
+        return self.unerase(w_dict.dstorage).setdefault(key, ModuleCell())
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
@@ -88,7 +88,7 @@ class ModuleDictStrategy(DictStrategy):
     def length(self, w_dict):
         # inefficient, but do we care?
         res = 0
-        for cell in self.cast_from_void_star(w_dict.dstorage).itervalues():
+        for cell in self.unerase(w_dict.dstorage).itervalues():
             if cell.w_value is not None:
                 res += 1
         return res
@@ -117,35 +117,35 @@ class ModuleDictStrategy(DictStrategy):
 
     def keys(self, w_dict):
         space = self.space
-        iterator = self.cast_from_void_star(w_dict.dstorage).iteritems
+        iterator = self.unerase(w_dict.dstorage).iteritems
         return [space.wrap(key) for key, cell in iterator()
                     if cell.w_value is not None]
 
     def values(self, w_dict):
-        iterator = self.cast_from_void_star(w_dict.dstorage).itervalues
+        iterator = self.unerase(w_dict.dstorage).itervalues
         return [cell.w_value for cell in iterator()
                     if cell.w_value is not None]
 
     def items(self, w_dict):
         space = self.space
-        iterator = self.cast_from_void_star(w_dict.dstorage).iteritems
+        iterator = self.unerase(w_dict.dstorage).iteritems
         return [space.newtuple([space.wrap(key), cell.w_value])
                     for (key, cell) in iterator()
                         if cell.w_value is not None]
 
     def clear(self, w_dict):
-        iterator = self.cast_from_void_star(w_dict.dstorage).iteritems
+        iterator = self.unerase(w_dict.dstorage).iteritems
         for k, cell in iterator():
             cell.invalidate()
 
     def switch_to_object_strategy(self, w_dict):
-        d = self.cast_from_void_star(w_dict.dstorage)
+        d = self.unerase(w_dict.dstorage)
         strategy = self.space.fromcache(ObjectDictStrategy)
-        d_new = strategy.cast_from_void_star(strategy.get_empty_storage())
+        d_new = strategy.unerase(strategy.get_empty_storage())
         for key, cell in d.iteritems():
             d_new[self.space.wrap(key)] = cell.w_value
         w_dict.strategy = strategy
-        w_dict.dstorage = strategy.cast_to_void_star(d_new)
+        w_dict.dstorage = strategy.erase(d_new)
 
     def _as_rdict(self):
         r_dict_content = self.initialize_as_rdict()
@@ -162,7 +162,7 @@ class ModuleDictStrategy(DictStrategy):
 class ModuleDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        dict_w = dictimplementation.strategy.cast_from_void_star(dictimplementation.dstorage)
+        dict_w = dictimplementation.strategy.unerase(dictimplementation.dstorage)
         self.iterator = dict_w.iteritems()
 
     def next_entry(self):
