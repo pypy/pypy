@@ -233,9 +233,6 @@ class EmptyDictStrategy(DictStrategy):
     def iter(self, w_dict):
         return EmptyIteratorImplementation()
 
-    def impl_clear(self, w_dict):
-        self.r_dict_content = None
-
     def clear(self, w_dict):
         return
 
