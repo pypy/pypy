@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.jit.backend.arm.helper.assembler import saved_registers, count_reg_args
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations

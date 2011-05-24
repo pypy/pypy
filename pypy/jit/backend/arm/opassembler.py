@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
