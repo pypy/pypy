@@ -2,11 +2,12 @@ import py
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, lloperation, rclass, llmemory
 from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.jit import JitDriver, hint, dont_look_inside
 from pypy.rlib.rarithmetic import intmask
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history
@@ -45,7 +46,7 @@ class ExplicitVirtualizableTests:
         ('inst_node', lltype.Ptr(LLtypeMixin.NODE)),
         hints = {'virtualizable2_accessor': FieldListAccessor()})
     XY._hints['virtualizable2_accessor'].initialize(
-        XY, {'inst_x' : "", 'inst_node' : ""})
+        XY, {'inst_x' : IR_IMMUTABLE, 'inst_node' : IR_IMMUTABLE})
 
     xy_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     heaptracker.set_testing_vtable_for_gcstruct(XY, xy_vtable, 'XY')
@@ -210,7 +211,8 @@ class ExplicitVirtualizableTests:
         ('inst_l2', lltype.Ptr(lltype.GcArray(lltype.Signed))),
         hints = {'virtualizable2_accessor': FieldListAccessor()})
     XY2._hints['virtualizable2_accessor'].initialize(
-        XY2, {'inst_x' : "", 'inst_l1' : "[*]", 'inst_l2' : "[*]"})
+        XY2, {'inst_x' : IR_IMMUTABLE,
+              'inst_l1' : IR_IMMUTABLE_ARRAY, 'inst_l2' : IR_IMMUTABLE_ARRAY})
 
     xy2_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     heaptracker.set_testing_vtable_for_gcstruct(XY2, xy2_vtable, 'XY2')

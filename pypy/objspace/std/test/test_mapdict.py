@@ -907,7 +907,53 @@ class AppTestWithMapDictAndCounters(object):
             return c.m()
         val = f()
         assert val == 42
-        f() 
+        f()
+
+    def test_bug_lookup_method_devolved_dict_caching(self):
+        class A(object):
+            def method(self):
+                return 42
+        a = A()
+        a.__dict__[1] = 'foo'
+        got = a.method()
+        assert got == 42
+        a.__dict__['method'] = lambda: 43
+        got = a.method()
+        assert got == 43
+
+    def test_bug_method_change(self):
+        class A(object):
+            def method(self):
+                return 42
+        a = A()
+        got = a.method()
+        assert got == 42
+        A.method = lambda self: 43
+        got = a.method()
+        assert got == 43
+        A.method = lambda self: 44
+        got = a.method()
+        assert got == 44
+
+    def test_bug_slot_via_changing_member_descr(self):
+        class A(object):
+            __slots__ = ['a', 'b', 'c', 'd']
+        x = A()
+        x.a = 'a'
+        x.b = 'b'
+        x.c = 'c'
+        x.d = 'd'
+        got = x.a
+        assert got == 'a'
+        A.a = A.b
+        got = x.a
+        assert got == 'b'
+        A.a = A.c
+        got = x.a
+        assert got == 'c'
+        A.a = A.d
+        got = x.a
+        assert got == 'd'
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):

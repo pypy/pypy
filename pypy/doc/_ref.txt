@@ -1,0 +1,124 @@
+.. _`ctypes_configure/doc/sample.py`: https://bitbucket.org/pypy/pypy/src/default/ctypes_configure/doc/sample.py
+.. _`demo/`: https://bitbucket.org/pypy/pypy/src/default/demo/
+.. _`demo/pickle_coroutine.py`: https://bitbucket.org/pypy/pypy/src/default/demo/pickle_coroutine.py
+.. _`lib-python/`: https://bitbucket.org/pypy/pypy/src/default/lib-python/
+.. _`lib-python/2.7/dis.py`: https://bitbucket.org/pypy/pypy/src/default/lib-python/2.7/dis.py
+.. _`lib_pypy/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/
+.. _`lib_pypy/pypy_test/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/pypy_test/
+.. _`lib_pypy/stackless.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/stackless.py
+.. _`lib_pypy/tputil.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/tputil.py
+.. _`pypy/annotation`:
+.. _`pypy/annotation/`: https://bitbucket.org/pypy/pypy/src/default/pypy/annotation/
+.. _`pypy/annotation/annrpython.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/annotation/annrpython.py
+.. _`pypy/annotation/binaryop.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/annotation/binaryop.py
+.. _`pypy/annotation/builtin.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/annotation/builtin.py
+.. _`pypy/bin/`: https://bitbucket.org/pypy/pypy/src/default/pypy/bin/
+.. _`pypy/bin/translatorshell.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/bin/translatorshell.py
+.. _`pypy/config/`: https://bitbucket.org/pypy/pypy/src/default/pypy/config/
+.. _`pypy/config/pypyoption.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/config/pypyoption.py
+.. _`pypy/config/translationoption.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/config/translationoption.py
+.. _`pypy/doc/`: https://bitbucket.org/pypy/pypy/src/default/pypy/doc/
+.. _`pypy/doc/config/`: https://bitbucket.org/pypy/pypy/src/default/pypy/doc/config/
+.. _`pypy/doc/discussion/`: https://bitbucket.org/pypy/pypy/src/default/pypy/doc/discussion/
+.. _`pypy/interpreter`:
+.. _`pypy/interpreter/`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/
+.. _`pypy/interpreter/argument.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/argument.py
+.. _`pypy/interpreter/astcompiler`:
+.. _`pypy/interpreter/astcompiler/`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/
+.. _`pypy/interpreter/astcompiler/assemble.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/assemble.py
+.. _`pypy/interpreter/astcompiler/ast.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/ast.py
+.. _`pypy/interpreter/astcompiler/astbuilder.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/astbuilder.py
+.. _`pypy/interpreter/astcompiler/asthelpers.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/asthelpers.py
+.. _`pypy/interpreter/astcompiler/codegen.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/codegen.py
+.. _`pypy/interpreter/astcompiler/optimize.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/optimize.py
+.. _`pypy/interpreter/astcompiler/symtable.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/symtable.py
+.. _`pypy/interpreter/astcompiler/tools/Python.asdl`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/tools/Python.asdl
+.. _`pypy/interpreter/astcompiler/tools/asdl_py.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/astcompiler/tools/asdl_py.py
+.. _`pypy/interpreter/baseobjspace.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/baseobjspace.py
+.. _`pypy/interpreter/eval.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/eval.py
+.. _`pypy/interpreter/executioncontext.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/executioncontext.py
+.. _`pypy/interpreter/function.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/function.py
+.. _`pypy/interpreter/gateway.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/gateway.py
+.. _`pypy/interpreter/mixedmodule.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/mixedmodule.py
+.. _`pypy/interpreter/module.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/module.py
+.. _`pypy/interpreter/nestedscope.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/nestedscope.py
+.. _`pypy/interpreter/pyframe.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/pyframe.py
+.. _`pypy/interpreter/pyopcode.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/pyopcode.py
+.. _`pypy/interpreter/pyparser`:
+.. _`pypy/interpreter/pyparser/`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/pyparser/
+.. _`pypy/interpreter/pyparser/future.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/pyparser/future.py
+.. _`pypy/interpreter/pyparser/metaparser.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/pyparser/metaparser.py
+.. _`pypy/interpreter/pyparser/parser.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/pyparser/parser.py
+.. _`pypy/interpreter/pyparser/pyparse.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/pyparser/pyparse.py
+.. _`pypy/interpreter/pyparser/pytokenizer.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/pyparser/pytokenizer.py
+.. _`pypy/interpreter/typedef.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/interpreter/typedef.py
+.. _`pypy/module`:
+.. _`pypy/module/`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/
+.. _`pypy/module/__builtin__/__init__.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/__builtin__/__init__.py
+.. _`pypy/module/_stackless/test/test_composable_coroutine.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/_stackless/test/test_composable_coroutine.py
+.. _`pypy/objspace`:
+.. _`pypy/objspace/`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/
+.. _`pypy/objspace/dump.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/dump.py
+.. _`pypy/objspace/flow`:
+.. _`pypy/objspace/flow/`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/flow/
+.. _`pypy/objspace/flow/model.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/flow/model.py
+.. _`pypy/objspace/std`:
+.. _`pypy/objspace/std/`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/
+.. _`pypy/objspace/std/listtype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/listtype.py
+.. _`pypy/objspace/std/multimethod.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/multimethod.py
+.. _`pypy/objspace/std/objspace.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/objspace.py
+.. _`pypy/objspace/std/proxy_helpers.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/proxy_helpers.py
+.. _`pypy/objspace/std/proxyobject.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/proxyobject.py
+.. _`pypy/objspace/std/stringtype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/stringtype.py
+.. _`pypy/objspace/std/transparent.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/transparent.py
+.. _`pypy/objspace/std/tupleobject.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/tupleobject.py
+.. _`pypy/objspace/std/tupletype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/tupletype.py
+.. _`pypy/objspace/thunk.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/thunk.py
+.. _`pypy/objspace/trace.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/trace.py
+.. _`pypy/rlib`:
+.. _`pypy/rlib/`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/
+.. _`pypy/rlib/listsort.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/listsort.py
+.. _`pypy/rlib/nonconst.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/nonconst.py
+.. _`pypy/rlib/objectmodel.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/objectmodel.py
+.. _`pypy/rlib/parsing/`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/parsing/
+.. _`pypy/rlib/parsing/tree.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/parsing/tree.py
+.. _`pypy/rlib/rarithmetic.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/rarithmetic.py
+.. _`pypy/rlib/rbigint.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/rbigint.py
+.. _`pypy/rlib/rrandom.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/rrandom.py
+.. _`pypy/rlib/rsocket.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/rsocket.py
+.. _`pypy/rlib/rstack.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/rstack.py
+.. _`pypy/rlib/streamio.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/streamio.py
+.. _`pypy/rlib/test`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/test/
+.. _`pypy/rlib/unroll.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/unroll.py
+.. _`pypy/rpython`:
+.. _`pypy/rpython/`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/
+.. _`pypy/rpython/lltypesystem/`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/lltypesystem/
+.. _`pypy/rpython/lltypesystem/lltype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/lltypesystem/lltype.py
+.. _`pypy/rpython/memory/`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/
+.. _`pypy/rpython/memory/gc/generation.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/generation.py
+.. _`pypy/rpython/memory/gc/hybrid.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/hybrid.py
+.. _`pypy/rpython/memory/gc/markcompact.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/markcompact.py
+.. _`pypy/rpython/memory/gc/marksweep.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/marksweep.py
+.. _`pypy/rpython/memory/gc/minimark.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/minimark.py
+.. _`pypy/rpython/memory/gc/minimarkpage.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/minimarkpage.py
+.. _`pypy/rpython/memory/gc/semispace.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/memory/gc/semispace.py
+.. _`pypy/rpython/ootypesystem/`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/ootypesystem/
+.. _`pypy/rpython/ootypesystem/ootype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/ootypesystem/ootype.py
+.. _`pypy/rpython/rint.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/rint.py
+.. _`pypy/rpython/rlist.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/rlist.py
+.. _`pypy/rpython/rmodel.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/rmodel.py
+.. _`pypy/rpython/rtyper.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/rtyper.py
+.. _`pypy/rpython/test/test_llinterp.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/test/test_llinterp.py
+.. _`pypy/tool/`: https://bitbucket.org/pypy/pypy/src/default/pypy/tool/
+.. _`pypy/tool/algo/`: https://bitbucket.org/pypy/pypy/src/default/pypy/tool/algo/
+.. _`pypy/tool/pytest/`: https://bitbucket.org/pypy/pypy/src/default/pypy/tool/pytest/
+.. _`pypy/tool/traceconfig.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/tool/traceconfig.py
+.. _`pypy/translator`:
+.. _`pypy/translator/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/
+.. _`pypy/translator/backendopt/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/backendopt/
+.. _`pypy/translator/c/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/c/
+.. _`pypy/translator/cli/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/cli/
+.. _`pypy/translator/goal/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/goal/
+.. _`pypy/translator/jvm/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/jvm/
+.. _`pypy/translator/stackless/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/stackless/
+.. _`pypy/translator/tool/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/tool/

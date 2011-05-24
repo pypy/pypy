@@ -24,6 +24,8 @@ class ExecutionContext(object):
     # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
     #     over the place as well as w_tracefunc
 
+    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?']
+
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
@@ -56,10 +58,10 @@ class ExecutionContext(object):
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
-    def leave(self, frame):
+    def leave(self, frame, w_exitvalue):
         try:
             if self.profilefunc:
-                self._trace(frame, 'leaveframe', self.space.w_None)
+                self._trace(frame, 'leaveframe', w_exitvalue)
         finally:
             self.topframeref = frame.f_backref
             jit.virtual_ref_finish(frame)
@@ -298,8 +300,11 @@ class ExecutionContext(object):
 
         # Profile cases
         if self.profilefunc is not None:
-            if event not in ['leaveframe', 'call', 'c_call',
-                             'c_return', 'c_exception']:
+            if not (event == 'leaveframe' or
+                    event == 'call' or
+                    event == 'c_call' or
+                    event == 'c_return' or
+                    event == 'c_exception'):
                 return False
 
             last_exception = frame.last_exception

@@ -513,13 +513,6 @@ class LLFrame(object):
         from pypy.translator.tool.lltracker import track
         track(*ll_objects)
 
-    def op_debug_pdb(self, *ll_args):
-        if self.llinterpreter.tracer:
-            self.llinterpreter.tracer.flush()
-        print "entering pdb...", ll_args
-        import pdb
-        pdb.set_trace()
-
     def op_debug_assert(self, x, msg):
         assert x, msg
 
@@ -532,7 +525,10 @@ class LLFrame(object):
             raise LLFatalError(msg, LLException(ll_exc_type, ll_exc))
 
     def op_debug_llinterpcall(self, pythonfunction, *args_ll):
-        return pythonfunction(*args_ll)
+        try:
+            return pythonfunction(*args_ll)
+        except:
+            self.make_llexception()
 
     def op_debug_start_traceback(self, *args):
         pass    # xxx write debugging code here?

@@ -79,7 +79,7 @@ A somewhat silly example of things you can do with them is this::
 
     $ bin/py.py --objspace-std-withrope
     faking <type 'module'>
-    PyPy 0.99.0 in StdObjSpace on top of Python 2.4.4c1 (startuptime: 17.24 secs)
+    PyPy 1.5.0-alpha0 in StdObjSpace on top of Python 2.7.1+ (startuptime: 11.38 secs)
     >>>> import sys
     >>>> sys.maxint
     2147483647
@@ -90,7 +90,8 @@ A somewhat silly example of things you can do with them is this::
 
 You can enable this feature with the :config:`objspace.std.withrope` option.
 
-.. _`"Ropes: An alternative to Strings."`: http://www.cs.ubc.ca/local/reading/proceedings/spe91-95/spe/vol25/issue12/spe986.pdf
+.. _`"Ropes: An alternative to Strings."`: http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.14.9450&rep=rep1&type=pdf
+
 
 Integer Optimizations
 ---------------------
@@ -103,7 +104,8 @@ not have to allocate all the time when doing simple arithmetic. Every time a new
 integer object is created it is checked whether the integer is small enough to
 be retrieved from the cache.
 
-This option is enabled by default.
+This option is disabled by default, you can enable this feature with the
+:config:`objspace.std.withprebuiltint` option.
 
 Integers as Tagged Pointers
 +++++++++++++++++++++++++++
@@ -134,7 +136,6 @@ for string-keyed dictionaries. In addition there are more specialized dictionary
 implementations for various purposes (see below).
 
 This is now the default implementation of dictionaries in the Python interpreter.
-option.
 
 Sharing Dicts
 +++++++++++++
@@ -205,28 +206,11 @@ option.
 User Class Optimizations
 ------------------------
 
-Shadow Tracking
-+++++++++++++++
-
-Shadow tracking is a general optimization that speeds up method calls for user
-classes (that don't have special meta-class). For this a special dict
-representation is used together with multidicts. This dict representation is
-used only for instance dictionaries. The instance dictionary tracks whether an
-instance attribute shadows an attribute of its class. This makes method calls
-slightly faster in the following way: When calling a method the first thing that
-is checked is the class dictionary to find descriptors. Normally, when a method
-is found, the instance dictionary is then checked for instance attributes
-shadowing the class attribute. If we know that there is no shadowing (since
-instance dict tells us that) we can save this lookup on the instance dictionary.
-
-*This was deprecated and is no longer available.*
-
 
 Method Caching
 ++++++++++++++
 
-Shadow tracking is also an important building block for the method caching
-optimization. A method cache is introduced where the result of a method lookup
+A method cache is introduced where the result of a method lookup
 is stored (which involves potentially many lookups in the base classes of a
 class). Entries in the method cache are stored using a hash computed from
 the name being looked up, the call site (i.e. the bytecode object and
@@ -344,13 +328,11 @@ simply special cases string-keyed dictionaries is a clear win on all benchmarks,
 improving results by anything from 15-40 per cent.
 
 Another optimization, or rather set of optimizations, that has a uniformly good
-effect is the set of three 'method optimizations', i.e. shadow tracking, the
+effect are the two 'method optimizations', i.e. the
 method cache and the LOOKUP_METHOD and CALL_METHOD opcodes.  On a heavily
 object-oriented benchmark (richards) they combine to give a speed-up of nearly
 50%, and even on the extremely un-object-oriented pystone benchmark, the
 improvement is over 20%.
-
-.. waffles about ropes
 
 When building pypy, all generally useful optimizations are turned on by default
 unless you explicitly lower the translation optimization level with the

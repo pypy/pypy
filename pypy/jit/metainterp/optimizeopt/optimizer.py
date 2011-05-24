@@ -220,7 +220,7 @@ class Optimization(object):
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
     def has_pure_result(self, opnum, args, descr):
-        op = ResOperation(opnum, args, None)
+        op = ResOperation(opnum, args, None, descr)
         key = self.optimizer.make_args_key(op)
         op = self.optimizer.pure_operations.get(key, None)
         if op is None:
@@ -257,6 +257,7 @@ class Optimizer(Optimization):
         self.pendingfields = []
         self.posponedop = None
         self.exception_might_have_happened = False
+        self.quasi_immutable_deps = None
         self.newoperations = []
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
@@ -309,6 +310,7 @@ class Optimizer(Optimization):
         new.pure_operations = self.pure_operations
         new.producer = self.producer
         assert self.posponedop is None
+        new.quasi_immutable_deps = self.quasi_immutable_deps
 
         return new
 
@@ -410,6 +412,7 @@ class Optimizer(Optimization):
             self.first_optimization.propagate_forward(op)
             self.i += 1
         self.loop.operations = self.newoperations
+        self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
 
@@ -482,7 +485,7 @@ class Optimizer(Optimization):
 
     def make_args_key(self, op):
         n = op.numargs()
-        args = [None] * (n + 1)
+        args = [None] * (n + 2)
         for i in range(n):
             arg = op.getarg(i)
             try:
@@ -493,6 +496,7 @@ class Optimizer(Optimization):
                 arg = value.get_key_box()
             args[i] = arg
         args[n] = ConstInt(op.getopnum())
+        args[n+1] = op.getdescr()
         return args
 
     def optimize_default(self, op):

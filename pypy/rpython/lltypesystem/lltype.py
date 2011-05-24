@@ -95,6 +95,8 @@ class LowLevelType(object):
     __slots__ = ['__dict__', '__cached_hash']
 
     def __eq__(self, other):
+        if isinstance(other, Typedef):
+            return other.__eq__(self)
         return self.__class__ is other.__class__ and (
             self is other or safe_equal(self.__dict__, other.__dict__))
 
@@ -192,6 +194,36 @@ class ContainerType(LowLevelType):
 
     def _container_example(self):
         raise NotImplementedError
+
+
+class Typedef(LowLevelType):
+    """A typedef is just another name for an existing type"""
+    def __init__(self, OF, c_name):
+        """
+        @param OF: the equivalent rffi type
+        @param c_name: the name we want in C code
+        """
+        assert isinstance(OF, LowLevelType)
+        # Look through typedefs, so other places don't have to
+        if isinstance(OF, Typedef):
+            OF = OF.OF # haha
+        self.OF = OF
+        self.c_name = c_name
+
+    def __repr__(self):
+        return '<Typedef "%s" of %r>' % (self.c_name, self.OF)
+
+    def __eq__(self, other):
+        return other == self.OF
+
+    def __getattr__(self, name):
+        return self.OF.get(name)
+
+    def _defl(self, parent=None, parentindex=None):
+        return self.OF._defl()
+
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        return self.OF._allocate(initialization, parent, parentindex)
 
 
 class Struct(ContainerType):
@@ -309,13 +341,14 @@ class Struct(ContainerType):
         return _struct(self, n, initialization='example')
 
     def _immutable_field(self, field):
+        if self._hints.get('immutable'):
+            return True
         if 'immutable_fields' in self._hints:
             try:
-                s = self._hints['immutable_fields'].fields[field]
-                return s or True
+                return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return self._hints.get('immutable', False)
+        return False
 
 class RttiStruct(Struct):
     _runtime_type_info = None
@@ -997,6 +1030,8 @@ def normalizeptr(p, check=True):
         return None   # null pointer
     if type(p._obj0) is int:
         return p      # a pointer obtained by cast_int_to_ptr
+    if getattr(p._obj0, '_carry_around_for_tests', False):
+        return p      # a pointer obtained by cast_instance_to_base_ptr
     container = obj._normalizedcontainer()
     if type(container) is int:
         # this must be an opaque ptr originating from an integer
@@ -1849,8 +1884,8 @@ class _opaque(_parentable):
         if self.__class__ is not other.__class__:
             return NotImplemented
         if hasattr(self, 'container') and hasattr(other, 'container'):
-            obj1 = self.container._normalizedcontainer()
-            obj2 = other.container._normalizedcontainer()
+            obj1 = self._normalizedcontainer()
+            obj2 = other._normalizedcontainer()
             return obj1 == obj2
         else:
             return self is other
@@ -1873,6 +1908,8 @@ class _opaque(_parentable):
         if hasattr(self, 'container'):
             # an integer, cast to a ptr, cast to an opaque    
             if type(self.container) is int:
+                return self.container
+            if getattr(self.container, '_carry_around_for_tests', False):
                 return self.container
             return self.container._normalizedcontainer()
         else:

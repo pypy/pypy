@@ -207,38 +207,28 @@ def descr_get__module(space, w_type):
 
 def descr_set__module(space, w_type, w_value):
     w_type = _check(space, w_type)
-    if not w_type.is_heaptype():
-        raise operationerrfmt(space.w_TypeError,
-                              "can't set %s.__module__",
-                              w_type.name)
-    w_type.mutated()
-    w_type.dict_w['__module__'] = w_value
+    w_type.setdictvalue(space, '__module__', w_value)
 
 def descr_get___abstractmethods__(space, w_type):
     w_type = _check(space, w_type)
     # type itself has an __abstractmethods__ descriptor (this). Don't return it
     if not space.is_w(w_type, space.w_type):
-        try:
-            return w_type.dict_w["__abstractmethods__"]
-        except KeyError:
-            pass
+        w_result = w_type.getdictvalue(space, "__abstractmethods__")
+        if w_result is not None:
+            return w_result
     raise OperationError(space.w_AttributeError,
                          space.wrap("__abstractmethods__"))
 
 def descr_set___abstractmethods__(space, w_type, w_new):
     w_type = _check(space, w_type)
-    w_type.dict_w["__abstractmethods__"] = w_new
-    w_type.mutated()
+    w_type.setdictvalue(space, "__abstractmethods__", w_new)
     w_type.set_abstract(space.is_true(w_new))
 
 def descr_del___abstractmethods__(space, w_type):
     w_type = _check(space, w_type)
-    try:
-        del w_type.dict_w["__abstractmethods__"]
-    except KeyError:
+    if not w_type.deldictvalue(space, space.wrap("__abstractmethods__")):
         raise OperationError(space.w_AttributeError,
                              space.wrap("__abstractmethods__"))
-    w_type.mutated()
     w_type.set_abstract(False)
 
 def descr___subclasses__(space, w_type):

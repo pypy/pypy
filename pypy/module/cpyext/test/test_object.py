@@ -231,3 +231,135 @@ class AppTestObject(AppTestCpythonExtensionBase):
              """)])
         assert module.dump(self.tmpname, None)
         assert open(self.tmpname).read() == 'None'
+
+
+
+class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
+    """
+    PyBuffer_FillInfo populates the fields of a Py_buffer from its arguments.
+    """
+    def test_fillWithoutObject(self):
+        """
+        PyBuffer_FillInfo populates the C{buf} and C{length}fields of the
+        Py_buffer passed to it.
+        """
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *result;
+
+    if (PyBuffer_FillInfo(&buf, NULL, PyString_AsString(str), 13, 0, 0)) {
+        return NULL;
+    }
+
+    /* Check a few things we want to have happened.
+     */
+    if (buf.buf != PyString_AsString(str)) {
+        PyErr_SetString(PyExc_ValueError, "buf field not initialized");
+        return NULL;
+    }
+
+    if (buf.len != 13) {
+        PyErr_SetString(PyExc_ValueError, "len field not initialized");
+        return NULL;
+    }
+
+    if (buf.obj != NULL) {
+        PyErr_SetString(PyExc_ValueError, "obj field not initialized");
+        return NULL;
+    }
+
+    /* Give back a new string to the caller, constructed from data in the
+     * Py_buffer.
+     */
+    if (!(result = PyString_FromStringAndSize(buf.buf, buf.len))) {
+        return NULL;
+    }
+
+    /* Free that string we allocated above.  result does not share storage with
+     * it.
+     */
+    Py_DECREF(str);
+
+    return result;
+                 """)])
+        result = module.fillinfo()
+        assert "hello, world." == result
+
+
+    def test_fillWithObject(self):
+        """
+        PyBuffer_FillInfo populates the C{buf}, C{length}, and C{obj} fields of
+        the Py_buffer passed to it and increments the reference count of the
+        object.
+        """
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *result;
+
+    if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13, 0, 0)) {
+        return NULL;
+    }
+
+    /* Get rid of our own reference to the object, but the Py_buffer should
+     * still have a reference.
+     */
+    Py_DECREF(str);
+
+    /* Give back a new string to the caller, constructed from data in the
+     * Py_buffer.  It better still be valid.
+     */
+    if (!(result = PyString_FromStringAndSize(buf.buf, buf.len))) {
+        return NULL;
+    }
+
+    /* Now the data in the Py_buffer is really no longer needed, get rid of it
+     *(could use PyBuffer_Release here, but that would drag in more code than
+     * necessary).
+     */
+    Py_DECREF(buf.obj);
+
+    /* Py_DECREF can't directly signal error to us, but if it makes a reference
+     * count go negative, it will set an error.
+     */
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    return result;
+                 """)])
+        result = module.fillinfo()
+        assert "hello, world." == result
+
+
+class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
+    """
+    PyBuffer_Release releases the resources held by a Py_buffer.
+    """
+    def test_decrefObject(self):
+        """
+        The PyObject referenced by Py_buffer.obj has its reference count
+        decremented by PyBuffer_Release.
+        """
+        module = self.import_extension('foo', [
+                ("release", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    buf.obj = PyString_FromString("release me!");
+    buf.buf = PyString_AsString(buf.obj);
+    buf.len = PyString_Size(buf.obj);
+
+    /* The Py_buffer owns the only reference to that string.  Release the
+     * Py_buffer and the string should be released as well.
+     */
+    PyBuffer_Release(&buf);
+
+    Py_RETURN_NONE;
+                 """)])
+        assert module.release() is None
+

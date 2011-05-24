@@ -380,7 +380,7 @@ def op_cast_unichar_to_int(b):
     return ord(b)
 
 def op_cast_int_to_unichar(b):
-    assert type(b) is int 
+    assert type(b) is int
     return unichr(b)
 
 def op_cast_int_to_uint(b):
@@ -513,6 +513,12 @@ def op_debug_start(category):
 def op_debug_stop(category):
     debug.debug_stop(_normalize(category))
 
+def op_debug_offset():
+    return debug.debug_offset()
+
+def op_debug_flush():
+    pass
+
 def op_have_debug_prints():
     return debug.have_debug_prints()
 
@@ -524,6 +530,9 @@ def op_jit_force_virtualizable(*args):
 
 def op_jit_force_virtual(x):
     return x
+
+def op_jit_force_quasi_immutable(*args):
+    pass
 
 def op_get_group_member(TYPE, grpptr, memberoffset):
     from pypy.rpython.lltypesystem import llgroup
@@ -577,6 +586,10 @@ def op_gc_assume_young_pointers(addr):
 
 def op_shrink_array(array, smallersize):
     return False
+
+def op_ll_read_timestamp():
+    from pypy.rlib.rtimer import read_timestamp
+    return read_timestamp()
 
 # ____________________________________________________________
 

@@ -1,21 +1,26 @@
-
+from pypy.conftest import gettestobjspace
 
 class AppTestUserObject:
     def test_dictproxy(self):
         class NotEmpty(object):
             a = 1
-        assert isinstance(NotEmpty.__dict__, dict) == False
+        NotEmpty.a = 1
+        NotEmpty.a = 1
+        NotEmpty.a = 1
+        NotEmpty.a = 1
         assert 'a' in NotEmpty.__dict__
         assert 'a' in NotEmpty.__dict__.keys()
         assert 'b' not in NotEmpty.__dict__
-        assert isinstance(NotEmpty.__dict__.copy(), dict)
-        assert NotEmpty.__dict__ == NotEmpty.__dict__.copy()
-        try:
-            NotEmpty.__dict__['b'] = 1
-        except:
-            pass
-        else:
-            raise AssertionError, 'this should not have been writable'
+        NotEmpty.__dict__['b'] = 4
+        assert NotEmpty.b == 4
+        del NotEmpty.__dict__['b']
+        assert NotEmpty.__dict__.get("b") is None
+        raises(TypeError, 'NotEmpty.__dict__[15] = "y"')
+        raises(KeyError, 'del NotEmpty.__dict__[15]')
+        assert NotEmpty.__dict__.setdefault("string", 1) == 1
+        assert NotEmpty.__dict__.setdefault("string", 2) == 1
+        assert NotEmpty.string == 1
+        raises(TypeError, 'NotEmpty.__dict__.setdefault(15, 1)')
 
     def test_dictproxyeq(self):
         class a(object):
@@ -33,7 +38,13 @@ class AppTestUserObject:
     def test_str_repr(self):
         class a(object):
             pass
-        s = repr(a.__dict__)
-        assert s.startswith('<dictproxy') and s.endswith('>')
-        s = str(a.__dict__)
-        assert s.startswith('{') and s.endswith('}')
+        s1 = repr(a.__dict__)
+        s2 = str(a.__dict__)
+        assert s1 == s2
+        assert s1.startswith('{') and s1.endswith('}')
+
+class AppTestUserObjectMethodCache(AppTestUserObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+            **{"objspace.std.withmethodcachecounter": True})
+

@@ -7,7 +7,7 @@ import shutil
 pypydir = py.path.local(autopath.pypydir)
 builddir = pypydir.join('translator', 'goal')
 
-VERSION = "1.4.1"
+VERSION = "1.5.0a0"
 
 def make_pypy(tag, options):
     pypy = 'pypy%s' % (tag,)

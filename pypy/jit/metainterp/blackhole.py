@@ -1,4 +1,5 @@
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop
@@ -238,6 +239,10 @@ class BlackholeInterpBuilder(object):
         interp.cleanup_registers()
         self.blackholeinterps.append(interp)
 
+def check_shift_count(b):
+    if not we_are_translated():
+        if b < 0 or b >= LONG_BIT:
+            raise ValueError("Shift count, %d,  not in valid range, 0 .. %d." % (b, LONG_BIT-1))
 
 class BlackholeInterpreter(object):
 
@@ -420,14 +425,17 @@ class BlackholeInterpreter(object):
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_rshift(a, b):
+        check_shift_count(b)
         return a >> b
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_lshift(a, b):
+        check_shift_count(b)
         return intmask(a << b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_uint_rshift(a, b):
+        check_shift_count(b)
         c = r_uint(a) >> r_uint(b)
         return intmask(c)
 
@@ -1166,6 +1174,15 @@ class BlackholeInterpreter(object):
     def bhimpl_setfield_raw_f(cpu, struct, fielddescr, newvalue):
         cpu.bh_setfield_raw_f(struct, fielddescr, newvalue)
 
+    @arguments("r", "d", "d")
+    def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):
+        pass
+
+    @arguments("cpu", "r", "d")
+    def bhimpl_jit_force_quasi_immutable(cpu, struct, mutatefielddescr):
+        from pypy.jit.metainterp import quasiimmut
+        quasiimmut.do_force_quasi_immutable(cpu, struct, mutatefielddescr)
+
     @arguments("cpu", "d", returns="r")
     def bhimpl_new(cpu, descr):
         return cpu.bh_new(descr)
@@ -1204,6 +1221,10 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "i", "i")
     def bhimpl_unicodesetitem(cpu, unicode, index, newchr):
         cpu.bh_unicodesetitem(unicode, index, newchr)
+
+    @arguments(returns=(longlong.is_64_bit and "i" or "f"))
+    def bhimpl_ll_read_timestamp():
+        return read_timestamp()
 
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
@@ -1286,6 +1307,8 @@ class BlackholeInterpreter(object):
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
             # We get here because it used to overflow, but now it no longer
             # does.
+            pass
+        elif opnum == rop.GUARD_NOT_INVALIDATED:
             pass
         else:
             from pypy.jit.metainterp.resoperation import opname
@@ -1416,7 +1439,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
 
     current_exc = blackholeinterp._prepare_resume_from_failure(
         resumedescr.guard_opnum, dont_change_position)
-        
+
     try:
         _run_forever(blackholeinterp, current_exc)
     finally:

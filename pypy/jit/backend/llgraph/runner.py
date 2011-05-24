@@ -209,7 +209,7 @@ class BaseCPU(model.AbstractCPU):
                         llimpl.compile_add_fail_arg(c, var2index[box])
                     else:
                         llimpl.compile_add_fail_arg(c, -1)
-                        
+
             x = op.result
             if x is not None:
                 if isinstance(x, history.BoxInt):
@@ -285,6 +285,10 @@ class BaseCPU(model.AbstractCPU):
         if we_are_translated():
             raise ValueError("CALL_ASSEMBLER not supported")
         llimpl.redirect_call_assembler(self, oldlooptoken, newlooptoken)
+
+    def invalidate_loop(self, looptoken):
+        for loop in looptoken.compiled_loop_token.loop_and_bridges:
+            loop._obj.externalobj.invalid = True
 
     # ----------
 

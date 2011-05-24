@@ -781,7 +781,7 @@ class AppTestAppMain:
         # setup code for test_get_library_path
         # ------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
-        cpy_ver = '%d.%d.%d' % CPYTHON_VERSION[:3]
+        cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
         
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and

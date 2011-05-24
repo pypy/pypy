@@ -88,7 +88,7 @@ def mul_tuple_times(space, w_tuple, w_times):
     if times == 1 and space.type(w_tuple) == space.w_tuple:
         return w_tuple
     items = w_tuple.wrappeditems
-    return space.newtuple(items * times)
+    return W_TupleObject(items * times)
 
 def mul__Tuple_ANY(space, w_tuple, w_times):
     return mul_tuple_times(space, w_tuple, w_times)
@@ -146,17 +146,20 @@ def repr__Tuple(space, w_tuple):
                       + ")")
 
 def hash__Tuple(space, w_tuple):
+    return space.wrap(hash_tuple(space, w_tuple.wrappeditems))
+
+def hash_tuple(space, wrappeditems):
     # this is the CPython 2.4 algorithm (changed from 2.3)
     mult = 1000003
     x = 0x345678
-    z = len(w_tuple.wrappeditems)
-    for w_item in w_tuple.wrappeditems:
+    z = len(wrappeditems)
+    for w_item in wrappeditems:
         y = space.int_w(space.hash(w_item))
         x = (x ^ y) * mult
         z -= 1
         mult += 82520 + z + z
     x += 97531
-    return space.wrap(intmask(x))
+    return intmask(x)
 
 def getnewargs__Tuple(space, w_tuple):
     return space.newtuple([space.newtuple(w_tuple.wrappeditems)])

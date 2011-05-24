@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.virtualref import VirtualRefInfo
 
@@ -511,6 +511,42 @@ class VRefTests:
         res = self.meta_interp(main, [10, 2])
         assert res == main(10, 2)
         self.check_aborted_count(0)
+
+    def test_alloc_virtualref_and_then_alloc_structure(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        #
+        class XY:
+            pass
+        class ExCtx:
+            pass
+        exctx = ExCtx()
+        @dont_look_inside
+        def escapexy(xy):
+            print 'escapexy:', xy.n
+            if xy.n % 5 == 0:
+                vr = exctx.vr
+                print 'accessing via vr:', vr()
+                assert vr() is xy
+        #
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                xy = XY()
+                xy.n = n
+                vr = virtual_ref(xy)
+                # force the virtualref to be allocated
+                exctx.vr = vr
+                # force xy to be allocated
+                escapexy(xy)
+                # clean up
+                exctx.vr = vref_None
+                virtual_ref_finish(xy)
+                n -= 1
+            return 1
+        #
+        res = self.meta_interp(f, [15])
+        assert res == 1
+        self.check_loops(new_with_vtable=2)     # vref, xy
 
 
 class TestLLtype(VRefTests, LLJitMixin):

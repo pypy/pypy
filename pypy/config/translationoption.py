@@ -163,9 +163,6 @@ translation_optiondescription = OptionDescription(
                cmdline="--cflags"),
     StrOption("linkerflags", "Specify flags for the linker (C backend only)",
                cmdline="--ldflags"),
-    BoolOption("force_make", "Force execution of makefile instead of"
-               " calling platform", cmdline="--force-make",
-               default=False, negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),
@@ -223,17 +220,17 @@ translation_optiondescription = OptionDescription(
         StrOption("profile_based_inline",
                   "Use call count profiling to drive inlining"
                   ", specify arguments",
-                  default=None, cmdline="--prof-based-inline"),
+                  default=None),   # cmdline="--prof-based-inline" fix me
         FloatOption("profile_based_inline_threshold",
                     "Threshold when to inline functions "
                     "for profile based inlining",
                   default=DEFL_PROF_BASED_INLINE_THRESHOLD,
-                  cmdline="--prof-based-inline-threshold"),
+                  ),   # cmdline="--prof-based-inline-threshold" fix me
         StrOption("profile_based_inline_heuristic",
                   "Dotted name of an heuristic function "
                   "for profile based inlining",
                 default="pypy.translator.backendopt.inline.inlining_heuristic",
-                cmdline="--prof-based-inline-heuristic"),
+                ),  # cmdline="--prof-based-inline-heuristic" fix me
         # control clever malloc removal
         BoolOption("clever_malloc_removal",
                    "Drives inlining to remove mallocs in a clever way",

@@ -4,7 +4,6 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.function import Defaults
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
@@ -34,13 +33,7 @@ class W_DictMultiObject(W_Object):
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, classofinstance=None,
-                                   from_strdict_shared=None, strdict=False):
-        if from_strdict_shared is not None:
-            assert not module and not instance and classofinstance is None
-            strategy = space.fromcache(StringDictStrategy)
-            storage = strategy.cast_to_void_star(from_strdict_shared)
-            w_self = W_DictMultiObject(space, strategy, storage)
-            return w_self
+                                   strdict=False):
 
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
@@ -705,7 +698,7 @@ def report():
 
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
-init_defaults = Defaults([None])
+init_defaults = [None]
 
 def update1(space, w_dict, w_data):
     if space.findattr(w_data, space.wrap("keys")) is None:

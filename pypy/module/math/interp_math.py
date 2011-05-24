@@ -5,11 +5,11 @@ from pypy.rlib import rfloat, unroll
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
-class State: 
-    def __init__(self, space): 
+class State:
+    def __init__(self, space):
         self.w_e = space.wrap(math.e)
         self.w_pi = space.wrap(math.pi)
-def get(space): 
+def get(space):
     return space.fromcache(State)
 
 def _get_double(space, w_x):
@@ -153,7 +153,8 @@ def floor(space, w_x):
        Return the floor of x as a float.
        This is the largest integral value <= x.
     """
-    return math1(space, math.floor, w_x)
+    x = _get_double(space, w_x)
+    return space.wrap(math.floor(x))
 
 def sqrt(space, w_x):
     """sqrt(x)

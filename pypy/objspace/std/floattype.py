@@ -264,7 +264,7 @@ def descr_fromhex(space, w_cls, s):
     return space.call_function(w_cls, w_float)
 
 def descr_get_real(space, w_obj):
-    return w_obj
+    return space.float(w_obj)
 
 def descr_get_imag(space, w_obj):
     return space.wrap(0.0)

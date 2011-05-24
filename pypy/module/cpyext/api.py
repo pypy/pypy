@@ -37,7 +37,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 DEBUG_WRAPPER = True
 
 # update these for other platforms
-Py_ssize_t = lltype.Signed
+Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
@@ -90,8 +90,8 @@ else:
 
 
 constant_names = """
-Py_TPFLAGS_READY Py_TPFLAGS_READYING
-METH_COEXIST METH_STATIC METH_CLASS 
+Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
+METH_COEXIST METH_STATIC METH_CLASS
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
@@ -192,14 +192,19 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
     - set `external` to False to get a C function pointer, but not exported by
       the API headers.
     """
+    if isinstance(restype, lltype.Typedef):
+        real_restype = restype.OF
+    else:
+        real_restype = restype
+
     if error is _NOT_SPECIFIED:
-        if isinstance(restype, lltype.Ptr):
-            error = lltype.nullptr(restype.TO)
-        elif restype is lltype.Void:
+        if isinstance(real_restype, lltype.Ptr):
+            error = lltype.nullptr(real_restype.TO)
+        elif real_restype is lltype.Void:
             error = CANNOT_FAIL
     if type(error) is int:
-        error = rffi.cast(restype, error)
-    expect_integer = (isinstance(restype, lltype.Primitive) and
+        error = rffi.cast(real_restype, error)
+    expect_integer = (isinstance(real_restype, lltype.Primitive) and
                       rffi.cast(restype, 0) == 0)
 
     def decorate(func):
@@ -406,6 +411,23 @@ cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
 
+Py_buffer = cpython_struct(
+    "Py_buffer", (
+        ('buf', rffi.VOIDP),
+        ('obj', PyObject),
+        ('len', Py_ssize_t),
+        # ('itemsize', Py_ssize_t),
+
+        # ('readonly', lltype.Signed),
+        # ('ndim', lltype.Signed),
+        # ('format', rffi.CCHARP),
+        # ('shape', Py_ssize_tP),
+        # ('strides', Py_ssize_tP),
+        # ('suboffets', Py_ssize_tP),
+        # ('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
+        # ('internal', rffi.VOIDP)
+        ))
+
 @specialize.memo()
 def is_PyObject(TYPE):
     if not isinstance(TYPE, lltype.Ptr):
@@ -539,6 +561,7 @@ def make_wrapper(space, callable):
             elif callable.api_func.restype is not lltype.Void:
                 retval = rffi.cast(callable.api_func.restype, result)
         except Exception, e:
+            print 'Fatal error in cpyext, calling', callable.__name__
             if not we_are_translated():
                 import traceback
                 traceback.print_exc()

@@ -173,6 +173,8 @@ class BaseBackendTest(Runner):
         wr_i1 = weakref.ref(i1)
         wr_guard = weakref.ref(operations[2])
         self.cpu.compile_loop(inputargs, operations, looptoken)
+        if hasattr(looptoken, '_x86_ops_offset'):
+            del looptoken._x86_ops_offset # else it's kept alive
         del i0, i1, i2
         del inputargs
         del operations
@@ -315,6 +317,30 @@ class BaseBackendTest(Runner):
         self.cpu.compile_loop([], operations, looptoken)
         fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr
+
+        if self.cpu.supports_floats:
+            looptoken = LoopToken()
+            f0 = BoxFloat()
+            operations = [
+                ResOperation(rop.FINISH, [f0], None, descr=faildescr)
+                ]
+            self.cpu.compile_loop([f0], operations, looptoken)
+            value = longlong.getfloatstorage(-61.25)
+            self.cpu.set_future_value_float(0, value)
+            fail = self.cpu.execute_token(looptoken)
+            assert fail is faildescr
+            res = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(res) == -61.25
+
+            looptoken = LoopToken()
+            operations = [
+                ResOperation(rop.FINISH, [constfloat(42.5)], None, descr=faildescr)
+                ]
+            self.cpu.compile_loop([], operations, looptoken)
+            fail = self.cpu.execute_token(looptoken)
+            assert fail is faildescr
+            res = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(res) == 42.5
 
     def test_execute_operations_in_env(self):
         cpu = self.cpu
@@ -1356,6 +1382,19 @@ class BaseBackendTest(Runner):
         self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
                                                c_nest, c_nest], 'void')
 
+    def test_read_timestamp(self):
+        if longlong.is_64_bit:
+            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            res1 = got1.getint()
+            res2 = got2.getint()
+        else:
+            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            res1 = got1.getlonglong()
+            res2 = got2.getlonglong()
+        assert res1 < res2 < res1 + 2**32
+
 
 class LLtypeBackendTest(BaseBackendTest):
 
@@ -1803,6 +1842,66 @@ class LLtypeBackendTest(BaseBackendTest):
         assert longlong.getrealfloat(x) == 42.5
         assert self.cpu.get_latest_value_int(2) == 10
         assert values == [1, 10]
+
+    def test_guard_not_invalidated(self):
+        cpu = self.cpu
+        i0 = BoxInt()
+        i1 = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+            ResOperation(rop.GUARD_NOT_INVALIDATED, [], None, descr=faildescr),
+            ResOperation(rop.FINISH, [i0], None, descr=BasicFailDescr(0))
+        ]
+        ops[0].setfailargs([i1])
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i0, i1], ops, looptoken)
+
+        self.cpu.set_future_value_int(0, -42)
+        self.cpu.set_future_value_int(1, 9)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert self.cpu.get_latest_value_int(0) == -42
+        print 'step 1 ok'
+        print '-'*79
+
+        # mark as failing
+        self.cpu.invalidate_loop(looptoken)
+
+        self.cpu.set_future_value_int(0, -42)
+        self.cpu.set_future_value_int(1, 9)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail is faildescr
+        assert self.cpu.get_latest_value_int(0) == 9
+        print 'step 2 ok'
+        print '-'*79
+
+        # attach a bridge
+        i2 = BoxInt()
+        faildescr2 = BasicFailDescr(2)
+        ops = [
+            ResOperation(rop.GUARD_NOT_INVALIDATED, [],None, descr=faildescr2),
+            ResOperation(rop.FINISH, [i2], None, descr=BasicFailDescr(3))
+        ]
+        ops[0].setfailargs([])
+        self.cpu.compile_bridge(faildescr, [i2], ops, looptoken)
+
+        self.cpu.set_future_value_int(0, -42)
+        self.cpu.set_future_value_int(1, 9)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 3
+        assert self.cpu.get_latest_value_int(0) == 9
+        print 'step 3 ok'
+        print '-'*79
+
+        # mark as failing again
+        self.cpu.invalidate_loop(looptoken)
+
+        self.cpu.set_future_value_int(0, -42)
+        self.cpu.set_future_value_int(1, 9)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail is faildescr2
+        print 'step 4 ok'
+        print '-'*79
 
     # pure do_ / descr features
 

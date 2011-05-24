@@ -34,7 +34,7 @@ class __extend__(annmodel.SomeString):
 class __extend__(annmodel.SomeUnicodeString):
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rstr.unicode_repr
-    
+
     def rtyper_makekey(self):
         return self.__class__,
 
@@ -164,7 +164,7 @@ class __extend__(AbstractStringRepr):
         v_str, = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_upper, v_str)
-        
+
     def rtype_method_lower(self, hop):
         string_repr = hop.args_r[0].repr
         v_str, = hop.inputargs(string_repr)
@@ -361,6 +361,17 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
 
     rtype_getitem_idx_key = rtype_getitem_idx
 
+    def rtype_mul((r_str, r_int), hop):
+        str_repr = r_str.repr
+        v_str, v_int = hop.inputargs(str_repr, Signed)
+        return hop.gendirectcall(r_str.ll.ll_str_mul, v_str, v_int)
+    rtype_inplace_mul = rtype_mul
+
+class __extend__(pairtype(IntegerRepr, AbstractStringRepr)):
+    def rtype_mul((r_int, r_str), hop):
+        return pair(r_str, r_int).rtype_mul(hop)
+    rtype_inplace_mul = rtype_mul
+
 
 class __extend__(AbstractStringRepr):
 
@@ -384,7 +395,7 @@ class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
     def rtype_eq((r_str1, r_str2), hop):
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         return hop.gendirectcall(r_str1.ll.ll_streq, v_str1, v_str2)
-    
+
     def rtype_ne((r_str1, r_str2), hop):
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_streq, v_str1, v_str2)
@@ -465,7 +476,7 @@ class __extend__(AbstractCharRepr,
         return value
 
     def get_ll_eq_function(self):
-        return None 
+        return None
 
     def get_ll_hash_function(self):
         return self.ll.ll_char_hash
@@ -505,7 +516,7 @@ class __extend__(AbstractCharRepr,
 
 class __extend__(pairtype(AbstractCharRepr, IntegerRepr),
                  pairtype(AbstractUniCharRepr, IntegerRepr)):
-    
+
     def rtype_mul((r_chr, r_int), hop):
         char_repr = r_chr.char_repr
         v_char, v_int = hop.inputargs(char_repr, Signed)
@@ -545,7 +556,7 @@ class __extend__(AbstractUniCharRepr):
         return value
 
     def get_ll_eq_function(self):
-        return None 
+        return None
 
     def get_ll_hash_function(self):
         return self.ll.ll_unichar_hash

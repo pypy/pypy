@@ -641,6 +641,8 @@ def lltype_to_annotation(T):
     except TypeError:
         s = None    # unhashable T, e.g. a Ptr(GcForwardReference())
     if s is None:
+        if isinstance(T, lltype.Typedef):
+            return lltype_to_annotation(T.OF)
         if isinstance(T, lltype.Number):
             return SomeInteger(knowntype=T._type)
         if isinstance(T, (ootype.Instance, ootype.BuiltinType)):

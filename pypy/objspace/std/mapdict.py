@@ -8,6 +8,7 @@ from pypy.objspace.std.dictmultiobject import W_DictMultiObject, DictStrategy, O
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
 from pypy.objspace.std.dictmultiobject import _is_sane_hash
 from pypy.objspace.std.objectobject import W_ObjectObject
+from pypy.objspace.std.typeobject import TypeCell
 
 # ____________________________________________________________
 # attribute shapes
@@ -774,22 +775,40 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
             return space._handle_getattribute(w_descr, w_obj, w_name)
-
         version_tag = w_type.version_tag()
         if version_tag is not None:
             name = space.str_w(w_name)
-            w_descr = w_type.lookup(name)
+            # We need to care for obscure cases in which the w_descr is
+            # a TypeCell, which may change without changing the version_tag
+            assert space.config.objspace.std.withmethodcache
+            _, w_descr = w_type._pure_lookup_where_with_method_cache(
+                name, version_tag)
+            #
             selector = ("", INVALID)
-            if w_descr is not None and space.is_data_descr(w_descr):
+            if w_descr is None:
+                selector = (name, DICT) #common case: no such attr in the class
+            elif isinstance(w_descr, TypeCell):
+                pass              # we have a TypeCell in the class: give up
+            elif space.is_data_descr(w_descr):
+                # we have a data descriptor, which means the dictionary value
+                # (if any) has no relevance.
                 from pypy.interpreter.typedef import Member
                 descr = space.interpclass_w(w_descr)
-                if isinstance(descr, Member):
+                if isinstance(descr, Member):    # it is a slot -- easy case
                     selector = ("slot", SLOTS_STARTING_FROM + descr.index)
             else:
+                # There is a non-data descriptor in the class.  If there is
+                # also a dict attribute, use the latter, caching its position.
+                # If not, we loose.  We could do better in this case too,
+                # but we don't care too much; the common case of a method
+                # invocation is handled by LOOKUP_METHOD_xxx below.
                 selector = (name, DICT)
+            #
             if selector[1] != INVALID:
                 index = map.index(selector)
                 if index >= 0:
+                    # Note that if map.terminator is a DevolvedDictTerminator,
+                    # map.index() will always return -1 if selector[1]==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, index)
                     return w_obj._mapdict_read_storage(index)
     if space.config.objspace.std.withmethodcachecounter:
@@ -809,11 +828,26 @@ def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
             return True
     return False
 
-def LOOKUP_METHOD_mapdict_fill_cache_method(pycode, nameindex, w_obj, w_type, w_method):
+def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
+                                            w_obj, w_type):
     version_tag = w_type.version_tag()
     if version_tag is None:
         return
     map = w_obj._get_mapdict_map()
-    if map is None:
+    if map is None or isinstance(map.terminator, DevolvedDictTerminator):
+        return
+    # We know here that w_obj.getdictvalue(space, name) just returned None,
+    # so the 'name' is not in the instance.  We repeat the lookup to find it
+    # in the class, this time taking care of the result: it can be either a
+    # quasi-constant class attribute, or actually a TypeCell --- which we
+    # must not cache.  (It should not be None here, but you never know...)
+    assert space.config.objspace.std.withmethodcache
+    _, w_method = w_type._pure_lookup_where_with_method_cache(name,
+                                                              version_tag)
+    if w_method is None or isinstance(w_method, TypeCell):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
+
+# XXX fix me: if a function contains a loop with both LOAD_ATTR and
+# XXX LOOKUP_METHOD on the same attribute name, it keeps trashing and
+# XXX rebuilding the cache

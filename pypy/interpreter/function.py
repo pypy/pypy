@@ -21,28 +21,6 @@ def _get_immutable_code(func):
     assert not func.can_change_code
     return func.code
 
-class Defaults(object):
-    _immutable_fields_ = ["items[*]", "promote"]
-
-    def __init__(self, items, promote=False):
-        self.items = items
-        self.promote = promote
-
-    def getitems(self):
-        # an idea - we want to promote only items that we know won't change
-        # too often. this is the case for builtin functions and functions
-        # with known constant defaults. Otherwise we don't want to promote
-        # this so lambda a=a won't create a new trace each time it's
-        # encountered
-        if self.promote:
-            return jit.hint(self, promote=True).items
-        return self.items
-
-    def getitem(self, idx):
-        return self.getitems()[idx]
-
-    def getlen(self):
-        return len(self.getitems())
 
 class Function(Wrappable):
     """A function is a code object captured with some environment:
@@ -50,17 +28,20 @@ class Function(Wrappable):
     and an arbitrary 'closure' passed to the code object."""
 
     can_change_code = True
+    _immutable_fields_ = ['code?',
+                          'w_func_globals?',
+                          'closure?',
+                          'defs_w?[*]']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
-                 forcename=None, promote_defs=False):
+                 forcename=None):
         self.space = space
         self.name = forcename or code.co_name
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
-        self.defs = Defaults(defs_w, promote=promote_defs)
-        # wrapper around list of w_default's
+        self.defs_w = defs_w
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
 
@@ -157,7 +138,7 @@ class Function(Wrappable):
             return self._flat_pycall(code, nargs, frame)
         elif fast_natural_arity & Code.FLATPYCALL:
             natural_arity = fast_natural_arity & 0xff
-            if natural_arity > nargs >= natural_arity - self.defs.getlen():
+            if natural_arity > nargs >= natural_arity - len(self.defs_w):
                 assert isinstance(code, PyCode)
                 return self._flat_pycall_defaults(code, nargs, frame,
                                                   natural_arity - nargs)
@@ -190,12 +171,11 @@ class Function(Wrappable):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.fastlocals_w[i] = w_arg
 
-        defs = self.defs
-        ndefs = defs.getlen()
+        ndefs = len(self.defs_w)
         start = ndefs - defs_to_load
         i = nargs
         for j in xrange(start, ndefs):
-            new_frame.fastlocals_w[i] = defs.getitem(j)
+            new_frame.fastlocals_w[i] = self.defs_w[j]
             i += 1
         return new_frame.run()
 
@@ -311,7 +291,7 @@ class Function(Wrappable):
             w(self.code),
             w_func_globals,
             w_closure,
-            nt(self.defs.getitems()),
+            nt(self.defs_w),
             w_func_dict,
             self.w_module,
         ]
@@ -346,11 +326,11 @@ class Function(Wrappable):
         if space.is_w(w_func_dict, space.w_None):
             w_func_dict = None
         self.w_func_dict = w_func_dict
-        self.defs = Defaults(space.fixedview(w_defs))
+        self.defs_w = space.fixedview(w_defs)
         self.w_module = w_module
 
     def fget_func_defaults(self, space):
-        values_w = self.defs.getitems()
+        values_w = self.defs_w
         # the `None in values_w` check here is to ensure that interp-level
         # functions with a default of NoneNotWrapped do not get their defaults
         # exposed at applevel
@@ -360,14 +340,14 @@ class Function(Wrappable):
 
     def fset_func_defaults(self, space, w_defaults):
         if space.is_w(w_defaults, space.w_None):
-            self.defs = Defaults([])
+            self.defs_w = []
             return
         if not space.is_true(space.isinstance(w_defaults, space.w_tuple)):
             raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None") )
-        self.defs = Defaults(space.fixedview(w_defaults))
+        self.defs_w = space.fixedview(w_defaults)
 
     def fdel_func_defaults(self, space):
-        self.defs = Defaults([])
+        self.defs_w = []
 
     def fget_func_doc(self, space):
         if self.w_doc is None:
@@ -448,6 +428,7 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
 
 class Method(Wrappable):
     """A method is a function bound to a specific instance or class."""
+    _immutable_fields_ = ['w_function', 'w_instance', 'w_class']
 
     def __init__(self, space, w_function, w_instance, w_class):
         self.space = space
@@ -600,8 +581,10 @@ class StaticMethod(Wrappable):
         """staticmethod(x).__get__(obj[, type]) -> x"""
         return self.w_function
 
-    def descr_staticmethod__new__(space, w_type, w_function):
-        return space.wrap(StaticMethod(w_function))
+    def descr_staticmethod__new__(space, w_subtype, w_function):
+        instance = space.allocate_instance(StaticMethod, w_subtype)
+        instance.__init__(w_function)
+        return space.wrap(instance)
 
 class ClassMethod(Wrappable):
     """The classmethod objects."""
@@ -629,8 +612,7 @@ class BuiltinFunction(Function):
     def __init__(self, func):
         assert isinstance(func, Function)
         Function.__init__(self, func.space, func.code, func.w_func_globals,
-                          func.defs.getitems(), func.closure, func.name,
-                          promote_defs=True)
+                          func.defs_w, func.closure, func.name)
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
