@@ -220,12 +220,13 @@ class DescrOperation(object):
             return True
         w_restype = space.type(w_res)
         if (space.is_w(w_restype, space.w_bool) or
-            space.is_w(w_restype, space.w_int)):
+            space.is_w(w_restype, space.w_int) or
+            space.is_w(w_restype, space.w_long)):
             return space.int_w(w_res) != 0
         else:
             raise OperationError(space.w_TypeError,
                                  space.wrap('__nonzero__ should return '
-                                            'bool or int'))
+                                            'bool or integer'))
 
     def nonzero(self, w_obj):
         if self.is_true(w_obj):
@@ -376,6 +377,9 @@ class DescrOperation(object):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
             return space.get_and_call_function(w_descr, w_container, w_item)
+        return space._contains(w_container, w_item)
+
+    def _contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
         while 1:
             try:

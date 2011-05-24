@@ -33,7 +33,7 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", 'micronumpy', "cppyy"]
+     "_collections", "_multibytecodec", "micronumpy", "cppyy"]
 ))
 
 translation_modules = default_modules.copy()
@@ -269,7 +269,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "make instances really small but slow without the JIT",
                    default=False,
                    requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withtypeversion", True),
+                             ("objspace.std.withmethodcache", True),
                        ]),
 
         BoolOption("withrangelist",

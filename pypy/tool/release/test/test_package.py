@@ -18,6 +18,7 @@ def test_dir_structure(test='test'):
     pypy_c = py.path.local(pypydir).join('translator', 'goal', basename)
     if not pypy_c.check():
         os.system("echo faked_pypy_c> %s" % (pypy_c,))
+        pypy_c.chmod(0755)
         fake_pypy_c = True
     else:
         fake_pypy_c = False

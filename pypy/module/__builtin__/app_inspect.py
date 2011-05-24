@@ -5,6 +5,8 @@ program introspection.
 
 import sys
 
+from __pypy__ import lookup_special
+
 def _caller_locals(): 
     # note: the reason why this is working is because the functions in here are
     # compiled by geninterp, so they don't have a frame
@@ -62,7 +64,22 @@ def dir(*args):
 
     obj = args[0]
 
-    if isinstance(obj, types.ModuleType):
+    dir_meth = None
+    if isinstance(obj, types.InstanceType):
+        try:
+            dir_meth = getattr(obj, "__dir__")
+        except AttributeError:
+            pass
+    else:
+        dir_meth = lookup_special(obj, "__dir__")
+    if dir_meth is not None:
+        result = dir_meth()
+        if not isinstance(result, list):
+            raise TypeError("__dir__() must return a list, not %r" % (
+                type(result),))
+        result.sort()
+        return result
+    elif isinstance(obj, types.ModuleType):
         try:
             result = list(obj.__dict__)
             result.sort()
@@ -73,14 +90,6 @@ def dir(*args):
     elif isinstance(obj, (types.TypeType, types.ClassType)):
         #Don't look at __class__, as metaclass methods would be confusing.
         result = _classdir(obj).keys()
-        result.sort()
-        return result
-
-    elif hasattr(type(obj), '__dir__'):
-        result = type(obj).__dir__(obj)
-        if not isinstance(result, list):
-            raise TypeError("__dir__() must return a list, not %r" % (
-                type(result),))
         result.sort()
         return result
 
