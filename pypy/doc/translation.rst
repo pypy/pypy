@@ -1,18 +1,18 @@
-=====================
- PyPy - Translation
-=====================
+=============================
+ PyPy - The RPython Toolchain
+=============================
 
 .. contents::
 
 
-This document describes the tool chain that we have developed to analyze
+This document describes the toolchain that we have developed to analyze
 and "compile" RPython_ programs (like PyPy itself) to various target
 platforms.
 
 .. _RPython: coding-guide.html#restricted-python
 
 It consists of three broad sections: a slightly simplified overview, a
-brief introduction to each of the major components of our tool chain and
+brief introduction to each of the major components of our toolchain and
 then a more comprehensive section describing how the pieces fit together.
 If you are reading this document for the first time, the Overview_ is
 likely to be most useful, if you are trying to refresh your PyPy memory
@@ -21,7 +21,7 @@ then the `How It Fits Together`_ is probably what you want.
 Overview
 ========
 
-The job of translation tool chain is to translate RPython_ programs into an
+The job of the translation toolchain is to translate RPython_ programs into an
 efficient version of that program for one of various target platforms,
 generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
@@ -29,11 +29,8 @@ introduce them.
 
 As of the 1.2 release, RPython_ programs can be translated into the following
 languages/platforms: C/POSIX, CLI/.NET
-and Java/JVM (in addition, there's `a backend`_ that translates
-`application-level`_ into `interpreter-level`_ code, but this is a special
-case in several ways).
+and Java/JVM.
 
-.. _`a backend`: geninterp.html
 .. _`application-level`: coding-guide.html#application-level
 .. _`interpreter-level`: coding-guide.html#interpreter-level
 
@@ -43,7 +40,7 @@ C (which is the default and original target).
 
 .. _`initialization time`:
 
-The translation tool chain never sees Python source code or syntax
+The RPython translation toolchain never sees Python source code or syntax
 trees, but rather starts with the *code objects* that define the
 behaviour of the function objects one gives it as input.  The
 `bytecode evaluator`_ and the `Flow Object Space`_ work through these
@@ -93,7 +90,7 @@ steps (see also the figure below):
 (although these steps are not quite as distinct as you might think from
 this presentation).
 
-There is an `interactive interface`_ called `translatorshell.py`_ to the
+There is an `interactive interface`_ called `pypy/bin/translatorshell.py`_ to the
 translation process which allows you to interactively work through these
 stages.
 
@@ -104,10 +101,9 @@ The following figure gives a simplified overview (`PDF color version`_):
 
 .. _`PDF color version`: image/translation.pdf
 .. _`bytecode evaluator`: interpreter.html
-.. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`interactive interface`: getting-started-dev.html#try-out-the-translator
-.. _`translatorshell.py`: ../../../../pypy/bin/translatorshell.py
 
 .. _`flow model`:
 .. _`control flow graphs`: 
@@ -120,7 +116,7 @@ describing object spaces`_. Here we describe the data structures produced by it,
 which are the basic data structures of the translation
 process.
 
-All these types are defined in `pypy.objspace.flow.model`_ (which is a rather
+All these types are defined in `pypy/objspace/flow/model.py`_ (which is a rather
 important module in the PyPy source base, to reinforce the point).
 
 The flow graph of a function is represented by the class ``FunctionGraph``.
@@ -274,7 +270,6 @@ the types and their attributes in some detail:
     should not attempt to actually mutate such Constants.
 
 .. _`document describing object spaces`: objspace.html
-.. _`pypy.objspace.flow.model`: ../../../../pypy/objspace/flow/model.py
 
 
 .. _Annotator:
@@ -298,7 +293,7 @@ whole-program analysis of all the flow graphs -- one per function.
 An "annotation" is an instance of a subclass of ``SomeObject``.  Each
 subclass that represents a specific family of objects.
 
-Here is an overview (see ``pypy.annotation.model``):
+Here is an overview (see ``pypy/annotation/model/``):
 
 * ``SomeObject`` is the base class.  An instance of ``SomeObject()``
   represents any Python object, and as such usually means that the input
@@ -390,7 +385,7 @@ parent class.
 The RPython Typer
 =================
 
-http://codespeak.net/pypy/trunk/pypy/rpython/
+https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/
 
 The RTyper is the first place where the choice of backend makes a
 difference; as outlined above we are assuming that ANSI C is the target.
@@ -456,7 +451,7 @@ the "backend optimizations" and the "stackless transform". See also
 `D07.1 Massive Parallelism and Translation Aspects`_ for further details.
 
 .. _`Technical report`: 
-.. _`D07.1 Massive Parallelism and Translation Aspects`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+.. _`D07.1 Massive Parallelism and Translation Aspects`: https://bitbucket.org/pypy/extradoc/raw/ee3059291497/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
 
 Backend Optimizations
 ---------------------
@@ -630,17 +625,13 @@ You can choose which garbage collection strategy to use with
 The C Back-End
 ==============
 
-http://codespeak.net/pypy/trunk/pypy/translator/c/
-
-GenC is not really documented at the moment.  The basic principle of creating
-code from flow graphs is similar to the `Python back-end`_.  See also
-"Generating C code" in our `EU report about translation`_.
+https://bitbucket.org/pypy/pypy/src/default/pypy/translator/c/
 
 GenC is usually the most actively maintained backend -- everyone working on
 PyPy has a C compiler, for one thing -- and is usually where new features are
 implemented first.
 
-.. _`EU report about translation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _`EU report about translation`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
 A Historical Note
@@ -693,7 +684,7 @@ backend as part of his `Master's thesis`_, the Google's Summer of Code
 .. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/
-.. _`Master's thesis`: http://codespeak.net/~antocuni/Implementing%20Python%20in%20.NET.pdf
+.. _`Master's thesis`: http://buildbot.pypy.org/misc/Implementing%20Python%20in%20.NET.pdf
 .. _GenCLI: cli-backend.html
 
 GenJVM
@@ -710,37 +701,22 @@ richards benchmarks.
 GenJVM is almost entirely the work of Niko Matsakis, who worked on it
 also as part of the Summer of PyPy program.
 
-.. _`Python again`:
-.. _`Python back-end`:
-
-The Interpreter-Level backend
------------------------------
-
-http://codespeak.net/pypy/trunk/pypy/translator/geninterplevel.py
-
-Above, this backend was described as a "special case in several ways".  One of
-these ways is that the job it does is specific to PyPy's standard interpreter,
-and the other is that it does not even use the annotator -- it works directly
-the graphs produced by the Flow Object Space.
-
-See `geninterp's documentation <geninterp.html>`__.
-
 .. _extfunccalls:
 
 External Function Calls
 =======================
 
-External function call approach is described in `rffi`_ documentation.
+The external function call approach is described in `rffi`_ documentation.
 
 .. _`rffi`: rffi.html
 
 How It Fits Together
 ====================
 
-As should be clear by now, the translation tool chain of PyPy is a flexible
+As should be clear by now, the translation toolchain of PyPy is a flexible
 and complicated beast, formed from many separate components.
 
-The following image summarizes the various parts of the tool chain as of the
+The following image summarizes the various parts of the toolchain as of the
 0.9 release, with the default translation to C highlighted:
 
 .. image:: image/pypy-translation-0.9.png
@@ -768,4 +744,4 @@ translation step to declare that it needs to be able to call each of a
 collection of functions (which may refer to each other in a mutually
 recursive fashion) and annotate and rtype them all at once.
 
-.. include:: _ref.rst
+.. include:: _ref.txt

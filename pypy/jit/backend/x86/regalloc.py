@@ -161,7 +161,7 @@ class RegAlloc(object):
         self.fm = X86FrameManager()
         self.param_depth = 0
         cpu = self.assembler.cpu
-        cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
@@ -170,20 +170,22 @@ class RegAlloc(object):
                                   assembler = self.assembler)
         self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
+        return operations
 
     def prepare_loop(self, inputargs, operations, looptoken):
-        self._prepare(inputargs, operations)
+        operations = self._prepare(inputargs, operations)
         jump = operations[-1]
         loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
         self.loop_consts = loop_consts
-        return self._process_inputargs(inputargs)
+        return self._process_inputargs(inputargs), operations
 
     def prepare_bridge(self, prev_depths, inputargs, arglocs, operations):
-        self._prepare(inputargs, operations)
+        operations = self._prepare(inputargs, operations)
         self.loop_consts = {}
         self._update_bindings(arglocs, inputargs)
         self.fm.frame_depth = prev_depths[0]
         self.param_depth = prev_depths[1]
+        return operations
 
     def reserve_param(self, n):
         self.param_depth = max(self.param_depth, n)
@@ -329,6 +331,11 @@ class RegAlloc(object):
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform_llong(op, arglocs, result_loc)
 
+    def PerformMath(self, op, arglocs, result_loc):
+        if not we_are_translated():
+            self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
+        self.assembler.regalloc_perform_math(op, arglocs, result_loc)
+
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
 
@@ -401,6 +408,7 @@ class RegAlloc(object):
         #self.operations = operations
         while i < len(operations):
             op = operations[i]
+            self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.xrm.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:
@@ -419,6 +427,7 @@ class RegAlloc(object):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
+        self.assembler.mc.mark_op(None) # end of the loop
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
@@ -491,6 +500,8 @@ class RegAlloc(object):
 
     def consider_guard_no_exception(self, op):
         self.perform_guard(op, [], None)
+
+    consider_guard_not_invalidated = consider_guard_no_exception
 
     def consider_guard_exception(self, op):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
@@ -661,15 +672,13 @@ class RegAlloc(object):
     consider_float_gt = _consider_float_cmp
     consider_float_ge = _consider_float_cmp
 
-    def consider_float_neg(self, op):
+    def _consider_float_unary_op(self, op):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0))
         self.Perform(op, [loc0], loc0)
         self.xrm.possibly_free_var(op.getarg(0))
 
-    def consider_float_abs(self, op):
-        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0))
-        self.Perform(op, [loc0], loc0)
-        self.xrm.possibly_free_var(op.getarg(0))
+    consider_float_neg = _consider_float_unary_op
+    consider_float_abs = _consider_float_unary_op
 
     def consider_cast_float_to_int(self, op):
         loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
@@ -756,6 +765,11 @@ class RegAlloc(object):
         self.PerformLLong(op, [loc1], loc0)
         self.rm.possibly_free_vars_for_op(op)
 
+    def _consider_math_sqrt(self, op):
+        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
+        self.PerformMath(op, [loc0], loc0)
+        self.xrm.possibly_free_var(op.getarg(1))
+
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
@@ -791,12 +805,12 @@ class RegAlloc(object):
                    guard_not_forced_op=guard_not_forced_op)
 
     def consider_call(self, op):
-        if IS_X86_32:
-            # support for some of the llong operations,
-            # which only exist on x86-32
-            effectinfo = op.getdescr().get_extra_info()
-            if effectinfo is not None:
-                oopspecindex = effectinfo.oopspecindex
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if IS_X86_32:
+                # support for some of the llong operations,
+                # which only exist on x86-32
                 if oopspecindex in (EffectInfo.OS_LLONG_ADD,
                                     EffectInfo.OS_LLONG_SUB,
                                     EffectInfo.OS_LLONG_AND,
@@ -815,7 +829,8 @@ class RegAlloc(object):
                 if oopspecindex == EffectInfo.OS_LLONG_LT:
                     if self._maybe_consider_llong_lt(op):
                         return
-        #
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                return self._consider_math_sqrt(op)
         self._consider_call(op)
 
     def consider_call_may_force(self, op, guard_op):
@@ -1256,12 +1271,12 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
         dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
         # Part about floats
-        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type == FLOAT]
         dst_locations2 = [loc for loc in floatlocs if loc is not None]
         remap_frame_layout_mixed(assembler,

@@ -380,6 +380,7 @@ _oplist = [
     'GUARD_NO_OVERFLOW/0d',
     'GUARD_OVERFLOW/0d',
     'GUARD_NOT_FORCED/0d',
+    'GUARD_NOT_INVALIDATED/0d',
     '_GUARD_LAST', # ----- end of guard operations -----
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
@@ -476,6 +477,7 @@ _oplist = [
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
+    'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
@@ -624,3 +626,25 @@ opboolreflex = {
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
     }
+
+
+def get_deep_immutable_oplist(operations):
+    """
+    When not we_are_translated(), turns ``operations`` into a frozenlist and
+    monkey-patch its items to make sure they are not mutated.
+
+    When we_are_translated(), do nothing and just return the old list.
+    """
+    from pypy.tool.frozenlist import frozenlist
+    if we_are_translated():
+        return operations
+    #
+    def setarg(*args):
+        assert False, "operations cannot change at this point"
+    def setdescr(*args):
+        assert False, "operations cannot change at this point"
+    newops = frozenlist(operations)
+    for op in newops:
+        op.setarg = setarg
+        op.setdescr = setdescr
+    return newops

@@ -18,6 +18,7 @@ def constfloat(x):
 
 def test_unwrap():
     S = lltype.GcStruct('S')
+    RS = lltype.Struct('S')
     p = lltype.malloc(S)
     po = lltype.cast_opaque_ptr(llmemory.GCREF, p)
     assert unwrap(lltype.Void, BoxInt(42)) is None
@@ -25,6 +26,7 @@ def test_unwrap():
     assert unwrap(lltype.Char, BoxInt(42)) == chr(42)
     assert unwrap(lltype.Float, boxfloat(42.5)) == 42.5
     assert unwrap(lltype.Ptr(S), BoxPtr(po)) == p
+    assert unwrap(lltype.Ptr(RS), BoxInt(0)) == lltype.nullptr(RS)
 
 def test_wrap():
     def _is(box1, box2):

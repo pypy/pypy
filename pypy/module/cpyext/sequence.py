@@ -36,7 +36,6 @@ def PySequence_Size(space, w_obj):
 def PySequence_Length(space, w_obj):
     return space.len_w(w_obj)
 
-
 @cpython_api([PyObject, CONST_STRING], PyObject)
 def PySequence_Fast(space, w_obj, m):
     """Returns the sequence o as a tuple, unless it is already a tuple or list, in
@@ -96,10 +95,21 @@ def PySequence_DelSlice(space, w_obj, start, end):
     return 0
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
+def PySequence_ITEM(space, w_obj, i):
+    """Return the ith element of o or NULL on failure. Macro form of
+    PySequence_GetItem() but without checking that
+    PySequence_Check(o)() is true and without adjustment for negative
+    indices.
+
+    This function used an int type for i. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    return space.getitem(w_obj, space.wrap(i))
+
+@cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_GetItem(space, w_obj, i):
     """Return the ith element of o, or NULL on failure. This is the equivalent of
     the Python expression o[i]."""
-    return space.getitem(w_obj, space.wrap(i))
+    return PySequence_ITEM(space, w_obj, i)
 
 @cpython_api([PyObject], PyObject)
 def PySequence_List(space, w_obj):
@@ -154,3 +164,27 @@ def PySequence_DelItem(space, w_o, i):
     equivalent of the Python statement del o[i]."""
     space.delitem(w_o, space.wrap(i))
     return 0
+
+@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
+def PySequence_Index(space, w_seq, w_obj):
+    """Return the first index i for which o[i] == value.  On error, return
+    -1.    This is equivalent to the Python expression o.index(value).
+
+    This function returned an int type. This might require changes
+    in your code for properly supporting 64-bit systems."""
+
+    w_iter = space.iter(w_seq)
+    idx = 0
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError, e:
+            if e.match(space, space.w_StopIteration):
+                break
+            raise
+        if space.is_true(space.eq(w_next, w_obj)):
+            return idx
+        idx += 1
+
+    raise OperationError(space.w_ValueError, space.wrap(
+        "sequence.index(x): x not in sequence"))

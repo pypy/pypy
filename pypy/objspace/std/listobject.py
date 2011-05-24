@@ -8,7 +8,6 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.objectmodel import instantiate, specialize
-from pypy.interpreter.function import Defaults
 from pypy.rlib.listsort import TimSort
 from pypy.rlib import rerased
 from pypy.interpreter.argument import Signature
@@ -781,7 +780,7 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 # _______________________________________________________
 
 init_signature = Signature(['sequence'], None, None)
-init_defaults = Defaults([None])
+init_defaults = [None]
 
 def init__List(space, w_list, __args__):
     from pypy.objspace.std.tupleobject import W_TupleObject

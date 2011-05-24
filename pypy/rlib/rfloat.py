@@ -158,12 +158,12 @@ def formatd(x, code, precision, flags=0):
         return _formatd(x, code, precision, flags)
 
 def double_to_string(value, tp, precision, flags):
-    if isnan(value):
-        special = DIST_NAN
+    if isfinite(value):
+        special = DIST_FINITE
     elif isinf(value):
         special = DIST_INFINITY
-    else:
-        special = DIST_FINITE
+    else:  #isnan(value):
+        special = DIST_NAN
     result = formatd(value, tp, precision, flags)
     return result, special
 
@@ -344,7 +344,7 @@ except ImportError:
     def asinh(x):
         "NOT_RPYTHON"
         absx = abs(x)
-        if isnan(x) or isinf(x):
+        if not isfinite(x):
             return x
         if absx < _2_to_m28:
             return x
@@ -405,3 +405,6 @@ def round_away(x):
         r = math.floor(absx)
     return copysign(r, x)
 
+def isfinite(x):
+    "NOT_RPYTHON"
+    return not isinf(x) and not isnan(x)

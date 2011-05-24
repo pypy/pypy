@@ -20,7 +20,7 @@ class BaseTestPyPyC(object):
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
-    def run(self, func_or_src, args=[], **jitopts):
+    def run(self, func_or_src, args=[], import_site=False, **jitopts):
         src = py.code.Source(func_or_src)
         if isinstance(func_or_src, types.FunctionType):
             funcname = func_or_src.func_name
@@ -39,7 +39,9 @@ class BaseTestPyPyC(object):
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
         #
-        cmdline = [sys.executable, '-S']
+        cmdline = [sys.executable]
+        if not import_site:
+            cmdline.append('-S')
         for key, value in jitopts.iteritems():
             cmdline += ['--jit', '%s=%s' % (key, value)]
         cmdline.append(str(self.filepath))
@@ -251,6 +253,18 @@ class TestOpMatcher(object):
         """
         assert self.match(loop, expected, ignore_ops=['force_token'])
 
+    def test_match_dots_in_arguments(self):
+        loop = """
+            [i0]
+            i1 = int_add(0, 1)
+            jump(i4, descr=...)
+        """
+        expected = """
+            i1 = int_add(...)
+            jump(i4, descr=...)
+        """
+        assert self.match(loop, expected)
+
 
 class TestRunPyPyC(BaseTestPyPyC):
 
@@ -453,14 +467,16 @@ class TestRunPyPyC(BaseTestPyPyC):
                 j = ntohs(1) # ID: ntohs
                 a = 0
             return i
-        log = self.run(f)
+        log = self.run(f, import_site=True)
         loop, = log.loops_by_id('ntohs')
         assert loop.match_by_id('ntohs', """
+            guard_not_invalidated(descr=...)
             p12 = call(ConstClass(ntohs), 1, descr=...)
             guard_no_exception(descr=...)
         """)
         #
         assert not loop.match_by_id('ntohs', """
+            guard_not_invalidated(descr=...)
             p12 = call(ConstClass(foobar), 1, descr=...)
             guard_no_exception(descr=...)
         """)

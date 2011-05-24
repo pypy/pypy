@@ -56,7 +56,7 @@ the bytecode interpreter:
 
 The present document gives a description of the above object spaces.
 The sources of PyPy contain the various object spaces in the directory
-`objspace/`_.
+`pypy/objspace/`_.
 
 To choose which object space to use, use the :config:`objspace.name` option.
 
@@ -297,7 +297,7 @@ The Standard Object Space
 Introduction
 ------------
 
-The Standard Object Space (StdObjSpace_) is the direct equivalent of CPython's
+The Standard Object Space (`pypy/objspace/std/`_) is the direct equivalent of CPython's
 object library (the "Objects/" subdirectory in the distribution). It is an
 implementation of the common Python types in a lower-level language.
 
@@ -341,13 +341,11 @@ So in summary: wrapping integers as instances is the simple path, while
 using plain integers instead is the complex path, not the other way
 around.
 
-.. _StdObjSpace: ../../../../pypy/objspace/std/
-
 
 Object types
 ------------
 
-The larger part of the `StdObjSpace`_ package defines and implements the
+The larger part of the `pypy/objspace/std/`_ package defines and implements the
 library of Python's standard built-in object types.  Each type (int, float,
 list, tuple, str, type, etc.) is typically implemented by two modules:
 
@@ -356,17 +354,17 @@ list, tuple, str, type, etc.) is typically implemented by two modules:
 * the *implementation* module, called ``xxxobject.py``.
 
 The ``xxxtype.py`` module basically defines the type object itself.  For
-example, `listtype.py`_ contains the specification of the object you get when
-you type ``list`` in a PyPy prompt.  `listtype.py`_ enumerates the methods
+example, `pypy/objspace/std/listtype.py`_ contains the specification of the object you get when
+you type ``list`` in a PyPy prompt.  `pypy/objspace/std/listtype.py`_ enumerates the methods
 specific to lists, like ``append()``.
 
 A particular method implemented by all types is the ``__new__()`` special
 method, which in Python's new-style-classes world is responsible for creating
 an instance of the type.  In PyPy, ``__new__()`` locates and imports the module
 implementing *instances* of the type, and creates such an instance based on the
-arguments the user supplied to the constructor.  For example, `tupletype.py`_
+arguments the user supplied to the constructor.  For example, `pypy/objspace/std/tupletype.py`_
 defines ``__new__()`` to import the class ``W_TupleObject`` from
-`tupleobject.py`_ and instantiate it.  The `tupleobject.py`_ then contains a
+`pypy/objspace/std/tupleobject.py`_ and instantiate it.  The `pypy/objspace/std/tupleobject.py`_ then contains a
 "real" implementation of tuples: the way the data is stored in the
 ``W_TupleObject`` class, how the operations work, etc.
 
@@ -387,17 +385,12 @@ classes are not visible: they are still all instances of exactly the
 same Python type.  PyPy knows that (e.g.) the application-level type of
 its interpreter-level ``W_StringObject`` instances is str because
 there is a ``typedef`` class attribute in ``W_StringObject`` which
-points back to the string type specification from `stringtype.py`_; all
+points back to the string type specification from `pypy/objspace/std/stringtype.py`_; all
 other implementations of strings use the same ``typedef`` from
-`stringtype.py`_.
+`pypy/objspace/std/stringtype.py`_.
 
 For other examples of multiple implementations of the same Python type,
 see `Standard Interpreter Optimizations`_.
-
-.. _`listtype.py`: ../../../../pypy/objspace/std/listtype.py
-.. _`stringtype.py`: ../../../../pypy/objspace/std/stringtype.py
-.. _`tupletype.py`: ../../../../pypy/objspace/std/tupletype.py
-.. _`tupleobject.py`: ../../../../pypy/objspace/std/tupleobject.py
 
 .. _`Standard Interpreter Optimizations`: interpreter-optimizations.html
 
@@ -408,11 +401,9 @@ Multimethods
 The Standard Object Space allows multiple object implementations per
 Python type - this is based on multimethods_.  For a description of the
 multimethod variant that we implemented and which features it supports,
-see the comment at the start of the source__.  However, multimethods
+see the comment at the start of `pypy/objspace/std/multimethod.py`_.  However, multimethods
 alone are not enough for the Standard Object Space: the complete picture
 spans several levels in order to emulate the exact Python semantics.
-
-.. __: ../../../../pypy/objspace/std/multimethod.py
 
 Consider the example of the ``space.getitem(w_a, w_b)`` operation,
 corresponding to the application-level syntax ``a[b]``.  The Standard
@@ -469,7 +460,7 @@ temporarily copy is built), and the concatenation is performed on the
 resulting pair of basic strings.  This is similar to the C++ method
 overloading resolution mechanism (but occurs at runtime).
 
-.. _multimethods: theory.html#multimethods
+.. _multimethods: http://en.wikipedia.org/wiki/Multimethods
 
 
 Multimethod slicing
@@ -552,13 +543,11 @@ by default to avoid presenting too much information.  Only non-helper
 operations are usually shown.   
 
 A quick introduction on how to use the trace object space can be `found here`_.
-A number of options for configuration is here in `traceconfig.py`_.
+A number of options for configuration is here in `pypy/tool/traceconfig.py`_.
 
 
 .. _`found here` : getting-started-dev.html#tracing-bytecode-and-operations-on-objects
-.. _`Abstract Interpretation`: theory.html#abstract-interpretation
-.. _`traceconfig.py`: ../tool/traceconfig.py
-
+.. _`Abstract Interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 
 .. _`Flow Object Space`:
 
@@ -568,7 +557,7 @@ The Flow Object Space
 Introduction
 ------------
 
-The task of the FlowObjSpace_ is to generate a control-flow graph from a
+The task of the FlowObjSpace (the source is at `pypy/objspace/flow/`_) is to generate a control-flow graph from a
 function.  This graph will also contain a trace of the individual operations, so
 that it is actually just an alternate representation for the function.
 
@@ -588,7 +577,7 @@ placeholder "wrapped objects" and give them to the interpreter, so that they
 appear in some next operation.  This technique is an example of `Abstract
 Interpretation`_.
 
-.. _`Abstract Interpretation`: theory.html#abstract-interpretation
+.. _`Abstract Interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 
 For example, if the placeholder ``v1`` is given as the argument to the above
 function, the bytecode interpreter will call ``v2 = space.mul(space.wrap(3),
@@ -599,8 +588,6 @@ result.  During these calls the FlowObjSpace will record a basic block::
     v2 = mul(Constant(3), v1)
     v3 = add(v2, Constant(2))
 
-
-.. _FlowObjSpace: ../../../../pypy/objspace/flow/
 
 
 The Flow model
@@ -650,4 +637,4 @@ PyPy can do for your objects`_.
 
 .. _`What PyPy can do for your objects`: objspace-proxies.html
 
-.. include:: _ref.rst
+.. include:: _ref.txt

@@ -13,7 +13,7 @@ class EffectInfo(object):
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
     EF_CAN_RAISE                       = 3 #normal function (can raise)
-    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 4 #can raise and force virtualizables
+    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
 
     # the 'oopspecindex' field is one of the following values:
     OS_NONE                     = 0    # normal case, no oopspec
@@ -72,11 +72,14 @@ class EffectInfo(object):
     OS_LLONG_UGE                = 91
     OS_LLONG_URSHIFT            = 92
     OS_LLONG_FROM_UINT          = 93
+    #
+    OS_MATH_SQRT                = 100
 
     def __new__(cls, readonly_descrs_fields,
                 write_descrs_fields, write_descrs_arrays,
                 extraeffect=EF_CAN_RAISE,
-                oopspecindex=OS_NONE):
+                oopspecindex=OS_NONE,
+                can_invalidate=False):
         key = (frozenset(readonly_descrs_fields),
                frozenset(write_descrs_fields),
                frozenset(write_descrs_arrays),
@@ -94,16 +97,21 @@ class EffectInfo(object):
             result.write_descrs_fields = write_descrs_fields
             result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
+        result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
         cls._cache[key] = result
         return result
+
+    def check_can_invalidate(self):
+        return self.can_invalidate
 
     def check_forces_virtual_or_virtualizable(self):
         return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
 
 def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
-                                 oopspecindex=EffectInfo.OS_NONE):
+                                 oopspecindex=EffectInfo.OS_NONE,
+                                 can_invalidate=False):
     from pypy.translator.backendopt.writeanalyze import top_set
     if effects is top_set:
         return None
@@ -141,7 +149,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       write_descrs_fields,
                       write_descrs_arrays,
                       extraeffect,
-                      oopspecindex)
+                      oopspecindex,
+                      can_invalidate)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
@@ -172,6 +181,10 @@ class VirtualizableAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         return op.opname in ('jit_force_virtualizable',
                              'jit_force_virtual')
+
+class QuasiImmutAnalyzer(BoolGraphAnalyzer):
+    def analyze_simple_operation(self, op, graphinfo):
+        return op.opname == 'jit_force_quasi_immutable'
 
 # ____________________________________________________________
 

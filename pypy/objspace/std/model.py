@@ -53,7 +53,6 @@ class StdTypeModel:
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef
-            from pypy.objspace.std.dictproxytype import dictproxy_typedef
             from pypy.objspace.std.nonetype import none_typedef
             from pypy.objspace.std.itertype import iter_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
@@ -122,7 +121,6 @@ class StdTypeModel:
             iterobject.W_FastTupleIterObject: [],
             iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
-            dictproxyobject.W_DictProxyObject: [],
             dictmultiobject.W_DictViewKeysObject: [],
             dictmultiobject.W_DictViewItemsObject: [],
             dictmultiobject.W_DictViewValuesObject: [],
@@ -249,9 +247,6 @@ class StdTypeModel:
                 (unicodeobject.W_UnicodeObject,
                                        strbufobject.delegate_buf2unicode)
                 ]
-        if config.objspace.std.withsmalltuple:
-            self.typeorder[smalltupleobject.W_SmallTupleObject] += [
-                (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
         if config.objspace.std.withsmalltuple:
             self.typeorder[smalltupleobject.W_SmallTupleObject] += [
                 (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]

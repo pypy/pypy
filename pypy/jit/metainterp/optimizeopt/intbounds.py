@@ -161,6 +161,9 @@ class OptIntBounds(Optimization):
             if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
                 # Synthesize the non overflowing op for optimize_default to reuse
                 self.pure(rop.INT_ADD, op.getarglist()[:], op.result)
+                # Synthesize the reverse op for optimize_default to reuse
+                self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
+                self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
 
 
     def optimize_INT_SUB_OVF(self, op):
@@ -180,6 +183,10 @@ class OptIntBounds(Optimization):
             if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
                 # Synthesize the non overflowing op for optimize_default to reuse
                 self.pure(rop.INT_SUB, op.getarglist()[:], op.result)
+                # Synthesize the reverse ops for optimize_default to reuse
+                self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
+                self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+                
 
     def optimize_INT_MUL_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))

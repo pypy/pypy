@@ -527,7 +527,8 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                     filename = filepart + suffix
                     return FindInfo(modtype, filename, None, suffix, filemode)
             except StreamErrors:
-                pass
+                pass   # XXX! must not eat all exceptions, e.g.
+                       # Out of file descriptors.
 
     # not found
     return None
@@ -946,7 +947,8 @@ def check_compiled_module(space, pycfilename, expected_mtime):
     except StreamErrors:
         if stream:
             stream.close()
-        return None
+        return None    # XXX! must not eat all exceptions, e.g.
+                       # Out of file descriptors.
 
 def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """

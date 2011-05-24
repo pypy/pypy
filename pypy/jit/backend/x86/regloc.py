@@ -508,13 +508,17 @@ class LocationCodeBuilder(object):
     LEA = _binaryop('LEA')
 
     MOVSD = _binaryop('MOVSD')
+    MOVAPD = _binaryop('MOVAPD')
     ADDSD = _binaryop('ADDSD')
+    ADDPD = _binaryop('ADDPD')
     SUBSD = _binaryop('SUBSD')
     MULSD = _binaryop('MULSD')
     DIVSD = _binaryop('DIVSD')
     UCOMISD = _binaryop('UCOMISD')
     CVTSI2SD = _binaryop('CVTSI2SD')
     CVTTSD2SI = _binaryop('CVTTSD2SI')
+    
+    SQRTSD = _binaryop('SQRTSD')
 
     ANDPD = _binaryop('ANDPD')
     XORPD = _binaryop('XORPD')

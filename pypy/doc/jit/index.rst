@@ -4,7 +4,7 @@
 
 :abstract:
 
-    When PyPy is translated into an executable like ``pypy-c``, the
+    When PyPy is translated into an executable such as ``pypy-c``, the
     executable contains a full virtual machine that can optionally
     include a Just-In-Time compiler.  This JIT compiler is **generated
     automatically from the interpreter** that we wrote in RPython.

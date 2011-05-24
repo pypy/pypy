@@ -1,4 +1,7 @@
-.. include:: crufty.rst
+.. warning::
+
+   Some of these reports are interesting for historical reasons only.
+
 
 ============================================
 PyPy - Overview over the EU-reports
@@ -9,7 +12,7 @@ of the PyPy project during the EU funding period (Dez 2004 - March 2007).
 They also are very good documentation if you'd like to know in more
 detail about motivation and implementation of the various parts 
 and aspects of PyPy.  Feel free to send questions or comments
-to `pypy-dev`_, the development list. 
+to `pypy-dev`_, the development list.
 
 Reports of 2007
 ===============
@@ -93,10 +96,10 @@ to virtual machine construction`_. *(2007-02-28)*
 
 
 
-.. _`py-lib`: http://codespeak.net/py/current/doc/
-.. _`py.test`: http://codespeak.net/py/current/doc/test.html
+.. _`py-lib`: http://pylib.org/
+.. _`py.test`: http://pytest.org/
 .. _codespeak: http://codespeak.net/
-.. _`pypy-dev`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`pypy-dev`: http://python.org/mailman/listinfo/pypy-dev
 
 
 Reports of 2006
@@ -137,35 +140,35 @@ properties into our interpreter during the translation process.
 `D14.1 Report about Milestone/Phase 1`_ describes what happened in the PyPy
 project during the first year of EU funding (December 2004 - December 2005)
 
-.. _`PyPy EU Final Activity Report`: http://codespeak.net/pypy/extradoc/eu-report/PYPY-EU-Final-Activity-Report.pdf
-.. _`D01.2-4 Project Organization`: http://codespeak.net/pypy/extradoc/eu-report/D01.2-4_Project_Organization-2007-03-28.pdf
-.. _`D02.1 Development Tools and Website`: http://codespeak.net/pypy/extradoc/eu-report/D02.1_Development_Tools_and_Website-2007-03-21.pdf
-.. _`D02.2 Release Scheme`: http://codespeak.net/svn/pypy/extradoc/eu-report/D02.2_Release_Scheme-2007-03-30.pdf
-.. _`D02.3 Testing Tool`: http://codespeak.net/pypy/extradoc/eu-report/D02.3_Testing_Framework-2007-03-23.pdf
-.. _`D03.1 Extension Compiler`: http://codespeak.net/pypy/extradoc/eu-report/D03.1_Extension_Compiler-2007-03-21.pdf
-.. _`D04.1 Partial Python Implementation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D04.1_Partial_Python_Implementation_on_top_of_CPython.pdf
-.. _`D04.2 Complete Python Implementation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D04.2_Complete_Python_Implementation_on_top_of_CPython.pdf
-.. _`D04.3 Parser and Bytecode Compiler`: http://codespeak.net/svn/pypy/extradoc/eu-report/D04.3_Report_about_the_parser_and_bytecode_compiler.pdf
-.. _`D04.4 PyPy as a Research Tool`: http://codespeak.net/svn/pypy/extradoc/eu-report/D04.4_Release_PyPy_as_a_research_tool.pdf
-.. _`D05.1 Compiling Dynamic Language Implementations`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
-.. _`D05.2 A Compiled Version of PyPy`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.2_A_compiled,_self-contained_version_of_PyPy.pdf
-.. _`D05.3 Implementation with Translation Aspects`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.3_Publish_on_implementation_with_translation_aspects.pdf
-.. _`D05.4 Encapsulating Low Level Aspects`: http://codespeak.net/svn/pypy/extradoc/eu-report/D05.4_Publish_on_encapsulating_low_level_language_aspects.pdf
-.. _`D06.1 Core Object Optimization Results`: http://codespeak.net/svn/pypy/extradoc/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
-.. _`D07.1 Massive Parallelism and Translation Aspects`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
-.. _`D08.2 JIT Compiler Architecture`: http://codespeak.net/pypy/extradoc/eu-report/D08.2_JIT_Compiler_Architecture-2007-05-01.pdf
-.. _`D08.1 JIT Compiler Release`: http://codespeak.net/pypy/extradoc/eu-report/D08.1_JIT_Compiler_Release-2007-04-30.pdf
-.. _`D09.1 Constraint Solving and Semantic Web`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-2007-05-11.pdf
-.. _`D10.1 Aspect-Oriented, Design-by-Contract Programming and RPython static checking`: http://codespeak.net/pypy/extradoc/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
-.. _`D11.1 PyPy for Embedded Devices`: http://codespeak.net/pypy/extradoc/eu-report/D11.1_PyPy_for_Embedded_Devices-2007-03-26.pdf
-.. _`D12.1 High-Level-Backends and Feature Prototypes`: http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
-.. _`D13.1 Integration and Configuration`: http://codespeak.net/pypy/extradoc/eu-report/D13.1_Integration_and_Configuration-2007-03-30.pdf 
-.. _`D14.1 Report about Milestone/Phase 1`: http://codespeak.net/svn/pypy/extradoc/eu-report/D14.1_Report_about_Milestone_Phase_1.pdf
-.. _`D14.2 Tutorials and Guide Through the PyPy Source Code`: http://codespeak.net/pypy/extradoc/eu-report/D14.2_Tutorials_and_Guide_Through_the_PyPy_Source_Code-2007-03-22.pdf
-.. _`D14.3 Report about Milestone/Phase 2`: http://codespeak.net/pypy/extradoc/eu-report/D14.3_Report_about_Milestone_Phase_2-final-2006-08-03.pdf
-.. _`D14.4 PyPy-1.0 Milestone report`: http://codespeak.net/pypy/extradoc/eu-report/D14.4_Report_About_Milestone_Phase_3-2007-05-01.pdf
-.. _`D14.5 Documentation of the development process`: http://codespeak.net/pypy/extradoc/eu-report/D14.5_Documentation_of_the_development_process-2007-03-30.pdf
+.. _`PyPy EU Final Activity Report`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/PYPY-EU-Final-Activity-Report.pdf
+.. _`D01.2-4 Project Organization`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D01.2-4_Project_Organization-2007-03-28.pdf
+.. _`D02.1 Development Tools and Website`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D02.1_Development_Tools_and_Website-2007-03-21.pdf
+.. _`D02.2 Release Scheme`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D02.2_Release_Scheme-2007-03-30.pdf
+.. _`D02.3 Testing Tool`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D02.3_Testing_Framework-2007-03-23.pdf
+.. _`D03.1 Extension Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D03.1_Extension_Compiler-2007-03-21.pdf
+.. _`D04.1 Partial Python Implementation`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D04.1_Partial_Python_Implementation_on_top_of_CPython.pdf
+.. _`D04.2 Complete Python Implementation`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D04.2_Complete_Python_Implementation_on_top_of_CPython.pdf
+.. _`D04.3 Parser and Bytecode Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D04.3_Report_about_the_parser_and_bytecode_compiler.pdf
+.. _`D04.4 PyPy as a Research Tool`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D04.4_Release_PyPy_as_a_research_tool.pdf
+.. _`D05.1 Compiling Dynamic Language Implementations`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _`D05.2 A Compiled Version of PyPy`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.2_A_compiled,_self-contained_version_of_PyPy.pdf
+.. _`D05.3 Implementation with Translation Aspects`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.3_Publish_on_implementation_with_translation_aspects.pdf
+.. _`D05.4 Encapsulating Low Level Aspects`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.4_Publish_on_encapsulating_low_level_language_aspects.pdf
+.. _`D06.1 Core Object Optimization Results`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
+.. _`D07.1 Massive Parallelism and Translation Aspects`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+.. _`D08.2 JIT Compiler Architecture`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D08.2_JIT_Compiler_Architecture-2007-05-01.pdf
+.. _`D08.1 JIT Compiler Release`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D08.1_JIT_Compiler_Release-2007-04-30.pdf
+.. _`D09.1 Constraint Solving and Semantic Web`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-2007-05-11.pdf
+.. _`D10.1 Aspect-Oriented, Design-by-Contract Programming and RPython static checking`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
+.. _`D11.1 PyPy for Embedded Devices`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D11.1_PyPy_for_Embedded_Devices-2007-03-26.pdf
+.. _`D12.1 High-Level-Backends and Feature Prototypes`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
+.. _`D13.1 Integration and Configuration`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D13.1_Integration_and_Configuration-2007-03-30.pdf 
+.. _`D14.1 Report about Milestone/Phase 1`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D14.1_Report_about_Milestone_Phase_1.pdf
+.. _`D14.2 Tutorials and Guide Through the PyPy Source Code`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D14.2_Tutorials_and_Guide_Through_the_PyPy_Source_Code-2007-03-22.pdf
+.. _`D14.3 Report about Milestone/Phase 2`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D14.3_Report_about_Milestone_Phase_2-final-2006-08-03.pdf
+.. _`D14.4 PyPy-1.0 Milestone report`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D14.4_Report_About_Milestone_Phase_3-2007-05-01.pdf
+.. _`D14.5 Documentation of the development process`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D14.5_Documentation_of_the_development_process-2007-03-30.pdf
 
 
 
-.. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
+.. _`PyPy's approach to virtual machine construction`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf

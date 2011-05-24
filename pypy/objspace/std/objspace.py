@@ -304,11 +304,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_ListObject(self, list_w)
 
     def newdict(self, module=False, instance=False, classofinstance=None,
-                from_strdict_shared=None, strdict=False):
+                strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
                 classofinstance=classofinstance,
-                from_strdict_shared=from_strdict_shared,
                 strdict=strdict)
 
     def newslice(self, w_start, w_end, w_step):

@@ -49,14 +49,6 @@ class PyPyJitDriver(JitDriver):
     greens = ['next_instr', 'is_being_profiled', 'pycode']
     virtualizables = ['frame']
 
-##    def compute_invariants(self, reds, next_instr, pycode):
-##        # compute the information that really only depends on next_instr
-##        # and pycode
-##        frame = reds.frame
-##        valuestackdepth = frame.valuestackdepth
-##        blockstack = frame.blockstack
-##        return (valuestackdepth, blockstack)
-
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,

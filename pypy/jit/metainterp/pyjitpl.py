@@ -15,7 +15,7 @@ from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
-                                        ABORT_BAD_LOOP
+                                        ABORT_BAD_LOOP, ABORT_FORCE_QUASIIMMUT
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
@@ -555,6 +555,35 @@ class MIFrame(object):
     opimpl_setfield_raw_r = _opimpl_setfield_raw_any
     opimpl_setfield_raw_f = _opimpl_setfield_raw_any
 
+    @arguments("box", "descr", "descr", "orgpc")
+    def opimpl_record_quasiimmut_field(self, box, fielddescr,
+                                       mutatefielddescr, orgpc):
+        from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
+        cpu = self.metainterp.cpu
+        descr = QuasiImmutDescr(cpu, box, fielddescr, mutatefielddescr)
+        self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
+                                       None, descr=descr)
+        self.generate_guard(rop.GUARD_NOT_INVALIDATED, resumepc=orgpc)
+
+    @arguments("box", "descr", "orgpc")
+    def opimpl_jit_force_quasi_immutable(self, box, mutatefielddescr, orgpc):
+        # During tracing, a 'jit_force_quasi_immutable' usually turns into
+        # the operations that check that the content of 'mutate_xxx' is null.
+        # If it is actually not null already now, then we abort tracing.
+        # The idea is that if we use 'jit_force_quasi_immutable' on a freshly
+        # allocated object, then the GETFIELD_GC will know that the answer is
+        # null, and the guard will be removed.  So the fact that the field is
+        # quasi-immutable will have no effect, and instead it will work as a
+        # regular, probably virtual, structure.
+        mutatebox = self.execute_with_descr(rop.GETFIELD_GC,
+                                            mutatefielddescr, box)
+        if mutatebox.nonnull():
+            from pypy.jit.metainterp.quasiimmut import do_force_quasi_immutable
+            do_force_quasi_immutable(self.metainterp.cpu, box.getref_base(),
+                                     mutatefielddescr)
+            raise SwitchToBlackhole(ABORT_FORCE_QUASIIMMUT)
+        self.generate_guard(rop.GUARD_ISNULL, mutatebox, resumepc=orgpc)
+
     def _nonstandard_virtualizable(self, pc, box):
         # returns True if 'box' is actually not the "standard" virtualizable
         # that is stored in metainterp.virtualizable_boxes[-1]
@@ -1080,6 +1109,8 @@ class MIFrame(object):
         if opnum == rop.GUARD_NOT_FORCED:
             resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
                                                    metainterp.jitdriver_sd)
+        elif opnum == rop.GUARD_NOT_INVALIDATED:
+            resumedescr = compile.ResumeGuardNotInvalidated()
         else:
             resumedescr = compile.ResumeGuardDescr()
         guard_op = metainterp.history.record(opnum, moreargs, None,
@@ -1813,9 +1844,9 @@ class MetaInterp(object):
                 else:
                     self.compile(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
-                #self.staticdata.log('cancelled, tracing more...')
-                self.staticdata.log('cancelled, stopping tracing')
-                raise SwitchToBlackhole(ABORT_BAD_LOOP)
+                self.staticdata.log('cancelled, tracing more...')
+                #self.staticdata.log('cancelled, stopping tracing')
+                #raise SwitchToBlackhole(ABORT_BAD_LOOP)
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
@@ -1852,6 +1883,9 @@ class MetaInterp(object):
                 self.handle_possible_exception()
             except ChangeFrame:
                 pass
+        elif opnum == rop.GUARD_NOT_INVALIDATED:
+            pass # XXX we want to do something special in resume descr,
+                 # but not now
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
             self.execute_raised(OverflowError(), constant=True)
             try:
@@ -1877,6 +1911,7 @@ class MetaInterp(object):
 
     def compile(self, original_boxes, live_arg_boxes, start, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
+        original_inputargs = self.history.inputargs
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         old_loop_tokens = self.get_compiled_merge_points(greenkey)
@@ -1885,7 +1920,11 @@ class MetaInterp(object):
                                               greenkey, start, start_resumedescr)
         if loop_token is not None: # raise if it *worked* correctly
             self.set_compiled_merge_points(greenkey, old_loop_tokens)
+            self.history.inputargs = None
+            self.history.operations = None
             raise GenerateMergePoint(live_arg_boxes, loop_token)
+
+        self.history.inputargs = original_inputargs
         self.history.operations.pop()     # remove the JUMP
         # FIXME: Why is self.history.inputargs not restored?
 
@@ -1902,10 +1941,12 @@ class MetaInterp(object):
             target_loop_token = compile.compile_new_bridge(self,
                                                            old_loop_tokens,
                                                            self.resumekey)
-            if target_loop_token is not None: # raise if it *worked* correctly
-                raise GenerateMergePoint(live_arg_boxes, target_loop_token)
         finally:
             self.history.operations.pop()     # remove the JUMP
+        if target_loop_token is not None: # raise if it *worked* correctly
+            self.history.inputargs = None
+            self.history.operations = None
+            raise GenerateMergePoint(live_arg_boxes, target_loop_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):
@@ -1940,7 +1981,8 @@ class MetaInterp(object):
             assert False
         assert target_loop_token is not None
 
-        self.history.operations = original_operations
+        self.history.inputargs = None
+        self.history.operations = None
         raise GenerateMergePoint(live_arg_boxes, old_loop_tokens[0])
 
     def compile_done_with_this_frame(self, exitbox):

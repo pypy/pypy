@@ -480,6 +480,11 @@ class AppTestInt:
         ]:
             assert val.bit_length() == bits
 
+    def test_int_real(self):
+        class A(int): pass
+        b = A(5).real
+        assert type(b) is int
+
 
 class AppTestIntOptimizedAdd(AppTestInt):
     def setup_class(cls):

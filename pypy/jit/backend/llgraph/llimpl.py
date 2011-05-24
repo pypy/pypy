@@ -168,6 +168,7 @@ TYPES = {
 
 class CompiledLoop(object):
     has_been_freed = False
+    invalid = False
 
     def __init__(self):
         self.inputargs = []
@@ -408,6 +409,13 @@ def compile_redirect_fail(old_loop, old_index, new_loop):
     guard_op = old_loop.operations[old_index]
     assert guard_op.is_guard()
     guard_op.jump_target = new_loop
+    # check that the bridge's inputargs are of the correct number and
+    # kind for the guard
+    if guard_op.fail_args is not None:
+        argkinds = [v.concretetype for v in guard_op.fail_args if v]
+    else:
+        argkinds = []
+    assert argkinds == [v.concretetype for v in new_loop.inputargs]
 
 # ------------------------------
 
@@ -937,6 +945,9 @@ class Frame(object):
         if forced:
             raise GuardFailed
 
+    def op_guard_not_invalidated(self, descr):
+        if self.loop.invalid:
+            raise GuardFailed
 
 class OOFrame(Frame):
 

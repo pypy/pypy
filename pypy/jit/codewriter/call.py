@@ -6,6 +6,7 @@
 from pypy.jit.codewriter import support
 from pypy.jit.codewriter.jitcode import JitCode
 from pypy.jit.codewriter.effectinfo import VirtualizableAnalyzer
+from pypy.jit.codewriter.effectinfo import QuasiImmutAnalyzer
 from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze
 from pypy.jit.codewriter.effectinfo import EffectInfo, CallInfoCollection
 from pypy.translator.simplify import get_funcobj, get_functype
@@ -30,6 +31,7 @@ class CallControl(object):
             self.raise_analyzer = RaiseAnalyzer(translator)
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
+            self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
@@ -217,6 +219,7 @@ class CallControl(object):
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
         # build the extraeffect
+        can_invalidate = self.quasiimmut_analyzer.analyze(op)
         if extraeffect is None:
             if self.virtualizable_analyzer.analyze(op):
                 extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
@@ -232,11 +235,14 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex)
+            oopspecindex, can_invalidate)
         #
         if pure or loopinvariant:
             assert effectinfo is not None
             assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            # XXX this should also say assert not can_invalidate, but
+            #     it can't because our analyzer is not good enough for now
+            #     (and getexecutioncontext() can't really invalidate)
         #
         return self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT,
                                     effectinfo)

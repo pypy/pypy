@@ -561,6 +561,7 @@ def make_wrapper(space, callable):
             elif callable.api_func.restype is not lltype.Void:
                 retval = rffi.cast(callable.api_func.restype, result)
         except Exception, e:
+            print 'Fatal error in cpyext, calling', callable.__name__
             if not we_are_translated():
                 import traceback
                 traceback.print_exc()

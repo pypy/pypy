@@ -105,7 +105,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('call_rec', """
             ...
-            p53 = call_assembler(p35, p7, ConstPtr(ptr21), ConstPtr(ptr49), 0, ConstPtr(ptr51), -1, ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr52), ConstPtr(ptr48), descr=...)
+            p53 = call_assembler(..., descr=...)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
             ...
@@ -221,7 +221,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('meth1', opcode='LOOKUP_METHOD')
         assert log.opnames(ops) == ['guard_value', 'getfield_gc', 'guard_value',
-                                    'getfield_gc', 'guard_value']
+                                    'guard_not_invalidated']
         # the second LOOKUP_METHOD is folded away
         assert list(entry_bridge.ops_by_id('meth2', opcode='LOOKUP_METHOD')) == []
         #
@@ -231,14 +231,15 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i15 = int_lt(i6, i9)
             guard_true(i15, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             i16 = force_token()
             i17 = int_add_ovf(i10, i6)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             i18 = force_token()
             i19 = int_add_ovf(i10, i17)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=<Guard6>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, p14, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=<Loop0>)
         """)
 
     def test_static_classmethod_call(self):
@@ -264,17 +265,17 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i14 = int_lt(i6, i9)
             guard_true(i14, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             i15 = force_token()
             i17 = int_add_ovf(i8, 1)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             i18 = force_token()
             i20 = int_sub(i17, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, p13, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, descr=<Loop0>)
         """)
 
     def test_default_and_kw(self):
-        py.test.skip("Wait until we have saner defaults strat")
         def main(n):
             def f(i, j=1):
                 return i + j
@@ -415,8 +416,9 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_lt(i5, i6)
             guard_true(i7, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             i9 = int_add_ovf(i5, 2)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             --TICK--
             jump(p0, p1, p2, p3, p4, i9, i6, descr=<Loop0>)
         """)
@@ -439,10 +441,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i9 = int_lt(i5, i6)
             guard_true(i9, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             i10 = int_add_ovf(i5, i7)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i10, i6, p7, i7, p8, descr=<Loop0>)
         """)
 
     def test_mixed_type_loop(self):
@@ -506,15 +509,15 @@ class TestPyPyCNew(BaseTestPyPyC):
             i20 = int_add(i11, 1)
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            guard_not_invalidated(descr=<Guard4>)
             i23 = int_lt(i18, 0)
-            guard_false(i23, descr=<Guard4>)
+            guard_false(i23, descr=<Guard5>)
             i25 = int_ge(i18, i9)
-            guard_false(i25, descr=<Guard5>)
-            i26 = int_mul(i18, i10)
-            i27 = int_add_ovf(i7, i26)
-            guard_no_overflow(descr=<Guard6>)
+            guard_false(i25, descr=<Guard6>)
+            i27 = int_add_ovf(i7, i18)
+            guard_no_overflow(descr=<Guard7>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, i27, i18, i9, i10, i20, i12, p13, i14, i15, descr=<Loop0>)
+            jump(..., descr=<Loop0>)
         """)
 
     def test_exception_inside_loop_1(self):
@@ -533,11 +536,12 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
         i5 = int_is_true(i3)
         guard_true(i5, descr=<Guard3>)
+        guard_not_invalidated(descr=<Guard4>)
         --EXC-TICK--
         i12 = int_sub_ovf(i3, 1)
-        guard_no_overflow(descr=<Guard5>)
+        guard_no_overflow(descr=<Guard6>)
         --TICK--
-        jump(p0, p1, p2, i12, descr=<Loop0>)
+        jump(..., descr=<Loop0>)
         """)
 
     def test_exception_inside_loop_2(self):
@@ -580,10 +584,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_lt(i4, i5)
             guard_true(i7, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
             --EXC-TICK--
             i14 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i14, i5, descr=<Loop0>)
+            jump(..., descr=<Loop0>)
         """)
 
     def test_chain_of_guards(self):
@@ -685,10 +690,11 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match_by_id('import', """
             p11 = getfield_gc(ConstPtr(ptr10), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
             guard_value(p11, ConstPtr(ptr12), descr=<Guard4>)
+            guard_not_invalidated(descr=<Guard5>)
             p14 = getfield_gc(ConstPtr(ptr13), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
             p16 = getfield_gc(ConstPtr(ptr15), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
-            guard_value(p14, ConstPtr(ptr17), descr=<Guard5>)
-            guard_isnull(p16, descr=<Guard6>)
+            guard_value(p14, ConstPtr(ptr17), descr=<Guard6>)
+            guard_isnull(p16, descr=<Guard7>)
         """)
 
     def test_import_fast_path(self, tmpdir):
@@ -1025,7 +1031,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
     def test_func_defaults(self):
-        py.test.skip("until we fix defaults")
         def main(n):
             i = 1
             while i < n:
@@ -1038,20 +1043,10 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match("""
             i10 = int_lt(i5, i6)
             guard_true(i10, descr=<Guard3>)
-            # This can be improved if the JIT realized the lookup of i5 produces
-            # a constant and thus can be removed entirely
             i120 = int_add(i5, 1)
-            i140 = int_lt(0, i120)
-            guard_true(i140, descr=<Guard4>)
-            i13 = uint_floordiv(i5, i7)
-            i15 = int_add(i13, 1)
-            i17 = int_lt(i15, 0)
-            guard_false(i17, descr=<Guard5>)
-            i20 = int_sub(i15, i5)
-            i21 = int_add_ovf(i5, i20)
-            guard_no_overflow(descr=<Guard6>)
+            guard_not_invalidated(descr=<Guard4>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, descr=<Loop0>)
+            jump(..., descr=<Loop0>)
         """)
 
     def test_unpack_iterable_non_list_tuple(self):
@@ -1086,6 +1081,51 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
         """)
+
+    def test_mutate_class(self):
+        def fn(n):
+            class A(object):
+                count = 1
+                def __init__(self, a):
+                    self.a = a
+                def f(self):
+                    return self.count
+            i = 0
+            a = A(1)
+            while i < n:
+                A.count += 1 # ID: mutate
+                i = a.f()    # ID: meth1
+            return i
+        #
+        log = self.run(fn, [1000], threshold=10)
+        assert log.result == 1000
+        #
+        # first, we test the entry bridge
+        # -------------------------------
+        entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
+        assert log.opnames(ops) == ['guard_value', 'guard_not_invalidated',
+                                    'getfield_gc', 'guard_nonnull_class']
+        # the STORE_ATTR is folded away
+        assert list(entry_bridge.ops_by_id('meth1', opcode='STORE_ATTR')) == []
+        #
+        # then, the actual loop
+        # ----------------------
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = getfield_gc_pure(p5, descr=<SignedFieldDescr .*W_IntObject.inst_intval.*>)
+            i9 = int_lt(i8, i7)
+            guard_true(i9, descr=.*)
+            guard_not_invalidated(descr=.*)
+            i11 = int_add(i8, 1)
+            i12 = force_token()
+            --TICK--
+            p20 = new_with_vtable(ConstClass(W_IntObject))
+            setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
+            setfield_gc(ConstPtr(ptr21), p20, descr=<GcPtrFieldDescr .*TypeCell.inst_w_value .*>)
+            jump(p0, p1, p2, p3, p4, p20, p6, i7, descr=<Loop.>)
+        """)
+
 
     def test_intbound_simple(self):
         """
@@ -1446,7 +1486,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         def main():
             i=0
             sa=0
-            while i < 300: 
+            while i < 300:
                 sa+=min(max(i, 3000), 4000)
                 i+=1
             return sa
@@ -1483,7 +1523,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
             ...
         """)
-        
+
     def test_iter_max(self):
         def main():
             i = 2
@@ -1501,7 +1541,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert len(guards) < 20
         assert loop.match_by_id('max',"""
             ...
-            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)            
+            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
             ...
         """)
 
@@ -1618,3 +1658,73 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('shift', "")  # optimized away
+
+    def test_division_to_rshift(self):
+        py.test.skip('in-progress')
+        def main(b):
+            res = 0
+            a = 0
+            while a < 300:
+                assert a >= 0
+                assert 0 <= b <= 10
+                res = a/b     # ID: div
+                a += 1
+            return res
+        #
+        log = self.run(main, [3], threshold=200)
+        #assert log.result == 149
+        loop, = log.loops_by_filename(self.filepath)
+        import pdb;pdb.set_trace()
+        assert loop.match_by_id('div', "")  # optimized away
+
+    def test_oldstyle_newstyle_mix(self):
+        def main():
+            class A:
+                pass
+
+            class B(object, A):
+                def __init__(self, x):
+                    self.x = x
+
+            i = 0
+            b = B(1)
+            while i < 100:
+                v = b.x # ID: loadattr
+                i += v
+            return i
+
+        log = self.run(main, [], threshold=80)
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('loadattr',
+        '''
+        guard_not_invalidated(descr=...)
+        i19 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
+        guard_no_exception(descr=...)
+        i21 = int_and(i19, _)
+        i22 = int_is_true(i21)
+        guard_true(i22, descr=...)
+        i26 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
+        guard_no_exception(descr=...)
+        i28 = int_and(i26, _)
+        i29 = int_is_true(i28)
+        guard_true(i29, descr=...)
+        ''')
+
+    def test_python_contains(self):
+        def main():
+            class A(object):
+                def __contains__(self, v):
+                    return True
+
+            i = 0
+            a = A()
+            while i < 100:
+                i += i in a # ID: contains
+
+            log = self.run(main, [], threshold=80)
+            loop, = log.loops_by_filename(self.filemath)
+            # XXX: haven't confirmed his is correct, it's probably missing a
+            # few instructions
+            loop.match_by_id("contains", """
+                i1 = int_add(i0, 1)
+            """)
