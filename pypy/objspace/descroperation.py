@@ -219,8 +219,9 @@ class DescrOperation(object):
         if w_res is space.w_True:
             return True
         w_restype = space.type(w_res)
-        if (space.is_w(w_restype, space.w_bool) or
-            space.is_w(w_restype, space.w_int) or
+        # Note there is no check for bool here because the only possible
+        # instances of bool are w_False and w_True, which are checked above.
+        if (space.is_w(w_restype, space.w_int) or
             space.is_w(w_restype, space.w_long)):
             return space.int_w(w_res) != 0
         else:
