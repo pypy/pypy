@@ -49,6 +49,12 @@ class PyPyJitDriver(JitDriver):
     greens = ['next_instr', 'is_being_profiled', 'pycode']
     virtualizables = ['frame']
 
+    def on_compile(self, looptoken, operations, type, *greenargs):
+        pass
+
+    def on_compile_bridge(self, orig_looptoken, operations, n):
+        pass
+
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,
@@ -150,5 +156,10 @@ def residual_call(space, w_callable, __args__):
     the JIT follow the call.'''
     return space.call_args(w_callable, __args__)
 
+class Cache(object):
+    w_compile_hook = None
+
 def set_compile_hook(space, w_hook):
-    pass
+    cache = space.fromcache(Cache)
+    cache.w_hook = w_compile_hook
+    return space.w_None
