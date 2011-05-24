@@ -220,7 +220,8 @@ class DescrOperation(object):
             return True
         w_restype = space.type(w_res)
         if (space.is_w(w_restype, space.w_bool) or
-            space.is_w(w_restype, space.w_int)):
+            space.is_w(w_restype, space.w_int) or
+            space.is_w(w_restype, space.w_long)):
             return space.int_w(w_res) != 0
         else:
             raise OperationError(space.w_TypeError,
