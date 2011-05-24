@@ -121,6 +121,7 @@ class AppTestZipimport:
             del _zip_directory_cache[self.zipfile]
 
     def test_cache_subdir(self):
+        import os
         self.writefile('x.py', '')
         self.writefile('sub/__init__.py', '')
         self.writefile('sub/yy.py', '')
@@ -130,7 +131,7 @@ class AppTestZipimport:
 
         assert main_importer is not sub_importer
         assert main_importer.prefix == ""
-        assert sub_importer.prefix == "sub/"
+        assert sub_importer.prefix == "sub" + os.path.sep
 
     def test_good_bad_arguments(self):
         from zipimport import zipimporter
@@ -296,7 +297,7 @@ class AppTestZipimport:
         archive = importer.archive
         realprefix = importer.prefix
         allbutlast = self.zipfile.split(os.path.sep)[:-1]
-        prefix = 'directory/'
+        prefix = 'directory' + os.path.sep
         assert archive == self.zipfile
         assert realprefix == prefix
 
