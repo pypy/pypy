@@ -684,8 +684,8 @@ class Assembler386(object):
         for i in range(len(nonfloatlocs)):
             loc = nonfloatlocs[i]
             if loc is not None:
-                assert not loc.is_xmm
                 if isinstance(loc, RegLoc):
+                    assert not loc.is_xmm
                     self.mc.MOV_rb(loc.value, offset)
                 else:
                     self.mc.MOV_rb(tmp.value, offset)
@@ -693,8 +693,8 @@ class Assembler386(object):
                 offset += WORD
             loc = floatlocs[i]
             if loc is not None:
-                assert loc.is_xmm
                 if isinstance(loc, RegLoc):
+                    assert loc.is_xmm
                     self.mc.MOVSD_xb(loc.value, offset)
                 else:
                     self.mc.MOVSD_xb(xmmtmp.value, offset)
