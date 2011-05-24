@@ -33,6 +33,28 @@ class JitDriverTests(object):
         assert sorted(called.keys()) == [(4, 1, "entry bridge"), (4, 1, "loop"),
                                          (4, 2, "entry bridge"), (4, 2, "loop")]
 
+    def test_on_compile_bridge(self):
+        called = {}
+        
+        class MyJitDriver(JitDriver):
+            def on_compile(self, loop, type, n, m):
+                called[(m, n, type)] = loop
+
+        driver = MyJitDriver(greens = ['n', 'm'], reds = ['i'])
+
+        def loop(n, m):
+            i = 0
+            while i < n + m:
+                driver.can_enter_jit(n=n, m=m, i=i)
+                driver.jit_merge_point(n=n, m=m, i=i)
+                if i == 5:
+                    i += 2
+                i += 1
+
+        self.meta_interp(loop, [1, 4])
+        assert sorted(called.keys()) == [(4, 1, "entry bridge"), (4, 1, "loop")]
+
+
 class TestLLtypeSingle(JitDriverTests, LLJitMixin):
     pass
 
