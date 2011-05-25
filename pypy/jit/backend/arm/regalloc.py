@@ -19,7 +19,6 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
                                              BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.objectmodel import we_are_translated
@@ -68,10 +67,7 @@ class VFPRegisterManager(RegisterManager):
     save_around_call_regs = r.all_vfp_regs
 
     def convert_to_imm(self, c):
-        datablockwrapper = MachineDataBlockWrapper(self.assembler.cpu.asmmemmgr,
-                                                    self.assembler.blocks)
-        adr = datablockwrapper.malloc_aligned(8, 8)
-        datablockwrapper.done()
+        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
         x = c.getfloatstorage()
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
         return locations.ConstFloatLoc(adr)
@@ -568,6 +564,7 @@ class Regalloc(object):
         self.assembler.load(y, imm(y_val))
 
         offset = self.cpu.vtable_offset
+        assert offset is not None
         offset_loc, offset_box = self._ensure_value_is_boxed(ConstInt(offset), boxes)
         boxes.append(offset_box)
         arglocs = self._prepare_guard(op, [x, y, offset_loc])
@@ -825,7 +822,7 @@ class Regalloc(object):
             arglocs = self._prepare_args_for_new_op(op.getdescr())
             force_index = self.assembler.write_new_force_index()
             self.assembler._emit_call(force_index, self.assembler.malloc_func_addr,
-                                    arglocs, self, result=op.result)
+                                    arglocs, self, fcond, result=op.result)
             self.possibly_free_vars(arglocs)
         self.possibly_free_var(op.result)
         return []
@@ -839,7 +836,7 @@ class Regalloc(object):
             callargs = self._prepare_args_for_new_op(descrsize)
             force_index = self.assembler.write_new_force_index()
             self.assembler._emit_call(force_index, self.assembler.malloc_func_addr,
-                                        callargs, self, result=op.result)
+                                        callargs, self, fcond, result=op.result)
             self.possibly_free_vars(callargs)
         self.possibly_free_var(op.result)
         return [imm(classint)]
@@ -857,11 +854,11 @@ class Regalloc(object):
                     return []
             args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
                 op.getdescr())
-            arglocs = [imm(x) for x in args]
-            arglocs.append(self.loc(box_num_elem))
-            force_index = self.write_new_force_index()
+            argboxes = [ConstInt(x) for x in args]
+            argboxes.append(box_num_elem)
+            force_index = self.assembler.write_new_force_index()
             self.assembler._emit_call(force_index, self.assembler.malloc_array_func_addr,
-                                        arglocs, self, op.result)
+                                        argboxes, self, fcond, result=op.result)
             return []
         # boehm GC
         itemsize, scale, basesize, ofs_length, _ = (
@@ -900,7 +897,7 @@ class Regalloc(object):
         shape = gcrootmap.get_basic_shape(False)
         for v, val in self.frame_manager.frame_bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                assert isinstance(val, StackLoc)
+                assert val.is_stack()
                 gcrootmap.add_frame_offset(shape, val.position)
         for v, reg in self.rm.reg_bindings.items():
             if reg is r.r0:
@@ -917,9 +914,10 @@ class Regalloc(object):
     def prepare_op_newstr(self, op, fcond):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newstr is not None:
-            loc = self.loc(op.getarg(0))
-            force_index = self.write_new_force_index()
-            self.assembler._emit_call(force_index, self.assembler.malloc_str_func_addr, [loc], self, op.result)
+            force_index = self.assembler.write_new_force_index()
+            self.assembler._emit_call(force_index,
+                    self.assembler.malloc_str_func_addr, [op.getarg(0)],
+                    self, fcond, op.result)
             return []
         # boehm GC
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
@@ -930,10 +928,9 @@ class Regalloc(object):
     def prepare_op_newunicode(self, op, fcond):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            loc = self.loc(op.getarg(0))
-            force_index = self.write_new_force_index()
+            force_index = self.assembler.write_new_force_index()
             self.assembler._emit_call(force_index, self.assembler.malloc_unicode_func_addr,
-                                        [loc], self, op.result)
+                                    [op.getarg(0)], self, fcond, op.result)
             return []
         # boehm GC
         ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
