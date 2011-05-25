@@ -23,7 +23,7 @@ class W_TupleObject(W_Object):
         return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
 
     def unwrap(w_tuple, space):
-        items = [space.unwrap(w_item) for w_item in w_tuple.wrappeditems] # XXX generic mixed types unwrap
+        items = [space.unwrap(w_item) for w_item in w_tuple.wrappeditems]
         return tuple(items)
 
 registerimplementation(W_TupleObject)
