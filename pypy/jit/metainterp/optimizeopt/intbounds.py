@@ -18,6 +18,9 @@ class OptIntBounds(Optimization):
         assert self.posponedop is None
         return OptIntBounds()
 
+    def flush(self):
+        assert self.posponedop is None
+        
     def propagate_forward(self, op):
         if op.is_ovf():
             self.posponedop = op

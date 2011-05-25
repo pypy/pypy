@@ -6335,3 +6335,70 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(ConstPtr(myptr))
         """
         self.optimize_loop(ops, expected)
+
+    def test_dont_cache_setfields(self):
+        # Caching the last two getfields here would specialize the loop to the state where
+        # the first two getfields return the same value. This state needs to be guarded for
+        # in the short preamble.
+        ops = """
+        [p0, p1, ii, ii2]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        i2 = getfield_gc(p1, descr=otherdescr)
+        i3 = int_add(i1, i2)
+        setfield_gc(p0, ii, descr=valuedescr)
+        setfield_gc(p1, ii, descr=otherdescr)
+        i4 = getfield_gc(p0, descr=valuedescr)
+        i5 = getfield_gc(p1, descr=otherdescr)
+        jump(p0, p1, ii2, ii)
+        """
+        expected = """
+        [p0, p1, ii, ii2]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        i2 = getfield_gc(p1, descr=otherdescr)
+        i3 = int_add(i1, i2)
+        setfield_gc(p0, ii, descr=valuedescr)
+        setfield_gc(p1, ii, descr=otherdescr)
+        jump(p0, p1, ii2, ii)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_dont_specialize_on_boxes_equal(self):
+        ops = """
+        [p0, p1, p3, ii, ii2]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        i2 = getfield_gc(p1, descr=otherdescr)
+        setfield_gc(p3, i1, descr=adescr)
+        setfield_gc(p3, i2, descr=bdescr)
+        i4 = int_eq(i1, i2)
+        guard_true(i4) []
+        i5 = int_gt(ii, 42)
+        guard_true(i5) []
+        jump(p0, p1, p3, ii2, ii)
+        """
+        expected = """
+        [p0, p1, p3, ii, ii2, i1, i2]
+        setfield_gc(p3, i1, descr=adescr)
+        setfield_gc(p3, i2, descr=bdescr)
+        i5 = int_gt(ii, 42)
+        guard_true(i5) []        
+        jump(p0, p1, p3, ii2, ii, i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_lazy_setfield_forced_by_jump_needing_additionall_inputargs(self):
+        ops = """
+        [p0, p3]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        setfield_gc(p3, i1, descr=otherdescr)
+        jump(p0, p3)
+        """
+        expected = """
+        [p0, p3, i1]
+        setfield_gc(p3, i1, descr=otherdescr)
+        jump(p0, p3, i1)
+        """
+        self.optimize_loop(ops, expected)
+        
+    def test_forcing_jumpargs_resulting_in_additional_inputargs_needed(self):
+        #FIXME
+        assert False

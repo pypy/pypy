@@ -139,6 +139,9 @@ class OptHeap(Optimization):
 
     def force_at_end_of_preamble(self):
         self.force_all_lazy_setfields()
+
+    def flush(self):
+        self.force_all_lazy_setfields()        
         
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):

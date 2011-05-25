@@ -294,6 +294,10 @@ class Optimization(object):
                                        optimizer=None, valuemap=None):
         raise NotImplementedError
 
+    # Called after last operation has been propagated to flush out any posponed ops
+    def flush(self):
+        pass
+
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
@@ -341,6 +345,11 @@ class Optimizer(Optimization):
     def force_at_end_of_preamble(self):
         for o in self.optimizations:
             o.force_at_end_of_preamble()
+
+    def flush(self):
+        for o in self.optimizations:
+            o.flush()
+        assert self.posponedop is None
             
     def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
                                        optimizer=None, valuemap=None):

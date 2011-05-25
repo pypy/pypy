@@ -155,6 +155,7 @@ class UnrollOptimizer(Optimization):
             assert jumpop.getdescr() is loop.token
             jump_args = jumpop.getarglist()
             jumpop.initarglist([])
+            self.optimizer.flush()
 
             loop.preamble.operations = self.optimizer.newoperations
 
@@ -200,6 +201,7 @@ class UnrollOptimizer(Optimization):
             inputargs, short_inputargs, short = self.inline(self.cloned_operations,
                                            loop.inputargs, jump_args,
                                            virtual_state)
+            
             #except KeyError:
             #    debug_print("Unrolling failed.")
             #    loop.preamble.operations = None
@@ -298,6 +300,8 @@ class UnrollOptimizer(Optimization):
                 for op in self.getvalue(result).make_guards(result):
                     self.add_op_to_short(op, short, short_seen)
 
+        self.optimizer.flush()
+
         i = j = 0
         while i < len(self.optimizer.newoperations):
             op = self.optimizer.newoperations[i]
@@ -350,6 +354,7 @@ class UnrollOptimizer(Optimization):
         
     def import_box(self, box, inputargs, short, short_jumpargs,
                    jumpargs, short_seen):
+
         if isinstance(box, Const) or box in inputargs:
             return
         if box in self.boxes_created_this_iteration:
