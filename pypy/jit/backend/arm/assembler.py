@@ -380,10 +380,10 @@ class AssemblerARM(ResOpAssembler):
 
     def gen_func_epilog(self, mc=None, cond=c.AL):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            self.gen_footer_shadowstack(gcrootmap)
         if mc is None:
             mc = self.mc
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self.gen_footer_shadowstack(gcrootmap, mc)
         offset = 1
         if self.cpu.supports_floats:
             offset += 1 # to keep stack alignment
@@ -421,12 +421,12 @@ class AssemblerARM(ResOpAssembler):
         self.mc.STR_ri(r.fp.value, r.r4.value, WORD) 
         self.mc.STR_ri(r.r5.value, r.ip.value)
 
-    def gen_footer_shadowstack(self, gcrootmap):
+    def gen_footer_shadowstack(self, gcrootmap, mc):
         rst = gcrootmap.get_root_stack_top_addr()
-        self.mc.gen_load_int(r.ip.value, rst)
-        self.mc.LDR_ri(r.r4.value, r.ip.value) # LDR r4, [rootstacktop]
-        self.mc.SUB_ri(r.r5.value, r.r4.value, imm=2*WORD) # ADD r5, r4 [2*WORD]
-        self.mc.STR_ri(r.r5.value, r.ip.value)
+        mc.gen_load_int(r.ip.value, rst)
+        mc.LDR_ri(r.r4.value, r.ip.value) # LDR r4, [rootstacktop]
+        mc.SUB_ri(r.r5.value, r.r4.value, imm=2*WORD) # ADD r5, r4 [2*WORD]
+        mc.STR_ri(r.r5.value, r.ip.value)
 
     def gen_bootstrap_code(self, nonfloatlocs, floatlocs, inputargs):
         for i in range(len(nonfloatlocs)):

@@ -4,6 +4,7 @@ from pypy.jit.backend.arm.registers import all_regs, all_vfp_regs
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.jit.backend.arm.arch import FORCE_INDEX_OFS
 
 
 class ArmCPU(AbstractLLCPU):
