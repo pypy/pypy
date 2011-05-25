@@ -524,6 +524,20 @@ class AppTest_Descroperation:
         assert issubclass(B, B)
         assert issubclass(23, B)
 
+    def test_truth_of_long(self):
+        class X(object):
+            def __len__(self): return 1L
+            __nonzero__ = __len__
+        assert X()
+        del X.__nonzero__
+        assert X()
+
+    def test_len_overflow(self):
+        import sys
+        class X(object):
+            def __len__(self):
+                return sys.maxsize + 1
+        raises(OverflowError, len, X())
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}
