@@ -255,6 +255,15 @@ class Entry(ExtRegistryEntry):
         s_obj = self.bookkeeper.immutablevalue(self.instance())
         return _jit_vref.SomeVRef(s_obj)
 
+class Entry(ExtRegistryEntry):
+    _about_ = _virtual_ref_finish
+
+    def compute_result_annotation(self, s_vref, s_obj):
+        pass
+
+    def specialize_call(self, hop):
+        pass
+    
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________

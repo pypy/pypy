@@ -55,7 +55,7 @@ def test_annotate_2():
         x1 = X()
         vref = virtual_ref(x1)
         x2 = vref()
-        virtual_ref_finish(x1)
+        virtual_ref_finish(vref, x1)
         return x2
     a = RPythonAnnotator()
     s = a.build_types(f, [])
@@ -100,7 +100,7 @@ class BaseTestVRef(BaseRtypingTest):
             x1 = X()
             vref = virtual_ref(x1)
             x2 = vref()
-            virtual_ref_finish(x2)
+            virtual_ref_finish(vref, x2)
             return x2
         x = self.interpret(f, [])
         assert self.castable(self.OBJECTTYPE, x)
