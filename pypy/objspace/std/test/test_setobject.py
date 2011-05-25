@@ -14,6 +14,7 @@ from pypy.objspace.std.setobject import newset
 from pypy.objspace.std.setobject import and__Set_Set
 from pypy.objspace.std.setobject import set_intersection__Set
 from pypy.objspace.std.setobject import eq__Set_Set
+from pypy.conftest import gettestobjspace
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -57,6 +58,28 @@ class TestW_SetObject:
         assert self.space.eq_w(s,u)
 
 class AppTestAppSetTest:
+
+    def setup_class(self):
+        self.space = gettestobjspace()
+        w_fakeint = self.space.appexec([], """():
+            class FakeInt(object):
+                def __init__(self, value):
+                    self.value = value
+                def __hash__(self):
+                    return hash(self.value)
+
+                def __eq__(self, other):
+                    if other == self.value:
+                        return True
+                    return False
+            return FakeInt
+            """)
+        self.w_FakeInt = w_fakeint
+
+    def test_fakeint(self):
+        f1 = self.FakeInt(4)
+        assert f1 == 4
+        assert hash(f1) == hash(4)
 
     def test_simple(self):
         a = set([1,2,3])
@@ -546,52 +569,77 @@ class AppTestAppSetTest:
                 yield i
         set([1,2,3,4,5]).issuperset(foo())
 
+    def test_fakeint_and_equals(self):
+        s1 = set([1,2,3,4])
+        s2 = set([1,2,self.FakeInt(3), 4])
+        assert s1 == s2
 
-    def test_fakeint_intstrategy(self):
-        class FakeInt(object):
-            def __init__(self, value):
-                self.value = value
-            def __hash__(self):
-                return hash(self.value)
-
-            def __eq__(self, other):
-                if other == self.value:
-                    return True
-                return False
-
-        f1 = FakeInt(4)
-        assert f1 == 4
-        assert hash(f1) == hash(4)
-
+    def test_fakeint_and_discard(self):
         # test with object strategy
         s = set([1, 2, 'three', 'four'])
-        s.discard(FakeInt(2))
+        s.discard(self.FakeInt(2))
         assert s == set([1, 'three', 'four'])
-        s.remove(FakeInt(1))
+
+        s.remove(self.FakeInt(1))
         assert s == set(['three', 'four'])
-        raises(KeyError, s.remove, FakeInt(16))
+        raises(KeyError, s.remove, self.FakeInt(16))
 
         # test with int strategy
         s = set([1,2,3,4])
-        s.discard(FakeInt(4))
+        s.discard(self.FakeInt(4))
         assert s == set([1,2,3])
-        s.remove(FakeInt(3))
+        s.remove(self.FakeInt(3))
         assert s == set([1,2])
-        raises(KeyError, s.remove, FakeInt(16))
+        raises(KeyError, s.remove, self.FakeInt(16))
+
+    def test_fakeobject_and_has_key(self):
+        s = set([1,2,3,4,5])
+        assert 5 in s
+        assert self.FakeInt(5) in s
+
+    def test_fakeobject_and_pop(self):
+        s = set([1,2,3,self.FakeInt(4), 5])
+        assert s.pop()
+        assert s.pop()
+        assert s.pop()
+        assert s.pop()
+        assert s.pop()
+        assert s == set([])
+
+    def test_fakeobject_and_difference(self):
+        s = set([1,2,'3',4])
+        s.difference_update([self.FakeInt(1), self.FakeInt(2)])
+        assert s == set(['3',4])
+
+        s = set([1,2,3,4])
+        s.difference_update([self.FakeInt(1), self.FakeInt(2)])
+        assert s == set([3,4])
+
+    def test_frozenset_behavior(self):
+        s = set([1,2,3,frozenset([4])])
+        raises(TypeError, s.difference_update, [1,2,3,set([4])])
+
+        s = set([1,2,3,frozenset([4])])
+        s.discard(set([4]))
+        assert s == set([1,2,3])
+
+    def test_discard_unhashable(self):
+        s = set([1,2,3,4])
+        raises(TypeError, s.discard, [1])
 
 
-    def test_fakeobject_and_has_key(test):
-        class FakeInt(object):
+    def test_discard_evil_compare(self):
+        class Evil(object):
             def __init__(self, value):
                 self.value = value
             def __hash__(self):
                 return hash(self.value)
-
             def __eq__(self, other):
+                if isinstance(other, frozenset):
+                    raise TypeError
                 if other == self.value:
                     return True
                 return False
+        s = set([1,2, Evil(frozenset([1]))])
+        raises(TypeError, s.discard, set([1]))
 
-        s = set([1,2,3,4,5])
-        assert 5 in s
-        assert FakeInt(5) in s

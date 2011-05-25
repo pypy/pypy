@@ -225,7 +225,7 @@ class EmptySetStrategy(SetStrategy):
         w_set.add(w_key)
 
     def delitem(self, w_set, w_item):
-        raise KeyError
+        return False
 
     def discard(self, w_set, w_item):
         return False
@@ -321,52 +321,16 @@ class AbstractUnwrappedSetStrategy(object):
             w_set.add(w_key)
 
     def delitem(self, w_set, w_item):
-        # not a normal set operation; only used internally
         d = self.cast_from_void_star(w_set.sstorage)
-        try:
-            del d[self.unwrap(w_item)]
-        except KeyError:
-            raise
+        if not self.is_correct_type(w_item):
+            w_set.switch_to_object_strategy(self.space)
+            return w_set.delitem(w_item)
 
-    def discard(self, w_set, w_item):
-        from pypy.objspace.std.dictmultiobject import _is_sane_hash
-        d = self.cast_from_void_star(w_set.sstorage)
+        key = self.unwrap(w_item)
         try:
-            del d[self.unwrap(w_item)]
+            del d[key]
             return True
         except KeyError:
-            return False
-        except OperationError, e:
-            # raise any error except TypeError
-            if not e.match(self.space, self.space.w_TypeError):
-                raise
-            # if error is TypeError and w_item is not None, Int, String, Bool or Float
-            # (i.e. FakeObject) switch to object strategy and discard again
-            if (not _is_sane_hash(self.space, w_item) and
-                    self is not self.space.fromcache(ObjectSetStrategy)):
-                w_set.switch_to_object_strategy(self.space)
-                return w_set.discard(w_item)
-            # else we have two cases:
-            # - w_item is as set: then we convert it to frozenset and check again
-            # - type doesn't match (string in intstrategy): then we raise (cause w_f is none)
-            w_f = _convert_set_to_frozenset(self.space, w_item)
-            if w_f is None:
-                raise
-
-        # if w_item is a set and we are not in ObjectSetStrategy we are finished here
-        if not self.space.fromcache(ObjectSetStrategy):
-            return False
-
-        try:
-            del d[w_f] # XXX nonsense in intstrategy
-            return True
-        except KeyError:
-            return False
-        except OperationError, e:
-            #XXX is this ever tested?
-            assert False
-            if not e.match(space, space.w_TypeError):
-                raise
             return False
 
     def getdict_w(self, w_set):
@@ -821,10 +785,7 @@ def set_difference_update__Set(space, w_left, others_w):
             w_left.difference_update(w_other)
         else:
             for w_key in space.listview(w_other):
-                try:
-                    w_left.delitem(w_key)
-                except KeyError:
-                    pass
+                w_left.delitem(w_key)
 
 def inplace_sub__Set_Set(space, w_left, w_other):
     w_left.difference_update(w_other)
@@ -974,10 +935,20 @@ def _discard_from_set(space, w_left, w_item):
     frozenset if the argument is a set.
     Returns True if successfully removed.
     """
-    x = w_left.discard(w_item)
+    try:
+        deleted = w_left.delitem(w_item)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        else:
+            w_f = _convert_set_to_frozenset(space, w_item)
+            if w_f is None:
+                raise
+            deleted = w_left.delitem(w_f)
+
     if w_left.length() == 0:
         w_left.switch_to_empty_strategy()
-    return x
+    return deleted
 
 def set_discard__Set_ANY(space, w_left, w_item):
     _discard_from_set(space, w_left, w_item)
