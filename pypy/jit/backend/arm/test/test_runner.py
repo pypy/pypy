@@ -21,9 +21,11 @@ class FakeStats(object):
     pass
 
 class TestARM(LLtypeBackendTest):
-    def __init__(self):
-        self.cpu = ArmCPU(rtyper=None, stats=FakeStats())
-        self.cpu.setup_once()
+
+    def setup_class(cls):
+        cls.cpu = ArmCPU(rtyper=None, stats=FakeStats())
+        cls.cpu.setup_once()
+
     # for the individual tests see
     # ====> ../../test/runner_test.py
     def test_result_is_spilled(self):
