@@ -63,8 +63,9 @@ class ExecutionContext(object):
             if self.profilefunc:
                 self._trace(frame, 'leaveframe', w_exitvalue)
         finally:
+            vref = self.topframeref
             self.topframeref = frame.f_backref
-            jit.virtual_ref_finish(frame)
+            jit.virtual_ref_finish(vref, frame)
 
         if self.w_tracefunc is not None and not frame.hide():
             self.space.frame_trace_action.fire()
