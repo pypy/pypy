@@ -448,10 +448,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def is_w(self, w_one, w_two):
         return w_one is w_two
 
-    def _check_len_result(self, w_obj):
-        if type(w_obj) is not W_IntObject:
-            DescrOperation._check_len_result(self, w_obj)
-
     def is_true(self, w_obj):
         # a shortcut for performance
         # NOTE! this method is typically overridden by builtinshortcut.py.
