@@ -398,7 +398,44 @@ class OpAssembler(object):
     def emit_op_debug_merge_point(self, op, arglocs, regalloc, fcond):
         return fcond
     emit_op_jit_debug = emit_op_debug_merge_point
-    emit_op_cond_call_gc_wb = emit_op_debug_merge_point
+
+    def emit_op_cond_call_gc_wb(self, op, arglocs, regalloc, fcond):
+        # Write code equivalent to write_barrier() in the GC: it checks
+        # a flag in the object at arglocs[0], and if set, it calls the
+        # function remember_young_pointer() from the GC.  The two arguments
+        # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
+        # registers that need to be saved and restored across the call.
+        descr = op.getdescr()
+        if we_are_translated():
+            cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+            assert cls is not None and isinstance(descr, cls)
+        return fcond
+        loc_base = arglocs[0]
+        self.mc.LDR_ri(r.ip.value, loc_base.value)
+        # calculate the shift value to rotate the ofs according to the ARM
+        # shifted imm values
+        # (4 - 0) * 4 & 0xF = 0
+        # (4 - 1) * 4 & 0xF = 12
+        # (4 - 2) * 4 & 0xF = 8
+        # (4 - 3) * 4 & 0xF = 4
+        ofs = (((4 - descr.jit_wb_if_flag_byteofs) * 4) & 0xF) << 8
+        ofs |= descr.jit_wb_if_flag_singlebyte
+        self.mc.TST_ri(r.ip.value, imm=ofs)
+
+        jz_location = self.mc.currpos()
+        self.mc.NOP()
+
+        # the following is supposed to be the slow path, so whenever possible
+        # we choose the most compact encoding over the most efficient one.
+        with saved_registers(self.mc, r.caller_resp, regalloc=regalloc):
+            remap_frame_layout(self, arglocs, [r.r0, r.r1], r.ip)
+            self.mc.BL(descr.get_write_barrier_fn(self.cpu))
+
+        # patch the JZ above
+        offset = self.mc.currpos() - jz_location
+        pmc = OverwritingBuilder(self.mc, jz_location, WORD)
+        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
+
 
 class FieldOpAssembler(object):
 

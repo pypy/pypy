@@ -963,9 +963,21 @@ class Regalloc(object):
         assert base_loc.is_reg()
         return [value_loc, base_loc, imm(ofs_length)]
 
-    prepare_op_cond_call_gc_wb = void
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
+
+    def prepare_op_cond_call_gc_wb(self, op, fcond):
+        assert op.result is None
+        args = op.getarglist()
+        loc_newvalue, box_newvalue = self._ensure_value_is_boxed(op.getarg(1), args)
+        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
+        # because it will be needed anyway by the following setfield_gc.
+        # It avoids loading it twice from the memory.
+        loc_base, box_base = self._ensure_value_is_boxed(op.getarg(0), args)
+        arglocs = [loc_base, loc_newvalue]
+        self.rm.possibly_free_vars([box_newvalue, box_base])
+        return arglocs
+
 
     def prepare_op_force_token(self, op, fcond):
         res_loc = self.force_allocate_reg(op.result)
