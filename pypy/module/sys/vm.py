@@ -40,6 +40,7 @@ purposes only."""
             break
         depth -= 1
         f = ec.getnextframe_nohidden(f)
+    f.mark_as_escaped()
     return space.wrap(f)
 
 def setrecursionlimit(space, w_new_limit):

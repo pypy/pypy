@@ -49,6 +49,7 @@ class PyFrame(eval.Frame):
     instr_ub                 = 0
     instr_prev_plus_one      = 0
     is_being_profiled        = False
+    escaped                  = False  # see mark_as_escaped()
 
     def __init__(self, space, code, w_globals, closure):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
@@ -66,6 +67,15 @@ class PyFrame(eval.Frame):
         self.fastlocals_w = [None] * code.co_nlocals
         make_sure_not_resized(self.fastlocals_w)
         self.f_lineno = code.co_firstlineno
+
+    def mark_as_escaped(self):
+        """
+        Must be called on frames that are exposed to applevel, e.g. by
+        sys._getframe().  This ensures that the virtualref holding the frame
+        is properly forced by ec.leave(), and thus the frame will be still
+        accessible even after the corresponding C stack is died.
+        """
+        self.escaped = True
 
     def append_block(self, block):
         block.previous = self.lastblock

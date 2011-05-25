@@ -63,9 +63,18 @@ class ExecutionContext(object):
             if self.profilefunc:
                 self._trace(frame, 'leaveframe', w_exitvalue)
         finally:
-            vref = self.topframeref
+            frame_vref = self.topframeref
             self.topframeref = frame.f_backref
-            jit.virtual_ref_finish(vref, frame)
+            if frame.escaped:
+                # if this frame escaped to applevel, we must ensure that also
+                # f_back does
+                f_back = frame.f_backref()
+                if f_back:
+                    f_back.escaped = True
+                # force the frame (from the JIT point of view), so that it can
+                # be accessed also later
+                frame_vref()
+            jit.virtual_ref_finish(frame_vref, frame)
 
         if self.w_tracefunc is not None and not frame.hide():
             self.space.frame_trace_action.fire()

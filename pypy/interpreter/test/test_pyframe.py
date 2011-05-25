@@ -98,6 +98,15 @@ class AppTestPyFrame:
             return sys._getframe().f_back.f_code.co_name 
         f()
 
+    def test_f_back_virtualref(self):
+        import sys
+        def f():
+            return g()
+        def g():
+            return sys._getframe()
+        frame = f()
+        assert frame.f_back.f_code.co_name == 'f'
+
     def test_f_exc_xxx(self):
         import sys
 
