@@ -25,9 +25,9 @@ class VRefTests:
         #
         def f():
             x = X()
-            exctx.topframeref = virtual_ref(x)
+            exctx.topframeref = vref = virtual_ref(x)
             exctx.topframeref = vref_None
-            virtual_ref_finish(x)
+            virtual_ref_finish(vref, x)
             return 1
         #
         self.interp_operations(f, [])
@@ -60,8 +60,9 @@ class VRefTests:
             exctx._frame = x
             exctx.topframeref = virtual_ref(x)
         def leave():
+            vref = exctx.topframeref
             exctx.topframeref = vref_None
-            virtual_ref_finish(exctx._frame)
+            virtual_ref_finish(vref, exctx._frame)
         def f(n):
             enter(n)
             n = external(n)
@@ -136,7 +137,7 @@ class VRefTests:
                 exctx.topframeref = vref = virtual_ref(x)
                 # here, 'x' should be virtual
                 exctx.topframeref = vref_None
-                virtual_ref_finish(x)
+                virtual_ref_finish(vref, x)
                 # 'x' and 'vref' can randomly escape after the call to
                 # finish().
                 g(vref)
@@ -169,13 +170,13 @@ class VRefTests:
                 xy.next1 = lltype.malloc(A, 0)
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 exctx.topframeref = vref_None
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
         self.check_loops(new_with_vtable=0,     # all virtualized
@@ -206,13 +207,13 @@ class VRefTests:
                 xy.next1 = lltype.malloc(A, 0)
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 exctx.topframeref = vref_None
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
         self.check_loops(new_with_vtable=2,     # the vref, and xy so far,
@@ -244,12 +245,12 @@ class VRefTests:
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
                 exctx.topframeref = vref_None
         #
         self.meta_interp(f, [15])
@@ -282,12 +283,12 @@ class VRefTests:
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
                 exctx.topframeref = vref_None
             return exctx.m
         #
@@ -322,7 +323,7 @@ class VRefTests:
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 if n == 13:
                     externalfn(n)
                 n -= 1
@@ -330,7 +331,7 @@ class VRefTests:
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return exctx.m
         #
         res = self.meta_interp(f, [30])
@@ -366,7 +367,7 @@ class VRefTests:
                 xy.next4 = lltype.malloc(A, 0)
                 xy.next5 = lltype.malloc(A, 0)
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 if n % 6 == 0:
                     xy.next1 = lltype.nullptr(A)
                     xy.next2 = lltype.nullptr(A)
@@ -379,7 +380,7 @@ class VRefTests:
                 xy.next3 = lltype.nullptr(A)
                 xy.next4 = lltype.nullptr(A)
                 xy.next5 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return exctx.m
         #
         res = self.meta_interp(f, [72])
@@ -408,11 +409,11 @@ class VRefTests:
                 myjitdriver.jit_merge_point(n=n)
                 xy = XY()
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 exctx.later = exctx.topframeref
                 n -= 1
                 exctx.topframeref = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return g()
         #
         res = self.meta_interp(f, [15])
@@ -435,12 +436,12 @@ class VRefTests:
                 myjitdriver.jit_merge_point(n=n)
                 xy = XY()
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 xy.next1 = lltype.malloc(A, 0)
                 n = exctx.topframeref().n - 1
                 xy.next1 = lltype.nullptr(A)
                 exctx.topframeref = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return 1
         #
         res = self.meta_interp(f, [15])
@@ -465,12 +466,12 @@ class VRefTests:
                 if reclevel == 0:
                     return n
                 xy = XY()
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 m = f(xy, n, reclevel-1)
                 assert m == n
                 n -= 1
                 exctx.topframeref = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return 2
         def main(n, reclevel):
             return f(XY(), n, reclevel)
@@ -495,7 +496,7 @@ class VRefTests:
                 frame.n += 1
                 xy = XY()
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 if reclevel > 0:
                     m = f(xy, frame.n, reclevel-1)
                     assert xy.n == m
@@ -503,7 +504,7 @@ class VRefTests:
                 else:
                     n -= 2
                 exctx.topframeref = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return frame.n
         def main(n, reclevel):
             return f(XY(), n, reclevel)
@@ -540,7 +541,7 @@ class VRefTests:
                 escapexy(xy)
                 # clean up
                 exctx.vr = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vr, xy)
                 n -= 1
             return 1
         #

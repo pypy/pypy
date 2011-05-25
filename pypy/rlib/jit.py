@@ -195,6 +195,7 @@ virtual_ref.oopspec = 'virtual_ref(x)'
 
 def virtual_ref_finish(vref, x):
     """See docstring in virtual_ref(x)"""
+    keepalive_until_here(x)   # otherwise the whole function call is removed
     _virtual_ref_finish(vref, x)
 virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
 
