@@ -6399,6 +6399,3 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
         
-    def test_forcing_jumpargs_resulting_in_additional_inputargs_needed(self):
-        #FIXME
-        assert False
