@@ -270,9 +270,8 @@ class TestPyPyCNew(BaseTestPyPyC):
             i17 = int_add_ovf(i8, 1)
             guard_no_overflow(descr=<Guard5>)
             i18 = force_token()
-            i20 = int_sub(i17, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i8, p7, i17, i9, p10, p11, p12, descr=<Loop0>)
         """)
 
     def test_default_and_kw(self):
