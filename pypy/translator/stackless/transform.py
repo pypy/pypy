@@ -112,19 +112,6 @@ if SAVE_STATISTICS:
 #         abort()
 #     return retval + x + 1
 
-class SymbolicRestartNumber(ComputedIntSymbolic):
-    def __init__(self, label, value=None):
-        ComputedIntSymbolic.__init__(self, self._getvalue)
-        self.label = label
-        self.value = value
-
-    def _getvalue(self):
-        # argh, we'd like to assert-fail if value is None here, but we
-        # get called too early (during databasing) for this to be
-        # valid.  so we might return None and rely on the database
-        # checking that this only happens before the database is
-        # complete.
-        return self.value
 
 # the strategy for sharing parts of the resume code:
 #
@@ -248,8 +235,7 @@ class StacklessAnalyzer(graphanalyze.BoolGraphAnalyzer):
         self.stackless_gc = stackless_gc
 
     def analyze_simple_operation(self, op, graphinfo):
-        if op.opname in ('yield_current_frame_to_caller', 'resume_point',
-                'resume_state_invoke', 'resume_state_create', 'stack_frames_depth',
+        if op.opname in ('yield_current_frame_to_caller', 'stack_frames_depth',
                 'stack_switch', 'stack_unwind', 'stack_capture',
                 'get_stack_depth_limit', 'set_stack_depth_limit'):
             return True
@@ -458,24 +444,11 @@ class StacklessTransformer(object):
 
         self.is_finished = False
 
-        # only for sanity checking, but still very very important
-        self.explicit_resume_point_data = {}
-        
-        self.symbolic_restart_numbers = {}
-
-        # register the prebuilt restartinfos & give them names for use
-        # with resume_state_create
         # the mauling of frame_typer internals should be a method on FrameTyper.
         for restartinfo in frame.RestartInfo.prebuilt:
             name = restartinfo.func_or_graph.__name__
             for i in range(len(restartinfo.frame_types)):
-                label = name + '_' + str(i)
-                assert label not in self.symbolic_restart_numbers
-                # XXX we think this is right:
-                self.symbolic_restart_numbers[label] = SymbolicRestartNumber(
-                    label, len(self.masterarray1) + i)
                 frame_type = restartinfo.frame_types[i]
-                self.explicit_resume_point_data[label] = frame_type
                 self.frametyper.ensure_frame_type_for_types(frame_type)
             self.register_restart_info(restartinfo)
 
@@ -589,156 +562,6 @@ class StacklessTransformer(object):
                 # yes
                 convertblock.exits[0].args[index] = newvar
         # end ouch!
-        
-    def handle_resume_point(self, block, i):
-        # in some circumstances we might be able to reuse
-        # an already inserted resume point
-        op = block.operations[i]
-        if i == len(block.operations) - 1:
-            link = block.exits[0]
-            nextblock = None
-        else:
-            link = split_block(None, block, i+1)
-            i = 0
-            nextblock = link.target
-
-        label = op.args[0].value
-
-        parms = op.args[1:]
-        if not isinstance(parms[0], model.Variable):
-            assert parms[0].value is None
-            parms[0] = None
-        args = vars_to_save(block)
-        for a in args:
-            if a not in parms:
-                raise Exception, "not covered needed value at resume_point %r"%(label,)
-        if parms[0] is not None: # returns= case
-            res = parms[0]
-            args = [arg for arg in args if arg is not res]
-        else:
-            args = args
-            res = op.result
-
-        (FRAME_TYPE, varsforcall, saver) = self.frametyper.frame_type_for_vars(parms[1:])
-
-        if label in self.explicit_resume_point_data:
-            OTHER_TYPE = self.explicit_resume_point_data[label]
-            assert FRAME_TYPE == OTHER_TYPE, "inconsistent types for label %r"%(label,)
-        else:
-            self.explicit_resume_point_data[label] = FRAME_TYPE
-
-        self._make_resume_handling(FRAME_TYPE, varsforcall, res, block.exits)
-
-        restart_number = len(self.masterarray1) + len(self.resume_blocks) - 1
-
-        if label in self.symbolic_restart_numbers:
-            symb = self.symbolic_restart_numbers[label]
-            assert symb.value is None
-            symb.value = restart_number
-        else:
-            symb = SymbolicRestartNumber(label, restart_number)
-            self.symbolic_restart_numbers[label] = symb
-
-        return nextblock
-
-    def handle_resume_state_create(self, block, i):
-        op = block.operations[i]
-        llops = LowLevelOpList()
-        label = op.args[1].value
-        parms = op.args[2:]
-        FRAME_TYPE, varsforcall, saver = self.frametyper.frame_type_for_vars(parms)
-
-        if label in self.explicit_resume_point_data:
-            OTHER_TYPE = self.explicit_resume_point_data[label]
-            assert FRAME_TYPE == OTHER_TYPE, "inconsistent types for label %r"%(label,)
-        else:
-            self.explicit_resume_point_data[label] = FRAME_TYPE
-
-        if label in self.symbolic_restart_numbers:
-            symb = self.symbolic_restart_numbers[label]
-        else:
-            symb = SymbolicRestartNumber(label)
-            self.symbolic_restart_numbers[label] = symb
-
-        # this is rather insane: we create an exception object, pass
-        # it to the saving function, then read the thus created state
-        # out of and then clear global_state.top
-        c_EXC = model.Constant(self.unwind_exception_type.TO, lltype.Void)
-        c_flags = model.Constant({'flavor': 'gc'}, lltype.Void)
-        v_exc = llops.genop('malloc', [c_EXC, c_flags],
-                            resulttype = self.unwind_exception_type)
-        llops.genop('setfield', [v_exc,
-                                 model.Constant('inst_depth', lltype.Void),
-                                 model.Constant(0, lltype.Signed)])
-
-        realvarsforcall = []
-        for v in varsforcall:
-            if v.concretetype != lltype.Void:
-                realvarsforcall.append(gen_cast(llops, storage_type(v.concretetype), v))
-        
-        llops.genop('direct_call',
-                    [model.Constant(saver, lltype.typeOf(saver)), v_exc,
-                     model.Constant(symb, lltype.Signed)] + realvarsforcall,
-                    resulttype = lltype.Void)
-        v_state = varoftype(lltype.Ptr(frame.STATE_HEADER))
-        v_state_hdr = llops.genop("getfield",
-                                  [self.ll_global_state, self.c_inst_top_name],
-                                  resulttype=lltype.Ptr(STATE_HEADER))
-        v_state = gen_cast(llops, lltype.Ptr(FRAME_TYPE), v_state_hdr)
-        llops.genop("setfield",
-                    [self.ll_global_state, self.c_inst_top_name, self.c_null_state])
-
-        v_prevstate = gen_cast(llops, lltype.Ptr(frame.STATE_HEADER), op.args[0])
-        llops.genop('direct_call', [self.set_back_pointer_ptr,
-                                    v_state_hdr, v_prevstate])
-        llops.append(model.SpaceOperation('cast_opaque_ptr', [v_state_hdr], op.result))
-        block.operations[i:i+1] = llops
-
-    def handle_resume_state_invoke(self, block):
-        op = block.operations[-1]
-        assert op.opname == 'resume_state_invoke'
-        # some commentary.
-        #
-        # we don't want to write 155 or so different versions of
-        # resume_after_foo that appear to the annotator to return
-        # different types.  we take advantage of the fact that this
-        # function always raises UnwindException and have it (appear
-        # to) return Void.  then to placate all the other machinery,
-        # we pass a constant zero-of-the-appropriate-type along the
-        # non-exceptional link (which we know will never be taken).
-        # Nota Bene: only mutate a COPY of the non-exceptional link
-        # because the non-exceptional link has been stored in
-        # self.resume_blocks and we don't want a constant "zero" in
-        # there.
-        v_state = op.args[0]
-        v_returning = op.args[1]
-        v_raising = op.args[2]
-        llops = LowLevelOpList()
-
-        if v_raising.concretetype == lltype.Void:
-            erased_type = storage_type(v_returning.concretetype)
-            resume_after_ptr = self.resume_afters[erased_type]
-            v_param = v_returning
-        else:
-            assert v_returning.concretetype == lltype.Void
-            erased_type = self.exception_type
-            resume_after_ptr = self.resume_after_raising_ptr
-            v_param = v_raising
-
-        if erased_type != v_param.concretetype:
-            v_param = gen_cast(llops, erased_type, v_param)
-        llops.genop('direct_call', [resume_after_ptr, v_state, v_param],
-                    resulttype=lltype.Void)
-
-        del block.operations[-1]
-        block.operations.extend(llops)
-
-        noexclink = block.exits[0].copy()
-        realrettype = op.result.concretetype
-        for i, a in enumerate(noexclink.args):
-            if a is op.result:
-                noexclink.args[i] = model.Constant(realrettype._defl(), realrettype)
-        block.recloseblock(*((noexclink,) + block.exits[1:]))        
 
     def insert_unwind_handling(self, block, i):
         # for the case where we are resuming to an except:
@@ -821,19 +644,8 @@ class StacklessTransformer(object):
                 op = replace_with_call(self.operation_replacement[op.opname])
                 stackless_op = True
 
-            if op.opname == 'resume_state_create':
-                self.handle_resume_state_create(block, i)
-                continue # go back and look at that malloc
-                        
             if (op.opname in ('direct_call', 'indirect_call')
                 or self.analyzer.analyze(op)):
-                if op.opname == 'resume_point':
-                    block = self.handle_resume_point(block, i)
-                    if block is None:
-                        return
-                    else:
-                        i = 0
-                        continue
 
                 if not stackless_op and not self.analyzer.analyze(op):
                     i += 1
@@ -849,9 +661,7 @@ class StacklessTransformer(object):
                     continue
 
                 nextblock = self.insert_unwind_handling(block, i)
-                if op.opname == 'resume_state_invoke':
-                    self.handle_resume_state_invoke(block)
-                
+
                 if nextblock is None:
                     return
 
