@@ -236,53 +236,6 @@ class EmptyIteratorImplementation(object):
     def next(self):
         return (None, None)
 
-class ObjectDictStrategy(DictStrategy):
-
-    erase, unerase = rerased.new_erasing_pair("object")
-    erase = staticmethod(erase)
-    unerase = staticmethod(unerase)
-
-    def get_empty_storage(self):
-       new_dict = r_dict(self.space.eq_w, self.space.hash_w)
-       return self.erase(new_dict)
-
-    def setdefault(self, w_dict, w_key, w_default):
-        return self.unerase(w_dict.dstorage).setdefault(w_key, w_default)
-
-    def setitem(self, w_dict, w_key, w_value):
-        self.unerase(w_dict.dstorage)[w_key] = w_value
-
-    def setitem_str(self, w_dict, key, w_value):
-        return w_dict.setitem(self.space.wrap(key), w_value)
-
-    def delitem(self, w_dict, w_key):
-        del self.unerase(w_dict.dstorage)[w_key]
-
-    def length(self, w_dict):
-        return len(self.unerase(w_dict.dstorage))
-
-    def getitem(self, w_dict, w_key):
-        return self.unerase(w_dict.dstorage).get(w_key, None)
-
-    def getitem_str(self, w_dict, key):
-        return self.getitem(w_dict, self.space.wrap(key))
-
-    def iter(self, w_dict):
-        return RDictIteratorImplementation(self.space, w_dict)
-
-    def keys(self, w_dict):
-        return self.unerase(w_dict.dstorage).keys()
-
-    def values(self, w_dict):
-        return self.unerase(w_dict.dstorage).values()
-
-    def items(self, w_dict):
-        return [self.space.newtuple([w_key, w_val])
-                    for w_key, w_val in self.unerase(w_dict.dstorage).iteritems()]
-
-    def popitem(self, w_dict):
-        return self.unerase(w_dict.dstorage).popitem()
-
 
 registerimplementation(W_DictMultiObject)
 
@@ -428,6 +381,55 @@ class AbstractUnwrappedStrategy(object):
             d_new[self.wrap(key)] = value
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
+
+
+class ObjectDictStrategy(DictStrategy):
+
+    erase, unerase = rerased.new_erasing_pair("object")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+       new_dict = r_dict(self.space.eq_w, self.space.hash_w)
+       return self.erase(new_dict)
+
+    def setdefault(self, w_dict, w_key, w_default):
+        return self.unerase(w_dict.dstorage).setdefault(w_key, w_default)
+
+    def setitem(self, w_dict, w_key, w_value):
+        self.unerase(w_dict.dstorage)[w_key] = w_value
+
+    def setitem_str(self, w_dict, key, w_value):
+        return w_dict.setitem(self.space.wrap(key), w_value)
+
+    def delitem(self, w_dict, w_key):
+        del self.unerase(w_dict.dstorage)[w_key]
+
+    def length(self, w_dict):
+        return len(self.unerase(w_dict.dstorage))
+
+    def getitem(self, w_dict, w_key):
+        return self.unerase(w_dict.dstorage).get(w_key, None)
+
+    def getitem_str(self, w_dict, key):
+        return self.getitem(w_dict, self.space.wrap(key))
+
+    def iter(self, w_dict):
+        return RDictIteratorImplementation(self.space, w_dict)
+
+    def keys(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
+
+    def values(self, w_dict):
+        return self.unerase(w_dict.dstorage).values()
+
+    def items(self, w_dict):
+        return [self.space.newtuple([w_key, w_val])
+                    for w_key, w_val in self.unerase(w_dict.dstorage).iteritems()]
+
+    def popitem(self, w_dict):
+        return self.unerase(w_dict.dstorage).popitem()
+
 
 class StringDictStrategy(AbstractUnwrappedStrategy, DictStrategy):
 
