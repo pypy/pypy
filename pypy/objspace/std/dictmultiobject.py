@@ -328,33 +328,46 @@ class IteratorImplementation(object):
 
 # concrete subclasses of the above
 
-class StringDictStrategy(DictStrategy):
+class AbstractUnwrappedStrategy(object):
+    _mixin_ = True
 
-    erase, unerase = rerased.new_erasing_pair("string")
-    erase = staticmethod(erase)
-    unerase = staticmethod(unerase)
+    @staticmethod
+    def erase(storage):
+        raise NotImplementedError("abstract base class")
 
-    def __init__(self, space):
-        self.space = space
+    @staticmethod
+    def unerase(obj):
+        raise NotImplementedError("abstract base class")
+
+    def wrap(self, unwrapped):
+        raise NotImplementedError
+
+    def unwrap(self, wrapped):
+        raise NotImplementedError
+
+    def is_correct_type(self, w_obj):
+        raise NotImplementedError("abstract base class")
 
     def get_empty_storage(self):
-       return self.erase({})
+        raise NotImplementedError("abstract base class")
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
+        if self.is_correct_type(w_key):
+            self.unerase(w_dict.dstorage)[self.unwrap(w_key)] = w_value
+            return
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
 
     def setitem_str(self, w_dict, key, w_value):
-        self.unerase(w_dict.dstorage)[key] = w_value
+        self.switch_to_object_strategy(w_dict)
+        w_dict.setitem(self.space.wrap(key), w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            return self.unerase(w_dict.dstorage).setdefault(space.str_w(w_key), w_default)
+        if self.is_correct_type(w_key):
+            return self.unerase(w_dict.dstorage).setdefault(space.unwrap(w_key), w_default)
         else:
             self.switch_to_object_strategy(w_dict)
             return w_dict.setdefault(w_key, w_default)
@@ -362,8 +375,8 @@ class StringDictStrategy(DictStrategy):
     def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_str):
-            del self.unerase(w_dict.dstorage)[space.str_w(w_key)]
+        if self.is_correct_type(w_key):
+            del self.unerase(w_dict.dstorage)[self.unwrap(w_key)]
             return
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
@@ -375,29 +388,21 @@ class StringDictStrategy(DictStrategy):
         return len(self.unerase(w_dict.dstorage))
 
     def getitem_str(self, w_dict, key):
-        return self.unerase(w_dict.dstorage).get(key, None)
+        return None
 
     def getitem(self, w_dict, w_key):
         space = self.space
-        # -- This is called extremely often.  Hack for performance --
-        if type(w_key) is space.StringObjectCls:
-            return self.getitem_str(w_dict, w_key.unwrap(space))
-        # -- End of performance hack --
-        w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
-            return self.getitem_str(w_dict, space.str_w(w_key))
-        elif _is_sane_hash(space, w_lookup_type):
+
+        if self.is_correct_type(w_key):
+            return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
+        elif _is_sane_hash(space, space.type(w_key)):
             return None
         else:
             self.switch_to_object_strategy(w_dict)
             return w_dict.getitem(w_key)
 
-    def iter(self, w_dict):
-        return StrIteratorImplementation(self.space, w_dict)
-
     def keys(self, w_dict):
-        space = self.space
-        return [space.wrap(key) for key in self.unerase(w_dict.dstorage).iterkeys()]
+        return [self.wrap(key) for key in self.unerase(w_dict.dstorage).iterkeys()]
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage).values()
@@ -405,12 +410,12 @@ class StringDictStrategy(DictStrategy):
     def items(self, w_dict):
         space = self.space
         dict_w = self.unerase(w_dict.dstorage)
-        return [space.newtuple([space.wrap(key), w_value])
+        return [space.newtuple([self.wrap(key), w_value])
                     for (key, w_value) in dict_w.iteritems()]
 
     def popitem(self, w_dict):
         key, value = self.unerase(w_dict.dstorage).popitem()
-        return (self.space.wrap(key), value)
+        return (self.wrap(key), value)
 
     def clear(self, w_dict):
         self.unerase(w_dict.dstorage).clear()
@@ -420,9 +425,56 @@ class StringDictStrategy(DictStrategy):
         strategy = self.space.fromcache(ObjectDictStrategy)
         d_new = strategy.unerase(strategy.get_empty_storage())
         for key, value in d.iteritems():
-            d_new[self.space.wrap(key)] = value
+            d_new[self.wrap(key)] = value
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
+
+class StringDictStrategy(AbstractUnwrappedStrategy, DictStrategy):
+
+    erase, unerase = rerased.new_erasing_pair("string")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def __init__(self, space):
+        self.space = space
+
+    def wrap(self, unwrapped):
+        return self.space.wrap(unwrapped)
+
+    def unwrap(self, wrapped):
+        return self.space.str_w(wrapped)
+
+    def is_correct_type(self, w_obj):
+        space = self.space
+        return space.is_w(space.type(w_obj), space.w_str)
+
+    def get_empty_storage(self):
+       return self.erase({})
+
+    def setitem_str(self, w_dict, key, w_value):
+        self.unerase(w_dict.dstorage)[key] = w_value
+
+    def getitem(self, w_dict, w_key):
+        space = self.space
+        # -- This is called extremely often.  Hack for performance --
+        if type(w_key) is space.StringObjectCls:
+            return self.getitem_str(w_dict, w_key.unwrap(space))
+        # -- End of performance hack --
+
+        if self.is_correct_type(w_key):
+            return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
+        elif _is_sane_hash(space, space.type(w_key)):
+            return None
+        else:
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.getitem(w_key)
+
+    def getitem_str(self, w_dict, key):
+        return self.unerase(w_dict.dstorage).get(key, None)
+
+    def iter(self, w_dict):
+        return StrIteratorImplementation(self.space, w_dict)
+
 
 class StrIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
