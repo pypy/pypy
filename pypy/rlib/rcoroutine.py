@@ -29,7 +29,7 @@ This allows for peaceful co-existence of many concepts.
 The type of a switch is determined by the target's costate.
 """
 
-from pypy.rlib.rstack import yield_current_frame_to_caller, resume_point
+from pypy.rlib.rstack import yield_current_frame_to_caller
 from pypy.rlib.objectmodel import we_are_translated
 
 from pypy.interpreter.error import OperationError
@@ -228,7 +228,6 @@ def make_coroutine_classes(baseclass):
                         self.thunk = None
                         syncstate.switched(incoming_frame)
                         thunk.call()
-                        resume_point("coroutine__bind", state)
                     except Exception, e:
                         exc = e
                         raise
@@ -257,7 +256,6 @@ def make_coroutine_classes(baseclass):
                 raise CoroutineDamage
             state = self.costate
             incoming_frame = state.update(self).switch()
-            resume_point("coroutine_switch", state, returns=incoming_frame)
             syncstate.switched(incoming_frame)
 
         def kill(self):
