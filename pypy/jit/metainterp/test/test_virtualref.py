@@ -1,7 +1,7 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
-from pypy.rlib.jit import virtual_ref, virtual_ref_finish
+from pypy.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.resoperation import rop
@@ -548,6 +548,34 @@ class VRefTests:
         res = self.meta_interp(f, [15])
         assert res == 1
         self.check_loops(new_with_vtable=2)     # vref, xy
+
+    def test_cannot_use_invalid_virtualref(self):
+        py.test.skip('fixme')
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        #
+        class XY:
+            n = 0
+        #
+        def fn(n):
+            res = False
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                xy = XY()
+                xy.n = n
+                vref = virtual_ref(xy)
+                virtual_ref_finish(vref, xy)
+                try:
+                    vref()
+                    res = False
+                except InvalidVirtualRef:
+                    res = True
+                n -= 1
+            return res
+        #
+        assert fn(10)
+        res = self.meta_interp(fn, [10])
+        assert res
 
 
 class TestLLtype(VRefTests, LLJitMixin):
