@@ -39,7 +39,6 @@ class W_DictMultiObject(W_Object):
             from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
             strategy = space.fromcache(ModuleDictStrategy)
-            storage = strategy.get_empty_storage()
 
         elif space.config.objspace.opcodes.CALL_LIKELY_BUILTIN and module:
             assert w_type is None
@@ -120,11 +119,6 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
-    def initialize_as_rdict(self):
-        assert self.r_dict_content is None
-        self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
-        return self.r_dict_content
-
     def keys(self, w_dict):
         iterator = self.iter(w_dict)
         result = []
@@ -155,6 +149,9 @@ class DictStrategy(object):
             else:
                 return result
 
+    # the following method only makes sense when the option to use the
+    # CALL_LIKELY_BUILTIN opcode is set. Otherwise it won't even be seen
+    # by the annotator
     def get_builtin_indexed(self, w_dict, i):
         key = OPTIMIZED_BUILTINS[i]
         return self.getitem_str(w_dict, key)
@@ -165,8 +162,6 @@ class DictStrategy(object):
         w_dict.strategy = strategy
         w_dict.dstorage = storage
 
-    # _________________________________________________________________
-    # implementation methods
 
 class EmptyDictStrategy(DictStrategy):
 
@@ -235,30 +230,6 @@ class EmptyDictStrategy(DictStrategy):
 
     def clear(self, w_dict):
         return
-
-    def _as_rdict(self):
-        r_dict_content = self.initialize_as_rdict()
-        return self
-
-    # the following method only makes sense when the option to use the
-    # CALL_LIKELY_BUILTIN opcode is set. Otherwise it won't even be seen
-    # by the annotator
-    def impl_get_builtin_indexed(self, w_dict, i):
-        key = OPTIMIZED_BUILTINS[i]
-        return self.impl_getitem_str(key)
-
-    def impl_popitem(self, w_dict):
-        # default implementation
-        space = self.space
-        iterator = self.impl_iter()
-        w_key, w_value = iterator.next()
-        if w_key is None:
-            raise KeyError
-        self.impl_delitem(w_key)
-        return w_key, w_value
-
-    # _________________________________________________________________
-    # fallback implementation methods
 
 
 class EmptyIteratorImplementation(object):
@@ -453,16 +424,6 @@ class StringDictStrategy(DictStrategy):
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
 
-    def _as_rdict(self):
-        r_dict_content = self.initialize_as_rdict()
-        for k, w_v in self.content.items():
-            r_dict_content[self.space.wrap(k)] = w_v
-        self._clear_fields()
-        return self
-
-    def _clear_fields(self):
-        self.content = None
-
 class StrIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
@@ -487,7 +448,6 @@ class WaryDictStrategy(StringDictStrategy):
         if i != -1:
             self.shadowed[i] = w_value
         self.unerase(w_dict.dstorage)[key] = w_value
-        #self.content[key] = w_value
 
     def delitem(self, w_dict, w_key):
         space = self.space
@@ -501,7 +461,8 @@ class WaryDictStrategy(StringDictStrategy):
         elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:
-            self._as_rdict().impl_fallback_delitem(w_key)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.delitem(w_key)
 
     def get_builtin_indexed(self, w_dict, i):
         return self.shadowed[i]
