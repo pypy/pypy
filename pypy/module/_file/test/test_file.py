@@ -232,6 +232,29 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
             data = f.read()
             assert data == "15"
 
+    def test_exception_from_close(self):
+        import os
+        f = self.file(self.temppath, 'w')
+        os.close(f.fileno())
+        raises(IOError, f.close)    # bad file descriptor
+
+    def test_exception_from_del(self):
+        import os, gc, sys, cStringIO
+        f = self.file(self.temppath, 'w')
+        g = cStringIO.StringIO()
+        preverr = sys.stderr
+        try:
+            sys.stderr = g
+            os.close(f.fileno())
+            del f
+            gc.collect()     # bad file descriptor in f.__del__()
+        finally:
+            sys.stderr = preverr
+        import errno
+        assert os.strerror(errno.EBADF) in g.getvalue()
+        # the following is a "nice to have" feature that CPython doesn't have
+        if '__pypy__' in sys.builtin_module_names:
+            assert self.temppath in g.getvalue()
 
 
 class AppTestConcurrency(object):
