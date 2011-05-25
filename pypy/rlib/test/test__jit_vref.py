@@ -124,6 +124,18 @@ class BaseTestVRef(BaseRtypingTest):
         assert lltype.typeOf(x) == self.OBJECTTYPE
         assert not x
 
+    def test_rtype_5(self):
+        def f():
+            vref = virtual_ref(X())
+            try:
+                vref()
+                return 42
+            except InvalidVirtualRef:
+                return -1
+        x = self.interpret(f, [])
+        assert x == 42
+
+
 class TestLLtype(BaseTestVRef, LLRtypeMixin):
     OBJECTTYPE = OBJECTPTR
     def castable(self, TO, var):
