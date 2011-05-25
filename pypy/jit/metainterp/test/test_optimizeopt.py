@@ -6256,7 +6256,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
-    def test_constant_getfield(self):
+    def test_constant_getfield1(self):
         ops = """
         [p1, p187, i184]
         p188 = getarrayitem_gc(p187, i184, descr=<GcPtrArrayDescr>)
@@ -6270,3 +6270,68 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected, ops)
         # FIXME: check jumparg 0 == getfield_gc()
+
+    def test_constant_getfield2(self):
+        ops = """
+        [p19]
+        p22 = getfield_gc(p19, descr=otherdescr)
+        guard_value(p19, ConstPtr(myptr)) []
+        jump(p19)
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_constant_getfield3(self):
+        ops = """
+        [p19, p20, p21]
+        p22 = getfield_gc(p19, descr=otherdescr)
+        guard_value(p19, ConstPtr(myptr)) []
+        p23 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        jump(p20, p21, p21)
+        """
+        expected = """
+        [p20, p21]
+        p22 = getfield_gc(p20, descr=otherdescr)
+        guard_value(p20, ConstPtr(myptr)) []
+        jump(p21, p21)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_constant_getfield4(self):
+        ops = """
+        [p19, p20, p21]
+        p22 = getfield_gc(p19, descr=otherdescr)
+        p23 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        guard_value(p19, ConstPtr(myptr)) []
+        jump(p20, p21, p21)
+        """
+        expected = """
+        [p20, p21]
+        p22 = getfield_gc(p20, descr=otherdescr)
+        guard_value(p20, ConstPtr(myptr)) []
+        jump(p21, p21)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_constnats_among_virtual_fileds(self):
+        ops = """
+        [p19, p20, p21]
+        p1 = getfield_gc(p20, descr=valuedescr)
+        p2 = getfield_gc(p1, descr=otherdescr)
+        pv = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(pv, p19, descr=valuedescr)
+        p22 = getfield_gc(p19, descr=otherdescr)
+        guard_value(p19, ConstPtr(myptr)) []
+        p23 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        jump(p21, pv, p21)
+        """
+        expected = """
+        [p20]
+        p22 = getfield_gc(p20, descr=otherdescr)
+        guard_value(p20, ConstPtr(myptr)) []
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected)

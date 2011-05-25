@@ -265,12 +265,10 @@ class VirtualState(object):
                     assert not isinstance(box, Const)
                     inputargs.append(box)
 
-        if not we_are_translated():
-            assert len(set(inputargs)) == len(inputargs)
         assert None not in inputargs
             
         return inputargs
-        
+
 
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def __init__(self, optimizer):

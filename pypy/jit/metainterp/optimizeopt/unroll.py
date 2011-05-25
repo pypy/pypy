@@ -163,19 +163,20 @@ class UnrollOptimizer(Optimization):
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
 
-            sb = self.optimizer.produce_short_preamble_ops(inputargs)
+            self.constant_inputargs = {}
+            for box in jump_args: 
+                const = self.get_constant_box(box)
+                if const:
+                    self.constant_inputargs[box] = const
+
+            sb = self.optimizer.produce_short_preamble_ops(inputargs +
+                                                 self.constant_inputargs.keys())
             self.short_boxes = sb
             preamble_optimizer = self.optimizer
             loop.preamble.quasi_immutable_deps = (
                 self.optimizer.quasi_immutable_deps)
             self.optimizer = self.optimizer.reconstruct_for_next_iteration(sb, jump_args)
-            
-            self.constant_inputargs = {}
-            loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps            
-            for box in jump_args:
-                const = self.get_constant_box(box)
-                if const:
-                    self.constant_inputargs[box] = const
+            loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
         
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)

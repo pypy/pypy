@@ -401,12 +401,12 @@ class Optimizer(Optimization):
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(potential_ops)
 
-    def produce_short_preamble_ops(self, inputargs):
+    def produce_short_preamble_ops(self, surviving_boxes):
         potential_ops = {}
         self.produce_potential_short_preamble_ops(potential_ops)
             
         short_boxes = {}
-        for box in inputargs:
+        for box in surviving_boxes:
             short_boxes[box] = None
 
         for box in potential_ops.keys():

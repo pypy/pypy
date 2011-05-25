@@ -4,7 +4,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
-from pypy.jit.metainterp.history import ConstInt
+from pypy.jit.metainterp.history import ConstInt, Const
 
 class CachedField(object):
     def __init__(self):
@@ -111,7 +111,6 @@ class CachedField(object):
         for structvalue, op in self._cached_fields_getfield_op.iteritems():
             if op and structvalue in self._cached_fields:
                 potential_ops[op.result] = op
-                    
 
 class CachedArrayItems(object):
     def __init__(self):
@@ -317,7 +316,14 @@ class OptHeap(Optimization):
         if value is not newvalue:
             for cf in self.cached_fields.itervalues():
                 if value in cf._cached_fields:
-                    cf._cached_fields[newvalue] = cf._cached_fields[value]
+                    if newvalue not in cf._cached_fields:
+                        cf._cached_fields[newvalue] = cf._cached_fields[value]
+                        op = cf._cached_fields_getfield_op[value].clone()
+                        constbox = value.box
+                        assert isinstance(constbox, Const)
+                        op.setarg(0, constbox)
+                        cf._cached_fields_getfield_op[newvalue] = op
+                                
 
     def force_lazy_setfield(self, descr):
         try:
