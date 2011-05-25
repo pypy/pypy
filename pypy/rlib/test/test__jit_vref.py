@@ -1,6 +1,6 @@
 import py
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish
-from pypy.rlib.jit import vref_None, non_virtual_ref
+from pypy.rlib.jit import vref_None, non_virtual_ref, InvalidVirtualRef
 from pypy.rlib._jit_vref import SomeVRef
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
@@ -23,18 +23,23 @@ class Z(X):
     pass
 
 
-def test_direct_1():
+def test_direct_forced():
     x1 = X()
     vref = virtual_ref(x1)
+    assert vref._state == 'non-forced'
     assert vref() is x1
-    virtual_ref_finish(x1)
+    assert vref._state == 'forced'
+    virtual_ref_finish(vref, x1)
+    assert vref._state == 'forced'
     assert vref() is x1
 
-def test_direct_2():
+def test_direct_invalid():
     x1 = X()
     vref = virtual_ref(x1)
-    virtual_ref_finish(x1)
-    assert vref() is x1
+    assert vref._state == 'non-forced'
+    virtual_ref_finish(vref, x1)
+    assert vref._state == 'invalid'
+    py.test.raises(InvalidVirtualRef, "vref()")
 
 def test_annotate_1():
     def f():

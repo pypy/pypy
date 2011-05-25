@@ -183,7 +183,6 @@ class AssertGreenFailed(Exception):
 # VRefs
 
 def virtual_ref(x):
-
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
     is that the object 'x' is supposed to be JITted as a virtual between
@@ -194,10 +193,9 @@ def virtual_ref(x):
     return DirectJitVRef(x)
 virtual_ref.oopspec = 'virtual_ref(x)'
 
-def virtual_ref_finish(x):
-    """See docstring in virtual_ref(x).  Note that virtual_ref_finish
-    takes as argument the real object, not the vref."""
-    keepalive_until_here(x)   # otherwise the whole function call is removed
+def virtual_ref_finish(vref, x):
+    """See docstring in virtual_ref(x)"""
+    _virtual_ref_finish(vref, x)
 virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
 
 def non_virtual_ref(x):
@@ -205,18 +203,38 @@ def non_virtual_ref(x):
     Used for None or for frames outside JIT scope."""
     return DirectVRef(x)
 
+class InvalidVirtualRef(Exception):
+    """
+    Raised if we try to call a non-forced virtualref after the call to
+    virtual_ref_finish
+    """
+
 # ---------- implementation-specific ----------
 
 class DirectVRef(object):
     def __init__(self, x):
         self._x = x
+        self._state = 'non-forced'
+
     def __call__(self):
+        if self._state == 'non-forced':
+            self._state = 'forced'
+        elif self._state == 'invalid':
+            raise InvalidVirtualRef
         return self._x
+
+    def _finish(self):
+        if self._state == 'non-forced':
+            self._state = 'invalid'
 
 class DirectJitVRef(DirectVRef):
     def __init__(self, x):
         assert x is not None, "virtual_ref(None) is not allowed"
         DirectVRef.__init__(self, x)
+
+def _virtual_ref_finish(vref, x):
+    assert vref._x is x, "Invalid call to virtual_ref_finish"
+    vref._finish()
 
 class Entry(ExtRegistryEntry):
     _about_ = (non_virtual_ref, DirectJitVRef)
