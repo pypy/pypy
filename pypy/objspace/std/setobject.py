@@ -321,8 +321,11 @@ class AbstractUnwrappedSetStrategy(object):
             w_set.add(w_key)
 
     def delitem(self, w_set, w_item):
+        from pypy.objspace.std.dictmultiobject import _is_sane_hash
         d = self.cast_from_void_star(w_set.sstorage)
         if not self.is_correct_type(w_item):
+            if _is_sane_hash(self.space, self.space.type(w_item)):
+                return False
             w_set.switch_to_object_strategy(self.space)
             return w_set.delitem(w_item)
 
@@ -353,7 +356,7 @@ class AbstractUnwrappedSetStrategy(object):
     def has_key(self, w_set, w_key):
         from pypy.objspace.std.dictmultiobject import _is_sane_hash
         if not self.is_correct_type(w_key):
-            if not _is_sane_hash(self.space, w_key):
+            if not _is_sane_hash(self.space, self.space.type(w_key)):
                 w_set.switch_to_object_strategy(self.space)
                 return w_set.has_key(w_key)
             return False

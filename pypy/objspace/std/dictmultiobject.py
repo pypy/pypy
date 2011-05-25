@@ -21,6 +21,7 @@ def _is_sane_hash(space, w_lookup_type):
 
     # XXX there are many more types
     return (space.is_w(w_lookup_type, space.w_NoneType) or
+            space.is_w(w_lookup_type, space.w_str) or
             space.is_w(w_lookup_type, space.w_int) or
             space.is_w(w_lookup_type, space.w_bool) or
             space.is_w(w_lookup_type, space.w_float)
