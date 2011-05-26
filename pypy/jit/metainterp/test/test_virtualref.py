@@ -241,8 +241,8 @@ class VRefTests:
                 virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
-        self.check_loops(new_with_vtable=2,     # the vref, and xy so far,
-                         new_array=0)           # but not xy.next1/2/3
+        self.check_loops(new_with_vtable=1,     # the vref: xy doesn't need to be forced
+                         new_array=0)           # and neither xy.next1/2/3
         self.check_aborted_count(0)
 
     def test_simple_force_always(self):
