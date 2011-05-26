@@ -36,20 +36,13 @@ class VirtualRefInfo:
     def _freeze_(self):
         return True
 
-    def rewrite_graphs(self, graphs):
-        """
-        Replace jit_force_virtual and jit_invalidate_vref_maybe with
-        direct_calls to helpers
-        """
+    def replace_force_virtual_with_call(self, graphs):
         # similar to rvirtualizable2.replace_force_virtualizable_with_call().
         c_force_virtual_ptr = None
         force_virtual_count = 0
-        c_invalidate_vref_ptr = None
-        invalidate_vref_count = 0
         for graph in graphs:
             for block in graph.iterblocks():
                 for op in block.operations:
-                    # ---------------------------------------------------------------
                     if op.opname == 'jit_force_virtual':
                         # first compute c_funcptr, but only if there is any
                         # 'jit_force_virtual' around
@@ -59,25 +52,10 @@ class VirtualRefInfo:
                         op.opname = 'direct_call'
                         op.args = [c_force_virtual_ptr, op.args[0]]
                         force_virtual_count += 1
-                    #
-                    # ---------------------------------------------------------------
-                    if op.opname == 'jit_invalidate_vref_maybe':
-                        if c_invalidate_vref_ptr is None:
-                            c_invalidate_vref_ptr = self.get_invalidate_vref_fnptr()
-                        #
-                        op.opname = 'direct_call'
-                        op.args = [c_invalidate_vref_ptr, op.args[0]]
-                        invalidate_vref_count += 1
         #
         if c_force_virtual_ptr is not None:
-            log("replaced %d 'jit_force_virtual' with %r" % (
-                    force_virtual_count,
-                    c_force_virtual_ptr.value))
-        if c_invalidate_vref_ptr is not None:
-            log("replaced %d 'jit_invalidate_vref_maybe' with %r" % (
-                    invalidate_vref_count,
-                    c_invalidate_vref_ptr.value))
-
+            log("replaced %d 'jit_force_virtual' with %r" % (force_virtual_count,
+                                                             c_force_virtual_ptr.value))
 
     # ____________________________________________________________
 
@@ -172,14 +150,3 @@ class VirtualRefInfo:
             assert vref.forced
         return vref.forced
     force_virtual._dont_inline_ = True
-
-    def get_invalidate_vref_fnptr(self):
-        #
-        def invalidate_vref_maybe(inst):
-            return
-        #
-        FUNC = lltype.FuncType([rclass.OBJECTPTR], lltype.Void)
-        funcptr = self.warmrunnerdesc.helper_func(
-            lltype.Ptr(FUNC),
-            invalidate_vref_maybe)
-        return inputconst(lltype.typeOf(funcptr), funcptr)
