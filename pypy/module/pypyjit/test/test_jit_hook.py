@@ -31,7 +31,7 @@ class AppTestJitHook(object):
         [i1, i2]
         i3 = int_add(i1, i2)
         guard_true(i3) []
-        """)
+        """).operations
 
         def interp_on_compile():
             pypyjitdriver.on_compile(logger, LoopToken(), oplist, 'loop',
@@ -48,12 +48,22 @@ class AppTestJitHook(object):
         all = []
 
         def hook(*args):
-            all.append(args)
+            assert args[0] == 'main'
+            assert args[1] in ['loop', 'bridge']
+            all.append(args[2:])
         
         self.on_compile()
         pypyjit.set_compile_hook(hook)
         assert not all
         self.on_compile()
         assert len(all) == 1
-        assert all[0][0].co_name == 'f'
-        print all
+        assert all[0][0][0].co_name == 'f'
+        assert all[0][0][1] == 0
+        assert all[0][0][2] == False
+        assert len(all[0][1]) == 2
+        assert 'int_add' in all[0][1][0]
+        self.on_compile_bridge()
+        assert len(all) == 2
+        pypyjit.set_compile_hook(None)
+        self.on_compile()
+        assert len(all) == 2

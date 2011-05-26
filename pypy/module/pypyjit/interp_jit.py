@@ -58,11 +58,30 @@ class PyPyJitDriver(JitDriver):
         space = self.space
         cache = space.fromcache(Cache)
         if space.is_true(cache.w_compile_hook):
+            memo = {}
+            list_w = [space.wrap(logger.repr_of_resop(memo, op))
+                      for op in operations]
             pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
-            space.call_function(cache.w_compile_hook, pycode)
+            space.call_function(cache.w_compile_hook,
+                                space.wrap('main'),
+                                space.wrap(type),
+                                space.newtuple([pycode,
+                                space.wrap(next_instr),
+                                space.wrap(is_being_profiled)]),
+                                space.newlist(list_w))
 
     def on_compile_bridge(self, logger, orig_looptoken, operations, n):
-        pass
+        space = self.space
+        cache = space.fromcache(Cache)
+        if space.is_true(cache.w_compile_hook):
+            memo = {}
+            list_w = [space.wrap(logger.repr_of_resop(memo, op))
+                      for op in operations]
+            space.call_function(cache.w_compile_hook,
+                                space.wrap('main'),
+                                space.wrap('bridge'),
+                                space.wrap(n),
+                                space.newlist(list_w))
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
@@ -171,6 +190,21 @@ class Cache(object):
 
 @unwrap_spec(ObjSpace, W_Root)
 def set_compile_hook(space, w_hook):
+    """ set_compile_hook(hook)
+
+    Set a compiling hook that will be called each time a loop is compiled.
+    The hook will be called with the following signature:
+    hook(merge_point_type, loop_type, greenkey or guard_number, operations)
+
+    for now merge point type is always `main`
+
+    loop_type can be either `loop` `entry_bridge` or `bridge`
+    in case loop is not `bridge`, greenkey will be a set of constants
+    for jit merge point. in case it's `main` it'll be a tuple
+    (code, offset, is_being_profiled)
+
+    XXX write down what else
+    """
     cache = space.fromcache(Cache)
     cache.w_compile_hook = w_hook
     return space.w_None
