@@ -12,14 +12,17 @@
 #include "thread.h"
 
 extern char *_LLstacktoobig_stack_start;
+extern long _LLstacktoobig_stack_length;
 
 void LL_stack_unwind(void);
 char LL_stack_too_big_slowpath(long);    /* returns 0 (ok) or 1 (too big) */
+void LL_stack_set_length_fraction(double);
 
 /* some macros referenced from pypy.rlib.rstack */
 #define LL_stack_get_start() ((long)_LLstacktoobig_stack_start)
-#define LL_stack_get_length() MAX_STACK_SIZE
+#define LL_stack_get_length() _LLstacktoobig_stack_length
 #define LL_stack_get_start_adr() ((long)&_LLstacktoobig_stack_start)  /* JIT */
+#define LL_stack_get_length_adr() ((long)&_LLstacktoobig_stack_length)/* JIT */
 
 
 #ifdef __GNUC__
@@ -51,12 +54,18 @@ long PYPY_NOINLINE _LL_stack_growing_direction(char *parent)
 }
 
 char *_LLstacktoobig_stack_start = NULL;
+long _LLstacktoobig_stack_length = MAX_STACK_SIZE;
 int stack_direction = 0;
 RPyThreadStaticTLS start_tls_key;
 
+void LL_stack_set_length_fraction(double fraction)
+{
+	_LLstacktoobig_stack_length = (long)(MAX_STACK_SIZE * fraction);
+}
+
 char LL_stack_too_big_slowpath(long current)
 {
-	long diff;
+	long diff, max_stack_size;
 	char *baseptr, *curptr = (char*)current;
 
 	/* The stack_start variable is updated to match the current value
@@ -83,22 +92,23 @@ char LL_stack_too_big_slowpath(long current)
 	}
 
 	baseptr = (char *) RPyThreadStaticTLS_Get(start_tls_key);
+	max_stack_size = _LLstacktoobig_stack_length;
 	if (baseptr != NULL) {
 		diff = curptr - baseptr;
-		if (((unsigned long)diff) < (unsigned long)MAX_STACK_SIZE) {
+		if (((unsigned long)diff) < (unsigned long)max_stack_size) {
 			/* within bounds, probably just had a thread switch */
 			_LLstacktoobig_stack_start = baseptr;
 			return 0;
 		}
 
 		if (stack_direction > 0) {
-			if (diff < 0 && diff > -MAX_STACK_SIZE)
+			if (diff < 0 && diff > -max_stack_size)
 				;           /* stack underflow */
 			else
 				return 1;   /* stack overflow (probably) */
 		}
 		else {
-			if (diff >= MAX_STACK_SIZE && diff < 2*MAX_STACK_SIZE)
+			if (diff >= max_stack_size && diff < 2*max_stack_size)
 				;           /* stack underflow */
 			else
 				return 1;   /* stack overflow (probably) */
@@ -115,7 +125,7 @@ char LL_stack_too_big_slowpath(long current)
 	}
 	else {
 		/* the valid range is [curptr-MAX_STACK_SIZE+1:curptr+1] */
-		baseptr = curptr - MAX_STACK_SIZE + 1;
+		baseptr = curptr - max_stack_size + 1;
 	}
 	RPyThreadStaticTLS_Set(start_tls_key, baseptr);
 	_LLstacktoobig_stack_start = baseptr;

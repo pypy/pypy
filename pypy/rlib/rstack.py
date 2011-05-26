@@ -46,11 +46,15 @@ _stack_get_start = llexternal('LL_stack_get_start', [], lltype.Signed,
                               lambda: 0)
 _stack_get_length = llexternal('LL_stack_get_length', [], lltype.Signed,
                                lambda: 1)
+_stack_set_length_fraction = llexternal('LL_stack_set_length_fraction',
+                                        [lltype.Float], lltype.Void,
+                                        lambda frac: None)
 _stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
                                      [lltype.Signed], lltype.Char,
                                      lambda cur: '\x00')
 # the following is used by the JIT
 _stack_get_start_adr = llexternal('LL_stack_get_start_adr', [], lltype.Signed)
+_stack_get_length_adr= llexternal('LL_stack_get_length_adr',[], lltype.Signed)
 
 
 def stack_check():
