@@ -135,6 +135,18 @@ class BaseTestVRef(BaseRtypingTest):
         x = self.interpret(f, [])
         assert x == 42
 
+    def test_rtype_vref_finish(self):
+        from pypy.jit.codewriter.support import decode_builtin_call
+        def f():
+            x1 = X()
+            vref = virtual_ref(x1)
+            virtual_ref_finish(vref, x1)
+            return x1
+        _, _, graph = self.gengraph(f, [])
+        ops = [op for block, op in graph.iterblockops()]
+        assert ops[-2].opname == 'jit_invalidate_vref_maybe'
+        oopspec_name, _ = decode_builtin_call(ops[-1])
+        assert oopspec_name == 'virtual_ref_finish'
 
 class TestLLtype(BaseTestVRef, LLRtypeMixin):
     OBJECTTYPE = OBJECTPTR

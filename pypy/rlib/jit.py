@@ -195,9 +195,11 @@ virtual_ref.oopspec = 'virtual_ref(x)'
 
 def virtual_ref_finish(vref, x):
     """See docstring in virtual_ref(x)"""
-    keepalive_until_here(x)   # otherwise the whole function call is removed
     _virtual_ref_finish(vref, x)
-virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
+
+def ll_virtual_ref_finish(x):
+    keepalive_until_here(x)   # otherwise the whole function call is removed
+ll_virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
 
 def non_virtual_ref(x):
     """Creates a 'vref' that just returns x when called; nothing more special.
@@ -257,13 +259,16 @@ class Entry(ExtRegistryEntry):
         return _jit_vref.SomeVRef(s_obj)
 
 class Entry(ExtRegistryEntry):
-    _about_ = _virtual_ref_finish
+    _about_ = virtual_ref_finish
 
     def compute_result_annotation(self, s_vref, s_obj):
         pass
 
     def specialize_call(self, hop):
-        pass
+        v_vref, v_obj = hop.inputargs(*hop.args_r)
+        hop.genop('jit_invalidate_vref_maybe', [v_vref])
+        hop.gendirectcall(ll_virtual_ref_finish, v_obj)
+
     
 vref_None = non_virtual_ref(None)
 
