@@ -1070,18 +1070,6 @@ class __extend__(pyframe.PyFrame):
     def SET_LINENO(self, lineno, next_instr):
         pass
 
-    def CALL_LIKELY_BUILTIN(self, oparg, next_instr):
-        # overridden by faster version in the standard object space.
-        from pypy.module.__builtin__ import OPTIMIZED_BUILTINS
-        varname = OPTIMIZED_BUILTINS[oparg >> 8]
-        w_function = self._load_global(varname)
-        nargs = oparg&0xFF
-        try:
-            w_result = self.space.call_valuestack(w_function, nargs, self)
-        finally:
-            self.dropvalues(nargs)
-        self.pushvalue(w_result)
-
     # overridden by faster version in the standard object space.
     LOOKUP_METHOD = LOAD_ATTR
     CALL_METHOD = CALL_FUNCTION

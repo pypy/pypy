@@ -5,20 +5,6 @@ import pypy.module.imp.importing
 
 # put builtins here that should be optimized somehow
 
-OPTIMIZED_BUILTINS = ["len", "range", "xrange", "min", "max", "enumerate",
-        "isinstance", "type", "zip", "file", "format", "open", "abs", "chr",
-        "unichr", "ord", "pow", "repr", "hash", "oct", "hex", "round", "cmp",
-        "getattr", "setattr", "delattr", "callable", "int", "str", "float"]
-
-assert len(OPTIMIZED_BUILTINS) <= 256
-
-BUILTIN_TO_INDEX = {}
-
-for i, name in enumerate(OPTIMIZED_BUILTINS):
-    BUILTIN_TO_INDEX[name] = i
-
-assert len(OPTIMIZED_BUILTINS) == len(BUILTIN_TO_INDEX)
-
 class Module(MixedModule):
     """Built-in functions, exceptions, and other objects."""
     expose__file__attribute = False
@@ -141,9 +127,6 @@ class Module(MixedModule):
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
         space = self.space
-        self.builtins_by_index = [None] * len(OPTIMIZED_BUILTINS)
-        for i, name in enumerate(OPTIMIZED_BUILTINS):
-            self.builtins_by_index[i] = space.getattr(self, space.wrap(name))
         # install the more general version of isinstance() & co. in the space
         from pypy.module.__builtin__ import abstractinst as ab
         space.abstract_isinstance_w = ab.abstract_isinstance_w.__get__(space)

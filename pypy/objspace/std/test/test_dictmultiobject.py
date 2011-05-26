@@ -833,8 +833,6 @@ class Config:
             withsmalldicts = False
             withcelldict = False
             withmethodcache = False
-        class opcodes:
-            CALL_LIKELY_BUILTIN = False
 
 FakeSpace.config = Config()
 

@@ -793,14 +793,13 @@ def getimportlock(space):
 
 """
 
-# XXX picking a magic number is a mess.  So far it works because we
-# have only two extra opcodes, which bump the magic number by +1 and
-# +2 respectively, and CPython leaves a gap of 10 when it increases
+# picking a magic number is a mess.  So far it works because we
+# have only one extra opcode, which bumps the magic number by +2, and CPython
+# leaves a gap of 10 when it increases
 # its own magic number.  To avoid assigning exactly the same numbers
 # as CPython we always add a +2.  We'll have to think again when we
-# get at the fourth new opcode :-(
+# get three more new opcodes
 #
-#  * CALL_LIKELY_BUILTIN    +1
 #  * CALL_METHOD            +2
 #
 # In other words:
@@ -823,8 +822,6 @@ def get_pyc_magic(space):
             return struct.unpack('<i', magic)[0]
 
     result = default_magic
-    if space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
-        result += 1
     if space.config.objspace.opcodes.CALL_METHOD:
         result += 2
     return result

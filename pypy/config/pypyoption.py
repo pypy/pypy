@@ -124,9 +124,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                  cmdline='--objspace -o'),
 
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
-        BoolOption("CALL_LIKELY_BUILTIN", "emit a special bytecode for likely calls to builtin functions",
-                   default=False,
-                   requires=[("translation.stackless", False)]),
         BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
                    default=False),
         ]),
@@ -261,8 +258,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withcelldict",
                    "use dictionaries that are optimized for being used as module dicts",
                    default=False,
-                   requires=[("objspace.opcodes.CALL_LIKELY_BUILTIN", False),
-                             ("objspace.honor__builtins__", False)]),
+                   requires=[("objspace.honor__builtins__", False)]),
 
         BoolOption("withmapdict",
                    "make instances really small but slow without the JIT",
@@ -345,8 +341,6 @@ def set_pypy_opt_level(config, level):
     backend = config.translation.backend
 
     # all the good optimizations for PyPy should be listed here
-    if level in ['2', '3']:
-        config.objspace.opcodes.suggest(CALL_LIKELY_BUILTIN=True)
     if level in ['2', '3', 'jit']:
         config.objspace.opcodes.suggest(CALL_METHOD=True)
         config.objspace.std.suggest(withrangelist=True)

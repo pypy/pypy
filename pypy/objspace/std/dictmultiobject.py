@@ -4,7 +4,6 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
 from pypy.objspace.std.settype import set_typedef as settypedef
@@ -39,11 +38,6 @@ class W_DictMultiObject(W_Object):
             from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
             strategy = space.fromcache(ModuleDictStrategy)
-
-        elif space.config.objspace.opcodes.CALL_LIKELY_BUILTIN and module:
-            assert w_type is None
-            # create new Strategy everytime, because each must have its own shadow-attribute
-            strategy = WaryDictStrategy(space)
 
         elif instance or strdict or module:
             assert w_type is None
@@ -94,7 +88,7 @@ def _add_indirections():
                     getitem_str delitem length \
                     clear keys values \
                     items iter setdefault \
-                    popitem get_builtin_indexed".split()
+                    popitem".split()
 
     def make_method(method):
         def f(self, *args):
@@ -144,13 +138,6 @@ class DictStrategy(object):
                 result.append(self.space.newtuple([w_key, w_value]))
             else:
                 return result
-
-    # the following method only makes sense when the option to use the
-    # CALL_LIKELY_BUILTIN opcode is set. Otherwise it won't even be seen
-    # by the annotator
-    def get_builtin_indexed(self, w_dict, i):
-        key = OPTIMIZED_BUILTINS[i]
-        return self.getitem_str(w_dict, key)
 
     def clear(self, w_dict):
         strategy = self.space.fromcache(EmptyDictStrategy)
@@ -463,36 +450,6 @@ class StrIteratorImplementation(IteratorImplementation):
             return self.space.wrap(str), w_value
         else:
             return None, None
-
-
-class WaryDictStrategy(StringDictStrategy):
-    def __init__(self, space):
-        StringDictStrategy.__init__(self, space)
-        self.shadowed = [None] * len(BUILTIN_TO_INDEX)
-
-    def setitem_str(self, w_dict, key, w_value):
-        i = BUILTIN_TO_INDEX.get(key, -1)
-        if i != -1:
-            self.shadowed[i] = w_value
-        self.unerase(w_dict.dstorage)[key] = w_value
-
-    def delitem(self, w_dict, w_key):
-        space = self.space
-        w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_str):
-            key = space.str_w(w_key)
-            del self.unerase(w_dict.dstorage)[key]
-            i = BUILTIN_TO_INDEX.get(key, -1)
-            if i != -1:
-                self.shadowed[i] = None
-        elif _is_sane_hash(space, w_key_type):
-            raise KeyError
-        else:
-            self.switch_to_object_strategy(w_dict)
-            return w_dict.delitem(w_key)
-
-    def get_builtin_indexed(self, w_dict, i):
-        return self.shadowed[i]
 
 
 class RDictIteratorImplementation(IteratorImplementation):

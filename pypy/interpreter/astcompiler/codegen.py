@@ -12,7 +12,6 @@ from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
-from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX
 
 
 def compile_ast(space, module, info):
@@ -942,8 +941,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Call(self, call):
         self.update_position(call.lineno)
-        if self._optimize_builtin_call(call) or \
-                self._optimize_method_call(call):
+        if self._optimize_method_call(call):
             return
         call.func.walkabout(self)
         arg = 0
@@ -976,28 +974,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _call_has_simple_args(self, call):
         return self._call_has_no_star_args(call) and not call.keywords
-
-    def _optimize_builtin_call(self, call):
-        if not self.space.config.objspace.opcodes.CALL_LIKELY_BUILTIN or \
-                not self._call_has_simple_args(call) or \
-                not isinstance(call.func, ast.Name):
-            return False
-        func_name = call.func
-        assert isinstance(func_name, ast.Name)
-        name_scope = self.scope.lookup(func_name.id)
-        if name_scope == symtable.SCOPE_GLOBAL_IMPLICIT or \
-                name_scope == symtable.SCOPE_UNKNOWN:
-            builtin_index = BUILTIN_TO_INDEX.get(func_name.id, -1)
-            if builtin_index != -1:
-                if call.args:
-                    args_count = len(call.args)
-                    self.visit_sequence(call.args)
-                else:
-                    args_count = 0
-                arg = builtin_index << 8 | args_count
-                self.emit_op_arg(ops.CALL_LIKELY_BUILTIN, arg)
-                return True
-        return False
 
     def _optimize_method_call(self, call):
         if not self.space.config.objspace.opcodes.CALL_METHOD or \
