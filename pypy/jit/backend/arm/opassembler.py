@@ -359,11 +359,11 @@ class OpAssembler(object):
                 num += 1
                 count += 1
 
-        # remap values stored in core registers
-        remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
-
         # spill variables that need to be saved around calls
         regalloc.before_call(save_all_regs=2)
+
+        # remap values stored in core registers
+        remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
 
         for loc, reg in float_locs:
             self.mov_loc_loc(loc, reg)
