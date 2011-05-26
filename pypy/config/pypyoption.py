@@ -264,11 +264,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=[("objspace.opcodes.CALL_LIKELY_BUILTIN", False),
                              ("objspace.honor__builtins__", False)]),
 
-        BoolOption("withdictmeasurement",
-                   "create huge files with masses of information "
-                   "about dictionaries",
-                   default=False),
-
         BoolOption("withmapdict",
                    "make instances really small but slow without the JIT",
                    default=False,

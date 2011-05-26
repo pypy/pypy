@@ -830,7 +830,6 @@ class FakeSpace:
 class Config:
     class objspace:
         class std:
-            withdictmeasurement = False
             withsmalldicts = False
             withcelldict = False
             withmethodcache = False

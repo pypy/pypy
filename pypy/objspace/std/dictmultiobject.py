@@ -45,10 +45,6 @@ class W_DictMultiObject(W_Object):
             # create new Strategy everytime, because each must have its own shadow-attribute
             strategy = WaryDictStrategy(space)
 
-        elif space.config.objspace.std.withdictmeasurement:
-            assert w_type is None
-            strategy = space.fromcache(MeasuringDictStrategy)
-
         elif instance or strdict or module:
             assert w_type is None
             strategy = space.fromcache(StringDictStrategy)
