@@ -851,7 +851,7 @@ class WarmRunnerDesc(object):
         if self.cpu.ts.name != 'lltype':
             py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
-        vrefinfo.replace_force_virtual_with_call(all_graphs)
+        vrefinfo.rewrite_graphs(all_graphs)
 
     def replace_force_quasiimmut_with_direct_call(self, op):
         ARG = op.args[0].concretetype

@@ -1183,6 +1183,14 @@ class BlackholeInterpreter(object):
         from pypy.jit.metainterp import quasiimmut
         quasiimmut.do_force_quasi_immutable(cpu, struct, mutatefielddescr)
 
+    @arguments("cpu", "r")
+    def bhimpl_jit_invalidate_vref_maybe(cpu, struct):
+        # this op is rewritten into a call by metainter/virtualref.py, so we
+        # don't need an implementation.  This can only be called during tests
+        # by interp_operations, because the graphs are not rewritten in that
+        # case
+        assert not we_are_translated()
+
     @arguments("cpu", "d", returns="r")
     def bhimpl_new(cpu, descr):
         return cpu.bh_new(descr)

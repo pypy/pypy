@@ -584,6 +584,14 @@ class MIFrame(object):
             raise SwitchToBlackhole(ABORT_FORCE_QUASIIMMUT)
         self.generate_guard(rop.GUARD_ISNULL, mutatebox, resumepc=orgpc)
 
+    @arguments("box")
+    def opimpl_jit_invalidate_vref_maybe(self, box):
+        # this op is rewritten into a call by metainter/virtualref.py, so we
+        # don't need an implementation.  This can only be called during tests
+        # by interp_operations, because the graphs are not rewritten in that
+        # case
+        assert not we_are_translated()
+
     def _nonstandard_virtualizable(self, pc, box):
         # returns True if 'box' is actually not the "standard" virtualizable
         # that is stored in metainterp.virtualizable_boxes[-1]

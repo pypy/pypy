@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, _get_jitcodes
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.virtualref import VirtualRefInfo
 
@@ -15,6 +15,30 @@ class VRefTests:
     def finish_setup_for_interp_operations(self):
         self.vrefinfo = VirtualRefInfo(self.warmrunnerstate)
         self.cw.setup_vrefinfo(self.vrefinfo)
+
+    def test_rewrite_graphs(self):
+        class X:
+            pass
+        def fn():
+            x = X()
+            vref = virtual_ref(x)
+            x1 = vref()                  # jit_force_virtual
+            virtual_ref_finish(vref, x)  # jit_invalidate_vref_maybe + call vref_finish
+        #
+        _get_jitcodes(self, self.CPUClass, fn, [], self.type_system)
+        graph = self.all_graphs[0]
+        assert graph.name == 'fn'
+        self.vrefinfo.rewrite_graphs([graph])
+        #
+        def check_call(op, fname):
+            assert op.opname == 'direct_call'
+            assert op.args[0].value._obj._name.startswith(fname)
+        #
+        ops = [op for block, op in graph.iterblockops()]
+        check_call(ops[-4], 'virtual_ref')
+        check_call(ops[-3], 'force_virtual_if_necessary')
+        check_call(ops[-2], 'invalidate_vref_maybe')
+        check_call(ops[-1], 'll_virtual_ref_finish')
 
     def test_make_vref_simple(self):
         class X:
