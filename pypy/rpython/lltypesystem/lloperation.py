@@ -434,7 +434,6 @@ LL_OPERATIONS = {
     'jit_force_virtualizable':LLOp(canrun=True),
     'jit_force_virtual':    LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
-    'jit_invalidate_vref_maybe': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear':LLOp(canraise=(MemoryError,),canunwindgc=True),
