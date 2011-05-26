@@ -1049,8 +1049,10 @@ class MIFrame(object):
         vrefinfo = metainterp.staticdata.virtualref_info
         vref = vrefbox.getref_base()
         if vrefinfo.is_virtual_ref(vref):
+            # XXX write a comment about nullbox
+            nullbox = self.metainterp.cpu.ts.CONST_NULL
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
-                                      [vrefbox, lastbox], None)
+                                      [vrefbox, nullbox], None)
 
     @arguments()
     def opimpl_ll_read_timestamp(self):

@@ -566,5 +566,35 @@ class VRefTests:
         py.test.raises(InvalidVirtualRef, "fn(10)")
         py.test.raises(LLException, "self.meta_interp(fn, [10])")
 
+    def test_call_virtualref_already_forced(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])
+        #
+        class XY:
+            n = 0
+        #
+        @dont_look_inside
+        def force_it(vref, n):
+            if n % 6 == 0:
+                return vref().n
+            return 0
+        def fn(n):
+            res = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, res=res)
+                myjitdriver.jit_merge_point(n=n, res=res)
+                xy = XY()
+                xy.n = n
+                vref = virtual_ref(xy)
+                force_it(vref, n)
+                virtual_ref_finish(vref, xy)
+                res += force_it(vref, n) # doesn't raise, because it was already forced
+                n -= 1
+            return res
+        #
+        assert fn(10) == 6
+        res = self.meta_interp(fn, [10])
+        assert res == 6
+
+
 class TestLLtype(VRefTests, LLJitMixin):
     pass

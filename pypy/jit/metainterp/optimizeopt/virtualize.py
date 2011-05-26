@@ -341,8 +341,10 @@ class OptVirtualize(optimizer.Optimization):
         # - set 'forced' to point to the real object
         seo = self.optimizer.send_extra_operation
 
-        ## seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
-        ##                  descr = vrefinfo.descr_forced))
+        vrefbox, objbox = op.getarglist()
+        if not self.optimizer.cpu.ts.CONST_NULL.same_constant(objbox):
+            seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
+                             descr = vrefinfo.descr_forced))
         
         # - set 'virtual_token' to TOKEN_NONE
         args = [op.getarg(0), ConstInt(vrefinfo.TOKEN_NONE)]
