@@ -1422,7 +1422,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             f21 = getarrayitem_raw(i13, i18, descr=...)
             i14 = int_sub(i6, 1)
             i15 = int_ge(i14, i8)
-            guard_false(i15, descr=<Guard5>)
+            guard_false(i15, descr=...)
             f23 = getarrayitem_raw(i13, i14, descr=...)
             f24 = float_add(f21, f23)
             f26 = getarrayitem_raw(i13, i6, descr=...)
