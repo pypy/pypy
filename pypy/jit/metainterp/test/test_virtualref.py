@@ -319,8 +319,8 @@ class VRefTests:
         #
         res = self.meta_interp(f, [30])
         assert res == 13
-        self.check_loops(new_with_vtable=2,   # the vref, XY() at the end
-                         new_array=0)         # but not next1/2/3
+        self.check_loops(new_with_vtable=1,   # the vref, but not XY()
+                         new_array=0)         # and neither next1/2/3
         self.check_loop_count(1)
         self.check_aborted_count(0)
 
@@ -413,36 +413,6 @@ class VRefTests:
         self.check_loop_count(2)     # the loop and the bridge
         self.check_loops(new_with_vtable=2,  # loop: nothing; bridge: vref, xy
                          new_array=2)        # bridge: next4, next5
-        self.check_aborted_count(0)
-
-    def test_access_vref_later(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n'])
-        #
-        class XY:
-            pass
-        class ExCtx:
-            pass
-        exctx = ExCtx()
-        #
-        @dont_look_inside
-        def g():
-            return exctx.later().n
-        #
-        def f(n):
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n)
-                myjitdriver.jit_merge_point(n=n)
-                xy = XY()
-                xy.n = n
-                exctx.topframeref = vref = virtual_ref(xy)
-                exctx.later = exctx.topframeref
-                n -= 1
-                exctx.topframeref = vref_None
-                virtual_ref_finish(vref, xy)
-            return g()
-        #
-        res = self.meta_interp(f, [15])
-        assert res == 1
         self.check_aborted_count(0)
 
     def test_jit_force_virtual_seen(self):
