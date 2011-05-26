@@ -4,7 +4,7 @@ optimization is not helping at all, but in conjunction with the JIT it can
 speed up global lookups a lot."""
 
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
-from pypy.objspace.std.dictmultiobject import DictStrategy, _hashes_differently_than_string
+from pypy.objspace.std.dictmultiobject import DictStrategy, _never_equal_to_string
 from pypy.objspace.std.dictmultiobject import ObjectDictStrategy
 from pypy.rlib import jit, rerased
 
@@ -79,7 +79,7 @@ class ModuleDictStrategy(DictStrategy):
             # maps to the same cell later (even if this cell no longer
             # represents a key)
             cell.invalidate()
-        elif _hashes_differently_than_string(space, w_key_type):
+        elif _never_equal_to_string(space, w_key_type):
             raise KeyError
         else:
             self.switch_to_object_strategy(w_dict)
@@ -99,7 +99,7 @@ class ModuleDictStrategy(DictStrategy):
         if space.is_w(w_lookup_type, space.w_str):
             return self.getitem_str(w_dict, space.str_w(w_lookup))
 
-        elif _hashes_differently_than_string(space, w_lookup_type):
+        elif _never_equal_to_string(space, w_lookup_type):
             return None
         else:
             self.switch_to_object_strategy(w_dict)

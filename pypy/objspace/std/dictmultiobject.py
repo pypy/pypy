@@ -13,7 +13,7 @@ from pypy.rlib import rerased
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
 
-def _hashes_differently_than_string(space, w_lookup_type):
+def _never_equal_to_string(space, w_lookup_type):
     """ Handles the case of a non string key lookup.
     Types that have a sane hash/eq function should allow us to return True
     directly to signal that the key is not in the dict in any case.
@@ -421,7 +421,7 @@ class StringDictStrategy(AbtractTypedStrategy, DictStrategy):
 
         if self.is_correct_type(w_key):
             return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
-        elif _hashes_differently_than_string(space, space.type(w_key)):
+        elif _never_equal_to_string(space, space.type(w_key)):
             return None
         else:
             self.switch_to_object_strategy(w_dict)

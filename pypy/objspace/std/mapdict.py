@@ -6,7 +6,7 @@ from pypy.rlib import rerased
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, DictStrategy, ObjectDictStrategy
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
-from pypy.objspace.std.dictmultiobject import _hashes_differently_than_string
+from pypy.objspace.std.dictmultiobject import _never_equal_to_string
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.typeobject import TypeCell
 
@@ -600,7 +600,7 @@ class MapDictStrategy(DictStrategy):
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
             return self.getitem_str(w_dict, space.str_w(w_lookup))
-        elif _hashes_differently_than_string(space, w_lookup_type):
+        elif _never_equal_to_string(space, w_lookup_type):
             return None
         else:
             self.switch_to_object_strategy(w_dict)
@@ -644,7 +644,7 @@ class MapDictStrategy(DictStrategy):
             flag = w_obj.deldictvalue(space, w_key)
             if not flag:
                 raise KeyError
-        elif _hashes_differently_than_string(space, w_key_type):
+        elif _never_equal_to_string(space, w_key_type):
             raise KeyError
         else:
             self.switch_to_object_strategy(w_dict)
