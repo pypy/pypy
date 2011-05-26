@@ -150,7 +150,8 @@ class VRefTests:
         #
         @dont_look_inside
         def g(vref):
-            debug_print(lltype.Void, '-+-+-+-+- external read:', vref().n)
+            # we cannot do anything with the vref after the call to finish()
+            pass
         #
         def f(n):
             while n > 0:
@@ -169,7 +170,7 @@ class VRefTests:
             return 1
         #
         self.meta_interp(f, [10])
-        self.check_loops(new_with_vtable=2)   # the vref and the X
+        self.check_loops(new_with_vtable=1)   # the vref
         self.check_aborted_count(0)
 
     def test_simple_all_removed(self):
