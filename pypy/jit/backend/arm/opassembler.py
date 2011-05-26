@@ -324,6 +324,7 @@ class OpAssembler(object):
             if count % 2 != 0:
                 n += WORD
                 stack_args.append(ConstInt(0))
+
             #then we push every thing on the stack
             for i in range(len(stack_args) -1, -1, -1):
                 arg = stack_args[i]
@@ -331,29 +332,48 @@ class OpAssembler(object):
                     self.mc.PUSH([r.ip.value])
                 else:
                     self.regalloc_push(regalloc.loc(arg))
-        # move variables to the argument registers
+
+        # collect variables that need to go in registers
+        # and the registers they will be stored in 
         num = 0
         count = 0
+        non_float_locs = []
+        non_float_regs = []
+        float_locs = []
         for i in range(reg_args):
             arg = args[i]
             if arg.type == FLOAT and count % 2 != 0:
-                num += 1
+                    num += 1
+                    count = 0
             reg = r.caller_resp[num]
-            self.mov_loc_loc(regalloc.loc(arg), reg)
+
+            if arg.type == FLOAT:
+                float_locs.append((regalloc.loc(arg), reg))
+            else:
+                non_float_locs.append(regalloc.loc(arg))
+                non_float_regs.append(reg)
+
             if arg.type == FLOAT:
                 num += 2
             else:
                 num += 1
                 count += 1
 
+        # remap values stored in core registers
+        remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
+
+        # spill variables that need to be saved around calls
         regalloc.before_call(save_all_regs=2)
+
+        for loc, reg in float_locs:
+            self.mov_loc_loc(loc, reg)
+
         #the actual call
         self.mc.BL(adr)
         self.mark_gc_roots(force_index)
         regalloc.possibly_free_vars(args)
         # readjust the sp in case we passed some args on the stack
-        if n_args > 4:
-            assert n > 0
+        if n > 0:
             self._adjust_sp(-n, fcond=fcond)
 
         # restore the argumets stored on the stack
