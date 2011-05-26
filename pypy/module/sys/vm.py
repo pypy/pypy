@@ -91,9 +91,8 @@ frame."""
     if operror is None:
         return space.newtuple([space.w_None,space.w_None,space.w_None])
     else:
-        operror.application_traceback.frame.mark_as_escaped()
         return space.newtuple([operror.w_type, operror.get_w_value(space),
-                               space.wrap(operror.application_traceback)])
+                               space.wrap(operror.get_traceback())])
 
 def exc_clear(space):
     """Clear global information on the current exception.  Subsequent calls

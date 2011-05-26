@@ -11,14 +11,15 @@ class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
     sent to the application level.
 
-    OperationError instances have three public attributes (and no .args),
-    w_type, w_value and application_traceback, which contain the wrapped
+    OperationError instances have three attributes (and no .args),
+    w_type, _w_value and _application_traceback, which contain the wrapped
     type and value describing the exception, and a chained list of
     PyTraceback objects making the application-level traceback.
     """
 
+    _attrs_ = ['w_type', '_w_value', '_application_traceback']
     _w_value = None
-    application_traceback = None
+    _application_traceback = None
 
     def __init__(self, w_type, w_value, tb=None):
         if not we_are_translated() and w_type is None:
@@ -26,7 +27,7 @@ class OperationError(Exception):
             raise FlowingError(w_value)
         self.setup(w_type)
         self._w_value = w_value
-        self.application_traceback = tb
+        self._application_traceback = tb
 
     def setup(self, w_type):
         self.w_type = w_type
@@ -37,7 +38,7 @@ class OperationError(Exception):
         # for sys.exc_clear()
         self.w_type = space.w_None
         self._w_value = space.w_None
-        self.application_traceback = None
+        self._application_traceback = None
         if not we_are_translated():
             del self.debug_excs[:]
 
@@ -103,7 +104,7 @@ class OperationError(Exception):
 
     def print_app_tb_only(self, file):
         "NOT_RPYTHON"
-        tb = self.application_traceback
+        tb = self._application_traceback
         if tb:
             import linecache
             print >> file, "Traceback (application-level):"
@@ -250,6 +251,28 @@ class OperationError(Exception):
 
     def _compute_value(self):
         raise NotImplementedError
+
+    def get_traceback(self):
+        """Calling this marks the PyTraceback as escaped, i.e. it becomes
+        accessible and inspectable by app-level Python code.  For the JIT.
+        Note that this has no effect if there are already several traceback
+        frames recorded, because in this case they are already marked as
+        escaping by executioncontext.leave() being called with
+        got_exception=True.
+        """
+        if self._application_traceback is not None:
+            self._application_traceback.frame.mark_as_escaped()
+        return self._application_traceback
+
+    def set_traceback(self, traceback):
+        """Set the current traceback.  It should either be a traceback
+        pointing to some already-escaped frame, or a traceback for the
+        current frame.  To support the latter case we do not mark the
+        frame as escaped.  The idea is that it will be marked as escaping
+        only if the exception really propagates out of this frame, by
+        executioncontext.leave() being called with got_exception=True.
+        """
+        self._application_traceback = traceback
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string

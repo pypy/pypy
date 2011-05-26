@@ -73,7 +73,7 @@ class PyFrame(eval.Frame):
         Must be called on frames that are exposed to applevel, e.g. by
         sys._getframe().  This ensures that the virtualref holding the frame
         is properly forced by ec.leave(), and thus the frame will be still
-        accessible even after the corresponding C stack is died.
+        accessible even after the corresponding C stack died.
         """
         self.escaped = True
 
@@ -148,6 +148,7 @@ class PyFrame(eval.Frame):
                 not self.space.config.translating)
         executioncontext = self.space.getexecutioncontext()
         executioncontext.enter(self)
+        got_exception = True
         w_exitvalue = self.space.w_None
         try:
             executioncontext.call_trace(self)
@@ -176,8 +177,9 @@ class PyFrame(eval.Frame):
             # clean up the exception, might be useful for not
             # allocating exception objects in some cases
             self.last_exception = None
+            got_exception = False
         finally:
-            executioncontext.leave(self, w_exitvalue)
+            executioncontext.leave(self, w_exitvalue, got_exception)
         return w_exitvalue
     execute_frame.insert_stack_check_here = True
 
@@ -324,7 +326,7 @@ class PyFrame(eval.Frame):
             w_tb = space.w_None
         else:
             w_exc_value = self.last_exception.get_w_value(space)
-            w_tb = w(self.last_exception.application_traceback)
+            w_tb = w(self.last_exception.get_traceback())
         
         tup_state = [
             w(self.f_backref()),
@@ -644,7 +646,7 @@ class PyFrame(eval.Frame):
             while f is not None and f.last_exception is None:
                 f = f.f_backref()
             if f is not None:
-                return space.wrap(f.last_exception.application_traceback)
+                return space.wrap(f.last_exception.get_traceback())
         return space.w_None
          
     def fget_f_restricted(self, space):

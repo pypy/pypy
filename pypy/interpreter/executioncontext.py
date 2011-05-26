@@ -58,19 +58,19 @@ class ExecutionContext(object):
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
-    def leave(self, frame, w_exitvalue):
+    def leave(self, frame, w_exitvalue, got_exception):
         try:
             if self.profilefunc:
                 self._trace(frame, 'leaveframe', w_exitvalue)
         finally:
             frame_vref = self.topframeref
             self.topframeref = frame.f_backref
-            if frame.escaped:
+            if frame.escaped or got_exception:
                 # if this frame escaped to applevel, we must ensure that also
                 # f_back does
                 f_back = frame.f_backref()
                 if f_back:
-                    f_back.escaped = True
+                    f_back.mark_as_escaped()
                 # force the frame (from the JIT point of view), so that it can
                 # be accessed also later
                 frame_vref()
@@ -288,7 +288,7 @@ class ExecutionContext(object):
             if operr is not None:
                 w_value = operr.get_w_value(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
-                                     space.wrap(operr.application_traceback)])
+                                     space.wrap(operr.get_traceback())])
 
             frame.fast2locals()
             self.is_tracing += 1

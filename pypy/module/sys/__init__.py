@@ -150,7 +150,7 @@ class Module(MixedModule):
             if operror is None:
                 return space.w_None
             else:
-                return space.wrap(operror.application_traceback)
+                return space.wrap(operror.get_traceback())
         return None 
 
     def get_w_default_encoder(self):
