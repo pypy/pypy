@@ -566,15 +566,19 @@ class WarmEnterState(object):
             return can_inline_greenargs(*greenargs)
         self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
-        def on_compile(logger, token, operations, type, greenkey):
-            greenargs = unwrap_greenkey(greenkey)
-            return jd.jitdriver.on_compile(logger, token, operations, type,
-                                           *greenargs)
-        def on_compile_bridge(logger, orig_token, operations, n):
-            return jd.jitdriver.on_compile_bridge(logger, orig_token,
-                                                  operations, n)
-        jd.on_compile = on_compile
-        jd.on_compile_bridge = on_compile_bridge
+        if hasattr(jd.jitdriver, 'on_compile'):
+            def on_compile(logger, token, operations, type, greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                return jd.jitdriver.on_compile(logger, token, operations, type,
+                                               *greenargs)
+            def on_compile_bridge(logger, orig_token, operations, n):
+                return jd.jitdriver.on_compile_bridge(logger, orig_token,
+                                                      operations, n)
+            jd.on_compile = on_compile
+            jd.on_compile_bridge = on_compile_bridge
+        else:
+            jd.on_compile = lambda *args: None
+            jd.on_compile_bridge = lambda *args: None
 
         def get_assembler_token(greenkey, redboxes):
             # 'redboxes' is only used to know the types of red arguments
