@@ -573,7 +573,7 @@ class __extend__(pyframe.PyFrame):
         else:
             msg = "raise: arg 3 must be a traceback or None"
             tb = pytraceback.check_traceback(space, w_traceback, msg)
-            operror.application_traceback = tb
+            operror.set_traceback(tb)
             # special 3-arguments raise, no new traceback obj will be attached
             raise RaiseWithExplicitTraceback(operror)
 
@@ -953,7 +953,7 @@ class __extend__(pyframe.PyFrame):
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
             operr = unroller.operr
-            w_traceback = self.space.wrap(operr.application_traceback)
+            w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
