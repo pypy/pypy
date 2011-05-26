@@ -51,7 +51,7 @@ class PyPyJitDriver(JitDriver):
     greens = ['next_instr', 'is_being_profiled', 'pycode']
     virtualizables = ['frame']
 
-    def on_compile(self, looptoken, operations, type, next_instr,
+    def on_compile(self, logger, looptoken, operations, type, next_instr,
                    is_being_profiled, ll_pycode):
         from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
         
@@ -61,7 +61,7 @@ class PyPyJitDriver(JitDriver):
             pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
             space.call_function(cache.w_compile_hook, pycode)
 
-    def on_compile_bridge(self, orig_looptoken, operations, n):
+    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
         pass
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,

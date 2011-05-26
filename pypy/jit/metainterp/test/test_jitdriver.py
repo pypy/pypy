@@ -15,7 +15,7 @@ class JitDriverTests(object):
         called = {}
         
         class MyJitDriver(JitDriver):
-            def on_compile(self, looptoken, operations, type, n, m):
+            def on_compile(self, logger, looptoken, operations, type, n, m):
                 called[(m, n, type)] = looptoken
 
         driver = MyJitDriver(greens = ['n', 'm'], reds = ['i'])
@@ -37,9 +37,9 @@ class JitDriverTests(object):
         called = {}
         
         class MyJitDriver(JitDriver):
-            def on_compile(self, looptoken, operations, type, n, m):
+            def on_compile(self, logger, looptoken, operations, type, n, m):
                 called[(m, n, type)] = loop
-            def on_compile_bridge(self, orig_token, operations, n):
+            def on_compile_bridge(self, logger, orig_token, operations, n):
                 assert 'bridge' not in called
                 called['bridge'] = orig_token
 
