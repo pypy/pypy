@@ -17,7 +17,6 @@ class OperationError(Exception):
     PyTraceback objects making the application-level traceback.
     """
 
-    _attrs_ = ['w_type', '_w_value', '_application_traceback']
     _w_value = None
     _application_traceback = None
 
@@ -260,9 +259,12 @@ class OperationError(Exception):
         escaping by executioncontext.leave() being called with
         got_exception=True.
         """
-        if self._application_traceback is not None:
-            self._application_traceback.frame.mark_as_escaped()
-        return self._application_traceback
+        from pypy.interpreter.pytraceback import PyTraceback
+        tb = self._application_traceback
+        if tb is not None:
+            assert isinstance(tb, PyTraceback)
+            tb.frame.mark_as_escaped()
+        return tb
 
     def set_traceback(self, traceback):
         """Set the current traceback.  It should either be a traceback
