@@ -7,6 +7,7 @@ from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET, N_REGISTERS_S
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager, ARMv7RegisterMananger,
                                                     _check_imm_arg, TempInt, TempPtr)
+from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
@@ -174,13 +175,13 @@ class AssemblerARM(ResOpAssembler):
                 i += 4
             elif res == self.STACK_LOC:
                 stack_loc = self.decode32(enc, i+1)
+                i += 4
                 if group == self.FLOAT_TYPE:
                     value = self.decode64(stack, frame_depth - stack_loc*WORD)
                     self.fail_boxes_float.setitem(fail_index, value)
                     continue
                 else:
                     value = self.decode32(stack, frame_depth - stack_loc*WORD)
-                i += 4
             else: # REG_LOC
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
@@ -470,19 +471,40 @@ class AssemblerARM(ResOpAssembler):
         reg_args = count_reg_args(inputargs)
 
         stack_locs = len(inputargs) - reg_args
+
         selected_reg = 0
+        count = 0
+        float_args = []
+        nonfloat_args = []
+        nonfloat_regs = []
+        # load reg args
         for i in range(reg_args):
             arg = inputargs[i]
+            if arg.type == FLOAT and count % 2 != 0:
+                    selected_reg += 1
+                    count = 0
+            reg = r.all_regs[selected_reg]
+
             if arg.type == FLOAT:
-                loc = floatlocs[i]
+                float_args.append((reg, floatlocs[i]))
             else:
-                loc = nonfloatlocs[i]
-            self.mov_loc_loc(r.all_regs[selected_reg], loc)
-            if inputargs[i].type == FLOAT:
+                nonfloat_args.append(reg)
+                nonfloat_regs.append(nonfloatlocs[i])
+                count += 1
+
+            if arg.type == FLOAT:
                 selected_reg += 2
             else:
                 selected_reg += 1
 
+        # move float arguments to vfp regsiters
+        for loc, reg in float_args:
+            self.mov_loc_loc(loc, reg)
+
+        # remap values stored in core registers
+        remap_frame_layout(self, nonfloat_args, nonfloat_regs, r.ip)
+
+        # load values passed on the stack to the corresponding locations
         stack_position = len(r.callee_saved_registers)*WORD + \
                             len(r.callee_saved_vfp_registers)*2*WORD + \
                             N_REGISTERS_SAVED_BY_MALLOC * WORD + \
@@ -712,6 +734,7 @@ class AssemblerARM(ResOpAssembler):
             mc.CMP_rr(r.fp.value, r.sp.value)
             mc.MOV_rr(r.pc.value, r.pc.value, cond=c.GE)
             mc.BKPT()
+
     def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 4:
             return
