@@ -340,8 +340,10 @@ class OptVirtualize(optimizer.Optimization):
         # op.getarg(1) should really never point to null here
         # - set 'forced' to point to the real object
         seo = self.optimizer.send_extra_operation
-        seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
-                         descr = vrefinfo.descr_forced))
+
+        ## seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
+        ##                  descr = vrefinfo.descr_forced))
+        
         # - set 'virtual_token' to TOKEN_NONE
         args = [op.getarg(0), ConstInt(vrefinfo.TOKEN_NONE)]
         seo(ResOperation(rop.SETFIELD_GC, args, None,

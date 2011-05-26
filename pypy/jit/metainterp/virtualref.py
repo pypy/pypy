@@ -2,7 +2,7 @@ from pypy.rpython.rmodel import inputconst, log
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker
-
+from pypy.rlib.jit import InvalidVirtualRef
 
 class VirtualRefInfo:
 
@@ -146,7 +146,8 @@ class VirtualRefInfo:
                 ResumeGuardForcedDescr.force_now(self.cpu, token)
                 assert vref.virtual_token == self.TOKEN_NONE
                 assert vref.forced
-        else:
-            assert vref.forced
+        elif not vref.forced:
+            # token == TOKEN_NONE and the vref was not forced: it's invalid
+            raise InvalidVirtualRef
         return vref.forced
     force_virtual._dont_inline_ = True
