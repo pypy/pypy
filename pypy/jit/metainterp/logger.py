@@ -75,6 +75,40 @@ class Logger(object):
         else:
             return '?'
 
+    def repr_of_resop(self, memo, op, ops_offset=None):
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            loc = op.getarg(0)._get_str()
+            reclev = op.getarg(1).getint()
+            return "debug_merge_point('%s', %s)" % (loc, reclev)
+        if ops_offset is None:
+            offset = -1
+        else:
+            offset = ops_offset.get(op, -1)
+        if offset == -1:
+            s_offset = ""
+        else:
+            s_offset = "+%d: " % offset
+        args = ", ".join([self.repr_of_arg(memo, op.getarg(i)) for i in range(op.numargs())])
+        if op.result is not None:
+            res = self.repr_of_arg(memo, op.result) + " = "
+        else:
+            res = ""
+        is_guard = op.is_guard()
+        if op.getdescr() is not None:
+            descr = op.getdescr()
+            if is_guard and self.guard_number:
+                index = self.metainterp_sd.cpu.get_fail_descr_number(descr)
+                r = "<Guard%d>" % index
+            else:
+                r = self.repr_of_descr(descr)
+            args += ', descr=' +  r
+        if is_guard and op.getfailargs() is not None:
+            fail_args = ' [' + ", ".join([self.repr_of_arg(memo, arg)
+                                          for arg in op.getfailargs()]) + ']'
+        else:
+            fail_args = ''
+        return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
+
     def _log_operations(self, inputargs, operations, ops_offset):
         if not have_debug_prints():
             return
@@ -86,37 +120,7 @@ class Logger(object):
             debug_print('[' + args + ']')
         for i in range(len(operations)):
             op = operations[i]
-            if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                loc = op.getarg(0)._get_str()
-                reclev = op.getarg(1).getint()
-                debug_print("debug_merge_point('%s', %s)" % (loc, reclev))
-                continue
-            offset = ops_offset.get(op, -1)
-            if offset == -1:
-                s_offset = ""
-            else:
-                s_offset = "+%d: " % offset
-            args = ", ".join([self.repr_of_arg(memo, op.getarg(i)) for i in range(op.numargs())])
-            if op.result is not None:
-                res = self.repr_of_arg(memo, op.result) + " = "
-            else:
-                res = ""
-            is_guard = op.is_guard()
-            if op.getdescr() is not None:
-                descr = op.getdescr()
-                if is_guard and self.guard_number:
-                    index = self.metainterp_sd.cpu.get_fail_descr_number(descr)
-                    r = "<Guard%d>" % index
-                else:
-                    r = self.repr_of_descr(descr)
-                args += ', descr=' +  r
-            if is_guard and op.getfailargs() is not None:
-                fail_args = ' [' + ", ".join([self.repr_of_arg(memo, arg)
-                                              for arg in op.getfailargs()]) + ']'
-            else:
-                fail_args = ''
-            debug_print(s_offset + res + op.getopname() +
-                        '(' + args + ')' + fail_args)
+            debug_print(self.repr_of_resop(memo, operations[i], ops_offset))
         if ops_offset and None in ops_offset:
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)
