@@ -1292,38 +1292,6 @@ class OptimizeOptTest(BaseTestOptimizeOpt):
         """
         self.optimize_loop(ops, expected)
 
-    def test_virtual_field_forced_by_later_jumpargs(self):
-        # FIXME: Can that occure? How to test?!?
-        ops = """
-        [i0, p1, p3, p3next]
-        i28 = int_add(i0, 1)
-        p30 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p30, i28, descr=nextdescr)
-        i29 = int_add(i28, 1)
-        p3v = new_with_vtable(ConstClass(node_vtable))        
-        setfield_gc(p3v, p30, descr=valuedescr)
-        p45 = getfield_gc(p3next, descr=valuedescr)
-        jump(i29, p45, p3next, p3v)
-        """
-        preamble = """
-        [i0, p1, p3, p3next]
-        i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
-        p45 = getfield_gc(p3next, descr=valuedescr)        
-        jump(i29, p45, p3next, i28)
-        """
-        expected = """
-        [i0, p1, p3, i1]
-        i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
-        p3v = new_with_vtable(ConstClass(node_vtable))
-        p30 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p30, i1, descr=nextdescr)
-        setfield_gc(p3v, p30, descr=valuedescr)        
-        jump(i29, i28, p3v)
-        """
-        self.optimize_loop(ops, expected, preamble)
-
     def test_virtual_field_forced_by_lazy_setfield(self):
         ops = """
         [i0, p1, p3]

@@ -283,6 +283,7 @@ class UnrollOptimizer(Optimization):
         self.boxes_created_this_iteration = {}
 
         assert jumpop
+        original_jumpargs = jumpop.getarglist()[:]
         values = [self.getvalue(arg) for arg in jumpop.getarglist()]
         jumpargs = virtual_state.make_inputargs(values)
         jumpop.initarglist(jumpargs)
@@ -326,6 +327,18 @@ class UnrollOptimizer(Optimization):
         jumpop.initarglist(jumpargs)
         self.optimizer.send_extra_operation(jumpop)
         short.append(ResOperation(rop.JUMP, short_jumpargs, None))
+
+        modifier = VirtualStateAdder(self.optimizer)
+        final_virtual_state = modifier.get_virtual_state(original_jumpargs)
+        if not virtual_state.generalization_of(final_virtual_state):
+            # We ended up with a virtual state that is not compatible
+            # and we are thus unable to jump to the start of the loop
+            # XXX Is it possible to end up here? If so, consider:
+            #    - Fallback on having the preamble jump to itself?
+            #    - Would virtual_state.generate_guards make sense here?
+            debug_print("Bad virtual state at end of loop")
+            raise InvalidLoop
+
         return inputargs, short_inputargs, short
 
     def add_op_to_short(self, op, short, short_seen):

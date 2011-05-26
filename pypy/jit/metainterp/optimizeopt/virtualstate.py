@@ -14,12 +14,14 @@ from pypy.rlib.objectmodel import we_are_translated
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
     
-    def generalization_of(self, other):
+    def generalization_of(self, other, renum):
         raise NotImplementedError
 
-    def generate_guards(self, other, box, cpu, extra_guards):
-        if self.generalization_of(other):
+    def generate_guards(self, other, box, cpu, extra_guards, renum):
+        if self.generalization_of(other, renum):
             return
+        if renum[self.position] != other.position:
+            raise InvalidLoop
         self._generate_guards(other, box, cpu, extra_guards)
 
     def _generate_guards(self, other, box, cpu, extra_guards):
@@ -42,10 +44,11 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
 
-    def generalization_of(self, other):
+    def generalization_of(self, other, renum):
         assert self.position != -1
-        if self.position != other.position:
-            return False
+        if self.position in renum:
+            return renum[self.position] == other.position
+        renum[self.position] = other.position
         if not self._generalization_of(other):
             return False
         assert len(self.fielddescrs) == len(self.fieldstate)
@@ -56,7 +59,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
                 return False
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i], renum):
                 return False
 
         return True
@@ -82,7 +85,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
         self.known_class = known_class
 
-    def _generalization_of(self, other):        
+    def _generalization_of(self, other):
         if not isinstance(other, VirtualStateInfo):
             return False
         if not self.known_class.same_constant(other.known_class):
@@ -105,16 +108,17 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
 
-    def generalization_of(self, other):
+    def generalization_of(self, other, renum):
         assert self.position != -1
-        if self.position != other.position:
-            return False
+        if self.position in renum:
+            return renum[self.position] == other.position
+        renum[self.position] = other.position
         if self.arraydescr is not other.arraydescr:
             return False
         if len(self.fieldstate) != len(other.fieldstate):
             return False
         for i in range(len(self.fieldstate)):
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i], renum):
                 return False
         return True
 
@@ -145,12 +149,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             self.constbox = None
         self.position_in_notvirtuals = -1
 
-    def generalization_of(self, other):
+    def generalization_of(self, other, renum):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
         assert self.position != -1
-        if self.position != other.position:
-            return False
+        if self.position in renum:
+            return renum[self.position] == other.position
+        renum[self.position] = other.position
         if not isinstance(other, NotVirtualStateInfo):
             return False
         if other.level < self.level:
@@ -241,16 +246,18 @@ class VirtualState(object):
 
     def generalization_of(self, other):
         assert len(self.state) == len(other.state)
+        renum = {}
         for i in range(len(self.state)):
-            if not self.state[i].generalization_of(other.state[i]):
+            if not self.state[i].generalization_of(other.state[i], renum):
                 return False
         return True
 
     def generate_guards(self, other, args, cpu, extra_guards):        
         assert len(self.state) == len(other.state) == len(args)
+        renum = {}
         for i in range(len(self.state)):
             self.state[i].generate_guards(other.state[i], args[i],
-                                          cpu, extra_guards)
+                                          cpu, extra_guards, renum)
 
     def make_inputargs(self, values, keyboxes=False):
         assert len(values) == len(self.state)

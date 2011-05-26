@@ -40,7 +40,10 @@ class OptValue(object):
         if intbound:
             self.intbound = intbound
         else:
-            self.intbound = IntBound(MININT, MAXINT) #IntUnbounded()
+            if isinstance(box, BoxInt):
+                self.intbound = IntBound(MININT, MAXINT)
+            else:
+                self.intbound = IntUnbounded()
 
         if isinstance(box, Const):
             self.make_constant(box)

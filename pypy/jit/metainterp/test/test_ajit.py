@@ -2387,6 +2387,28 @@ class BasicTests:
             return sa
         assert self.meta_interp(f, [20, 1, 2]) == f(20, 1, 2)
 
+    def test_args_becomming_not_equal_boxed1(self):
+        class A(object):
+            def __init__(self, a, b):
+                self.a = a
+                self.b = b
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a', 'b', 'node'])
+
+        def f(n, a, b):
+            sa = i = 0
+            node = A(b, b)
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a, b=b, node=node)
+                sa += node.a
+                sa *= node.b
+                if i > n/2:
+                    node = A(a, b)
+                else:
+                    node = A(b, b)
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20, 1, 2]) == f(20, 1, 2)
+
     def test_args_becomming_equal_boxed2(self):
         class A(object):
             def __init__(self, a, b):
