@@ -803,19 +803,21 @@ class AssemblerARM(ResOpAssembler):
         if loc.is_stack() or prev_loc.is_stack():
             temp = r.lr
             if loc.is_stack() and prev_loc.is_reg():
-                offset = ConstInt(loc.position*-WORD)
-                if not _check_imm_arg(offset):
-                    self.mc.gen_load_int(temp.value, offset.value)
+                # spill a core register
+                offset = ConstInt(loc.position*WORD)
+                if not _check_imm_arg(offset, size=0xFFF):
+                    self.mc.gen_load_int(temp.value, -1*offset.value)
                     self.mc.STR_rr(prev_loc.value, r.fp.value, temp.value, cond=cond)
                 else:
-                    self.mc.STR_ri(prev_loc.value, r.fp.value, offset.value, cond=cond)
+                    self.mc.STR_ri(prev_loc.value, r.fp.value, imm=-1*offset.value, cond=cond)
             elif loc.is_reg() and prev_loc.is_stack():
-                offset = ConstInt(prev_loc.position*-WORD)
-                if not _check_imm_arg(offset):
-                    self.mc.gen_load_int(temp.value, offset.value)
+                # unspill a core register
+                offset = ConstInt(prev_loc.position*WORD)
+                if not _check_imm_arg(offset, size=0xFFF):
+                    self.mc.gen_load_int(temp.value, -1*offset.value)
                     self.mc.LDR_rr(loc.value, r.fp.value, temp.value, cond=cond)
                 else:
-                    self.mc.LDR_ri(loc.value, r.fp.value, offset.value, cond=cond)
+                    self.mc.LDR_ri(loc.value, r.fp.value, imm=-1*offset.value, cond=cond)
             elif loc.is_stack() and prev_loc.is_vfp_reg():
                 # spill vfp register
                 offset = ConstInt(loc.position*-WORD)
