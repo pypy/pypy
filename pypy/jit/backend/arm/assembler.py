@@ -490,12 +490,12 @@ class AssemblerARM(ResOpAssembler):
             else:
                 nonfloat_args.append(reg)
                 nonfloat_regs.append(nonfloatlocs[i])
-                count += 1
 
             if arg.type == FLOAT:
                 selected_reg += 2
             else:
                 selected_reg += 1
+                count += 1
 
         # move float arguments to vfp regsiters
         for loc, reg in float_args:
