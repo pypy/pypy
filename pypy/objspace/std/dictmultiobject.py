@@ -209,15 +209,11 @@ class EmptyDictStrategy(DictStrategy):
         return 0
 
     def iter(self, w_dict):
-        return EmptyIteratorImplementation()
+        return EmptyIteratorImplementation(self.space, w_dict)
 
     def clear(self, w_dict):
         return
 
-
-class EmptyIteratorImplementation(object):
-    def next(self):
-        return (None, None)
 
 
 registerimplementation(W_DictMultiObject)
@@ -259,6 +255,10 @@ class IteratorImplementation(object):
         if self.dictimplementation is not None:
             return self.len - self.pos
         return 0
+
+class EmptyIteratorImplementation(IteratorImplementation):
+    def next(self):
+        return (None, None)
 
 
 
