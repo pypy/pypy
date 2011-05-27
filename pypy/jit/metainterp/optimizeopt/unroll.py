@@ -339,6 +339,10 @@ class UnrollOptimizer(Optimization):
             debug_print("Bad virtual state at end of loop")
             raise InvalidLoop
 
+        debug_start('jit-log-virtualstate')
+        virtual_state.debug_print('Closed loop with ')
+        debug_stop('jit-log-virtualstate')
+        
         return inputargs, short_inputargs, short
 
     def add_op_to_short(self, op, short, short_seen):
@@ -640,13 +644,17 @@ class OptInlineShortPreamble(Optimization):
                 args = op.getarglist()
                 modifier = VirtualStateAdder(self.optimizer)
                 virtual_state = modifier.get_virtual_state(args)
+                debug_start('jit-log-virtualstate')
+                virtual_state.debug_print("Looking for ")
 
                 for sh in short:
                     ok = False
                     extra_guards = []
-                    
+
+                    debugmsg = 'Did not match '
                     if sh.virtual_state.generalization_of(virtual_state):
                         ok = True
+                        debugmsg = 'Matched '
                     else:
                         try:
                             cpu = self.optimizer.cpu
@@ -655,9 +663,13 @@ class OptInlineShortPreamble(Optimization):
                                                              extra_guards)
                             
                             ok = True
+                            debugmsg = 'Guarded to match '
                         except InvalidLoop:
                             pass
+                    sh.virtual_state.debug_print(debugmsg)
+                    
                     if ok:
+                        debug_stop('jit-log-virtualstate')
                         # FIXME: Do we still need the dry run
                         #if self.inline(sh.operations, sh.inputargs,
                         #               op.getarglist(), dryrun=True):
@@ -683,6 +695,7 @@ class OptInlineShortPreamble(Optimization):
                                 self.emit_operation(guard)
                             self.optimizer.newoperations.append(jumpop)
                         return
+                debug_stop('jit-log-virtualstate')
                 retraced_count = loop_token.retraced_count
                 loop_token.retraced_count += 1
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit

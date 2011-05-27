@@ -10,6 +10,7 @@ from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
@@ -39,6 +40,20 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
 
     def _enum(self, virtual_state):
         raise NotImplementedError
+
+    def debug_print(self, indent, seen):
+        self.debug_header(indent)
+        if self not in seen:
+            seen[self] = True
+            for s in self.fieldstate:
+                s.debug_print(indent + "    ", seen)
+        else:
+            debug_print(indent + "    ...")
+                
+
+    def debug_header(self, indent):
+        raise NotImplementedError
+    
     
 class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
@@ -80,6 +95,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         for s in self.fieldstate:
             s.enum(virtual_state)
         
+        
 class VirtualStateInfo(AbstractVirtualStructStateInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
@@ -91,6 +107,9 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         if not self.known_class.same_constant(other.known_class):
             return False
         return True
+
+    def debug_header(self, indent):
+        debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
         
 class VStructStateInfo(AbstractVirtualStructStateInfo):
     def __init__(self, typedescr, fielddescrs):
@@ -103,6 +122,9 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
         if self.typedescr is not other.typedescr:
             return False
         return True
+
+    def debug_header(self, indent):
+        debug_print(indent + 'VStructStateInfo(%d):' % self.position)
         
 class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
@@ -134,6 +156,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def _enum(self, virtual_state):
         for s in self.fieldstate:
             s.enum(virtual_state)
+
+    def debug_header(self, indent):
+        debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
+            
         
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value):
@@ -236,6 +262,15 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.position_in_notvirtuals = len(virtual_state.notvirtuals)
         virtual_state.notvirtuals.append(self)
 
+    def debug_print(self, indent, seen):
+        l = {LEVEL_UNKNOWN: 'Unknown',
+             LEVEL_NONNULL: 'NonNull',
+             LEVEL_KNOWNCLASS: 'KnownClass',
+             LEVEL_CONSTANT: 'Constant',
+             None: 'None'}[self.level]
+        debug_print(indent + 'NotVirtualInfo(%d' % self.position + ', ' +
+                    l + ', ' + str(self.intbound) + ')')
+
 class VirtualState(object):
     def __init__(self, state):
         self.state = state
@@ -276,6 +311,11 @@ class VirtualState(object):
             
         return inputargs
 
+    def debug_print(self, hdr=''):
+        debug_print(hdr + "VirtualState():")
+        seen = {}
+        for s in self.state:
+            s.debug_print("    ", seen)
 
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def __init__(self, optimizer):
