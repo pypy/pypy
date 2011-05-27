@@ -747,6 +747,28 @@ class AppTestModuleDict(object):
         assert "s" not in d
         assert F() not in d
 
+class AppTestStrategies(object):
+    def w_get_strategy(self, obj):
+        import __pypy__
+        r = __pypy__.internal_repr(obj)
+        return r[r.find("(") + 1: r.find(")")]
+
+    def test_empty_to_string(self):
+        d = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        d["a"] = 1
+        assert "StringDictStrategy" in self.get_strategy(d)
+
+        class O(object):
+            pass
+        o = O()
+        d = o.__dict__ = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        o.a = 1
+        assert "StringDictStrategy" in self.get_strategy(d)
+
+
+
 
 class FakeString(str):
     hash_count = 0

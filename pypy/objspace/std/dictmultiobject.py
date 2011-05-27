@@ -198,7 +198,7 @@ class EmptyDictStrategy(DictStrategy):
 
     def setitem_str(self, w_dict, key, w_value):
         self.switch_to_string_strategy(w_dict)
-        self.setitem_str(w_dict, key, w_value)
+        w_dict.setitem_str(key, w_value)
 
     def delitem(self, w_dict, w_key):
         # in case the key is unhashable, try to hash it
