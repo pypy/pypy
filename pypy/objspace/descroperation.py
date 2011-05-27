@@ -248,7 +248,10 @@ class DescrOperation(object):
 
     def _check_len_result(space, w_obj):
         # Will complain if result is too big.
-        space.int_w(w_obj)
+        result = space.int_w(w_obj)
+        if result < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("__len__() should return >= 0"))
 
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')

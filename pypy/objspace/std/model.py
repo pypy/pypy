@@ -15,6 +15,7 @@ def registerimplementation(implcls):
     _registered_implementations.add(implcls)
 
 option_to_typename = {
+    "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
@@ -71,6 +72,7 @@ class StdTypeModel:
         from pypy.objspace.std import smallintobject
         from pypy.objspace.std import smalllongobject
         from pypy.objspace.std import tupleobject
+        from pypy.objspace.std import smalltupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import stringobject
@@ -253,6 +255,9 @@ class StdTypeModel:
                 (listobject.W_ListObject,
                                        rangeobject.delegate_range2list),
                 ]
+        if config.objspace.std.withsmalltuple:
+            self.typeorder[smalltupleobject.W_SmallTupleObject] += [
+                (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []

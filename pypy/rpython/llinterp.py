@@ -563,15 +563,6 @@ class LLFrame(object):
     def op_hint(self, x, hints):
         return x
 
-    def op_resume_point(self, *args):
-        pass
-
-    def op_resume_state_create(self, *args):
-        raise RuntimeError("resume_state_create can not be called.")
-
-    def op_resume_state_invoke(self, *args):
-        raise RuntimeError("resume_state_invoke can not be called.")
-
     def op_decode_arg(self, fname, i, name, vargs, vkwds):
         raise NotImplementedError("decode_arg")
 

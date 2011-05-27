@@ -11,7 +11,7 @@ from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit, rstackovf, rstack
+from pypy.rlib import jit, rstackovf
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import check_nonneg
@@ -83,16 +83,12 @@ class __extend__(pyframe.PyFrame):
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-                rstack.resume_point("dispatch", self, co_code, ec,
-                                    returns=next_instr)
         except ExitFrame:
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
-            rstack.resume_point("handle_bytecode", self, co_code, ec,
-                                returns=next_instr)
         except OperationError, operr:
             next_instr = self.handle_operation_error(ec, operr)
         except Reraise:
@@ -248,9 +244,6 @@ class __extend__(pyframe.PyFrame):
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)
                         res = meth(oparg, next_instr)
-                        if opdesc.index == self.opcodedesc.CALL_FUNCTION.index:
-                            rstack.resume_point("dispatch_call", self, co_code,
-                                                next_instr, ec)
                         # !! warning, for the annotator the next line is not
                         # comparing an int and None - you can't do that.
                         # Instead, it's constant-folded to either True or False
@@ -997,7 +990,6 @@ class __extend__(pyframe.PyFrame):
                                                           args)
         else:
             w_result = self.space.call_args(w_function, args)
-        rstack.resume_point("call_function", self, returns=w_result)
         self.pushvalue(w_result)
 
     def CALL_FUNCTION(self, oparg, next_instr):
@@ -1008,8 +1000,6 @@ class __extend__(pyframe.PyFrame):
             w_function = self.peekvalue(nargs)
             try:
                 w_result = self.space.call_valuestack(w_function, nargs, self)
-                rstack.resume_point("CALL_FUNCTION", self, nargs,
-                                    returns=w_result)
             finally:
                 self.dropvalues(nargs + 1)
             self.pushvalue(w_result)

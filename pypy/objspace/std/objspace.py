@@ -296,9 +296,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return newlong(self, val)
 
     def newtuple(self, list_w):
+        from pypy.objspace.std.tupletype import wraptuple
         assert isinstance(list_w, list)
         make_sure_not_resized(list_w)
-        return W_TupleObject(list_w)
+        return wraptuple(self, list_w)
 
     def newlist(self, list_w):
         return W_ListObject(list_w)
@@ -447,10 +448,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
     # short-cut
     def is_w(self, w_one, w_two):
         return w_one is w_two
-
-    def _check_len_result(self, w_obj):
-        if type(w_obj) is not W_IntObject:
-            DescrOperation._check_len_result(self, w_obj)
 
     def is_true(self, w_obj):
         # a shortcut for performance

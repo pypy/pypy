@@ -237,6 +237,7 @@ def _ll_list_resize_ge(l, newsize):
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
+_ll_list_resize_ge.oopspec = 'list._resize_ge(l, newsize)'
 
 def _ll_list_resize_le(l, newsize):
     if newsize >= (len(l.items) >> 1) - 5:
