@@ -898,7 +898,7 @@ class Regalloc(object):
         for v, val in self.frame_manager.frame_bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert val.is_stack()
-                gcrootmap.add_frame_offset(shape, val.position)
+                gcrootmap.add_frame_offset(shape, val.position*-WORD)
         for v, reg in self.rm.reg_bindings.items():
             if reg is r.r0:
                 continue
