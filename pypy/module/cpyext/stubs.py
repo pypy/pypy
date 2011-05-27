@@ -2254,15 +2254,6 @@ def Py_Exit(space, status):
     standard C library function exit(status)."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
-def PyTuple_GetSlice(space, p, low, high):
-    """Take a slice of the tuple pointed to by p from low to high and return it
-    as a new tuple.
-
-    This function used an int type for low and high. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyTuple_ClearFreeList(space):
     """Clear the free list. Return the total number of freed items.
@@ -2272,14 +2263,6 @@ def PyTuple_ClearFreeList(space):
 @cpython_api([], rffi.UINT, error=CANNOT_FAIL)
 def PyType_ClearCache(space):
     """Clear the internal lookup cache. Return the current version tag.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyTypeObjectPtr], lltype.Void)
-def PyType_Modified(space, type):
-    """Invalidate the internal lookup cache for the type and all of its
-    subtypes.  This function must be called after any manual
-    modification of the attributes or base classes of the type.
     """
     raise NotImplementedError
 
