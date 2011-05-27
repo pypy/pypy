@@ -13,28 +13,6 @@ from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 
-def get_strategy_from_w_iterable(space, w_iterable=None):
-    assert False
-    from pypy.objspace.std.intobject import W_IntObject
-    #XXX what types for w_iterable are possible
-
-    if isinstance(w_iterable, W_BaseSetObject):
-        return w_iterable.strategy
-
-    if w_iterable is None:
-        #XXX becomes EmptySetStrategy later
-        return space.fromcache(ObjectSetStrategy)
-
-    if not isinstance(w_iterable, list):
-        w_iterable = space.listview(w_iterable)
-    for item_w in w_iterable:
-        if type(item_w) is not W_IntObject:
-            break;
-        if item_w is w_iterable[-1]:
-            return space.fromcache(IntegerSetStrategy)
-
-    return space.fromcache(ObjectSetStrategy)
-
 class W_BaseSetObject(W_Object):
     typedef = None
 
