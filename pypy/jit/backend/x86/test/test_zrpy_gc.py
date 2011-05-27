@@ -525,8 +525,8 @@ class CompileFrameworkTests(object):
         glob = A()
         def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
             a = A()
-            glob.v = virtual_ref(a)
-            virtual_ref_finish(a)
+            glob.v = vref = virtual_ref(a)
+            virtual_ref_finish(vref, a)
             n -= 1
             return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
         return None, f, None
