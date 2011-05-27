@@ -265,7 +265,7 @@ class AssemblerARM(ResOpAssembler):
         mc = ARMv7Builder()
         assert self.cpu.supports_floats
         mc.PUSH([r.lr.value])
-        with saved_registers(mc, [], r.caller_vfp_resp):
+        with saved_registers(mc, [], r.all_vfp_regs):
             # At this point we know that the values we need to compute the size
             # are stored in r0 and IP.
             mc.SUB_rr(r.r0.value, r.ip.value, r.r0.value)
