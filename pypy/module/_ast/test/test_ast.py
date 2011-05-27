@@ -128,6 +128,9 @@ class AppTestAST:
         assert ns["x"] == ns["lemon"] == 3
         assert ns["apple"] == 4
 
+    def test_empty_module(self):
+        compile(self.ast.Module([]), "<test>", "exec")
+
     def test_ast_types(self):
         ast = self.ast
         expr = ast.Expr()
