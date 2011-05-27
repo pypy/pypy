@@ -80,7 +80,8 @@ class AssemblerARM(ResOpAssembler):
         self._regalloc = None
         self.datablockwrapper = None
 
-    def setup(self, looptoken):
+    def setup(self, looptoken, operations):
+        self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, operations)
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.current_clt = looptoken.compiled_loop_token
         self.mc = ARMv7Builder()
@@ -557,12 +558,12 @@ class AssemblerARM(ResOpAssembler):
         debug_stop('jit-backend-ops')
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken, log):
-        self._dump(operations)
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
 
-        self.setup(looptoken)
+        self.setup(looptoken, operations)
+        self._dump(operations)
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = Regalloc(longevity, assembler=self, frame_manager=ARMFrameManager())
 
@@ -600,8 +601,8 @@ class AssemblerARM(ResOpAssembler):
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                                                     original_loop_token, log):
+        self.setup(original_loop_token, operations)
         self._dump(operations, 'bridge')
-        self.setup(original_loop_token)
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
         enc = rffi.cast(rffi.CCHARP, code)
