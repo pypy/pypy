@@ -543,7 +543,7 @@ class AbstractUnwrappedSetStrategy(object):
             d_obj = self.cast_from_void_star(w_set.sstorage)
             other_w = w_other.getkeys()
             for w_key in other_w:
-                d_obj[w_key] = None
+                d_obj[self.unwrap(w_key)] = None
             return
 
         elif w_set.strategy is w_other.strategy:
