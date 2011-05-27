@@ -17,16 +17,16 @@ class DictProxyStrategy(DictStrategy):
     def __init__(w_self, space):
         DictStrategy.__init__(w_self, space)
 
-    def getitem(self, w_dict, w_lookup):
+    def getitem(self, w_dict, w_key):
         space = self.space
-        w_lookup_type = space.type(w_lookup)
+        w_lookup_type = space.type(w_key)
         if space.is_w(w_lookup_type, space.w_str):
-            return self.getitem_str(w_dict, space.str_w(w_lookup))
+            return self.getitem_str(w_dict, space.str_w(w_key))
         else:
             return None
 
-    def getitem_str(self, w_dict, lookup):
-        return self.unerase(w_dict.dstorage).getdictvalue(self.space, lookup)
+    def getitem_str(self, w_dict, key):
+        return self.unerase(w_dict.dstorage).getdictvalue(self.space, key)
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
@@ -35,10 +35,10 @@ class DictProxyStrategy(DictStrategy):
         else:
             raise OperationError(space.w_TypeError, space.wrap("cannot add non-string keys to dict of a type"))
 
-    def setitem_str(self, w_dict, name, w_value):
+    def setitem_str(self, w_dict, key, w_value):
         w_type = self.unerase(w_dict.dstorage)
         try:
-            w_type.setdictvalue(self.space, name, w_value)
+            w_type.setdictvalue(self.space, key, w_value)
         except OperationError, e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
@@ -47,7 +47,7 @@ class DictProxyStrategy(DictStrategy):
             # xxx obscure workaround: allow cpyext to write to type->tp_dict.
             # xxx like CPython, we assume that this is only done early after
             # xxx the type is created, and we don't invalidate any cache.
-            w_type.dict_w[name] = w_value
+            w_type.dict_w[key] = w_value
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space

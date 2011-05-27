@@ -52,8 +52,8 @@ class ModuleDictStrategy(DictStrategy):
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
 
-    def setitem_str(self, w_dict, name, w_value):
-        self.getcell(w_dict, name, True).w_value = w_value
+    def setitem_str(self, w_dict, key, w_value):
+        self.getcell(w_dict, key, True).w_value = w_value
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
@@ -93,20 +93,20 @@ class ModuleDictStrategy(DictStrategy):
                 res += 1
         return res
 
-    def getitem(self, w_dict, w_lookup):
+    def getitem(self, w_dict, w_key):
         space = self.space
-        w_lookup_type = space.type(w_lookup)
+        w_lookup_type = space.type(w_key)
         if space.is_w(w_lookup_type, space.w_str):
-            return self.getitem_str(w_dict, space.str_w(w_lookup))
+            return self.getitem_str(w_dict, space.str_w(w_key))
 
         elif _never_equal_to_string(space, w_lookup_type):
             return None
         else:
             self.switch_to_object_strategy(w_dict)
-            return w_dict.getitem(w_lookup)
+            return w_dict.getitem(w_key)
 
-    def getitem_str(self, w_dict, lookup):
-        res = self.getcell(w_dict, lookup, False)
+    def getitem_str(self, w_dict, key):
+        res = self.getcell(w_dict, key, False)
         if res is None:
             return None
         # note that even if the res.w_value is None, the next line is fine
