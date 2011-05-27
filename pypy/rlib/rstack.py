@@ -42,8 +42,8 @@ def llexternal(name, args, res, _callable=None):
                            sandboxsafe=True, _nowrapper=True,
                            _callable=_callable)
 
-_stack_get_start = llexternal('LL_stack_get_start', [], lltype.Signed,
-                              lambda: 0)
+_stack_get_end = llexternal('LL_stack_get_end', [], lltype.Signed,
+                            lambda: 0)
 _stack_get_length = llexternal('LL_stack_get_length', [], lltype.Signed,
                                lambda: 1)
 _stack_set_length_fraction = llexternal('LL_stack_set_length_fraction',
@@ -53,7 +53,7 @@ _stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
                                      [lltype.Signed], lltype.Char,
                                      lambda cur: '\x00')
 # the following is used by the JIT
-_stack_get_start_adr = llexternal('LL_stack_get_start_adr', [], lltype.Signed)
+_stack_get_end_adr   = llexternal('LL_stack_get_end_adr',   [], lltype.Signed)
 _stack_get_length_adr= llexternal('LL_stack_get_length_adr',[], lltype.Signed)
 
 
@@ -66,13 +66,13 @@ def stack_check():
     current = llop.stack_current(lltype.Signed)
     #
     # Load these variables from C code
-    start = _stack_get_start()
+    end = _stack_get_end()
     length = _stack_get_length()
     #
-    # Common case: if 'current' is within [start:start+length], everything
+    # Common case: if 'current' is within [end-length:end], everything
     # is fine
-    ofs = r_uint(current - start)
-    if ofs < r_uint(length):
+    ofs = r_uint(end - current)
+    if ofs <= r_uint(length):
         return
     #
     # Else call the slow path

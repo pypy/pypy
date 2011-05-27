@@ -702,6 +702,11 @@ class TestStandalone(StandaloneTests):
                 return 42
             return f(n+1)
         def entry_point(argv):
+            _stack_set_length_fraction(0.1)
+            try:
+                return f(1)
+            except StackOverflow:
+                glob.n = 0
             _stack_set_length_fraction(float(argv[1]))
             try:
                 return f(1)

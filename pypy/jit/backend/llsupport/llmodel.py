@@ -143,11 +143,11 @@ class AbstractLLCPU(AbstractCPU):
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
                                                           lltype.Void))
         def insert_stack_check():
-            startaddr = rstack._stack_get_start_adr()
+            endaddr = rstack._stack_get_end_adr()
             lengthaddr = rstack._stack_get_length_adr()
             f = llhelper(STACK_CHECK_SLOWPATH, rstack.stack_check_slowpath)
             slowpathaddr = rffi.cast(lltype.Signed, f)
-            return startaddr, lengthaddr, slowpathaddr
+            return endaddr, lengthaddr, slowpathaddr
 
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
