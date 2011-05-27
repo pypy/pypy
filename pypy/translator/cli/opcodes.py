@@ -84,6 +84,8 @@ misc_ops = {
     'debug_reraise_traceback':  Ignore,
     'debug_print_traceback':    Ignore,
     'debug_print':              [DebugPrint],
+    'debug_flush':              [PushAllArgs, 'call void [pypylib]pypy.runtime.DebugPrint::DEBUG_FLUSH()'],
+    'debug_offset':             [PushAllArgs, 'call int32 [pypylib]pypy.runtime.DebugPrint::DEBUG_OFFSET()'],
     'debug_start':              [PushAllArgs, 'call void [pypylib]pypy.runtime.DebugPrint::DEBUG_START(string)'],
     'debug_stop':               [PushAllArgs, 'call void [pypylib]pypy.runtime.DebugPrint::DEBUG_STOP(string)'],
     'have_debug_prints':        [PushAllArgs, 'call bool [pypylib]pypy.runtime.DebugPrint::HAVE_DEBUG_PRINTS()'],
