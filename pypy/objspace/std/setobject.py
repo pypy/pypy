@@ -539,18 +539,19 @@ class AbstractUnwrappedSetStrategy(object):
         return True
 
     def update(self, w_set, w_other):
-        d = self.cast_from_void_star(w_set.sstorage)
         if w_set.strategy is self.space.fromcache(ObjectSetStrategy):
+            d_obj = self.cast_from_void_star(w_set.sstorage)
             other_w = w_other.getkeys()
-            #XXX better solution!?
             for w_key in other_w:
-                d[w_key] = None
+                d_obj[w_key] = None
             return
 
         elif w_set.strategy is w_other.strategy:
+            d_int = self.cast_from_void_star(w_set.sstorage)
             other = self.cast_from_void_star(w_other.sstorage)
-            d.update(other)
+            d_int.update(other)
             return
+
         w_set.switch_to_object_strategy(self.space)
         w_set.update(w_other)
 
