@@ -70,7 +70,7 @@ class DictProxyStrategy(DictStrategy):
         return len(self.unerase(w_dict.dstorage).dict_w)
 
     def iter(self, w_dict):
-        return DictProxyIteratorImplementation(self.space, w_dict)
+        return DictProxyIteratorImplementation(self.space, self, w_dict)
 
     def keys(self, w_dict):
         space = self.space
@@ -89,9 +89,9 @@ class DictProxyStrategy(DictStrategy):
         self.unerase(w_dict.dstorage).mutated()
 
 class DictProxyIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, dictimplementation):
+    def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        w_type = dictimplementation.strategy.unerase(dictimplementation.dstorage)
+        w_type = strategy.unerase(dictimplementation.dstorage)
         self.iterator = w_type.dict_w.iteritems()
 
     def next_entry(self):

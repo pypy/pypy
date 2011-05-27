@@ -382,7 +382,7 @@ class ObjectDictStrategy(AbtractTypedStrategy, DictStrategy):
        return self.erase(new_dict)
 
     def iter(self, w_dict):
-        return RDictIteratorImplementation(self.space, w_dict)
+        return RDictIteratorImplementation(self.space, self, w_dict)
 
     def keys(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
@@ -431,13 +431,13 @@ class StringDictStrategy(AbtractTypedStrategy, DictStrategy):
         return self.unerase(w_dict.dstorage).get(key, None)
 
     def iter(self, w_dict):
-        return StrIteratorImplementation(self.space, w_dict)
+        return StrIteratorImplementation(self.space, self, w_dict)
 
 
 class StrIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, dictimplementation):
+    def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        dict_w = dictimplementation.strategy.unerase(dictimplementation.dstorage)
+        dict_w = strategy.unerase(dictimplementation.dstorage)
         self.iterator = dict_w.iteritems()
 
     def next_entry(self):
@@ -449,9 +449,9 @@ class StrIteratorImplementation(IteratorImplementation):
 
 
 class RDictIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, dictimplementation):
+    def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        d = dictimplementation.strategy.unerase(dictimplementation.dstorage)
+        d = strategy.unerase(dictimplementation.dstorage)
         self.iterator = d.iteritems()
 
     def next_entry(self):
