@@ -621,10 +621,10 @@ class Assembler386(object):
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
-            startaddr, length, _ = self.cpu.insert_stack_check()
+            startaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             self.mc.MOV(eax, esp)                       # MOV eax, current
-            self.mc.SUB(eax, heap(startaddr))           # SUB eax, [startaddr]
-            self.mc.CMP(eax, imm(length))               # CMP eax, length
+            self.mc.SUB(eax, heap(startaddr))           # SUB eax, [start]
+            self.mc.CMP(eax, heap(lengthaddr))          # CMP eax, [length]
             self.mc.J_il8(rx86.Conditions['B'], 0)      # JB .skip
             jb_location = self.mc.get_relative_pos()
             self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
