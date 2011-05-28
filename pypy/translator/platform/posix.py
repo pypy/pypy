@@ -130,6 +130,8 @@ class BasePosix(Platform):
 
         rel_includedirs = [pypyrel(incldir) for incldir in
                            self._preprocess_include_dirs(eci.include_dirs)]
+        rel_libdirs = [pypyrel(libdir) for libdir in
+                       self._preprocess_library_dirs(eci.library_dirs)]
 
         m.comment('automatically generated makefile')
         definitions = [
@@ -139,7 +141,7 @@ class BasePosix(Platform):
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
-            ('LIBDIRS', self._libdirs(eci.library_dirs)),
+            ('LIBDIRS', self._libdirs(rel_libdirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
