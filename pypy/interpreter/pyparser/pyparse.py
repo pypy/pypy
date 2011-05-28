@@ -1,6 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pyparser import parser, pytokenizer, pygram, error
+from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 
 
@@ -88,9 +88,11 @@ _targets = {
 
 class PythonParser(parser.Parser):
 
-    def __init__(self, space, grammar=pygram.python_grammar):
+    def __init__(self, space, future_flags=future.futureFlags_2_7,
+                 grammar=pygram.python_grammar):
         parser.Parser.__init__(self, grammar)
         self.space = space
+        self.future_flags = future_flags
 
     def parse_source(self, textsrc, compile_info):
         """Main entry point for parsing Python source.
@@ -132,6 +134,10 @@ class PythonParser(parser.Parser):
                         w_message = space.str(e.get_w_value(space))
                         raise error.SyntaxError(space.str_w(w_message))
                     raise
+
+        f_flags, future_info = future.get_futures(self.future_flags, textsrc)
+        compile_info.last_future_import = future_info
+        compile_info.flags |= f_flags
 
         flags = compile_info.flags
 
