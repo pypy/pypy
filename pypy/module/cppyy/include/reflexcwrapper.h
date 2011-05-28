@@ -28,7 +28,11 @@ extern "C" {
 
     cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int method_index);
 
+    /* scope reflection information ------------------------------------------- */
+    int cppyy_is_namespace(cppyy_typehandle_t handle);
+
     /* type/class reflection information -------------------------------------- */
+    char* cppyy_final_name(cppyy_typehandle_t handle);
     int cppyy_num_bases(cppyy_typehandle_t handle);
     char* cppyy_base_name(cppyy_typehandle_t handle, int base_index);
     int cppyy_is_subtype(cppyy_typehandle_t h1, cppyy_typehandle_t h2);

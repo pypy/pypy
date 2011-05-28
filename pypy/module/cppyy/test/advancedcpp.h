@@ -82,6 +82,42 @@ int get_d( d_class& d );
 
 
 //===========================================================================
+namespace a_ns {                   // for namespace testing
+   extern int g_a;
+
+   struct b_class {
+      b_class() { m_b = -2; }
+      int m_b;
+      static int s_b;
+
+      struct c_class {
+         c_class() { m_c = -3; }
+         int m_c;
+         static int s_c;
+      };
+   };
+
+   namespace d_ns {
+      extern int g_d;
+
+      struct e_class {
+         e_class() { m_e = -5; }
+         int m_e;
+         static int s_e;
+
+         struct f_class {
+            f_class() { m_f = -6; }
+            int m_f;
+            static int s_f;
+         };
+      };
+
+   } // namespace d_ns
+
+} // namespace a_ns
+
+
+//===========================================================================
 template< typename T >             // for template testing
 class T1 {
 public:

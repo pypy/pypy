@@ -48,6 +48,17 @@ c_destruct = rffi.llexternal(
     compilation_info=eci)
 
 
+c_is_namespace = rffi.llexternal(
+    "cppyy_is_namespace",
+    [C_TYPEHANDLE], rffi.INT,
+    compilation_info=eci)
+
+
+c_final_name = rffi.llexternal(
+    "cppyy_final_name",
+    [C_TYPEHANDLE], rffi.CCHARP,
+    compilation_info=eci)
+
 c_num_bases = rffi.llexternal(
     "cppyy_num_bases",
     [C_TYPEHANDLE], rffi.INT,

@@ -23,7 +23,7 @@ class AppTestADVANCEDCPP:
             import cppyy
             return cppyy.load_lib(%r)""" % (shared_lib, ))
 
-    def test1_simple_inheritence(self):
+    def test01_simple_inheritence(self):
         """Test binding of a basic inheritance structure"""
 
         import cppyy
@@ -38,3 +38,22 @@ class AppTestADVANCEDCPP:
         assert isinstance( c, base_class )
 
         c.destruct()
+
+    def test02_namespaces(self):
+        """Test access to namespaces and inner classes"""
+
+        import cppyy
+
+#        assert cppyy.gbl.a_ns.g_a                           == 11
+        assert cppyy.gbl.a_ns.b_class.s_b                   == 22
+        assert cppyy.gbl.a_ns.b_class().m_b                 == -2
+#        assert cppyy.gbl.a_ns.b_class.c_class.s_c           == 33
+#        assert cppyy.gbl.a_ns.b_class.c_class().m_c         == -3
+#        assert cppyy.gbl.a_ns.d_ns.g_d                      == 44
+#        assert cppyy.gbl.a_ns.d_ns.e_class.s_e              == 55
+#        assert cppyy.gbl.a_ns.d_ns.e_class().m_e            == -5
+#        assert cppyy.gbl.a_ns.d_ns.e_class.f_class.s_f      == 66
+#        assert cppyy.gbl.a_ns.d_ns.e_class.f_class().m_f    == -6
+
+        assert cppyy.gbl.a_ns      is cppyy.gbl.a_ns
+        assert cppyy.gbl.a_ns.d_ns is cppyy.gbl.a_ns.d_ns

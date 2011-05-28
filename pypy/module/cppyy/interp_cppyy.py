@@ -24,7 +24,7 @@ load_lib.unwrap_spec = [ObjSpace, str]
 
 class State(object):
     def __init__(self, space):
-        self.cpptype_cache = {}
+        self.cpptype_cache = { "void" : W_CPPType(space, "void", NULL_VOIDP) }
 
 def type_byname(space, name):
     state = space.fromcache(State)
@@ -35,7 +35,11 @@ def type_byname(space, name):
 
     handle = capi.c_get_typehandle(name)
     if handle:
-        cpptype = W_CPPType(space, name, handle)
+        final_name = capi.charp2str_free(capi.c_final_name(handle))
+        if capi.c_is_namespace(handle):
+            cpptype = W_CPPNamespace(space, final_name, handle)
+        else:
+            cpptype = W_CPPType(space, final_name, handle)
         state.cpptype_cache[name] = cpptype
         cpptype._find_methods()
         cpptype._find_data_members()
@@ -160,6 +164,7 @@ class CPPMethod(object):
             args[i] = arg
         return args
 
+    @jit.unroll_safe
     def free_arguments(self, args):
         for i in range(len(self.arg_types)):
             conv = self.arg_converters[i]
@@ -294,7 +299,7 @@ W_CPPStaticDataMember.typedef = TypeDef(
 )
 
 
-class W_CPPType(Wrappable):
+class W_CPPScope(Wrappable):
     _immutable_fields_ = ["name", "handle"]
 
     def __init__(self, space, name, handle):
@@ -309,7 +314,7 @@ class W_CPPType(Wrappable):
 
         self.data_members = {}
         # Idem self.methods: a type could hold itself by pointer.
-    
+
     def _find_methods(self):
         num_methods = capi.c_num_methods(self.handle)
         args_temp = {}
@@ -321,6 +326,72 @@ class W_CPPType(Wrappable):
         for name, functions in args_temp.iteritems():
             overload = W_CPPOverload(self.space, name, functions[:])
             self.methods[name] = overload
+
+    def get_method_names(self):
+        return self.space.newlist([self.space.wrap(name) for name in self.methods])
+
+    @jit.purefunction
+    def get_overload(self, name):
+        return self.methods[name]
+
+    def get_data_member_names(self):
+        return self.space.newlist([self.space.wrap(name) for name in self.data_members])
+
+    @jit.purefunction
+    def get_data_member(self, name):
+        return self.data_members[name]
+
+    def invoke(self, name, args_w):
+        overload = self.get_overload(name)
+        return overload.call(NULL_VOIDP, args_w)
+
+W_CPPScope.typedef = TypeDef(
+    'CPPScope',
+    get_method_names = interp2app(W_CPPScope.get_method_names, unwrap_spec=['self']),
+    get_overload = interp2app(W_CPPScope.get_overload, unwrap_spec=['self', str]),
+    get_data_member_names = interp2app(W_CPPScope.get_data_member_names, unwrap_spec=['self']),
+    get_data_member = interp2app(W_CPPScope.get_data_member, unwrap_spec=['self', str]),
+    invoke = interp2app(W_CPPScope.invoke, unwrap_spec=['self', str, 'args_w']),
+)
+
+
+# For now, keep namespaces and classes separate as namespaces are extensible
+# with info from multiple dictionaries and do not need to bother with meta
+# classes for inheritance. Both are python classes, though, and refactoring
+# may be in order at some point.
+class W_CPPNamespace(W_CPPScope):
+
+    def _make_cppfunction(self, method_index):
+        result_type = capi.charp2str_free(capi.c_method_result_type(self.handle, method_index))
+        num_args = capi.c_method_num_args(self.handle, method_index)
+        argtypes = []
+        for i in range(num_args):
+            argtype = capi.charp2str_free(capi.c_method_arg_type(self.handle, method_index, i))
+        return CPPFunction(self, method_index, result_type, argtypes)
+
+    def _find_data_members(self):
+        num_data_members = capi.c_num_data_members(self.handle)
+        for i in range(num_data_members):
+            data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
+            cpptype = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
+            offset = capi.c_data_member_offset(self.handle, i)
+            data_member = W_CPPStaticDataMember(self.space, cpptype, offset)
+            self.data_members[data_member_name] = data_member
+
+    def is_namespace(self):
+        return self.space.w_True
+
+W_CPPNamespace.typedef = TypeDef(
+    'CPPNamespace',
+    get_method_names = interp2app(W_CPPNamespace.get_method_names, unwrap_spec=['self']),
+    get_overload = interp2app(W_CPPNamespace.get_overload, unwrap_spec=['self', str]),
+    get_data_member_names = interp2app(W_CPPNamespace.get_data_member_names, unwrap_spec=['self']),
+    get_data_member = interp2app(W_CPPNamespace.get_data_member, unwrap_spec=['self', str]),
+    is_namespace = interp2app(W_CPPNamespace.is_namespace, unwrap_spec=['self']),
+)
+
+
+class W_CPPType(W_CPPScope):
 
     def _make_cppfunction(self, method_index):
         result_type = capi.charp2str_free(capi.c_method_result_type(self.handle, method_index))
@@ -349,6 +420,9 @@ class W_CPPType(Wrappable):
                 data_member = W_CPPDataMember(self.space, cpptype, offset)
             self.data_members[data_member_name] = data_member
 
+    def is_namespace(self):
+        return self.space.w_False
+
     def get_base_names(self):
         bases = []
         num_bases = capi.c_num_bases(self.handle)
@@ -356,24 +430,6 @@ class W_CPPType(Wrappable):
             base_name = capi.charp2str_free(capi.c_base_name(self.handle, i))
             bases.append(self.space.wrap(base_name))
         return self.space.newlist(bases)
-
-    def get_method_names(self):
-        return self.space.newlist([self.space.wrap(name) for name in self.methods])
-
-    @jit.purefunction
-    def get_overload(self, name):
-        return self.methods[name]
-
-    def get_data_member_names(self):
-        return self.space.newlist([self.space.wrap(name) for name in self.data_members])
-
-    @jit.purefunction
-    def get_data_member(self, name):
-        return self.data_members[name]
-
-    def invoke(self, name, args_w):
-        overload = self.get_overload(name)
-        return overload.call(NULL_VOIDP, args_w)
 
     def construct(self, args_w):
         overload = self.get_overload(self.name)
@@ -386,6 +442,7 @@ W_CPPType.typedef = TypeDef(
     get_overload = interp2app(W_CPPType.get_overload, unwrap_spec=['self', str]),
     get_data_member_names = interp2app(W_CPPType.get_data_member_names, unwrap_spec=['self']),
     get_data_member = interp2app(W_CPPType.get_data_member, unwrap_spec=['self', str]),
+    is_namespace = interp2app(W_CPPType.is_namespace, unwrap_spec=['self']),
     invoke = interp2app(W_CPPType.invoke, unwrap_spec=['self', str, 'args_w']),
     construct = interp2app(W_CPPType.construct, unwrap_spec=['self', 'args_w']),
 )
