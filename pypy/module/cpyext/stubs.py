@@ -1920,13 +1920,6 @@ def PyNumber_CoerceEx(space, p1, p2):
     Reference counts are still not increased in this case."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyNumber_Index(space, o):
-    """Returns the o converted to a Python int or long on success or NULL with a
-    TypeError exception raised on failure.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.INT_real], PyObject)
 def PyNumber_ToBase(space, n, base):
     """Returns the integer n converted to base as a string with a base
