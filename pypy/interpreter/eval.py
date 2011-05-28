@@ -2,6 +2,7 @@
 This module defines the abstract base classes that support execution:
 Code and Frame.
 """
+from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 
@@ -97,6 +98,7 @@ class Frame(Wrappable):
         "Abstract. Get the expected number of locals."
         raise TypeError, "abstract"
 
+    @jit.dont_look_inside
     def fast2locals(self):
         # Copy values from self.fastlocals_w to self.w_locals
         if self.w_locals is None:
@@ -110,6 +112,7 @@ class Frame(Wrappable):
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
 
+    @jit.dont_look_inside
     def locals2fast(self):
         # Copy values from self.w_locals to self.fastlocals_w
         assert self.w_locals is not None

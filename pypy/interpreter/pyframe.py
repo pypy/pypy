@@ -413,6 +413,7 @@ class PyFrame(eval.Frame):
         "Get the fast locals as a list."
         return self.fastlocals_w
 
+    @jit.dont_look_inside
     def setfastscope(self, scope_w):
         """Initialize the fast locals from a list of values,
         where the order is according to self.pycode.signature()."""
