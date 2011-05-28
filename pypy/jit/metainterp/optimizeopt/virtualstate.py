@@ -7,7 +7,7 @@ from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_CONSTANT, \
                                                       MININT, MAXINT, OptValue
 from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
-from pypy.jit.metainterp.optimizeopt.intutils import IntBound
+from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
@@ -166,7 +166,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.known_class = value.known_class
         self.level = value.level
         if value.intbound is None:
-            self.intbound = IntBound(MININT, MAXINT)
+            self.intbound = IntUnbounded()
         else:
             self.intbound = value.intbound.clone()
         if value.is_constant():
