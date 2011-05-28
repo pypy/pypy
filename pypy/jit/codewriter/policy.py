@@ -82,7 +82,7 @@ class JitPolicy(object):
             # If such a function is called and accesses a virtualizable, the JIT
             # will not notice, and the virtualizable will fall out of sync. So,
             # we fail loudly now.
-            raise ValueError("access_directly on a function which we don't see")
+            raise ValueError("access_directly on a function which we don't see %s" % graph)
         return res
 
 def contains_unsupported_variable_type(graph, supports_floats,
