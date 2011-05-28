@@ -267,9 +267,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
              LEVEL_NONNULL: 'NonNull',
              LEVEL_KNOWNCLASS: 'KnownClass',
              LEVEL_CONSTANT: 'Constant',
-             None: 'None'}[self.level]
+             }[self.level]
         debug_print(indent + 'NotVirtualInfo(%d' % self.position + ', ' +
-                    l + ', ' + str(self.intbound) + ')')
+                    l + ', ' + self.intbound.__repr__() + ')')
 
 class VirtualState(object):
     def __init__(self, state):

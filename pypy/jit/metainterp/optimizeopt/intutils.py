@@ -210,11 +210,11 @@ class IntBound(object):
         
     def __repr__(self):
         if self.has_lower:
-            l = '%4d' % self.lower
+            l = '%d' % self.lower
         else:
             l = '-Inf'
         if self.has_upper:
-            u = '%3d' % self.upper
+            u = '%d' % self.upper
         else:
             u = 'Inf'
         return '%s <= x <= %s' % (l, u)
