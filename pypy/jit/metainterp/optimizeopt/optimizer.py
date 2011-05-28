@@ -11,7 +11,8 @@ from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
-from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
+from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
+                                                     ImmutableIntUnbounded
 from pypy.tool.pairtype import extendabletype
 
 LEVEL_UNKNOWN    = '\x00'
@@ -30,7 +31,7 @@ class OptValue(object):
 
     level = LEVEL_UNKNOWN
     known_class = None
-    intbound = None
+    intbound = ImmutableIntUnbounded()
 
     def __init__(self, box, level=None, known_class=None, intbound=None):
         self.box = box

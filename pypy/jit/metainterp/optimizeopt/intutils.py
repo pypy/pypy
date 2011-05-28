@@ -244,7 +244,23 @@ class IntUnbounded(IntBound):
         self.has_upper = False
         self.has_lower = False
         self.upper = 0
-        self.lower = 0        
+        self.lower = 0
+
+class ImmutableIntUnbounded(IntUnbounded):
+    def _raise(self):
+        raise TypeError('ImmutableIntUnbounded is immutable')
+    def make_le(self, other):
+        self._raise()
+    def make_lt(self, other):
+        self._raise()
+    def make_ge(self, other):
+        self._raise()
+    def make_gt(self, other):
+        self._raise()
+    def make_constant(self, value):
+        self._raise()
+    def intersect(self, other):        
+        self._raise()
 
 def min4(t):
     return min(min(t[0], t[1]), min(t[2], t[3]))
