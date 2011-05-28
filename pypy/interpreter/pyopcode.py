@@ -1089,6 +1089,7 @@ class __extend__(pyframe.PyFrame):
         w_dict = self.space.newdict()
         self.pushvalue(w_dict)
 
+    @jit.unroll_safe
     def BUILD_SET(self, itemcount, next_instr):
         w_set = self.space.call_function(self.space.w_set)
         if itemcount:
