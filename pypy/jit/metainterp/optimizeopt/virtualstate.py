@@ -263,11 +263,19 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         virtual_state.notvirtuals.append(self)
 
     def debug_print(self, indent, seen):
-        l = {LEVEL_UNKNOWN: 'Unknown',
-             LEVEL_NONNULL: 'NonNull',
-             LEVEL_KNOWNCLASS: 'KnownClass',
-             LEVEL_CONSTANT: 'Constant',
-             }[self.level]
+        if we_are_translated():
+            l = {LEVEL_UNKNOWN: 'Unknown',
+                 LEVEL_NONNULL: 'NonNull',
+                 LEVEL_KNOWNCLASS: 'KnownClass',
+                 LEVEL_CONSTANT: 'Constant',
+                 }[self.level]
+        else:
+            l = {LEVEL_UNKNOWN: 'Unknown',
+                 LEVEL_NONNULL: 'NonNull',
+                 LEVEL_KNOWNCLASS: 'KnownClass(%r)' % self.known_class,
+                 LEVEL_CONSTANT: 'Constant(%r)' % self.constbox,
+                 }[self.level]
+            
         debug_print(indent + 'NotVirtualInfo(%d' % self.position + ', ' +
                     l + ', ' + self.intbound.__repr__() + ')')
 
