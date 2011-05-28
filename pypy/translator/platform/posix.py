@@ -129,9 +129,9 @@ class BasePosix(Platform):
         m.cfiles = rel_cfiles
 
         rel_includedirs = [pypyrel(incldir) for incldir in
-                           self._preprocess_include_dirs(eci.include_dirs)]
+                           self.preprocess_include_dirs(eci.include_dirs)]
         rel_libdirs = [pypyrel(libdir) for libdir in
-                       self._preprocess_library_dirs(eci.library_dirs)]
+                       self.preprocess_library_dirs(eci.library_dirs)]
 
         m.comment('automatically generated makefile')
         definitions = [
