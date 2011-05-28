@@ -1,4 +1,5 @@
 import sys
+import py
 from pypy.jit.codewriter.policy import contains_unsupported_variable_type
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.codewriter import support
@@ -107,3 +108,19 @@ def test_str_join():
                     mod = called_graph.func.__module__
                     assert (mod == 'pypy.rpython.rlist' or
                             mod == 'pypy.rpython.lltypesystem.rlist')
+
+def test_access_directly_but_not_seen():
+    class X:
+        _virtualizable2_ = ["a"]
+    def h(x, y):
+        w = 0
+        for i in range(y):
+            w += 4
+        return w
+    def f(y):
+        x = jit.hint(X(), access_directly=True)
+        h(x, y)
+    rtyper = support.annotate(f, [3])
+    h_graph = rtyper.annotator.translator.graphs[1]
+    assert h_graph.func is h
+    py.test.raises(ValueError, JitPolicy().look_inside_graph, h_graph)
