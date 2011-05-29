@@ -1701,13 +1701,6 @@ def PyThreadState_Next(space, tstate):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.SIZE_T], PyObject)
-def PyInt_FromSize_t(space, ival):
-    """Create a new integer object with a value of ival. If the value exceeds
-    LONG_MAX, a long integer object is returned.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.ULONGLONG, error=-1)
 def PyInt_AsUnsignedLongLongMask(space, io):
     """Will first attempt to cast the object to a PyIntObject or
