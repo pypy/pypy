@@ -660,7 +660,7 @@ class MapDictStrategy(DictStrategy):
         return res
 
     def iter(self, w_dict):
-        return MapDictIteratorImplementation(self.space, w_dict)
+        return MapDictIteratorImplementation(self.space, self, w_dict)
 
     def clear(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
@@ -686,9 +686,9 @@ def materialize_r_dict(space, obj, dict_w):
     _become(obj, new_obj)
 
 class MapDictIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, dictimplementation):
+    def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        w_obj = dictimplementation.strategy.unerase(dictimplementation.dstorage)
+        w_obj = strategy.unerase(dictimplementation.dstorage)
         self.w_obj = w_obj
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
