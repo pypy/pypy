@@ -332,13 +332,15 @@ class UnrollOptimizer(Optimization):
         final_virtual_state = modifier.get_virtual_state(original_jumpargs)
         debug_start('jit-log-virtualstate')
         virtual_state.debug_print('Closed loop with ')
-        if not virtual_state.generalization_of(final_virtual_state):
+        bad = {}
+        if not virtual_state.generalization_of(final_virtual_state, bad):
             # We ended up with a virtual state that is not compatible
             # and we are thus unable to jump to the start of the loop
             # XXX Is it possible to end up here? If so, consider:
             #    - Fallback on having the preamble jump to itself?
             #    - Would virtual_state.generate_guards make sense here?
-            final_virtual_state.debug_print("Bad virtual state at end of loop, ")
+            final_virtual_state.debug_print("Bad virtual state at end of loop, ",
+                                            bad)
             debug_stop('jit-log-virtualstate')
             raise InvalidLoop
         debug_stop('jit-log-virtualstate')
@@ -651,8 +653,9 @@ class OptInlineShortPreamble(Optimization):
                     ok = False
                     extra_guards = []
 
+                    bad = {}
                     debugmsg = 'Did not match '
-                    if sh.virtual_state.generalization_of(virtual_state):
+                    if sh.virtual_state.generalization_of(virtual_state, bad):
                         ok = True
                         debugmsg = 'Matched '
                     else:
@@ -666,7 +669,7 @@ class OptInlineShortPreamble(Optimization):
                             debugmsg = 'Guarded to match '
                         except InvalidLoop:
                             pass
-                    sh.virtual_state.debug_print(debugmsg)
+                    sh.virtual_state.debug_print(debugmsg, bad)
                     
                     if ok:
                         debug_stop('jit-log-virtualstate')

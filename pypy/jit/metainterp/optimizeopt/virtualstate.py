@@ -15,11 +15,11 @@ from pypy.rlib.debug import debug_start, debug_stop, debug_print
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
     
-    def generalization_of(self, other, renum):
+    def generalization_of(self, other, renum, bad):
         raise NotImplementedError
 
     def generate_guards(self, other, box, cpu, extra_guards, renum):
-        if self.generalization_of(other, renum):
+        if self.generalization_of(other, renum, {}):
             return
         if renum[self.position] != other.position:
             raise InvalidLoop
@@ -41,12 +41,15 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def _enum(self, virtual_state):
         raise NotImplementedError
 
-    def debug_print(self, indent, seen):
-        self.debug_header(indent)
+    def debug_print(self, indent, seen, bad):
+        mark = ''
+        if self in bad:
+            mark = '*'
+        self.debug_header(indent + mark)
         if self not in seen:
             seen[self] = True
             for s in self.fieldstate:
-                s.debug_print(indent + "    ", seen)
+                s.debug_print(indent + "    ", seen, bad)
         else:
             debug_print(indent + "    ...")
                 
@@ -59,22 +62,30 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
 
-    def generalization_of(self, other, renum):
+    def generalization_of(self, other, renum, bad):
         assert self.position != -1
         if self.position in renum:
-            return renum[self.position] == other.position
+            if renum[self.position] == other.position:
+                return True
+            bad[self] = True
+            return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
+            bad[self] = True
             return False
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
+            bad[self] = True
             return False
         
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
+                bad[self] = True
                 return False
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i], renum):
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i],
+                                                        renum, bad):
+                bad[self] = True
                 return False
 
         return True
@@ -130,17 +141,24 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
 
-    def generalization_of(self, other, renum):
+    def generalization_of(self, other, renum, bad):
         assert self.position != -1
         if self.position in renum:
-            return renum[self.position] == other.position
+            if renum[self.position] == other.position:
+                return True
+            bad[self] = True
+            return False
         renum[self.position] = other.position
         if self.arraydescr is not other.arraydescr:
+            bad[self] = True
             return False
         if len(self.fieldstate) != len(other.fieldstate):
+            bad[self] = True
             return False
         for i in range(len(self.fieldstate)):
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i], renum):
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i],
+                                                        renum, bad):
+                bad[self] = True
                 return False
         return True
 
@@ -175,22 +193,29 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             self.constbox = None
         self.position_in_notvirtuals = -1
 
-    def generalization_of(self, other, renum):
+    def generalization_of(self, other, renum, bad):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
         assert self.position != -1
         if self.position in renum:
-            return renum[self.position] == other.position
+            if renum[self.position] == other.position:
+                return True
+            bad[self] = True
+            return False
         renum[self.position] = other.position
         if not isinstance(other, NotVirtualStateInfo):
+            bad[self] = True
             return False
         if other.level < self.level:
+            bad[self] = True
             return False
         if self.level == LEVEL_CONSTANT:
             if not self.constbox.same_constant(other.constbox):
+                bad[self] = True
                 return False
         elif self.level == LEVEL_KNOWNCLASS:
             if self.known_class != other.known_class: # FIXME: use issubclass?
+                bad[self] = True
                 return False
         return self.intbound.contains_bound(other.intbound)
 
@@ -262,7 +287,10 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.position_in_notvirtuals = len(virtual_state.notvirtuals)
         virtual_state.notvirtuals.append(self)
 
-    def debug_print(self, indent, seen):
+    def debug_print(self, indent, seen, bad):
+        mark = ''
+        if self in bad:
+            mark = '*'
         if we_are_translated():
             l = {LEVEL_UNKNOWN: 'Unknown',
                  LEVEL_NONNULL: 'NonNull',
@@ -276,8 +304,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                  LEVEL_CONSTANT: 'Constant(%r)' % self.constbox,
                  }[self.level]
             
-        debug_print(indent + 'NotVirtualInfo(%d' % self.position + ', ' +
-                    l + ', ' + self.intbound.__repr__() + ')')
+        debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
+                    ', ' + l + ', ' + self.intbound.__repr__() + ')')
 
 class VirtualState(object):
     def __init__(self, state):
@@ -287,11 +315,13 @@ class VirtualState(object):
         for s in state:
             s.enum(self)
 
-    def generalization_of(self, other):
+    def generalization_of(self, other, bad=None):
+        if bad is None:
+            bad = {}
         assert len(self.state) == len(other.state)
         renum = {}
         for i in range(len(self.state)):
-            if not self.state[i].generalization_of(other.state[i], renum):
+            if not self.state[i].generalization_of(other.state[i], renum, bad):
                 return False
         return True
 
@@ -319,11 +349,13 @@ class VirtualState(object):
             
         return inputargs
 
-    def debug_print(self, hdr=''):
+    def debug_print(self, hdr='', bad=None):
+        if bad is None:
+            bad = {}
         debug_print(hdr + "VirtualState():")
         seen = {}
         for s in self.state:
-            s.debug_print("    ", seen)
+            s.debug_print("    ", seen, bad)
 
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def __init__(self, optimizer):
