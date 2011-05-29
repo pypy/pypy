@@ -330,17 +330,17 @@ class UnrollOptimizer(Optimization):
 
         modifier = VirtualStateAdder(self.optimizer)
         final_virtual_state = modifier.get_virtual_state(original_jumpargs)
+        debug_start('jit-log-virtualstate')
+        virtual_state.debug_print('Closed loop with ')
         if not virtual_state.generalization_of(final_virtual_state):
             # We ended up with a virtual state that is not compatible
             # and we are thus unable to jump to the start of the loop
             # XXX Is it possible to end up here? If so, consider:
             #    - Fallback on having the preamble jump to itself?
             #    - Would virtual_state.generate_guards make sense here?
-            debug_print("Bad virtual state at end of loop")
+            final_virtual_state.debug_print("Bad virtual state at end of loop, ")
+            debug_stop('jit-log-virtualstate')
             raise InvalidLoop
-
-        debug_start('jit-log-virtualstate')
-        virtual_state.debug_print('Closed loop with ')
         debug_stop('jit-log-virtualstate')
         
         return inputargs, short_inputargs, short
