@@ -172,12 +172,6 @@ def PyObject_GetBuffer(space, obj, view, flags):
     This is equivalent to (PyBUF_ND)."""
     raise NotImplementedError
 
-@cpython_api([Py_buffer], lltype.Void)
-def PyBuffer_Release(space, view):
-    """Release the buffer view.  This should be called when the buffer
-    is no longer being used as it may free memory from it."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
 def PyBuffer_SizeFromFormat(space, format):
     """Return the implied ~Py_buffer.itemsize from the struct-stype
@@ -196,13 +190,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     """Fill the strides array with byte-strides of a contiguous (C-style if
     fortran is 'C' or Fortran-style if fortran is 'F' array of the
     given shape with the given number of bytes per element."""
-    raise NotImplementedError
-
-@cpython_api([Py_buffer, PyObject, rffi.VOIDP, Py_ssize_t, rffi.INT_real, rffi.INT_real], rffi.INT_real, error=-1)
-def PyBuffer_FillInfo(space, view, obj, buf, len, readonly, infoflags):
-    """Fill in a buffer-info structure, view, correctly for an exporter that can
-    only share a contiguous chunk of memory of "unsigned bytes" of the given
-    length.  Return 0 on success and -1 (with raising an error) on error."""
     raise NotImplementedError
 
 @cpython_api([Py_buffer], PyObject)
@@ -1094,14 +1081,6 @@ def PyImport_ImportModuleLevel(space, name, globals, locals, fromlist, level):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyImport_ReloadModule(space, m):
-    """Reload a module.  This is best described by referring to the built-in
-    Python function reload(), as the standard reload() function calls this
-    function directly.  Return a new reference to the reloaded module, or NULL
-    with an exception set on failure (the module still exists in this case)."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
 def PyImport_ExecCodeModule(space, name, co):
     """Given a module name (possibly of the form package.module) and a code
@@ -1138,13 +1117,6 @@ def PyImport_GetMagicNumber(space):
     """Return the magic number for Python bytecode files (a.k.a. .pyc and
     .pyo files).  The magic number should be present in the first four bytes
     of the bytecode file, in little-endian byte order."""
-    raise NotImplementedError
-
-@cpython_api([], PyObject)
-def PyImport_GetModuleDict(space):
-    """Return the dictionary used for the module administration (a.k.a.
-    sys.modules).  Note that this is a per-interpreter variable."""
-    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
