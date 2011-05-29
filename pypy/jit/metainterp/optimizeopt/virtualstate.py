@@ -68,24 +68,29 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             if renum[self.position] == other.position:
                 return True
             bad[self] = True
+            bad[other] = True
             return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
             bad[self] = True
+            bad[other] = True
             return False
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
             bad[self] = True
+            bad[other] = True
             return False
         
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
                 bad[self] = True
+                bad[other] = True
                 return False
             if not self.fieldstate[i].generalization_of(other.fieldstate[i],
                                                         renum, bad):
                 bad[self] = True
+                bad[other] = True
                 return False
 
         return True
@@ -147,18 +152,22 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             if renum[self.position] == other.position:
                 return True
             bad[self] = True
+            bad[other] = True
             return False
         renum[self.position] = other.position
         if self.arraydescr is not other.arraydescr:
             bad[self] = True
+            bad[other] = True
             return False
         if len(self.fieldstate) != len(other.fieldstate):
             bad[self] = True
+            bad[other] = True
             return False
         for i in range(len(self.fieldstate)):
             if not self.fieldstate[i].generalization_of(other.fieldstate[i],
                                                         renum, bad):
                 bad[self] = True
+                bad[other] = True
                 return False
         return True
 
@@ -201,21 +210,26 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             if renum[self.position] == other.position:
                 return True
             bad[self] = True
+            bad[other] = True
             return False
         renum[self.position] = other.position
         if not isinstance(other, NotVirtualStateInfo):
             bad[self] = True
+            bad[other] = True
             return False
         if other.level < self.level:
             bad[self] = True
+            bad[other] = True
             return False
         if self.level == LEVEL_CONSTANT:
             if not self.constbox.same_constant(other.constbox):
                 bad[self] = True
+                bad[other] = True
                 return False
         elif self.level == LEVEL_KNOWNCLASS:
             if self.known_class != other.known_class: # FIXME: use issubclass?
                 bad[self] = True
+                bad[other] = True
                 return False
         return self.intbound.contains_bound(other.intbound)
 
