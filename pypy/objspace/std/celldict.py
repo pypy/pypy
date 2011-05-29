@@ -113,7 +113,7 @@ class ModuleDictStrategy(DictStrategy):
         return res.w_value
 
     def iter(self, w_dict):
-        return ModuleDictIteratorImplementation(self.space, w_dict)
+        return ModuleDictIteratorImplementation(self.space, self, w_dict)
 
     def keys(self, w_dict):
         space = self.space
@@ -161,8 +161,8 @@ class ModuleDictStrategy(DictStrategy):
 
 class ModuleDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
-        dict_w = dictimplementation.strategy.unerase(dictimplementation.dstorage)
+        IteratorImplementation.__init__(self, space, strategy, dictimplementation)
+        dict_w = strategy.unerase(dictimplementation.dstorage)
         self.iterator = dict_w.iteritems()
 
     def next_entry(self):
