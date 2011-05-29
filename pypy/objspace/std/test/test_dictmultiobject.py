@@ -4,7 +4,6 @@ from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
      StringDictStrategy, ObjectDictStrategy
 
-from pypy.objspace.std.celldict import ModuleDictStrategy
 from pypy.conftest import gettestobjspace
 
 
@@ -703,49 +702,6 @@ class AppTestDictViews:
                 set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
 
-class AppTestModuleDict(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
-
-    def w_impl_used(self, obj):
-        import __pypy__
-        assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
-
-    def test_check_module_uses_module_dict(self):
-        m = type(__builtins__)("abc")
-        self.impl_used(m.__dict__)
-
-    def test_key_not_there(self):
-        d = type(__builtins__)("abc").__dict__
-        raises(KeyError, "d['def']")
-
-    def test_fallback_evil_key(self):
-        class F(object):
-            def __hash__(self):
-                return hash("s")
-            def __eq__(self, other):
-                return other == "s"
-        d = type(__builtins__)("abc").__dict__
-        d["s"] = 12
-        assert d["s"] == 12
-        assert d[F()] == d["s"]
-
-        d = type(__builtins__)("abc").__dict__
-        x = d.setdefault("s", 12)
-        assert x == 12
-        x = d.setdefault(F(), 12)
-        assert x == 12
-
-        d = type(__builtins__)("abc").__dict__
-        x = d.setdefault(F(), 12)
-        assert x == 12
-
-        d = type(__builtins__)("abc").__dict__
-        d["s"] = 12
-        del d[F()]
-
-        assert "s" not in d
-        assert F() not in d
 
 class AppTestStrategies(object):
     def w_get_strategy(self, obj):
@@ -1027,16 +983,6 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
 ##     ImplementionClass = MeasuringDictImplementation
 ##     DevolvedClass = MeasuringDictImplementation
 
-class TestModuleDictImplementation(BaseTestRDictImplementation):
-    StrategyClass = ModuleDictStrategy
-
-class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
-    StrategyClass = ModuleDictStrategy
-
-    string = "int"
-    string2 = "isinstance"
-
-
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def fill_impl(self):
         BaseTestRDictImplementation.fill_impl(self)
@@ -1047,15 +993,6 @@ class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
 
 class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
     StrategyClass = StringDictStrategy
-
-class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
-    StrategyClass = ModuleDictStrategy
-
-class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictImplementation):
-    StrategyClass = ModuleDictStrategy
-
-    string = "int"
-    string2 = "isinstance"
 
 
 def test_module_uses_strdict():

@@ -37,7 +37,9 @@ class W_DictMultiObject(W_Object):
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
-            strategy = space.fromcache(ModuleDictStrategy)
+            # every module needs its own strategy, because the strategy stores
+            # the version tag
+            strategy = ModuleDictStrategy(space)
 
         elif instance or strdict or module:
             assert w_type is None
