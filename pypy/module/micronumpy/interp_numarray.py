@@ -46,7 +46,7 @@ class BaseArray(Wrappable):
     def invalidated(self):
         for arr in self.invalidates:
             arr.force_if_needed()
-        self.invalidates = []
+        del self.invalidates[:]
 
     def _binop_impl(function):
         signature = Signature()
@@ -92,6 +92,11 @@ class BaseArray(Wrappable):
         self.invalidated()
         return self.get_concrete().descr_setitem(space, item, value)
 
+    @unwrap_spec(sta=int, sto=int)
+    def descr_getslice(self, space, sta, sto):
+        signature = Signature()
+        res = SingleDimSlice(sta, sto, self, self.signature.transition(signature))
+        return res
 
 class FloatWrapper(BaseArray):
     """
@@ -181,6 +186,53 @@ class Call2(VirtualArray):
         lhs, rhs = self.left.eval(i), self.right.eval(i)
         return self.function(lhs, rhs)
 
+class ViewArray(BaseArray):
+    """
+    Class for representing views of arrays, they will reflect changes of parrent arrays. Example: slices
+    """
+    _immutable_fields_ = ["parent"]
+    def __init__(self, parent, signature):
+        BaseArray.__init__(self)
+        self.signature = signature
+        self.parent = parent
+        self.invalidates = parent.invalidates
+
+    def get_concrete(self):
+        return self # in fact, ViewArray never gets "concrete" as it never stores data. This implementation is needed for BaseArray getitem/setitem to work, can be refactored.
+
+    def eval(self, i):
+        return self.parent.eval(self.calc_index(i))
+
+    @unwrap_spec(item=int)
+    def descr_getitem(self, space, item):
+        return self.parent.descr_getitem(space, self.calc_index(item))
+
+    @unwrap_spec(item=int, value=float)
+    def descr_setitem(self, space, item, value):
+        return self.parent.descr_setitem(space, self.calc_index(item), value)
+        
+#    def calc_index(self, item):
+#        raise NotImplementedError
+
+class SingleDimSlice(ViewArray):
+    _immutable_fields_ = ["start", "stop", "step"]
+
+    def __init__(self, start, stop, parent, signature):
+        ViewArray.__init__(self, parent, signature)
+        self.start = start #sl.start
+        l = parent.find_size
+        if stop > l:
+            self.stop = l
+        else:
+            self.stop = stop #sl.stop
+        self.step = 1 #sl.step
+
+    def find_size(self):
+        return (self.stop - self.start) # FIXME divide by step
+
+    def calc_index(self, item):
+        return (self.start + item * self.step)
+
 
 class SingleDimArray(BaseArray):
     signature = Signature()
@@ -249,6 +301,7 @@ BaseArray.typedef = TypeDef(
     __len__ = interp2app(BaseArray.descr_len),
     __getitem__ = interp2app(BaseArray.descr_getitem),
     __setitem__ = interp2app(BaseArray.descr_setitem),
+    __getslice__ = interp2app(BaseArray.descr_getslice),
 
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
