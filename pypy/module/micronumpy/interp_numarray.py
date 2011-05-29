@@ -220,7 +220,7 @@ class SingleDimSlice(ViewArray):
     def __init__(self, start, stop, parent, signature):
         ViewArray.__init__(self, parent, signature)
         self.start = start #sl.start
-        l = parent.find_size
+        l = parent.find_size()
         if stop > l:
             self.stop = l
         else:
