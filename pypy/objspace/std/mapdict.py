@@ -593,6 +593,7 @@ class MapDictStrategy(DictStrategy):
         dict_w = strategy.unerase(strategy.get_empty_storage())
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(dict_w)
+        assert w_obj.getdict(self.space) is w_dict
         materialize_r_dict(self.space, w_obj, dict_w)
 
     def getitem(self, w_dict, w_key):
@@ -670,18 +671,8 @@ class MapDictStrategy(DictStrategy):
     def _clear_fields(self, w_dict):
         self.w_obj = None
 
-    def _as_rdict(self):
-        self.initialize_as_rdict()
-        space = self.space
-        w_obj = self.w_obj
-        materialize_r_dict(space, w_obj, self)
-        self._clear_fields()
-        return self
-
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
-    w_dict = obj.getdict(space)
-    assert w_dict.strategy.unerase(w_dict.dstorage) is dict_w
     new_obj = map.materialize_r_dict(space, obj, dict_w)
     _become(obj, new_obj)
 
