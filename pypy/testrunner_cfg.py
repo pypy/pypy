@@ -17,3 +17,5 @@ def collect_one_testdir(testdirs, reldir, tests):
 _cherrypick = os.getenv('PYPYCHERRYPICK', '')
 if _cherrypick:
     cherrypick = _cherrypick.split(':')
+
+cherrypick = ['module/thread']
