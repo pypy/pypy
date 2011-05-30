@@ -11,7 +11,7 @@ from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.jit import hint
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import jit, rstack
+from pypy.rlib import jit
 from pypy.tool import stdlib_opcode
 from pypy.tool.stdlib_opcode import host_bytecode_spec
 
@@ -157,8 +157,6 @@ class PyFrame(eval.Frame):
             try:
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
                                             executioncontext)
-                rstack.resume_point("execute_frame", self, executioncontext,
-                                    returns=w_exitvalue)
             except Exception:
                 executioncontext.return_trace(self, self.space.w_None)
                 raise
@@ -415,6 +413,7 @@ class PyFrame(eval.Frame):
         "Get the fast locals as a list."
         return self.fastlocals_w
 
+    @jit.dont_look_inside
     def setfastscope(self, scope_w):
         """Initialize the fast locals from a list of values,
         where the order is according to self.pycode.signature()."""

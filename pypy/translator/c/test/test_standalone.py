@@ -689,6 +689,44 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec("")
         assert out.strip() == "hi!"
 
+    def test_set_length_fraction(self):
+        # check for pypy.rlib.rstack._stack_set_length_fraction()
+        from pypy.rlib.rstack import _stack_set_length_fraction
+        from pypy.rlib.rstackovf import StackOverflow
+        class A:
+            n = 0
+        glob = A()
+        def f(n):
+            glob.n += 1
+            if n <= 0:
+                return 42
+            return f(n+1)
+        def entry_point(argv):
+            _stack_set_length_fraction(0.1)
+            try:
+                return f(1)
+            except StackOverflow:
+                glob.n = 0
+            _stack_set_length_fraction(float(argv[1]))
+            try:
+                return f(1)
+            except StackOverflow:
+                print glob.n
+                return 0
+        t, cbuilder = self.compile(entry_point, stackcheck=True)
+        counts = {}
+        for fraction in [0.1, 0.4, 1.0]:
+            out = cbuilder.cmdexec(str(fraction))
+            print 'counts[%s]: %r' % (fraction, out)
+            counts[fraction] = int(out.strip())
+        #
+        assert counts[1.0] >= 1000
+        # ^^^ should actually be much more than 1000 for this small test
+        assert counts[0.1] < counts[0.4] / 3
+        assert counts[0.4] < counts[1.0] / 2
+        assert counts[0.1] > counts[0.4] / 7
+        assert counts[0.4] > counts[1.0] / 4
+
 class TestMaemo(TestStandalone):
     def setup_class(cls):
         py.test.skip("TestMaemo: tests skipped for now")

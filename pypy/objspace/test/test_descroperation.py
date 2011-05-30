@@ -532,5 +532,23 @@ class AppTest_Descroperation:
         del X.__nonzero__
         assert X()
 
+    def test_len_overflow(self):
+        import sys
+        class X(object):
+            def __len__(self):
+                return sys.maxsize + 1
+        raises(OverflowError, len, X())
+
+    def test_len_underflow(self):
+        import sys
+        class X(object):
+            def __len__(self):
+                return -1
+        raises(ValueError, len, X())
+        class Y(object):
+            def __len__(self):
+                return -1L
+        raises(ValueError, len, Y())
+
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}

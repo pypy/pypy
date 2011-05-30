@@ -270,9 +270,8 @@ class TestPyPyCNew(BaseTestPyPyC):
             i17 = int_add_ovf(i8, 1)
             guard_no_overflow(descr=<Guard5>)
             i18 = force_token()
-            i20 = int_sub(i17, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i20, p7, i17, i9, p10, p11, p12, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i8, p7, i17, i9, p10, p11, p12, descr=<Loop0>)
         """)
 
     def test_default_and_kw(self):
@@ -481,10 +480,14 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == (1000, 998)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('append', """
-            p14 = new_with_vtable(ConstClass(W_IntObject))
-            setfield_gc(p14, i12, descr=<SignedFieldDescr .*W_IntObject.inst_intval .*>)
-            call(ConstClass(ll_append__listPtr_objectPtr), p8, p14, descr=...)
+            i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
+            i15 = int_add(i13, 1)
+            call(ConstClass(_ll_list_resize_ge__listPtr_Signed), p8, i15, descr=<VoidCallDescr>)
             guard_no_exception(descr=<Guard4>)
+            p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
+            p19 = new_with_vtable(ConstClass(W_IntObject))
+            setfield_gc(p19, i12, descr=<SignedFieldDescr .*W_IntObject.inst_intval .*>)
+            setarrayitem_gc(p17, i13, p19, descr=<GcPtrArrayDescr>)
         """)
 
     def test_range_iter(self):
