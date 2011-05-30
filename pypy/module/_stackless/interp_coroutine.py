@@ -125,7 +125,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         if isinstance(operror, OperationError):
             w_exctype = operror.w_type
             w_excvalue = operror.get_w_value(space)
-            w_exctraceback = operror.application_traceback
+            w_exctraceback = operror.get_traceback()
             w_excinfo = space.newtuple([w_exctype, w_excvalue, w_exctraceback])
             
             if w_exctype is self.costate.w_CoroutineExit:
@@ -160,7 +160,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                 space.gettypeobject(pytraceback.PyTraceback.typedef))):
                 raise OperationError(space.w_TypeError,
                       space.wrap("throw: arg 3 must be a traceback or None"))
-            operror.application_traceback = tb
+            operror.set_traceback(tb)
         
         self._kill(operror)
 
