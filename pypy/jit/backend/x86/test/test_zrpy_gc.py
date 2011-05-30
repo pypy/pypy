@@ -674,7 +674,8 @@ class OtherFrameworkGCTests(object):
         #
         res = compile_and_run(get_entry(get_g(main)), DEFL_GC,
                               gcrootfinder=self.gcrootfinder, jit=True,
-                              enable_opts=ALL_OPTS_NAMES)
+                              enable_opts=ALL_OPTS_NAMES,
+                              thread=True)
         assert int(res) == 20
 
 class TestOtherShadowStack(OtherFrameworkGCTests):

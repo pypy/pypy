@@ -129,7 +129,7 @@ class Assembler386(object):
             self._build_malloc_slowpath()
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:
-            self._build_close_stack()
+            self._build_close_stack(gc_ll_descr.gcrootmap)
         debug_start('jit-backend-counts')
         self.set_debug(have_debug_prints())
         debug_stop('jit-backend-counts')
@@ -309,7 +309,7 @@ class Assembler386(object):
         self.stack_check_slowpath = rawstart
 
     @staticmethod
-    def _close_stack(css):
+    def _close_stack_asmgcc(css):
         # similar to trackgcroot.py:pypy_asm_stackwalk, first part
         from pypy.rpython.memory.gctransform import asmgcroot
         new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
@@ -332,7 +332,7 @@ class Assembler386(object):
             before()
 
     @staticmethod
-    def _reopen_stack(css):
+    def _reopen_stack_asmgcc(css):
         # first reacquire the GIL
         if css[2]:
             after = rffi.aroundstate.after
@@ -346,16 +346,26 @@ class Assembler386(object):
         prev.next = next
         next.prev = prev
 
+    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
     _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
                                                   lltype.Void))
 
-    def _build_close_stack(self):
-        closestack_func = llhelper(self._CLOSESTACK_FUNC,
-                                   self._close_stack)
-        reopenstack_func = llhelper(self._CLOSESTACK_FUNC,
-                                    self._reopen_stack)
-        self.closestack_addr  = self.cpu.cast_ptr_to_int(closestack_func)
-        self.reopenstack_addr = self.cpu.cast_ptr_to_int(reopenstack_func)
+    def _build_close_stack(self, gcrootmap):
+        if gcrootmap.is_shadow_stack:
+            if self.cpu.with_threads:
+                reopenstack_func = llop.gc_adr_of_thread_run_fn(
+                    self._NOARG_FUNC)
+                self.reopenstack_addr = self.cpu.cast_ptr_to_int(
+                    reopenstack_func)
+            else:
+                self.reopenstack_addr = 0
+        else:
+            closestack_func = llhelper(self._CLOSESTACK_FUNC,
+                                       self._close_stack_asmgcc)
+            reopenstack_func = llhelper(self._CLOSESTACK_FUNC,
+                                        self._reopen_stack_asmgcc)
+            self.closestack_addr  = self.cpu.cast_ptr_to_int(closestack_func)
+            self.reopenstack_addr = self.cpu.cast_ptr_to_int(reopenstack_func)
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
@@ -2047,7 +2057,7 @@ class Assembler386(object):
             # like %eax that would be destroyed by this call, *and* they are
             # used by arglocs for the *next* call, then trouble; for now we
             # will just push/pop them.
-            self.call_close_stack(arglocs)
+            self.call_close_stack(gcrootmap, arglocs)
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
@@ -2055,12 +2065,18 @@ class Assembler386(object):
         self._genop_call(op, arglocs, result_loc, fail_index)
         # then reopen the stack
         if gcrootmap:
-            self.call_reopen_stack(result_loc)
+            self.call_reopen_stack(gcrootmap, result_loc)
         # finally, the guard_not_forced
         self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
         self.implement_guard(guard_token, 'L')
 
-    def call_close_stack(self, save_registers):
+    def call_close_stack(self, gcrootmap, save_registers):
+        if gcrootmap.is_shadow_stack:
+            pass   # no need to close the stack with shadowstack
+        else:
+            self.call_close_stack_asmgcc(save_registers)
+
+    def call_close_stack_asmgcc(self, save_registers):
         from pypy.rpython.memory.gctransform import asmgcroot
         css = self._regalloc.close_stack_struct
         if css == 0:
@@ -2102,7 +2118,9 @@ class Assembler386(object):
                 self.mc.MOV_rs(reg.value, p)
                 p += WORD
 
-    def call_reopen_stack(self, save_loc):
+    def call_reopen_stack(self, gcrootmap, save_loc):
+        if self.reopenstack_addr == 0:
+            return
         # save the previous result (eax/xmm0) into the stack temporarily.
         # XXX like with call_close_stack(), we assume that we don't need
         # to save xmm0 in this case.
@@ -2110,14 +2128,18 @@ class Assembler386(object):
             self.mc.MOV_sr(WORD, save_loc.value)
             self._regalloc.reserve_param(2)
         # call the reopenstack() function (also reacquiring the GIL)
-        css = self._regalloc.close_stack_struct
-        assert css != 0
-        if IS_X86_32:
-            reg = eax
-        elif IS_X86_64:
-            reg = edi
-        self.mc.LEA_rb(reg.value, css)
-        self._emit_call(-1, imm(self.reopenstack_addr), [reg])
+        if gcrootmap.is_shadow_stack:
+            args = []
+        else:
+            css = self._regalloc.close_stack_struct
+            assert css != 0
+            if IS_X86_32:
+                reg = eax
+            elif IS_X86_64:
+                reg = edi
+            self.mc.LEA_rb(reg.value, css)
+            args = [reg]
+        self._emit_call(-1, imm(self.reopenstack_addr), args)
         # restore the result from the stack
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)

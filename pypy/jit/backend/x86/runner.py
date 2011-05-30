@@ -22,6 +22,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
+    with_threads = False
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -38,6 +39,7 @@ class AbstractX86CPU(AbstractLLCPU):
                 if not oprofile.OPROFILE_AVAILABLE:
                     log.WARNING('oprofile support was explicitly enabled, but oprofile headers seem not to be available')
                 profile_agent = oprofile.OProfileAgent()
+            self.with_threads = config.translation.thread
 
         self.profile_agent = profile_agent
 
