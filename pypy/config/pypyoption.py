@@ -33,7 +33,7 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_ffi", "_multibytecodec"]
+     "_collections", "_multibytecodec", "micronumpy", "_ffi"]
 ))
 
 translation_modules = default_modules.copy()
@@ -246,6 +246,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "(the empty string and potentially single-char strings)",
                    default=False),
 
+        BoolOption("withsmalltuple",
+                   "use small tuples",
+                   default=False),
+
         BoolOption("withrope", "use ropes as the string implementation",
                    default=False,
                    requires=[("objspace.std.withstrslice", False),
@@ -273,7 +277,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "make instances really small but slow without the JIT",
                    default=False,
                    requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withtypeversion", True),
+                             ("objspace.std.withmethodcache", True),
                        ]),
 
         BoolOption("withrangelist",

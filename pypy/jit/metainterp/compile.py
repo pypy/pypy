@@ -97,7 +97,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
 
     history = metainterp.history
     loop = create_empty_loop(metainterp)
-    loop.inputargs = history.inputargs
+    loop.inputargs = history.inputargs[:]
     for box in loop.inputargs:
         assert isinstance(box, Box)
     # make a copy, because optimize_loop can mutate the ops and descrs
@@ -600,7 +600,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_loop = create_empty_loop(metainterp)
-    new_loop.inputargs = metainterp.history.inputargs
+    new_loop.inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
     new_loop.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata

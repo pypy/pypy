@@ -294,8 +294,8 @@ class ConstInt(Const):
         cpu.set_future_value_int(j, self.value)
 
     def same_constant(self, other):
-        if isinstance(other, Const):
-            return self.value == other.getint()
+        if isinstance(other, ConstInt):
+            return self.value == other.value
         return False
 
     def nonnull(self):
@@ -791,7 +791,6 @@ class LoopToken(AbstractDescr):
 
     def dump(self):
         self.compiled_loop_token.cpu.dump_loop_token(self)
-
 class TreeLoop(object):
     inputargs = None
     operations = None
@@ -962,7 +961,7 @@ class Stats(object):
     compiled_count = 0
     enter_count = 0
     aborted_count = 0
-    history = None
+    operations = None
 
     def __init__(self):
         self.loops = []
@@ -970,7 +969,7 @@ class Stats(object):
         self.aborted_keys = []
 
     def set_history(self, history):
-        self.history = history
+        self.operations = history.operations
 
     def aborted(self):
         self.aborted_count += 1
@@ -1000,7 +999,7 @@ class Stats(object):
 
     def check_history(self, expected=None, **check):
         insns = {}
-        for op in self.history.operations:
+        for op in self.operations:
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         if expected is not None:

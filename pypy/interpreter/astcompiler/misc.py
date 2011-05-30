@@ -31,11 +31,12 @@ def parse_future(tree):
     future_lineno = 0
     future_column = 0
     have_docstring = False
+    body = None
     if isinstance(tree, ast.Module):
         body = tree.body
     elif isinstance(tree, ast.Interactive):
         body = tree.body
-    else:
+    if body is None:
         return 0, 0
     for stmt in body:
         if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Str):

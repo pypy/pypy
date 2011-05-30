@@ -40,24 +40,24 @@ purposes only."""
             break
         depth -= 1
         f = ec.getnextframe_nohidden(f)
+    f.mark_as_escaped()
     return space.wrap(f)
 
 def setrecursionlimit(space, w_new_limit):
-    """setrecursionlimit() is ignored (and not needed) on PyPy.
-
-On CPython it would set the maximum number of nested calls that can
-occur before a RuntimeError is raised.  On PyPy overflowing the stack
-also causes RuntimeErrors, but the limit is checked at a lower level.
-(The limit is currenty hard-coded at 768 KB, corresponding to roughly
-1480 Python calls on Linux.)"""
+    """setrecursionlimit() sets the maximum number of nested calls that
+can occur before a RuntimeError is raised.  On PyPy the limit is
+approximative and checked at a lower level.  The default 1000
+reserves 768KB of stack space, which should suffice (on Linux,
+depending on the compiler settings) for ~1400 calls.  Setting the
+value to N reserves N/1000 times 768KB of stack space.
+"""
+    from pypy.rlib.rstack import _stack_set_length_fraction
     new_limit = space.int_w(w_new_limit)
     if new_limit <= 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))
-    # for now, don't rewrite a warning but silently ignore the
-    # recursion limit.
-    #space.warn('setrecursionlimit() is ignored (and not needed) on PyPy', space.w_RuntimeWarning)
     space.sys.recursionlimit = new_limit
+    _stack_set_length_fraction(new_limit * 0.001)
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
@@ -91,7 +91,7 @@ frame."""
         return space.newtuple([space.w_None,space.w_None,space.w_None])
     else:
         return space.newtuple([operror.w_type, operror.get_w_value(space),
-                               space.wrap(operror.application_traceback)])
+                               space.wrap(operror.get_traceback())])
 
 def exc_clear(space):
     """Clear global information on the current exception.  Subsequent calls

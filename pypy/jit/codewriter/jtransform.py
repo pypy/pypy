@@ -209,7 +209,6 @@ class Transformer(object):
     def rewrite_op_cast_int_to_unichar(self, op): pass
     def rewrite_op_cast_int_to_uint(self, op): pass
     def rewrite_op_cast_uint_to_int(self, op): pass
-    def rewrite_op_resume_point(self, op): pass
 
     def _rewrite_symmetric(self, op):
         """Rewrite 'c1+v2' into 'v2+c1' in an attempt to avoid generating

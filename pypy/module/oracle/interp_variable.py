@@ -601,6 +601,7 @@ class VT_LongString(W_Variable):
     def getValueProc(self, space, pos):
         ptr = rffi.ptradd(self.data, pos * self.bufferSize)
         length = rffi.cast(roci.Ptr(roci.ub4), ptr)[0]
+        length = rffi.cast(lltype.Signed, length)
 
         ptr = rffi.ptradd(ptr, rffi.sizeof(roci.ub4))
         return space.wrap(rffi.charpsize2str(ptr, length))
