@@ -3899,7 +3899,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i4, i10)
         """
         self.optimize_loop(ops, expected)
-        
+
     def test_add_sub_ovf(self):
         ops = """
         [i1]
@@ -3939,7 +3939,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         [i0, i1]
         escape(i1)
         i2 = int_add_ovf(i0, 1)
-        guard_no_overflow() []        
+        guard_no_overflow() []
         jump(i2, i0)
         """
         self.optimize_loop(ops, expected)
@@ -4420,7 +4420,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i8 = int_floordiv(4, i2)
         i9 = int_rshift(i1, 2)
         i10 = int_floordiv(i1, 0)
-        i11 = int_rshift(i1, 0)
         i12 = int_floordiv(i2, 2)
         i13 = int_floordiv(i2, 3)
         i14 = int_floordiv(i2, 4)
@@ -4494,6 +4493,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i17 = int_lshift(i1b, 100)
         i18 = int_rshift(i17, 100)
         jump(i2, i3, i1b, i2b)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_div_1(self):
+        ops = """
+        [i0]
+        i1 = int_floordiv(i0, 1)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
         """
         self.optimize_loop(ops, expected)
 
