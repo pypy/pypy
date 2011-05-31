@@ -1,18 +1,51 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.jit import JitDriver, dont_look_inside
-from pypy.config.translationoption import DEFL_GC
+from pypy.rlib.jit import dont_look_inside
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
-from pypy.jit.backend.x86.test.test_zrpy_gc import get_entry, get_g
-from pypy.jit.backend.x86.test.test_zrpy_gc import compile_and_run
+from pypy.rlib.libffi import CDLL, types, ArgChain, clibffi
+from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+from pypy.rpython.annlowlevel import llhelper
+
+from pypy.jit.backend.x86.test.test_zrpy_gc import BaseFrameworkTests
 from pypy.jit.backend.x86.test.test_zrpy_gc import check
 
 
-class ReleaseGILTests(object):
-    def test_close_stack(self):
-        from pypy.rlib.libffi import CDLL, types, ArgChain, clibffi
-        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
-        from pypy.rpython.annlowlevel import llhelper
-        from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
+class ReleaseGILTests(BaseFrameworkTests):
+    compile_kwds = dict(enable_opts=ALL_OPTS_NAMES, thread=True)
+
+    def define_simple(self):
+        class Glob:
+            pass
+        glob = Glob()
+        #
+        def f42(n):
+            c_strchr = glob.c_strchr
+            raw = rffi.str2charp("foobar" + chr((n & 63) + 32))
+            argchain = ArgChain()
+            argchain = argchain.arg(rffi.cast(lltype.Signed, raw))
+            argchain = argchain.arg(rffi.cast(rffi.INT, ord('b')))
+            res = c_strchr.call(argchain, rffi.CCHARP)
+            check(rffi.charp2str(res) == "bar" + chr((n & 63) + 32))
+            rffi.free_charp(raw)
+        #
+        def before(n, x):
+            libc = CDLL(libc_name)
+            c_strchr = libc.getpointer('strchr', [types.pointer, types.sint],
+                                       types.pointer)
+            glob.c_strchr = c_strchr
+            return (n, None, None, None, None, None,
+                    None, None, None, None, None, None)
+        #
+        def f(n, x, *args):
+            f42(n)
+            n -= 1
+            return (n, x) + args
+        return before, f, None
+
+    def test_simple(self):
+        self.run('simple')
+
+    def define_close_stack(self):
         #
         class Glob(object):
             pass
@@ -49,7 +82,7 @@ class ReleaseGILTests(object):
             check(len(glob.lst) > length)
             del glob.lst[:]
         #
-        def before():
+        def before(n, x):
             libc = CDLL(libc_name)
             types_size_t = clibffi.cast_type_to_ffitype(rffi.SIZE_T)
             c_qsort = libc.getpointer('qsort', [types.pointer, types_size_t,
@@ -57,23 +90,21 @@ class ReleaseGILTests(object):
                                       types.void)
             glob.c_qsort = c_qsort
             glob.lst = []
+            return (n, None, None, None, None, None,
+                    None, None, None, None, None, None)
         #
-        myjitdriver = JitDriver(greens=[], reds=['n'])
-        def main(n, x):
-            before()
-            while n > 0:
-                myjitdriver.jit_merge_point(n=n)
-                f42()
-                n -= 1
-        #
-        res = compile_and_run(get_entry(get_g(main)), DEFL_GC,
-                              gcrootfinder=self.gcrootfinder, jit=True,
-                              enable_opts=ALL_OPTS_NAMES,
-                              thread=True)
-        assert int(res) == 20
+        def f(n, x, *args):
+            f42()
+            n -= 1
+            return (n, x) + args
+        return before, f, None
 
-class TestGILShadowStack(ReleaseGILTests):
+    def test_close_stack(self):
+        self.run('close_stack')
+
+
+class TestShadowStack(ReleaseGILTests):
     gcrootfinder = "shadowstack"
 
-class TestGILAsmGcc(ReleaseGILTests):
+class TestAsmGcc(ReleaseGILTests):
     gcrootfinder = "asmgcc"
