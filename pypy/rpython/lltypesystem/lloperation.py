@@ -491,7 +491,6 @@ LL_OPERATIONS = {
     # ^^^ returns an address of pointer, since it can change at runtime
     'gc_adr_of_root_stack_top': LLOp(),
     # ^^^ returns the address of gcdata.root_stack_top (for shadowstack only)
-    'gc_adr_of_thread_run_fn': LLOp(),
 
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC

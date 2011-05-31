@@ -129,7 +129,7 @@ class Assembler386(object):
             self._build_malloc_slowpath()
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:
-            self._build_close_stack(gc_ll_descr.gcrootmap)
+            self._build_release_gil(gc_ll_descr.gcrootmap)
         debug_start('jit-backend-counts')
         self.set_debug(have_debug_prints())
         debug_stop('jit-backend-counts')
@@ -309,7 +309,7 @@ class Assembler386(object):
         self.stack_check_slowpath = rawstart
 
     @staticmethod
-    def _close_stack_asmgcc(css):
+    def _release_gil_asmgcc(css):
         # similar to trackgcroot.py:pypy_asm_stackwalk, first part
         from pypy.rpython.memory.gctransform import asmgcroot
         new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
@@ -324,7 +324,7 @@ class Assembler386(object):
             before()
 
     @staticmethod
-    def _reopen_stack_asmgcc(css):
+    def _reacquire_gil_asmgcc(css):
         # first reacquire the GIL
         after = rffi.aroundstate.after
         if after:
@@ -337,26 +337,35 @@ class Assembler386(object):
         prev.next = next
         next.prev = prev
 
+    @staticmethod
+    def _release_gil_shadowstack():
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    def _reacquire_gil_shadowstack():
+        after = rffi.aroundstate.after
+        if after:
+            after()
+
     _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
     _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
                                                   lltype.Void))
 
-    def _build_close_stack(self, gcrootmap):
+    def _build_release_gil(self, gcrootmap):
         if gcrootmap.is_shadow_stack:
-            if self.cpu.with_threads:
-                reopenstack_func = llop.gc_adr_of_thread_run_fn(
-                    self._NOARG_FUNC)
-                self.reopenstack_addr = self.cpu.cast_ptr_to_int(
-                    reopenstack_func)
-            else:
-                self.reopenstack_addr = 0
+            releasegil_func = llhelper(self._NOARG_FUNC,
+                                       self._release_gil_shadowstack)
+            reacqgil_func = llhelper(self._NOARG_FUNC,
+                                     self._reacquire_gil_shadowstack)
         else:
-            closestack_func = llhelper(self._CLOSESTACK_FUNC,
-                                       self._close_stack_asmgcc)
-            reopenstack_func = llhelper(self._CLOSESTACK_FUNC,
-                                        self._reopen_stack_asmgcc)
-            self.closestack_addr  = self.cpu.cast_ptr_to_int(closestack_func)
-            self.reopenstack_addr = self.cpu.cast_ptr_to_int(reopenstack_func)
+            releasegil_func = llhelper(self._CLOSESTACK_FUNC,
+                                       self._release_gil_asmgcc)
+            reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
+                                     self._reacquire_gil_asmgcc)
+        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
+        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
@@ -2042,13 +2051,7 @@ class Assembler386(object):
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
-            # note that regalloc.py used save_all_regs=True to save all
-            # registers, so we don't have to care about saving them (other
-            # than ebp) in the close_stack_struct.  But if they are registers
-            # like %eax that would be destroyed by this call, *and* they are
-            # used by arglocs for the *next* call, then trouble; for now we
-            # will just push/pop them.
-            self.call_close_stack(gcrootmap, arglocs)
+            self.call_release_gil(gcrootmap, arglocs)
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
@@ -2056,26 +2059,12 @@ class Assembler386(object):
         self._genop_call(op, arglocs, result_loc, fail_index)
         # then reopen the stack
         if gcrootmap:
-            self.call_reopen_stack(gcrootmap, result_loc)
+            self.call_reacquire_gil(gcrootmap, result_loc)
         # finally, the guard_not_forced
         self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
         self.implement_guard(guard_token, 'L')
 
-    def call_close_stack(self, gcrootmap, save_registers):
-        if gcrootmap.is_shadow_stack:
-            pass   # no need to close the stack with shadowstack
-        else:
-            self.call_close_stack_asmgcc(save_registers)
-
-    def call_close_stack_asmgcc(self, save_registers):
-        from pypy.rpython.memory.gctransform import asmgcroot
-        css = self._regalloc.close_stack_struct
-        if css == 0:
-            use_words = (2 + max(asmgcroot.INDEX_OF_EBP,
-                                 asmgcroot.FRAME_PTR) + 1)
-            pos = self._regalloc.fm.reserve_location_in_frame(use_words)
-            css = get_ebp_ofs(pos + use_words - 1)
-            self._regalloc.close_stack_struct = css
+    def call_release_gil(self, gcrootmap, save_registers):
         # First, we need to save away the registers listed in
         # 'save_registers' that are not callee-save.  XXX We assume that
         # the XMM registers won't be modified.  We store them in
@@ -2087,21 +2076,41 @@ class Assembler386(object):
                 self.mc.MOV_sr(p, reg.value)
                 p += WORD
         self._regalloc.reserve_param(p//WORD)
-        # The location where the future CALL will put its return address
-        # will be [ESP-WORD], so save that as the next frame's top address
-        self.mc.LEA_rs(eax.value, -WORD)        # LEA EAX, [ESP-4]
-        frame_ptr = css + WORD * (2+asmgcroot.FRAME_PTR)
-        self.mc.MOV_br(frame_ptr, eax.value)    # MOV [css.frame], EAX
-        # Save ebp
-        index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-        self.mc.MOV_br(index_of_ebp, ebp.value) # MOV [css.ebp], EBP
-        # Call the closestack() function (also releasing the GIL)
-        if IS_X86_32:
-            reg = eax
-        elif IS_X86_64:
-            reg = edi
-        self.mc.LEA_rb(reg.value, css)
-        self._emit_call(-1, imm(self.closestack_addr), [reg])
+        #
+        if gcrootmap.is_shadow_stack:
+            args = []
+        else:
+            # note that regalloc.py used save_all_regs=True to save all
+            # registers, so we don't have to care about saving them (other
+            # than ebp) in the close_stack_struct.  But if they are registers
+            # like %eax that would be destroyed by this call, *and* they are
+            # used by arglocs for the *next* call, then trouble; for now we
+            # will just push/pop them.
+            from pypy.rpython.memory.gctransform import asmgcroot
+            css = self._regalloc.close_stack_struct
+            if css == 0:
+                use_words = (2 + max(asmgcroot.INDEX_OF_EBP,
+                                     asmgcroot.FRAME_PTR) + 1)
+                pos = self._regalloc.fm.reserve_location_in_frame(use_words)
+                css = get_ebp_ofs(pos + use_words - 1)
+                self._regalloc.close_stack_struct = css
+            # The location where the future CALL will put its return address
+            # will be [ESP-WORD], so save that as the next frame's top address
+            self.mc.LEA_rs(eax.value, -WORD)        # LEA EAX, [ESP-4]
+            frame_ptr = css + WORD * (2+asmgcroot.FRAME_PTR)
+            self.mc.MOV_br(frame_ptr, eax.value)    # MOV [css.frame], EAX
+            # Save ebp
+            index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
+            self.mc.MOV_br(index_of_ebp, ebp.value) # MOV [css.ebp], EBP
+            # Call the closestack() function (also releasing the GIL)
+            if IS_X86_32:
+                reg = eax
+            elif IS_X86_64:
+                reg = edi
+            self.mc.LEA_rb(reg.value, css)
+            args = [reg]
+        #
+        self._emit_call(-1, imm(self.releasegil_addr), args)
         # Finally, restore the registers saved above.
         p = WORD
         for reg in self._regalloc.rm.save_around_call_regs:
@@ -2109,11 +2118,9 @@ class Assembler386(object):
                 self.mc.MOV_rs(reg.value, p)
                 p += WORD
 
-    def call_reopen_stack(self, gcrootmap, save_loc):
-        if self.reopenstack_addr == 0:
-            return
+    def call_reacquire_gil(self, gcrootmap, save_loc):
         # save the previous result (eax/xmm0) into the stack temporarily.
-        # XXX like with call_close_stack(), we assume that we don't need
+        # XXX like with call_release_gil(), we assume that we don't need
         # to save xmm0 in this case.
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_sr(WORD, save_loc.value)
@@ -2130,7 +2137,7 @@ class Assembler386(object):
                 reg = edi
             self.mc.LEA_rb(reg.value, css)
             args = [reg]
-        self._emit_call(-1, imm(self.reopenstack_addr), args)
+        self._emit_call(-1, imm(self.reacqgil_addr), args)
         # restore the result from the stack
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)
