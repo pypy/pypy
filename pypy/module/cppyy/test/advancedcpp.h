@@ -4,23 +4,25 @@
 //===========================================================================
 class base_class {                 // for simple inheritance testing
 public:
-   base_class() { m_a = 1; m_da = 1.1; }
+   base_class() { m_b = 1; m_db = 1.1; }
    virtual ~base_class() {}
-   virtual int get_value() = 0;
-
-public:
-   int m_a;
-   double m_da;
-};
-
-class derived_class : public base_class {
-public:
-   derived_class() { m_b = 2; m_db = 2.2;}
    virtual int get_value() { return m_b; }
+   double get_base_value() { return m_db; }
 
 public:
    int m_b;
    double m_db;
+};
+
+class derived_class : public base_class {
+public:
+   derived_class() { m_d = 2; m_dd = 2.2;}
+   virtual int get_value() { return m_d; }
+   double get_derived_value() { return m_dd; }
+
+public:
+   int m_d;
+   double m_dd;
 };
 
 

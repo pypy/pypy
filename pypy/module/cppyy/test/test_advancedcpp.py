@@ -33,11 +33,22 @@ class AppTestADVANCEDCPP:
         assert issubclass(derived_class, base_class)
         assert not issubclass(base_class, derived_class)
 
-        c = derived_class()
-        assert isinstance( c, derived_class )
-        assert isinstance( c, base_class )
+        b = base_class()
+        assert isinstance(b, base_class)
+        assert not isinstance(b, derived_class)
 
-        c.destruct()
+        assert b.get_value()      == 1
+        assert b.get_base_value() == 1.1
+
+        d = derived_class()
+        assert isinstance(d, derived_class)
+        assert isinstance(d, base_class)
+
+        assert d.get_value()         == 2
+        assert d.get_base_value()    == 1.1
+        assert d.get_derived_value() == 2.2
+
+        d.destruct()
 
     def test02_namespaces(self):
         """Test access to namespaces and inner classes"""

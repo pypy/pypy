@@ -29,27 +29,28 @@ def bind_object(cppobj, cppclass):
     bound_obj._cppinstance = cppobj
     return bound_obj
 
-def make_static_function(cpptype, name, rettype):
-    print rettype
+def make_static_function(cpptype, func_name, cppol):
+    rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
         def method(*args):
-            return cpptype.invoke(name, *args)
+            return cpptype.invoke(cppol, *args)
     else:                                        # return instance
         cppclass = get_cppclass(rettype)
         def method(*args):
-            return bind_object(cpptype.invoke(name, *args), cppclass)
-    method.__name__ = name
+            return bind_object(cpptype.invoke(cppol, *args), cppclass)
+    method.__name__ = func_name
     return staticmethod(method)
 
-def make_method(name, rettype):
+def make_method(meth_name, cppol):
+    rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
         def method(self, *args):
-            return self._cppinstance.invoke(name, *args)
+            return self._cppinstance.invoke(cppol, *args)
     else:                                        # return instance
         cppclass = get_cppclass(rettype)
         def method(self, *args):
-            return bind_object(self._cppinstance.invoke(name, *args), cppclass)
-    method.__name__ = name
+            return bind_object(self._cppinstance.invoke(cppol, *args), cppclass)
+    method.__name__ = meth_name
     return method
 
 
@@ -68,9 +69,9 @@ def make_cppnamespace(name, cppns):
     d = {}
 
     # insert static methods into the "namespace" dictionary
-    for f in cppns.get_method_names():
+    for func_name in cppns.get_method_names():
         cppol = cppns.get_overload(f)
-        d[f] = make_static_function(cppns, f, cppol.get_returntype())
+        d[func_name] = make_static_function(cppns, func_name, cppol)
 
     # create a meta class to allow properties (for static data write access)
     metans = type(CppyyNamespace)(name+'_meta', (type(type),),
@@ -90,16 +91,16 @@ def make_cppnamespace(name, cppns):
     _existing_cppitems[name] = pycppns
     return pycppns
 
-def make_cppclass(name, cpptype):
+def make_cppclass(class_name, cpptype):
     d = {"_cppyyclass" : cpptype}
 
     # insert (static) methods into the class dictionary
-    for f in cpptype.get_method_names():
-        cppol = cpptype.get_overload(f)
+    for meth_name in cpptype.get_method_names():
+        cppol = cpptype.get_overload(meth_name)
         if cppol.is_static():
-            d[f] = make_static_function(cpptype, f, cppol.get_returntype())
+            d[meth_name] = make_static_function(cpptype, meth_name, cppol)
         else:
-            d[f] = make_method(f, cppol.get_returntype())
+            d[meth_name] = make_method(meth_name, cppol)
 
     # get a list of base classes for class creation
     bases = tuple([get_cppclass(base) for base in cpptype.get_base_names()])
@@ -108,23 +109,23 @@ def make_cppclass(name, cpptype):
 
     # create a meta class to allow properties (for static data write access)
     metabases = tuple([type(base) for base in bases])
-    metacpp = type(CppyyClass)(name+'_meta', metabases,
+    metacpp = type(CppyyClass)(class_name+'_meta', metabases,
                                {"__getattr__" : __innercpp_getattr__})
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
-    for dm in cpptype.get_data_member_names():
-        cppdm = cpptype.get_data_member(dm)
+    for dm_name in cpptype.get_data_member_names():
+        cppdm = cpptype.get_data_member(dm_name)
 
-        d[dm] = cppdm
+        d[dm_name] = cppdm
         if cppdm.is_static():
-            setattr(metacpp, dm, cppdm)
+            setattr(metacpp, dm_name, cppdm)
 
     # create the python-side C++ class representation
-    pycpptype = metacpp(name, bases, d)
+    pycpptype = metacpp(class_name, bases, d)
  
     # cache result and return
-    _existing_cppitems[name] = pycpptype
+    _existing_cppitems[class_name] = pycpptype
     return pycpptype
 
 

@@ -10,11 +10,14 @@ def g():
     for i in range(10000000):
         i
 
+addDataToInt = cls.get_overload("addDataToInt")
+
 def f():
     res = 0
     for i in range(10000000):
-        #inst.invoke("addDataToDouble", float(i))
-        inst.invoke("addDataToInt", i)
+        #inst.invoke(cls.get_overload("addDataToDouble"), float(i))
+        #inst.invoke(cls.get_overload("addDataToInt"), i)
+        inst.invoke(addDataToInt, i)
 
 g(); f();
 t1 = time.time()
