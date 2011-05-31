@@ -15,7 +15,7 @@ float_as_integer_ratio = SMM("as_integer_ratio", 1)
 float_hex = SMM("hex", 1)
 
 def descr_conjugate(space, w_float):
-    return space.pos(w_float)
+    return space.float(w_float)
 
 register_all(vars(), globals())
 

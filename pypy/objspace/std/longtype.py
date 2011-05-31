@@ -5,7 +5,7 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
 
 def descr_conjugate(space, w_int):
-    return space.pos(w_int)
+    return space.long(w_int)
 
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):

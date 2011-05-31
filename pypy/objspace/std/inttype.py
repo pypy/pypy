@@ -13,7 +13,7 @@ from pypy.rlib.objectmodel import instantiate
 
 def descr_conjugate(space, w_int):
     "Returns self, the complex conjugate of any int."
-    return space.pos(w_int)
+    return space.int(w_int)
 
 def descr_bit_length(space, w_int):
     """int.bit_length() -> int
