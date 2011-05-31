@@ -134,6 +134,10 @@ class VirtualArray(BaseArray):
         self.forced_result = None
         self.signature = signature
 
+    def _del_sources(self):
+        # Function for deleting references to source arrays, to allow garbage-collecting them
+        raise NotImplementedError
+
     def compute(self):
         i = 0
         signature = self.signature
@@ -150,6 +154,7 @@ class VirtualArray(BaseArray):
     def force_if_needed(self):
         if self.forced_result is None:
             self.forced_result = self.compute()
+            self._del_sources()
 
     def get_concrete(self):
         self.force_if_needed()
@@ -160,6 +165,13 @@ class VirtualArray(BaseArray):
             return self.forced_result.eval(i)
         return self._eval(i)
 
+    def find_size(self):
+        if self.forced_result is not None:
+            # The result has been computed and sources may be unavailable
+            return self.forced_result.find_size()
+        return self._find_size()
+
+
 class Call1(VirtualArray):
     _immutable_fields_ = ["function", "values"]
 
@@ -168,7 +180,10 @@ class Call1(VirtualArray):
         self.function = function
         self.values = values
 
-    def find_size(self):
+    def _del_sources(self):
+        self.values = None
+
+    def _find_size(self):
         return self.values.find_size()
 
     def _eval(self, i):
@@ -185,7 +200,11 @@ class Call2(VirtualArray):
         self.left = left
         self.right = right
 
-    def find_size(self):
+    def _del_sources(self):
+        self.left = None
+        self.right = None
+
+    def _find_size(self):
         try:
             return self.left.find_size()
         except ValueError:
