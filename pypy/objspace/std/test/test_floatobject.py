@@ -751,3 +751,6 @@ class AppTestFloatHex:
                 pass
             else:
                 self.identical(x, float.fromhex(x.hex()))
+
+    def test_invalid(self):
+        raises(ValueError, float.fromhex, "0P")

@@ -371,6 +371,7 @@ class W_Connection(Wrappable):
         finally:
             stringBuffer.clear()
             lltype.free(foundptr, flavor='raw')
+            lltype.free(handleptr, flavor='raw')
 
         # eliminate the authorization handle immediately, if applicable
         if authInfo:

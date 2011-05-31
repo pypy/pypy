@@ -1102,6 +1102,8 @@ class Assembler386(object):
             self.mc.MOV_bi(FORCE_INDEX_OFS, force_index)
             return force_index
         else:
+            # the return value is ignored, apart from the fact that it
+            # is not negative.
             return 0
 
     genop_int_neg = _unaryop("NEG")

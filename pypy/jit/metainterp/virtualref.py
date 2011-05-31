@@ -2,7 +2,7 @@ from pypy.rpython.rmodel import inputconst, log
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker
-
+from pypy.rlib.jit import InvalidVirtualRef
 
 class VirtualRefInfo:
 
@@ -38,23 +38,24 @@ class VirtualRefInfo:
 
     def replace_force_virtual_with_call(self, graphs):
         # similar to rvirtualizable2.replace_force_virtualizable_with_call().
-        c_funcptr = None
-        count = 0
+        c_force_virtual_ptr = None
+        force_virtual_count = 0
         for graph in graphs:
             for block in graph.iterblocks():
                 for op in block.operations:
                     if op.opname == 'jit_force_virtual':
                         # first compute c_funcptr, but only if there is any
                         # 'jit_force_virtual' around
-                        if c_funcptr is None:
-                            c_funcptr = self.get_force_virtual_fnptr()
+                        if c_force_virtual_ptr is None:
+                            c_force_virtual_ptr = self.get_force_virtual_fnptr()
                         #
                         op.opname = 'direct_call'
-                        op.args = [c_funcptr, op.args[0]]
-                        count += 1
-        if c_funcptr is not None:
-            log("replaced %d 'jit_force_virtual' with %r" % (count,
-                                                             c_funcptr.value))
+                        op.args = [c_force_virtual_ptr, op.args[0]]
+                        force_virtual_count += 1
+        #
+        if c_force_virtual_ptr is not None:
+            log("replaced %d 'jit_force_virtual' with %r" % (force_virtual_count,
+                                                             c_force_virtual_ptr.value))
 
     # ____________________________________________________________
 
@@ -145,7 +146,8 @@ class VirtualRefInfo:
                 ResumeGuardForcedDescr.force_now(self.cpu, token)
                 assert vref.virtual_token == self.TOKEN_NONE
                 assert vref.forced
-        else:
-            assert vref.forced
+        elif not vref.forced:
+            # token == TOKEN_NONE and the vref was not forced: it's invalid
+            raise InvalidVirtualRef
         return vref.forced
     force_virtual._dont_inline_ = True

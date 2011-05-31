@@ -727,6 +727,40 @@ class TestStandalone(StandaloneTests):
         assert counts[0.1] > counts[0.4] / 7
         assert counts[0.4] > counts[1.0] / 4
 
+    def test_stack_criticalcode(self):
+        # check for pypy.rlib.rstack._stack_criticalcode_start/stop()
+        from pypy.rlib.rstack import _stack_criticalcode_start
+        from pypy.rlib.rstack import _stack_criticalcode_stop
+        from pypy.rlib.rstackovf import StackOverflow
+        class A:
+            pass
+        glob = A()
+        def f(n):
+            if n <= 0:
+                return 42
+            try:
+                return f(n+1)
+            except StackOverflow:
+                if glob.caught:
+                    print 'Oups! already caught!'
+                glob.caught = True
+                _stack_criticalcode_start()
+                critical(100)   # recurse another 100 times here
+                _stack_criticalcode_stop()
+                return 789
+        def critical(n):
+            if n > 0:
+                n = critical(n - 1)
+            return n - 42
+        def entry_point(argv):
+            glob.caught = False
+            print f(1)
+            return 0
+        t, cbuilder = self.compile(entry_point, stackcheck=True)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == '789'
+
+
 class TestMaemo(TestStandalone):
     def setup_class(cls):
         py.test.skip("TestMaemo: tests skipped for now")
