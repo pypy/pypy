@@ -166,10 +166,10 @@ def descr_fromhex(space, w_cls, s):
         if total_digits > min(const_one, const_two) // 4:
             raise OperationError(space.w_ValueError, space.wrap("way too long"))
         if i < length and (s[i] == "p" or s[i] == "P"):
+            i += 1
             if i == length:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("invalid hex string"))
-            i += 1
             exp_sign = 1
             if s[i] == "-" or s[i] == "+":
                 if s[i] == "-":
