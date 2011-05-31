@@ -11,14 +11,10 @@ from pypy.rlib.objectmodel import instantiate
 
 # ____________________________________________________________
 
-int_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any int.")
-
-def int_conjugate__ANY(space, w_int):
+def descr_conjugate(space, w_int):
     return space.pos(w_int)
 
-int_bit_length = SMM("bit_length", 1, doc="int.bit_length() -> int\n\nNumber of bits necessary to represent self in binary.\n>>> bin(37)\n'0b100101'\n>>> (37).bit_length()\n6")
-
-def int_bit_length__ANY(space, w_int):
+def descr_bit_length(space, w_int):
     val = space.int_w(w_int)
     if val < 0:
         val = -val
@@ -27,8 +23,6 @@ def int_bit_length__ANY(space, w_int):
         bits += 1
         val >>= 1
     return space.wrap(bits)
-
-register_all(vars(), globals())
 
 
 def wrapint(space, x):
@@ -196,6 +190,8 @@ the optional base.  It is an error to supply a base when converting a
 non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
     __new__ = gateway.interp2app(descr__new__),
+    conjugate = gateway.interp2app(descr_conjugate),
+    bit_length = gateway.interp2app(descr_bit_length),
     numerator = typedef.GetSetProperty(descr_get_numerator),
     denominator = typedef.GetSetProperty(descr_get_denominator),
     real = typedef.GetSetProperty(descr_get_real),
