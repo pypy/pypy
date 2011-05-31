@@ -53,7 +53,7 @@ def make_method(name, rettype):
     return method
 
 
-def __ns_getattr__(self, attr):
+def __innercpp_getattr__(self, attr):
     try:
         cppclass = get_cppitem(attr, self.__name__)
         self.__dict__[attr] = cppclass
@@ -61,7 +61,7 @@ def __ns_getattr__(self, attr):
     except TypeError, e:
         import traceback
         traceback.print_exc()
-        raise AttributeError("namespace object has no attribute '%s'" % attr)
+        raise AttributeError("%s object has no attribute '%s'" % (self,attr))
 
 
 def make_cppnamespace(name, cppns):
@@ -73,7 +73,8 @@ def make_cppnamespace(name, cppns):
         d[f] = make_static_function(cppns, f, cppol.get_returntype())
 
     # create a meta class to allow properties (for static data write access)
-    metans = type(CppyyNamespace)(name+'_meta', (type(type),), {"__getattr__" : __ns_getattr__})
+    metans = type(CppyyNamespace)(name+'_meta', (type(type),),
+                                  {"__getattr__" : __innercpp_getattr__})
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
@@ -107,7 +108,8 @@ def make_cppclass(name, cpptype):
 
     # create a meta class to allow properties (for static data write access)
     metabases = tuple([type(base) for base in bases])
-    metacpp = type(CppyyClass)(name+'_meta', metabases, {})
+    metacpp = type(CppyyClass)(name+'_meta', metabases,
+                               {"__getattr__" : __innercpp_getattr__})
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
@@ -143,9 +145,9 @@ def get_cppitem(name, scope=""):
 
     cppitem = cppyy._type_byname(fullname)
     if cppitem.is_namespace():
-        return make_cppnamespace(name, cppitem)
+        return make_cppnamespace(fullname, cppitem)
     else:
-        return make_cppclass(name, cppitem)
+        return make_cppclass(fullname, cppitem)
 get_cppclass = get_cppitem         # TODO: restrict to classes only (?)
 
 
