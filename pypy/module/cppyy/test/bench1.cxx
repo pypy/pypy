@@ -1,45 +1,39 @@
 #include <iostream>
 #include <iomanip>
-#include <sys/times.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "example01.h"
 
-static double gTicks = 0;
+static const int NNN = 10000000;
 
-double get_cputime() {
-   struct tms cpt;
-   times(&cpt);
-   return (double)(cpt.tms_utime+cpt.tms_stime) / gTicks;
-}
 
-int g() {
+int cpp_loop_offset() {
     int i = 0;
-    for ( ; i < 10000000; ++i)
+    for ( ; i < NNN*10; ++i)
         ;
     return i;
 }
 
-int f() {
+int cpp_bench1() {
     int i = 0;
     example01 e;
-    for ( ; i < 10000000; ++i)
+    for ( ; i < NNN*10; ++i)
         e.addDataToInt(i);
     return i;
 }
 
 
 int main() {
-    gTicks = (double)sysconf(_SC_CLK_TCK);
-    double t1 = get_cputime();
-    g();
-    double t2 = get_cputime();
-    f();
-    double t3 = get_cputime();
 
-    std::cout << std::setprecision( 8 );
-    std::cout << (t3 - t2) << " " << (t2 - t1) << std::endl;
-    std::cout << (t3-t2) - (t2 - t1) << std::endl;
+    clock_t t1 = clock();
+    cpp_loop_offset();
+    clock_t t2 = clock();
+    cpp_bench1();
+    clock_t t3 = clock();
+
+    std::cout << std::setprecision(8)
+              << ((t3-t2) - (t2-t1))/((double)CLOCKS_PER_SEC*10.) << std::endl;
 
     return 0;
 }

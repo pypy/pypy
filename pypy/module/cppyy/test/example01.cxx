@@ -20,11 +20,9 @@ example01::example01() : m_somedata(-99) {
 }
 example01::example01(int a) : m_somedata(a) {
     count++;
-    std::cout << "constructor called" << std::endl;
 }
 example01::example01(const example01& e) : m_somedata(e.m_somedata) {
     count++;
-    std::cout << "copy constructor called" << std::endl;
 }
 example01& example01::operator=(const example01& e) {
     if (this != &e) {
