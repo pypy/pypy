@@ -12,9 +12,18 @@ from pypy.rlib.objectmodel import instantiate
 # ____________________________________________________________
 
 def descr_conjugate(space, w_int):
+    "Returns self, the complex conjugate of any int."
     return space.pos(w_int)
 
 def descr_bit_length(space, w_int):
+    """int.bit_length() -> int
+
+    Number of bits necessary to represent self in binary.
+    >>> bin(37)
+    '0b100101'
+    >>> (37).bit_length()
+    6
+    """
     val = space.int_w(w_int)
     if val < 0:
         val = -val
