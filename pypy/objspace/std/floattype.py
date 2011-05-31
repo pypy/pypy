@@ -14,9 +14,7 @@ from pypy.objspace.std.strutil import string_to_float
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
 float_hex = SMM("hex", 1)
 
-float_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any float.")
-
-def float_conjugate__ANY(space, w_float):
+def descr_conjugate(space, w_float):
     return space.pos(w_float)
 
 register_all(vars(), globals())
@@ -280,6 +278,7 @@ Convert a string or number to a floating point number, if possible.''',
                                        as_classmethod=True),
     fromhex = gateway.interp2app(descr_fromhex,
                                  as_classmethod=True),
+    conjugate = gateway.interp2app(descr_conjugate),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
 )
