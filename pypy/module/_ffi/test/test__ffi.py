@@ -195,6 +195,14 @@ class AppTestFfi:
         assert types.sint.deref_pointer() is None
         raises(TypeError, "types.Pointer(42)")
 
+    def test_pointer_identity(self):
+        from _ffi import types
+        x = types.Pointer(types.slong)
+        y = types.Pointer(types.slong)
+        z = types.Pointer(types.char)
+        assert x is y
+        assert x is not z
+
     def test_typed_pointer_args(self):
         """
             extern int dummy; // defined in test_void_result 
