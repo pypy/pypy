@@ -12,6 +12,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.pycode import PyCode, CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from opcode import opmap
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -48,6 +50,44 @@ class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
     greens = ['next_instr', 'is_being_profiled', 'pycode']
     virtualizables = ['frame']
+
+    def on_compile(self, logger, looptoken, operations, type, next_instr,
+                   is_being_profiled, ll_pycode):
+        from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+        
+        space = self.space
+        cache = space.fromcache(Cache)
+        if space.is_true(cache.w_compile_hook):
+            memo = {}
+            list_w = [space.wrap(logger.repr_of_resop(memo, op))
+                      for op in operations]
+            pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
+            try:
+                space.call_function(cache.w_compile_hook,
+                                    space.wrap('main'),
+                                    space.wrap(type),
+                                    space.newtuple([pycode,
+                                    space.wrap(next_instr),
+                                    space.wrap(is_being_profiled)]),
+                                    space.newlist(list_w))
+            except OperationError, e:
+                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
+
+    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
+        space = self.space
+        cache = space.fromcache(Cache)
+        if space.is_true(cache.w_compile_hook):
+            memo = {}
+            list_w = [space.wrap(logger.repr_of_resop(memo, op))
+                      for op in operations]
+            try:
+                space.call_function(cache.w_compile_hook,
+                                    space.wrap('main'),
+                                    space.wrap('bridge'),
+                                    space.wrap(n),
+                                    space.newlist(list_w))
+            except OperationError, e:
+                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
@@ -149,3 +189,28 @@ def residual_call(space, w_callable, __args__):
     '''For testing.  Invokes callable(...), but without letting
     the JIT follow the call.'''
     return space.call_args(w_callable, __args__)
+
+class Cache(object):
+    def __init__(self, space):
+        self.w_compile_hook = space.w_None
+
+@unwrap_spec(ObjSpace, W_Root)
+def set_compile_hook(space, w_hook):
+    """ set_compile_hook(hook)
+
+    Set a compiling hook that will be called each time a loop is compiled.
+    The hook will be called with the following signature:
+    hook(merge_point_type, loop_type, greenkey or guard_number, operations)
+
+    for now merge point type is always `main`
+
+    loop_type can be either `loop` `entry_bridge` or `bridge`
+    in case loop is not `bridge`, greenkey will be a set of constants
+    for jit merge point. in case it's `main` it'll be a tuple
+    (code, offset, is_being_profiled)
+
+    XXX write down what else
+    """
+    cache = space.fromcache(Cache)
+    cache.w_compile_hook = w_hook
+    return space.w_None
