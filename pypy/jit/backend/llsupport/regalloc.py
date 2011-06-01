@@ -226,6 +226,18 @@ class RegisterManager(object):
             else:
                 raise ValueError
 
+    def force_spill_var(self, var):
+        self._sync_var(var)
+        try:
+            loc = self.reg_bindings[var]
+            del self.reg_bindings[var]
+            self.free_regs.append(loc)
+        except KeyError:
+            if not we_are_translated():
+                import pdb; pdb.set_trace()
+            else:
+                raise ValueError
+
     def loc(self, box):
         """ Return the location of 'box'.
         """
