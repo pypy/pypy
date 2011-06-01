@@ -366,7 +366,7 @@ class OpAssembler(object):
         remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
 
         for loc, reg in float_locs:
-            self.mov_loc_loc(loc, reg)
+            self.mov_from_vfp_loc(loc, reg, r.all_regs[reg.value+1])
 
         #the actual call
         self.mc.BL(adr)
@@ -379,10 +379,9 @@ class OpAssembler(object):
         # restore the argumets stored on the stack
         if result is not None:
             resloc = regalloc.after_call(result)
-            # XXX ugly and fragile
-            if result.type == FLOAT:
+            if resloc.is_vfp_reg():
                 # move result to the allocated register
-                self.mov_loc_loc(r.r0, resloc)
+                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
 
         return fcond
 
@@ -834,10 +833,9 @@ class ForceOpAssembler(object):
             self.mc.BL(asm_helper_adr)
             if op.result:
                 resloc = regalloc.after_call(op.result)
-                # XXX ugly and fragile
-                if op.result.type == FLOAT:
+                if resloc.is_vfp_reg():
                     # move result to the allocated register
-                    self.mov_loc_loc(r.r0, resloc)
+                    self.mov_to_vfp_loc(r.r0, r.r1, resloc)
 
         # jump to merge point
         jmp_pos = self.mc.currpos()

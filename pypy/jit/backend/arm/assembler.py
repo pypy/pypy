@@ -499,8 +499,8 @@ class AssemblerARM(ResOpAssembler):
                 count += 1
 
         # move float arguments to vfp regsiters
-        for loc, reg in float_args:
-            self.mov_loc_loc(loc, reg)
+        for loc, vfp_reg in float_args:
+            self.mov_to_vfp_loc(loc, r.all_regs[loc.value+1], vfp_reg)
 
         # remap values stored in core registers
         remap_frame_layout(self, nonfloat_args, nonfloat_regs, r.ip)
@@ -775,6 +775,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.VLDR(loc.value, r.ip.value)
 
     def regalloc_mov(self, prev_loc, loc, cond=c.AL):
+        # really XXX add tests
         if prev_loc.is_imm():
             if loc.is_reg():
                 new_loc = loc
@@ -789,17 +790,10 @@ class AssemblerARM(ResOpAssembler):
             if not loc.is_stack():
                 return
         if prev_loc.is_imm_float():
+            assert loc.is_vfp_reg()
             temp = r.lr
             self.mc.gen_load_int(temp.value, prev_loc.getint())
-            if loc.is_reg():
-                # we need to load one word to loc and one to loc+1 which are
-                # two 32-bit core registers
-                self.mc.LDR_ri(loc.value, temp.value)
-                self.mc.LDR_ri(loc.value+1, temp.value, imm=WORD)
-            elif loc.is_vfp_reg():
-                # we need to load the thing into loc, which is a vfp reg
-                self.mc.VLDR(loc.value, temp.value)
-            assert not loc.is_stack()
+            self.mc.VLDR(loc.value, temp.value)
             return
         if loc.is_stack() or prev_loc.is_stack():
             temp = r.lr
@@ -807,7 +801,7 @@ class AssemblerARM(ResOpAssembler):
                 # spill a core register
                 offset = ConstInt(loc.position*WORD)
                 if not _check_imm_arg(offset, size=0xFFF):
-                    self.mc.gen_load_int(temp.value, -1*offset.value)
+                    self.mc.gen_load_int(temp.value, -offset.value)
                     self.mc.STR_rr(prev_loc.value, r.fp.value, temp.value, cond=cond)
                 else:
                     self.mc.STR_ri(prev_loc.value, r.fp.value, imm=-1*offset.value, cond=cond)
@@ -815,10 +809,10 @@ class AssemblerARM(ResOpAssembler):
                 # unspill a core register
                 offset = ConstInt(prev_loc.position*WORD)
                 if not _check_imm_arg(offset, size=0xFFF):
-                    self.mc.gen_load_int(temp.value, -1*offset.value)
+                    self.mc.gen_load_int(temp.value, -offset.value)
                     self.mc.LDR_rr(loc.value, r.fp.value, temp.value, cond=cond)
                 else:
-                    self.mc.LDR_ri(loc.value, r.fp.value, imm=-1*offset.value, cond=cond)
+                    self.mc.LDR_ri(loc.value, r.fp.value, imm=-offset.value, cond=cond)
             elif loc.is_stack() and prev_loc.is_vfp_reg():
                 # spill vfp register
                 offset = ConstInt(loc.position*-WORD)
@@ -841,15 +835,55 @@ class AssemblerARM(ResOpAssembler):
                 assert 0, 'unsupported case'
         elif loc.is_reg() and prev_loc.is_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
-        elif loc.is_reg() and prev_loc.is_vfp_reg():
-            self.mc.VMOV_rc(loc.value, loc.value+1, prev_loc.value, cond=cond)
-        elif loc.is_vfp_reg() and prev_loc.is_reg():
-            self.mc.VMOV_cr(loc.value, prev_loc.value, prev_loc.value+1, cond=cond)
         elif loc.is_vfp_reg() and prev_loc.is_vfp_reg():
             self.mc.VMOV_cc(loc.value, prev_loc.value, cond=cond)
         else:
             assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov
+
+    def mov_from_vfp_loc(self, vfp_loc, reg1, reg2, cond=c.AL):
+        assert reg1.value + 1 == reg2.value
+        temp = r.lr
+        if vfp_loc.is_vfp_reg():
+            self.mc.VMOV_rc(reg1.value, reg2.value, vfp_loc.value, cond=cond)
+        elif vfp_loc.is_imm_float():
+            self.mc.gen_load_int(temp.value, vfp_loc.getint(), cond=cond)
+            # we need to load one word to loc and one to loc+1 which are
+            # two 32-bit core registers
+            self.mc.LDR_ri(reg1.value, temp.value, cond=cond)
+            self.mc.LDR_ri(reg2.value, temp.value, imm=WORD, cond=cond)
+        elif vfp_loc.is_stack():
+            # load spilled value into vfp reg
+            offset = ConstInt((vfp_loc.position+1)*WORD)
+            if not _check_imm_arg(offset, size=0xFFF):
+                self.mc.gen_load_int(temp.value, -offset.value, cond=cond)
+                self.mc.LDR_rr(reg1.value, r.fp.value, temp.value, cond=cond)
+                self.mc.ADD_ri(temp.value, temp.value, imm=WORD, cond=cond)
+                self.mc.LDR_rr(reg2.value, r.fp.value, temp.value, cond=cond)
+            else:
+                self.mc.LDR_ri(reg1.value, r.fp.value, imm=-offset.value, cond=cond)
+                self.mc.LDR_ri(reg2.value, r.fp.value, imm=-offset.value+WORD, cond=cond)
+        else:
+            assert 0, 'unsupported case'
+
+    def mov_to_vfp_loc(self, reg1, reg2, vfp_loc, cond=c.AL):
+        assert reg1.value + 1 == reg2.value
+        temp = r.lr
+        if vfp_loc.is_vfp_reg():
+            self.mc.VMOV_cr(vfp_loc.value, reg1.value, reg2.value, cond=cond)
+        elif vfp_loc.is_stack():
+            # load spilled value into vfp reg
+            offset = ConstInt((vfp_loc.position+1)*WORD)
+            if not _check_imm_arg(offset, size=0xFFF):
+                self.mc.gen_load_int(temp.value, -offset.value, cond=cond)
+                self.mc.STR_rr(reg1.value, r.fp.value, temp.value, cond=cond)
+                self.mc.ADD_ri(temp.value, temp.value, imm=WORD, cond=cond)
+                self.mc.STR_rr(reg2.value, r.fp.value, temp.value, cond=cond)
+            else:
+                self.mc.STR_ri(reg1.value, r.fp.value, imm=-offset.value, cond=cond)
+                self.mc.STR_ri(reg2.value, r.fp.value, imm=-offset.value+WORD, cond=cond)
+        else:
+            assert 0, 'unsupported case'
 
     def regalloc_push(self, loc):
         if loc.is_stack():
