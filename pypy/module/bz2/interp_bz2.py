@@ -375,7 +375,7 @@ class ReadBZ2Filter(Stream):
         elif whence == 0:
             pass
         else:
-            raise operationerrfmt(space.w_ValueError,
+            raise operationerrfmt(self.space.w_ValueError,
                                   "Invalid value for whence: %d", whence)
 
         # Make offset relative to the current pos
@@ -401,8 +401,6 @@ class ReadBZ2Filter(Stream):
             if not length:
                 break
             read += length
-
-        return self.readlength
 
     def readall(self):
         w_result = self.decompressor.decompress(self.stream.readall())
