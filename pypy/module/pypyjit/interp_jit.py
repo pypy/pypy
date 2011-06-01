@@ -62,13 +62,16 @@ class PyPyJitDriver(JitDriver):
             list_w = [space.wrap(logger.repr_of_resop(memo, op))
                       for op in operations]
             pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
-            space.call_function(cache.w_compile_hook,
-                                space.wrap('main'),
-                                space.wrap(type),
-                                space.newtuple([pycode,
-                                space.wrap(next_instr),
-                                space.wrap(is_being_profiled)]),
-                                space.newlist(list_w))
+            try:
+                space.call_function(cache.w_compile_hook,
+                                    space.wrap('main'),
+                                    space.wrap(type),
+                                    space.newtuple([pycode,
+                                    space.wrap(next_instr),
+                                    space.wrap(is_being_profiled)]),
+                                    space.newlist(list_w))
+            except OperationError, e:
+                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
 
     def on_compile_bridge(self, logger, orig_looptoken, operations, n):
         space = self.space
@@ -77,11 +80,14 @@ class PyPyJitDriver(JitDriver):
             memo = {}
             list_w = [space.wrap(logger.repr_of_resop(memo, op))
                       for op in operations]
-            space.call_function(cache.w_compile_hook,
-                                space.wrap('main'),
-                                space.wrap('bridge'),
-                                space.wrap(n),
-                                space.newlist(list_w))
+            try:
+                space.call_function(cache.w_compile_hook,
+                                    space.wrap('main'),
+                                    space.wrap('bridge'),
+                                    space.wrap(n),
+                                    space.newlist(list_w))
+            except OperationError, e:
+                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,

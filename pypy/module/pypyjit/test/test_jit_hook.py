@@ -67,3 +67,19 @@ class AppTestJitHook(object):
         pypyjit.set_compile_hook(None)
         self.on_compile()
         assert len(all) == 2
+
+    def test_on_compile_exception(self):
+        import pypyjit, sys, cStringIO
+
+        def hook(*args):
+            1/0
+
+        pypyjit.set_compile_hook(hook)
+        s = cStringIO.StringIO()
+        sys.stderr = s
+        try:
+            self.on_compile()
+        finally:
+            sys.stderr = sys.__stderr__
+        assert 'jit hook' in s.getvalue()
+        assert 'ZeroDivisionError' in s.getvalue()
