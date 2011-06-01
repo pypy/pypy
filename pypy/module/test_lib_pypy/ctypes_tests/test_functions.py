@@ -219,7 +219,6 @@ class TestFunctions(BaseCTypesTestChecker):
         assert not result.contents == 99
 
     def test_convert_pointers(self):
-        py.test.skip("segfault")
         f = dll.deref_LP_c_char_p
         f.restype = c_char
         f.argtypes = [POINTER(c_char_p)]

@@ -9,7 +9,7 @@ from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
      CArgObject
 from _ctypes.builtin import ConvMode
 from _ctypes.array import Array
-from _ctypes.pointer import _Pointer
+from _ctypes.pointer import _Pointer, as_ffi_pointer
 
 class NULL(object):
     pass
@@ -255,7 +255,7 @@ class SimpleType(_CDataMeta):
         # make pointer-types compatible with the _ffi fast path
         if result._is_pointer_like():
             def _as_ffi_pointer_(self, ffitype):
-                return self._get_buffer_value()
+                return as_ffi_pointer(self, ffitype)
             result._as_ffi_pointer_ = _as_ffi_pointer_
             
         return result

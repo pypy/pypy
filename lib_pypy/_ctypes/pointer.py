@@ -117,13 +117,16 @@ class _Pointer(_CData):
     contents = property(getcontents, setcontents)
 
     def _as_ffi_pointer_(self, ffitype):
-        my_ffitype = type(self).get_ffi_argtype()
-        # for now, we always allow types.pointer, else a lot of tests
-        # break. We need to rethink how pointers are represented, though
-        if my_ffitype.deref_pointer() != ffitype.deref_pointer() and \
-                ffitype is not _ffi.types.void_p:
-            raise ArgumentError, "expected %s instance, got %s" % (type(self), ffitype)
-        return self._get_buffer_value()
+        return as_ffi_pointer(self, ffitype)
+
+def as_ffi_pointer(value, ffitype):
+    my_ffitype = type(value).get_ffi_argtype()
+    # for now, we always allow types.pointer, else a lot of tests
+    # break. We need to rethink how pointers are represented, though
+    if my_ffitype.deref_pointer() != ffitype.deref_pointer() and \
+            ffitype is not _ffi.types.void_p:
+        raise ArgumentError, "expected %s instance, got %s" % (type(value), ffitype)
+    return value._get_buffer_value()
 
 def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
