@@ -900,6 +900,9 @@ class AssemblerARM(ResOpAssembler):
         elif loc.is_imm():
             self.regalloc_mov(loc, r.ip)
             self.mc.PUSH([r.ip.value])
+        elif loc.is_imm_float():
+            self.regalloc_mov(loc, r.d15)
+            self.mc.VPUSH([r.d15.value])
         else:
             assert 0, 'ffuu'
 
