@@ -31,9 +31,9 @@ class TestCallingConv(Runner):
     Ptr = lltype.Ptr
     FuncType = lltype.FuncType
 
-    def __init__(self):
-        self.cpu = getcpuclass()(rtyper=None, stats=FakeStats())
-        self.cpu.setup_once()
+    def setup_class(cls):
+        cls.cpu = getcpuclass()(rtyper=None, stats=FakeStats())
+        cls.cpu.setup_once()
 
     def _prepare_args(self, args, floats, ints):
         local_floats = list(floats)
