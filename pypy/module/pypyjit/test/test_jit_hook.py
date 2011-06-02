@@ -1,5 +1,6 @@
 
-from pypy.conftest import gettestobjspace    
+import py
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.gateway import interp2app
 from pypy.jit.metainterp.history import LoopToken
@@ -17,6 +18,8 @@ class MockSD(object):
 
 class AppTestJitHook(object):
     def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("Can't run this test with -A")
         space = gettestobjspace(usemodules=('pypyjit',))
         cls.space = space
         w_f = space.appexec([], """():
