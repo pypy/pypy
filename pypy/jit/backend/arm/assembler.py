@@ -708,6 +708,8 @@ class AssemblerARM(ResOpAssembler):
                                         operations[i+1], fcond)
                 fcond = self.operations_with_guard[opnum](self, op,
                                         operations[i+1], arglocs, regalloc, fcond)
+            elif not we_are_translated() and op.getopnum() == -124:
+                regalloc.prepare_force_spill(op, fcond)
             else:
                 arglocs = regalloc.operations[opnum](regalloc, op, fcond)
                 fcond = self.operations[opnum](self, op, arglocs, regalloc, fcond)

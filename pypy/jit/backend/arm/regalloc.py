@@ -1096,6 +1096,10 @@ class Regalloc(object):
 
         return locs
 
+    def prepare_force_spill(self, op, fcond):
+        self.force_spill_var(op.getarg(0))
+        return []
+
 def make_operation_list():
     def notimplemented(self, op, fcond):
         raise NotImplementedError, op
