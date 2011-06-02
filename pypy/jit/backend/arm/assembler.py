@@ -817,21 +817,21 @@ class AssemblerARM(ResOpAssembler):
                     self.mc.LDR_ri(loc.value, r.fp.value, imm=-offset.value, cond=cond)
             elif loc.is_stack() and prev_loc.is_vfp_reg():
                 # spill vfp register
-                offset = ConstInt(loc.position*-WORD)
+                offset = ConstInt(loc.position*WORD)
                 if not _check_imm_arg(offset):
                     self.mc.gen_load_int(temp.value, offset.value)
-                    self.mc.ADD_rr(temp.value, r.fp.value, temp.value)
+                    self.mc.SUB_rr(temp.value, r.fp.value, temp.value)
                 else:
-                    self.mc.ADD_rr(temp.value, r.fp.value, offset.value)
+                    self.mc.SUB_ri(temp.value, r.fp.value, offset.value)
                 self.mc.VSTR(prev_loc.value, temp.value, cond=cond)
             elif loc.is_vfp_reg() and prev_loc.is_stack():
                 # load spilled value into vfp reg
-                offset = ConstInt(prev_loc.position*-WORD)
+                offset = ConstInt(prev_loc.position*WORD)
                 if not _check_imm_arg(offset):
                     self.mc.gen_load_int(temp.value, offset.value)
-                    self.mc.ADD_rr(temp.value, r.fp.value, temp.value)
+                    self.mc.SUB_rr(temp.value, r.fp.value, temp.value)
                 else:
-                    self.mc.ADD_rr(temp.value, r.fp.value, offset.value)
+                    self.mc.SUB_ri(temp.value, r.fp.value, offset.value)
                 self.mc.VLDR(loc.value, temp.value, cond=cond)
             else:
                 assert 0, 'unsupported case'
