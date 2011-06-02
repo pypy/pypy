@@ -227,7 +227,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 bad[other] = True
                 return False
         elif self.level == LEVEL_KNOWNCLASS:
-            if self.known_class != other.known_class: # FIXME: use issubclass?
+            if not self.known_class.same_constant(other.known_class):
                 bad[self] = True
                 bad[other] = True
                 return False

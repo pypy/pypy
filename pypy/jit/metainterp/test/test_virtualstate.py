@@ -95,6 +95,28 @@ class TestBasic:
         fldtst(VStructStateInfo(42, [7]), VStructStateInfo(42, [7]))
         fldtst(VirtualStateInfo(ConstInt(42), [7]), VirtualStateInfo(ConstInt(42), [7]))
 
+    def test_known_class_generalization(self):
+        knownclass1 = OptValue(BoxPtr())
+        knownclass1.make_constant_class(ConstPtr(self.someptr1), 0)
+        info1 = NotVirtualStateInfo(knownclass1)
+        info1.position = 0
+        knownclass2 = OptValue(BoxPtr())
+        knownclass2.make_constant_class(ConstPtr(self.someptr1), 0)
+        info2 = NotVirtualStateInfo(knownclass2)
+        info2.position = 0
+        assert info1.generalization_of(info2, {}, {})
+        assert info2.generalization_of(info1, {}, {})
+
+        knownclass3 = OptValue(BoxPtr())
+        knownclass3.make_constant_class(ConstPtr(self.someptr2), 0)
+        info3 = NotVirtualStateInfo(knownclass3)
+        info3.position = 0
+        assert not info1.generalization_of(info3, {}, {})
+        assert not info2.generalization_of(info3, {}, {})
+        assert not info3.generalization_of(info2, {}, {})
+        assert not info3.generalization_of(info1, {}, {})
+
+
     def test_circular_generalization(self):
         for info in (VArrayStateInfo(42), VStructStateInfo(42, [7]),
                      VirtualStateInfo(ConstInt(42), [7])):
