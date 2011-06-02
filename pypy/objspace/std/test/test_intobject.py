@@ -293,6 +293,11 @@ class AppTestInt:
             pass
         assert I(1).conjugate() == 1
 
+        class I(int):
+            def __pos__(self):
+                return 42
+        assert I(1).conjugate() == 1
+
     def test_trunc(self):
         import math
         assert math.trunc(1) == 1
