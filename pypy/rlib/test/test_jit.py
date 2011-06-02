@@ -52,9 +52,12 @@ class BaseTestJIT(BaseRtypingTest):
         import sys
         
         s = StringIO()
+        prev = sys.stdout
         sys.stdout = s
-        dis.dis(g)
-        sys.stdout = sys.__stdout__
+        try:
+            dis.dis(g)
+        finally:
+            sys.stdout = prev
         x = s.getvalue().find('CALL_FUNCTION')
         assert x != -1
         x = s.getvalue().find('CALL_FUNCTION', x)
