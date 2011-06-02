@@ -92,8 +92,7 @@ class BaseArray(Wrappable):
             return space.wrap(self.get_concrete().getitem(start))
         else:
             # Slice
-            signature = Signature()
-            res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(signature))
+            res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
             return space.wrap(res)
             
 
@@ -248,6 +247,7 @@ class ViewArray(BaseArray):
 
 class SingleDimSlice(ViewArray):
     _immutable_fields_ = ["start", "stop", "step", "size"]
+    static_signature = Signature()
 
     def __init__(self, start, stop, step, slice_length, parent, signature):
         ViewArray.__init__(self, parent, signature)
