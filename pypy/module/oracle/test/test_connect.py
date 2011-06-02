@@ -41,6 +41,10 @@ class AppTestConnection(OracleNotConnectedTestBase):
         if hasattr(self, 'cnx'):
             self.cnx.close()
 
+    def test_constants(self):
+        assert '.' in oracle.version
+        assert oracle.paramstyle == 'named'
+
     def test_connect(self):
         self.cnx = oracle.connect(self.username, self.password,
                                   self.tnsentry, threaded=True)
