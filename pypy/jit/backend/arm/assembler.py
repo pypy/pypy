@@ -856,7 +856,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.LDR_ri(reg2.value, temp.value, imm=WORD, cond=cond)
         elif vfp_loc.is_stack():
             # load spilled value into vfp reg
-            offset = ConstInt((vfp_loc.position+1)*WORD)
+            offset = ConstInt((vfp_loc.position)*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
                 self.mc.gen_load_int(temp.value, -offset.value, cond=cond)
                 self.mc.LDR_rr(reg1.value, r.fp.value, temp.value, cond=cond)
@@ -875,7 +875,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.VMOV_cr(vfp_loc.value, reg1.value, reg2.value, cond=cond)
         elif vfp_loc.is_stack():
             # load spilled value into vfp reg
-            offset = ConstInt((vfp_loc.position+1)*WORD)
+            offset = ConstInt((vfp_loc.position)*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
                 self.mc.gen_load_int(temp.value, -offset.value, cond=cond)
                 self.mc.STR_rr(reg1.value, r.fp.value, temp.value, cond=cond)
