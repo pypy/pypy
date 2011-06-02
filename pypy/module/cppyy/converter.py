@@ -393,6 +393,13 @@ def get_converter(space, name):
     except KeyError, k:
         pass
 
+    #   3) accept const ref as by value
+    if compound and compound[len(compound)-1] == "&":
+        try:
+            return _converters[clean_name](space, -1)
+        except KeyError:
+            pass
+
     #   5) generalized cases (covers basically all user classes)
     cpptype = interp_cppyy.type_byname(space, clean_name)
     if compound == "*":

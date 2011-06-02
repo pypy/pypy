@@ -1,0 +1,10 @@
+<lcgdict>
+
+  <class pattern="std::vector<*>" />
+  <class pattern="__gnu_cxx::__normal_iterator<*>" />
+  <class pattern="__gnu_cxx::new_allocator<*>" />
+  <class pattern="std::_Vector_base<*>" />
+  <class pattern="std::_Vector_base<*>::_Vector_impl" />
+  <class pattern="std::allocator<*>" />
+
+</lcgdict>

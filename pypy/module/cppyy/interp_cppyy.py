@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi
 from pypy.rlib import jit, debug
 
-from pypy.module.cppyy import converter, executor
+from pypy.module.cppyy import converter, executor, helper
 
 class FastCallNotPossible(Exception):
     pass
@@ -320,8 +320,10 @@ class W_CPPScope(Wrappable):
         args_temp = {}
         for i in range(num_methods):
             method_name = capi.charp2str_free(capi.c_method_name(self.handle, i))
+            pymethod_name = helper.map_operator_name(
+                method_name, capi.c_method_num_args(self.handle, i))
             cppfunction = self._make_cppfunction(i)
-            overload = args_temp.setdefault(method_name, [])
+            overload = args_temp.setdefault(pymethod_name, [])
             overload.append(cppfunction)
         for name, functions in args_temp.iteritems():
             overload = W_CPPOverload(self.space, name, functions[:])

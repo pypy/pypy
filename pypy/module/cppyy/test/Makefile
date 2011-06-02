@@ -1,4 +1,4 @@
-all: example01Dict.so datatypesDict.so
+all: example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so
 
 ROOTSYS := ${ROOTSYS}
 
@@ -12,10 +12,10 @@ endif
 
 ifeq ($(shell $(genreflex) --help | grep -- --with-methptrgetter),)
   genreflexflags=
-  cppflags2=
+  cppflags2=-O3
 else
   genreflexflags=--with-methptrgetter
-  cppflags2=-Wno-pmf-conversions
+  cppflags2=-Wno-pmf-conversions -O3
 endif
 
 example01Dict.so: example01.cxx example01.h
@@ -29,3 +29,7 @@ datatypesDict.so: datatypes.cxx datatypes.h
 advancedcppDict.so: advancedcpp.cxx advancedcpp.h
 	$(genreflex) advancedcpp.h $(genreflexflags)
 	g++ -o $@ advancedcpp_rflx.cpp advancedcpp.cxx -shared -lReflex $(cppflags) $(cppflags2)
+
+stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml
+	$(genreflex) stltypes.h --selection=stltypes.xml
+	g++ -o $@ stltypes_rflx.cpp stltypes.cxx -shared -lReflex $(cppflags) $(cppflags2)

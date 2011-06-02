@@ -27,7 +27,7 @@ class FunctionExecutor(object):
 
 class PtrTypeExecutor(FunctionExecutor):
     _immutable_ = True
-    typecode = ''
+    typecode = 'P'
 
     def execute(self, space, func, cppthis, num_args, args):
         lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
@@ -140,8 +140,17 @@ class InstancePtrExecutor(FunctionExecutor):
 
 
 def get_executor(space, name):
+    # Matching of 'name' to an executor factory goes through up to four levels:
+    #   1) full, qualified match
+    #   2) drop '&': by-ref is pretty much the same as by-value, python-wise
+    #   3) types/classes, either by ref/ptr or by value
+    #   4) additional special cases
+    #
+    # If all fails, a default is used, which can be ignored at least until use.
+
     from pypy.module.cppyy import interp_cppyy
 
+    #   1) full, qualified match
     try:
         return _executors[name](space, "", None)
     except KeyError:
@@ -149,9 +158,32 @@ def get_executor(space, name):
 
     compound = helper.compound(name)
     clean_name = helper.clean_type(name)
-    cpptype = interp_cppyy.type_byname(space, clean_name)
-    if compound == "*":           
-        return InstancePtrExecutor(space, cpptype.name, cpptype)
+
+    #   1a) clean lookup
+    try:
+        return _executors[clean_name+compound](space, "", None)
+    except KeyError:
+        pass
+
+    #   2) drop '&': by-ref is pretty much the same as by-value, python-wise
+    if compound and compound[len(compound)-1] == "&":
+        try:
+            return _executors[clean_name](space, "", None)
+        except KeyError:
+            pass
+
+    #   3) types/classes, either by ref/ptr or by value
+    try:
+        cpptype = interp_cppyy.type_byname(space, clean_name)
+        if compound == "*" or compound == "&":
+            return InstancePtrExecutor(space, clean_name, cpptype)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        pass
+
+    # 4) additional special cases
+    # ... none for now
 
     # currently used until proper lazy instantiation available in interp_cppyy
     return FunctionExecutor(space, "", None)
@@ -159,8 +191,10 @@ def get_executor(space, name):
  #  raise TypeError("no clue what %s is" % name)
 
 _executors["void"]                = VoidExecutor
+_executors["void*"]               = PtrTypeExecutor
 _executors["bool"]                = BoolExecutor
 _executors["char"]                = CharExecutor
+_executors["char*"]               = CStringExecutor
 _executors["unsigned char"]       = CharExecutor
 _executors["short int"]           = ShortExecutor
 _executors["short int*"]          = ShortPtrExecutor
@@ -178,4 +212,3 @@ _executors["float"]               = FloatExecutor
 _executors["float*"]              = FloatPtrExecutor
 _executors["double"]              = DoubleExecutor
 _executors["double*"]             = DoublePtrExecutor
-_executors["char*"]               = CStringExecutor

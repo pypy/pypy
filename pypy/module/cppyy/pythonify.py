@@ -59,9 +59,7 @@ def __innercpp_getattr__(self, attr):
         cppclass = get_cppitem(attr, self.__name__)
         self.__dict__[attr] = cppclass
         return cppclass
-    except TypeError, e:
-        import traceback
-        traceback.print_exc()
+    except TypeError:
         raise AttributeError("%s object has no attribute '%s'" % (self,attr))
 
 
@@ -92,15 +90,6 @@ def make_cppnamespace(name, cppns):
     return pycppns
 
 def make_cppclass(class_name, cpptype):
-    d = {"_cppyyclass" : cpptype}
-
-    # insert (static) methods into the class dictionary
-    for meth_name in cpptype.get_method_names():
-        cppol = cpptype.get_overload(meth_name)
-        if cppol.is_static():
-            d[meth_name] = make_static_function(cpptype, meth_name, cppol)
-        else:
-            d[meth_name] = make_method(meth_name, cppol)
 
     # get a list of base classes for class creation
     bases = tuple([get_cppclass(base) for base in cpptype.get_base_names()])
@@ -112,20 +101,30 @@ def make_cppclass(class_name, cpptype):
     metacpp = type(CppyyClass)(class_name+'_meta', metabases,
                                {"__getattr__" : __innercpp_getattr__})
 
+    # create the python-side C++ class representation
+    d = {"_cppyyclass" : cpptype}
+    pycpptype = metacpp(class_name, bases, d)
+ 
+    # cache result early so that the class methods can find the class itself
+    _existing_cppitems[class_name] = pycpptype
+
+    # insert (static) methods into the class dictionary
+    for meth_name in cpptype.get_method_names():
+        cppol = cpptype.get_overload(meth_name)
+        if cppol.is_static():
+            setattr(pycpptype, meth_name, make_static_function(cpptype, meth_name, cppol))
+        else:
+            setattr(pycpptype, meth_name, make_method(meth_name, cppol))
+
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
     for dm_name in cpptype.get_data_member_names():
         cppdm = cpptype.get_data_member(dm_name)
 
-        d[dm_name] = cppdm
+        setattr(pycpptype, dm_name, cppdm)
         if cppdm.is_static():
             setattr(metacpp, dm_name, cppdm)
 
-    # create the python-side C++ class representation
-    pycpptype = metacpp(class_name, bases, d)
- 
-    # cache result and return
-    _existing_cppitems[class_name] = pycpptype
     return pycpptype
 
 
@@ -136,14 +135,13 @@ def get_cppitem(name, scope=""):
     else:
         fullname = name
 
-    # lookup class
+    # lookup class ...
     try:
         return _existing_cppitems[fullname]
     except KeyError:
         pass
 
-    # if failed, create
-
+    # ... if lookup failed, create
     cppitem = cppyy._type_byname(fullname)
     if cppitem.is_namespace():
         return make_cppnamespace(fullname, cppitem)
@@ -160,9 +158,7 @@ class _gbl(object): # TODO: make a CppyyNamespace object
             cppitem = get_cppitem(attr)
             self.__dict__[attr] = cppitem
             return cppitem
-        except TypeError, e:
-            import traceback
-            traceback.print_exc()
+        except TypeError:
             raise AttributeError("'gbl' object has no attribute '%s'" % attr)
 
 

@@ -16,6 +16,11 @@ syntax: regexp
 ^pypy/module/cpyext/test/.+\.obj$
 ^pypy/module/cpyext/test/.+\.manifest$
 ^pypy/module/test_lib_pypy/ctypes_tests/.+\.o$
+^pypy/module/cppyy/src/.+\.o$
+^pypy/module/cppyy/src/.+\.errors$
+^pypy/module/cppyy/test/.+_rflx\.cpp$
+^pypy/module/cppyy/test/.+\.so$
+^pypy/module/cppyy/test/.+\.exe$
 ^pypy/doc/.+\.html$
 ^pypy/doc/config/.+\.rst$
 ^pypy/doc/basicblock\.asc$

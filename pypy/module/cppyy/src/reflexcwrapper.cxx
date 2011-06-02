@@ -167,7 +167,11 @@ int cppyy_num_methods(cppyy_typehandle_t handle) {
 char* cppyy_method_name(cppyy_typehandle_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
-    std::string name = m.Name();
+    std::string name;
+    if (m.IsConstructor())
+       name = s.Name(Reflex::FINAL);    // to get proper name for templates
+    else
+       name = m.Name();
     return cppstring_to_cstring(name);
 }
 
