@@ -867,7 +867,6 @@ class MIFrame(object):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
-        # xxx we may disable the following line in some context later
         self.debug_merge_point(jitdriver_sd, self.metainterp.in_recursion,
                                greenboxes)
 

@@ -213,6 +213,15 @@ class RegisterManager(object):
         self.reg_bindings[v] = loc
         return loc
 
+    def force_spill_var(self, var):
+        self._sync_var(var)
+        try:
+            loc = self.reg_bindings[var]
+            del self.reg_bindings[var]
+            self.free_regs.append(loc)
+        except KeyError:
+            pass   # 'var' is already not in a register
+
     def loc(self, box):
         """ Return the location of 'box'.
         """

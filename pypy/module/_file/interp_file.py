@@ -349,11 +349,11 @@ Notice that when in non-blocking mode, less data than what was requested
 may be returned, even if no size parameter was given.""")
 
     _decl(locals(), "readline",
-        """readlines([size]) -> list of strings, each a line from the file.
+        """readline([size]) -> next line from the file, as a string.
 
-Call readline() repeatedly and return a list of the lines so read.
-The optional size argument, if given, is an approximate bound on the
-total number of bytes in the lines returned.""")
+Retain newline.  A non-negative size argument limits the maximum
+number of bytes to return (an incomplete line may be returned then).
+Return an empty string at EOF.""")
 
     _decl(locals(), "readlines",
         """readlines([size]) -> list of strings, each a line from the file.

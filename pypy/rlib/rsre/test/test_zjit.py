@@ -160,3 +160,9 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_match(r"<[\S ]+>", "<..a   .. aa>")
         assert res == 13
         self.check_enter_count(1)
+
+
+    def test_find_repetition_end_fastpath(self):
+        res = self.meta_interp_search(r"b+", "a"*30 + "b")
+        assert res == 30
+        self.check_loops(call=0)

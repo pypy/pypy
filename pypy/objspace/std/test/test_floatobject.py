@@ -63,6 +63,19 @@ class AppTestAppFloatTest:
     def setup_class(cls):
         cls.w_py26 = cls.space.wrap(sys.version_info >= (2, 6))
 
+    def test_conjugate(self):
+        assert (1.).conjugate() == 1.
+        assert (-1.).conjugate() == -1.
+
+        class F(float):
+            pass
+        assert F(1.).conjugate() == 1.
+
+        class F(float):
+            def __pos__(self):
+                return 42.
+        assert F(1.).conjugate() == 1.
+
     def test_negatives(self):
         assert -1.1 < 0
         assert -0.1 < 0

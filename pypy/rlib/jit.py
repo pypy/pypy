@@ -370,6 +370,24 @@ class JitDriver(object):
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
+    
+    def on_compile(self, logger, looptoken, operations, type, *greenargs):
+        """ A hook called when loop is compiled. Overwrite
+        for your own jitdriver if you want to do something special, like
+        call applevel code
+        """
+
+    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
+        """ A hook called when a bridge is compiled. Overwrite
+        for your own jitdriver if you want to do something special
+        """
+
+    # note: if you overwrite this functions with the above signature it'll
+    #       work, but the *greenargs is different for each jitdriver, so we
+    #       can't share the same methods
+    del on_compile
+    del on_compile_bridge
+
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions
         # used as methods of a frozen object, but we can attach the
