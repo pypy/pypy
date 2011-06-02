@@ -53,6 +53,13 @@ class AppTestConnection(OracleNotConnectedTestBase):
         assert self.cnx.tnsentry == self.tnsentry
         assert isinstance(self.cnx.version, str)
 
+    def test_connect_twophase(self):
+        self.cnx = oracle.connect(self.username, self.password,
+                                  self.tnsentry, twophase=True)
+        assert self.cnx.username == self.username
+        assert self.cnx.password == self.password
+        assert self.cnx.tnsentry == self.tnsentry
+
     def test_singleArg(self):
         self.cnx = oracle.connect("%s/%s@%s" % (self.username, self.password,
                                                 self.tnsentry))
