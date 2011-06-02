@@ -51,6 +51,8 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         greenfield_info = None
         result_type = result_kind
         portal_runner_ptr = "???"
+        on_compile = lambda *args: None
+        on_compile_bridge = lambda *args: None
 
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, None, False)
