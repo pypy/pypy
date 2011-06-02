@@ -480,10 +480,14 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == (1000, 998)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('append', """
-            p14 = new_with_vtable(ConstClass(W_IntObject))
-            setfield_gc(p14, i12, descr=<SignedFieldDescr .*W_IntObject.inst_intval .*>)
-            call(ConstClass(ll_append__listPtr_objectPtr), p8, p14, descr=...)
+            i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
+            i15 = int_add(i13, 1)
+            call(ConstClass(_ll_list_resize_ge__listPtr_Signed), p8, i15, descr=<VoidCallDescr>)
             guard_no_exception(descr=<Guard4>)
+            p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
+            p19 = new_with_vtable(ConstClass(W_IntObject))
+            setfield_gc(p19, i12, descr=<SignedFieldDescr .*W_IntObject.inst_intval .*>)
+            setarrayitem_gc(p17, i13, p19, descr=<GcPtrArrayDescr>)
         """)
 
     def test_range_iter(self):

@@ -621,11 +621,11 @@ class Assembler386(object):
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
-            startaddr, length, _ = self.cpu.insert_stack_check()
-            self.mc.MOV(eax, esp)                       # MOV eax, current
-            self.mc.SUB(eax, heap(startaddr))           # SUB eax, [startaddr]
-            self.mc.CMP(eax, imm(length))               # CMP eax, length
-            self.mc.J_il8(rx86.Conditions['B'], 0)      # JB .skip
+            endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+            self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
+            self.mc.SUB(eax, esp)                       # SUB eax, current
+            self.mc.CMP(eax, heap(lengthaddr))          # CMP eax, [length]
+            self.mc.J_il8(rx86.Conditions['BE'], 0)     # JBE .skip
             jb_location = self.mc.get_relative_pos()
             self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
             # patch the JB above                        # .skip:
@@ -1102,6 +1102,8 @@ class Assembler386(object):
             self.mc.MOV_bi(FORCE_INDEX_OFS, force_index)
             return force_index
         else:
+            # the return value is ignored, apart from the fact that it
+            # is not negative.
             return 0
 
     genop_int_neg = _unaryop("NEG")

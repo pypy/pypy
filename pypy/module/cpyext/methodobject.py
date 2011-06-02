@@ -73,29 +73,29 @@ class W_PyCFunctionObject(Wrappable):
                 rffi.charp2str(self.ml.c_ml_name) + "() takes no keyword arguments"))
 
         func = rffi.cast(PyCFunction, self.ml.c_ml_meth)
+        length = space.int_w(space.len(w_args))
         if flags & METH_KEYWORDS:
             func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
             return generic_cpy_call(space, func, w_self, w_args, w_kw)
         elif flags & METH_NOARGS:
-            if len(w_args.wrappeditems) == 0:
+            if length == 0:
                 return generic_cpy_call(space, func, w_self, None)
             raise OperationError(space.w_TypeError, space.wrap(
                 rffi.charp2str(self.ml.c_ml_name) + "() takes no arguments"))
         elif flags & METH_O:
-            assert isinstance(w_args, W_TupleObject)
-            if len(w_args.wrappeditems) != 1:
+            if length != 1:
                 raise OperationError(space.w_TypeError,
                         space.wrap("%s() takes exactly one argument (%d given)" %  (
                         rffi.charp2str(self.ml.c_ml_name), 
-                        len(w_args.wrappeditems))))
-            w_arg = w_args.wrappeditems[0]
+                        length)))
+            w_arg = space.getitem(w_args, space.wrap(0))
             return generic_cpy_call(space, func, w_self, w_arg)
         elif flags & METH_VARARGS:
             return generic_cpy_call(space, func, w_self, w_args)
         else: # METH_OLDARGS, the really old style
-            size = len(w_args.wrappeditems)
+            size = length
             if size == 1:
-                w_arg = w_args.wrappeditems[0]
+                w_arg = space.getitem(w_args, space.wrap(0))
             elif size == 0:
                 w_arg = None
             else:

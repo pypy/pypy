@@ -81,8 +81,6 @@ def remove_duplicate_casts(graph, translator):
                     num_removed += 1
                 else:
                     available[key] = op.result
-            elif op.opname == 'resume_point':
-                available.clear()
     if num_removed:
         remove_same_as(graph)
         # remove casts with unused results

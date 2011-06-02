@@ -447,6 +447,9 @@ class OptRewrite(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
 
+        if v2.is_constant() and v2.box.getint() == 1:
+            self.make_equal_to(op.result, v1)
+            return
         if v1.intbound.known_ge(IntBound(0, 0)) and v2.is_constant():
             val = v2.box.getint()
             if val & (val - 1) == 0 and val > 0: # val == 2**shift

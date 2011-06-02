@@ -279,6 +279,7 @@ class W_Variable(Wrappable):
                     self.actualLength, self.returnCode,
                     allocatedElements, actualElementsPtr,
                     roci.OCI_DEFAULT)
+                nameBuffer.clear()
             else:
                 status = roci.OCIBindByPos(
                     self.boundCursorHandle, bindHandlePtr,
@@ -601,6 +602,7 @@ class VT_LongString(W_Variable):
     def getValueProc(self, space, pos):
         ptr = rffi.ptradd(self.data, pos * self.bufferSize)
         length = rffi.cast(roci.Ptr(roci.ub4), ptr)[0]
+        length = rffi.cast(lltype.Signed, length)
 
         ptr = rffi.ptradd(ptr, rffi.sizeof(roci.ub4))
         return space.wrap(rffi.charpsize2str(ptr, length))
@@ -732,6 +734,7 @@ class VT_Float(W_Variable):
             finally:
                 rffi.keep_buffer_alive_until_here(textbuf, text)
                 lltype.free(sizeptr, flavor='raw')
+                format_buf.clear()
 
             if isinstance(self, VT_NumberAsString):
                 return w_strvalue
@@ -778,6 +781,8 @@ class VT_Float(W_Variable):
                 format_buf.ptr, format_buf.size,
                 None, 0,
                 dataptr)
+            text_buf.clear()
+            format_buf.clear()
             self.environment.checkForError(
                 status, "NumberVar_SetValue(): from long")
             return
@@ -810,6 +815,8 @@ class VT_Float(W_Variable):
                 format_buf.ptr, format_buf.size,
                 nls_params, len(nls_params),
                 dataptr)
+            text_buf.clear()
+            format_buf.clear()
             self.environment.checkForError(
                 status, "NumberVar_SetValue(): from decimal")
             return

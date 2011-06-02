@@ -346,18 +346,28 @@ class OptVirtualize(optimizer.Optimization):
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
-        # Set the 'forced' field of the virtual_ref.
-        # In good cases, this is all virtual, so has no effect.
-        # Otherwise, this forces the real object -- but only now, as
-        # opposed to much earlier.  This is important because the object is
-        # typically a PyPy PyFrame, and now is the end of its execution, so
-        # forcing it now does not have catastrophic effects.
+        # This operation is used in two cases.  In normal cases, it
+        # is the end of the frame, and op.getarg(1) is NULL.  In this
+        # case we just clear the vref.virtual_token, because it contains
+        # a stack frame address and we are about to leave the frame.
+        # In that case vref.forced should still be NULL, and remains
+        # NULL; and accessing the frame through the vref later is
+        # *forbidden* and will raise InvalidVirtualRef.
+        #
+        # In the other (uncommon) case, the operation is produced
+        # earlier, because the vref was forced during tracing already.
+        # In this case, op.getarg(1) is the virtual to force, and we
+        # have to store it in vref.forced.
+        #
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
-        # op.getarg(1) should really never point to null here
-        # - set 'forced' to point to the real object
         seo = self.optimizer.send_extra_operation
-        seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
-                         descr = vrefinfo.descr_forced))
+
+        # - set 'forced' to point to the real object
+        objbox = op.getarg(1)
+        if not self.optimizer.cpu.ts.CONST_NULL.same_constant(objbox):
+            seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
+                             descr = vrefinfo.descr_forced))
+        
         # - set 'virtual_token' to TOKEN_NONE
         args = [op.getarg(0), ConstInt(vrefinfo.TOKEN_NONE)]
         seo(ResOperation(rop.SETFIELD_GC, args, None,
