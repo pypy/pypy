@@ -810,10 +810,35 @@ class ReadlineInputStream(Stream):
             self.bufstart = 0
         return self.buf
 
-    tell       = PassThrough("tell",      flush_buffers=True)
+    def tell(self):
+        return self.base.tell() - (len(self.buf) - self.bufstart)
+
+    def readall(self):
+        result = self.base.readall()
+        if self.buf:
+            result = self.buf[self.bufstart:] + result
+            self.buf = ''
+            self.bufstart = 0
+        return result
+
+    def read(self, n):
+        if not self.buf:
+            return self.do_read(n)
+        else:
+            m = n - (len(self.buf) - self.bufstart)
+            start = self.bufstart
+            if m > 0:
+                result = self.buf[start:] + self.do_read(m)
+                self.buf = ''
+                self.bufstart = 0
+                return result
+            elif n >= 0:
+                self.bufstart = start + n
+                return self.buf[start : self.bufstart]
+            else:
+                return ''
+
     seek       = PassThrough("seek",      flush_buffers=True)
-    readall    = PassThrough("readall",   flush_buffers=True)
-    read       = PassThrough("read",      flush_buffers=True)
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)

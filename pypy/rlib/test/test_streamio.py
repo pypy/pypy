@@ -1013,12 +1013,17 @@ class TestReadlineInputStream:
     packets = ["a", "b", "\n", "def", "\nxy\npq\nuv", "wx"]
     lines = ["ab\n", "def\n", "xy\n", "pq\n", "uvwx"]
 
-    def makeStream(self, seek=False, bufsize=-1):
+    def makeStream(self, seek=False, tell=False, bufsize=-1):
         base = TSource(self.packets)
         self.source = base
         def f(*args):
-            raise NotImplementedError
-        base.tell = f
+            if seek is False:
+                raise NotImplementedError     # a bug!
+            if seek is None:
+                raise streamio.MyNotImplementedError   # can be caught
+            raise ValueError(seek)  # uh?
+        if not tell:
+            base.tell = f
         if not seek:
             base.seek = f
         return streamio.ReadlineInputStream(base, bufsize)
@@ -1047,6 +1052,30 @@ class TestReadlineInputStream:
                 assert self.lines[i] == firstchar + r
                 i += 1
             assert i == len(self.lines)
+
+    def test_readline_and_read_interleaved_no_seek(self):
+        for file in [self.makeStream(seek=None),
+                     self.makeStream(seek=None, bufsize=2)]:
+            i = 0
+            while 1:
+                firstchar = file.read(1)
+                if firstchar == "":
+                    break
+                r = file.readline()
+                assert r != ""
+                assert self.lines[i] == firstchar + r
+                i += 1
+            assert i == len(self.lines)
+
+    def test_readline_and_readall(self):
+        file = self.makeStream(seek=True, tell=True, bufsize=2)
+        r = file.readline()
+        assert r == 'ab\n'
+        assert file.tell() == 3
+        r = file.readall()
+        assert r == 'def\nxy\npq\nuvwx'
+        r = file.readall()
+        assert r == ''
 
 
 # Speed test
