@@ -285,6 +285,14 @@ class TestW_IntObject:
 
 class AppTestInt:
 
+    def test_conjugate(self):
+        assert (1).conjugate() == 1
+        assert (-1).conjugate() == -1
+
+        class I(int):
+            pass
+        assert I(1).conjugate() == 1
+
     def test_trunc(self):
         import math
         assert math.trunc(1) == 1
