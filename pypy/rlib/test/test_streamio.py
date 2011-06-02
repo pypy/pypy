@@ -1008,6 +1008,46 @@ class TestEncodingOutputFilterTests:
             assert base.buf == data
 
 
+class TestReadlineInputStream:
+
+    packets = ["a", "b", "\n", "def", "\nxy\npq\nuv", "wx"]
+    lines = ["ab\n", "def\n", "xy\n", "pq\n", "uvwx"]
+
+    def makeStream(self, seek=False, bufsize=-1):
+        base = TSource(self.packets)
+        self.source = base
+        def f(*args):
+            raise NotImplementedError
+        base.tell = f
+        if not seek:
+            base.seek = f
+        return streamio.ReadlineInputStream(base, bufsize)
+
+    def test_readline(self):
+        for file in [self.makeStream(), self.makeStream(bufsize=2)]:
+            i = 0
+            while 1:
+                r = file.readline()
+                if r == "":
+                    break
+                assert self.lines[i] == r
+                i += 1
+            assert i == len(self.lines)
+
+    def test_readline_and_read_interleaved(self):
+        for file in [self.makeStream(seek=True),
+                     self.makeStream(seek=True, bufsize=2)]:
+            i = 0
+            while 1:
+                firstchar = file.read(1)
+                if firstchar == "":
+                    break
+                r = file.readline()
+                assert r != ""
+                assert self.lines[i] == firstchar + r
+                i += 1
+            assert i == len(self.lines)
+
 
 # Speed test
 

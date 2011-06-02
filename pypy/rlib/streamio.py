@@ -141,7 +141,8 @@ def decode_mode(mode):
 def construct_stream_tower(stream, buffering, universal, reading, writing,
                            binary):
     if buffering == 0:   # no buffering
-        pass
+        if reading:      # force some minimal buffering for readline()
+            stream = ReadlineInputStream(stream)
     elif buffering == 1:   # line-buffering
         if writing:
             stream = LineBufferingOutputStream(stream)
@@ -740,6 +741,79 @@ class BufferingInputStream(Stream):
         else:
             return self.buf
 
+    write      = PassThrough("write",     flush_buffers=True)
+    truncate   = PassThrough("truncate",  flush_buffers=True)
+    flush      = PassThrough("flush",     flush_buffers=True)
+    flushable  = PassThrough("flushable", flush_buffers=False)
+    close      = PassThrough("close",     flush_buffers=False)
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
+
+
+class ReadlineInputStream(Stream):
+
+    """Minimal buffering input stream.
+
+    Only does buffering for readline().  The other kinds of reads, and
+    all writes, are not buffered at all.
+    """
+
+    bufsize = 2**13 # 8 K
+
+    def __init__(self, base, bufsize=-1):
+        self.base = base
+        self.do_read = base.read   # function to fill buffer some more
+        self.do_seek = base.seek   # seek to a byte offset
+        if bufsize == -1:     # Get default from the class
+            bufsize = self.bufsize
+        self.bufsize = bufsize  # buffer size (hint only)
+        self.buf = ""           # raw data (may contain "\n")
+        self.bufstart = 0
+
+    def flush_buffers(self):
+        if self.buf:
+            try:
+                self.do_seek(self.bufstart-len(self.buf), 1)
+            except MyNotImplementedError:
+                pass
+            else:
+                self.buf = ""
+                self.bufstart = 0
+
+    def readline(self):
+        i = self.buf.find('\n', self.bufstart)
+        #
+        if i < 0:
+            self.buf = self.buf[self.bufstart:]
+            self.bufstart = 0
+            while True:
+                bufsize = max(self.bufsize, len(self.buf) >> 2)
+                data = self.do_read(bufsize)
+                if not data:
+                    result = self.buf              # end-of-file reached
+                    self.buf = ''
+                    return result
+                startsearch = len(self.buf)   # there is no '\n' in buf so far
+                self.buf += data
+                i = self.buf.find('\n', startsearch)
+                if i >= 0:
+                    break
+        #
+        i += 1
+        result = self.buf[self.bufstart:i]
+        self.bufstart = i
+        return result
+
+    def peek(self):
+        if self.bufstart > 0:
+            self.buf = self.buf[self.bufstart:]
+            self.bufstart = 0
+        return self.buf
+
+    tell       = PassThrough("tell",      flush_buffers=True)
+    seek       = PassThrough("seek",      flush_buffers=True)
+    readall    = PassThrough("readall",   flush_buffers=True)
+    read       = PassThrough("read",      flush_buffers=True)
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)
