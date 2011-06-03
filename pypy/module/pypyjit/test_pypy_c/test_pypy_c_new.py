@@ -1612,6 +1612,40 @@ class TestPyPyCNew(BaseTestPyPyC):
             guard_no_exception(descr=...)
         """ % pow_addr)
 
+
+    def test__ffi_call_frame_does_not_escape(self):
+        from pypy.rlib.test.test_libffi import get_libm_name
+        def main(libm_name):
+            try:
+                from _ffi import CDLL, types
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _ffi\n')
+                return 0
+
+            libm = CDLL(libm_name)
+            pow = libm.getfunc('pow', [types.double, types.double],
+                               types.double)
+
+            def mypow(a, b):
+                return pow(a, b)
+
+            i = 0
+            res = 0
+            while i < 300:
+                tmp = mypow(2, 3)
+                res += tmp
+                i += 1
+            return pow.getaddr(), res
+        #
+        libm_name = get_libm_name(sys.platform)
+        log = self.run(main, [libm_name], threshold=200)
+        pow_addr, res = log.result
+        assert res == 8.0 * 300
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        # we only force the virtualref, not its content
+        assert opnames.count('new_with_vtable') == 1
+
     def test_xor(self):
         def main(b):
             a = sa = 0
