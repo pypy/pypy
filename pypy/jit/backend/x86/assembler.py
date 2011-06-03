@@ -500,7 +500,8 @@ class Assembler386(object):
                 break
         else:
             funcname = '?'
-        return "Loop %d: %s" % (len(self.loop_run_counters), funcname)
+        return "%s (loop counter %d)" % (funcname,
+                                         len(self.loop_run_counters))
 
     def _register_counter(self):
         if self._debug:
