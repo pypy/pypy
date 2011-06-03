@@ -499,9 +499,8 @@ class Assembler386(object):
                 funcname = op.getarg(0)._get_str()
                 break
         else:
-            funcname = "<loop %d>" % len(self.loop_run_counters)
-        # invent the counter, so we don't get too confused
-        return funcname
+            funcname = '?'
+        return "Loop %d: %s" % (len(self.loop_run_counters), funcname)
 
     def _register_counter(self):
         if self._debug:
@@ -2079,6 +2078,8 @@ class Assembler386(object):
         # function remember_young_pointer() from the GC.  The two arguments
         # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
         # registers that need to be saved and restored across the call.
+        # If op.getarg(1) is a int, it is an array index and we must call
+        # instead remember_young_pointer_from_array().
         descr = op.getdescr()
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
@@ -2110,13 +2111,19 @@ class Assembler386(object):
             remap_frame_layout(self, arglocs[:2], [edi, esi],
                                X86_64_SCRATCH_REG)
 
+        if op.getarg(1).type == INT:
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            assert func != 0
+        else:
+            func = descr.get_write_barrier_fn(self.cpu)
+
         # misaligned stack in the call, but it's ok because the write barrier
         # is not going to call anything more.  Also, this assumes that the
         # write barrier does not touch the xmm registers.  (Slightly delicate
         # assumption, given that the write barrier can end up calling the
         # platform's malloc() from AddressStack.append().  XXX may need to
         # be done properly)
-        self.mc.CALL(imm(descr.get_write_barrier_fn(self.cpu)))
+        self.mc.CALL(imm(func))
         if IS_X86_32:
             self.mc.ADD_ri(esp.value, 2*WORD)
         for i in range(2, len(arglocs)):

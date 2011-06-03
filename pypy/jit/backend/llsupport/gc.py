@@ -527,6 +527,7 @@ class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
         self.llop1 = gc_ll_descr.llop1
         self.WB_FUNCPTR = gc_ll_descr.WB_FUNCPTR
+        self.WB_ARRAY_FUNCPTR = gc_ll_descr.WB_ARRAY_FUNCPTR
         self.fielddescr_tid = get_field_descr(gc_ll_descr,
                                               gc_ll_descr.GCClass.HDR, 'tid')
         self.jit_wb_if_flag = gc_ll_descr.GCClass.JIT_WB_IF_FLAG
@@ -545,6 +546,13 @@ class WriteBarrierDescr(AbstractDescr):
         funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
         return cpu.cast_adr_to_int(funcaddr)
+
+    def get_write_barrier_from_array_fn(self, cpu):
+        llop1 = self.llop1
+        funcptr = llop1.get_write_barrier_from_array_failing_case(
+            self.WB_ARRAY_FUNCPTR)
+        funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+        return cpu.cast_adr_to_int(funcaddr)    # this may return 0
 
 
 class GcLLDescr_framework(GcLLDescription):
@@ -617,6 +625,8 @@ class GcLLDescr_framework(GcLLDescription):
             [lltype.Signed, lltype.Signed], llmemory.GCREF))
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))
+        self.WB_ARRAY_FUNCPTR = lltype.Ptr(lltype.FuncType(
+            [llmemory.Address, lltype.Signed], lltype.Void))
         self.write_barrier_descr = WriteBarrierDescr(self)
         #
         def malloc_array(itemsize, tid, num_elem):
@@ -808,6 +818,7 @@ class GcLLDescr_framework(GcLLDescription):
         #   GETFIELD_RAW from the array 'gcrefs.list'.
         #
         newops = []
+        known_lengths = {}
         # we can only remember one malloc since the next malloc can possibly
         # collect
         last_malloc = None
@@ -838,18 +849,39 @@ class GcLLDescr_framework(GcLLDescription):
                     v = op.getarg(2)
                     if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                             bool(v.value)): # store a non-NULL
-                        # XXX detect when we should produce a
-                        # write_barrier_from_array
-                        self._gen_write_barrier(newops, op.getarg(0), v)
+                        self._gen_write_barrier_array(newops, op.getarg(0),
+                                                      op.getarg(1), v,
+                                                      cpu, known_lengths)
                         op = op.copy_and_change(rop.SETARRAYITEM_RAW)
+            elif op.getopnum() == rop.NEW_ARRAY:
+                v_length = op.getarg(0)
+                if isinstance(v_length, ConstInt):
+                    known_lengths[op.result] = v_length.getint()
             # ----------
             newops.append(op)
         return newops
 
-    def _gen_write_barrier(self, newops, v_base, v_value):
-        args = [v_base, v_value]
+    def _gen_write_barrier(self, newops, v_base, v_value_or_index):
+        # NB. the 2nd argument of COND_CALL_GC_WB is either a pointer
+        # (regular case), or an index (case of write_barrier_from_array)
+        args = [v_base, v_value_or_index]
         newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
                                    descr=self.write_barrier_descr))
+
+    def _gen_write_barrier_array(self, newops, v_base, v_index, v_value,
+                                 cpu, known_lengths):
+        if self.write_barrier_descr.get_write_barrier_from_array_fn(cpu) != 0:
+            # If we know statically the length of 'v', and it is not too
+            # big, then produce a regular write_barrier.  If it's unknown or
+            # too big, produce instead a write_barrier_from_array.
+            LARGE = 130
+            length = known_lengths.get(v_base, LARGE)
+            if length >= LARGE:
+                # unknown or too big: produce a write_barrier_from_array
+                self._gen_write_barrier(newops, v_base, v_index)
+                return
+        # fall-back case: produce a write_barrier
+        self._gen_write_barrier(newops, v_base, v_value)
 
     def can_inline_malloc(self, descr):
         assert isinstance(descr, BaseSizeDescr)

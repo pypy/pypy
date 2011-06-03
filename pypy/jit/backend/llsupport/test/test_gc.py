@@ -288,6 +288,18 @@ class FakeLLOp(object):
     def get_write_barrier_failing_case(self, FPTRTYPE):
         return llhelper(FPTRTYPE, self._write_barrier_failing_case)
 
+    _have_wb_from_array = False
+
+    def _write_barrier_from_array_failing_case(self, adr_struct, v_index):
+        self.record.append(('barrier_from_array', adr_struct, v_index))
+
+    def get_write_barrier_from_array_failing_case(self, FPTRTYPE):
+        if self._have_wb_from_array:
+            return llhelper(FPTRTYPE,
+                            self._write_barrier_from_array_failing_case)
+        else:
+            return lltype.nullptr(FPTRTYPE.TO)
+
 
 class TestFramework(object):
     gc = 'hybrid'
@@ -303,9 +315,20 @@ class TestFramework(object):
             config = config_
         class FakeCPU(object):
             def cast_adr_to_int(self, adr):
-                ptr = llmemory.cast_adr_to_ptr(adr, gc_ll_descr.WB_FUNCPTR)
-                assert ptr._obj._callable == llop1._write_barrier_failing_case
-                return 42
+                if not adr:
+                    return 0
+                try:
+                    ptr = llmemory.cast_adr_to_ptr(adr, gc_ll_descr.WB_FUNCPTR)
+                    assert ptr._obj._callable == \
+                           llop1._write_barrier_failing_case
+                    return 42
+                except lltype.InvalidCast:
+                    ptr = llmemory.cast_adr_to_ptr(
+                        adr, gc_ll_descr.WB_ARRAY_FUNCPTR)
+                    assert ptr._obj._callable == \
+                           llop1._write_barrier_from_array_failing_case
+                    return 43
+
         gcdescr = get_description(config_)
         translator = FakeTranslator()
         llop1 = FakeLLOp()
@@ -515,29 +538,88 @@ class TestFramework(object):
 
     def test_rewrite_assembler_3(self):
         # check write barriers before SETARRAYITEM_GC
-        v_base = BoxPtr()
-        v_index = BoxInt()
-        v_value = BoxPtr()
-        array_descr = AbstractDescr()
-        operations = [
-            ResOperation(rop.SETARRAYITEM_GC, [v_base, v_index, v_value], None,
-                         descr=array_descr),
-            ]
-        gc_ll_descr = self.gc_ll_descr
-        operations = get_deep_immutable_oplist(operations)
-        operations = gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
-        assert len(operations) == 2
-        #
-        assert operations[0].getopnum() == rop.COND_CALL_GC_WB
-        assert operations[0].getarg(0) == v_base
-        assert operations[0].getarg(1) == v_value
-        assert operations[0].result is None
-        #
-        assert operations[1].getopnum() == rop.SETARRAYITEM_RAW
-        assert operations[1].getarg(0) == v_base
-        assert operations[1].getarg(1) == v_index
-        assert operations[1].getarg(2) == v_value
-        assert operations[1].getdescr() == array_descr
+        for v_new_length in (None, ConstInt(5), ConstInt(5000), BoxInt()):
+            v_base = BoxPtr()
+            v_index = BoxInt()
+            v_value = BoxPtr()
+            array_descr = AbstractDescr()
+            operations = [
+                ResOperation(rop.SETARRAYITEM_GC, [v_base, v_index, v_value],
+                             None, descr=array_descr),
+                ]
+            if v_new_length is not None:
+                operations.insert(0, ResOperation(rop.NEW_ARRAY,
+                                                  [v_new_length], v_base,
+                                                  descr=array_descr))
+                # we need to insert another, unrelated NEW_ARRAY here
+                # to prevent the initialization_store optimization
+                operations.insert(1, ResOperation(rop.NEW_ARRAY,
+                                                  [ConstInt(12)], BoxPtr(),
+                                                  descr=array_descr))
+            gc_ll_descr = self.gc_ll_descr
+            operations = get_deep_immutable_oplist(operations)
+            operations = gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
+            if v_new_length is not None:
+                assert operations[0].getopnum() == rop.NEW_ARRAY
+                assert operations[1].getopnum() == rop.NEW_ARRAY
+                del operations[:2]
+            assert len(operations) == 2
+            #
+            assert operations[0].getopnum() == rop.COND_CALL_GC_WB
+            assert operations[0].getarg(0) == v_base
+            assert operations[0].getarg(1) == v_value
+            assert operations[0].result is None
+            #
+            assert operations[1].getopnum() == rop.SETARRAYITEM_RAW
+            assert operations[1].getarg(0) == v_base
+            assert operations[1].getarg(1) == v_index
+            assert operations[1].getarg(2) == v_value
+            assert operations[1].getdescr() == array_descr
+
+    def test_rewrite_assembler_4(self):
+        # check write barriers before SETARRAYITEM_GC,
+        # if we have actually a write_barrier_from_array.
+        self.llop1._have_wb_from_array = True
+        for v_new_length in (None, ConstInt(5), ConstInt(5000), BoxInt()):
+            v_base = BoxPtr()
+            v_index = BoxInt()
+            v_value = BoxPtr()
+            array_descr = AbstractDescr()
+            operations = [
+                ResOperation(rop.SETARRAYITEM_GC, [v_base, v_index, v_value],
+                             None, descr=array_descr),
+                ]
+            if v_new_length is not None:
+                operations.insert(0, ResOperation(rop.NEW_ARRAY,
+                                                  [v_new_length], v_base,
+                                                  descr=array_descr))
+                # we need to insert another, unrelated NEW_ARRAY here
+                # to prevent the initialization_store optimization
+                operations.insert(1, ResOperation(rop.NEW_ARRAY,
+                                                  [ConstInt(12)], BoxPtr(),
+                                                  descr=array_descr))
+            gc_ll_descr = self.gc_ll_descr
+            operations = get_deep_immutable_oplist(operations)
+            operations = gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
+            if v_new_length is not None:
+                assert operations[0].getopnum() == rop.NEW_ARRAY
+                assert operations[1].getopnum() == rop.NEW_ARRAY
+                del operations[:2]
+            assert len(operations) == 2
+            #
+            assert operations[0].getopnum() == rop.COND_CALL_GC_WB
+            assert operations[0].getarg(0) == v_base
+            if isinstance(v_new_length, ConstInt) and v_new_length.value < 130:
+                assert operations[0].getarg(1) == v_value
+            else:
+                assert operations[0].getarg(1) == v_index
+            assert operations[0].result is None
+            #
+            assert operations[1].getopnum() == rop.SETARRAYITEM_RAW
+            assert operations[1].getarg(0) == v_base
+            assert operations[1].getarg(1) == v_index
+            assert operations[1].getarg(2) == v_value
+            assert operations[1].getdescr() == array_descr
 
     def test_rewrite_assembler_initialization_store(self):
         S = lltype.GcStruct('S', ('parent', OBJECT),
