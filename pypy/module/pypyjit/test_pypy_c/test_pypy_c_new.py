@@ -1646,6 +1646,35 @@ class TestPyPyCNew(BaseTestPyPyC):
         # we only force the virtualref, not its content
         assert opnames.count('new_with_vtable') == 1
 
+    def test_ctypes_call(self):
+        from pypy.rlib.test.test_libffi import get_libm_name
+        def main(libm_name):
+            import ctypes
+            libm = ctypes.CDLL(libm_name)
+            fabs = libm.fabs
+            fabs.argtypes = [ctypes.c_double]
+            fabs.restype = ctypes.c_double
+            x = -4
+            i = 0
+            while i < 300:
+                x = fabs(x)
+                x = x - 100
+                i += 1
+            return fabs._ptr.getaddr(), x
+
+        libm_name = get_libm_name(sys.platform)
+        log = self.run(main, [libm_name], threshold=200)
+        fabs_addr, res = log.result
+        assert res == -4.0
+        loop, = log.loops_by_filename(self.filepath)
+        ops = loop.allops()
+        opnames = log.opnames(ops)
+        assert opnames.count('new_with_vtable') == 1 # only the virtualref
+        assert opnames.count('call_release_gil') == 1
+        idx = opnames.index('call_release_gil')
+        call = ops[idx]
+        assert int(call.args[0]) == fabs_addr
+
     def test_xor(self):
         def main(b):
             a = sa = 0

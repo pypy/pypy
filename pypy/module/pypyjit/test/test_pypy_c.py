@@ -971,51 +971,6 @@ class PyPyCJITTests(object):
         _, compare = self.get_by_bytecode("COMPARE_OP")
         assert "call" not in compare.get_opnames()
 
-    def test_ctypes_call(self):
-        from pypy.rlib.test.test_libffi import get_libm_name
-        libm_name = get_libm_name(sys.platform)
-        out = self.run_source('''
-        def main():
-            import ctypes
-            libm = ctypes.CDLL('%(libm_name)s')
-            fabs = libm.fabs
-            fabs.argtypes = [ctypes.c_double]
-            fabs.restype = ctypes.c_double
-            x = -4
-            for i in range(2000):
-                x = fabs(x)
-                x = x - 100
-            print fabs._ptr.getaddr()
-            return x
-        ''' % locals(),
-                              10000, ([], -4.0),
-                              threshold=1000,
-                              filter_loops=True)
-        fabs_addr = int(out.splitlines()[0])
-        assert len(self.loops) == 1
-        loop = self.loops[0]
-        #
-        # this is the call "fabs(x)"
-        call_functions = self.get_by_bytecode('CALL_FUNCTION_VAR', loop=loop)
-        assert len(call_functions) == 2
-        call_funcptr = call_functions[0] # this is the _call_funcptr inside CFuncPtrFast.__call__
-        assert 'code object __call__' in str(call_funcptr.debug_merge_point)
-        assert call_funcptr.get_opnames() == ['force_token']
-        #
-        # this is the ffi call inside ctypes
-        call_ffi = call_functions[1]
-        ops = [op.getopname() for op in call_ffi]
-        assert ops == ['force_token',
-                       'setfield_gc',         # vable_token
-                       'call_may_force',
-                       'guard_not_forced',
-                       'guard_no_exception']
-        call = call_ffi[-3]
-        assert call.getarg(0).value == fabs_addr
-        #
-        # finally, check that we don't force anything
-        for op in loop.operations:
-            assert op.getopname() != 'new_with_vtable'
             
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
