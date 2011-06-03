@@ -193,7 +193,7 @@ class TestLogger(object):
         '''
         logger, loop, _ = self.reparse(inp)
         op = loop.operations[1]
-        assert logger.logops.repr_of_op(op) == "i8 = int_add(i6, 3)"
+        assert logger.logops.repr_of_resop(op) == "i8 = int_add(i6, 3)"
 
     def test_ops_offset(self):
         inp = '''

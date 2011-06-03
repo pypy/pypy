@@ -20,7 +20,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
-from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
@@ -28,6 +27,7 @@ from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.rpython import raddress
 from pypy.translator.platform import platform
 from array import array
+from thread import _local as tlsobject
 
 # ____________________________________________________________
 

@@ -49,7 +49,7 @@ class Logger(object):
         if not have_debug_prints():
             return None
         logops = self._make_log_operations()
-        logops.log_operations(inputargs, operations, ops_offset)
+        logops._log_operations(inputargs, operations, ops_offset)
         return logops
 
     def _make_log_operations(self):
@@ -100,12 +100,21 @@ class LogOperations(object):
         else:
             return '?'
 
-    def repr_of_op(self, op, offset=-1):
+    def repr_of_resop(self, op, ops_offset=None):
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            loc = op.getarg(0)._get_str()
+            reclev = op.getarg(1).getint()
+            return "debug_merge_point('%s', %s)" % (loc, reclev)
+        if ops_offset is None:
+            offset = -1
+        else:
+            offset = ops_offset.get(op, -1)
         if offset == -1:
             s_offset = ""
         else:
             s_offset = "+%d: " % offset
         args = ", ".join([self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())])
+
         if op.result is not None:
             res = self.repr_of_arg(op.result) + " = "
         else:
@@ -126,7 +135,9 @@ class LogOperations(object):
             fail_args = ''
         return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
-    def log_operations(self, inputargs, operations, ops_offset):
+    def _log_operations(self, inputargs, operations, ops_offset):
+        if not have_debug_prints():
+            return
         if ops_offset is None:
             ops_offset = {}
         if inputargs is not None:
@@ -134,14 +145,8 @@ class LogOperations(object):
             debug_print('[' + args + ']')
         for i in range(len(operations)):
             op = operations[i]
-            if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                loc = op.getarg(0)._get_str()
-                reclev = op.getarg(1).getint()
-                debug_print("debug_merge_point('%s', %s)" % (loc, reclev))
-                continue
-            offset = ops_offset.get(op, -1)
-            debug_print(self.repr_of_op(op, offset))
-        if None in ops_offset:
+            debug_print(self.repr_of_resop(operations[i], ops_offset))
+        if ops_offset and None in ops_offset:
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)
 

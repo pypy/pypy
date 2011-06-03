@@ -4,14 +4,16 @@ from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    base_int, normalizedinttype)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
-from pypy.tool.tls import tlsobject
 from pypy.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 from types import NoneType
 from sys import maxint
 import weakref
 
-TLS = tlsobject()
+class State(object):
+    pass
+
+TLS = State()
 
 class WeakValueDictionary(weakref.WeakValueDictionary):
     """A subclass of weakref.WeakValueDictionary

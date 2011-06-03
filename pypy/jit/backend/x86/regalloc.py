@@ -269,6 +269,12 @@ class RegAlloc(object):
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
 
+    def force_spill_var(self, var):
+        if var.type == FLOAT:
+            return self.xrm.force_spill_var(var)
+        else:
+            return self.rm.force_spill_var(var)
+
     def load_xmm_aligned_16_bytes(self, var, forbidden_vars=[]):
         # Load 'var' in a register; but if it is a constant, we can return
         # a 16-bytes-aligned ConstFloatLoc.
@@ -421,6 +427,8 @@ class RegAlloc(object):
             if self.can_merge_with_next_guard(op, i, operations):
                 oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
                 i += 1
+            elif not we_are_translated() and op.getopnum() == -124: 
+                self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)
             if op.result is not None:
@@ -1310,6 +1318,10 @@ class RegAlloc(object):
 
     def consider_jit_debug(self, op):
         pass
+
+    def _consider_force_spill(self, op):
+        # This operation is used only for testing
+        self.force_spill_var(op.getarg(0))
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(IS_X86_64)

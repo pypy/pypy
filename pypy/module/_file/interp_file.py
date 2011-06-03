@@ -4,13 +4,13 @@ import stat
 import errno
 from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import r_longlong
-from pypy.module._file.interp_stream import W_AbstractStream
-from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror, wrap_oserror_as_ioerror
+from pypy.rlib.rstring import StringBuilder
+from pypy.module._file.interp_stream import (W_AbstractStream, StreamErrors,
+    wrap_streamerror, wrap_oserror_as_ioerror)
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.typedef import interp_attrproperty, make_weakref_descr
-from pypy.interpreter.typedef import interp_attrproperty_w
+from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
+    interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 
@@ -164,14 +164,14 @@ class W_File(W_AbstractStream):
         if n < 0:
             return stream.readall()
         else:
-            result = []
+            result = StringBuilder(n)
             while n > 0:
                 data = stream.read(n)
                 if not data:
                     break
                 n -= len(data)
                 result.append(data)
-            return ''.join(result)
+            return result.build()
 
     @unwrap_spec(size=int)
     def direct_readline(self, size=-1):
@@ -349,11 +349,11 @@ Notice that when in non-blocking mode, less data than what was requested
 may be returned, even if no size parameter was given.""")
 
     _decl(locals(), "readline",
-        """readlines([size]) -> list of strings, each a line from the file.
+        """readline([size]) -> next line from the file, as a string.
 
-Call readline() repeatedly and return a list of the lines so read.
-The optional size argument, if given, is an approximate bound on the
-total number of bytes in the lines returned.""")
+Retain newline.  A non-negative size argument limits the maximum
+number of bytes to return (an incomplete line may be returned then).
+Return an empty string at EOF.""")
 
     _decl(locals(), "readlines",
         """readlines([size]) -> list of strings, each a line from the file.
