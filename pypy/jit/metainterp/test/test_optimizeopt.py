@@ -3402,6 +3402,56 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         '''
         self.optimize_loop(ops, expected)
 
+    def test_arraycopy_dest_not_virtual(self):
+        ops = '''
+        []
+        p1 = new_array(3, descr=arraydescr)
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        call(0, p1, p2, 0, 0, 3, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        expected = '''
+        []
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        setarrayitem_gc(p2, 0, 0, descr=arraydescr)
+        setarrayitem_gc(p2, 1, 0, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 10, descr=arraydescr)
+        escape(p2)
+        jump()
+        '''
+        self.optimize_loop(ops, expected)
+
+    def test_arraycopy_dest_not_virtual_too_long(self):
+        ops = '''
+        []
+        p1 = new_array(10, descr=arraydescr)
+        p2 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        expected = '''
+        []
+        p2 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        p1 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        self.optimize_loop(ops, expected)
+
     def test_bound_lt(self):
         ops = """
         [i0]
