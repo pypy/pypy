@@ -1680,7 +1680,7 @@ class LLtypeBackendTest(BaseBackendTest):
         record = []
         #
         S = lltype.GcStruct('S', ('tid', lltype.Signed))
-        FUNC = self.FuncType([lltype.Ptr(S), lltype.Signed], lltype.Void)
+        FUNC = self.FuncType([lltype.Ptr(S), lltype.Ptr(S)], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
@@ -1699,12 +1699,48 @@ class LLtypeBackendTest(BaseBackendTest):
             s = lltype.malloc(S)
             s.tid = value
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            t = lltype.malloc(S)
+            tgcref = lltype.cast_opaque_ptr(llmemory.GCREF, t)
             del record[:]
             self.execute_operation(rop.COND_CALL_GC_WB,
-                                   [BoxPtr(sgcref), ConstInt(-2121)],
+                                   [BoxPtr(sgcref), ConstPtr(tgcref)],
                                    'void', descr=WriteBarrierDescr())
             if cond:
-                assert record == [(s, -2121)]
+                assert record == [(s, t)]
+            else:
+                assert record == []
+
+    def test_cond_call_gc_wb_array(self):
+        def func_void(a, b):
+            record.append((a, b))
+        record = []
+        #
+        S = lltype.GcStruct('S', ('tid', lltype.Signed))
+        FUNC = self.FuncType([lltype.Ptr(S), lltype.Signed], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        class WriteBarrierDescr(AbstractDescr):
+            jit_wb_if_flag = 4096
+            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_singlebyte = 0x10
+            def get_write_barrier_from_array_fn(self, cpu):
+                return funcbox.getint()
+        #
+        for cond in [False, True]:
+            value = random.randrange(-sys.maxint, sys.maxint)
+            if cond:
+                value |= 4096
+            else:
+                value &= ~4096
+            s = lltype.malloc(S)
+            s.tid = value
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            del record[:]
+            self.execute_operation(rop.COND_CALL_GC_WB,
+                                   [BoxPtr(sgcref), ConstInt(123)],
+                                   'void', descr=WriteBarrierDescr())
+            if cond:
+                assert record == [(s, 123)]
             else:
                 assert record == []
 
