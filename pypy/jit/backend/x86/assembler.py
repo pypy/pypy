@@ -322,6 +322,7 @@ class Assembler386(object):
         # for the duration of compiling one loop or a one bridge.
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
+        clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
         if not we_are_translated():
             # Arguments should be unique
@@ -335,7 +336,8 @@ class Assembler386(object):
             operations = self._inject_debugging_code(looptoken, operations)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
-        arglocs, operations = regalloc.prepare_loop(inputargs, operations, looptoken)
+        arglocs, operations = regalloc.prepare_loop(inputargs, operations,
+                                                    looptoken, clt.allgcrefs)
         looptoken._x86_arglocs = arglocs
 
         bootstrappos = self.mc.get_relative_pos()
@@ -407,7 +409,8 @@ class Assembler386(object):
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         fail_depths = faildescr._x86_current_depths
         operations = regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
-                                             operations)
+                                             operations,
+                                             self.current_clt.allgcrefs)
 
         stackadjustpos = self._patchable_stackadjust()
         frame_depth, param_depth = self._assemble(regalloc, operations)

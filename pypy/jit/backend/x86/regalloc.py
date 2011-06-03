@@ -157,11 +157,12 @@ class RegAlloc(object):
         # to be read/used by the assembler too
         self.jump_target_descr = None
 
-    def _prepare(self, inputargs, operations):
+    def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
         self.param_depth = 0
         cpu = self.assembler.cpu
-        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
+                                                       allgcrefs)
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
@@ -172,15 +173,16 @@ class RegAlloc(object):
                                    assembler = self.assembler)
         return operations
 
-    def prepare_loop(self, inputargs, operations, looptoken):
-        operations = self._prepare(inputargs, operations)
+    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         jump = operations[-1]
         loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
         self.loop_consts = loop_consts
         return self._process_inputargs(inputargs), operations
 
-    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations):
-        operations = self._prepare(inputargs, operations)
+    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
+                       allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self.loop_consts = {}
         self._update_bindings(arglocs, inputargs)
         self.fm.frame_depth = prev_depths[0]

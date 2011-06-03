@@ -1,8 +1,7 @@
 """
-This is a test that translates a complete JIT to C and runs it.  It is
-not testing much, expect that it basically works.  What it *is* testing,
-however, is the correct handling of GC, i.e. if objects are freed as
-soon as possible (at least in a simple case).
+This is a test that translates a complete JIT together with a GC and runs it.
+It is testing that the GC-dependent aspects basically work, mostly the mallocs
+and the various cases of write barrier.
 """
 
 import weakref
@@ -14,7 +13,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.jit import purefunction, unroll_safe
 from pypy.jit.backend.x86.runner import CPU386
-from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
+from pypy.jit.backend.llsupport.gc import GcRootMap_asmgcc
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
 from pypy.jit.backend.x86.arch import IS_X86_64

@@ -34,7 +34,7 @@ class GcLLDescription(GcCache):
         pass
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
-    def rewrite_assembler(self, cpu, operations):
+    def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         return operations
     def can_inline_malloc(self, descr):
         return False
@@ -144,78 +144,6 @@ class GcLLDescr_boehm(GcLLDescription):
 
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC
-
-
-class GcRefList:
-    """Handles all references from the generated assembler to GC objects.
-    This is implemented as a nonmovable, but GC, list; the assembler contains
-    code that will (for now) always read from this list."""
-
-    GCREF_LIST = lltype.GcArray(llmemory.GCREF)     # followed by the GC
-
-    HASHTABLE = rffi.CArray(llmemory.Address)      # ignored by the GC
-    HASHTABLE_BITS = 10
-    HASHTABLE_SIZE = 1 << HASHTABLE_BITS
-
-    def initialize(self):
-        if we_are_translated(): n = 2000
-        else:                   n = 10    # tests only
-        self.list = self.alloc_gcref_list(n)
-        self.nextindex = 0
-        self.oldlists = []
-        # A pseudo dictionary: it is fixed size, and it may contain
-        # random nonsense after a collection moved the objects.  It is only
-        # used to avoid too many duplications in the GCREF_LISTs.
-        self.hashtable = lltype.malloc(self.HASHTABLE,
-                                       self.HASHTABLE_SIZE+1,
-                                       flavor='raw', track_allocation=False)
-        dummy = lltype.direct_ptradd(lltype.direct_arrayitems(self.hashtable),
-                                     self.HASHTABLE_SIZE)
-        dummy = llmemory.cast_ptr_to_adr(dummy)
-        for i in range(self.HASHTABLE_SIZE+1):
-            self.hashtable[i] = dummy
-
-    def alloc_gcref_list(self, n):
-        # Important: the GRREF_LISTs allocated are *non-movable*.  This
-        # requires support in the gc (hybrid GC or minimark GC so far).
-        if we_are_translated():
-            list = rgc.malloc_nonmovable(self.GCREF_LIST, n)
-            assert list, "malloc_nonmovable failed!"
-        else:
-            list = lltype.malloc(self.GCREF_LIST, n)     # for tests only
-        return list
-
-    def get_address_of_gcref(self, gcref):
-        assert lltype.typeOf(gcref) == llmemory.GCREF
-        # first look in the hashtable, using an inexact hash (fails after
-        # the object moves)
-        addr = llmemory.cast_ptr_to_adr(gcref)
-        hash = llmemory.cast_adr_to_int(addr, "forced")
-        hash -= hash >> self.HASHTABLE_BITS
-        hash &= self.HASHTABLE_SIZE - 1
-        addr_ref = self.hashtable[hash]
-        # the following test is safe anyway, because the addresses found
-        # in the hashtable are always the addresses of nonmovable stuff
-        # ('addr_ref' is an address inside self.list, not directly the
-        # address of a real moving GC object -- that's 'addr_ref.address[0]'.)
-        if addr_ref.address[0] == addr:
-            return addr_ref
-        # if it fails, add an entry to the list
-        if self.nextindex == len(self.list):
-            # reallocate first, increasing a bit the size every time
-            self.oldlists.append(self.list)
-            self.list = self.alloc_gcref_list(len(self.list) // 4 * 5)
-            self.nextindex = 0
-        # add it
-        index = self.nextindex
-        self.list[index] = gcref
-        addr_ref = lltype.direct_ptradd(lltype.direct_arrayitems(self.list),
-                                        index)
-        addr_ref = llmemory.cast_ptr_to_adr(addr_ref)
-        self.nextindex = index + 1
-        # record it in the hashtable
-        self.hashtable[hash] = addr_ref
-        return addr_ref
 
 
 class GcRootMap_asmgcc(object):
@@ -567,7 +495,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.translator = translator
         self.llop1 = llop1
 
-        # we need the hybrid or minimark GC for GcRefList.alloc_gcref_list()
+        # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
         # to work
         if gcdescr.config.translation.gc not in ('hybrid', 'minimark'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
@@ -582,8 +510,6 @@ class GcLLDescr_framework(GcLLDescription):
                                       " with the JIT" % (name,))
         gcrootmap = cls(gcdescr)
         self.gcrootmap = gcrootmap
-        self.gcrefs = GcRefList()
-        self.single_gcref_descr = GcPtrFieldDescr('', 0)
 
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
@@ -716,7 +642,6 @@ class GcLLDescr_framework(GcLLDescription):
         return rffi.cast(lltype.Signed, fptr)
 
     def initialize(self):
-        self.gcrefs.initialize()
         self.gcrootmap.initialize()
 
     def init_size_descr(self, S, descr):
@@ -778,44 +703,21 @@ class GcLLDescr_framework(GcLLDescription):
             funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
                     llmemory.cast_ptr_to_adr(gcref_newptr))
 
-    def replace_constptrs_with_getfield_raw(self, cpu, newops, op):
-        # xxx some performance issue here
-        newargs = [None] * op.numargs()
-        needs_copy = False
+    def record_constptrs(self, op, gcrefs_output_list):
         for i in range(op.numargs()):
             v = op.getarg(i)
-            newargs[i] = v
             if isinstance(v, ConstPtr) and bool(v.value):
-                addr = self.gcrefs.get_address_of_gcref(v.value)
-                # ^^^even for non-movable objects, to record their presence
-                if rgc.can_move(v.value):
-                    box = BoxPtr(v.value)
-                    addr = cpu.cast_adr_to_int(addr)
-                    newops.append(ResOperation(rop.GETFIELD_RAW,
-                                               [ConstInt(addr)], box,
-                                               self.single_gcref_descr))
-                    newargs[i] = box
-                    needs_copy = True
-        #
-        if needs_copy:
-            return op.copy_and_change(op.getopnum(), args=newargs)
-        else:
-            return op
+                p = v.value
+                rgc._make_sure_does_not_move(p)
+                gcrefs_output_list.append(p)
 
-
-    def rewrite_assembler(self, cpu, operations):
+    def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         # Perform two kinds of rewrites in parallel:
         #
         # - Add COND_CALLs to the write barrier before SETFIELD_GC and
         #   SETARRAYITEM_GC operations.
         #
-        # - Remove all uses of ConstPtrs away from the assembler.
-        #   Idea: when running on a moving GC, we can't (easily) encode
-        #   the ConstPtrs in the assembler, because they can move at any
-        #   point in time.  Instead, we store them in 'gcrefs.list', a GC
-        #   but nonmovable list; and here, we modify 'operations' to
-        #   replace direct usage of ConstPtr with a BoxPtr loaded by a
-        #   GETFIELD_RAW from the array 'gcrefs.list'.
+        # - Record the ConstPtrs from the assembler.
         #
         newops = []
         known_lengths = {}
@@ -825,8 +727,8 @@ class GcLLDescr_framework(GcLLDescription):
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
-            # ---------- replace ConstPtrs with GETFIELD_RAW ----------
-            op = self.replace_constptrs_with_getfield_raw(cpu, newops, op)
+            # ---------- record the ConstPtrs ----------
+            self.record_constptrs(op, gcrefs_output_list)
             if op.is_malloc():
                 last_malloc = op.result
             elif op.can_malloc():
