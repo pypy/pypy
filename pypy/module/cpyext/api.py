@@ -966,6 +966,7 @@ def load_extension_module(space, path, name):
     state = space.fromcache(State)
     if state.find_extension(name, path) is not None:
         return
+    old_context = state.package_context
     state.package_context = name, path
     try:
         from pypy.rlib import rdynload
@@ -991,7 +992,7 @@ def load_extension_module(space, path, name):
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()
     finally:
-        state.package_context = None, None
+        state.package_context = old_context
     state.fixup_extension(name, path)
 
 @specialize.ll()
