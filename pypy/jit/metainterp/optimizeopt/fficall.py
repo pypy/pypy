@@ -104,7 +104,7 @@ class OptFfiCall(Optimization):
         # we immediately set funcinfo to None to prevent recursion when
         # calling emit_op
         if self.logops is not None:
-            debug_print('rollback: ' + msg + ': ', self.logops.repr_of_op(op))
+            debug_print('rollback: ' + msg + ': ', self.logops.repr_of_resop(op))
         funcinfo = self.funcinfo
         self.funcinfo = None
         self.emit_operation(funcinfo.prepare_op)
@@ -202,7 +202,7 @@ class OptFfiCall(Optimization):
 
     def propagate_forward(self, op):
         if self.logops is not None:
-            debug_print(self.logops.repr_of_op(op))
+            debug_print(self.logops.repr_of_resop(op))
         opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:

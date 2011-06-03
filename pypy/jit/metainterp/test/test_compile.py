@@ -37,7 +37,7 @@ class FakeLogger(object):
     def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
         pass
 
-    def repr_of_op(self, op):
+    def repr_of_resop(self, op):
         return repr(op)
 
 class FakeState(object):
