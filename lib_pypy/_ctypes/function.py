@@ -340,16 +340,7 @@ class CFuncPtr(_CData):
 
         funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
         result = self._call_funcptr(funcptr, *newargs)
-        # The 'errcheck' protocol
-        if self._errcheck_:
-            v = self._errcheck_(result, self, args)
-            # If the errcheck funtion failed, let it throw
-            # If the errcheck function returned newargs unchanged,
-            # continue normal processing.
-            # If the errcheck function returned something else,
-            # use that as result.
-            if v is not args:
-                result = v
+        result = self._do_errcheck(result, args)
 
         #return result
         if not outargs:
@@ -357,7 +348,6 @@ class CFuncPtr(_CData):
         if len(outargs) == 1:
             return outargs[0]
         return tuple(outargs)
-
 
     def _call_funcptr(self, funcptr, *newargs):
 
@@ -376,6 +366,19 @@ class CFuncPtr(_CData):
                 set_last_error(_rawffi.get_last_error())
         #
         return self._build_result(self._restype_, result, newargs)
+
+    def _do_errcheck(self, result, args):
+        # The 'errcheck' protocol
+        if self._errcheck_:
+            v = self._errcheck_(result, self, args)
+            # If the errcheck funtion failed, let it throw
+            # If the errcheck function returned newargs unchanged,
+            # continue normal processing.
+            # If the errcheck function returned something else,
+            # use that as result.
+            if v is not args:
+                return v
+        return result
 
     def _getfuncptr_fromaddress(self, argtypes, restype):
         address = self._get_address()
@@ -644,8 +647,7 @@ def make_fastpath_subclass(CFuncPtr):
         @classmethod
         def enable_fastpath_maybe(cls, obj):
             if (obj.callable is None and
-                obj._com_index is None and
-                obj._errcheck_ is None):
+                obj._com_index is None):
                 obj.__class__ = cls
 
         def __rollback(self):
@@ -668,11 +670,6 @@ def make_fastpath_subclass(CFuncPtr):
             self._com_index = idx
         _com_index = property(lambda x: None, _setcom_index)
 
-        def _seterrcheck(self, func):
-            self.__rollback()
-            self.errcheck = func
-        errcheck = property(lambda x: None, _seterrcheck)
-
         def __call__(self, *args):
             thisarg = None
             argtypes = self._argtypes_
@@ -680,6 +677,7 @@ def make_fastpath_subclass(CFuncPtr):
             funcptr = self._getfuncptr(argtypes, restype, thisarg)
             try:
                 result = self._call_funcptr(funcptr, *args)
+                result = self._do_errcheck(result, args)
             except (TypeError, ArgumentError): # XXX, should be FFITypeError
                 assert self._slowpath_allowed
                 return CFuncPtr.__call__(self, *args)

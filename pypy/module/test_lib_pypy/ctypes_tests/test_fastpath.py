@@ -19,26 +19,25 @@ def setup_module(mod):
 class TestFastpath(BaseCTypesTestChecker):
 
     def test_fastpath_forbidden(self):
-        def errcheck(result, func, args):
-            return result
+        def myfunc():
+            pass
         #
         tf_b = dll.tf_b
         tf_b.restype = c_byte
         #
         # so far, it's still using the slowpath
         assert not tf_b._is_fastpath
-        tf_b.errcheck = errcheck
+        tf_b.callable = myfunc
         tf_b.argtypes = (c_byte,)
         # errcheck prevented the fastpath to kick in
         assert not tf_b._is_fastpath
         #
-        del tf_b.errcheck
+        del tf_b.callable
         tf_b.argtypes = (c_byte,) # try to re-enable the fastpath
         assert tf_b._is_fastpath
         #
         assert not tf_b._slowpath_allowed
-        # errcheck disables the fastpath
-        py.test.raises(AssertionError, "tf_b.errcheck = errcheck")
+        py.test.raises(AssertionError, "tf_b.callable = myfunc")
         py.test.raises(AssertionError, "tf_b('aaa')") # force a TypeError
 
     def test_simple_args(self):
@@ -74,6 +73,15 @@ class TestFastpath(BaseCTypesTestChecker):
         result = f("abcd", ord("b"))
         assert result == "bcd"
 
+    def test_errcheck(self):
+        def errcheck(result, func, args):
+            return 'hello'
+        tf_b = dll.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        tf_b.errcheck = errcheck
+        assert tf_b(-126) == 'hello'
+
 
 class TestFallbackToSlowpath(BaseCTypesTestChecker):
 
@@ -93,15 +101,3 @@ class TestFallbackToSlowpath(BaseCTypesTestChecker):
         assert not tf_b._is_fastpath
         assert tf_b(-126) == -125
         tf_b.callable = None
-
-    def test_errcheck_is_None(self):
-        def errcheck(result, func, args):
-            return result * 2
-        #
-        tf_b = dll2.tf_b
-        tf_b.restype = c_byte
-        tf_b.argtypes = (c_byte,)
-        tf_b.errcheck = errcheck
-        assert not tf_b._is_fastpath
-        assert tf_b(-126) == -84
-        del tf_b.errcheck
