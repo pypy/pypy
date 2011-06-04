@@ -1,8 +1,7 @@
 """
-This is a test that translates a complete JIT to C and runs it.  It is
-not testing much, expect that it basically works.  What it *is* testing,
-however, is the correct handling of GC, i.e. if objects are freed as
-soon as possible (at least in a simple case).
+This is a test that translates a complete JIT together with a GC and runs it.
+It is testing that the GC-dependent aspects basically work, mostly the mallocs
+and the various cases of write barrier.
 """
 
 import weakref
@@ -14,7 +13,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.jit import purefunction, unroll_safe
 from pypy.jit.backend.x86.runner import CPU386
-from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
+from pypy.jit.backend.llsupport.gc import GcRootMap_asmgcc
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
 from pypy.jit.backend.x86.arch import IS_X86_64
@@ -455,6 +454,73 @@ class CompileFrameworkTests(object):
 
     def test_compile_framework_7(self):
         self.run('compile_framework_7')
+
+    def define_compile_framework_8(cls):
+        # Array of pointers, of unknown length (test write_barrier_from_array)
+        def before(n, x):
+            return n, x, None, None, None, None, None, None, None, None, [X(123)], None
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            if n < 1900:
+                check(l[0].x == 123)
+                l = [None] * (16 + (n & 7))
+                l[0] = X(123)
+                l[1] = X(n)
+                l[2] = X(n+10)
+                l[3] = X(n+20)
+                l[4] = X(n+30)
+                l[5] = X(n+40)
+                l[6] = X(n+50)
+                l[7] = X(n+60)
+                l[8] = X(n+70)
+                l[9] = X(n+80)
+                l[10] = X(n+90)
+                l[11] = X(n+100)
+                l[12] = X(n+110)
+                l[13] = X(n+120)
+                l[14] = X(n+130)
+                l[15] = X(n+140)
+            if n < 1800:
+                check(len(l) == 16 + (n & 7))
+                check(l[0].x == 123)
+                check(l[1].x == n)
+                check(l[2].x == n+10)
+                check(l[3].x == n+20)
+                check(l[4].x == n+30)
+                check(l[5].x == n+40)
+                check(l[6].x == n+50)
+                check(l[7].x == n+60)
+                check(l[8].x == n+70)
+                check(l[9].x == n+80)
+                check(l[10].x == n+90)
+                check(l[11].x == n+100)
+                check(l[12].x == n+110)
+                check(l[13].x == n+120)
+                check(l[14].x == n+130)
+                check(l[15].x == n+140)
+            n -= x.foo
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        def after(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            check(len(l) >= 16)
+            check(l[0].x == 123)
+            check(l[1].x == 2)
+            check(l[2].x == 12)
+            check(l[3].x == 22)
+            check(l[4].x == 32)
+            check(l[5].x == 42)
+            check(l[6].x == 52)
+            check(l[7].x == 62)
+            check(l[8].x == 72)
+            check(l[9].x == 82)
+            check(l[10].x == 92)
+            check(l[11].x == 102)
+            check(l[12].x == 112)
+            check(l[13].x == 122)
+            check(l[14].x == 132)
+            check(l[15].x == 142)
+        return before, f, after
+
+    def test_compile_framework_8(self):
+        self.run('compile_framework_8')
 
     def define_compile_framework_external_exception_handling(cls):
         def before(n, x):

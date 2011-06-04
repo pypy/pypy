@@ -362,7 +362,7 @@ class TestX86(LLtypeBackendTest):
         operations[3].setfailargs([i1])
         self.cpu.compile_loop(inputargs, operations, looptoken)
         name, loopaddress, loopsize = agent.functions[0]
-        assert name == "Loop # 17: hello"
+        assert name == "Loop # 17: hello (loop counter 0)"
         assert loopaddress <= looptoken._x86_loop_code
         assert loopsize >= 40 # randomish number
 
@@ -378,7 +378,7 @@ class TestX86(LLtypeBackendTest):
 
         self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
         name, address, size = agent.functions[1]
-        assert name == "Bridge # 0: bye"
+        assert name == "Bridge # 0: bye (loop counter 1)"
         # Would be exactly ==, but there are some guard failure recovery
         # stubs in-between
         assert address >= loopaddress + loopsize

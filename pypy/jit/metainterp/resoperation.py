@@ -471,7 +471,8 @@ _oplist = [
     'STRSETITEM/3',
     'UNICODESETITEM/3',
     #'RUNTIMENEW/1',     # ootype operation
-    'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
+    'COND_CALL_GC_WB/2d', # [objptr, newvalue] or [arrayptr, index]
+                          # (for the write barrier, latter is in an array)
     'DEBUG_MERGE_POINT/2',      # debugging only
     'JIT_DEBUG/*',              # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
