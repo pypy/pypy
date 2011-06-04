@@ -11,6 +11,9 @@ at the `issue tracker`_, pop up on #pypy on irc.freenode.net or write to the
 `mailing list`_. This is simply for the reason that small possible projects
 tend to change very rapidly.
 
+XXX: write a paragraph that this is a loose collection and where to go
+from here
+
 Numpy improvements
 ------------------
 
@@ -23,8 +26,6 @@ This is more of a project-container than a single project. Possible ideas:
 
 * interface with fortran/C libraries.
 
-Potential mentors: fijal
-
 JIT tooling
 -----------
 
@@ -35,18 +36,47 @@ Improvements to existing tools as well as new tools would be of great help.
 Work on some of other languages
 -------------------------------
 
-xxx
+There are various languages implemented using the RPython translation toolchain.
+One of the most interesting is the `JavaScript implementation`_, but there
+are others like scheme or prolog. An interesting project would be to improve
+the jittability of those or to experiment with various optimizations.
 
 Various GCs
 -----------
 
-xxx
+PyPy has pluggable garbage collection policy. This means that various garbage
+collectors can be written for specialized purposes, or even various
+experiments can be done for the general purpose. Examples
+
+* An incremental garbage collector that has specified maximal pause times,
+  crucial for games
+
+* A garbage collector that compact memory better for mobile devices
+
+* A concurrent garbage collector (a lot of work)
 
 Remove the GIL
 --------------
 
-xxx
+This is a major task that requiers lots of thinking. However, few subprojects
+can be potentially specified, unless a better plan can be thought out:
+
+* A thread-aware garbage collector
+
+* Better RPython primitives for dealing with concurrency
+
+* JIT passes to remove locks on objects
+
+* (maybe) implement locking in Python interpreter
+
+Experiment (again) with LLVM backend for RPython compilation
+------------------------------------------------------------
+
+We already tried working with LLVM and at the time, LLVM was not mature enough
+for our needs. It's possible that this has changed, reviving the LLVM backend
+(or writing new from scratch) for static compilation would be a good project.
 
 .. _`issue tracker`: ...
 .. _`mailing list`: ...
 .. _`jitvirwer`: ...
+.. _`JavaScript implementation`: ...
