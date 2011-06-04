@@ -198,7 +198,7 @@ def register_config_role(docdir):
         from docutils import nodes
         from pypy.config.pypyoption import get_pypy_config
         from pypy.config.makerestdoc import get_cmdline
-        txt = docdir.join("config", text + ".txt")
+        txt = docdir.join("config", text + ".rst")
         html = docdir.join("config", text + ".html")
         assert txt.check()
         assert name == "config"
