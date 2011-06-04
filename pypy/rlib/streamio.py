@@ -767,21 +767,25 @@ class ReadlineInputStream(Stream):
         if bufsize == -1:     # Get default from the class
             bufsize = self.bufsize
         self.bufsize = bufsize  # buffer size (hint only)
-        self.buf = ""           # raw data (may contain "\n")
+        self.buf = None         # raw data (may contain "\n")
         self.bufstart = 0
 
     def flush_buffers(self):
-        if self.buf:
+        if self.buf is not None:
             try:
                 self.do_seek(self.bufstart-len(self.buf), 1)
             except MyNotImplementedError:
                 pass
             else:
-                self.buf = ""
+                self.buf = None
                 self.bufstart = 0
 
     def readline(self):
-        i = self.buf.find('\n', self.bufstart)
+        if self.buf is not None:
+            i = self.buf.find('\n', self.bufstart)
+        else:
+            self.buf = ''
+            i = -1
         #
         if i < 0:
             self.buf = self.buf[self.bufstart:]
@@ -791,7 +795,7 @@ class ReadlineInputStream(Stream):
                 data = self.do_read(bufsize)
                 if not data:
                     result = self.buf              # end-of-file reached
-                    self.buf = ''
+                    self.buf = None
                     return result
                 startsearch = len(self.buf)   # there is no '\n' in buf so far
                 self.buf += data
@@ -805,31 +809,36 @@ class ReadlineInputStream(Stream):
         return result
 
     def peek(self):
+        if self.buf is None:
+            return ''
         if self.bufstart > 0:
             self.buf = self.buf[self.bufstart:]
             self.bufstart = 0
         return self.buf
 
     def tell(self):
-        return self.base.tell() - (len(self.buf) - self.bufstart)
+        pos = self.base.tell()
+        if self.buf is not None:
+            pos -= (len(self.buf) - self.bufstart)
+        return pos
 
     def readall(self):
         result = self.base.readall()
-        if self.buf:
+        if self.buf is not None:
             result = self.buf[self.bufstart:] + result
-            self.buf = ''
+            self.buf = None
             self.bufstart = 0
         return result
 
     def read(self, n):
-        if not self.buf:
+        if self.buf is None:
             return self.do_read(n)
         else:
             m = n - (len(self.buf) - self.bufstart)
             start = self.bufstart
             if m > 0:
                 result = self.buf[start:] + self.do_read(m)
-                self.buf = ''
+                self.buf = None
                 self.bufstart = 0
                 return result
             elif n >= 0:
