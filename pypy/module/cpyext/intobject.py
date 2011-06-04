@@ -73,12 +73,14 @@ def PyInt_AsSsize_t(space, w_obj):
                              space.wrap("an integer is required, got NULL"))
     return space.int_w(w_obj) # XXX this is wrong on win64
 
+LONG_MAX = int(LONG_TEST - 1)
+
 @cpython_api([rffi.SIZE_T], PyObject)
 def PyInt_FromSize_t(space, ival):
     """Create a new integer object with a value of ival. If the value exceeds
     LONG_MAX, a long integer object is returned.
     """
-    if ival < LONG_TEST:
+    if ival <= LONG_MAX:
         return space.wrap(intmask(ival))
     return space.wrap(ival)
 
