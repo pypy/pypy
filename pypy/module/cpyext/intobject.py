@@ -78,7 +78,7 @@ def PyInt_FromSize_t(space, ival):
     """Create a new integer object with a value of ival. If the value exceeds
     LONG_MAX, a long integer object is returned.
     """
-    if intval < LONG_TEST:
+    if ival < LONG_TEST:
         return space.wrap(intmask(ival))
     return space.wrap(ival)
 
