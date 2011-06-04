@@ -33,6 +33,13 @@ Analyzing performance of applications is always tricky. We have various
 tools, for example a `jitviewer`_ that help us analyze performance.
 Improvements to existing tools as well as new tools would be of great help.
 
+Translation Toolchain
+---------------------
+
+* Incremental or distributed translation.
+
+* Allow separate compilation of extension modules.
+
 Work on some of other languages
 -------------------------------
 
