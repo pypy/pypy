@@ -69,6 +69,8 @@ can be potentially specified, unless a better plan can be thought out:
 
 * (maybe) implement locking in Python interpreter
 
+* alternatively, look at Software Transactional Memory
+
 Experiment (again) with LLVM backend for RPython compilation
 ------------------------------------------------------------
 
