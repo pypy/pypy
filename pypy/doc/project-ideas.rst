@@ -28,7 +28,9 @@ Potential mentors: fijal
 JIT tooling
 -----------
 
-xxx
+Analyzing performance of applications is always tricky. We have various
+tools, for example a `jitviewer`_ that help us analyze performance.
+Improvements to existing tools as well as new tools would be of great help.
 
 Work on some of other languages
 -------------------------------
@@ -47,3 +49,4 @@ xxx
 
 .. _`issue tracker`: ...
 .. _`mailing list`: ...
+.. _`jitvirwer`: ...
