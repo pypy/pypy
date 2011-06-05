@@ -165,7 +165,24 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.guards(info1, info2, self.nodebox, expected)
         py.test.raises(InvalidLoop, self.guards,
-                       info1, info2, BoxPtr(), expected)        
+                       info1, info2, BoxPtr(), expected)
+
+    def test_known_class_value(self):
+        value1 = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value1.make_constant_class(classbox, -1)
+        box = self.nodebox
+        guards = value1.make_guards(box)
+        expected = """
+        [p0]
+        guard_nonnull(p0) []        
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        loop = self.parse(expected)
+        assert equaloplists(guards, loop.operations, False,
+                            {loop.inputargs[0]: box})        
+        
+    
         
 class TestLLtype(BaseTestGenerateGuards, LLtypeMixin):
     pass
