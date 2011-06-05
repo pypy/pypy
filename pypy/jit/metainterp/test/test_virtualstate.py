@@ -1,3 +1,5 @@
+import py
+from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
      VArrayStateInfo, NotVirtualStateInfo
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
@@ -124,17 +126,20 @@ class TestBasic:
             info.fieldstate = [info]
             assert info.generalization_of(info, {}, {})
 
-class BaseTestGenerateGuards(BaseTest):            
+class BaseTestGenerateGuards(BaseTest):
+    def guards(self, info1, info2, box, expected):
+        info1.position = info2.position = 0
+        guards = []
+        info1.generate_guards(info2, box, self.cpu, guards, {})
+        loop = self.parse(expected)
+        assert equaloplists(guards, loop.operations, False,
+                            {loop.inputargs[0]: box})        
     def test_intbounds(self):
         value1 = OptValue(BoxInt())
         value1.intbound.make_ge(IntBound(0, 10))
         value1.intbound.make_le(IntBound(20, 30))
         info1 = NotVirtualStateInfo(value1)
         info2 = NotVirtualStateInfo(OptValue(BoxInt()))
-        info1.position = info2.position = 0
-        guards = []
-        box = BoxInt(15)
-        info1.generate_guards(info2, box, None, guards, {})
         expected = """
         [i0]
         i1 = int_ge(i0, 0)
@@ -142,9 +147,25 @@ class BaseTestGenerateGuards(BaseTest):
         i2 = int_le(i0, 30)
         guard_true(i2) []
         """
-        loop = self.parse(expected)
-        assert equaloplists(guards, loop.operations, False,
-                            {loop.inputargs[0]: box})
+        self.guards(info1, info2, BoxInt(15), expected)
+        py.test.raises(InvalidLoop, self.guards,
+                       info1, info2, BoxInt(50), expected)
+
+
+    def test_known_class(self):
+        value1 = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value1.make_constant_class(classbox, -1)
+        info1 = NotVirtualStateInfo(value1)
+        info2 = NotVirtualStateInfo(OptValue(self.nodebox))
+        expected = """
+        [p0]
+        guard_nonnull(p0) []        
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        self.guards(info1, info2, self.nodebox, expected)
+        py.test.raises(InvalidLoop, self.guards,
+                       info1, info2, BoxPtr(), expected)        
         
 class TestLLtype(BaseTestGenerateGuards, LLtypeMixin):
     pass

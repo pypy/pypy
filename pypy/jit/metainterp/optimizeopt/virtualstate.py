@@ -247,6 +247,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             # excisting compiled loop or retracing the loop. Both
             # alternatives will always generate correct behaviour, but
             # performace will differ.
+            op = ResOperation(rop.GUARD_NONNULL, [box], None)
+            extra_guards.append(op)
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
             extra_guards.append(op)
             return
