@@ -348,6 +348,7 @@ GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
     '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
+    '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
     }
 FORWARD_DECLS = []
