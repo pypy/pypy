@@ -102,6 +102,7 @@ Py_UNICODE *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_outlen(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_inbuf_remaining(struct pypy_cjk_dec_s *d);
 Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d);
+int pypy_cjk_dec_inbuf_add(struct pypy_cjk_dec_s*, Py_ssize_t, int);
 
 struct pypy_cjk_enc_s {
   const MultibyteCodec *codec;
@@ -119,6 +120,7 @@ char *pypy_cjk_enc_outbuf(struct pypy_cjk_enc_s *);
 Py_ssize_t pypy_cjk_enc_outlen(struct pypy_cjk_enc_s *);
 Py_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d);
 Py_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d);
+int pypy_cjk_enc_inbuf_add(struct pypy_cjk_enc_s*, Py_ssize_t, int);
 
 /* list of codecs defined in the .c files */
 

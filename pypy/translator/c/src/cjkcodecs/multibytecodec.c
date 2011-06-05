@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include "src/cjkcodecs/multibytecodec.h"
 
+#define Py_UNICODE_REPLACEMENT_CHARACTER ((Py_UNICODE) 0xFFFD)
+
 
 struct pypy_cjk_dec_s *pypy_cjk_dec_init(const MultibyteCodec *codec,
                                          char *inbuf, Py_ssize_t inlen)
@@ -91,6 +93,20 @@ Py_ssize_t pypy_cjk_dec_inbuf_remaining(struct pypy_cjk_dec_s *d)
 Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d)
 {
   return d->inbuf - d->inbuf_start;
+}
+
+int pypy_cjk_dec_inbuf_add(struct pypy_cjk_dec_s* d, Py_ssize_t skip,
+                           int add_replacement_character)
+{
+  if (add_replacement_character)
+    {
+      if (d->outbuf >= d->outbuf_end)
+        if (expand_decodebuffer(d, 1) == -1)
+          return MBERR_NOMEMORY;
+      *d->outbuf++ = Py_UNICODE_REPLACEMENT_CHARACTER;
+    }
+  d->inbuf += skip;
+  return 0;
 }
 
 /************************************************************/
@@ -208,4 +224,35 @@ Py_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d)
 Py_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d)
 {
   return d->inbuf - d->inbuf_start;
+}
+
+int pypy_cjk_enc_inbuf_add(struct pypy_cjk_enc_s* d, Py_ssize_t skip,
+                           int add_replacement_character)
+{
+  if (add_replacement_character)
+    {
+      const Py_UNICODE replchar = '?', *inbuf = &replchar;
+      Py_ssize_t r;
+
+      while (1)
+        {
+          Py_ssize_t outleft = (Py_ssize_t)(d->outbuf_end - d->outbuf);
+          r = d->codec->encode(&d->state, d->codec->config,
+                               &inbuf, 1, &d->outbuf, outleft, 0);
+          if (r != MBERR_TOOSMALL)
+            break;
+          /* output buffer too small; grow it and continue. */
+          if (expand_encodebuffer(d, -1) == -1)
+            return MBERR_NOMEMORY;
+        }
+      if (r != 0)
+        {
+          if (d->outbuf >= d->outbuf_end)
+            if (expand_encodebuffer(d, 1) == -1)
+              return MBERR_NOMEMORY;
+          *d->outbuf++ = '?';
+        }
+    }
+  d->inbuf += skip;
+  return 0;
 }

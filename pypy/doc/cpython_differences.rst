@@ -173,6 +173,11 @@ not be called::
     >>>> A.__del__ = lambda self: None
     __main__:1: RuntimeWarning: a __del__ method added to an existing type will not be called
 
+Even more obscure: the same is true, for old-style classes, if you attach
+the ``__del__`` to an instance (even in CPython this does not work with
+new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
+just make sure there is a ``__del__`` method in the class to start with.
+
 
 Subclasses of built-in types
 ----------------------------

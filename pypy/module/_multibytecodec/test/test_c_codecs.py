@@ -36,6 +36,24 @@ def test_decode_hz_error():
     assert e.end == 4
     assert e.reason == "illegal multibyte sequence"
 
+def test_decode_hz_ignore():
+    c = getcodec("hz")
+    u = decode(c, 'def~{}abc', 'ignore')
+    assert u == u'def\u5fcf'
+
+def test_decode_hz_replace():
+    c = getcodec("hz")
+    u = decode(c, 'def~{}abc', 'replace')
+    assert u == u'def\ufffd\u5fcf'
+
+def test_decode_hz_foobar():
+    # not implemented yet: custom error handlers
+    c = getcodec("hz")
+    e = py.test.raises(EncodeDecodeError, decode, c, "~{xyz}", "foobar").value
+    assert e.start == 2
+    assert e.end == 4
+    assert e.reason == "not implemented: custom error handlers"
+
 def test_encode_hz():
     c = getcodec("hz")
     s = encode(c, u'foobar')
@@ -50,6 +68,25 @@ def test_encode_hz_error():
     assert e.start == 3
     assert e.end == 4
     assert e.reason == "illegal multibyte sequence"
+
+def test_encode_hz_ignore():
+    c = getcodec("hz")
+    s = encode(c, u'abc\u1234def', 'ignore')
+    assert s == 'abcdef'
+
+def test_encode_hz_replace():
+    c = getcodec("hz")
+    s = encode(c, u'abc\u1234def', 'replace')
+    assert s == 'abc?def'
+
+def test_encode_hz_foobar():
+    # not implemented yet: custom error handlers
+    c = getcodec("hz")
+    e = py.test.raises(EncodeDecodeError, encode,
+                       c, u'abc\u1234def', 'foobar').value
+    assert e.start == 3
+    assert e.end == 4
+    assert e.reason == "not implemented: custom error handlers"
 
 def test_encode_jisx0208():
     c = getcodec('iso2022_jp')

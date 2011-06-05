@@ -36,6 +36,22 @@ class AppTestCodecs:
         e = raises(UnicodeDecodeError, codec.decode, "~{xyz}").value
         assert e.args == ('hz', '~{xyz}', 2, 4, 'illegal multibyte sequence')
 
+    def test_decode_hz_ignore(self):
+        import _codecs_cn
+        codec = _codecs_cn.getcodec("hz")
+        r = codec.decode("def~{}abc", errors='ignore')
+        assert r == (u'def\u5fcf', 9)
+        r = codec.decode("def~{}abc", 'ignore')
+        assert r == (u'def\u5fcf', 9)
+
+    def test_decode_hz_replace(self):
+        import _codecs_cn
+        codec = _codecs_cn.getcodec("hz")
+        r = codec.decode("def~{}abc", errors='replace')
+        assert r == (u'def\ufffd\u5fcf', 9)
+        r = codec.decode("def~{}abc", 'replace')
+        assert r == (u'def\ufffd\u5fcf', 9)
+
     def test_encode_hz(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
@@ -54,3 +70,17 @@ class AppTestCodecs:
         assert e.start == 3
         assert e.end == 4
         assert e.reason == 'illegal multibyte sequence'
+
+    def test_encode_hz_ignore(self):
+        import _codecs_cn
+        codec = _codecs_cn.getcodec("hz")
+        r = codec.encode(u'abc\u1234def', 'ignore')
+        assert r == ('abcdef', 7)
+        assert type(r[0]) is str
+
+    def test_encode_hz_replace(self):
+        import _codecs_cn
+        codec = _codecs_cn.getcodec("hz")
+        r = codec.encode(u'abc\u1234def', 'replace')
+        assert r == ('abc?def', 7)
+        assert type(r[0]) is str
