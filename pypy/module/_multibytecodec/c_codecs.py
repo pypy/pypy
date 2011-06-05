@@ -158,7 +158,7 @@ def multibytecodec_decerror(decodebuf, e, errors,
     elif errors == "replace":
         replace = UNICODE_REPLACEMENT_CHARACTER
     else:
-        assert errorcb != None
+        assert errorcb
         replace, end = errorcb(errors, namecb, reason,
                                stringdata, start, end)
     inbuf = rffi.get_nonmoving_unicodebuffer(replace)
@@ -251,7 +251,7 @@ def multibytecodec_encerror(encodebuf, e, errors,
         except EncodeDecodeError:
             replace = "?"
     else:
-        assert errorcb != None
+        assert errorcb
         replace, end = errorcb(errors, namecb, reason,
                                unicodedata, start, end)
     inbuf = rffi.get_nonmovingbuffer(replace)
