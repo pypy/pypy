@@ -41,6 +41,11 @@ def test_decode_hz_ignore():
     u = decode(c, 'def~{}abc', 'ignore')
     assert u == u'def\u5fcf'
 
+def test_decode_hz_replace():
+    c = getcodec("hz")
+    u = decode(c, 'def~{}abc', 'replace')
+    assert u == u'def\ufffd\u5fcf'
+
 def test_encode_hz():
     c = getcodec("hz")
     s = encode(c, u'foobar')

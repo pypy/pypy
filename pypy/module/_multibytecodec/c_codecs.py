@@ -104,7 +104,8 @@ pypy_cjk_dec_inbuf_remaining = llexternal('pypy_cjk_dec_inbuf_remaining',
 pypy_cjk_dec_inbuf_consumed = llexternal('pypy_cjk_dec_inbuf_consumed',
                                          [DECODEBUF_P], rffi.SSIZE_T)
 pypy_cjk_dec_inbuf_add = llexternal('pypy_cjk_dec_inbuf_add',
-                                    [DECODEBUF_P, rffi.SSIZE_T], lltype.Void)
+                                    [DECODEBUF_P, rffi.SSIZE_T, rffi.INT],
+                                    rffi.INT)
 
 def decode(codec, stringdata, errors="strict"):
     inleft = len(stringdata)
@@ -141,9 +142,13 @@ def multibytecodec_decerror(decodebuf, e, errors):
     else:
         raise RuntimeError
     #
-    # if errors == ERROR_REPLACE:...
-    if errors == "ignore":   # or errors == ERROR_REPLACE
-        pypy_cjk_dec_inbuf_add(decodebuf, esize)
+    if errors == "ignore":
+        pypy_cjk_dec_inbuf_add(decodebuf, esize, 0)
+        return     # continue decoding
+    if errors == "replace":
+        e = pypy_cjk_dec_inbuf_add(decodebuf, esize, 1)
+        if e == MBERR_NOMEMORY:
+            raise MemoryError
         return     # continue decoding
     start = pypy_cjk_dec_inbuf_consumed(decodebuf)
     end = start + esize

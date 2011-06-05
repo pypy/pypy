@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include "src/cjkcodecs/multibytecodec.h"
 
+#define Py_UNICODE_REPLACEMENT_CHARACTER ((Py_UNICODE) 0xFFFD)
+
 
 struct pypy_cjk_dec_s *pypy_cjk_dec_init(const MultibyteCodec *codec,
                                          char *inbuf, Py_ssize_t inlen)
@@ -93,9 +95,18 @@ Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d)
   return d->inbuf - d->inbuf_start;
 }
 
-void pypy_cjk_dec_inbuf_add(struct pypy_cjk_dec_s* d, Py_ssize_t skip)
+int pypy_cjk_dec_inbuf_add(struct pypy_cjk_dec_s* d, Py_ssize_t skip,
+                           int add_replacement_character)
 {
+  if (add_replacement_character)
+    {
+      if (d->outbuf >= d->outbuf_end)
+        if (expand_decodebuffer(d, 1) == -1)
+          return MBERR_NOMEMORY;
+      *d->outbuf++ = Py_UNICODE_REPLACEMENT_CHARACTER;
+    }
   d->inbuf += skip;
+  return 0;
 }
 
 /************************************************************/
