@@ -33,10 +33,14 @@ class CodecState(object):
             w_res = space.call_function(w_errorhandler, w_exc)
             if (not space.is_true(space.isinstance(w_res, space.w_tuple))
                 or space.len_w(w_res) != 2):
+                if decode:
+                    msg = ("decoding error handler must return "
+                           "(unicode, int) tuple, not %s")
+                else:
+                    msg = ("encoding error handler must return "
+                           "(unicode, int) tuple, not %s")
                 raise operationerrfmt(
-                    space.w_TypeError,
-                    "encoding error handler must return "
-                    "(unicode, int) tuple, not %s",
+                    space.w_TypeError, msg,
                     space.str_w(space.repr(w_res)))
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
@@ -50,7 +54,9 @@ class CodecState(object):
                 replace = space.unicode_w(w_replace)
                 return replace, newpos
             else:
-                replace = space.str_w(w_replace)
+                from pypy.objspace.std.unicodetype import encode_object
+                w_str = encode_object(space, w_replace, encoding, None)
+                replace = space.str_w(w_str)
                 return replace, newpos
         return unicode_call_errorhandler
 
