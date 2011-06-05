@@ -70,3 +70,17 @@ class AppTestCodecs:
         assert e.start == 3
         assert e.end == 4
         assert e.reason == 'illegal multibyte sequence'
+
+    def test_encode_hz_ignore(self):
+        import _codecs_cn
+        codec = _codecs_cn.getcodec("hz")
+        r = codec.encode(u'abc\u1234def', 'ignore')
+        assert r == ('abcdef', 7)
+        assert type(r[0]) is str
+
+    def test_encode_hz_replace(self):
+        import _codecs_cn
+        codec = _codecs_cn.getcodec("hz")
+        r = codec.encode(u'abc\u1234def', 'replace')
+        assert r == ('abc?def', 7)
+        assert type(r[0]) is str

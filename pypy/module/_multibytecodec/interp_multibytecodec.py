@@ -35,13 +35,11 @@ class MultibyteCodec(Wrappable):
 
     @unwrap_spec(input=unicode, errors="str_or_None")
     def encode(self, space, input, errors=None):
-        if errors is not None and errors != 'strict':
-            raise OperationError(space.w_NotImplementedError,    # XXX
-                                 space.wrap("errors='%s' in _multibytecodec"
-                                            % errors))
+        if errors is None:
+            errors = 'strict'
         #
         try:
-            output = c_codecs.encode(self.codec, input)
+            output = c_codecs.encode(self.codec, input, errors)
         except c_codecs.EncodeDecodeError, e:
             raise OperationError(
                 space.w_UnicodeEncodeError,

@@ -69,6 +69,25 @@ def test_encode_hz_error():
     assert e.end == 4
     assert e.reason == "illegal multibyte sequence"
 
+def test_encode_hz_ignore():
+    c = getcodec("hz")
+    s = encode(c, u'abc\u1234def', 'ignore')
+    assert s == 'abcdef'
+
+def test_encode_hz_replace():
+    c = getcodec("hz")
+    s = encode(c, u'abc\u1234def', 'replace')
+    assert s == 'abc?def'
+
+def test_encode_hz_foobar():
+    # not implemented yet: custom error handlers
+    c = getcodec("hz")
+    e = py.test.raises(EncodeDecodeError, encode,
+                       c, u'abc\u1234def', 'foobar').value
+    assert e.start == 3
+    assert e.end == 4
+    assert e.reason == "not implemented: custom error handlers"
+
 def test_encode_jisx0208():
     c = getcodec('iso2022_jp')
     s = encode(c, u'\u83ca\u5730\u6642\u592b')
