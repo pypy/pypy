@@ -4,6 +4,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop
+from pypy.rlib import rstack
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -452,9 +453,17 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # Called during a residual call from the assembler, if the code
         # actually needs to force one of the virtualrefs or the virtualizable.
         # Implemented by forcing *all* virtualrefs and the virtualizable.
-        faildescr = cpu.force(token)
-        assert isinstance(faildescr, ResumeGuardForcedDescr)
-        faildescr.handle_async_forcing(token)
+
+        # don't interrupt me! If the stack runs out in force_from_resumedata()
+        # then we have seen cpu.force() but not self.save_data(), leaving in
+        # an inconsistent state
+        rstack._stack_criticalcode_start()
+        try:
+            faildescr = cpu.force(token)
+            assert isinstance(faildescr, ResumeGuardForcedDescr)
+            faildescr.handle_async_forcing(token)
+        finally:
+            rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, force_token):
         from pypy.jit.metainterp.resume import force_from_resumedata
