@@ -3,6 +3,7 @@ from pypy.interpreter.gateway import ObjSpace, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.error import OperationError
 from pypy.module._multibytecodec import c_codecs
+from pypy.module._codecs.interp_codecs import CodecState
 
 
 class MultibyteCodec(Wrappable):
@@ -37,9 +38,11 @@ class MultibyteCodec(Wrappable):
     def encode(self, space, input, errors=None):
         if errors is None:
             errors = 'strict'
+        state = space.fromcache(CodecState)
         #
         try:
-            output = c_codecs.encode(self.codec, input, errors)
+            output = c_codecs.encode(self.codec, input, errors,
+                                     state.encode_error_handler, self.name)
         except c_codecs.EncodeDecodeError, e:
             raise OperationError(
                 space.w_UnicodeEncodeError,

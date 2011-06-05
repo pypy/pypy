@@ -84,3 +84,10 @@ class AppTestCodecs:
         r = codec.encode(u'abc\u1234def', 'replace')
         assert r == ('abc?def', 7)
         assert type(r[0]) is str
+
+    def test_encode_custom_error_handler(self):
+        import codecs
+        codecs.register_error("test.multi_bad_handler", lambda e: (repl, 1))
+        repl = u"\u2014"
+        s = u"\uDDA1".encode("gbk", "test.multi_bad_handler")
+        assert s == '\xA1\xAA'
