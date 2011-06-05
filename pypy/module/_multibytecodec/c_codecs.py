@@ -143,10 +143,10 @@ def multibytecodec_decerror(decodebuf, e, errors):
         raise RuntimeError
     #
     if errors == "ignore":
-        pypy_cjk_dec_inbuf_add(decodebuf, esize, 0)
+        pypy_cjk_dec_inbuf_add(decodebuf, esize, rffi.cast(rffi.INT, 0))
         return     # continue decoding
     if errors == "replace":
-        e = pypy_cjk_dec_inbuf_add(decodebuf, esize, 1)
+        e = pypy_cjk_dec_inbuf_add(decodebuf, esize, rffi.cast(rffi.INT, 1))
         if rffi.cast(lltype.Signed, e) == MBERR_NOMEMORY:
             raise MemoryError
         return     # continue decoding
@@ -221,10 +221,10 @@ def multibytecodec_encerror(encodebuf, e, errors):
         raise RuntimeError
     #
     if errors == 'ignore':
-        pypy_cjk_enc_inbuf_add(encodebuf, esize, 0)
+        pypy_cjk_enc_inbuf_add(encodebuf, esize, rffi.cast(rffi.INT, 0))
         return     # continue encoding
     if errors == "replace":
-        e = pypy_cjk_enc_inbuf_add(encodebuf, esize, 1)
+        e = pypy_cjk_enc_inbuf_add(encodebuf, esize, rffi.cast(rffi.INT, 1))
         if rffi.cast(lltype.Signed, e) == MBERR_NOMEMORY:
             raise MemoryError
         return     # continue decoding
