@@ -13,13 +13,11 @@ class MultibyteCodec(Wrappable):
 
     @unwrap_spec(input=str, errors="str_or_None")
     def decode(self, space, input, errors=None):
-        if errors is not None and errors != 'strict':
-            raise OperationError(space.w_NotImplementedError,    # XXX
-                                 space.wrap("errors='%s' in _multibytecodec"
-                                            % errors))
+        if errors is None:
+            errors = 'strict'
         #
         try:
-            output = c_codecs.decode(self.codec, input)
+            output = c_codecs.decode(self.codec, input, errors)
         except c_codecs.EncodeDecodeError, e:
             raise OperationError(
                 space.w_UnicodeDecodeError,

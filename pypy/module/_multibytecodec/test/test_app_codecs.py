@@ -36,6 +36,14 @@ class AppTestCodecs:
         e = raises(UnicodeDecodeError, codec.decode, "~{xyz}").value
         assert e.args == ('hz', '~{xyz}', 2, 4, 'illegal multibyte sequence')
 
+    def test_decode_hz_ignore(self):
+        import _codecs_cn
+        codec = _codecs_cn.getcodec("hz")
+        r = codec.decode("def~{}abc", errors='ignore')
+        assert r == (u'def\u5fcf', 9)
+        r = codec.decode("def~{}abc", 'ignore')
+        assert r == (u'def\u5fcf', 9)
+
     def test_encode_hz(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
