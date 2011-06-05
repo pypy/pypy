@@ -11,8 +11,11 @@ at the `issue tracker`_, pop up on #pypy on irc.freenode.net or write to the
 `mailing list`_. This is simply for the reason that small possible projects
 tend to change very rapidly.
 
-XXX: write a paragraph that this is a loose collection and where to go
-from here
+This list is mostly for having on overview on potential projects. This list is
+by definition not exhaustive and we're pleased if people come up with their
+own improvement ideas. In any case, if you feel like working on some of those
+projects, or anything else in PyPy, pop up on IRC or write to us on the
+`mailing list`_.
 
 Numpy improvements
 ------------------
@@ -32,6 +35,13 @@ JIT tooling
 Analyzing performance of applications is always tricky. We have various
 tools, for example a `jitviewer`_ that help us analyze performance.
 Improvements to existing tools as well as new tools would be of great help.
+
+Translation Toolchain
+---------------------
+
+* Incremental or distributed translation.
+
+* Allow separate compilation of extension modules.
 
 Work on some of other languages
 -------------------------------
