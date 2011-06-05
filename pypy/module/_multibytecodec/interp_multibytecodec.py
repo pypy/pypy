@@ -16,9 +16,11 @@ class MultibyteCodec(Wrappable):
     def decode(self, space, input, errors=None):
         if errors is None:
             errors = 'strict'
+        state = space.fromcache(CodecState)
         #
         try:
-            output = c_codecs.decode(self.codec, input, errors)
+            output = c_codecs.decode(self.codec, input, errors,
+                                     state.decode_error_handler, self.name)
         except c_codecs.EncodeDecodeError, e:
             raise OperationError(
                 space.w_UnicodeDecodeError,

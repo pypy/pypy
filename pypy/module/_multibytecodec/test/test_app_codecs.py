@@ -52,6 +52,13 @@ class AppTestCodecs:
         r = codec.decode("def~{}abc", 'replace')
         assert r == (u'def\ufffd\u5fcf', 9)
 
+    def test_decode_custom_error_handler(self):
+        import codecs
+        codecs.register_error("test.decode_custom_error_handler",
+                              lambda e: (u'\u1234\u5678', e.end))
+        u = "abc\xDD".decode("hz", "test.decode_custom_error_handler")
+        assert u == u'abc\u1234\u5678'
+
     def test_encode_hz(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
