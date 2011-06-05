@@ -103,8 +103,10 @@ pypy_cjk_dec_inbuf_remaining = llexternal('pypy_cjk_dec_inbuf_remaining',
                                           [DECODEBUF_P], rffi.SSIZE_T)
 pypy_cjk_dec_inbuf_consumed = llexternal('pypy_cjk_dec_inbuf_consumed',
                                          [DECODEBUF_P], rffi.SSIZE_T)
+pypy_cjk_dec_inbuf_add = llexternal('pypy_cjk_dec_inbuf_add',
+                                    [DECODEBUF_P, rffi.SSIZE_T], lltype.Void)
 
-def decode(codec, stringdata):
+def decode(codec, stringdata, errors="strict"):
     inleft = len(stringdata)
     inbuf = rffi.get_nonmovingbuffer(stringdata)
     try:
@@ -112,10 +114,11 @@ def decode(codec, stringdata):
         if not decodebuf:
             raise MemoryError
         try:
-            r = pypy_cjk_dec_chunk(decodebuf)
-            if r != 0:
-                multibytecodec_decerror(decodebuf, r)
-                assert False
+            while True:
+                r = pypy_cjk_dec_chunk(decodebuf)
+                if r == 0:
+                    break
+                multibytecodec_decerror(decodebuf, r, errors)
             src = pypy_cjk_dec_outbuf(decodebuf)
             length = pypy_cjk_dec_outlen(decodebuf)
             return rffi.wcharpsize2unicode(src, length)
@@ -126,7 +129,7 @@ def decode(codec, stringdata):
     finally:
         rffi.free_nonmovingbuffer(stringdata, inbuf)
 
-def multibytecodec_decerror(decodebuf, e):
+def multibytecodec_decerror(decodebuf, e, errors):
     if e > 0:
         reason = "illegal multibyte sequence"
         esize = e
@@ -139,7 +142,9 @@ def multibytecodec_decerror(decodebuf, e):
         raise RuntimeError
     #
     # if errors == ERROR_REPLACE:...
-    # if errors == ERROR_IGNORE or errors == ERROR_REPLACE:...
+    if errors == "ignore":   # or errors == ERROR_REPLACE
+        pypy_cjk_dec_inbuf_add(decodebuf, esize)
+        return     # continue decoding
     start = pypy_cjk_dec_inbuf_consumed(decodebuf)
     end = start + esize
     if 1:  # errors == ERROR_STRICT:

@@ -93,6 +93,11 @@ Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d)
   return d->inbuf - d->inbuf_start;
 }
 
+void pypy_cjk_dec_inbuf_add(struct pypy_cjk_dec_s* d, Py_ssize_t skip)
+{
+  d->inbuf += skip;
+}
+
 /************************************************************/
 
 struct pypy_cjk_enc_s *pypy_cjk_enc_init(const MultibyteCodec *codec,

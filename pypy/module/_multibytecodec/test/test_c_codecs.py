@@ -36,6 +36,11 @@ def test_decode_hz_error():
     assert e.end == 4
     assert e.reason == "illegal multibyte sequence"
 
+def test_decode_hz_ignore():
+    c = getcodec("hz")
+    u = decode(c, 'def~{}abc', 'ignore')
+    assert u == u'def\u5fcf'
+
 def test_encode_hz():
     c = getcodec("hz")
     s = encode(c, u'foobar')

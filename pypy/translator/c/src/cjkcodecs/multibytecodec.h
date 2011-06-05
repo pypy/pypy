@@ -102,6 +102,7 @@ Py_UNICODE *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_outlen(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_inbuf_remaining(struct pypy_cjk_dec_s *d);
 Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d);
+void pypy_cjk_dec_inbuf_add(struct pypy_cjk_dec_s*, Py_ssize_t);
 
 struct pypy_cjk_enc_s {
   const MultibyteCodec *codec;
