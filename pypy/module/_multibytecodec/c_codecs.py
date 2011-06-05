@@ -152,8 +152,9 @@ def multibytecodec_decerror(decodebuf, e, errors):
         return     # continue decoding
     start = pypy_cjk_dec_inbuf_consumed(decodebuf)
     end = start + esize
-    if 1:  # errors == ERROR_STRICT:
-        raise EncodeDecodeError(start, end, reason)
+    if errors != "strict":
+        reason = "not implemented: custom error handlers"   # XXX implement me
+    raise EncodeDecodeError(start, end, reason)
 
 # ____________________________________________________________
 # Encoding
