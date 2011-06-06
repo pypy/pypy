@@ -94,7 +94,6 @@ class CFuncPtr(_CData):
                         "item %d in _argtypes_ has no from_param method" % (
                             i + 1,))
             #
-            # XXX tentative hack to make it jit-friendly
             if all([hasattr(argtype, '_ffiargshape') for argtype in argtypes]):
                 fastpath_cls = make_fastpath_subclass(self.__class__)
                 fastpath_cls.enable_fastpath_maybe(self)
