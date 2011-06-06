@@ -1698,7 +1698,7 @@ class TestPyPyCNew(BaseTestPyPyC):
 
         log = self.run(main, [], threshold=80)
         loop, = log.loops_by_filename(self.filepath)
-        loop.match_by_id('loadattr',
+        assert loop.match_by_id('loadattr',
         '''
         guard_not_invalidated(descr=...)
         i19 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
@@ -1724,13 +1724,13 @@ class TestPyPyCNew(BaseTestPyPyC):
             while i < 100:
                 i += i in a # ID: contains
 
-            log = self.run(main, [], threshold=80)
-            loop, = log.loops_by_filename(self.filemath)
-            # XXX: haven't confirmed his is correct, it's probably missing a
-            # few instructions
-            loop.match_by_id("contains", """
-                i1 = int_add(i0, 1)
-            """)
+        log = self.run(main, [], threshold=80)
+        loop, = log.loops_by_filename(self.filepath)
+        # XXX: haven't confirmed his is correct, it's probably missing a
+        # few instructions
+        assert loop.match_by_id("contains", """
+            i1 = int_add(i0, 1)
+        """)
 
     def test_dont_trace_every_iteration(self):
         def main(a, b):
