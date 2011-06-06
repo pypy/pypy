@@ -1,3 +1,4 @@
+import autopath
 import sys, re
 from pypy.tool import logparser
 
