@@ -298,6 +298,7 @@ class UnrollOptimizer(Optimization):
         
         for result, op in self.short_boxes.items():
             if op is not None:
+                assert result is op.result
                 if len(self.getvalue(result).make_guards(result)) > 0:
                     self.add_op_to_short(op, short, short_seen)
 
@@ -358,7 +359,11 @@ class UnrollOptimizer(Optimization):
         if op.is_guard():
             descr = self.start_resumedescr.clone_if_mutable()
             op.setdescr(descr)
-            
+
+        value_guards = []
+        if op.result in self.short_boxes:
+            value_guards = self.getvalue(op.result).make_guards(op.result)
+
         short.append(op)
         short_seen[op.result] = True
         newop = self.short_inliner.inline_op(op)
@@ -368,10 +373,8 @@ class UnrollOptimizer(Optimization):
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             self.add_op_to_short(guard, short, short_seen)
-
-        if op.result in self.short_boxes:
-            for guard in self.getvalue(op.result).make_guards(op.result):
-                self.add_op_to_short(guard, short, short_seen)
+        for guard in value_guards:
+            self.add_op_to_short(guard, short, short_seen)
 
         return newop.result
         
