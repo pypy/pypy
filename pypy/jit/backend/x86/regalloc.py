@@ -156,6 +156,7 @@ class RegAlloc(object):
         self.translate_support_code = translate_support_code
         # to be read/used by the assembler too
         self.jump_target_descr = None
+        self.close_stack_struct = 0
 
     def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
@@ -390,7 +391,9 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_discard(op, arglocs)
 
     def can_merge_with_next_guard(self, op, i, operations):
-        if op.getopnum() == rop.CALL_MAY_FORCE or op.getopnum() == rop.CALL_ASSEMBLER:
+        if (op.getopnum() == rop.CALL_MAY_FORCE or
+            op.getopnum() == rop.CALL_ASSEMBLER or
+            op.getopnum() == rop.CALL_RELEASE_GIL):
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
             return True
         if not op.is_comparison():
@@ -781,6 +784,19 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(op.getarg(1))
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
+        # we need to save registers on the stack:
+        #
+        #  - at least the non-callee-saved registers
+        #
+        #  - for shadowstack, we assume that any call can collect, and we
+        #    save also the callee-saved registers that contain GC pointers,
+        #    so that they can be found by follow_stack_frame_of_assembler()
+        #
+        #  - for CALL_MAY_FORCE or CALL_ASSEMBLER, we have to save all regs
+        #    anyway, in case we need to do cpu.force().  The issue is that
+        #    grab_frame_values() would not be able to locate values in
+        #    callee-saved registers.
+        #
         save_all_regs = guard_not_forced_op is not None
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
@@ -846,6 +862,8 @@ class RegAlloc(object):
     def consider_call_may_force(self, op, guard_op):
         assert guard_op is not None
         self._consider_call(op, guard_op)
+
+    consider_call_release_gil = consider_call_may_force
 
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
@@ -1360,7 +1378,9 @@ for name, value in RegAlloc.__dict__.iteritems():
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())
         if (is_comparison_or_ovf_op(num)
-            or num == rop.CALL_MAY_FORCE or num == rop.CALL_ASSEMBLER):
+            or num == rop.CALL_MAY_FORCE
+            or num == rop.CALL_ASSEMBLER
+            or num == rop.CALL_RELEASE_GIL):
             oplist_with_guard[num] = value
             oplist[num] = add_none_argument(value)
         else:

@@ -235,6 +235,7 @@ class OptHeap(Optimization):
         assert opnum != rop.CALL_PURE
         if (opnum == rop.CALL or
             opnum == rop.CALL_MAY_FORCE or
+            opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):
             if opnum == rop.CALL_ASSEMBLER:
                 effectinfo = None
@@ -242,7 +243,7 @@ class OptHeap(Optimization):
                 effectinfo = op.getdescr().get_extra_info()
             if effectinfo is None or effectinfo.check_can_invalidate():
                 self._seen_guard_not_invalidated = False
-            if effectinfo is not None:
+            if effectinfo is not None and not effectinfo.has_random_effects():
                 # XXX we can get the wrong complexity here, if the lists
                 # XXX stored on effectinfo are large
                 for fielddescr in effectinfo.readonly_descrs_fields:

@@ -821,6 +821,12 @@ class Frame(object):
             raise NotImplementedError
 
     def op_call(self, calldescr, func, *args):
+        return self._do_call(calldescr, func, args, call_with_llptr=False)
+
+    def op_call_release_gil(self, calldescr, func, *args):
+        return self._do_call(calldescr, func, args, call_with_llptr=True)
+
+    def _do_call(self, calldescr, func, args, call_with_llptr):
         global _last_exception
         assert _last_exception is None, "exception left behind"
         assert _call_args_i == _call_args_r == _call_args_f == []
@@ -839,7 +845,8 @@ class Frame(object):
             else:
                 raise TypeError(x)
         try:
-            return _do_call_common(func, args_in_order, calldescr)
+            return _do_call_common(func, args_in_order, calldescr,
+                                   call_with_llptr)
         except LLException, lle:
             _last_exception = lle
             d = {'v': None,
@@ -1481,17 +1488,20 @@ kind2TYPE = {
     'v': lltype.Void,
     }
 
-def _do_call_common(f, args_in_order=None, calldescr=None):
+def _do_call_common(f, args_in_order=None, calldescr=None,
+                    call_with_llptr=False):
     ptr = llmemory.cast_int_to_adr(f).ptr
     PTR = lltype.typeOf(ptr)
     if PTR == rffi.VOIDP:
         # it's a pointer to a C function, so we don't have a precise
         # signature: create one from the descr
+        assert call_with_llptr is True
         ARGS = map(kind2TYPE.get, calldescr.arg_types)
         RESULT = kind2TYPE[calldescr.typeinfo]
         FUNC = lltype.FuncType(ARGS, RESULT)
         func_to_call = rffi.cast(lltype.Ptr(FUNC), ptr)
     else:
+        assert call_with_llptr is False
         FUNC = PTR.TO
         ARGS = FUNC.ARGS
         func_to_call = ptr._obj._callable

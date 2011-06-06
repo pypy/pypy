@@ -37,6 +37,9 @@ class FakeLogger(object):
     def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
         pass
 
+    def repr_of_resop(self, op):
+        return repr(op)
+
 class FakeState(object):
     enable_opts = ALL_OPTS_DICT.copy()
     enable_opts.pop('unroll')
@@ -63,6 +66,8 @@ class FakeMetaInterp:
     call_pure_results = {}
     class jitdriver_sd:
         warmstate = FakeState()
+        on_compile = staticmethod(lambda *args: None)
+        on_compile_bridge = staticmethod(lambda *args: None)
 
 def test_compile_new_loop():
     cpu = FakeCPU()

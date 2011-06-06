@@ -3,6 +3,7 @@ from pypy.rlib.objectmodel import instantiate
 from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
                                                         #OOtypeMixin,
                                                         BaseTest)
+from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
@@ -32,6 +33,8 @@ class FakeMetaInterpStaticData(object):
         self.profiler = EmptyProfiler()
         self.options = Fake()
         self.globaldata = Fake()
+        self.logger_ops = FakeLogger()
+        self.logger_noopt = FakeLogger()
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr

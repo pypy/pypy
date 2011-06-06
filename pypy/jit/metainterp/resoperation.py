@@ -486,6 +486,7 @@ _oplist = [
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',
+    'CALL_RELEASE_GIL/*d',  # release the GIL and "close the stack" for asmgcc
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend

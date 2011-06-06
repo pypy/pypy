@@ -530,6 +530,7 @@ class AbstractX86CodeBuilder(object):
     POP_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
 
     LEA_rb = insn(rex_w, '\x8D', register(1,8), stack_bp(2))
+    LEA_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))
     LEA32_rb = insn(rex_w, '\x8D', register(1,8),stack_bp(2,force_32bits=True))
     LEA_ra = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_scaled_reg_plus_const(2))
     LEA_rm = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_const(2))
