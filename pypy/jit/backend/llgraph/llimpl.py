@@ -601,14 +601,13 @@ class Frame(object):
         return _op_default_implementation
 
     def op_debug_merge_point(self, _, *args):
-        #from pypy.jit.metainterp.warmspot import get_stats
-        #loc = ConstPtr(value)._get_str()
-        #try:
-        #    stats = get_stats()
-        #except AttributeError:
-        #    pass
-        #else:
-        #    stats.add_merge_point_location(loc)
+        from pypy.jit.metainterp.warmspot import get_stats
+        try:
+            stats = get_stats()
+        except AttributeError:
+            pass
+        else:
+            stats.add_merge_point_location(args[1:])
         pass
 
     def op_guard_true(self, _, value):

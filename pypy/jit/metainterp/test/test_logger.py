@@ -51,9 +51,14 @@ class TestLogger(object):
     ts = llhelper
 
     def make_metainterp_sd(self):
+        class FakeJitDriver(object):
+            class warmstate(object):
+                get_location_str = staticmethod(lambda args: args[0]._get_str())
+        
         class FakeMetaInterpSd:
             cpu = AbstractCPU()
             cpu.ts = self.ts
+            jitdrivers_sd = [FakeJitDriver()]
             def get_name_from_address(self, addr):
                 return 'Name'
         return FakeMetaInterpSd()
@@ -111,11 +116,11 @@ class TestLogger(object):
     def test_debug_merge_point(self):
         inp = '''
         []
-        debug_merge_point("info", 0)
+        debug_merge_point(0, "dupa")
         '''
         _, loop, oloop = self.reparse(inp, check_equal=False)
-        assert loop.operations[0].getarg(0)._get_str() == 'info'
-        assert oloop.operations[0].getarg(0)._get_str() == 'info'
+        assert loop.operations[0].getarg(1)._get_str() == "dupa"
+        assert oloop.operations[0].getarg(0)._get_str() == "dupa"
         
     def test_floats(self):
         inp = '''
