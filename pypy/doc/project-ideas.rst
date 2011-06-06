@@ -43,8 +43,8 @@ as shown by the screenshot below:
   - for each source code line, it shows the corresponding Python bytecode
 
   - for each opcode, it shows the corresponding jit operations, which are the
-    ones actually sent to the backend for compiling (such as "i15 = i10 <
-    2000" in the example)
+    ones actually sent to the backend for compiling (such as ``i15 = i10 <
+    2000`` in the example)
 
 .. image:: image/jitviewer.png
 
