@@ -27,8 +27,6 @@ class LibTest(unittest.TestCase):
 
     def test_no_more_xfail(self):
         import socket
-        if 'viper' in socket.gethostname():
-            return # don't fail on antocuni's machine :-)
         import ctypes.test
         self.assertTrue(not hasattr(ctypes.test, 'xfail'),
                         "You should incrementally grep for '@xfail' and remove them, they are real failures")

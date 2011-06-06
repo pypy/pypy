@@ -113,5 +113,5 @@ for our needs. It's possible that this has changed, reviving the LLVM backend
 
 .. _`issue tracker`: http://bugs.pypy.org
 .. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
-.. _`jitviewer`: http://mail.python.org/mailman/listinfo/pypy-dev
+.. _`jitviewer`: http://bitbucket.org/pypy/jitviewer
 .. _`JavaScript implementation`: https://bitbucket.org/pypy/lang-js/overview
