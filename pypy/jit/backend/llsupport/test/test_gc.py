@@ -49,19 +49,6 @@ def test_boehm():
 
 # ____________________________________________________________
 
-def test_GcRefList():
-    S = lltype.GcStruct('S')
-    order = range(50) * 4
-    random.shuffle(order)
-    allocs = [lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S))
-              for i in range(50)]
-    allocs = [allocs[i] for i in order]
-    #
-    gcrefs = GcRefList()
-    gcrefs.initialize()
-    addrs = [gcrefs.get_address_of_gcref(ptr) for ptr in allocs]
-    for i in range(len(allocs)):
-        assert addrs[i].address[0] == llmemory.cast_ptr_to_adr(allocs[i])
 
 class TestGcRootMapAsmGcc:
 
@@ -288,6 +275,18 @@ class FakeLLOp(object):
     def get_write_barrier_failing_case(self, FPTRTYPE):
         return llhelper(FPTRTYPE, self._write_barrier_failing_case)
 
+    _have_wb_from_array = False
+
+    def _write_barrier_from_array_failing_case(self, adr_struct, v_index):
+        self.record.append(('barrier_from_array', adr_struct, v_index))
+
+    def get_write_barrier_from_array_failing_case(self, FPTRTYPE):
+        if self._have_wb_from_array:
+            return llhelper(FPTRTYPE,
+                            self._write_barrier_from_array_failing_case)
+        else:
+            return lltype.nullptr(FPTRTYPE.TO)
+
 
 class TestFramework(object):
     gc = 'hybrid'
@@ -303,9 +302,20 @@ class TestFramework(object):
             config = config_
         class FakeCPU(object):
             def cast_adr_to_int(self, adr):
-                ptr = llmemory.cast_adr_to_ptr(adr, gc_ll_descr.WB_FUNCPTR)
-                assert ptr._obj._callable == llop1._write_barrier_failing_case
-                return 42
+                if not adr:
+                    return 0
+                try:
+                    ptr = llmemory.cast_adr_to_ptr(adr, gc_ll_descr.WB_FUNCPTR)
+                    assert ptr._obj._callable == \
+                           llop1._write_barrier_failing_case
+                    return 42
+                except lltype.InvalidCast:
+                    ptr = llmemory.cast_adr_to_ptr(
+                        adr, gc_ll_descr.WB_ARRAY_FUNCPTR)
+                    assert ptr._obj._callable == \
+                           llop1._write_barrier_from_array_failing_case
+                    return 43
+
         gcdescr = get_description(config_)
         translator = FakeTranslator()
         llop1 = FakeLLOp()
@@ -414,11 +424,11 @@ class TestFramework(object):
             ResOperation(rop.DEBUG_MERGE_POINT, ['dummy', 2], None),
             ]
         gc_ll_descr = self.gc_ll_descr
-        operations = gc_ll_descr.rewrite_assembler(None, operations)
+        operations = gc_ll_descr.rewrite_assembler(None, operations, [])
         assert len(operations) == 0
 
     def test_rewrite_assembler_1(self):
-        # check rewriting of ConstPtrs
+        # check recording of ConstPtrs
         class MyFakeCPU(object):
             def cast_adr_to_int(self, adr):
                 assert adr == "some fake address"
@@ -438,56 +448,12 @@ class TestFramework(object):
             ]
         gc_ll_descr = self.gc_ll_descr
         gc_ll_descr.gcrefs = MyFakeGCRefList()
+        gcrefs = []
         operations = get_deep_immutable_oplist(operations)
-        operations = gc_ll_descr.rewrite_assembler(MyFakeCPU(), operations)
-        assert len(operations) == 2
-        assert operations[0].getopnum() == rop.GETFIELD_RAW
-        assert operations[0].getarg(0) == ConstInt(43)
-        assert operations[0].getdescr() == gc_ll_descr.single_gcref_descr
-        v_box = operations[0].result
-        assert isinstance(v_box, BoxPtr)
-        assert operations[1].getopnum() == rop.PTR_EQ
-        assert operations[1].getarg(0) == v_random_box
-        assert operations[1].getarg(1) == v_box
-        assert operations[1].result == v_result
-
-    def test_rewrite_assembler_1_cannot_move(self):
-        # check rewriting of ConstPtrs
-        class MyFakeCPU(object):
-            def cast_adr_to_int(self, adr):
-                xxx    # should not be called
-        class MyFakeGCRefList(object):
-            def get_address_of_gcref(self, s_gcref1):
-                seen.append(s_gcref1)
-                assert s_gcref1 == s_gcref
-                return "some fake address"
-        seen = []
-        S = lltype.GcStruct('S')
-        s = lltype.malloc(S)
-        s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-        v_random_box = BoxPtr()
-        v_result = BoxInt()
-        operations = [
-            ResOperation(rop.PTR_EQ, [v_random_box, ConstPtr(s_gcref)],
-                         v_result),
-            ]
-        gc_ll_descr = self.gc_ll_descr
-        gc_ll_descr.gcrefs = MyFakeGCRefList()
-        old_can_move = rgc.can_move
-        operations = get_deep_immutable_oplist(operations)
-        try:
-            rgc.can_move = lambda s: False
-            operations = gc_ll_descr.rewrite_assembler(MyFakeCPU(), operations)
-        finally:
-            rgc.can_move = old_can_move
-        assert len(operations) == 1
-        assert operations[0].getopnum() == rop.PTR_EQ
-        assert operations[0].getarg(0) == v_random_box
-        assert operations[0].getarg(1) == ConstPtr(s_gcref)
-        assert operations[0].result == v_result
-        # check that s_gcref gets added to the list anyway, to make sure
-        # that the GC sees it
-        assert seen == [s_gcref]
+        operations2 = gc_ll_descr.rewrite_assembler(MyFakeCPU(), operations,
+                                                   gcrefs)
+        assert operations2 == operations
+        assert gcrefs == [s_gcref]
 
     def test_rewrite_assembler_2(self):
         # check write barriers before SETFIELD_GC
@@ -500,7 +466,8 @@ class TestFramework(object):
             ]
         gc_ll_descr = self.gc_ll_descr
         operations = get_deep_immutable_oplist(operations)
-        operations = gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
+        operations = gc_ll_descr.rewrite_assembler(self.fake_cpu, operations,
+                                                   [])
         assert len(operations) == 2
         #
         assert operations[0].getopnum() == rop.COND_CALL_GC_WB
@@ -515,29 +482,90 @@ class TestFramework(object):
 
     def test_rewrite_assembler_3(self):
         # check write barriers before SETARRAYITEM_GC
-        v_base = BoxPtr()
-        v_index = BoxInt()
-        v_value = BoxPtr()
-        array_descr = AbstractDescr()
-        operations = [
-            ResOperation(rop.SETARRAYITEM_GC, [v_base, v_index, v_value], None,
-                         descr=array_descr),
-            ]
-        gc_ll_descr = self.gc_ll_descr
-        operations = get_deep_immutable_oplist(operations)
-        operations = gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
-        assert len(operations) == 2
-        #
-        assert operations[0].getopnum() == rop.COND_CALL_GC_WB
-        assert operations[0].getarg(0) == v_base
-        assert operations[0].getarg(1) == v_value
-        assert operations[0].result is None
-        #
-        assert operations[1].getopnum() == rop.SETARRAYITEM_RAW
-        assert operations[1].getarg(0) == v_base
-        assert operations[1].getarg(1) == v_index
-        assert operations[1].getarg(2) == v_value
-        assert operations[1].getdescr() == array_descr
+        for v_new_length in (None, ConstInt(5), ConstInt(5000), BoxInt()):
+            v_base = BoxPtr()
+            v_index = BoxInt()
+            v_value = BoxPtr()
+            array_descr = AbstractDescr()
+            operations = [
+                ResOperation(rop.SETARRAYITEM_GC, [v_base, v_index, v_value],
+                             None, descr=array_descr),
+                ]
+            if v_new_length is not None:
+                operations.insert(0, ResOperation(rop.NEW_ARRAY,
+                                                  [v_new_length], v_base,
+                                                  descr=array_descr))
+                # we need to insert another, unrelated NEW_ARRAY here
+                # to prevent the initialization_store optimization
+                operations.insert(1, ResOperation(rop.NEW_ARRAY,
+                                                  [ConstInt(12)], BoxPtr(),
+                                                  descr=array_descr))
+            gc_ll_descr = self.gc_ll_descr
+            operations = get_deep_immutable_oplist(operations)
+            operations = gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                       operations, [])
+            if v_new_length is not None:
+                assert operations[0].getopnum() == rop.NEW_ARRAY
+                assert operations[1].getopnum() == rop.NEW_ARRAY
+                del operations[:2]
+            assert len(operations) == 2
+            #
+            assert operations[0].getopnum() == rop.COND_CALL_GC_WB
+            assert operations[0].getarg(0) == v_base
+            assert operations[0].getarg(1) == v_value
+            assert operations[0].result is None
+            #
+            assert operations[1].getopnum() == rop.SETARRAYITEM_RAW
+            assert operations[1].getarg(0) == v_base
+            assert operations[1].getarg(1) == v_index
+            assert operations[1].getarg(2) == v_value
+            assert operations[1].getdescr() == array_descr
+
+    def test_rewrite_assembler_4(self):
+        # check write barriers before SETARRAYITEM_GC,
+        # if we have actually a write_barrier_from_array.
+        self.llop1._have_wb_from_array = True
+        for v_new_length in (None, ConstInt(5), ConstInt(5000), BoxInt()):
+            v_base = BoxPtr()
+            v_index = BoxInt()
+            v_value = BoxPtr()
+            array_descr = AbstractDescr()
+            operations = [
+                ResOperation(rop.SETARRAYITEM_GC, [v_base, v_index, v_value],
+                             None, descr=array_descr),
+                ]
+            if v_new_length is not None:
+                operations.insert(0, ResOperation(rop.NEW_ARRAY,
+                                                  [v_new_length], v_base,
+                                                  descr=array_descr))
+                # we need to insert another, unrelated NEW_ARRAY here
+                # to prevent the initialization_store optimization
+                operations.insert(1, ResOperation(rop.NEW_ARRAY,
+                                                  [ConstInt(12)], BoxPtr(),
+                                                  descr=array_descr))
+            gc_ll_descr = self.gc_ll_descr
+            operations = get_deep_immutable_oplist(operations)
+            operations = gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                       operations, [])
+            if v_new_length is not None:
+                assert operations[0].getopnum() == rop.NEW_ARRAY
+                assert operations[1].getopnum() == rop.NEW_ARRAY
+                del operations[:2]
+            assert len(operations) == 2
+            #
+            assert operations[0].getopnum() == rop.COND_CALL_GC_WB
+            assert operations[0].getarg(0) == v_base
+            if isinstance(v_new_length, ConstInt) and v_new_length.value < 130:
+                assert operations[0].getarg(1) == v_value
+            else:
+                assert operations[0].getarg(1) == v_index
+            assert operations[0].result is None
+            #
+            assert operations[1].getopnum() == rop.SETARRAYITEM_RAW
+            assert operations[1].getarg(0) == v_base
+            assert operations[1].getarg(1) == v_index
+            assert operations[1].getarg(2) == v_value
+            assert operations[1].getdescr() == array_descr
 
     def test_rewrite_assembler_initialization_store(self):
         S = lltype.GcStruct('S', ('parent', OBJECT),
@@ -558,7 +586,8 @@ class TestFramework(object):
         jump()
         """, namespace=locals())
         operations = get_deep_immutable_oplist(ops.operations)
-        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                        operations, [])
         equaloplists(operations, expected.operations)
 
     def test_rewrite_assembler_initialization_store_2(self):
@@ -583,7 +612,8 @@ class TestFramework(object):
         jump()
         """, namespace=locals())
         operations = get_deep_immutable_oplist(ops.operations)
-        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                        operations, [])
         equaloplists(operations, expected.operations)
 
     def test_rewrite_assembler_initialization_store_3(self):
@@ -602,7 +632,8 @@ class TestFramework(object):
         jump()
         """, namespace=locals())
         operations = get_deep_immutable_oplist(ops.operations)
-        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu, operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                        operations, [])
         equaloplists(operations, expected.operations)
 
 class TestFrameworkMiniMark(TestFramework):

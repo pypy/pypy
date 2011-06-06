@@ -158,11 +158,12 @@ class RegAlloc(object):
         self.jump_target_descr = None
         self.close_stack_struct = 0
 
-    def _prepare(self, inputargs, operations):
+    def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
         self.param_depth = 0
         cpu = self.assembler.cpu
-        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
+                                                       allgcrefs)
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
@@ -173,15 +174,16 @@ class RegAlloc(object):
                                    assembler = self.assembler)
         return operations
 
-    def prepare_loop(self, inputargs, operations, looptoken):
-        operations = self._prepare(inputargs, operations)
+    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         jump = operations[-1]
         loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
         self.loop_consts = loop_consts
         return self._process_inputargs(inputargs), operations
 
-    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations):
-        operations = self._prepare(inputargs, operations)
+    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
+                       allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self.loop_consts = {}
         self._update_bindings(arglocs, inputargs)
         self.fm.frame_depth = prev_depths[0]
@@ -882,12 +884,12 @@ class RegAlloc(object):
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
-        loc_newvalue = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
+        loc_newvalue_or_index= self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        # ^^^ we force loc_newvalue_or_index in a reg (unless it's a Const),
         # because it will be needed anyway by the following setfield_gc.
         # It avoids loading it twice from the memory.
         loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        arglocs = [loc_base, loc_newvalue]
+        arglocs = [loc_base, loc_newvalue_or_index]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these
         # registers really need to be saved (a bit of a hack).  Moreover,

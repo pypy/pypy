@@ -348,6 +348,7 @@ GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
     '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
+    '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
     }
 FORWARD_DECLS = []
@@ -966,6 +967,7 @@ def load_extension_module(space, path, name):
     state = space.fromcache(State)
     if state.find_extension(name, path) is not None:
         return
+    old_context = state.package_context
     state.package_context = name, path
     try:
         from pypy.rlib import rdynload
@@ -991,7 +993,7 @@ def load_extension_module(space, path, name):
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()
     finally:
-        state.package_context = None, None
+        state.package_context = old_context
     state.fixup_extension(name, path)
 
 @specialize.ll()
