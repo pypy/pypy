@@ -3,6 +3,7 @@ from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from pypy.jit.metainterp.history import ConstInt, BoxInt, FLOAT
+from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
 
 def gen_emit_op_unary_cmp(true_cond, false_cond):
     def f(self, op, arglocs, regalloc, fcond):
@@ -134,3 +135,20 @@ def count_reg_args(args):
             break
     return reg_args
 
+def decode32(mem, index):
+    return intmask(ord(mem[index])
+            | ord(mem[index+1]) << 8
+            | ord(mem[index+2]) << 16
+            | ord(mem[index+3]) << 24)
+
+def decode64(mem, index):
+    low = decode32(mem, index)
+    index += 4
+    high = decode32(mem, index)
+    return (r_longlong(high) << 32) | r_longlong(r_uint(low))
+
+def encode32(mem, i, n):
+    mem[i] = chr(n & 0xFF)
+    mem[i+1] = chr((n >> 8) & 0xFF)
+    mem[i+2] = chr((n >> 16) & 0xFF)
+    mem[i+3] = chr((n >> 24) & 0xFF)

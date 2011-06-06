@@ -1,5 +1,7 @@
 from __future__ import with_statement
-from pypy.jit.backend.arm.helper.assembler import saved_registers, count_reg_args
+from pypy.jit.backend.arm.helper.assembler import saved_registers, \
+                                                    count_reg_args, decode32, \
+                                                    decode64, encode32
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
@@ -172,25 +174,25 @@ class AssemblerARM(ResOpAssembler):
             if res == self.IMM_LOC:
                 assert group == self.INT_TYPE or group == self.REF_TYPE
                 # imm value
-                value = self.decode32(enc, i+1)
+                value = decode32(enc, i+1)
                 i += 4
             elif res == self.STACK_LOC:
-                stack_loc = self.decode32(enc, i+1)
+                stack_loc = decode32(enc, i+1)
                 i += 4
                 if group == self.FLOAT_TYPE:
-                    value = self.decode64(stack, frame_depth - stack_loc*WORD)
+                    value = decode64(stack, frame_depth - stack_loc*WORD)
                     self.fail_boxes_float.setitem(fail_index, value)
                     continue
                 else:
-                    value = self.decode32(stack, frame_depth - stack_loc*WORD)
+                    value = decode32(stack, frame_depth - stack_loc*WORD)
             else: # REG_LOC
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
-                    value = self.decode64(vfp_regs, reg*2*WORD)
+                    value = decode64(vfp_regs, reg*2*WORD)
                     self.fail_boxes_float.setitem(fail_index, value)
                     continue
                 else:
-                    value = self.decode32(regs, reg*WORD)
+                    value = decode32(regs, reg*WORD)
 
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
@@ -202,7 +204,7 @@ class AssemblerARM(ResOpAssembler):
 
 
         assert enc[i] == self.END_OF_LOCS
-        descr = self.decode32(enc, i+1)
+        descr = decode32(enc, i+1)
         self.fail_boxes_count = fail_index
         self.fail_force_index = frame_loc
         return descr
@@ -228,7 +230,7 @@ class AssemblerARM(ResOpAssembler):
             elif res == self.STACK_LOC:
                 if res_type == FLOAT:
                     assert 0, 'float on stack'
-                stack_loc = self.decode32(enc, j+1)
+                stack_loc = decode32(enc, j+1)
                 loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
                 j += 4
             else: # REG_LOC
@@ -239,27 +241,6 @@ class AssemblerARM(ResOpAssembler):
             j += 1
             locs.append(loc)
         return locs
-
-    def decode32(self, mem, index):
-        highval = ord(mem[index+3])
-        if highval >= 128:
-            highval -= 256
-        return (ord(mem[index])
-                | ord(mem[index+1]) << 8
-                | ord(mem[index+2]) << 16
-                | highval << 24)
-
-    def decode64(self, mem, index):
-        low = self.decode32(mem, index)
-        index += 4
-        high = self.decode32(mem, index)
-        return r_longlong(high << 32) | r_longlong(r_uint(low))
-
-    def encode32(self, mem, i, n):
-        mem[i] = chr(n & 0xFF)
-        mem[i+1] = chr((n >> 8) & 0xFF)
-        mem[i+2] = chr((n >> 16) & 0xFF)
-        mem[i+3] = chr((n >> 24) & 0xFF)
 
     def _build_malloc_slowpath(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -351,11 +332,11 @@ class AssemblerARM(ResOpAssembler):
                 elif loc.is_imm():
                     assert arg.type == INT or arg.type == REF
                     mem[j] = self.IMM_LOC
-                    self.encode32(mem, j+1, loc.getint())
+                    encode32(mem, j+1, loc.getint())
                     j += 5
                 else:
                     mem[j] = self.STACK_LOC
-                    self.encode32(mem, j+1, loc.position)
+                    encode32(mem, j+1, loc.position)
                     j += 5
             else:
                 mem[j] = self.EMPTY_LOC
@@ -365,7 +346,7 @@ class AssemblerARM(ResOpAssembler):
         mem[j] = chr(0xFF)
 
         n = self.cpu.get_fail_descr_number(descr)
-        self.encode32(mem, j+1, n)
+        encode32(mem, j+1, n)
         self.mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
         if save_exc:
             path = self._leave_jitted_jook_save_exc
