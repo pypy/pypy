@@ -347,20 +347,6 @@ class PyPyCJITTests(object):
                                 ([a2, b2], 2000 * res2),
                                 ([a3, b3], 2000 * res3))
 
-    def test_dont_trace_every_iteration(self):
-        self.run_source('''
-        def main(a, b):
-            i = sa = 0
-            while i < 200:
-                if a > 0: pass
-                if 1 < b < 2: pass
-                sa += a % b
-                i += 1
-            return sa
-        ''', 22,  ([10, 20], 200 * (10 % 20)),
-                 ([-10, -20], 200 * (-10 % -20)),
-                        count_debug_merge_point=False)
-        assert self.jit_summary.tracing_no == 2
     def test_id_compare_optimization(self):
         # XXX: lower the instruction count, 35 is the old value.
         self.run_source("""

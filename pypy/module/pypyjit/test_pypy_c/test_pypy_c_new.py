@@ -1731,3 +1731,33 @@ class TestPyPyCNew(BaseTestPyPyC):
             loop.match_by_id("contains", """
                 i1 = int_add(i0, 1)
             """)
+
+    def test_dont_trace_every_iteration(self):
+        def main(a, b):
+            i = sa = 0
+            while i < 300:
+                if a > 0:
+                    pass
+                if 1 < b < 2:
+                    pass
+                sa += a % b
+                i += 1
+            return sa
+        #
+        log = self.run(main, [10, 20], threshold=200)
+        assert log.result == 300 * (10 % 20)
+        assert log.jit_summary.tracing_no == 1
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i11 = int_lt(i7, 300)
+            guard_true(i11, descr=<Guard3>)
+            i12 = int_add_ovf(i8, i9)
+            guard_no_overflow(descr=<Guard4>)
+            i14 = int_add(i7, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)
+        #
+        log = self.run(main, [-10, -20], threshold=200)
+        assert log.result == 300 * (-10 % -20)
+        assert log.jit_summary.tracing_no == 1

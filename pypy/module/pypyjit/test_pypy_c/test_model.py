@@ -5,6 +5,7 @@ import py
 from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
+from pypy.jit.tool.jitoutput import parse_prof
 from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, \
     LoopWithIds, OpMatcher
 
@@ -63,6 +64,13 @@ class BaseTestPyPyC(object):
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
         log = Log(rawtraces)
         log.result = eval(stdout)
+        #
+        summaries  = logparser.extract_category(rawlog, 'jit-summary')
+        if len(summaries) > 0:
+            log.jit_summary = parse_prof(summaries[-1])
+        else:
+            log.jit_summary = None
+        #
         return log
 
     def run_and_check(self, src, args=[], **jitopts):
