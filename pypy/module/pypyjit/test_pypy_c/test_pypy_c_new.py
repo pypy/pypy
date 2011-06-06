@@ -1723,13 +1723,15 @@ class TestPyPyCNew(BaseTestPyPyC):
             a = A()
             while i < 100:
                 i += i in a # ID: contains
+                b = 0       # to make sure that JUMP_ABSOLUTE is not part of the ID
 
         log = self.run(main, [], threshold=80)
         loop, = log.loops_by_filename(self.filepath)
-        # XXX: haven't confirmed his is correct, it's probably missing a
-        # few instructions
         assert loop.match_by_id("contains", """
-            i1 = int_add(i0, 1)
+            guard_not_invalidated(descr=...)
+            i11 = force_token()
+            i12 = int_add_ovf(i5, i7)
+            guard_no_overflow(descr=...)
         """)
 
     def test_dont_trace_every_iteration(self):
