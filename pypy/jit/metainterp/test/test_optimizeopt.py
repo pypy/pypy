@@ -163,7 +163,7 @@ class BaseTestOptimizeOpt(BaseTest):
                             expected.operations, False, remap, text_right)
 
     def optimize_loop(self, ops, optops, expected_preamble=None,
-                      call_pure_results=None):
+                      call_pure_results=None, expected_short=None):
         loop = self.parse(ops)
         if optops != "crash!":
             expected = self.parse(optops)
@@ -171,6 +171,8 @@ class BaseTestOptimizeOpt(BaseTest):
             expected = "crash!"
         if expected_preamble:
             expected_preamble = self.parse(expected_preamble)
+        if expected_short:
+            expected_short = self.parse(expected_short)
         #
         self.loop = loop
         loop.call_pure_results = args_dict()
@@ -200,21 +202,34 @@ class BaseTestOptimizeOpt(BaseTest):
         #
 
         print
+        print "Preamble:"
         print loop.preamble.inputargs
         if loop.preamble.operations:
             print '\n'.join([str(o) for o in loop.preamble.operations])
         else:
             print 'Failed!'
         print
+        print "Loop:"
         print loop.inputargs
         print '\n'.join([str(o) for o in loop.operations])
         print
+        if expected_short:
+            print "Short Preamble:"
+            short = loop.preamble.token.short_preamble[0]
+            print short.inputargs
+            print '\n'.join([str(o) for o in short.operations])        
+            print
+        
 
         assert expected != "crash!", "should have raised an exception"
         self.assert_equal(loop, expected)
         if expected_preamble:
             self.assert_equal(loop.preamble, expected_preamble,
                               text_right='expected preamble')
+        if expected_short:
+            self.assert_equal(short, expected_short,
+                              text_right='expected short preamble')
+            
 
         return loop
 
@@ -6377,4 +6392,30 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p0, p3, i1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_guards_before_getfields_in_short_preamble(self):
+        ops = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        p2 = getfield_gc(p1, descr=nextdescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []        
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        short = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        guard_class(p1, ConstClass(node_vtable)) []
+        p2 = getfield_gc(p1, descr=nextdescr)
+        guard_nonnull(p2) []
+        guard_class(p2, ConstClass(node_vtable)) []        
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
         
