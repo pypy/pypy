@@ -1772,6 +1772,28 @@ class TestPyPyCNew(BaseTestPyPyC):
             i15 = int_add(i10, i14)
         """)
 
+    def test_division_to_rshift_allcases(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s / %s\n' % (a, b)
+        src = """
+        def main(a, b):
+            i = sa = 0
+            while i < 300:
+%s
+                i += 1
+            return sa
+        """ % code
+        self.run_and_check(src, [ 10,   20], threshold=200)
+        self.run_and_check(src, [ 10,  -20], threshold=200)
+        self.run_and_check(src, [-10, -20], threshold=200)
 
     def test_oldstyle_newstyle_mix(self):
         def main():
