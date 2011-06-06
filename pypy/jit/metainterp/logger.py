@@ -53,7 +53,6 @@ class Logger(object):
         return logops
 
     def _make_log_operations(self):
-        # hook for tests
         return LogOperations(self.metainterp_sd, self.guard_number)
 
 
