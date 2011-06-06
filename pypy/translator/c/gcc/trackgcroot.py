@@ -1649,8 +1649,8 @@ class GcRootTracker(object):
             s = """\
             /* See description in asmgcroot.py */
             .cfi_startproc
-            movq\t%rdi, %rdx\t/* 1st argument, which is the callback */
-            movq\t%rsi, %rcx\t/* 2nd argument, which is gcrootanchor */
+            /* %rdi is the 1st argument, which is the callback */
+            /* %rsi is the 2nd argument, which is gcrootanchor */
             movq\t%rsp, %rax\t/* my frame top address */
             pushq\t%rax\t\t/* ASM_FRAMEDATA[8] */
             pushq\t%rbp\t\t/* ASM_FRAMEDATA[7] */
@@ -1663,15 +1663,15 @@ class GcRootTracker(object):
             /* Add this ASM_FRAMEDATA to the front of the circular linked */
             /* list.  Let's call it 'self'.                               */
 
-            movq\t8(%rcx), %rax\t/* next = gcrootanchor->next */
+            movq\t8(%rsi), %rax\t/* next = gcrootanchor->next */
             pushq\t%rax\t\t\t\t/* self->next = next */
-            pushq\t%rcx\t\t\t/* self->prev = gcrootanchor */
-            movq\t%rsp, 8(%rcx)\t/* gcrootanchor->next = self */
+            pushq\t%rsi\t\t\t/* self->prev = gcrootanchor */
+            movq\t%rsp, 8(%rsi)\t/* gcrootanchor->next = self */
             movq\t%rsp, 0(%rax)\t\t\t/* next->prev = self */
             .cfi_def_cfa_offset 80\t/* 9 pushes + the retaddr = 80 bytes */
 
             /* note: the Mac OS X 16 bytes aligment must be respected. */
-            call\t*%rdx\t\t/* invoke the callback */
+            call\t*%rdi\t\t/* invoke the callback */
 
             /* Detach this ASM_FRAMEDATA from the circular linked list */
             popq\t%rsi\t\t/* prev = self->prev */
@@ -1688,7 +1688,7 @@ class GcRootTracker(object):
             popq\t%rcx\t\t/* ignored      ASM_FRAMEDATA[8] */
 
             /* the return value is the one of the 'call' above, */
-            /* because %rax (and possibly %rdx) are unmodified  */
+            /* because %rax is unmodified  */
             ret
             .cfi_endproc
             """

@@ -58,8 +58,8 @@ class PyPyJitDriver(JitDriver):
         space = self.space
         cache = space.fromcache(Cache)
         if space.is_true(cache.w_compile_hook):
-            memo = {}
-            list_w = [space.wrap(logger.repr_of_resop(memo, op))
+            logops = logger._make_log_operations()
+            list_w = [space.wrap(logops.repr_of_resop(op))
                       for op in operations]
             pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
             try:
@@ -77,8 +77,8 @@ class PyPyJitDriver(JitDriver):
         space = self.space
         cache = space.fromcache(Cache)
         if space.is_true(cache.w_compile_hook):
-            memo = {}
-            list_w = [space.wrap(logger.repr_of_resop(memo, op))
+            logops = logger._make_log_operations()
+            list_w = [space.wrap(logops.repr_of_resop(op))
                       for op in operations]
             try:
                 space.call_function(cache.w_compile_hook,

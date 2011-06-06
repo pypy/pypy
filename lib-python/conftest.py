@@ -569,7 +569,6 @@ class RunFileExternal(py.test.collect.File):
 #
 import os
 import time
-import socket
 import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item): 

@@ -9,16 +9,11 @@ import py, os
 from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.jit import purefunction, unroll_safe
-from pypy.jit.backend.x86.runner import CPU386
-from pypy.jit.backend.llsupport.gc import GcRootMap_asmgcc
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
-from pypy.jit.backend.x86.arch import IS_X86_64
 from pypy.config.translationoption import DEFL_GC
-import py.test
 
 class X(object):
     def __init__(self, x=0):
@@ -85,7 +80,7 @@ def get_functions_to_patch():
     #
     return {(gc.GcLLDescr_framework, 'can_inline_malloc'): can_inline_malloc2}
 
-def compile(f, gc, **kwds):
+def compile(f, gc, enable_opts='', **kwds):
     from pypy.annotation.listdef import s_list_of_strings
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import apply_jit
@@ -109,14 +104,14 @@ def compile(f, gc, **kwds):
                 old_value[obj, attr] = getattr(obj, attr)
                 setattr(obj, attr, value)
             #
-            apply_jit(t, enable_opts='')
+            apply_jit(t, enable_opts=enable_opts)
             #
         finally:
             for (obj, attr), oldvalue in old_value.items():
                 setattr(obj, attr, oldvalue)
 
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
-    cbuilder.generate_source()
+    cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
     cbuilder.compile()
     return cbuilder
 
@@ -153,8 +148,10 @@ def test_compile_boehm():
 
 # ______________________________________________________________________
 
-class CompileFrameworkTests(object):
-    # Test suite using (so far) the minimark GC.
+
+class BaseFrameworkTests(object):
+    compile_kwds = {}
+
     def setup_class(cls):
         funcs = []
         name_to_func = {}
@@ -204,7 +201,8 @@ class CompileFrameworkTests(object):
         try:
             GcLLDescr_framework.DEBUG = True
             cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
-                                   gcrootfinder=cls.gcrootfinder, jit=True)
+                                   gcrootfinder=cls.gcrootfinder, jit=True,
+                                   **cls.compile_kwds)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
@@ -223,32 +221,36 @@ class CompileFrameworkTests(object):
     def run_orig(self, name, n, x):
         self.main_allfuncs(name, n, x)
 
-    def define_libffi_workaround(cls):
-        # XXX: this is a workaround for a bug in database.py.  It seems that
-        # the problem is triggered by optimizeopt/fficall.py, and in
-        # particular by the ``cast_base_ptr_to_instance(Func, llfunc)``: in
-        # these tests, that line is the only place where libffi.Func is
-        # referenced.
-        #
-        # The problem occurs because the gctransformer tries to annotate a
-        # low-level helper to call the __del__ of libffi.Func when it's too
-        # late.
-        #
-        # This workaround works by forcing the annotator (and all the rest of
-        # the toolchain) to see libffi.Func in a "proper" context, not just as
-        # the target of cast_base_ptr_to_instance.  Note that the function
-        # below is *never* called by any actual test, it's just annotated.
-        #
-        from pypy.rlib.libffi import get_libc_name, CDLL, types, ArgChain
-        libc_name = get_libc_name()
-        def f(n, x, *args):
-            libc = CDLL(libc_name)
-            ptr = libc.getpointer('labs', [types.slong], types.slong)
-            chain = ArgChain()
-            chain.arg(n)
-            n = ptr.call(chain, lltype.Signed)
-            return (n, x) + args
-        return None, f, None
+
+class CompileFrameworkTests(BaseFrameworkTests):
+    # Test suite using (so far) the minimark GC.
+
+##    def define_libffi_workaround(cls):
+##        # XXX: this is a workaround for a bug in database.py.  It seems that
+##        # the problem is triggered by optimizeopt/fficall.py, and in
+##        # particular by the ``cast_base_ptr_to_instance(Func, llfunc)``: in
+##        # these tests, that line is the only place where libffi.Func is
+##        # referenced.
+##        #
+##        # The problem occurs because the gctransformer tries to annotate a
+##        # low-level helper to call the __del__ of libffi.Func when it's too
+##        # late.
+##        #
+##        # This workaround works by forcing the annotator (and all the rest of
+##        # the toolchain) to see libffi.Func in a "proper" context, not just as
+##        # the target of cast_base_ptr_to_instance.  Note that the function
+##        # below is *never* called by any actual test, it's just annotated.
+##        #
+##        from pypy.rlib.libffi import get_libc_name, CDLL, types, ArgChain
+##        libc_name = get_libc_name()
+##        def f(n, x, *args):
+##            libc = CDLL(libc_name)
+##            ptr = libc.getpointer('labs', [types.slong], types.slong)
+##            chain = ArgChain()
+##            chain.arg(n)
+##            n = ptr.call(chain, lltype.Signed)
+##            return (n, x) + args
+##        return None, f, None
 
     def define_compile_framework_1(cls):
         # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works

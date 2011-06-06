@@ -768,10 +768,10 @@ class Transformer(object):
         from pypy.rpython.lltypesystem.rffi import size_and_sign, sizeof
         from pypy.rlib.rarithmetic import intmask
         assert not self._is_gc(op.args[0])
-        size1, unsigned1 = size_and_sign(op.args[0].concretetype)
         size2, unsigned2 = size_and_sign(op.result.concretetype)
         if size2 >= sizeof(lltype.Signed):
             return     # the target type is LONG or ULONG
+        size1, unsigned1 = size_and_sign(op.args[0].concretetype)
         #
         def bounds(size, unsigned):
             if unsigned:

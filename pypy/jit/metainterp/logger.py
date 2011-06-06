@@ -11,47 +11,71 @@ class Logger(object):
 
     def __init__(self, metainterp_sd, guard_number=False):
         self.metainterp_sd = metainterp_sd
-        self.ts = metainterp_sd.cpu.ts
         self.guard_number = guard_number
 
     def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
         if type is None:
             debug_start("jit-log-noopt-loop")
-            self._log_operations(inputargs, operations, ops_offset)
+            logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, ":", type,
                         "with", len(operations), "ops")
-            self._log_operations(inputargs, operations, ops_offset)
+            logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-loop")
+        return logops
 
     def log_bridge(self, inputargs, operations, number=-1, ops_offset=None):
         if number == -1:
             debug_start("jit-log-noopt-bridge")
-            self._log_operations(inputargs, operations, ops_offset)
+            logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard", number,
                         "with", len(operations), "ops")
-            self._log_operations(inputargs, operations, ops_offset)
+            logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-bridge")
+        return logops
 
     def log_short_preamble(self, inputargs, operations):
         debug_start("jit-log-short-preamble")
-        self._log_operations(inputargs, operations, ops_offset=None)
-        debug_stop("jit-log-short-preamble")            
+        logops = self._log_operations(inputargs, operations, ops_offset=None)
+        debug_stop("jit-log-short-preamble")
+        return logops
+
+    def _log_operations(self, inputargs, operations, ops_offset):
+        if not have_debug_prints():
+            return None
+        logops = self._make_log_operations()
+        logops._log_operations(inputargs, operations, ops_offset)
+        return logops
+
+    def _make_log_operations(self):
+        return LogOperations(self.metainterp_sd, self.guard_number)
+
+
+class LogOperations(object):
+    """
+    ResOperation logger.  Each instance contains a memo giving numbers
+    to boxes, and is typically used to log a single loop.
+    """
+    def __init__(self, metainterp_sd, guard_number):
+        self.metainterp_sd = metainterp_sd
+        self.ts = metainterp_sd.cpu.ts
+        self.guard_number = guard_number
+        self.memo = {}
 
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()
 
-    def repr_of_arg(self, memo, arg):
+    def repr_of_arg(self, arg):
         try:
-            mv = memo[arg]
+            mv = self.memo[arg]
         except KeyError:
-            mv = len(memo)
-            memo[arg] = mv
+            mv = len(self.memo)
+            self.memo[arg] = mv
         if isinstance(arg, ConstInt):
             if int_could_be_an_address(arg.value):
                 addr = arg.getaddr()
@@ -75,7 +99,7 @@ class Logger(object):
         else:
             return '?'
 
-    def repr_of_resop(self, memo, op, ops_offset=None):
+    def repr_of_resop(self, op, ops_offset=None):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             loc = op.getarg(0)._get_str()
             reclev = op.getarg(1).getint()
@@ -88,9 +112,10 @@ class Logger(object):
             s_offset = ""
         else:
             s_offset = "+%d: " % offset
-        args = ", ".join([self.repr_of_arg(memo, op.getarg(i)) for i in range(op.numargs())])
+        args = ", ".join([self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())])
+
         if op.result is not None:
-            res = self.repr_of_arg(memo, op.result) + " = "
+            res = self.repr_of_arg(op.result) + " = "
         else:
             res = ""
         is_guard = op.is_guard()
@@ -103,7 +128,7 @@ class Logger(object):
                 r = self.repr_of_descr(descr)
             args += ', descr=' +  r
         if is_guard and op.getfailargs() is not None:
-            fail_args = ' [' + ", ".join([self.repr_of_arg(memo, arg)
+            fail_args = ' [' + ", ".join([self.repr_of_arg(arg)
                                           for arg in op.getfailargs()]) + ']'
         else:
             fail_args = ''
@@ -114,13 +139,12 @@ class Logger(object):
             return
         if ops_offset is None:
             ops_offset = {}
-        memo = {}
         if inputargs is not None:
-            args = ", ".join([self.repr_of_arg(memo, arg) for arg in inputargs])
+            args = ", ".join([self.repr_of_arg(arg) for arg in inputargs])
             debug_print('[' + args + ']')
         for i in range(len(operations)):
             op = operations[i]
-            debug_print(self.repr_of_resop(memo, operations[i], ops_offset))
+            debug_print(self.repr_of_resop(operations[i], ops_offset))
         if ops_offset and None in ops_offset:
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)
