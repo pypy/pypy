@@ -59,6 +59,13 @@ class AppTestCodecs:
         u = "abc\xDD".decode("hz", "test.decode_custom_error_handler")
         assert u == u'abc\u1234\u5678'
 
+    def test_decode_custom_error_handler_overflow(self):
+        import codecs
+        import sys
+        codecs.register_error("test.test_decode_custom_error_handler_overflow",
+                              lambda e: ('', sys.maxint + 1))
+        raises(IndexError, "abc\xDD".decode, "hz", "test.test_decode_custom_error_handler_overflow")
+
     def test_encode_hz(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
