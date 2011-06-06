@@ -1851,3 +1851,21 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [-10, -20], threshold=200)
         assert log.result == 300 * (-10 % -20)
         assert log.jit_summary.tracing_no == 1
+
+    def test_id_compare_optimization(self):
+        def main():
+            class A(object):
+                pass
+            #
+            i = 0
+            a = A()
+            while i < 300:
+                new_a = A()
+                if new_a != a:  # ID: compare
+                    pass
+                i += 1
+            return i
+        #
+        log = self.run(main, [], threshold=200)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id("compare", "") # optimized away
