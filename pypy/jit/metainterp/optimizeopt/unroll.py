@@ -298,7 +298,7 @@ class UnrollOptimizer(Optimization):
         
         for result, op in self.short_boxes.items():
             if op is not None:
-                for op in self.getvalue(result).make_guards(result):
+                if len(self.getvalue(result).make_guards(result)) > 0:
                     self.add_op_to_short(op, short, short_seen)
 
         self.optimizer.flush()
@@ -368,6 +368,10 @@ class UnrollOptimizer(Optimization):
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             self.add_op_to_short(guard, short, short_seen)
+
+        if op.result in self.short_boxes:
+            for guard in self.getvalue(op.result).make_guards(op.result):
+                self.add_op_to_short(guard, short, short_seen)
 
         return newop.result
         
