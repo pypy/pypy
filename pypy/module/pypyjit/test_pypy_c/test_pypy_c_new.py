@@ -1751,7 +1751,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match_by_id('shift', "")  # optimized away
 
     def test_division_to_rshift(self):
-        py.test.skip('in-progress')
         def main(b):
             res = 0
             a = 0
@@ -1763,10 +1762,16 @@ class TestPyPyCNew(BaseTestPyPyC):
             return res
         #
         log = self.run(main, [3], threshold=200)
-        #assert log.result == 149
+        assert log.result == 99
         loop, = log.loops_by_filename(self.filepath)
-        import pdb;pdb.set_trace()
-        assert loop.match_by_id('div', "")  # optimized away
+        assert loop.match_by_id('div', """
+            i10 = int_floordiv(i6, i7)
+            i11 = int_mul(i10, i7)
+            i12 = int_sub(i6, i11)
+            i14 = int_rshift(i12, 63)
+            i15 = int_add(i10, i14)
+        """)
+
 
     def test_oldstyle_newstyle_mix(self):
         def main():
