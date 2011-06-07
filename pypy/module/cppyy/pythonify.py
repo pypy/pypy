@@ -6,10 +6,19 @@ import cppyy
 # with info from multiple dictionaries and do not need to bother with meta
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
-class CppyyNamespace(type):
+class CppyyScopeMeta(type):
+    def __getattr__(self, attr):
+        try:
+            cppclass = get_cppitem(attr, self)
+            self.__dict__[attr] = cppclass
+            return cppclass
+        except TypeError:
+            raise AttributeError("%s object has no attribute '%s'" % (self, attr))
+
+class CppyyNamespaceMeta(CppyyScopeMeta):
     pass
 
-class CppyyClass(type):
+class CppyyClass(CppyyScopeMeta):
     pass
 
 
@@ -64,15 +73,6 @@ def make_method(meth_name, cppol):
     return method
 
 
-def __innercpp_getattr__(self, attr):
-    try:
-        cppclass = get_cppitem(attr, self)
-        self.__dict__[attr] = cppclass
-        return cppclass
-    except TypeError:
-        raise AttributeError("%s object has no attribute '%s'" % (self,attr))
-
-
 def make_cppnamespace(namespace_name, cppns):
     d = {}
 
@@ -82,8 +82,7 @@ def make_cppnamespace(namespace_name, cppns):
         d[func_name] = make_static_function(cppns, func_name, cppol)
 
     # create a meta class to allow properties (for static data write access)
-    metans = type(CppyyNamespace)(namespace_name+'_meta', (type(type),),
-                                  {"__getattr__" : __innercpp_getattr__})
+    metans = type(CppyyNamespaceMeta)(namespace_name+'_meta', (CppyyNamespaceMeta,), {})
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
@@ -93,7 +92,7 @@ def make_cppnamespace(namespace_name, cppns):
         setattr(metans, dm, cppdm)
 
     # create the python-side C++ namespace representation
-    pycppns = metans(namespace_name, (type,), d)
+    pycppns = metans(namespace_name, (object,), d)
 
     # cache result and return
     _existing_cppitems[namespace_name] = pycppns
@@ -108,8 +107,7 @@ def make_cppclass(class_name, cpptype):
 
     # create a meta class to allow properties (for static data write access)
     metabases = tuple([type(base) for base in bases])
-    metacpp = type(CppyyClass)(class_name+'_meta', metabases,
-                               {"__getattr__" : __innercpp_getattr__})
+    metacpp = type(CppyyClass)(class_name+'_meta', metabases, {})
 
     # create the python-side C++ class representation
     d = {"_cppyyclass" : cpptype}
@@ -138,7 +136,7 @@ def make_cppclass(class_name, cpptype):
     return pycpptype
 
 def make_cpptemplatetype(template_name, scope):
-    return  CppyyTemplateType(scope, template_name)
+    return CppyyTemplateType(scope, template_name)
 
 
 _existing_cppitems = {}               # to merge with gbl.__dict__ (?)
@@ -156,22 +154,23 @@ def get_cppitem(name, scope=None):
 
     # ... if lookup failed, create
     pycppitem = None
-    try:
-        cppitem = cppyy._type_byname(fullname)
+    cppitem = cppyy._type_byname(fullname)
+    if cppitem:
         if cppitem.is_namespace():
             pycppitem = make_cppnamespace(fullname, cppitem)
         else:
             pycppitem = make_cppclass(fullname, cppitem)
-    except TypeError:
+    else:
         cppitem = cppyy._template_byname(fullname)
-        pycppitem = make_cpptemplatetype(name, scope)
+        if cppitem:
+            pycppitem = make_cpptemplatetype(name, scope)
+            _existing_cppitems[fullname] = pycppitem
 
     if pycppitem:
         _existing_cppitems[fullname] = pycppitem
         return pycppitem
 
     raise AttributeError("'%s' has no attribute '%s'", (str(scope), name))
-
 
 get_cppclass = get_cppitem         # TODO: restrict to classes only (?)
 

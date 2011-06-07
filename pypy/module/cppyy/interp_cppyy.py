@@ -25,6 +25,7 @@ load_lib.unwrap_spec = [ObjSpace, str]
 class State(object):
     def __init__(self, space):
         self.cpptype_cache = { "void" : W_CPPType(space, "void", NULL_VOIDP) }
+        self.cpptemplatetype_cache = {}
 
 def type_byname(space, name):
     state = space.fromcache(State)
@@ -45,13 +46,13 @@ def type_byname(space, name):
         cpptype._find_data_members()
         return cpptype
 
-    raise OperationError(space.w_TypeError, space.wrap(str("no such C++ class %s" % name)))
+    return space.w_None
 type_byname.unwrap_spec = [ObjSpace, str]
 
 def template_byname(space, name):
     state = space.fromcache(State)
     try:
-        return state.cpptype_cache[name]
+        return state.cpptemplatetype_cache[name]
     except KeyError:
         pass
 
@@ -61,7 +62,7 @@ def template_byname(space, name):
         state.cpptype_cache[name] = template
         return template
 
-    raise OperationError(space.w_TypeError, space.wrap(str("no such C++ template %s" % name)))
+    return space.w_None
 template_byname.unwrap_spec = [ObjSpace, str]
 
 
