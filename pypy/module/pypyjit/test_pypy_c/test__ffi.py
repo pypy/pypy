@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.module.pypyjit.test_pypy_c.test_model import BaseTestPyPyC
 
 class Test__ffi(BaseTestPyPyC):
