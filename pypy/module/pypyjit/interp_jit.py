@@ -57,11 +57,14 @@ class PyPyJitDriver(JitDriver):
         
         space = self.space
         cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
         if space.is_true(cache.w_compile_hook):
             logops = logger._make_log_operations()
             list_w = [space.wrap(logops.repr_of_resop(op))
                       for op in operations]
             pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
+            cache.in_recursion = True
             try:
                 space.call_function(cache.w_compile_hook,
                                     space.wrap('main'),
@@ -72,14 +75,18 @@ class PyPyJitDriver(JitDriver):
                                     space.newlist(list_w))
             except OperationError, e:
                 e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
+            cache.in_recursion = False
 
     def on_compile_bridge(self, logger, orig_looptoken, operations, n):
         space = self.space
         cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
         if space.is_true(cache.w_compile_hook):
             logops = logger._make_log_operations()
             list_w = [space.wrap(logops.repr_of_resop(op))
                       for op in operations]
+            cache.in_recursion = True
             try:
                 space.call_function(cache.w_compile_hook,
                                     space.wrap('main'),
@@ -88,6 +95,7 @@ class PyPyJitDriver(JitDriver):
                                     space.newlist(list_w))
             except OperationError, e:
                 e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
+            cache.in_recursion = False
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
@@ -193,6 +201,7 @@ def residual_call(space, w_callable, __args__):
 class Cache(object):
     def __init__(self, space):
         self.w_compile_hook = space.w_None
+        self.in_recursion = False
 
 @unwrap_spec(ObjSpace, W_Root)
 def set_compile_hook(space, w_hook):
@@ -208,6 +217,10 @@ def set_compile_hook(space, w_hook):
     in case loop is not `bridge`, greenkey will be a set of constants
     for jit merge point. in case it's `main` it'll be a tuple
     (code, offset, is_being_profiled)
+
+    Note that jit hook is not reentrant. It means that if the code
+    inside the jit hook is itself jitted, it will get compiled, but the
+    jit hook won't be called for that.
 
     XXX write down what else
     """

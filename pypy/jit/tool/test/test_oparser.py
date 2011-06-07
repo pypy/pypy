@@ -142,9 +142,9 @@ def test_debug_merge_point():
     x = '''
     []
     debug_merge_point(0, "info")
-    debug_merge_point(1, 'info')
+    debug_merge_point(0, 'info')
     debug_merge_point(1, '<some ('other,')> info')
-    debug_merge_point(1, '(stuff) #1')
+    debug_merge_point(0, '(stuff) #1')
     '''
     loop = parse(x)
     assert loop.operations[0].getarg(1)._get_str() == 'info'

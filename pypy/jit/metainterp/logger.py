@@ -102,8 +102,8 @@ class LogOperations(object):
     def repr_of_resop(self, op, ops_offset=None):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
-            s = jd_sd.warmstate.get_location_str(op.getarglist()[1:])
-            return "debug_merge_point('%s')" % (s,)
+            s = jd_sd.warmstate.get_location_str(op.getarglist()[2:])
+            return "debug_merge_point(%d, '%s')" % (op.getarg(1).getint(), s)
         if ops_offset is None:
             offset = -1
         else:

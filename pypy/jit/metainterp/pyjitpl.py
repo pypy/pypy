@@ -916,8 +916,8 @@ class MIFrame(object):
 
     def debug_merge_point(self, jd_index, in_recursion, greenkey):
         # debugging: produce a DEBUG_MERGE_POINT operation
-        self.metainterp.history.record(rop.DEBUG_MERGE_POINT,
-                                       [ConstInt(jd_index)] + greenkey, None)
+        args = [ConstInt(jd_index), ConstInt(in_recursion)] + greenkey
+        self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")
     def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):
