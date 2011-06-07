@@ -176,14 +176,12 @@ def get_executor(space, name):
             pass
 
     #   3) types/classes, either by ref/ptr or by value
-    try:
-        cpptype = interp_cppyy.type_byname(space, clean_name)
-        if compound == "*" or compound == "&":
-            return InstancePtrExecutor(space, clean_name, cpptype)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        pass
+    cpptype = interp_cppyy.type_byname(space, clean_name)
+    if cpptype and (compound == "*" or compound == "&"):
+        # type check for the benefit of the annotator
+        from pypy.module.cppyy.interp_cppyy import W_CPPType
+        cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
+        return InstancePtrExecutor(space, clean_name, cpptype)
 
     # 4) additional special cases
     # ... none for now

@@ -9,9 +9,9 @@ import cppyy
 class CppyyScopeMeta(type):
     def __getattr__(self, attr):
         try:
-            cppclass = get_cppitem(attr, self)
-            self.__dict__[attr] = cppclass
-            return cppclass
+            cppitem = get_cppitem(attr, self)
+            self.__dict__[attr] = cppitem
+            return cppitem
         except TypeError:
             raise AttributeError("%s object has no attribute '%s'" % (self, attr))
 

@@ -350,12 +350,12 @@ class InstancePtrConverter(TypeConverter):
         self.cpptype = cpptype
 
     def convert_argument(self, space, w_obj):
-        from pypy.module.cppyy import interp_cppyy
+        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
         w_cppinstance = space.findattr(w_obj, space.wrap("_cppinstance"))
         if w_cppinstance:
             w_obj = w_cppinstance
         obj = space.interpclass_w(w_obj)
-        if isinstance(obj, interp_cppyy.W_CPPInstance):
+        if isinstance(obj, W_CPPInstance):
             if capi.c_is_subtype(obj.cppclass.handle, self.cpptype.handle):
                 return obj.rawobject
         raise OperationError(space.w_TypeError,
@@ -402,9 +402,12 @@ def get_converter(space, name):
 
     #   5) generalized cases (covers basically all user classes)
     cpptype = interp_cppyy.type_byname(space, clean_name)
-    if compound == "*":
-        return InstancePtrConverter(space, cpptype)
 
+    if cpptype and compound == "*":
+        # type check for the benefit of the annotator
+        from pypy.module.cppyy.interp_cppyy import W_CPPType
+        cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
+        return InstancePtrConverter(space, cpptype)
     
     #   6) void converter, which fails on use
     #

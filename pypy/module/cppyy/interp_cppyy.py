@@ -46,7 +46,7 @@ def type_byname(space, name):
         cpptype._find_data_members()
         return cpptype
 
-    return space.w_None
+    return None
 type_byname.unwrap_spec = [ObjSpace, str]
 
 def template_byname(space, name):
@@ -62,7 +62,7 @@ def template_byname(space, name):
         state.cpptype_cache[name] = template
         return template
 
-    return space.w_None
+    return None
 template_byname.unwrap_spec = [ObjSpace, str]
 
 
@@ -272,9 +272,9 @@ class W_CPPDataMember(Wrappable):
     _immutable_=True
     _immutable_fields_ = ["converter", "offset"]
 
-    def __init__(self, space, cpptype, offset):
+    def __init__(self, space, type_name, offset):
         self.space = space
-        self.converter = converter.get_converter(self.space, cpptype)
+        self.converter = converter.get_converter(self.space, type_name)
         self.offset = offset
 
     def is_static(self):
@@ -401,9 +401,9 @@ class W_CPPNamespace(W_CPPScope):
         num_data_members = capi.c_num_data_members(self.handle)
         for i in range(num_data_members):
             data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
-            cpptype = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
+            type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
             offset = capi.c_data_member_offset(self.handle, i)
-            data_member = W_CPPStaticDataMember(self.space, cpptype, offset)
+            data_member = W_CPPStaticDataMember(self.space, type_name, offset)
             self.data_members[data_member_name] = data_member
 
     def is_namespace(self):
@@ -440,12 +440,12 @@ class W_CPPType(W_CPPScope):
         num_data_members = capi.c_num_data_members(self.handle)
         for i in range(num_data_members):
             data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
-            cpptype = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
+            type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
             offset = capi.c_data_member_offset(self.handle, i)
             if capi.c_is_staticdata(self.handle, i):
-                data_member = W_CPPStaticDataMember(self.space, cpptype, offset)
+                data_member = W_CPPStaticDataMember(self.space, type_name, offset)
             else:
-                data_member = W_CPPDataMember(self.space, cpptype, offset)
+                data_member = W_CPPDataMember(self.space, type_name, offset)
             self.data_members[data_member_name] = data_member
 
     def is_namespace(self):
@@ -508,7 +508,6 @@ class W_CPPInstance(Wrappable):
 
     def invoke(self, overload, args_w):
         self._nullcheck()
-        cppclass = jit.hint(self.cppclass, promote=True)
         return overload.call(self.rawobject, args_w)
 
     def destruct(self):
