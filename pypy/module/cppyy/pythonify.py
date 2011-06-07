@@ -12,6 +12,16 @@ class CppyyNamespace(type):
 class CppyyClass(type):
     pass
 
+
+class CppyyTemplateType(object):
+    def __init__(self, scope, name):
+        self._scope = scope
+        self._name = name
+
+    def __call__(self, *args):
+        fullname = "".join([self._name, '<', str(args[0]), '>'])
+        return getattr(self._scope, fullname)
+
 class CppyyObject(object):
     __metaclass__ = CppyyClass
 
@@ -56,14 +66,14 @@ def make_method(meth_name, cppol):
 
 def __innercpp_getattr__(self, attr):
     try:
-        cppclass = get_cppitem(attr, self.__name__)
+        cppclass = get_cppitem(attr, self)
         self.__dict__[attr] = cppclass
         return cppclass
     except TypeError:
         raise AttributeError("%s object has no attribute '%s'" % (self,attr))
 
 
-def make_cppnamespace(name, cppns):
+def make_cppnamespace(namespace_name, cppns):
     d = {}
 
     # insert static methods into the "namespace" dictionary
@@ -72,7 +82,7 @@ def make_cppnamespace(name, cppns):
         d[func_name] = make_static_function(cppns, func_name, cppol)
 
     # create a meta class to allow properties (for static data write access)
-    metans = type(CppyyNamespace)(name+'_meta', (type(type),),
+    metans = type(CppyyNamespace)(namespace_name+'_meta', (type(type),),
                                   {"__getattr__" : __innercpp_getattr__})
 
     # add all data members to the dictionary of the class to be created, and
@@ -83,10 +93,10 @@ def make_cppnamespace(name, cppns):
         setattr(metans, dm, cppdm)
 
     # create the python-side C++ namespace representation
-    pycppns = metans(name, (type,), d)
+    pycppns = metans(namespace_name, (type,), d)
 
     # cache result and return
-    _existing_cppitems[name] = pycppns
+    _existing_cppitems[namespace_name] = pycppns
     return pycppns
 
 def make_cppclass(class_name, cpptype):
@@ -127,11 +137,14 @@ def make_cppclass(class_name, cpptype):
 
     return pycpptype
 
+def make_cpptemplatetype(template_name, scope):
+    return  CppyyTemplateType(scope, template_name)
+
 
 _existing_cppitems = {}               # to merge with gbl.__dict__ (?)
-def get_cppitem(name, scope=""):
+def get_cppitem(name, scope=None):
     if scope:
-        fullname = scope+"::"+name
+        fullname = scope.__name__+"::"+name
     else:
         fullname = name
 
@@ -142,11 +155,24 @@ def get_cppitem(name, scope=""):
         pass
 
     # ... if lookup failed, create
-    cppitem = cppyy._type_byname(fullname)
-    if cppitem.is_namespace():
-        return make_cppnamespace(fullname, cppitem)
-    else:
-        return make_cppclass(fullname, cppitem)
+    pycppitem = None
+    try:
+        cppitem = cppyy._type_byname(fullname)
+        if cppitem.is_namespace():
+            pycppitem = make_cppnamespace(fullname, cppitem)
+        else:
+            pycppitem = make_cppclass(fullname, cppitem)
+    except TypeError:
+        cppitem = cppyy._template_byname(fullname)
+        pycppitem = make_cpptemplatetype(name, scope)
+
+    if pycppitem:
+        _existing_cppitems[fullname] = pycppitem
+        return pycppitem
+
+    raise AttributeError("'%s' has no attribute '%s'", (str(scope), name))
+
+
 get_cppclass = get_cppitem         # TODO: restrict to classes only (?)
 
 

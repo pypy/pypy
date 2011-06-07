@@ -24,7 +24,12 @@ static inline Reflex::Type type_from_handle(cppyy_typehandle_t handle) {
 /* name to handle --------------------------------------------------------- */
 cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
     Reflex::Scope s = Reflex::Scope::ByName(class_name);
-    return Reflex::Scope::ByName(class_name).Id();
+    return s.Id();
+}
+
+cppyy_typehandle_t cppyy_get_templatehandle(const char* template_name) {
+   Reflex::TypeTemplate tt = Reflex::TypeTemplate::ByName(template_name);
+   return tt.Id();
 }
 
 

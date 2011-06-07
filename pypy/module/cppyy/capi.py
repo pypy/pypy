@@ -33,6 +33,11 @@ c_get_typehandle = rffi.llexternal(
     [rffi.CCHARP], C_TYPEHANDLE,
     compilation_info=eci)
 
+c_get_templatehandle = rffi.llexternal(
+    "cppyy_get_templatehandle",
+    [rffi.CCHARP], C_TYPEHANDLE,
+    compilation_info=eci)
+
 c_allocate = rffi.llexternal(
     "cppyy_allocate",
     [C_TYPEHANDLE], rffi.VOIDP,

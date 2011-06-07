@@ -1,4 +1,3 @@
-
 #ifndef CPPYY_REFLEXCWRAPPER
 #define CPPYY_REFLEXCWRAPPER
 
@@ -11,6 +10,7 @@ extern "C" {
 
     /* name to handle */
     cppyy_typehandle_t cppyy_get_typehandle(const char* class_name);
+    cppyy_typehandle_t cppyy_get_templatehandle(const char* template_name);
 
     /* memory management */
     void* cppyy_allocate(cppyy_typehandle_t handle);

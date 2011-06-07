@@ -48,6 +48,22 @@ def type_byname(space, name):
     raise OperationError(space.w_TypeError, space.wrap(str("no such C++ class %s" % name)))
 type_byname.unwrap_spec = [ObjSpace, str]
 
+def template_byname(space, name):
+    state = space.fromcache(State)
+    try:
+        return state.cpptype_cache[name]
+    except KeyError:
+        pass
+
+    handle = capi.c_get_templatehandle(name)
+    if handle:
+        template = W_CPPTemplateType(space, name, handle)
+        state.cpptype_cache[name] = template
+        return template
+
+    raise OperationError(space.w_TypeError, space.wrap(str("no such C++ template %s" % name)))
+template_byname.unwrap_spec = [ObjSpace, str]
+
 
 class W_CPPLibrary(Wrappable):
     _immutable_ = True
@@ -456,6 +472,24 @@ W_CPPType.typedef = TypeDef(
     is_namespace = interp2app(W_CPPType.is_namespace, unwrap_spec=['self']),
     invoke = interp2app(W_CPPType.invoke, unwrap_spec=['self', W_CPPOverload, 'args_w']),
     construct = interp2app(W_CPPType.construct, unwrap_spec=['self', 'args_w']),
+)
+
+
+class W_CPPTemplateType(Wrappable):
+    _immutable_fields_ = ["name", "handle"]
+
+    def __init__(self, space, name, handle):
+        self.space = space
+        self.name = name
+        self.handle = handle
+
+    def __call__(self, args_w):
+        fullname = "".join([self.name, '<', self.space.str_w(args_w[0]), '>'])
+        return type_byname(self.space, fullname)
+
+W_CPPTemplateType.typedef = TypeDef(
+    'CPPTemplateType',
+    __call__ = interp2app(W_CPPTemplateType.__call__, unwrap_spec=['self', 'args_w']),
 )
 
 

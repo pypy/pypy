@@ -7,5 +7,6 @@
 #include "Reflex/Object.h"
 #include "Reflex/Builder/TypeBuilder.h"
 #include "Reflex/PropertyList.h"
+#include "Reflex/TypeTemplate.h"
 
 #endif // CPPYY_CPPYY

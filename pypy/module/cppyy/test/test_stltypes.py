@@ -30,15 +30,21 @@ class AppTestSTL:
         import cppyy
 
         assert cppyy.gbl.std        is cppyy.gbl.std
-#        assert cppyy.gbl.std.vector is cppyy.gbl.std.vector
+        assert cppyy.gbl.std.vector is cppyy.gbl.std.vector
 
-        tv = getattr(cppyy.gbl.std,'vector<int>')
+        assert callable(cppyy.gbl.std.vector)
 
-        v = tv()
+        tv1 = getattr(cppyy.gbl.std,'vector<int>')
+        tv2 = cppyy.gbl.std.vector('int')
+
+        assert tv1 is tv2
+
+        v = tv1()
         for i in range(self.N):
             v.push_back(i)
             assert v.size() == i+1
 #           assert v[i] == i
 
-#        assert len(v) == self.N
+        assert v.size() == self.N
+#       assert len(v) == self.N
         v.destruct()
