@@ -71,24 +71,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
 
-    def test_cmp_exc(self):
-        def f1(n):
-            # So we don't get a LOAD_GLOBAL op
-            KE = KeyError
-            i = 0
-            while i < n:
-                try:
-                    raise KE
-                except KE: # ID: except
-                    i += 1
-            return i
-
-        log = self.run(f1, [10000])
-        assert log.result == 10000
-        loop, = log.loops_by_id("except")
-        ops = list(loop.ops_by_id("except", opcode="COMPARE_OP"))
-        assert ops == []
-
 
     def test_virtual_instance(self):
         def main(n):
@@ -195,76 +177,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(..., descr=<Loop0>)
         """)
 
-    def test_exception_inside_loop_1(self):
-        def main(n):
-            while n:
-                try:
-                    raise ValueError
-                except ValueError:
-                    pass
-                n -= 1
-            return n
-        #
-        log = self.run(main, [1000])
-        assert log.result == 0
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-        i5 = int_is_true(i3)
-        guard_true(i5, descr=<Guard3>)
-        guard_not_invalidated(descr=<Guard4>)
-        --EXC-TICK--
-        i12 = int_sub_ovf(i3, 1)
-        guard_no_overflow(descr=<Guard6>)
-        --TICK--
-        jump(..., descr=<Loop0>)
-        """)
-
-    def test_exception_inside_loop_2(self):
-        def main(n):
-            def g(n):
-                raise ValueError(n)  # ID: raise
-            def f(n):
-                g(n)
-            #
-            while n:
-                try:
-                    f(n)
-                except ValueError:
-                    pass
-                n -= 1
-            return n
-        #
-        log = self.run(main, [1000])
-        assert log.result == 0
-        loop, = log.loops_by_filename(self.filepath)
-        ops = log.opnames(loop.ops_by_id('raise'))
-        assert 'new' not in ops
-
-    def test_reraise(self):
-        def f(n):
-            i = 0
-            while i < n:
-                try:
-                    try:
-                        raise KeyError
-                    except KeyError:
-                        raise
-                except KeyError:
-                    i += 1
-            return i
-
-        log = self.run(f, [100000])
-        assert log.result == 100000
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            i7 = int_lt(i4, i5)
-            guard_true(i7, descr=<Guard3>)
-            guard_not_invalidated(descr=<Guard4>)
-            --EXC-TICK--
-            i14 = int_add(i4, 1)
-            --TICK--
-            jump(..., descr=<Loop0>)
-        """)
 
     def test_chain_of_guards(self):
         src = """
