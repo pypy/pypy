@@ -557,15 +557,7 @@ class Assembler386(object):
                                    self.cpu.gc_ll_descr.gcrootmap)
 
     def _find_debug_merge_point(self, operations):
-
-        for op in operations:
-            if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                funcname = op.getarg(0)._get_str()
-                break
-        else:
-            funcname = '?'
-        return "%s (loop counter %d)" % (funcname,
-                                         len(self.loop_run_counters))
+        return '? (loop counter %d)' % len(self.loop_run_counters)
 
     def _register_counter(self):
         if self._debug:
