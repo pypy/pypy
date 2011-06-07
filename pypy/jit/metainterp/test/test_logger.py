@@ -116,11 +116,11 @@ class TestLogger(object):
     def test_debug_merge_point(self):
         inp = '''
         []
-        debug_merge_point(0, "dupa")
+        debug_merge_point(0, 0, "dupa")
         '''
         _, loop, oloop = self.reparse(inp, check_equal=False)
-        assert loop.operations[0].getarg(1)._get_str() == "dupa"
-        assert oloop.operations[0].getarg(0)._get_str() == "dupa"
+        assert loop.operations[0].getarg(2)._get_str() == "dupa"
+        assert oloop.operations[0].getarg(1)._get_str() == "dupa"
         
     def test_floats(self):
         inp = '''
