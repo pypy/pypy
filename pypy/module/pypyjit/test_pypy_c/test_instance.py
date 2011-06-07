@@ -181,3 +181,22 @@ class TestInstance(BaseTestPyPyC):
             i12 = int_add_ovf(i5, i7)
             guard_no_overflow(descr=...)
         """)
+
+    def test_id_compare_optimization(self):
+        def main():
+            class A(object):
+                pass
+            #
+            i = 0
+            a = A()
+            while i < 300:
+                new_a = A()
+                if new_a != a:  # ID: compare
+                    pass
+                i += 1
+            return i
+        #
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id("compare", "") # optimized away
+
