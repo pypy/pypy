@@ -104,6 +104,19 @@ can be potentially specified, unless a better plan can be thought out:
 
 * alternatively, look at Software Transactional Memory
 
+Introduce new benchmarks
+------------------------
+
+We're usually happy to introduce new benchmarks. Please consult us
+before, but in general something that's real-world python code
+and is not already represented is welcome. We need at least a standalone
+script that can run without parameters. Example ideas (benchmarks need
+to be got from them!):
+
+* `hg`
+
+* `sympy`
+
 Experiment (again) with LLVM backend for RPython compilation
 ------------------------------------------------------------
 
