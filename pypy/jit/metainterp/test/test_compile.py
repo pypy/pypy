@@ -30,7 +30,7 @@ class FakeCPU(object):
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
-    def compile_loop(self, inputargs, operations, token):
+    def compile_loop(self, inputargs, operations, token, name=''):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
@@ -46,6 +46,9 @@ class FakeState(object):
 
     def attach_unoptimized_bridge_from_interp(*args):
         pass
+
+    def get_location_str(self, args):
+        return 'location'
 
 class FakeGlobalData(object):
     loopnumbering = 0
