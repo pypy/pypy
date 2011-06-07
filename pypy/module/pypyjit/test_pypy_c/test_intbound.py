@@ -37,7 +37,7 @@ class TestIntbound(BaseTestPyPyC):
                             return res
 
                         ''' % (o1, n1, o2, n2)
-                        self.run_and_check(src)
+                        yield self.run_and_check, src
 
     def test_intbound_addsub_mix(self):
         """
@@ -72,7 +72,7 @@ class TestIntbound(BaseTestPyPyC):
                     return res
 
                 ''' % (t1, t2)
-                self.run_and_check(src)
+                yield self.run_and_check, src
 
     def test_intbound_gt(self):
         def main(n):

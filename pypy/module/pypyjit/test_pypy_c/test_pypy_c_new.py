@@ -866,7 +866,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, op2, b)
-                    self.run_and_check(src)
+                    yield self.run_and_check, src
 
                     src = """
                         def main():
@@ -884,7 +884,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 i += 0.25
                             return sa
                     """ % (op1, float(a)/4.0, op2, float(b)/4.0)
-                    self.run_and_check(src, threshold=300)
+                    yield self.run_and_check, src
 
 
     def test_boolrewrite_allcases_reflex(self):
@@ -916,7 +916,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, b, op2)
-                    self.run_and_check(src)
+                    yield self.run_and_check, src
 
                     src = """
                         def main():
@@ -934,7 +934,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 i += 0.25
                             return sa
                     """ % (op1, float(a)/4.0, float(b)/4.0, op2)
-                    self.run_and_check(src, threshold=300)
+                    yield self.run_and_check, src
 
     def test_boolrewrite_ptr(self):
         """
@@ -965,7 +965,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 a = b
                         return sa
                 """ % (e1, e2)
-                self.run_and_check(src)
+                yield self.run_and_check, src
 
     def test_array_sum(self):
         def main():
@@ -1582,7 +1582,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         maxvals = (-maxint-1, -maxint, maxint-1, maxint)
         for a in (-4, -3, -2, -1, 0, 1, 2, 3, 4) + maxvals:
             for b in (0, 1, 2, 31, 32, 33, 61, 62, 63):
-                self.run_and_check(main, [a, b])
+                yield self.run_and_check, main, [a, b]
 
     def test_revert_shift_allcases(self):
         """
@@ -1610,7 +1610,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         for a in (1, 4, 8, 100):
             for b in (-10, 10, -201, 201, -maxint/3, maxint/3):
                 for c in (-10, 10, -maxint/3, maxint/3):
-                    self.run_and_check(main, [a, b, c])
+                    yield self.run_and_check, main, [a, b, c]
 
     def test_oldstyle_newstyle_mix(self):
         def main():
