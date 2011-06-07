@@ -609,7 +609,7 @@ class WarmEnterState(object):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
                 llres = fn(*greenargs)
-                if not we_are_translated() and isinstance(res, str):
+                if not we_are_translated() and isinstance(llres, str):
                     return llres
                 return hlstr(llres)
         self.get_location_str = get_location_str
