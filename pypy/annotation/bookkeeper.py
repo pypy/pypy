@@ -279,13 +279,13 @@ class Bookkeeper(object):
         desc = self.getdesc(cls)
         return desc.getuniqueclassdef()
 
-    def getlistdef(self, **flags):
+    def getlistdef(self, **flags_if_new):
         """Get the ListDef associated with the current position."""
         try:
             listdef = self.listdefs[self.position_key]
         except KeyError:
             listdef = self.listdefs[self.position_key] = ListDef(self)
-            listdef.listitem.__dict__.update(flags)
+            listdef.listitem.__dict__.update(flags_if_new)
         return listdef
 
     def newlist(self, *s_values, **flags):
@@ -294,6 +294,9 @@ class Bookkeeper(object):
         listdef = self.getlistdef(**flags)
         for s_value in s_values:
             listdef.generalize(s_value)
+        if flags:
+            assert flags.keys() == ['range_step']
+            listdef.generalize_range_step(flags['range_step'])
         return SomeList(listdef)
 
     def getdictdef(self, is_r_dict=False):
