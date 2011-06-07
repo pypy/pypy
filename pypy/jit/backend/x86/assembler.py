@@ -367,7 +367,7 @@ class Assembler386(object):
         self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
         self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
-    def assemble_loop(self, inputargs, operations, looptoken, log):
+    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
                _x86_loop_code       (an integer giving an address)
                _x86_bootstrap_code  (an integer giving an address)
@@ -391,7 +391,6 @@ class Assembler386(object):
 
         self.setup(looptoken)
         self.currently_compiling_loop = looptoken
-        funcname = self._find_debug_merge_point(operations)
         if log:
             self._register_counter()
             operations = self._inject_debugging_code(looptoken, operations)
@@ -418,7 +417,7 @@ class Assembler386(object):
         #
         rawstart = self.materialize_loop(looptoken)
         debug_print("Loop #%d (%s) has address %x to %x" % (
-            looptoken.number, funcname,
+            looptoken.number, loopname,
             rawstart + self.looppos,
             rawstart + directbootstrappos))
         self._patch_stackadjust(rawstart + stackadjustpos,
@@ -438,7 +437,7 @@ class Assembler386(object):
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
-            name = "Loop # %s: %s" % (looptoken.number, funcname)
+            name = "Loop # %s: %s" % (looptoken.number, loopname)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
         return ops_offset
@@ -458,7 +457,6 @@ class Assembler386(object):
             return
 
         self.setup(original_loop_token)
-        funcname = self._find_debug_merge_point(operations)
         if log:
             self._register_counter()
             operations = self._inject_debugging_code(faildescr, operations)
@@ -481,8 +479,8 @@ class Assembler386(object):
         #
         rawstart = self.materialize_loop(original_loop_token)
 
-        debug_print("Bridge out of guard %d (%s) has address %x to %x" %
-                    (descr_number, funcname, rawstart, rawstart + codeendpos))
+        debug_print("Bridge out of guard %d has address %x to %x" %
+                    (descr_number, rawstart, rawstart + codeendpos))
         self._patch_stackadjust(rawstart + stackadjustpos,
                                 frame_depth + param_depth)
         self.patch_pending_failure_recoveries(rawstart)
@@ -496,7 +494,7 @@ class Assembler386(object):
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
-            name = "Bridge # %s: %s" % (descr_number, funcname)
+            name = "Bridge # %s" % (descr_number,)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
         return ops_offset
@@ -555,17 +553,6 @@ class Assembler386(object):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-
-    def _find_debug_merge_point(self, operations):
-
-        for op in operations:
-            if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                funcname = op.getarg(0)._get_str()
-                break
-        else:
-            funcname = '?'
-        return "%s (loop counter %d)" % (funcname,
-                                         len(self.loop_run_counters))
 
     def _register_counter(self):
         if self._debug:

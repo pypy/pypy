@@ -134,7 +134,7 @@ class BaseCPU(model.AbstractCPU):
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True):
+    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl

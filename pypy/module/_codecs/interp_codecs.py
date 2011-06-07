@@ -46,15 +46,9 @@ class CodecState(object):
                     space.w_TypeError, msg,
                     space.str_w(space.repr(w_res)))
             w_replace, w_newpos = space.fixedview(w_res, 2)
-            try:
-                newpos = space.int_w(w_newpos)
-            except OperationError, e:
-                if not e.match(space, space.w_OverflowError):
-                    raise
-                newpos = -1
-            else:
-                if newpos < 0:
-                    newpos = len(input) + newpos
+            newpos = space.int_w(w_newpos)
+            if newpos < 0:
+                newpos = len(input) + newpos
             if newpos < 0 or newpos > len(input):
                 raise operationerrfmt(
                     space.w_IndexError,

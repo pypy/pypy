@@ -157,6 +157,7 @@ def insert_loop_token(old_loop_tokens, loop_token):
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     jitdriver_sd.on_compile(metainterp_sd.logger_ops, loop.token,
                             loop.operations, type, greenkey)
+    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     loop_token = loop.token
     loop_token.number = n = globaldata.loopnumbering
@@ -171,7 +172,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     debug_start("jit-backend")
     try:
         ops_offset = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
-                                                    loop.token)
+                                                    loop.token, name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
