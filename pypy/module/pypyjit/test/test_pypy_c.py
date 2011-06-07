@@ -233,17 +233,6 @@ class TestJIT(PyPyCJITTests):
         cls.pypy_c = option.pypy_c
 
 
-def test_interface_residual_call():
-    space = gettestobjspace(usemodules=['pypyjit'])
-    space.appexec([], """():
-        import pypyjit
-        def f(*args, **kwds):
-            return (args, kwds)
-        res = pypyjit.residual_call(f, 4, x=6)
-        assert res == ((4,), {'x': 6})
-    """)
-
-
 def has_info(pypy_c, option):
     g = os.popen('"%s" --info' % pypy_c, 'r')
     lines = g.readlines()
