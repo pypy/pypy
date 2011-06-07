@@ -1,4 +1,7 @@
 import sys
+
+from pypy.interpreter.error import OperationError
+
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi
 

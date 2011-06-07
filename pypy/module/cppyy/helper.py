@@ -2,15 +2,18 @@ from pypy.rlib import rstring
 
 
 #- type name manipulations --------------------------------------------------
+def _remove_const(name):
+    return "".join(rstring.split(name, "const")) # poor man's replace
+
 def compound(name):
-    name = "".join(rstring.split(name, "const")) # poor man's replace
+    name = _remove_const(name)
     if name.endswith("]"):                       # array type?
         return "[]"
     i = _find_qualifier_index(name)
     return "".join(name[i:].split(" "))
 
 def array_size(name):
-    name = "".join(rstring.split(name, "const")) # poor man's replace
+    name = _remove_const(name)
     if name.endswith("]"):                       # array type?
         idx = name.rfind("[")
         if 0 < idx:
@@ -40,10 +43,11 @@ def clean_type(name):
              name = name[:idx]
     elif name.endswith(">"):                     # template type?
         idx = name.find("<")
-        n1 = "".join(rstring.split(name[:idx], "const")) # poor man's replace
-        name = "".join((n1, name[idx:]))
+        if 0 < idx:      # always true, but just so that the translater knows
+            n1 = _remove_const(name[:idx])
+            name = "".join([n1, name[idx:]])
     else:
-        name = "".join(rstring.split(name, "const")) # poor man's replace
+        name = _remove_const(name)
         name = name[:_find_qualifier_index(name)]
     return name.strip(' ')
 
