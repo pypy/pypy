@@ -87,3 +87,19 @@ class AppTestJitHook(object):
             sys.stderr = prev
         assert 'jit hook' in s.getvalue()
         assert 'ZeroDivisionError' in s.getvalue()
+
+    def test_non_reentrant(self):
+        import pypyjit
+        l = []
+        
+        def hook(*args):
+            l.append(None)
+            self.on_compile()
+            self.on_compile_bridge()
+        
+        pypyjit.set_compile_hook(hook)
+        self.on_compile()
+        assert len(l) == 1 # and did not crash
+        self.on_compile_bridge()
+        assert len(l) == 2 # and did not crash
+        
