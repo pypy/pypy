@@ -149,47 +149,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert len(loops) == 1
 
 
-    def test_import_in_function(self):
-        def main(n):
-            i = 0
-            while i < n:
-                from sys import version  # ID: import
-                i += 1
-            return i
-        #
-        log = self.run(main, [500])
-        assert log.result == 500
-        loop, = log.loops_by_id('import')
-        assert loop.match_by_id('import', """
-            p11 = getfield_gc(ConstPtr(ptr10), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
-            guard_value(p11, ConstPtr(ptr12), descr=<Guard4>)
-            guard_not_invalidated(descr=<Guard5>)
-            p14 = getfield_gc(ConstPtr(ptr13), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
-            p16 = getfield_gc(ConstPtr(ptr15), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
-            guard_value(p14, ConstPtr(ptr17), descr=<Guard6>)
-            guard_isnull(p16, descr=<Guard7>)
-        """)
-
-    def test_import_fast_path(self, tmpdir):
-        pkg = tmpdir.join('mypkg').ensure(dir=True)
-        pkg.join('__init__.py').write("")
-        pkg.join('mod.py').write(str(py.code.Source("""
-            def do_the_import():
-                import sys
-        """)))
-        def main(path, n):
-            import sys
-            sys.path.append(path)
-            from mypkg.mod import do_the_import
-            for i in range(n):
-                do_the_import()
-        #
-        log = self.run(main, [str(tmpdir), 300])
-        loop, = log.loops_by_filename(self.filepath)
-        # this is a check for a slow-down that introduced a
-        # call_may_force(absolute_import_with_lock).
-        for opname in log.opnames(loop.allops(opcode="IMPORT_NAME")):
-            assert 'call' not in opname    # no call-like opcode
 
     def test_unpack_iterable_non_list_tuple(self):
         def main(n):
@@ -223,8 +182,6 @@ class TestPyPyCNew(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i19, i13, p14, p15, descr=<Loop0>)
         """)
-
-
 
 
     def test_min_max(self):
