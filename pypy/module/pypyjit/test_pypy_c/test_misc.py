@@ -2,7 +2,7 @@ import py, sys
 from pypy.module.pypyjit.test_pypy_c.test_model import BaseTestPyPyC
 
 
-class TestPyPyCNew(BaseTestPyPyC):
+class TestMisc(BaseTestPyPyC):
     def test_f1(self):
         def f1(n):
             "Arbitrary test function."
@@ -183,7 +183,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         """)
 
 
-
     def test_dont_trace_every_iteration(self):
         def main(a, b):
             i = sa = 0
@@ -213,6 +212,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [-10, -20])
         assert log.result == 300 * (-10 % -20)
         assert log.jit_summary.tracing_no == 1
+
 
     def test_overflow_checking(self):
         """
