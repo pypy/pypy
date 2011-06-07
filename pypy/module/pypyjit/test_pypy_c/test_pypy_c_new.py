@@ -136,7 +136,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     a = 0
                 return i
         """
-        log = self.run(src, [1000], threshold=400)
+        log = self.run(src, [1000])
         assert log.result == 1000
         # first, we test what is inside the entry bridge
         # -----------------------------------------------
@@ -208,7 +208,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i = a.f(x)    # ID: meth2
             return i
         #
-        log = self.run(fn, [1000], threshold=400)
+        log = self.run(fn, [1000])
         assert log.result == 1000
         #
         # first, we test the entry bridge
@@ -254,7 +254,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i = a.g(x)
             return i
         #
-        log = self.run(fn, [1000], threshold=400)
+        log = self.run(fn, [1000])
         assert log.result == 1000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -280,7 +280,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a = 0
             return i
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == 1000
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', """
@@ -303,7 +303,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     d = {}
             return s
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == 49500
         loop, = log.loops_by_id('call')
         ops = log.opnames(loop.ops_by_id('call'))
@@ -331,7 +331,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a = 0
             return s
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == 13000
         loop0, = log.loops_by_id('g1')
         assert loop0.match_by_id('g1', """
@@ -381,7 +381,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a = 0
             return s
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == 1000
         loop, = log.loops_by_id('g')
         ops_g = log.opnames(loop.ops_by_id('g'))
@@ -429,7 +429,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                     i = i + a.x
                 return i
         '''
-        log = self.run(src, [1000], threshold=400)
+        log = self.run(src, [1000])
         assert log.result == 1000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -450,7 +450,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i = j + i
             return i
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == 1000.0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -471,7 +471,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a = 0
             return i, len(l)
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == (1000, 998)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('append', """
@@ -496,7 +496,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a = 0
             return s
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -528,7 +528,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 n -= 1
             return n
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == 0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -557,7 +557,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 n -= 1
             return n
         #
-        log = self.run(main, [1000], threshold=400)
+        log = self.run(main, [1000])
         assert log.result == 0
         loop, = log.loops_by_filename(self.filepath)
         ops = log.opnames(loop.ops_by_id('raise'))
@@ -607,7 +607,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sum
         """
-        log = self.run(src, [0], threshold=400)
+        log = self.run(src, [0])
         assert log.result == 500*3
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
@@ -636,7 +636,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sum
         """
-        log = self.run(src, [], threshold=400)
+        log = self.run(src, [])
         assert log.result == 250 + 250*2
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
@@ -653,7 +653,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return i
         #
-        log = self.run(main, [500], threshold=400)
+        log = self.run(main, [500])
         assert log.result == 500
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', opcode='CALL_FUNCTION', expected_src="""
@@ -682,7 +682,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return i
         #
-        log = self.run(main, [500], threshold=400)
+        log = self.run(main, [500])
         assert log.result == 500
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
@@ -709,7 +709,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             for i in range(n):
                 do_the_import()
         #
-        log = self.run(main, [str(tmpdir), 300], threshold=200)
+        log = self.run(main, [str(tmpdir), 300])
         loop, = log.loops_by_filename(self.filepath)
         # this is a check for a slow-down that introduced a
         # call_may_force(absolute_import_with_lock).
@@ -727,7 +727,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 del t2
             return i
         #
-        log = self.run(main, [500], threshold=400)
+        log = self.run(main, [500])
         assert log.result == 500
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -866,7 +866,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, op2, b)
-                    self.run_and_check(src, threshold=200)
+                    self.run_and_check(src)
 
                     src = """
                         def main():
@@ -916,7 +916,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                     sa += 20000
                             return sa
                     """ % (op1, a, b, op2)
-                    self.run_and_check(src, threshold=200)
+                    self.run_and_check(src)
 
                     src = """
                         def main():
@@ -965,7 +965,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                                 a = b
                         return sa
                 """ % (e1, e2)
-                self.run_and_check(src, threshold=200)
+                self.run_and_check(src)
 
     def test_array_sum(self):
         def main():
@@ -1175,7 +1175,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sa
 
-        log = self.run(main, [], threshold=200)
+        log = self.run(main, [])
         assert log.result == 9895050.0
         loop, = log.loops_by_filename(self.filepath)
         #
@@ -1226,7 +1226,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sa
         #
-        log = self.run(main, [], threshold=200)
+        log = self.run(main, [])
         assert log.result == 1239690.0
         loop, = log.loops_by_filename(self.filepath)
         #
@@ -1261,7 +1261,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 sa+=min(max(i, 3000), 4000)
                 i+=1
             return sa
-        log = self.run(main, [], threshold=200)
+        log = self.run(main, [])
         assert log.result == 300*3000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -1283,7 +1283,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 sa += max(*lst) # ID: max
                 i += 1
             return sa
-        log = self.run(main, [], threshold=200)
+        log = self.run(main, [])
         assert log.result == main()
         loop, = log.loops_by_filename(self.filepath)
         # We dont want too many guards, but a residual call to min_max_loop
@@ -1304,7 +1304,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 sa += max(lst) # ID: max
                 i += 1
             return sa
-        log = self.run(main, [], threshold=200)
+        log = self.run(main, [])
         assert log.result == main()
         loop, = log.loops_by_filename(self.filepath)
         # We dont want too many guards, but a residual call to min_max_loop
@@ -1337,7 +1337,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             return pow.getaddr(), res
         #
         libm_name = get_libm_name(sys.platform)
-        log = self.run(main, [libm_name], threshold=200)
+        log = self.run(main, [libm_name])
         pow_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
@@ -1377,7 +1377,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             return pow.getaddr(), res
         #
         libm_name = get_libm_name(sys.platform)
-        log = self.run(main, [libm_name], threshold=200)
+        log = self.run(main, [libm_name])
         pow_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
@@ -1402,7 +1402,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             return fabs._ptr.getaddr(), x
 
         libm_name = get_libm_name(sys.platform)
-        log = self.run(main, [libm_name], threshold=200)
+        log = self.run(main, [libm_name])
         fabs_addr, res = log.result
         assert res == -4.0
         loop, = log.loops_by_filename(self.filepath)
@@ -1428,7 +1428,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a += 1
             return sa
 
-        log = self.run(main, [11], threshold=200)
+        log = self.run(main, [11])
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         # if both are >=0, a^b is known to be >=0
@@ -1440,7 +1440,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         # x^x is always optimized to 0
         assert loop.match_by_id('a_xor_a', "")
 
-        log = self.run(main, [9], threshold=200)
+        log = self.run(main, [9])
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         # we don't know that b>10, hence we cannot optimize it
@@ -1466,7 +1466,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a += 1
             return res
         #
-        log = self.run(main, [2], threshold=200)
+        log = self.run(main, [2])
         assert log.result == 300*3
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('rshift', "")  # guard optimized away
@@ -1484,7 +1484,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a += 1
             return res
         #
-        log = self.run(main, [2], threshold=200)
+        log = self.run(main, [2])
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('shift', "")  # optimized away
@@ -1500,7 +1500,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 a += 1
             return res
         #
-        log = self.run(main, [3], threshold=200)
+        log = self.run(main, [3])
         assert log.result == 99
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('div', """
@@ -1530,9 +1530,9 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sa
         """ % code
-        self.run_and_check(src, [ 10,  20], threshold=200)
-        self.run_and_check(src, [ 10, -20], threshold=200)
-        self.run_and_check(src, [-10, -20], threshold=200)
+        self.run_and_check(src, [ 10,  20])
+        self.run_and_check(src, [ 10, -20])
+        self.run_and_check(src, [-10, -20])
 
     def test_mod(self):
         """
@@ -1555,9 +1555,9 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sa
         """ % code
-        self.run_and_check(src, [ 10,  20], threshold=200)
-        self.run_and_check(src, [ 10, -20], threshold=200)
-        self.run_and_check(src, [-10, -20], threshold=200)
+        self.run_and_check(src, [ 10,  20])
+        self.run_and_check(src, [ 10, -20])
+        self.run_and_check(src, [-10, -20])
 
     def test_shift_allcases(self):
         """
@@ -1582,7 +1582,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         maxvals = (-maxint-1, -maxint, maxint-1, maxint)
         for a in (-4, -3, -2, -1, 0, 1, 2, 3, 4) + maxvals:
             for b in (0, 1, 2, 31, 32, 33, 61, 62, 63):
-                self.run_and_check(main, [a, b], threshold=200)
+                self.run_and_check(main, [a, b])
 
     def test_revert_shift_allcases(self):
         """
@@ -1610,7 +1610,7 @@ class TestPyPyCNew(BaseTestPyPyC):
         for a in (1, 4, 8, 100):
             for b in (-10, 10, -201, 201, -maxint/3, maxint/3):
                 for c in (-10, 10, -maxint/3, maxint/3):
-                    self.run_and_check(main, [a, b, c], threshold=200)
+                    self.run_and_check(main, [a, b, c])
 
     def test_oldstyle_newstyle_mix(self):
         def main():
@@ -1678,7 +1678,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sa
         #
-        log = self.run(main, [10, 20], threshold=200)
+        log = self.run(main, [10, 20])
         assert log.result == 300 * (10 % 20)
         assert log.jit_summary.tracing_no == 1
         loop, = log.loops_by_filename(self.filepath)
@@ -1692,7 +1692,7 @@ class TestPyPyCNew(BaseTestPyPyC):
             jump(..., descr=...)
         """)
         #
-        log = self.run(main, [-10, -20], threshold=200)
+        log = self.run(main, [-10, -20])
         assert log.result == 300 * (-10 % -20)
         assert log.jit_summary.tracing_no == 1
 
@@ -1710,7 +1710,7 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return i
         #
-        log = self.run(main, [], threshold=200)
+        log = self.run(main, [])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("compare", "") # optimized away
 

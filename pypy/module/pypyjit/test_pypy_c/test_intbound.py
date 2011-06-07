@@ -37,7 +37,7 @@ class TestIntbound(BaseTestPyPyC):
                             return res
 
                         ''' % (o1, n1, o2, n2)
-                        self.run_and_check(src, threshold=200)
+                        self.run_and_check(src)
 
     def test_intbound_addsub_mix(self):
         """
@@ -72,7 +72,7 @@ class TestIntbound(BaseTestPyPyC):
                     return res
 
                 ''' % (t1, t2)
-                self.run_and_check(src, threshold=200)
+                self.run_and_check(src)
 
     def test_intbound_gt(self):
         def main(n):
@@ -85,7 +85,7 @@ class TestIntbound(BaseTestPyPyC):
                 i += 1
             return (a, b)
         #
-        log = self.run(main, [300], threshold=200)
+        log = self.run(main, [300])
         assert log.result == (300, 300)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -109,7 +109,7 @@ class TestIntbound(BaseTestPyPyC):
                 i += 1
             return a
         #
-        log = self.run(main, [], threshold=200)
+        log = self.run(main, [])
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -135,7 +135,7 @@ class TestIntbound(BaseTestPyPyC):
                 i += 1
             return (a, b)
         #
-        log = self.run(main, [300], threshold=200)
+        log = self.run(main, [300])
         assert log.result == (300, 300)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -163,7 +163,7 @@ class TestIntbound(BaseTestPyPyC):
                 i += 1
             return (a, b)
         #
-        log = self.run(main, [300], threshold=200)
+        log = self.run(main, [300])
         assert log.result == (300, 300)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -193,11 +193,11 @@ class TestIntbound(BaseTestPyPyC):
                 i += 1
             return s
         #
-        log = self.run(main, [7, 300], threshold=200)
+        log = self.run(main, [7, 300])
         assert log.result == main(7, 300)
-        log = self.run(main, [10, 300], threshold=200)
+        log = self.run(main, [10, 300])
         assert log.result == main(10, 300)
-        log = self.run(main, [42, 300], threshold=200)
+        log = self.run(main, [42, 300])
         assert log.result == main(42, 300)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -224,7 +224,7 @@ class TestIntbound(BaseTestPyPyC):
                 i += 1
             return s
         #
-        log = self.run(main, [7], threshold=200)
+        log = self.run(main, [7])
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -246,7 +246,7 @@ class TestIntbound(BaseTestPyPyC):
                 s += a + 1
                 i += 1
             return s
-        log = self.run(main, [7], threshold=200)
+        log = self.run(main, [7])
         assert log.result == 300*8
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""

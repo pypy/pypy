@@ -22,6 +22,7 @@ class BaseTestPyPyC(object):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
     def run(self, func_or_src, args=[], import_site=False, **jitopts):
+        jitopts.setdefault('threshold', 200)
         src = py.code.Source(func_or_src)
         if isinstance(func_or_src, types.FunctionType):
             funcname = func_or_src.func_name
