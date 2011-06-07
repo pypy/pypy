@@ -210,56 +210,6 @@ class PyPyCJITTests(object):
                    ([], 42))
 
 
-    def test_overflow_checking(self):
-        startvalue = sys.maxint - 2147483647
-        self.run_source('''
-        def main():
-            def f(a,b):
-                if a < 0: return -1
-                return a-b
-            total = %d
-            for i in range(100000):
-                total += f(i, 5)
-            return total
-        ''' % startvalue, 170, ([], startvalue + 4999450000L))
-
-
-    def test_mod(self):
-        avalues = ('a', 'b', 7, -42, 8)
-        bvalues = ['b'] + range(-10, 0) + range(1,10)
-        code = ''
-        a1, b1, res1 = 10, 20, 0
-        a2, b2, res2 = 10, -20, 0
-        a3, b3, res3 = -10, -20, 0
-        def dd(a, b, aval, bval):
-            m = {'a': aval, 'b': bval}
-            if not isinstance(a, int):
-                a=m[a]
-            if not isinstance(b, int):
-                b=m[b]
-            return a % b
-        for a in avalues:
-            for b in bvalues:
-                code += '                sa += %s %% %s\n' % (a, b)
-                res1 += dd(a, b, a1, b1)
-                res2 += dd(a, b, a2, b2)
-                res3 += dd(a, b, a3, b3)
-        # The purpose of this test is to check that we get
-        # the correct results, not really to count operations.
-        self.run_source('''
-        def main(a, b):
-            i = sa = 0
-            while i < 2000:
-                if a > 0: pass
-                if 1 < b < 2: pass
-%s
-                i += 1
-            return sa
-        ''' % code, sys.maxint, ([a1, b1], 2000 * res1),
-                                ([a2, b2], 2000 * res2),
-                                ([a3, b3], 2000 * res3))
-
-
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):
         if not option.runappdirect:

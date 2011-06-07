@@ -1791,8 +1791,33 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sa
         """ % code
-        self.run_and_check(src, [ 10,   20], threshold=200)
-        self.run_and_check(src, [ 10,  -20], threshold=200)
+        self.run_and_check(src, [ 10,  20], threshold=200)
+        self.run_and_check(src, [ 10, -20], threshold=200)
+        self.run_and_check(src, [-10, -20], threshold=200)
+
+    def test_mod(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s %% %s\n' % (a, b)
+        src = """
+        def main(a, b):
+            i = sa = 0
+            while i < 2000:
+                if a > 0: pass
+                if 1 < b < 2: pass
+%s
+                i += 1
+            return sa
+        """ % code
+        self.run_and_check(src, [ 10,  20], threshold=200)
+        self.run_and_check(src, [ 10, -20], threshold=200)
         self.run_and_check(src, [-10, -20], threshold=200)
 
     def test_shift_allcases(self):
@@ -1949,3 +1974,22 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [], threshold=200)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("compare", "") # optimized away
+
+    def test_overflow_checking(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        def main():
+            import sys
+            def f(a,b):
+                if a < 0: return -1
+                return a-b
+            #
+            total = sys.maxint - 2147483647
+            for i in range(100000):
+                total += f(i, 5)
+            #
+            return total
+        #
+        self.run_and_check(main, [])
