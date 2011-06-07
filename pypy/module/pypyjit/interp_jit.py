@@ -16,6 +16,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from opcode import opmap
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.nonconst import NonConstant
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'valuestack_w[*]',
@@ -199,9 +200,10 @@ def residual_call(space, w_callable, __args__):
     return space.call_args(w_callable, __args__)
 
 class Cache(object):
+    in_recursion = False
+    
     def __init__(self, space):
         self.w_compile_hook = space.w_None
-        self.in_recursion = False
 
 @unwrap_spec(ObjSpace, W_Root)
 def set_compile_hook(space, w_hook):
@@ -226,4 +228,5 @@ def set_compile_hook(space, w_hook):
     """
     cache = space.fromcache(Cache)
     cache.w_compile_hook = w_hook
+    cache.in_recursion = NonConstant(False)
     return space.w_None
