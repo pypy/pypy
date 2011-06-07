@@ -1791,9 +1791,87 @@ class TestPyPyCNew(BaseTestPyPyC):
                 i += 1
             return sa
         """ % code
-        self.run_and_check(src, [ 10,   20], threshold=200)
-        self.run_and_check(src, [ 10,  -20], threshold=200)
+        self.run_and_check(src, [ 10,  20], threshold=200)
+        self.run_and_check(src, [ 10, -20], threshold=200)
         self.run_and_check(src, [-10, -20], threshold=200)
+
+    def test_mod(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s %% %s\n' % (a, b)
+        src = """
+        def main(a, b):
+            i = sa = 0
+            while i < 2000:
+                if a > 0: pass
+                if 1 < b < 2: pass
+%s
+                i += 1
+            return sa
+        """ % code
+        self.run_and_check(src, [ 10,  20], threshold=200)
+        self.run_and_check(src, [ 10, -20], threshold=200)
+        self.run_and_check(src, [-10, -20], threshold=200)
+
+    def test_shift_allcases(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        from sys import maxint
+        def main(a, b):
+            i = sa = 0
+            while i < 300:
+                if a > 0: # Specialises the loop
+                    pass
+                if b < 2 and b > 0:
+                    pass
+                if (a >> b) >= 0:
+                    sa += 1
+                if (a << b) > 2:
+                    sa += 10000
+                i += 1
+            return sa
+        #
+        maxvals = (-maxint-1, -maxint, maxint-1, maxint)
+        for a in (-4, -3, -2, -1, 0, 1, 2, 3, 4) + maxvals:
+            for b in (0, 1, 2, 31, 32, 33, 61, 62, 63):
+                self.run_and_check(main, [a, b], threshold=200)
+
+    def test_revert_shift_allcases(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        from sys import maxint
+
+        def main(a, b, c):
+            from sys import maxint
+            i = sa = 0
+            while i < 300:
+                if 0 < a < 10: pass
+                if -100 < b < 100: pass
+                if -maxint/2 < c < maxint/2: pass
+                sa += (a<<a)>>a
+                sa += (b<<a)>>a
+                sa += (c<<a)>>a
+                sa += (a<<100)>>100
+                sa += (b<<100)>>100
+                sa += (c<<100)>>100
+                i += 1
+            return long(sa)
+
+        for a in (1, 4, 8, 100):
+            for b in (-10, 10, -201, 201, -maxint/3, maxint/3):
+                for c in (-10, 10, -maxint/3, maxint/3):
+                    self.run_and_check(main, [a, b, c], threshold=200)
 
     def test_oldstyle_newstyle_mix(self):
         def main():
@@ -1896,3 +1974,22 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [], threshold=200)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("compare", "") # optimized away
+
+    def test_overflow_checking(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        def main():
+            import sys
+            def f(a,b):
+                if a < 0: return -1
+                return a-b
+            #
+            total = sys.maxint - 2147483647
+            for i in range(100000):
+                total += f(i, 5)
+            #
+            return total
+        #
+        self.run_and_check(main, [])
