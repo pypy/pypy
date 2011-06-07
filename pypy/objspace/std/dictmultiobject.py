@@ -214,7 +214,8 @@ class EmptyDictStrategy(DictStrategy):
     def clear(self, w_dict):
         return
 
-
+    def popitem(self, w_dict):
+        raise KeyError
 
 registerimplementation(W_DictMultiObject)
 

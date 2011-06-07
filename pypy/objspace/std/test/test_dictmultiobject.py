@@ -233,6 +233,31 @@ class AppTest_DictObject:
         assert it1 == ('x', 5)
         raises(KeyError, d.popitem)
 
+    def test_popitem3(self):
+        #object
+        d = {"a": 1, 2:2, "c":3}
+        l = []
+        while True:
+            try:
+                l.append(d.popitem())
+            except KeyError:
+                break;
+        assert ("a",1) in l
+        assert (2,2) in l
+        assert ("c",3) in l
+
+        #string
+        d = {"a": 1, "b":2, "c":3}
+        l = []
+        while True:
+            try:
+                l.append(d.popitem())
+            except KeyError:
+                break;
+        assert ("a",1) in l
+        assert ("b",2) in l
+        assert ("c",3) in l
+
     def test_setdefault(self):
         d = {1:2, 3:4}
         dd = d.copy()
@@ -527,6 +552,12 @@ class AppTest_DictObject:
             __missing__ = SpecialDescr(missing)
         assert X()['hi'] == 42
 
+    def test_empty_dict(self):
+        d = {}
+        raises(KeyError, d.popitem)
+        assert d.items() == []
+        assert d.values() == []
+        assert d.keys() == []
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
