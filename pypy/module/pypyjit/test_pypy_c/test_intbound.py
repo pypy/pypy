@@ -259,3 +259,38 @@ class TestIntbound(BaseTestPyPyC):
             jump(p0, p1, p2, p3, p4, i10, i12, descr=<Loop0>)
         """)
 
+    def test_xor(self):
+        def main(b):
+            a = sa = 0
+            while a < 300:
+                if a > 0: # Specialises the loop
+                    pass
+                if b > 10:
+                    pass
+                if a^b >= 0:  # ID: guard
+                    sa += 1
+                sa += a^a     # ID: a_xor_a
+                a += 1
+            return sa
+
+        log = self.run(main, [11])
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        # if both are >=0, a^b is known to be >=0
+        # note that we know that b>10
+        assert loop.match_by_id('guard', """
+            i10 = int_xor(i5, i7)
+        """)
+        #
+        # x^x is always optimized to 0
+        assert loop.match_by_id('a_xor_a', "")
+
+        log = self.run(main, [9])
+        assert log.result == 300
+        loop, = log.loops_by_filename(self.filepath)
+        # we don't know that b>10, hence we cannot optimize it
+        assert loop.match_by_id('guard', """
+            i10 = int_xor(i5, i7)
+            i12 = int_ge(i10, 0)
+            guard_true(i12, descr=...)
+        """)
