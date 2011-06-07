@@ -599,12 +599,8 @@ class WarmEnterState(object):
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
             missing = '(no jitdriver.get_printable_location!)'
-            missingll = llstr(missing)
             def get_location_str(greenkey):
-                if we_are_translated():
-                    return missingll
-                else:
-                    return missing
+                return missing
         else:
             rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
@@ -612,10 +608,10 @@ class WarmEnterState(object):
             def get_location_str(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
-                res = fn(*greenargs)
-                if not we_are_translated() and not isinstance(res, str):
-                    res = hlstr(res)
-                return res
+                llres = fn(*greenargs)
+                if not we_are_translated() and isinstance(res, str):
+                    return llres
+                return hlstr(llres)
         self.get_location_str = get_location_str
         #
         confirm_enter_jit_ptr = self.jitdriver_sd._confirm_enter_jit_ptr
