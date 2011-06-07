@@ -632,8 +632,6 @@ class BoxMap(object):
 class OptInlineShortPreamble(Optimization):
     def __init__(self, retraced):
         self.retraced = retraced
-        self.inliner = None
-        
     
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
@@ -680,30 +678,28 @@ class OptInlineShortPreamble(Optimization):
                     
                     if ok:
                         debug_stop('jit-log-virtualstate')
-                        # FIXME: Do we still need the dry run
-                        #if self.inline(sh.operations, sh.inputargs,
-                        #               op.getarglist(), dryrun=True):
+
+                        values = [self.getvalue(arg)
+                                  for arg in op.getarglist()]
+                        args = sh.virtual_state.make_inputargs(values,
+                                                               keyboxes=True)
+                        inliner = Inliner(sh.inputargs, args)
+                        
+                        for guard in extra_guards:
+                            if guard.is_guard():
+                                descr = sh.start_resumedescr.clone_if_mutable()
+                                inliner.inline_descr_inplace(descr)
+                                guard.setdescr(descr)
+                            self.emit_operation(guard)
+                        
                         try:
-                            values = [self.getvalue(arg)
-                                      for arg in op.getarglist()]
-                            args = sh.virtual_state.make_inputargs(values,
-                                                                   keyboxes=True)
-                            self.inline(sh.operations, sh.inputargs, args)
+                            for shop in sh.operations:
+                                newop = inliner.inline_op(shop)
+                                self.emit_operation(newop)
                         except InvalidLoop:
                             debug_print("Inlining failed unexpectedly",
                                         "jumping to preamble instead")
                             self.emit_operation(op)
-                        else:
-                            jumpop = self.optimizer.newoperations.pop()
-                            assert jumpop.getopnum() == rop.JUMP
-                            for guard in extra_guards:
-                                if guard.is_guard():
-                                    descr = sh.start_resumedescr.clone_if_mutable()
-                                    self.inliner.inline_descr_inplace(descr)
-                                    guard.setdescr(descr)
-                                    
-                                self.emit_operation(guard)
-                            self.optimizer.newoperations.append(jumpop)
                         return
                 debug_stop('jit-log-virtualstate')
                 retraced_count = loop_token.retraced_count
@@ -728,23 +724,3 @@ class OptInlineShortPreamble(Optimization):
                     else:
                         loop_token.failed_states.append(virtual_state)
         self.emit_operation(op)
-                
-        
-        
-    def inline(self, loop_operations, loop_args, jump_args, dryrun=False):
-        self.inliner = inliner = Inliner(loop_args, jump_args)
-
-        for op in loop_operations:
-            newop = inliner.inline_op(op)
-            if not dryrun:
-                self.emit_operation(newop)
-            else:
-                if not self.is_emittable(newop):
-                    return False
-        
-        return True
-
-    #def inline_arg(self, arg):
-    #    if isinstance(arg, Const):
-    #        return arg
-    #    return self.argmap[arg]

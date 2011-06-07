@@ -2499,7 +2499,7 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_loops(int_gt=1, int_lt=3, int_ge=3, int_le=1)
+        self.check_loops(int_gt=1, int_lt=3, int_ge=2, int_le=1)
 
     def test_intbounds_not_generalized2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'node'])
