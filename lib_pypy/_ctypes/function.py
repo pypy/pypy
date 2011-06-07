@@ -341,7 +341,6 @@ class CFuncPtr(_CData):
         result = self._call_funcptr(funcptr, *newargs)
         result = self._do_errcheck(result, args)
 
-        #return result
         if not outargs:
             return result
         if len(outargs) == 1:
@@ -356,8 +355,6 @@ class CFuncPtr(_CData):
             set_last_error(_rawffi.get_last_error())
         try:
             result = funcptr(*newargs)
-            ## resbuffer = funcptr(*[arg._get_buffer_for_param()._buffer
-            ##                       for arg in args])
         finally:
             if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
                 set_errno(_rawffi.get_errno())
@@ -408,7 +405,6 @@ class CFuncPtr(_CData):
         
         cdll = self.dll._handle
         try:
-            #return cdll.ptr(self.name, argshapes, resshape, self._flags_)
             ffi_argtypes = [argtype.get_ffi_argtype() for argtype in argtypes]
             ffi_restype = restype.get_ffi_argtype()
             self._ptr = cdll.getfunc(self.name, ffi_argtypes, ffi_restype)

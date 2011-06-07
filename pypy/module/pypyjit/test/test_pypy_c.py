@@ -279,38 +279,6 @@ class PyPyCJITTests(object):
             return long(sa)
         ''', 93, count_debug_merge_point=False, *tests)
         
-    def test_division_to_rshift(self):
-        avalues = ('a', 'b', 7, -42, 8)
-        bvalues = ['b'] + range(-10, 0) + range(1,10)
-        code = ''
-        a1, b1, res1 = 10, 20, 0
-        a2, b2, res2 = 10, -20, 0
-        a3, b3, res3 = -10, -20, 0
-        def dd(a, b, aval, bval):
-            m = {'a': aval, 'b': bval}
-            if not isinstance(a, int):
-                a=m[a]
-            if not isinstance(b, int):
-                b=m[b]
-            return a/b
-        for a in avalues:
-            for b in bvalues:
-                code += '                sa += %s / %s\n' % (a, b)
-                res1 += dd(a, b, a1, b1)
-                res2 += dd(a, b, a2, b2)
-                res3 += dd(a, b, a3, b3)
-        # The purpose of this test is to check that we get
-        # the correct results, not really to count operations.
-        self.run_source('''
-        def main(a, b):
-            i = sa = 0
-            while i < 2000:
-%s                
-                i += 1
-            return sa
-        ''' % code, sys.maxint, ([a1, b1], 2000 * res1),
-                                ([a2, b2], 2000 * res2),
-                                ([a3, b3], 2000 * res3))
 
     def test_mod(self):
         avalues = ('a', 'b', 7, -42, 8)
@@ -347,21 +315,6 @@ class PyPyCJITTests(object):
                                 ([a2, b2], 2000 * res2),
                                 ([a3, b3], 2000 * res3))
 
-    def test_id_compare_optimization(self):
-        # XXX: lower the instruction count, 35 is the old value.
-        self.run_source("""
-        class A(object):
-            pass
-        def main():
-            i = 0
-            a = A()
-            while i < 5:
-                if A() != a:
-                    pass
-                i += 1
-        """, 35, ([], None))
-        _, compare = self.get_by_bytecode("COMPARE_OP")
-        assert "call" not in compare.get_opnames()
 
 class AppTestJIT(PyPyCJITTests):
     def setup_class(cls):

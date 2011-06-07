@@ -1751,7 +1751,6 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert loop.match_by_id('shift', "")  # optimized away
 
     def test_division_to_rshift(self):
-        py.test.skip('in-progress')
         def main(b):
             res = 0
             a = 0
@@ -1763,10 +1762,38 @@ class TestPyPyCNew(BaseTestPyPyC):
             return res
         #
         log = self.run(main, [3], threshold=200)
-        #assert log.result == 149
+        assert log.result == 99
         loop, = log.loops_by_filename(self.filepath)
-        import pdb;pdb.set_trace()
-        assert loop.match_by_id('div', "")  # optimized away
+        assert loop.match_by_id('div', """
+            i10 = int_floordiv(i6, i7)
+            i11 = int_mul(i10, i7)
+            i12 = int_sub(i6, i11)
+            i14 = int_rshift(i12, 63)
+            i15 = int_add(i10, i14)
+        """)
+
+    def test_division_to_rshift_allcases(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        avalues = ('a', 'b', 7, -42, 8)
+        bvalues = ['b'] + range(-10, 0) + range(1,10)
+        code = ''
+        for a in avalues:
+            for b in bvalues:
+                code += '                sa += %s / %s\n' % (a, b)
+        src = """
+        def main(a, b):
+            i = sa = 0
+            while i < 300:
+%s
+                i += 1
+            return sa
+        """ % code
+        self.run_and_check(src, [ 10,   20], threshold=200)
+        self.run_and_check(src, [ 10,  -20], threshold=200)
+        self.run_and_check(src, [-10, -20], threshold=200)
 
     def test_oldstyle_newstyle_mix(self):
         def main():
@@ -1851,3 +1878,21 @@ class TestPyPyCNew(BaseTestPyPyC):
         log = self.run(main, [-10, -20], threshold=200)
         assert log.result == 300 * (-10 % -20)
         assert log.jit_summary.tracing_no == 1
+
+    def test_id_compare_optimization(self):
+        def main():
+            class A(object):
+                pass
+            #
+            i = 0
+            a = A()
+            while i < 300:
+                new_a = A()
+                if new_a != a:  # ID: compare
+                    pass
+                i += 1
+            return i
+        #
+        log = self.run(main, [], threshold=200)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id("compare", "") # optimized away
