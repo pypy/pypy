@@ -1795,6 +1795,31 @@ class TestPyPyCNew(BaseTestPyPyC):
         self.run_and_check(src, [ 10,  -20], threshold=200)
         self.run_and_check(src, [-10, -20], threshold=200)
 
+    def test_shift_allcases(self):
+        """
+        This test only checks that we get the expected result, not that any
+        optimization has been applied.
+        """
+        from sys import maxint
+        def main(a, b):
+            i = sa = 0
+            while i < 300:
+                if a > 0: # Specialises the loop
+                    pass
+                if b < 2 and b > 0:
+                    pass
+                if (a >> b) >= 0:
+                    sa += 1
+                if (a << b) > 2:
+                    sa += 10000
+                i += 1
+            return sa
+        #
+        maxvals = (-maxint-1, -maxint, maxint-1, maxint)
+        for a in (-4, -3, -2, -1, 0, 1, 2, 3, 4) + maxvals:
+            for b in (0, 1, 2, 31, 32, 33, 61, 62, 63):
+                self.run_and_check(main, [a, b], threshold=200)
+
     def test_oldstyle_newstyle_mix(self):
         def main():
             class A:

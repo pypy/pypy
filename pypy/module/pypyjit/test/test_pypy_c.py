@@ -223,37 +223,6 @@ class PyPyCJITTests(object):
             return total
         ''' % startvalue, 170, ([], startvalue + 4999450000L))
 
-    def test_shift(self):
-        from sys import maxint
-        maxvals = (-maxint-1, -maxint, maxint-1, maxint)
-        for a in (-4, -3, -2, -1, 0, 1, 2, 3, 4) + maxvals:
-            for b in (0, 1, 2, 31, 32, 33, 61, 62, 63):
-                r = 0
-                if (a >> b) >= 0:
-                    r += 2000
-                if (a << b) > 2:
-                    r += 20000000
-                if abs(a) < 10 and b < 5:
-                    ops = 13
-                else:
-                    ops = 29
-
-                self.run_source('''
-                def main(a, b):
-                    i = sa = 0
-                    while i < 2000:
-                        if a > 0: # Specialises the loop
-                            pass
-                        if b < 2 and b > 0:
-                            pass
-                        if (a >> b) >= 0:
-                            sa += 1
-                        if (a << b) > 2:
-                            sa += 10000
-                        i += 1
-                    return sa
-                ''', ops, ([a, b], r), count_debug_merge_point=False)
-
     def test_revert_shift(self):
         from sys import maxint
         tests = []
