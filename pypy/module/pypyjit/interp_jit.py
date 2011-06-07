@@ -218,6 +218,10 @@ def set_compile_hook(space, w_hook):
     for jit merge point. in case it's `main` it'll be a tuple
     (code, offset, is_being_profiled)
 
+    Note that jit hook is not reentrant. It means that if the code
+    inside the jit hook is itself jitted, it will get compiled, but the
+    jit hook won't be called for that.
+
     XXX write down what else
     """
     cache = space.fromcache(Cache)
