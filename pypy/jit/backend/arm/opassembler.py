@@ -428,7 +428,6 @@ class OpAssembler(object):
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
-        return fcond
         loc_base = arglocs[0]
         self.mc.LDR_ri(r.ip.value, loc_base.value)
         # calculate the shift value to rotate the ofs according to the ARM
@@ -454,6 +453,7 @@ class OpAssembler(object):
         offset = self.mc.currpos() - jz_location
         pmc = OverwritingBuilder(self.mc, jz_location, WORD)
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
+        return fcond
 
 
 class FieldOpAssembler(object):
