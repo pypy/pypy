@@ -44,3 +44,19 @@ class TestFunctionObject(BaseApiTest):
         assert w_code.co_firstlineno == 3
         rffi.free_charp(filename)
         rffi.free_charp(funcname)
+
+    def test_classmethod(self, space, api):
+        w_function = space.appexec([], """():
+            def method(x): return x
+            return method
+        """)
+        w_class = space.call_function(space.w_type, space.wrap("C"),
+                                      space.newtuple([]), space.newdict())
+        w_instance = space.call_function(w_class)
+        # regular instance method
+        space.setattr(w_class, space.wrap("method"), w_function)
+        assert space.is_w(space.call_method(w_instance, "method"), w_instance)
+        # now a classmethod
+        w_classmethod = api.PyClassMethod_New(w_function)
+        space.setattr(w_class, space.wrap("classmethod"), w_classmethod)
+        assert space.is_w(space.call_method(w_instance, "classmethod"), w_class)

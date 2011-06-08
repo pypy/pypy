@@ -616,7 +616,7 @@ class CStandaloneBuilder(CBuilder):
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
                 mk.rule('.c.gcmap', '',
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -m$(PYPY_MAIN_FUNCTION) -t $*.s > $@']
+                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
@@ -631,7 +631,7 @@ class CStandaloneBuilder(CBuilder):
                 mk.rule('%.lbl.s %.gcmap', '%.s',
                         [python +
                              '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
-                             '-m$(PYPY_MAIN_FUNCTION) -t $< > $*.gctmp',
+                             '-t $< > $*.gctmp',
                          'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                         [python +
@@ -921,8 +921,9 @@ def gen_startupcode(f, database):
     print >> f, '}'
 
 def commondefs(defines):
-    from pypy.rlib.rarithmetic import LONG_BIT
+    from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
     defines['PYPY_LONG_BIT'] = LONG_BIT
+    defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
 def add_extra_files(eci):
     srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')

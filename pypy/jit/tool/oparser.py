@@ -6,7 +6,9 @@ in a nicer fashion
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
      ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
      LoopToken, get_const_ptr_for_string, get_const_ptr_for_unicode
-from pypy.jit.metainterp.resoperation import rop, ResOperation, ResOpWithDescr, N_aryOp
+from pypy.jit.metainterp.resoperation import rop, ResOperation, \
+                                            ResOpWithDescr, N_aryOp, \
+                                            UnaryOp, PlainResOp
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.codewriter.heaptracker import adr2int
 from pypy.jit.codewriter import longlong
@@ -34,6 +36,23 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
 
     def clone(self):
         return ESCAPE_OP(self.OPNUM, self.getarglist()[:], self.result, self.getdescr())
+
+class FORCE_SPILL(UnaryOp, PlainResOp):
+
+    OPNUM = -124
+
+    def __init__(self, opnum, args, result=None, descr=None):
+        assert result is None
+        assert descr is None
+        assert opnum == self.OPNUM
+        self.result = result
+        self.initarglist(args)
+
+    def getopnum(self):
+        return self.OPNUM
+
+    def clone(self):
+        return FORCE_SPILL(self.OPNUM, self.getarglist()[:])
 
 class ExtendedTreeLoop(TreeLoop):
 
@@ -193,7 +212,7 @@ class OpParser(object):
         descr = None
         if argspec.strip():
             if opname == 'debug_merge_point':
-                allargs = argspec.rsplit(', ', 1)
+                allargs = argspec.split(',', 2)
             else:
                 allargs = [arg for arg in argspec.split(",")
                            if arg != '']
@@ -220,6 +239,8 @@ class OpParser(object):
         except AttributeError:
             if opname == 'escape':
                 opnum = ESCAPE_OP.OPNUM
+            elif opname == 'force_spill':
+                opnum = FORCE_SPILL.OPNUM
             else:
                 raise ParseError("unknown op: %s" % opname)
         endnum = line.rfind(')')
@@ -261,6 +282,8 @@ class OpParser(object):
     def create_op(self, opnum, args, result, descr):
         if opnum == ESCAPE_OP.OPNUM:
             return ESCAPE_OP(opnum, args, result, descr)
+        if opnum == FORCE_SPILL.OPNUM:
+            return FORCE_SPILL(opnum, args, result, descr)
         else:
             return ResOperation(opnum, args, result, descr)
 

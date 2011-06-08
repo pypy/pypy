@@ -6,7 +6,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import jitprof
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr
-from pypy.rlib import rarithmetic
+from pypy.rlib import rarithmetic, rstack
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.debug import have_debug_prints, ll_assert
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
@@ -978,12 +978,18 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
 def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
                               all_virtuals=None):
-    resumereader = ResumeDataDirectReader(blackholeinterpbuilder.metainterp_sd,
-                                          storage, all_virtuals)
-    vinfo = jitdriver_sd.virtualizable_info
-    ginfo = jitdriver_sd.greenfield_info
-    vrefinfo = blackholeinterpbuilder.metainterp_sd.virtualref_info
-    resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
+    # The initialization is stack-critical code: it must not be interrupted by
+    # StackOverflow, otherwise the jit_virtual_refs are left in a dangling state.
+    rstack._stack_criticalcode_start()
+    try:
+        resumereader = ResumeDataDirectReader(blackholeinterpbuilder.metainterp_sd,
+                                              storage, all_virtuals)
+        vinfo = jitdriver_sd.virtualizable_info
+        ginfo = jitdriver_sd.greenfield_info
+        vrefinfo = blackholeinterpbuilder.metainterp_sd.virtualref_info
+        resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
+    finally:
+        rstack._stack_criticalcode_stop()
     #
     # First get a chain of blackhole interpreters whose length is given
     # by the depth of rd_frame_info_list.  The first one we get must be

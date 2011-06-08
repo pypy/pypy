@@ -36,19 +36,29 @@ class Logger(logger.Logger):
         return capturing(logger.Logger.log_loop, self,
                          loop.inputargs, loop.operations, ops_offset=ops_offset)
 
-    def repr_of_descr(self, descr):
-        for k, v in self.namespace.items():
-            if v == descr:
-                return k
-        return descr.repr_of_descr()
+    def _make_log_operations(self1):
+        class LogOperations(logger.LogOperations):
+            def repr_of_descr(self, descr):
+                for k, v in self1.namespace.items():
+                    if v == descr:
+                        return k
+                return descr.repr_of_descr()
+        logops = LogOperations(self1.metainterp_sd, self1.guard_number)
+        self1.logops = logops
+        return logops
 
 class TestLogger(object):
     ts = llhelper
 
     def make_metainterp_sd(self):
+        class FakeJitDriver(object):
+            class warmstate(object):
+                get_location_str = staticmethod(lambda args: args[0]._get_str())
+        
         class FakeMetaInterpSd:
             cpu = AbstractCPU()
             cpu.ts = self.ts
+            jitdrivers_sd = [FakeJitDriver()]
             def get_name_from_address(self, addr):
                 return 'Name'
         return FakeMetaInterpSd()
@@ -66,7 +76,7 @@ class TestLogger(object):
         if check_equal:
             equaloplists(loop.operations, oloop.operations)
             assert oloop.inputargs == loop.inputargs
-        return loop, oloop
+        return logger, loop, oloop
     
     def test_simple(self):
         inp = '''
@@ -106,18 +116,18 @@ class TestLogger(object):
     def test_debug_merge_point(self):
         inp = '''
         []
-        debug_merge_point("info", 0)
+        debug_merge_point(0, 0, "dupa")
         '''
-        loop, oloop = self.reparse(inp, check_equal=False)
-        assert loop.operations[0].getarg(0)._get_str() == 'info'
-        assert oloop.operations[0].getarg(0)._get_str() == 'info'
+        _, loop, oloop = self.reparse(inp, check_equal=False)
+        assert loop.operations[0].getarg(2)._get_str() == "dupa"
+        assert oloop.operations[0].getarg(1)._get_str() == "dupa"
         
     def test_floats(self):
         inp = '''
         [f0]
         f1 = float_add(3.5, f0)
         '''
-        loop, oloop = self.reparse(inp)
+        _, loop, oloop = self.reparse(inp)
         equaloplists(loop.operations, oloop.operations)
 
     def test_jump(self):
@@ -178,6 +188,17 @@ class TestLogger(object):
         output = capturing(bare_logger.log_bridge, [], [], 3)
         assert output.splitlines()[0] == "# bridge out of Guard 3 with 0 ops"
         pure_parse(output)
+
+    def test_repr_single_op(self):
+        inp = '''
+        [i0, i1, i2, p3, p4, p5]
+        i6 = int_add(i1, i2)
+        i8 = int_add(i6, 3)
+        jump(i0, i8, i6, p3, p4, p5)
+        '''
+        logger, loop, _ = self.reparse(inp)
+        op = loop.operations[1]
+        assert logger.logops.repr_of_resop(op) == "i8 = int_add(i6, 3)"
 
     def test_ops_offset(self):
         inp = '''

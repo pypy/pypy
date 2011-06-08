@@ -108,6 +108,9 @@ class EffectInfo(object):
     def check_forces_virtual_or_virtualizable(self):
         return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
 
+    def has_random_effects(self):
+        return self.oopspecindex == self.OS_LIBFFI_CALL
+
 
 def _frozenset_or_none(x):
     if x is None: return None

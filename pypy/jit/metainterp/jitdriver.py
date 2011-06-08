@@ -20,6 +20,7 @@ class JitDriverStaticData(object):
     #    self.portal_finishtoken... pypy.jit.metainterp.pyjitpl
     #    self.index             ... pypy.jit.codewriter.call
     #    self.mainjitcode       ... pypy.jit.codewriter.call
+    #    self.on_compile        ... pypy.jit.metainterp.warmstate
 
     # These attributes are read by the backend in CALL_ASSEMBLER:
     #    self.assembler_helper_adr

@@ -56,6 +56,12 @@ _stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
 _stack_get_end_adr   = llexternal('LL_stack_get_end_adr',   [], lltype.Signed)
 _stack_get_length_adr= llexternal('LL_stack_get_length_adr',[], lltype.Signed)
 
+# the following is also used by the JIT: "critical code" paths are paths in
+# which we should not raise StackOverflow at all, but just ignore the stack limit
+_stack_criticalcode_start = llexternal('LL_stack_criticalcode_start', [],
+                                       lltype.Void, lambda: None)
+_stack_criticalcode_stop = llexternal('LL_stack_criticalcode_stop', [],
+                                      lltype.Void, lambda: None)
 
 def stack_check():
     if not we_are_translated():

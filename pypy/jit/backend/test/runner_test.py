@@ -560,23 +560,6 @@ class BaseBackendTest(Runner):
                                          'int', descr=calldescr)
             assert res.value == func_ints(*args)
 
-    def test_call_to_c_function(self):
-        from pypy.rlib.libffi import CDLL, types, ArgChain
-        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
-        libc = CDLL(libc_name)
-        c_tolower = libc.getpointer('tolower', [types.uchar], types.sint)
-        argchain = ArgChain().arg(ord('A'))
-        assert c_tolower.call(argchain, rffi.INT) == ord('a')
-
-        func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
-        funcbox = ConstInt(heaptracker.adr2int(func_adr))
-        calldescr = self.cpu.calldescrof_dynamic([types.uchar], types.sint)
-        res = self.execute_operation(rop.CALL,
-                                     [funcbox, BoxInt(ord('A'))],
-                                     'int',
-                                     descr=calldescr)
-        assert res.value == ord('a')
-
     def test_call_with_const_floats(self):
         def func(f1, f2):
             return f1 + f2
@@ -1680,7 +1663,7 @@ class LLtypeBackendTest(BaseBackendTest):
         record = []
         #
         S = lltype.GcStruct('S', ('tid', lltype.Signed))
-        FUNC = self.FuncType([lltype.Ptr(S), lltype.Signed], lltype.Void)
+        FUNC = self.FuncType([lltype.Ptr(S), lltype.Ptr(S)], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
@@ -1699,12 +1682,48 @@ class LLtypeBackendTest(BaseBackendTest):
             s = lltype.malloc(S)
             s.tid = value
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            t = lltype.malloc(S)
+            tgcref = lltype.cast_opaque_ptr(llmemory.GCREF, t)
             del record[:]
             self.execute_operation(rop.COND_CALL_GC_WB,
-                                   [BoxPtr(sgcref), ConstInt(-2121)],
+                                   [BoxPtr(sgcref), ConstPtr(tgcref)],
                                    'void', descr=WriteBarrierDescr())
             if cond:
-                assert record == [(s, -2121)]
+                assert record == [(s, t)]
+            else:
+                assert record == []
+
+    def test_cond_call_gc_wb_array(self):
+        def func_void(a, b):
+            record.append((a, b))
+        record = []
+        #
+        S = lltype.GcStruct('S', ('tid', lltype.Signed))
+        FUNC = self.FuncType([lltype.Ptr(S), lltype.Signed], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        class WriteBarrierDescr(AbstractDescr):
+            jit_wb_if_flag = 4096
+            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_singlebyte = 0x10
+            def get_write_barrier_from_array_fn(self, cpu):
+                return funcbox.getint()
+        #
+        for cond in [False, True]:
+            value = random.randrange(-sys.maxint, sys.maxint)
+            if cond:
+                value |= 4096
+            else:
+                value &= ~4096
+            s = lltype.malloc(S)
+            s.tid = value
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            del record[:]
+            self.execute_operation(rop.COND_CALL_GC_WB,
+                                   [BoxPtr(sgcref), ConstInt(123)],
+                                   'void', descr=WriteBarrierDescr())
+            if cond:
+                assert record == [(s, 123)]
             else:
                 assert record == []
 
@@ -1842,6 +1861,99 @@ class LLtypeBackendTest(BaseBackendTest):
         assert longlong.getrealfloat(x) == 42.5
         assert self.cpu.get_latest_value_int(2) == 10
         assert values == [1, 10]
+
+    def test_call_to_c_function(self):
+        from pypy.rlib.libffi import CDLL, types, ArgChain
+        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+        libc = CDLL(libc_name)
+        c_tolower = libc.getpointer('tolower', [types.uchar], types.sint)
+        argchain = ArgChain().arg(ord('A'))
+        assert c_tolower.call(argchain, rffi.INT) == ord('a')
+
+        cpu = self.cpu
+        func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
+        funcbox = ConstInt(heaptracker.adr2int(func_adr))
+        calldescr = cpu.calldescrof_dynamic([types.uchar], types.sint)
+        i1 = BoxInt()
+        i2 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1], i2,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [i2], None, descr=BasicFailDescr(0))
+        ]
+        ops[1].setfailargs([i1, i2])
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i1], ops, looptoken)
+        self.cpu.set_future_value_int(0, ord('G'))
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert self.cpu.get_latest_value_int(0) == ord('g')
+
+    def test_call_to_c_function_with_callback(self):
+        from pypy.rlib.libffi import CDLL, types, ArgChain, clibffi
+        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
+        libc = CDLL(libc_name)
+        types_size_t = clibffi.cast_type_to_ffitype(rffi.SIZE_T)
+        c_qsort = libc.getpointer('qsort', [types.pointer, types_size_t,
+                                            types_size_t, types.pointer],
+                                  types.void)
+        class Glob(object):
+            pass
+        glob = Glob()
+        class X(object):
+            pass
+        #
+        def callback(p1, p2):
+            glob.lst.append(X())
+            return rffi.cast(rffi.INT, 1)
+        CALLBACK = lltype.Ptr(lltype.FuncType([lltype.Signed,
+                                               lltype.Signed], rffi.INT))
+        fn = llhelper(CALLBACK, callback)
+        S = lltype.Struct('S', ('x', rffi.INT), ('y', rffi.INT))
+        raw = lltype.malloc(S, flavor='raw')
+        argchain = ArgChain()
+        argchain = argchain.arg(rffi.cast(lltype.Signed, raw))
+        argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 2))
+        argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 4))
+        argchain = argchain.arg(rffi.cast(lltype.Signed, fn))
+        glob.lst = []
+        c_qsort.call(argchain, lltype.Void)
+        assert len(glob.lst) > 0
+        del glob.lst[:]
+
+        cpu = self.cpu
+        func_adr = llmemory.cast_ptr_to_adr(c_qsort.funcsym)
+        funcbox = ConstInt(heaptracker.adr2int(func_adr))
+        calldescr = cpu.calldescrof_dynamic([types.pointer, types_size_t,
+                                             types_size_t, types.pointer],
+                                            types.void)
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        i3 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i0, i1, i2, i3], None,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [], None, descr=BasicFailDescr(0))
+        ]
+        ops[1].setfailargs([])
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i0, i1, i2, i3], ops, looptoken)
+        self.cpu.set_future_value_int(0, rffi.cast(lltype.Signed, raw))
+        self.cpu.set_future_value_int(1, 2)
+        self.cpu.set_future_value_int(2, 4)
+        self.cpu.set_future_value_int(3, rffi.cast(lltype.Signed, fn))
+        assert glob.lst == []
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert len(glob.lst) > 0
+        lltype.free(raw, flavor='raw')
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu

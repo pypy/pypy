@@ -42,3 +42,9 @@ class TestTupleObject(BaseApiTest):
         assert api.PyTuple_Size(atuple) == 2
         assert space.eq_w(space.getitem(atuple, space.wrap(0)), space.wrap(0))
         assert space.eq_w(space.getitem(atuple, space.wrap(1)), space.wrap(1))
+
+    def test_getslice(self, space, api):
+        w_tuple = space.newtuple([space.wrap(i) for i in range(10)])
+        w_slice = api.PyTuple_GetSlice(w_tuple, 3, -3)
+        assert space.eq_w(w_slice,
+                          space.newtuple([space.wrap(i) for i in range(3, 7)]))

@@ -1,9 +1,10 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
+from pypy.rpython.llinterp import LLException
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
-from pypy.rlib.jit import virtual_ref, virtual_ref_finish
+from pypy.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, _get_jitcodes
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.virtualref import VirtualRefInfo
 
@@ -16,6 +17,29 @@ class VRefTests:
         self.vrefinfo = VirtualRefInfo(self.warmrunnerstate)
         self.cw.setup_vrefinfo(self.vrefinfo)
 
+    def test_rewrite_graphs(self):
+        class X:
+            pass
+        def fn():
+            x = X()
+            vref = virtual_ref(x)
+            x1 = vref()                  # jit_force_virtual
+            virtual_ref_finish(vref, x)
+        #
+        _get_jitcodes(self, self.CPUClass, fn, [], self.type_system)
+        graph = self.all_graphs[0]
+        assert graph.name == 'fn'
+        self.vrefinfo.replace_force_virtual_with_call([graph])
+        #
+        def check_call(op, fname):
+            assert op.opname == 'direct_call'
+            assert op.args[0].value._obj._name == fname
+        #
+        ops = [op for block, op in graph.iterblockops()]
+        check_call(ops[-3], 'virtual_ref')
+        check_call(ops[-2], 'force_virtual_if_necessary')
+        check_call(ops[-1], 'virtual_ref_finish')
+
     def test_make_vref_simple(self):
         class X:
             pass
@@ -25,9 +49,9 @@ class VRefTests:
         #
         def f():
             x = X()
-            exctx.topframeref = virtual_ref(x)
+            exctx.topframeref = vref = virtual_ref(x)
             exctx.topframeref = vref_None
-            virtual_ref_finish(x)
+            virtual_ref_finish(vref, x)
             return 1
         #
         self.interp_operations(f, [])
@@ -60,8 +84,9 @@ class VRefTests:
             exctx._frame = x
             exctx.topframeref = virtual_ref(x)
         def leave():
+            vref = exctx.topframeref
             exctx.topframeref = vref_None
-            virtual_ref_finish(exctx._frame)
+            virtual_ref_finish(vref, exctx._frame)
         def f(n):
             enter(n)
             n = external(n)
@@ -125,7 +150,8 @@ class VRefTests:
         #
         @dont_look_inside
         def g(vref):
-            debug_print(lltype.Void, '-+-+-+-+- external read:', vref().n)
+            # we cannot do anything with the vref after the call to finish()
+            pass
         #
         def f(n):
             while n > 0:
@@ -136,7 +162,7 @@ class VRefTests:
                 exctx.topframeref = vref = virtual_ref(x)
                 # here, 'x' should be virtual
                 exctx.topframeref = vref_None
-                virtual_ref_finish(x)
+                virtual_ref_finish(vref, x)
                 # 'x' and 'vref' can randomly escape after the call to
                 # finish().
                 g(vref)
@@ -144,7 +170,7 @@ class VRefTests:
             return 1
         #
         self.meta_interp(f, [10])
-        self.check_loops(new_with_vtable=2)   # the vref and the X
+        self.check_loops(new_with_vtable=1)   # the vref
         self.check_aborted_count(0)
 
     def test_simple_all_removed(self):
@@ -169,13 +195,13 @@ class VRefTests:
                 xy.next1 = lltype.malloc(A, 0)
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 exctx.topframeref = vref_None
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
         self.check_loops(new_with_vtable=0,     # all virtualized
@@ -206,17 +232,17 @@ class VRefTests:
                 xy.next1 = lltype.malloc(A, 0)
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 exctx.topframeref = vref_None
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
-        self.check_loops(new_with_vtable=2,     # the vref, and xy so far,
-                         new_array=0)           # but not xy.next1/2/3
+        self.check_loops(new_with_vtable=1,     # the vref: xy doesn't need to be forced
+                         new_array=0)           # and neither xy.next1/2/3
         self.check_aborted_count(0)
 
     def test_simple_force_always(self):
@@ -244,12 +270,12 @@ class VRefTests:
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
                 exctx.topframeref = vref_None
         #
         self.meta_interp(f, [15])
@@ -282,19 +308,19 @@ class VRefTests:
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
                 exctx.topframeref = vref_None
             return exctx.m
         #
         res = self.meta_interp(f, [30])
         assert res == 13
-        self.check_loops(new_with_vtable=2,   # the vref, XY() at the end
-                         new_array=0)         # but not next1/2/3
+        self.check_loops(new_with_vtable=1,   # the vref, but not XY()
+                         new_array=0)         # and neither next1/2/3
         self.check_loop_count(1)
         self.check_aborted_count(0)
 
@@ -322,7 +348,7 @@ class VRefTests:
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 if n == 13:
                     externalfn(n)
                 n -= 1
@@ -330,7 +356,7 @@ class VRefTests:
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return exctx.m
         #
         res = self.meta_interp(f, [30])
@@ -366,7 +392,7 @@ class VRefTests:
                 xy.next4 = lltype.malloc(A, 0)
                 xy.next5 = lltype.malloc(A, 0)
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 if n % 6 == 0:
                     xy.next1 = lltype.nullptr(A)
                     xy.next2 = lltype.nullptr(A)
@@ -379,7 +405,7 @@ class VRefTests:
                 xy.next3 = lltype.nullptr(A)
                 xy.next4 = lltype.nullptr(A)
                 xy.next5 = lltype.nullptr(A)
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return exctx.m
         #
         res = self.meta_interp(f, [72])
@@ -387,36 +413,6 @@ class VRefTests:
         self.check_loop_count(2)     # the loop and the bridge
         self.check_loops(new_with_vtable=2,  # loop: nothing; bridge: vref, xy
                          new_array=2)        # bridge: next4, next5
-        self.check_aborted_count(0)
-
-    def test_access_vref_later(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n'])
-        #
-        class XY:
-            pass
-        class ExCtx:
-            pass
-        exctx = ExCtx()
-        #
-        @dont_look_inside
-        def g():
-            return exctx.later().n
-        #
-        def f(n):
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n)
-                myjitdriver.jit_merge_point(n=n)
-                xy = XY()
-                xy.n = n
-                exctx.topframeref = virtual_ref(xy)
-                exctx.later = exctx.topframeref
-                n -= 1
-                exctx.topframeref = vref_None
-                virtual_ref_finish(xy)
-            return g()
-        #
-        res = self.meta_interp(f, [15])
-        assert res == 1
         self.check_aborted_count(0)
 
     def test_jit_force_virtual_seen(self):
@@ -435,12 +431,12 @@ class VRefTests:
                 myjitdriver.jit_merge_point(n=n)
                 xy = XY()
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 xy.next1 = lltype.malloc(A, 0)
                 n = exctx.topframeref().n - 1
                 xy.next1 = lltype.nullptr(A)
                 exctx.topframeref = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return 1
         #
         res = self.meta_interp(f, [15])
@@ -465,12 +461,12 @@ class VRefTests:
                 if reclevel == 0:
                     return n
                 xy = XY()
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 m = f(xy, n, reclevel-1)
                 assert m == n
                 n -= 1
                 exctx.topframeref = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return 2
         def main(n, reclevel):
             return f(XY(), n, reclevel)
@@ -495,7 +491,7 @@ class VRefTests:
                 frame.n += 1
                 xy = XY()
                 xy.n = n
-                exctx.topframeref = virtual_ref(xy)
+                exctx.topframeref = vref = virtual_ref(xy)
                 if reclevel > 0:
                     m = f(xy, frame.n, reclevel-1)
                     assert xy.n == m
@@ -503,7 +499,7 @@ class VRefTests:
                 else:
                     n -= 2
                 exctx.topframeref = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vref, xy)
             return frame.n
         def main(n, reclevel):
             return f(XY(), n, reclevel)
@@ -540,13 +536,64 @@ class VRefTests:
                 escapexy(xy)
                 # clean up
                 exctx.vr = vref_None
-                virtual_ref_finish(xy)
+                virtual_ref_finish(vr, xy)
                 n -= 1
             return 1
         #
         res = self.meta_interp(f, [15])
         assert res == 1
         self.check_loops(new_with_vtable=2)     # vref, xy
+
+    def test_cannot_use_invalid_virtualref(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        #
+        class XY:
+            n = 0
+        #
+        def fn(n):
+            res = False
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                xy = XY()
+                xy.n = n
+                vref = virtual_ref(xy)
+                virtual_ref_finish(vref, xy)
+                vref() # raises InvalidVirtualRef when jitted
+                n -= 1
+            return res
+        #
+        py.test.raises(InvalidVirtualRef, "fn(10)")
+        py.test.raises(LLException, "self.meta_interp(fn, [10])")
+
+    def test_call_virtualref_already_forced(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])
+        #
+        class XY:
+            n = 0
+        #
+        @dont_look_inside
+        def force_it(vref, n):
+            if n % 6 == 0:
+                return vref().n
+            return 0
+        def fn(n):
+            res = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, res=res)
+                myjitdriver.jit_merge_point(n=n, res=res)
+                xy = XY()
+                xy.n = n
+                vref = virtual_ref(xy)
+                force_it(vref, n)
+                virtual_ref_finish(vref, xy)
+                res += force_it(vref, n) # doesn't raise, because it was already forced
+                n -= 1
+            return res
+        #
+        assert fn(10) == 6
+        res = self.meta_interp(fn, [10])
+        assert res == 6
 
 
 class TestLLtype(VRefTests, LLJitMixin):
