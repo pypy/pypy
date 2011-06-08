@@ -590,25 +590,25 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 class IteratorImplementation(object):
     def __init__(self, space, implementation):
         self.space = space
-        self.dictimplementation = implementation
+        self.setimplementation = implementation
         self.len = implementation.length()
         self.pos = 0
 
     def next(self):
-        if self.dictimplementation is None:
-            return None, None
-        if self.len != self.dictimplementation.length():
+        if self.setimplementation is None:
+            return None
+        if self.len != self.setimplementation.length():
             self.len = -1   # Make this error state sticky
             raise OperationError(self.space.w_RuntimeError,
-                     self.space.wrap("dictionary changed size during iteration"))
+                     self.space.wrap("set changed size during iteration"))
         # look for the next entry
         if self.pos < self.len:
             result = self.next_entry()
             self.pos += 1
             return result
         # no more entries
-        self.dictimplementation = None
-        return None, None
+        self.setimplementation = None
+        return None
 
     def next_entry(self):
         """ Purely abstract method
@@ -616,40 +616,40 @@ class IteratorImplementation(object):
         raise NotImplementedError
 
     def length(self):
-        if self.dictimplementation is not None:
+        if self.setimplementation is not None:
             return self.len - self.pos
         return 0
 
 class EmptyIteratorImplementation(IteratorImplementation):
     def next(self):
-        return (None, None)
+        return None
 
 class IntegerIteratorImplementation(IteratorImplementation):
     #XXX same implementation in dictmultiobject on dictstrategy-branch
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
         d = strategy.cast_from_void_star(dictimplementation.sstorage)
-        self.iterator = d.iteritems()
+        self.iterator = d.iterkeys()
 
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
-        for w_key, w_value in self.iterator:
-            return self.space.wrap(w_key), w_value
+        for w_key in self.iterator:
+            return self.space.wrap(w_key)
         else:
-            return None, None
+            return None
 
 class RDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
         d = strategy.cast_from_void_star(dictimplementation.sstorage)
-        self.iterator = d.iteritems()
+        self.iterator = d.iterkeys()
 
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
-        for item in self.iterator:
-            return item
+        for key in self.iterator:
+            return key
         else:
-            return None, None
+            return None
 
 class W_SetIterObject(W_Object):
     from pypy.objspace.std.settype import setiter_typedef as typedef
@@ -665,7 +665,7 @@ def iter__SetIterObject(space, w_setiter):
 
 def next__SetIterObject(space, w_setiter):
     iterimplementation = w_setiter.iterimplementation
-    w_key, w_value = iterimplementation.next()
+    w_key = iterimplementation.next()
     if w_key is not None:
         return w_key
     raise OperationError(space.w_StopIteration, space.w_None)
