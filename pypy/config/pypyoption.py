@@ -247,10 +247,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "use small tuples",
                    default=False),
 
-        BoolOption("withsmalltuple",
-                   "use small tuples",
-                   default=False),
-
         BoolOption("withrope", "use ropes as the string implementation",
                    default=False,
                    requires=[("objspace.std.withstrslice", False),
