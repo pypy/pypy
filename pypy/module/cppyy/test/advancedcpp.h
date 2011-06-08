@@ -120,28 +120,62 @@ namespace a_ns {                   // for namespace testing
 
 
 //===========================================================================
-template< typename T >             // for template testing
+template<typename T>               // for template testing
 class T1 {
 public:
-   T1( T t = T(0) ) : m_t1( t ) {}
+   T1(T t = T(1)) : m_t1(t) {}
    T value() { return m_t1; }
 
 public:
    T m_t1;
 };
 
-template< typename T >
+template<typename T>
 class T2 {
+public:
+   T2(T t = T(2)) : m_t2(t) {}
+   T value() { return m_t2; }
+
 public:
    T m_t2;
 };
 
-namespace {
-   T1< int > tt1;
-   T2< T1< int > > tt2;
-}
+template<typename T, typename U>
+class T3 {
+public:
+   T3(T t = T(3), U u = U(33)) : m_t3(t), m_u3(u) {}
+   T value_t() { return m_t3; }
+   U value_u() { return m_u3; }
 
-// helpers for checking pass-by-ref
+public:
+   T m_t3;
+   U m_u3;
+};
+
+namespace a_ns {
+
+   template<typename T>
+   class T4 {
+   public:
+      T4(T t = T(4)) : m_t4(t) {}
+      T value() { return m_t4; }
+
+   public:
+      T m_t4;
+   };
+
+} // namespace a_ns
+
+template class T1<int>;
+template class T2<T1<int> >;
+template class T3<int, double>;
+template class T3<T1<int>, T2<T1<int> > >;
+template class a_ns::T4<int>;
+template class a_ns::T4<a_ns::T4<T3<int, double> > >;
+
+
+//===========================================================================
+// for checking pass-by-reference of builtin types
 void set_int_through_ref(int& i, int val);
 int pass_int_through_const_ref(const int& i);
 void set_long_through_ref(long& l, long val);

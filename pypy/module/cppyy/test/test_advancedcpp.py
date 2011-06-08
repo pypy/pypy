@@ -54,22 +54,60 @@ class AppTestADVANCEDCPP:
         """Test access to namespaces and inner classes"""
 
         import cppyy
+        gbl = cppyy.gbl
 
-# TODO: have Reflex add the globals to the dictionary ...
-#        assert cppyy.gbl.a_ns.g_a                           == 11
-        assert cppyy.gbl.a_ns.b_class.s_b                   == 22
-        assert cppyy.gbl.a_ns.b_class().m_b                 == -2
-        assert cppyy.gbl.a_ns.b_class.c_class.s_c           == 33
-        assert cppyy.gbl.a_ns.b_class.c_class().m_c         == -3
-#        assert cppyy.gbl.a_ns.d_ns.g_d                      == 44
-        assert cppyy.gbl.a_ns.d_ns.e_class.s_e              == 55
-        assert cppyy.gbl.a_ns.d_ns.e_class().m_e            == -5
-        assert cppyy.gbl.a_ns.d_ns.e_class.f_class.s_f      == 66
-        assert cppyy.gbl.a_ns.d_ns.e_class.f_class().m_f    == -6
+        assert gbl.a_ns.g_a                           == 11
+        assert gbl.a_ns.b_class.s_b                   == 22
+        assert gbl.a_ns.b_class().m_b                 == -2
+        assert gbl.a_ns.b_class.c_class.s_c           == 33
+        assert gbl.a_ns.b_class.c_class().m_c         == -3
+        assert gbl.a_ns.d_ns.g_d                      == 44
+        assert gbl.a_ns.d_ns.e_class.s_e              == 55
+        assert gbl.a_ns.d_ns.e_class().m_e            == -5
+        assert gbl.a_ns.d_ns.e_class.f_class.s_f      == 66
+        assert gbl.a_ns.d_ns.e_class.f_class().m_f    == -6
 
-        assert cppyy.gbl.a_ns      is cppyy.gbl.a_ns
-        assert cppyy.gbl.a_ns.d_ns is cppyy.gbl.a_ns.d_ns
+        assert gbl.a_ns      is gbl.a_ns
+        assert gbl.a_ns.d_ns is gbl.a_ns.d_ns
 
-        assert cppyy.gbl.a_ns.b_class              is cppyy.gbl.a_ns.b_class
-        assert cppyy.gbl.a_ns.d_ns.e_class         is cppyy.gbl.a_ns.d_ns.e_class
-        assert cppyy.gbl.a_ns.d_ns.e_class.f_class is cppyy.gbl.a_ns.d_ns.e_class.f_class
+        assert gbl.a_ns.b_class              is gbl.a_ns.b_class
+        assert gbl.a_ns.d_ns.e_class         is gbl.a_ns.d_ns.e_class
+        assert gbl.a_ns.d_ns.e_class.f_class is gbl.a_ns.d_ns.e_class.f_class
+
+    def test03_template_types(self):
+        """Test bindings of templated types"""
+
+        import cppyy
+        gbl = cppyy.gbl
+
+        assert gbl.T1 is gbl.T1
+        assert gbl.T2 is gbl.T2
+        assert gbl.T3 is gbl.T3
+        assert not gbl.T1 is gbl.T2
+        assert not gbl.T2 is gbl.T3
+
+        assert gbl.T1('int') is gbl.T1('int')
+        assert gbl.T1(int)   is gbl.T1('int')
+        assert gbl.T2('T1<int>')     is gbl.T2('T1<int>')
+        assert gbl.T2(gbl.T1('int')) is gbl.T2('T1<int>')
+        assert gbl.T3('int,double')    is gbl.T3('int,double')
+        assert gbl.T3('int', 'double') is gbl.T3('int,double')
+        assert gbl.T3(int, 'double')   is gbl.T3('int,double')
+        assert gbl.T3('T1<int>,T2<T1<int> >') is gbl.T3('T1<int>,T2<T1<int> >')
+        assert gbl.T3('T1<int>', gbl.T2(gbl.T1(int))) is gbl.T3('T1<int>,T2<T1<int> >')
+
+        assert gbl.a_ns.T4(int) is gbl.a_ns.T4('int')
+        assert gbl.a_ns.T4('a_ns::T4<T3<int,double> >')\
+               is gbl.a_ns.T4(gbl.a_ns.T4(gbl.T3(int, 'double')))
+
+        t1 = gbl.T1(int)()
+        assert t1.m_t1    == 1
+        assert t1.value() == 1
+        t1.destruct()
+
+        t1 = gbl.T1(int)(11)
+        assert t1.m_t1    == 11
+        assert t1.value() == 11
+        t1.m_t1 = 111
+        assert t1.value() == 111
+        t1.destruct()

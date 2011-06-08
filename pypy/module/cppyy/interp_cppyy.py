@@ -485,6 +485,7 @@ class W_CPPTemplateType(Wrappable):
         self.handle = handle
 
     def __call__(self, args_w):
+        # TODO: this is broken but unused (see pythonify.py)
         fullname = "".join([self.name, '<', self.space.str_w(args_w[0]), '>'])
         return type_byname(self.space, fullname)
 

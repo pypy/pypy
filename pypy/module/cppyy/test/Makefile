@@ -26,8 +26,8 @@ datatypesDict.so: datatypes.cxx datatypes.h
 	$(genreflex) datatypes.h $(genreflexflags)
 	g++ -o $@ datatypes_rflx.cpp datatypes.cxx -shared -lReflex $(cppflags) $(cppflags2)
 
-advancedcppDict.so: advancedcpp.cxx advancedcpp.h
-	$(genreflex) advancedcpp.h $(genreflexflags)
+advancedcppDict.so: advancedcpp.cxx advancedcpp.h advancedcpp.xml
+	$(genreflex) advancedcpp.h $(genreflexflags) --selection=advancedcpp.xml
 	g++ -o $@ advancedcpp_rflx.cpp advancedcpp.cxx -shared -lReflex $(cppflags) $(cppflags2)
 
 stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml

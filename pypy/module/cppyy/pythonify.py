@@ -27,8 +27,18 @@ class CppyyTemplateType(object):
         self._scope = scope
         self._name = name
 
+    def _arg_to_str(self, arg):
+        if type(arg) != str:
+            arg = arg.__name__
+        return arg
+
     def __call__(self, *args):
-        fullname = "".join([self._name, '<', str(args[0]), '>'])
+        fullname = ''.join(
+            [self._name, '<', ','.join(map(self._arg_to_str, args))])
+        if fullname[-1] == '>':
+            fullname += ' >'
+        else:
+            fullname += '>'
         return getattr(self._scope, fullname)
 
 class CppyyObject(object):
@@ -141,7 +151,7 @@ def make_cpptemplatetype(template_name, scope):
 
 _existing_cppitems = {}               # to merge with gbl.__dict__ (?)
 def get_cppitem(name, scope=None):
-    if scope:
+    if scope and not scope is gbl:
         fullname = scope.__name__+"::"+name
     else:
         fullname = name
@@ -175,18 +185,6 @@ def get_cppitem(name, scope=None):
 get_cppclass = get_cppitem         # TODO: restrict to classes only (?)
 
 
-class _gbl(object): # TODO: make a CppyyNamespace object
-    """Global C++ namespace, i.e. ::."""
-
-    def __getattr__(self, attr):
-        try:
-            cppitem = get_cppitem(attr)
-            self.__dict__[attr] = cppitem
-            return cppitem
-        except TypeError:
-            raise AttributeError("'gbl' object has no attribute '%s'" % attr)
-
-
 _loaded_shared_libs = {}
 def load_lib(name):
     try:
@@ -198,4 +196,4 @@ def load_lib(name):
     
 
 # user interface objects
-gbl = _gbl()
+gbl = make_cppnamespace("::", cppyy._type_byname(""))    # global C++ namespace
