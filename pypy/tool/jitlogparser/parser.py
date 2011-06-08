@@ -61,7 +61,7 @@ class SimpleParser(OpParser):
         if not argspec.strip():
             return [], None
         if opname == 'debug_merge_point':
-            return argspec.rsplit(", ", 1), None
+            return argspec.split(", ", 1), None
         else:
             args = argspec.split(', ')
             descr = None
