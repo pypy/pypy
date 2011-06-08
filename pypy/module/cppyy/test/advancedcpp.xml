@@ -1,0 +1,16 @@
+<lcgdict>
+
+  <class name="base_class" />
+  <class name="derived_class" />
+
+  <class pattern="T1<*>" />
+  <class pattern="T2<*>" />
+  <class pattern="T3<*>" />
+
+  <namespace name="a_ns" />
+  <namespace pattern="a_ns::*" />
+  <class pattern="a_ns::*" />
+  <variable name="a_ns::g_a" />
+  <variable name="a_ns::d_ns::g_d" />
+
+</lcgdict>
