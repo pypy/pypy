@@ -248,5 +248,7 @@ Miscellaneous
   never a dictionary as it sometimes is in CPython. Assigning to
   ``__builtins__`` has no effect.
 
-.. include:: _ref.txt
+* object identity of immutable keys in dictionaries is not necessarily preserved.
+  Never compare immutable objects with ``is``.
 
+.. include:: _ref.txt
