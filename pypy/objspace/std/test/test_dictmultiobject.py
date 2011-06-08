@@ -6,7 +6,7 @@ from pypy.objspace.std.dictmultiobject import \
 
 from pypy.objspace.std.celldict import ModuleDictStrategy
 from pypy.conftest import gettestobjspace
-
+from pypy.conftest import option
 
 class TestW_DictObject:
 
@@ -779,6 +779,10 @@ class AppTestModuleDict(object):
         assert F() not in d
 
 class AppTestStrategies(object):
+    def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
+
     def w_get_strategy(self, obj):
         import __pypy__
         r = __pypy__.internal_repr(obj)
