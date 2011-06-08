@@ -82,9 +82,6 @@ def do_call(cpu, metainterp, argboxes, descr):
 do_call_loopinvariant = do_call
 do_call_may_force = do_call
 
-def do_call_c(cpu, metainterp, argboxes, descr):
-    raise NotImplementedError("Should never be called directly")
-
 def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()
     index = indexbox.getint()
@@ -322,6 +319,7 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
+                         rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,
                          ):      # list of opcodes never executed by pyjitpl
                 continue

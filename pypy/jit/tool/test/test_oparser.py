@@ -141,16 +141,16 @@ def test_floats():
 def test_debug_merge_point():
     x = '''
     []
-    debug_merge_point("info", 0)
-    debug_merge_point('info', 1)
-    debug_merge_point('<some ('other,')> info', 1)
-    debug_merge_point('(stuff) #1', 1)
+    debug_merge_point(0, "info")
+    debug_merge_point(0, 'info')
+    debug_merge_point(1, '<some ('other,')> info')
+    debug_merge_point(0, '(stuff) #1')
     '''
     loop = parse(x)
-    assert loop.operations[0].getarg(0)._get_str() == 'info'
-    assert loop.operations[1].getarg(0)._get_str() == 'info'
-    assert loop.operations[2].getarg(0)._get_str() == "<some ('other,')> info"
-    assert loop.operations[3].getarg(0)._get_str() == "(stuff) #1"
+    assert loop.operations[0].getarg(1)._get_str() == 'info'
+    assert loop.operations[1].getarg(1)._get_str() == 'info'
+    assert loop.operations[2].getarg(1)._get_str() == "<some ('other,')> info"
+    assert loop.operations[3].getarg(1)._get_str() == "(stuff) #1"
     
 
 def test_descr_with_obj_print():

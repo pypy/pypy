@@ -30,6 +30,7 @@ else:
     BACKEND = 'c'
 
 config = get_pypy_config(translating=True)
+config.translation.backendopt.inline_threshold = 0.1
 config.translation.gc = 'boehm'
 config.objspace.nofaking = True
 config.translating = True

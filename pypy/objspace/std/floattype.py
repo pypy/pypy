@@ -14,10 +14,8 @@ from pypy.objspace.std.strutil import string_to_float
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
 float_hex = SMM("hex", 1)
 
-float_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any float.")
-
-def float_conjugate__ANY(space, w_float):
-    return space.pos(w_float)
+def descr_conjugate(space, w_float):
+    return space.float(w_float)
 
 register_all(vars(), globals())
 
@@ -168,10 +166,10 @@ def descr_fromhex(space, w_cls, s):
         if total_digits > min(const_one, const_two) // 4:
             raise OperationError(space.w_ValueError, space.wrap("way too long"))
         if i < length and (s[i] == "p" or s[i] == "P"):
+            i += 1
             if i == length:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("invalid hex string"))
-            i += 1
             exp_sign = 1
             if s[i] == "-" or s[i] == "+":
                 if s[i] == "-":
@@ -280,6 +278,7 @@ Convert a string or number to a floating point number, if possible.''',
                                        as_classmethod=True),
     fromhex = gateway.interp2app(descr_fromhex,
                                  as_classmethod=True),
+    conjugate = gateway.interp2app(descr_conjugate),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
 )

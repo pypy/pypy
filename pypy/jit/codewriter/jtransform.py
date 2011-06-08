@@ -209,7 +209,6 @@ class Transformer(object):
     def rewrite_op_cast_int_to_unichar(self, op): pass
     def rewrite_op_cast_int_to_uint(self, op): pass
     def rewrite_op_cast_uint_to_int(self, op): pass
-    def rewrite_op_resume_point(self, op): pass
 
     def _rewrite_symmetric(self, op):
         """Rewrite 'c1+v2' into 'v2+c1' in an attempt to avoid generating
@@ -769,10 +768,10 @@ class Transformer(object):
         from pypy.rpython.lltypesystem.rffi import size_and_sign, sizeof
         from pypy.rlib.rarithmetic import intmask
         assert not self._is_gc(op.args[0])
-        size1, unsigned1 = size_and_sign(op.args[0].concretetype)
         size2, unsigned2 = size_and_sign(op.result.concretetype)
         if size2 >= sizeof(lltype.Signed):
             return     # the target type is LONG or ULONG
+        size1, unsigned1 = size_and_sign(op.args[0].concretetype)
         #
         def bounds(size, unsigned):
             if unsigned:

@@ -602,7 +602,7 @@ class CStandaloneBuilder(CBuilder):
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
                 mk.rule('.c.gcmap', '',
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -m$(PYPY_MAIN_FUNCTION) -t $*.s > $@']
+                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
@@ -613,7 +613,7 @@ class CStandaloneBuilder(CBuilder):
                 mk.rule('%.lbl.s %.gcmap', '%.s',
                         [python +
                              '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
-                             '-m$(PYPY_MAIN_FUNCTION) -t $< > $*.gctmp',
+                             '-t $< > $*.gctmp',
                          'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                         [python +

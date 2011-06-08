@@ -33,13 +33,17 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy"]
+     "_collections", "_multibytecodec", "micronumpy", "_ffi"]
 ))
 
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "_md5", "cStringIO", "array"]))
+     "struct", "_md5", "cStringIO", "array", "_ffi",
+     # the following are needed for pyrepl (and hence for the
+     # interactive prompt/pdb)
+     "termios", "_minimal_curses",
+     ]))
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
@@ -237,6 +241,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("sharesmallstr",
                    "always reuse the prebuilt string objects "
                    "(the empty string and potentially single-char strings)",
+                   default=False),
+
+        BoolOption("withsmalltuple",
+                   "use small tuples",
                    default=False),
 
         BoolOption("withsmalltuple",

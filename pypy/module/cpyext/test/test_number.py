@@ -25,6 +25,15 @@ class TestIterator(BaseApiTest):
         assert api.PyInt_CheckExact(w_l)
         w_l = api.PyNumber_Int(space.wrap(2 << 65))
         assert api.PyLong_CheckExact(w_l)
+        w_l = api.PyNumber_Int(space.wrap(42.3))
+        assert api.PyInt_CheckExact(w_l)
+
+    def test_number_index(self, space, api):
+        w_l = api.PyNumber_Index(space.wrap(123L))
+        assert api.PyLong_CheckExact(w_l)
+        w_l = api.PyNumber_Index(space.wrap(42.3))
+        assert w_l is None
+        api.PyErr_Clear()
 
     def test_numbermethods(self, space, api):
         assert "ab" == space.unwrap(

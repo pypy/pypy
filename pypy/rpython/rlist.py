@@ -568,7 +568,6 @@ def ll_append(l, newitem):
     length = l.ll_length()
     l._ll_resize_ge(length+1)           # see "a note about overflows" above
     l.ll_setitem_fast(length, newitem)
-ll_append.oopspec = 'list.append(l, newitem)'
 
 # this one is for the special case of insert(0, x)
 def ll_prepend(l, newitem):
@@ -793,7 +792,6 @@ def ll_extend(l1, l2):
         raise MemoryError
     l1._ll_resize_ge(newlength)
     ll_arraycopy(l2, l1, 0, len1, len2)
-ll_extend.oopspec = 'list.extend(l1, l2)'
 
 def ll_extend_with_str(lst, s, getstrlen, getstritem):
     return ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, 0)

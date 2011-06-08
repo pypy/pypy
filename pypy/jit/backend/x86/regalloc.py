@@ -156,12 +156,14 @@ class RegAlloc(object):
         self.translate_support_code = translate_support_code
         # to be read/used by the assembler too
         self.jump_target_descr = None
+        self.close_stack_struct = 0
 
-    def _prepare(self, inputargs, operations):
+    def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
         self.param_depth = 0
         cpu = self.assembler.cpu
-        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
+                                                       allgcrefs)
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
@@ -172,15 +174,16 @@ class RegAlloc(object):
                                    assembler = self.assembler)
         return operations
 
-    def prepare_loop(self, inputargs, operations, looptoken):
-        operations = self._prepare(inputargs, operations)
+    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         jump = operations[-1]
         loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
         self.loop_consts = loop_consts
         return self._process_inputargs(inputargs), operations
 
-    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations):
-        operations = self._prepare(inputargs, operations)
+    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
+                       allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self.loop_consts = {}
         self._update_bindings(arglocs, inputargs)
         self.fm.frame_depth = prev_depths[0]
@@ -267,6 +270,12 @@ class RegAlloc(object):
         else:
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
+
+    def force_spill_var(self, var):
+        if var.type == FLOAT:
+            return self.xrm.force_spill_var(var)
+        else:
+            return self.rm.force_spill_var(var)
 
     def load_xmm_aligned_16_bytes(self, var, forbidden_vars=[]):
         # Load 'var' in a register; but if it is a constant, we can return
@@ -382,7 +391,9 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_discard(op, arglocs)
 
     def can_merge_with_next_guard(self, op, i, operations):
-        if op.getopnum() == rop.CALL_MAY_FORCE or op.getopnum() == rop.CALL_ASSEMBLER:
+        if (op.getopnum() == rop.CALL_MAY_FORCE or
+            op.getopnum() == rop.CALL_ASSEMBLER or
+            op.getopnum() == rop.CALL_RELEASE_GIL):
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
             return True
         if not op.is_comparison():
@@ -418,6 +429,8 @@ class RegAlloc(object):
             if self.can_merge_with_next_guard(op, i, operations):
                 oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
                 i += 1
+            elif not we_are_translated() and op.getopnum() == -124: 
+                self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)
             if op.result is not None:
@@ -771,6 +784,19 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(op.getarg(1))
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
+        # we need to save registers on the stack:
+        #
+        #  - at least the non-callee-saved registers
+        #
+        #  - for shadowstack, we assume that any call can collect, and we
+        #    save also the callee-saved registers that contain GC pointers,
+        #    so that they can be found by follow_stack_frame_of_assembler()
+        #
+        #  - for CALL_MAY_FORCE or CALL_ASSEMBLER, we have to save all regs
+        #    anyway, in case we need to do cpu.force().  The issue is that
+        #    grab_frame_values() would not be able to locate values in
+        #    callee-saved registers.
+        #
         save_all_regs = guard_not_forced_op is not None
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
@@ -837,6 +863,8 @@ class RegAlloc(object):
         assert guard_op is not None
         self._consider_call(op, guard_op)
 
+    consider_call_release_gil = consider_call_may_force
+
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
@@ -856,12 +884,12 @@ class RegAlloc(object):
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
-        loc_newvalue = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
+        loc_newvalue_or_index= self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        # ^^^ we force loc_newvalue_or_index in a reg (unless it's a Const),
         # because it will be needed anyway by the following setfield_gc.
         # It avoids loading it twice from the memory.
         loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        arglocs = [loc_base, loc_newvalue]
+        arglocs = [loc_base, loc_newvalue_or_index]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these
         # registers really need to be saved (a bit of a hack).  Moreover,
@@ -1293,6 +1321,10 @@ class RegAlloc(object):
     def consider_jit_debug(self, op):
         pass
 
+    def _consider_force_spill(self, op):
+        # This operation is used only for testing
+        self.force_spill_var(op.getarg(0))
+
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(IS_X86_64)
         for v, val in self.fm.frame_bindings.items():
@@ -1346,7 +1378,9 @@ for name, value in RegAlloc.__dict__.iteritems():
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())
         if (is_comparison_or_ovf_op(num)
-            or num == rop.CALL_MAY_FORCE or num == rop.CALL_ASSEMBLER):
+            or num == rop.CALL_MAY_FORCE
+            or num == rop.CALL_ASSEMBLER
+            or num == rop.CALL_RELEASE_GIL):
             oplist_with_guard[num] = value
             oplist[num] = add_none_argument(value)
         else:

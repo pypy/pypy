@@ -1020,6 +1020,7 @@ class MiniMarkGC(MovingGCBase):
                 objhdr.tid |= GCFLAG_CARDS_SET
 
         remember_young_pointer_from_array._dont_inline_ = True
+        assert self.card_page_indices > 0
         self.remember_young_pointer_from_array = (
             remember_young_pointer_from_array)
 

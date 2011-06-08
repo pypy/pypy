@@ -40,6 +40,7 @@ class Stack(object):
         assert n >= 0
         self.stack[n] = elem
 
+    @dont_look_inside
     def roll(self, r):
         if r < -1:
             i = self.stackpos + r

@@ -183,7 +183,6 @@ class AssertGreenFailed(Exception):
 # VRefs
 
 def virtual_ref(x):
-
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
     is that the object 'x' is supposed to be JITted as a virtual between
@@ -194,10 +193,10 @@ def virtual_ref(x):
     return DirectJitVRef(x)
 virtual_ref.oopspec = 'virtual_ref(x)'
 
-def virtual_ref_finish(x):
-    """See docstring in virtual_ref(x).  Note that virtual_ref_finish
-    takes as argument the real object, not the vref."""
+def virtual_ref_finish(vref, x):
+    """See docstring in virtual_ref(x)"""
     keepalive_until_here(x)   # otherwise the whole function call is removed
+    _virtual_ref_finish(vref, x)
 virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
 
 def non_virtual_ref(x):
@@ -205,18 +204,38 @@ def non_virtual_ref(x):
     Used for None or for frames outside JIT scope."""
     return DirectVRef(x)
 
+class InvalidVirtualRef(Exception):
+    """
+    Raised if we try to call a non-forced virtualref after the call to
+    virtual_ref_finish
+    """
+
 # ---------- implementation-specific ----------
 
 class DirectVRef(object):
     def __init__(self, x):
         self._x = x
+        self._state = 'non-forced'
+
     def __call__(self):
+        if self._state == 'non-forced':
+            self._state = 'forced'
+        elif self._state == 'invalid':
+            raise InvalidVirtualRef
         return self._x
+
+    def _finish(self):
+        if self._state == 'non-forced':
+            self._state = 'invalid'
 
 class DirectJitVRef(DirectVRef):
     def __init__(self, x):
         assert x is not None, "virtual_ref(None) is not allowed"
         DirectVRef.__init__(self, x)
+
+def _virtual_ref_finish(vref, x):
+    assert vref._x is x, "Invalid call to virtual_ref_finish"
+    vref._finish()
 
 class Entry(ExtRegistryEntry):
     _about_ = (non_virtual_ref, DirectJitVRef)
@@ -237,6 +256,15 @@ class Entry(ExtRegistryEntry):
         s_obj = self.bookkeeper.immutablevalue(self.instance())
         return _jit_vref.SomeVRef(s_obj)
 
+class Entry(ExtRegistryEntry):
+    _about_ = _virtual_ref_finish
+
+    def compute_result_annotation(self, s_vref, s_obj):
+        pass
+
+    def specialize_call(self, hop):
+        pass
+    
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
@@ -341,6 +369,24 @@ class JitDriver(object):
                         except ValueError:
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
+
+    
+    def on_compile(self, logger, looptoken, operations, type, *greenargs):
+        """ A hook called when loop is compiled. Overwrite
+        for your own jitdriver if you want to do something special, like
+        call applevel code
+        """
+
+    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
+        """ A hook called when a bridge is compiled. Overwrite
+        for your own jitdriver if you want to do something special
+        """
+
+    # note: if you overwrite this functions with the above signature it'll
+    #       work, but the *greenargs is different for each jitdriver, so we
+    #       can't share the same methods
+    del on_compile
+    del on_compile_bridge
 
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions

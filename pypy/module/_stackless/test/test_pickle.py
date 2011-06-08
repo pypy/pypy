@@ -19,9 +19,35 @@ class AppTestBasic:
 class AppTestPickle:
 
     def setup_class(cls):
-        if not option.runappdirect:
-            py.test.skip('pure appdirect test (run with -A)')
-        cls.space = gettestobjspace(usemodules=('_stackless',))
+        cls.space = gettestobjspace(usemodules=('_stackless',), CALL_METHOD=True)
+
+    def test_pickle_coroutine_empty(self):
+        # this test is limited to basic pickling.
+        # real stacks can only tested with a stackless pypy build.
+        import _stackless as stackless
+        co = stackless.coroutine()
+        import pickle
+        pckl = pickle.dumps(co)
+        co2 = pickle.loads(pckl)
+        # the empty unpickled coroutine can still be used:
+        result = []
+        co2.bind(result.append, 42)
+        co2.switch()
+        assert result == [42]
+
+    def test_pickle_coroutine_bound(self):
+        import pickle
+        import _stackless
+        lst = [4]
+        co = _stackless.coroutine()
+        co.bind(lst.append, 2)
+        pckl = pickle.dumps((co, lst))
+
+        (co2, lst2) = pickle.loads(pckl)
+        assert lst2 == [4]
+        co2.switch()
+        assert lst2 == [4, 2]
+
 
     def test_simple_ish(self):
 
@@ -44,6 +70,113 @@ def example():
     main_coro = _stackless.coroutine.getcurrent()
     sub_coro = _stackless.coroutine()
     sub_coro.bind(f, main_coro, 5, 1)
+    sub_coro.switch()
+
+    import pickle
+    pckl = pickle.dumps(sub_coro)
+    new_coro = pickle.loads(pckl)
+
+    new_coro.switch()
+
+example()
+assert output == [16, 8, 4, 2, 1]
+''' in mod.__dict__
+        finally:
+            del sys.modules['mod']
+
+    def test_pickle_again(self):
+
+        import new, sys
+
+        mod = new.module('mod')
+        sys.modules['mod'] = mod
+        try:
+            exec '''
+output = []
+import _stackless
+def f(coro, n, x):
+    if n == 0:
+        coro.switch()
+        return
+    f(coro, n-1, 2*x)
+    output.append(x)
+
+def example():
+    main_coro = _stackless.coroutine.getcurrent()
+    sub_coro = _stackless.coroutine()
+    sub_coro.bind(f, main_coro, 5, 1)
+    sub_coro.switch()
+
+    import pickle
+    pckl = pickle.dumps(sub_coro)
+    new_coro = pickle.loads(pckl)
+    pckl = pickle.dumps(new_coro)
+    newer_coro = pickle.loads(pckl)
+
+    newer_coro.switch()
+
+example()
+assert output == [16, 8, 4, 2, 1]
+''' in mod.__dict__
+        finally:
+            del sys.modules['mod']
+
+    def test_kwargs(self):
+
+        import new, sys
+
+        mod = new.module('mod')
+        sys.modules['mod'] = mod
+        try:
+            exec '''
+output = []
+import _stackless
+def f(coro, n, x, step=4):
+    if n == 0:
+        coro.switch()
+        return
+    f(coro, n-1, 2*x, step=1)
+    output.append(x)
+
+def example():
+    main_coro = _stackless.coroutine.getcurrent()
+    sub_coro = _stackless.coroutine()
+    sub_coro.bind(f, main_coro, 5, 1, 1)
+    sub_coro.switch()
+
+    import pickle
+    pckl = pickle.dumps(sub_coro)
+    new_coro = pickle.loads(pckl)
+
+    new_coro.switch()
+
+example()
+assert output == [16, 8, 4, 2, 1]
+''' in mod.__dict__
+        finally:
+            del sys.modules['mod']
+
+    def test_starstarargs(self):
+
+        import new, sys
+
+        mod = new.module('mod')
+        sys.modules['mod'] = mod
+        try:
+            exec '''
+output = []
+import _stackless
+def f(coro, n, x, step=4):
+    if n == 0:
+        coro.switch()
+        return
+    f(coro, n-1, 2*x, **{'step': 1})
+    output.append(x)
+
+def example():
+    main_coro = _stackless.coroutine.getcurrent()
+    sub_coro = _stackless.coroutine()
+    sub_coro.bind(f, main_coro, 5, 1, 1)
     sub_coro.switch()
 
     import pickle
@@ -130,8 +263,55 @@ assert output == [ValueError]
         finally:
             del sys.modules['mod']
 
+    def test_exception_after_unpickling(self):
+
+        import new, sys
+
+        mod = new.module('mod')
+        sys.modules['mod'] = mod
+        try:
+            exec '''
+output = []
+import _stackless
+def f(coro, n, x):
+    if n == 0:
+        coro.switch()
+        raise ValueError
+    try:
+        f(coro, n-1, 2*x)
+    finally:
+        output.append(x)
+
+def example():
+    main_coro = _stackless.coroutine.getcurrent()
+    sub_coro = _stackless.coroutine()
+    sub_coro.bind(f, main_coro, 5, 1)
+    sub_coro.switch()
+
+    import pickle
+    pckl = pickle.dumps(sub_coro)
+    new_coro = pickle.loads(pckl)
+
+    try:
+        sub_coro.switch()
+    except ValueError:
+        pass
+    else:
+        assert 0
+    try:
+        new_coro.switch()
+    except ValueError:
+        pass
+    else:
+        assert 0
+
+example()
+assert output == [16, 8, 4, 2, 1] * 2
+''' in mod.__dict__
+        finally:
+            del sys.modules['mod']
+
     def test_loop(self):
-        #skip("happily segfaulting")
         import new, sys
 
         mod = new.module('mod')

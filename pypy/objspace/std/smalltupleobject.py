@@ -33,7 +33,7 @@ class W_SmallTupleObject(W_Object):
         raise NotImplementedError
 
     def unwrap(w_tuple, space):
-        items = [space.unwrap(w_item) for w_item in w_tuple.tolist()] # XXX generic mixed types unwrap
+        items = [space.unwrap(w_item) for w_item in w_tuple.tolist()]
         return tuple(items)
 
 def make_specialized_class(n):

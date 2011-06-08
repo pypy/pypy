@@ -471,8 +471,9 @@ _oplist = [
     'STRSETITEM/3',
     'UNICODESETITEM/3',
     #'RUNTIMENEW/1',     # ootype operation
-    'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
-    'DEBUG_MERGE_POINT/2',      # debugging only
+    'COND_CALL_GC_WB/2d', # [objptr, newvalue] or [arrayptr, index]
+                          # (for the write barrier, latter is in an array)
+    'DEBUG_MERGE_POINT/*',      # debugging only
     'JIT_DEBUG/*',              # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
@@ -485,6 +486,7 @@ _oplist = [
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',
+    'CALL_RELEASE_GIL/*d',  # release the GIL and "close the stack" for asmgcc
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend

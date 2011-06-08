@@ -107,12 +107,6 @@ class BaseTestOperations(object):
             return res
         assert self.interpret(fn, [sys.maxint, 2]) == 1
 
-    def test_ignore_resume_point(self):
-        def fn(x):
-            rstack.resume_point('hello world', x)
-            return x
-        assert self.interpret(fn, [42]) == 42
-
     def test_rshift(self):
         def fn(x, y):
             return x >> y

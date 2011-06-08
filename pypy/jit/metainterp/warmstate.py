@@ -566,6 +566,19 @@ class WarmEnterState(object):
             return can_inline_greenargs(*greenargs)
         self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
+        if hasattr(jd.jitdriver, 'on_compile'):
+            def on_compile(logger, token, operations, type, greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                return jd.jitdriver.on_compile(logger, token, operations, type,
+                                               *greenargs)
+            def on_compile_bridge(logger, orig_token, operations, n):
+                return jd.jitdriver.on_compile_bridge(logger, orig_token,
+                                                      operations, n)
+            jd.on_compile = on_compile
+            jd.on_compile_bridge = on_compile_bridge
+        else:
+            jd.on_compile = lambda *args: None
+            jd.on_compile_bridge = lambda *args: None
 
         def get_assembler_token(greenkey, redboxes):
             # 'redboxes' is only used to know the types of red arguments
@@ -586,12 +599,8 @@ class WarmEnterState(object):
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
             missing = '(no jitdriver.get_printable_location!)'
-            missingll = llstr(missing)
             def get_location_str(greenkey):
-                if we_are_translated():
-                    return missingll
-                else:
-                    return missing
+                return missing
         else:
             rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
@@ -599,10 +608,10 @@ class WarmEnterState(object):
             def get_location_str(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
-                res = fn(*greenargs)
-                if not we_are_translated() and not isinstance(res, str):
-                    res = hlstr(res)
-                return res
+                llres = fn(*greenargs)
+                if not we_are_translated() and isinstance(llres, str):
+                    return llres
+                return hlstr(llres)
         self.get_location_str = get_location_str
         #
         confirm_enter_jit_ptr = self.jitdriver_sd._confirm_enter_jit_ptr
