@@ -1,5 +1,5 @@
 import py
-from pypy.module.pypyjit.test_pypy_c.test_model import BaseTestPyPyC
+from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 class TestException(BaseTestPyPyC):
 
