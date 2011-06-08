@@ -359,6 +359,7 @@ def define_instructions(target):
             continue
         try:
             func = globals()['define_%s_func' % name]
+            func.__name__ = name
         except KeyError:
             print 'No instr generator for %s instructions' % name
             continue
