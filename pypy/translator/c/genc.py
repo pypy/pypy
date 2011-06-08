@@ -900,8 +900,9 @@ def gen_startupcode(f, database):
     print >> f, '}'
 
 def commondefs(defines):
-    from pypy.rlib.rarithmetic import LONG_BIT
+    from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
     defines['PYPY_LONG_BIT'] = LONG_BIT
+    defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
 def add_extra_files(eci):
     srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')
