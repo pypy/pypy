@@ -249,8 +249,8 @@ class AssemblerARM(ResOpAssembler):
         mc.PUSH([r.lr.value])
         with saved_registers(mc, [], r.all_vfp_regs):
             # At this point we know that the values we need to compute the size
-            # are stored in r0 and IP.
-            mc.SUB_rr(r.r0.value, r.ip.value, r.r0.value)
+            # are stored in r0 and r1.
+            mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value)
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
             # XXX replace with an STMxx operation
             for reg, ofs in ARMv7RegisterMananger.REGLOC_TO_COPY_AREA_OFS.items():
@@ -259,15 +259,15 @@ class AssemblerARM(ResOpAssembler):
             for reg, ofs in ARMv7RegisterMananger.REGLOC_TO_COPY_AREA_OFS.items():
                 mc.LDR_ri(reg.value, r.fp.value, imm=ofs)
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        mc.gen_load_int(r.ip.value, nursery_free_adr)
-        mc.LDR_ri(r.ip.value, r.ip.value)
+        mc.gen_load_int(r.r1.value, nursery_free_adr)
+        mc.LDR_ri(r.r1.value, r.r1.value)
         mc.POP([r.pc.value])
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath = rawstart
 
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = ARMv7Builder()
-        # XXX add a check if cpu supports floats 
+        # XXX add a check if cpu supports floats
         with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
             mc.BL(addr)
@@ -914,13 +914,13 @@ class AssemblerARM(ResOpAssembler):
         self.mc.gen_load_int(r.r0.value, nursery_free_adr)
         self.mc.LDR_ri(r.r0.value, r.r0.value)
 
-        self.mc.ADD_ri(r.ip.value, r.r0.value, size)
+        self.mc.ADD_ri(r.r1.value, r.r0.value, size)
 
         # XXX maybe use an offset from the valeu nursery_free_addr
-        self.mc.gen_load_int(r.r1.value, nursery_top_adr)
-        self.mc.LDR_ri(r.r1.value, r.r1.value)
+        self.mc.gen_load_int(r.ip.value, nursery_top_adr)
+        self.mc.LDR_ri(r.ip.value, r.ip.value)
 
-        self.mc.CMP_rr(r.ip.value, r.r1.value)
+        self.mc.CMP_rr(r.r1.value, r.ip.value)
 
         fast_jmp_pos = self.mc.currpos()
         self.mc.NOP()
@@ -936,7 +936,6 @@ class AssemblerARM(ResOpAssembler):
         # result in EAX; slowpath_addr2 additionally returns in EDX a
         # copy of heap(nursery_free_adr), so that the final MOV below is
         # a no-op.
-
         self.mark_gc_roots(self.write_new_force_index(),
                            use_copy_area=True)
         slowpath_addr2 = self.malloc_slowpath
@@ -946,8 +945,8 @@ class AssemblerARM(ResOpAssembler):
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.LS)
 
-        self.mc.gen_load_int(r.r1.value, nursery_free_adr)
-        self.mc.STR_ri(r.ip.value, r.r1.value)
+        self.mc.gen_load_int(r.ip.value, nursery_free_adr)
+        self.mc.STR_ri(r.r1.value, r.ip.value)
 
         self.mc.gen_load_int(r.ip.value, tid)
         self.mc.STR_ri(r.ip.value, r.r0.value)
