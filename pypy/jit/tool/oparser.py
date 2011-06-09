@@ -9,8 +9,6 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
                                             UnaryOp, PlainResOp
 
-from pypy.rpython.ootypesystem import ootype
-
 class ParseError(Exception):
     pass
 

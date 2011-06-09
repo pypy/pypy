@@ -24,6 +24,11 @@ def get_real_model():
             from pypy.rpython.lltypesystem import llmemory
             return adr2int(llmemory.cast_ptr_to_adr(obj))
 
+        @staticmethod
+        def ootype_cast_to_object(obj):
+            from pypy.rpython.ootypesystem import ootype
+            return ootype.cast_to_object(obj)
+
     return LoopModel
 
 def get_mock_model():
