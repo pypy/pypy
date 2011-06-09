@@ -30,7 +30,7 @@ public:
 class a_class {                    // for esoteric inheritance testing
 public:
    a_class() { m_a = 1; m_da = 1.1; }
-   virtual ~a_class() {}
+   ~a_class() {}
    virtual int get_value() = 0;
 
 public:

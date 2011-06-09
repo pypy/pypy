@@ -3,6 +3,13 @@
   <class name="base_class" />
   <class name="derived_class" />
 
+  <class name="a_class" />
+  <class name="b_class" />
+  <class name="c_class" />
+  <class name="c_class_1" />
+  <class name="c_class_2" />
+  <class name="d_class" />
+
   <class pattern="T1<*>" />
   <class pattern="T2<*>" />
   <class pattern="T3<*>" />
@@ -12,5 +19,8 @@
   <class pattern="a_ns::*" />
   <variable name="a_ns::g_a" />
   <variable name="a_ns::d_ns::g_d" />
+
+  <class name="some_abstract_class" />
+  <class name="some_concrete_class" />
 
 </lcgdict>

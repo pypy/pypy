@@ -111,3 +111,12 @@ class AppTestADVANCEDCPP:
         t1.m_t1 = 111
         assert t1.value() == 111
         t1.destruct()
+
+    def test04_instantiation(self):
+        """Test non-instatiatability of abstract classes"""
+
+        import cppyy
+   
+        raises(TypeError, cppyy.gbl.a_class)
+        raises(TypeError, cppyy.gbl.some_abstract_class)
+

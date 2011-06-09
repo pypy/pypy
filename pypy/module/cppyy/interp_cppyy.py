@@ -460,7 +460,14 @@ class W_CPPType(W_CPPScope):
         return self.space.newlist(bases)
 
     def construct(self, args_w):
-        overload = self.get_overload(self.name)
+        try:
+            overload = self.get_overload(self.name)
+        except Exception, e:
+            if e.match(self.space, self.space.w_AttributeError):
+                raise OperationError(self.space.w_TypeError,
+                                     self.space.wrap("%s is abstract" % self.name))
+            raise
+
         return overload.call(NULL_VOIDP, args_w)
 
 W_CPPType.typedef = TypeDef(
