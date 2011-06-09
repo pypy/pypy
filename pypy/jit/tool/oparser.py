@@ -7,7 +7,6 @@ from pypy.jit.tool.oparser_model import get_model
 
 from pypy.jit.metainterp.history import BasicFailDescr, \
      LoopToken, get_const_ptr_for_string, get_const_ptr_for_unicode
-from pypy.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
 from pypy.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
                                             UnaryOp, PlainResOp
@@ -87,16 +86,16 @@ class OpParser(object):
         obj = self._consts[name]
         if self.type_system == 'lltype':
             if typ == 'ptr':
-                return ConstPtr(obj)
+                return self.model.ConstPtr(obj)
             else:
                 assert typ == 'class'
-                return ConstInt(adr2int(llmemory.cast_ptr_to_adr(obj)))
+                return self.model.ConstInt(adr2int(llmemory.cast_ptr_to_adr(obj)))
         else:
             if typ == 'ptr':
-                return ConstObj(obj)
+                return self.model.ConstObj(obj)
             else:
                 assert typ == 'class'
-                return ConstObj(ootype.cast_to_object(obj))
+                return self.model.ConstObj(ootype.cast_to_object(obj))
 
     def get_descr(self, poss_descr):
         if poss_descr.startswith('<'):
@@ -154,12 +153,12 @@ class OpParser(object):
 
     def getvar(self, arg):
         if not arg:
-            return ConstInt(0)
+            return self.model.ConstInt(0)
         try:
-            return ConstInt(int(arg))
+            return self.model.ConstInt(int(arg))
         except ValueError:
             if self.is_float(arg):
-                return ConstFloat(longlong.getfloatstorage(float(arg)))
+                return self.model.ConstFloat(longlong.getfloatstorage(float(arg)))
             if (arg.startswith('"') or arg.startswith("'") or
                 arg.startswith('s"')):
                 # XXX ootype
@@ -176,9 +175,9 @@ class OpParser(object):
                 return None
             elif arg == 'NULL':
                 if self.type_system == 'lltype':
-                    return ConstPtr(ConstPtr.value)
+                    return self.model.ConstPtr(self.model.ConstPtr.value)
                 else:
-                    return ConstObj(ConstObj.value)
+                    return self.model.ConstObj(self.model.ConstObj.value)
             elif arg.startswith('ConstPtr('):
                 name = arg[len('ConstPtr('):-1]
                 return self.get_const(name, 'ptr')

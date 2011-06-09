@@ -5,6 +5,7 @@ def get_real_model():
     class LoopModel(object):
         from pypy.jit.metainterp.history import TreeLoop
         from pypy.jit.metainterp.history import Box, BoxInt, BoxFloat
+        from pypy.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
         from pypy.jit.metainterp.typesystem import llhelper
 
     return LoopModel
