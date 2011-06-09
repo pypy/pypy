@@ -847,6 +847,21 @@ class AppTestPosix:
                 assert os.path.basename(s1).startswith(prefix or 'tmp')
                 assert os.path.basename(s2).startswith(prefix or 'tmp')
 
+    def test_tmpnam_warning(self):
+        import warnings, os
+        #
+        def f_tmpnam_warning(): os.tmpnam()    # a single line
+        #
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            f_tmpnam_warning()
+            assert len(w) == 1
+            assert issubclass(w[-1].category, RuntimeWarning)
+            assert "potential security risk" in str(w[-1].message)
+            # check that the warning points to the call to os.tmpnam(),
+            # not to some code inside app_posix.py
+            assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
