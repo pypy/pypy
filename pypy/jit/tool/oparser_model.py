@@ -18,6 +18,11 @@ def get_real_model():
             from pypy.jit.codewriter import longlong
             return longlong.getfloatstorage(float(arg))
 
+        @staticmethod
+        def ptr_to_int(obj):
+            from pypy.jit.codewriter.heaptracker import adr2int
+            from pypy.rpython.lltypesystem import llmemory
+            return adr2int(llmemory.cast_ptr_to_adr(obj))
 
     return LoopModel
 
@@ -85,6 +90,10 @@ def get_mock_model():
         @staticmethod
         def convert_to_floatstorage(arg):
             return float(arg)
+
+        @staticmethod
+        def ptr_to_int(obj):
+            return id(obj)
 
         class llhelper(object):
             pass

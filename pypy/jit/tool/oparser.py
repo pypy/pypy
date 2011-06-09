@@ -9,8 +9,6 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
                                             UnaryOp, PlainResOp
 
-from pypy.jit.codewriter.heaptracker import adr2int
-from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.ootypesystem import ootype
 
 class ParseError(Exception):
@@ -86,7 +84,7 @@ class OpParser(object):
                 return self.model.ConstPtr(obj)
             else:
                 assert typ == 'class'
-                return self.model.ConstInt(adr2int(llmemory.cast_ptr_to_adr(obj)))
+                return self.model.ConstInt(self.model.ptr_to_int(obj))
         else:
             if typ == 'ptr':
                 return self.model.ConstObj(obj)
