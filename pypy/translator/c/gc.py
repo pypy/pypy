@@ -297,6 +297,13 @@ class NoneGcPolicy(BoehmGcPolicy):
 
     gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
 
+    def compilation_info(self):
+        eci = BasicGcPolicy.compilation_info(self)
+        eci = eci.merge(ExternalCompilationInfo(
+            post_include_bits=['#define USING_NO_GC_AT_ALL'],
+            ))
+        return eci
+
 
 class FrameworkGcPolicy(BasicGcPolicy):
     transformerclass = framework.FrameworkGCTransformer
