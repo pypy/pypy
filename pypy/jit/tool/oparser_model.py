@@ -13,6 +13,12 @@ def get_real_model():
         get_const_ptr_for_string = staticmethod(get_const_ptr_for_string)
         get_const_ptr_for_unicode = staticmethod(get_const_ptr_for_unicode)
 
+        @staticmethod
+        def convert_to_floatstorage(arg):
+            from pypy.jit.codewriter import longlong
+            return longlong.getfloatstorage(float(arg))
+
+
     return LoopModel
 
 def get_mock_model():
@@ -75,6 +81,10 @@ def get_mock_model():
         @classmethod
         def get_const_ptr_for_unicode(cls, s):
             return cls.ConstPtr(s)
+
+        @staticmethod
+        def convert_to_floatstorage(arg):
+            return float(arg)
 
         class llhelper(object):
             pass

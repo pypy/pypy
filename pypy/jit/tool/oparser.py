@@ -10,10 +10,8 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation, \
                                             UnaryOp, PlainResOp
 
 from pypy.jit.codewriter.heaptracker import adr2int
-from pypy.jit.codewriter import longlong
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.ootypesystem import ootype
-
 
 class ParseError(Exception):
     pass
@@ -157,7 +155,7 @@ class OpParser(object):
             return self.model.ConstInt(int(arg))
         except ValueError:
             if self.is_float(arg):
-                return self.model.ConstFloat(longlong.getfloatstorage(float(arg)))
+                return self.model.ConstFloat(self.model.convert_to_floatstorage(arg))
             if (arg.startswith('"') or arg.startswith("'") or
                 arg.startswith('s"')):
                 # XXX ootype
