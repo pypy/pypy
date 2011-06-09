@@ -5,7 +5,7 @@ in a nicer fashion
 
 from pypy.jit.tool.oparser_model import get_model
 
-from pypy.jit.metainterp.history import BasicFailDescr, \
+from pypy.jit.metainterp.history import \
      LoopToken, get_const_ptr_for_string, get_const_ptr_for_unicode
 from pypy.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
@@ -55,6 +55,7 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
 
 
 def default_fail_descr(fail_args=None):
+    from pypy.jit.metainterp.history import BasicFailDescr
     return BasicFailDescr()
 
 
