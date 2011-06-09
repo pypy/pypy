@@ -3,8 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.jit.tool.oparser import parse, OpParser
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken,\
-     BoxFloat
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken
 
 class BaseTestOparser(object):
 
@@ -136,7 +135,10 @@ class BaseTestOparser(object):
         f1 = float_add(f0, 3.5)
         '''
         loop = self.parse(x)
-        assert isinstance(loop.operations[0].getarg(0), BoxFloat)
+        box = loop.operations[0].getarg(0)
+        # we cannot use isinstance, because in case of mock the class will be
+        # constructed on the fly
+        assert box.__class__.__name__ == 'BoxFloat'
 
     def test_debug_merge_point(self):
         x = '''

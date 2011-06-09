@@ -44,6 +44,19 @@ def get_mock_model():
         class BoxRef(Box):
             type = 'p'
 
+        class Const(object):
+            def __init__(self, value=None):
+                self.value = value
+
+        class ConstInt(Const):
+            pass
+
+        class ConstPtr(Const):
+            pass
+
+        class ConstFloat(Const):
+            pass
+
         class llhelper(object):
             pass
 
