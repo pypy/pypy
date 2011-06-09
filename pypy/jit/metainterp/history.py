@@ -1063,8 +1063,6 @@ def check_descr(x):
     Explodes if the annotator only thinks it is an instance of AbstractValue.
     """
     if x is not None:
-        if not we_are_translated() and getattr(x, 'I_am_a_descr', False):
-            return # needed for the mock case in oparser_model
         assert isinstance(x, AbstractDescr)
 
 class Entry(ExtRegistryEntry):

@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.jit.tool.oparser import parse, OpParser
@@ -42,7 +43,7 @@ class BaseTestOparser(object):
 
     def test_descr(self):
         class Xyz(AbstractDescr):
-            pass
+            I_am_a_descr = True # for the mock case
 
         x = """
         [p0]
@@ -63,7 +64,7 @@ class BaseTestOparser(object):
 
     def test_descr_setfield(self):
         class Xyz(AbstractDescr):
-            pass
+            I_am_a_descr = True # for the mock case
 
         x = """
         [p0]
@@ -122,6 +123,7 @@ class BaseTestOparser(object):
 
     def test_jump_target_other(self):
         looptoken = LoopToken()
+        looptoken.I_am_a_descr = True # for the mock case
         x = '''
         []
         jump(descr=looptoken)
@@ -242,8 +244,31 @@ class TestOpParser(BaseTestOparser):
         assert isinstance(b.sum0, BoxInt)
 
 
+class ForbiddenModule(object):
+    def __init__(self, name, old_mod):
+        self.name = name
+        self.old_mod = old_mod
+
+    def __getattr__(self, attr):
+        assert False, "You should not import module %s" % self.name
+
 
 class TestOpParserWithMock(BaseTestOparser):
 
     class OpParser(OpParser):
         use_mock_model = True
+
+    def setup_class(cls):
+        forbidden_mods = [
+            'pypy.jit.metainterp.history',
+            'pypy.rpython.lltypesystem.lltype',
+            ]
+        for modname in forbidden_mods:
+            if modname in sys.modules:
+                newmod = ForbiddenModule(modname, sys.modules[modname])
+                sys.modules[modname] = newmod
+
+    def teardown_class(cls):
+        for modname, mod in sys.modules.iteritems():
+            if isinstance(mod, ForbiddenModule):
+                sys.modules[modname] = mod.old_mod

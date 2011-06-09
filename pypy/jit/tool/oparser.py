@@ -46,9 +46,8 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
         return FORCE_SPILL(self.OPNUM, self.getarglist()[:])
 
 
-def default_fail_descr(fail_args=None):
-    from pypy.jit.metainterp.history import BasicFailDescr
-    return BasicFailDescr()
+def default_fail_descr(model, fail_args=None):
+    return model.BasicFailDescr()
 
 
 class OpParser(object):
@@ -237,14 +236,14 @@ class OpParser(object):
                                 "Unknown var in fail_args: %s" % arg)
                     fail_args.append(fail_arg)
             if descr is None and self.invent_fail_descr:
-                descr = self.invent_fail_descr(fail_args)
+                descr = self.invent_fail_descr(self.model, fail_args)
             if hasattr(descr, '_oparser_uses_descr_of_guard'):
                 descr._oparser_uses_descr_of_guard(self, fail_args)
         else:
             fail_args = None
             if opnum == rop.FINISH:
                 if descr is None and self.invent_fail_descr:
-                    descr = self.invent_fail_descr()
+                    descr = self.invent_fail_descr(self.model)
             elif opnum == rop.JUMP:
                 if descr is None and self.invent_fail_descr:
                     descr = self.looptoken
