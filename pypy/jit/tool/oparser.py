@@ -3,22 +3,22 @@
 in a nicer fashion
 """
 
-from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
-     ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
+from pypy.jit.tool.oparser_model import get_model
+
+from pypy.jit.metainterp.history import BasicFailDescr, \
      LoopToken, get_const_ptr_for_string, get_const_ptr_for_unicode
+from pypy.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
 from pypy.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
                                             UnaryOp, PlainResOp
-from pypy.jit.metainterp.typesystem import llhelper
+
 from pypy.jit.codewriter.heaptracker import adr2int
 from pypy.jit.codewriter import longlong
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 
-class ParseError(Exception):
-    pass
 
-class Boxes(object):
+class ParseError(Exception):
     pass
 
 class ESCAPE_OP(N_aryOp, ResOpWithDescr):
@@ -54,37 +54,15 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
     def clone(self):
         return FORCE_SPILL(self.OPNUM, self.getarglist()[:])
 
-class ExtendedTreeLoop(TreeLoop):
-
-    def getboxes(self):
-        def opboxes(operations):
-            for op in operations:
-                yield op.result
-                for box in op.getarglist():
-                    yield box
-        def allboxes():
-            for box in self.inputargs:
-                yield box
-            for box in opboxes(self.operations):
-                yield box
-
-        boxes = Boxes()
-        for box in allboxes():
-            if isinstance(box, Box):
-                name = str(box)
-                setattr(boxes, name, box)
-        return boxes
-
-    def setvalues(self, **kwds):
-        boxes = self.getboxes()
-        for name, value in kwds.iteritems():
-            getattr(boxes, name).value = value
 
 def default_fail_descr(fail_args=None):
     return BasicFailDescr()
 
 
 class OpParser(object):
+
+    use_mock_model = False
+    
     def __init__(self, input, cpu, namespace, type_system, boxkinds,
                  invent_fail_descr=default_fail_descr,
                  nonstrict=False):
@@ -101,6 +79,7 @@ class OpParser(object):
         self.invent_fail_descr = invent_fail_descr
         self.nonstrict = nonstrict
         self.looptoken = LoopToken()
+        self.model = get_model(self.use_mock_model)
 
     def get_const(self, name, typ):
         if self._consts is None:
@@ -132,16 +111,16 @@ class OpParser(object):
             pass
         if elem.startswith('i'):
             # integer
-            box = BoxInt()
-            _box_counter_more_than(elem[1:])
+            box = self.model.BoxInt()
+            _box_counter_more_than(self.model, elem[1:])
         elif elem.startswith('f'):
-            box = BoxFloat()
-            _box_counter_more_than(elem[1:])
+            box = self.model.BoxFloat()
+            _box_counter_more_than(self.model, elem[1:])
         elif elem.startswith('p'):
             # pointer
-            ts = getattr(self.cpu, 'ts', llhelper)
+            ts = getattr(self.cpu, 'ts', self.model.llhelper)
             box = ts.BoxRef()
-            _box_counter_more_than(elem[1:])
+            _box_counter_more_than(self.model, elem[1:])
         else:
             for prefix, boxclass in self.boxkinds.iteritems():
                 if elem.startswith(prefix):
@@ -338,7 +317,7 @@ class OpParser(object):
         num, ops, last_offset = self.parse_ops(base_indent, newlines, 0)
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
-        loop = ExtendedTreeLoop("loop")
+        loop = self.model.ExtendedTreeLoop("loop")
         loop.comment = first_comment
         loop.token = self.looptoken
         loop.operations = ops
@@ -405,6 +384,6 @@ def pure_parse(*args, **kwds):
     return parse(*args, **kwds)
 
 
-def _box_counter_more_than(s):
+def _box_counter_more_than(model, s):
     if s.isdigit():
-        Box._counter = max(Box._counter, int(s)+1)
+        model.Box._counter = max(model.Box._counter, int(s)+1)
