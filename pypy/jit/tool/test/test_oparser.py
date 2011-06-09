@@ -6,9 +6,9 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken,\
      BoxFloat
 
-class TestOparser(object):
+class BaseTestOparser(object):
 
-    OpParser = OpParser
+    OpParser = None
 
     def parse(self, *args, **kwds):
         kwds['OpParser'] = self.OpParser
@@ -102,14 +102,6 @@ class TestOparser(object):
         loop.setvalues(i0=32, i1=42)
         assert loop.inputargs[0].value == 32
         assert loop.operations[0].result.value == 42
-
-    def test_boxkind(self):
-        x = """
-        [sum0]
-        """
-        loop = self.parse(x, None, {}, boxkinds={'sum': BoxInt})
-        b = loop.getboxes()
-        assert isinstance(b.sum0, BoxInt)
 
     def test_getvar_const_ptr(self):
         x = '''
@@ -235,7 +227,21 @@ class TestOparser(object):
         assert loop.last_offset == 30
 
 
-class TestOparserWithMock(TestOparser):
+class TestOpParser(BaseTestOparser):
+
+    OpParser = OpParser
+
+    def test_boxkind(self):
+        x = """
+        [sum0]
+        """
+        loop = self.parse(x, None, {}, boxkinds={'sum': BoxInt})
+        b = loop.getboxes()
+        assert isinstance(b.sum0, BoxInt)
+
+
+
+class TestOpParserWithMock(BaseTestOparser):
 
     class OpParser(OpParser):
         use_mock_model = True
