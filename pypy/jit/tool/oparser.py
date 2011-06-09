@@ -372,7 +372,7 @@ class OpParser(object):
 
 def parse(input, cpu=None, namespace=None, type_system='lltype',
           boxkinds=None, invent_fail_descr=default_fail_descr,
-          no_namespace=False, nonstrict=False):
+          no_namespace=False, nonstrict=False, OpParser=OpParser):
     if namespace is None and not no_namespace:
         namespace = {}
     return OpParser(input, cpu, namespace, type_system, boxkinds,
