@@ -39,7 +39,12 @@ def try_compile_cache(c_files, eci):
         data = ''
     if not (data.startswith('True') or data.startswith('FAIL\n')):
         try:
-            platform.compile(c_files, eci)
+            _previous = platform.log_errors
+            try:
+                platform.log_errors = False
+                platform.compile(c_files, eci)
+            finally:
+                platform.log_errors = _previous
             data = 'True'
             path.write(data)
         except CompilationError, e:
