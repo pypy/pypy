@@ -5,8 +5,6 @@ in a nicer fashion
 
 from pypy.jit.tool.oparser_model import get_model
 
-from pypy.jit.metainterp.history import \
-     get_const_ptr_for_string, get_const_ptr_for_unicode
 from pypy.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
                                             UnaryOp, PlainResOp
@@ -164,11 +162,11 @@ class OpParser(object):
                 arg.startswith('s"')):
                 # XXX ootype
                 info = arg[1:].strip("'\"")
-                return get_const_ptr_for_string(info)
+                return self.model.get_const_ptr_for_string(info)
             if arg.startswith('u"'):
                 # XXX ootype
                 info = arg[1:].strip("'\"")
-                return get_const_ptr_for_unicode(info)
+                return self.model.get_const_ptr_for_unicode(info)
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 return self.get_const(name, 'class')

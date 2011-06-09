@@ -8,6 +8,11 @@ def get_real_model():
         from pypy.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
         from pypy.jit.metainterp.typesystem import llhelper
 
+        from pypy.jit.metainterp.history import get_const_ptr_for_string
+        from pypy.jit.metainterp.history import get_const_ptr_for_unicode
+        get_const_ptr_for_string = staticmethod(get_const_ptr_for_string)
+        get_const_ptr_for_unicode = staticmethod(get_const_ptr_for_unicode)
+
     return LoopModel
 
 def get_mock_model():
@@ -51,6 +56,9 @@ def get_mock_model():
             def __init__(self, value=None):
                 self.value = value
 
+            def _get_str(self):
+                return str(self.value)
+
         class ConstInt(Const):
             pass
 
@@ -59,6 +67,14 @@ def get_mock_model():
 
         class ConstFloat(Const):
             pass
+
+        @classmethod
+        def get_const_ptr_for_string(cls, s):
+            return cls.ConstPtr(s)
+
+        @classmethod
+        def get_const_ptr_for_unicode(cls, s):
+            return cls.ConstPtr(s)
 
         class llhelper(object):
             pass
