@@ -3,7 +3,7 @@ class Boxes(object):
 
 def get_real_model():
     class LoopModel(object):
-        from pypy.jit.metainterp.history import TreeLoop
+        from pypy.jit.metainterp.history import TreeLoop, LoopToken
         from pypy.jit.metainterp.history import Box, BoxInt, BoxFloat
         from pypy.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
         from pypy.jit.metainterp.typesystem import llhelper
@@ -16,6 +16,9 @@ def get_mock_model():
         class TreeLoop(object):
             def __init__(self, name):
                 self.name = name
+
+        class LoopToken(object):
+            I_am_a_descr = True
 
         class Box(object):
             _counter = 0

@@ -6,7 +6,7 @@ in a nicer fashion
 from pypy.jit.tool.oparser_model import get_model
 
 from pypy.jit.metainterp.history import \
-     LoopToken, get_const_ptr_for_string, get_const_ptr_for_unicode
+     get_const_ptr_for_string, get_const_ptr_for_unicode
 from pypy.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
                                             UnaryOp, PlainResOp
@@ -78,8 +78,8 @@ class OpParser(object):
             self._cache = {}
         self.invent_fail_descr = invent_fail_descr
         self.nonstrict = nonstrict
-        self.looptoken = LoopToken()
         self.model = get_model(self.use_mock_model)
+        self.looptoken = self.model.LoopToken()
 
     def get_const(self, name, typ):
         if self._consts is None:
