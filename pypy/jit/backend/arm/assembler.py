@@ -24,6 +24,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rarithmetic import r_uint, r_longlong
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.arm.opassembler import ResOpAssembler
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
