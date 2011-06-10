@@ -26,7 +26,7 @@ def entry_point(argv):
         return 3
     t0 = time.time()
     main(argv[0], size)
-    print "bytecode:", bytecode, "size:", size
+    print "bytecode:", argv[0], "size:", size
     print "took:", time.time() - t0
     return 0
 
