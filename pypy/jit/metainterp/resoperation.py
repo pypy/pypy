@@ -191,9 +191,15 @@ class ResOpWithDescr(AbstractResOp):
         # of the operation.  It must inherit from AbstractDescr.  The
         # backend provides it with cpu.fielddescrof(), cpu.arraydescrof(),
         # cpu.calldescrof(), and cpu.typedescrof().
+        self._check_descr(descr)
+        self._descr = descr
+
+    def _check_descr(self, descr):
+        if not we_are_translated() and getattr(descr, 'I_am_a_descr', False):
+            return # needed for the mock case in oparser_model
         from pypy.jit.metainterp.history import check_descr
         check_descr(descr)
-        self._descr = descr
+
 
 class GuardResOp(ResOpWithDescr):
 

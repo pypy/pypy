@@ -253,7 +253,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     if hasattr(callable, '_errorcode_'):
         errorcode = callable._errorcode_
     else:
-        errorcode = TP.TO.RESULT._example()
+        errorcode = TP.TO.RESULT._defl()
     callable_name = getattr(callable, '__name__', '?')
     if callbackholder is not None:
         callbackholder.callbacks[callable] = True

@@ -596,6 +596,42 @@ class TestStandalone(StandaloneTests):
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
 
+    def test_int_lshift_too_large(self):
+        from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
+        def entry_point(argv):
+            a = int(argv[1])
+            b = int(argv[2])
+            print a << b
+            return 0
+
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out = cbuilder.cmdexec("10 2", expect_crash=False)
+        assert out.strip() == str(10 << 2)
+        cases = [-4, LONG_BIT, LONGLONG_BIT]
+        for x in cases:
+            out, err = cbuilder.cmdexec("%s %s" % (1, x), expect_crash=True)
+            lines = err.strip()
+            assert 'The shift count is outside of the supported range' in lines
+
+    def test_llong_rshift_too_large(self):
+        from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
+        def entry_point(argv):
+            a = r_longlong(int(argv[1]))
+            b = r_longlong(int(argv[2]))
+            print a >> b
+            return 0
+
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out = cbuilder.cmdexec("10 2", expect_crash=False)
+        assert out.strip() == str(10 >> 2)
+        out = cbuilder.cmdexec("%s %s" % (-42, LONGLONG_BIT - 1), expect_crash=False)
+        assert out.strip() == '-1'
+        cases = [-4, LONGLONG_BIT]
+        for x in cases:
+            out, err = cbuilder.cmdexec("%s %s" % (1, x), expect_crash=True)
+            lines = err.strip()
+            assert 'The shift count is outside of the supported range' in lines
+
     def test_ll_assert_error_debug(self):
         def entry_point(argv):
             ll_assert(len(argv) != 1, "foobar")

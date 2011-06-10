@@ -91,7 +91,7 @@ experiments can be done for the general purpose. Examples
 Remove the GIL
 --------------
 
-This is a major task that requiers lots of thinking. However, few subprojects
+This is a major task that requires lots of thinking. However, few subprojects
 can be potentially specified, unless a better plan can be thought out:
 
 * A thread-aware garbage collector

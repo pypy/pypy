@@ -149,6 +149,9 @@ def parse_options_and_load_target():
             log.ERROR("Could not find target %r" % (arg, ))
             sys.exit(1)
 
+    # apply the platform settings
+    set_platform(config)
+
     targetspec = translateconfig.targetspec
     targetspec_dic = load_target(targetspec)
 
@@ -163,9 +166,6 @@ def parse_options_and_load_target():
                 optiondescr,
                 existing_config=config,
                 translating=True)
-
-    # apply the platform settings
-    set_platform(config)
 
     # apply the optimization level settings
     set_opt_level(config, translateconfig.opt)

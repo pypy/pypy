@@ -1,4 +1,5 @@
 import re, sys
+
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.tool.oparser import OpParser
 
@@ -51,6 +52,7 @@ class SimpleParser(OpParser):
 
     # factory method
     Op = Op
+    use_mock_model = True
 
     @classmethod
     def parse_from_input(cls, input):
