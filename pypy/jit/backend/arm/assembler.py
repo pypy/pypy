@@ -307,7 +307,7 @@ class AssemblerARM(ResOpAssembler):
         # 1 separator byte
         # 4 bytes for the faildescr
         memsize = (len(arglocs)-1)*6+5
-        memaddr = self.datablockwrapper.malloc_aligned(memsize, alignment=WORD)
+        memaddr = self.datablockwrapper.malloc_aligned(memsize, alignment=1)
         mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
         i = 0
         j = 0
