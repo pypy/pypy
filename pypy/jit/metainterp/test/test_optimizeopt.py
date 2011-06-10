@@ -145,7 +145,7 @@ def _sortboxes(boxes):
 class BaseTestOptimizeOpt(BaseTest):
     jit_ffi = False
 
-    def invent_fail_descr(self, fail_args):
+    def invent_fail_descr(self, model, fail_args):
         if fail_args is None:
             return None
         descr = Storage()
