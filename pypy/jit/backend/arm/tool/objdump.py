@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-
+"""
 Try:
-    ./viewcode.py file
+    ./objdump.py file.asm
+    ./objdump.py --decode dumpfile
 """
 import os, sys, py
 
