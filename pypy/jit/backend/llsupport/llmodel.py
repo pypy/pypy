@@ -174,7 +174,9 @@ class AbstractLLCPU(AbstractCPU):
         self.on_leave_jitted_save_exc = on_leave_jitted_save_exc
 
     def get_on_leave_jitted_hook(self):
-        return lambda : None
+        # this function needs to be overridden for things to work with
+        # our framework GCs
+        translation_time_error
 
     _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
