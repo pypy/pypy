@@ -69,6 +69,9 @@ class ArmCPU(AbstractLLCPU):
     def get_latest_force_token(self):
         return self.assembler.fail_force_index
 
+    def get_on_leave_jitted_hook(self):
+        return self.assembler.leave_jitted_hook
+
     def clear_latest_values(self, count):
         setitem = self.assembler.fail_boxes_ptr.setitem
         null = lltype.nullptr(llmemory.GCREF.TO)

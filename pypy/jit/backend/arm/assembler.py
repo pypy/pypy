@@ -905,7 +905,9 @@ class AssemblerARM(ResOpAssembler):
             assert 0, 'ffuu'
 
     def leave_jitted_hook(self):
-        pass
+        ptrs = self.fail_boxes_ptr.ar
+        llop.gc_assume_young_pointers(lltype.Void,
+                                      llmemory.cast_ptr_to_adr(ptrs))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
         size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
