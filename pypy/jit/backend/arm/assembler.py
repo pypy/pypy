@@ -121,8 +121,8 @@ class AssemblerARM(ResOpAssembler):
             self._build_malloc_slowpath()
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._exit_code_addr = self._gen_exit_path()
-        self._leave_jitted_jook_save_exc = self._gen_leave_jitted_hook_code(True)
-        self._leave_jitted_jook = self._gen_leave_jitted_hook_code(False)
+        self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
+        self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
 
     def setup_failure_recovery(self):
 
@@ -349,9 +349,9 @@ class AssemblerARM(ResOpAssembler):
         encode32(mem, j+1, n)
         self.mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
         if save_exc:
-            path = self._leave_jitted_jook_save_exc
+            path = self._leave_jitted_hook_save_exc
         else:
-            path = self._leave_jitted_jook
+            path = self._leave_jitted_hook
         self.mc.B(path)
         self.mc.write32(memaddr)
 
