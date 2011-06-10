@@ -1,5 +1,7 @@
 import py
+from pypy.tool.pairtype import extendabletype
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory, rclass
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.llsupport import symbolic, support
 from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
 from pypy.jit.metainterp.history import BasicFailDescr, LoopToken, BoxFloat
@@ -40,6 +42,11 @@ else:
 
 # ____________________________________________________________
 # SizeDescrs
+
+class __extend__(AbstractDescr):
+    __metaclass__ = extendabletype
+
+    tid = llop.combine_ushort(lltype.Void, 0, 0)
 
 class SizeDescr(AbstractDescr):
     size = 0      # help translation
