@@ -599,6 +599,7 @@ class GcLLDescr_framework(GcLLDescription):
 
         # make a malloc function, with three arguments
         def malloc_basic(size, tid):
+            assert size > 0, 'size should be > 0'
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
             check_typeid(type_id)
@@ -620,6 +621,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.write_barrier_descr = WriteBarrierDescr(self)
         #
         def malloc_array(itemsize, tid, num_elem):
+            assert num_elem >= 0, 'num_elem should be >= 0'
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
             try:
@@ -642,6 +644,7 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_type_id = self.layoutbuilder.get_type_id(rstr.UNICODE)
         #
         def malloc_str(length):
+            assert length >= 0, 'length should be >= 0'
             try:
                 return llop1.do_malloc_varsize_clear(
                     llmemory.GCREF,
@@ -651,6 +654,7 @@ class GcLLDescr_framework(GcLLDescription):
                 fatalerror("out of memory (from JITted code)")
                 return lltype.nullptr(llmemory.GCREF.TO)
         def malloc_unicode(length):
+            assert length >= 0, 'length should be >= 0'
             try:
                 return llop1.do_malloc_varsize_clear(
                     llmemory.GCREF,
