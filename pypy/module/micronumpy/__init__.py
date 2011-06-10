@@ -8,6 +8,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'array': 'interp_numarray.SingleDimArray',
         'zeros': 'interp_numarray.zeros',
+        'empty': 'interp_numarray.zeros',
 
         # ufuncs
         'absolute': 'interp_ufuncs.absolute',
