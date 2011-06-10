@@ -317,18 +317,18 @@ class OpAssembler(object):
                 else:
                     n += 2 * WORD
                     if count % 2 != 0:
-                        stack_args.append(ConstInt(0))
+                        stack_args.append(None)
                         n += WORD
                         count = 0
                 stack_args.append(arg)
             if count % 2 != 0:
                 n += WORD
-                stack_args.append(ConstInt(0))
+                stack_args.append(None)
 
             #then we push every thing on the stack
             for i in range(len(stack_args) -1, -1, -1):
                 arg = stack_args[i]
-                if isinstance(arg, ConstInt) and arg.value == 0:
+                if arg is None:
                     self.mc.PUSH([r.ip.value])
                 else:
                     self.regalloc_push(regalloc.loc(arg))
