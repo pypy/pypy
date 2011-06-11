@@ -232,7 +232,7 @@ def _sortboxes(boxes):
 
 class BaseTestBasic(BaseTest):
 
-    def invent_fail_descr(self, fail_args):
+    def invent_fail_descr(self, model, fail_args):
         if fail_args is None:
             return None
         descr = Storage()
