@@ -44,7 +44,11 @@ def try_compile_cache(c_files, eci):
                 platform.log_errors = False
                 platform.compile(c_files, eci)
             finally:
-                platform.log_errors = _previous
+                del platform.log_errors
+                # ^^^remove from the instance --- needed so that it can
+                # compare equal to another instance without it
+                if platform.log_errors != _previous:
+                    platform.log_errors = _previous
             data = 'True'
             path.write(data)
         except CompilationError, e:
