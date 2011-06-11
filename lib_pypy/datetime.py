@@ -1422,12 +1422,17 @@ class datetime(date):
             converter = _time.localtime
         else:
             converter = _time.gmtime
-        if 1 - (t % 1.0) < 0.000001:
-            t = float(int(t)) + 1
-        if t < 0:
-            t -= 1
+        if t < 0.0:
+            us = int(round(((-t) % 1.0) * 1000000))
+            if us > 0:
+                us = 1000000 - us
+                t -= 1.0
+        else:
+            us = int(round((t % 1.0) * 1000000))
+            if us == 1000000:
+                us = 0
+                t += 1.0
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(t)
-        us = int((t % 1.0) * 1000000)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
         result = cls(y, m, d, hh, mm, ss, us, tz)
         if tz is not None:
