@@ -291,3 +291,30 @@ class TestCallingConv(Runner):
             finally:
                 del self.cpu.done_with_this_frame_float_v
 
+
+    def test_call_with_imm_values_bug_constint0(self):
+            from pypy.rlib.libffi import types
+            cpu = self.cpu
+
+            I = lltype.Signed
+            ints = [7, 11, 23, 13, -42, 0, 0, 9]
+
+            def func(*args):
+                for i in range(len(args)):
+                    assert args[i] == ints[i]
+                return sum(args)
+
+            result = sum(ints)
+            args = [I] * len(ints)
+            argslist = [ConstInt(i) for i in ints]
+            FUNC = self.FuncType(args, I)
+            FPTR = self.Ptr(FUNC)
+            func_ptr = llhelper(FPTR, func)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox] + argslist,
+                                         'int', descr=calldescr)
+            assert res.value == result
+
