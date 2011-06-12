@@ -867,7 +867,7 @@ class MIFrame(object):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
-        self.debug_merge_point(jitdriver_sd, self.metainterp.in_recursion,
+        self.debug_merge_point(jdindex, self.metainterp.in_recursion,
                                greenboxes)
 
         if self.metainterp.seen_loop_header_for_jdindex < 0:
@@ -914,13 +914,10 @@ class MIFrame(object):
                                     assembler_call=True)
             raise ChangeFrame
 
-    def debug_merge_point(self, jitdriver_sd, in_recursion, greenkey):
+    def debug_merge_point(self, jd_index, in_recursion, greenkey):
         # debugging: produce a DEBUG_MERGE_POINT operation
-        loc = jitdriver_sd.warmstate.get_location_str(greenkey)
-        debug_print(loc)
-        constloc = self.metainterp.cpu.ts.conststr(loc)
-        self.metainterp.history.record(rop.DEBUG_MERGE_POINT,
-                                       [constloc, ConstInt(in_recursion)], None)
+        args = [ConstInt(jd_index), ConstInt(in_recursion)] + greenkey
+        self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")
     def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):

@@ -125,6 +125,9 @@ class TestNumber(BaseCTypesTestChecker):
             if t is c_longdouble:   # no support for 'g' in the struct module
                 continue
             code = t._type_ # the typecode
+            if code == 'g':
+                # typecode not supported by "struct"
+                continue
             align = struct.calcsize("c%c" % code) - struct.calcsize(code)
 
             # alignment of the type...

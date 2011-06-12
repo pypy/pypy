@@ -83,7 +83,6 @@ class BaseArray(Wrappable):
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
 
-#    unwrap_spec(item=int)
     def descr_getitem(self, space, w_idx):
         # TODO: indexation by tuples
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
@@ -100,12 +99,6 @@ class BaseArray(Wrappable):
     def descr_setitem(self, space, item, value):
         self.invalidated()
         return self.get_concrete().descr_setitem(space, item, value)
-
-#    @unwrap_spec(sta=int, sto=int)
-#    def descr_getslice(self, space, sta, sto):
-#        signature = Signature()
-#        res = SingleDimSlice(sta, sto, self, self.signature.transition(signature))
-#        return res
 
 class FloatWrapper(BaseArray):
     """
@@ -231,7 +224,6 @@ class ViewArray(BaseArray):
     def eval(self, i):
         return self.parent.eval(self.calc_index(i))
 
-#    @unwrap_spec(item=int)
     def getitem(self, item):
         return self.parent.getitem(self.calc_index(item))
 
@@ -242,8 +234,8 @@ class ViewArray(BaseArray):
     def descr_len(self, space):
         return space.wrap(self.find_size())
         
-#    def calc_index(self, item):
-#        raise NotImplementedError
+    def calc_index(self, item):
+        raise NotImplementedError
 
 class SingleDimSlice(ViewArray):
     _immutable_fields_ = ["start", "stop", "step", "size"]
@@ -296,9 +288,7 @@ class SingleDimArray(BaseArray):
     def descr_len(self, space):
         return space.wrap(self.size)
 
-#    @unwrap_spec(item=int)
     def getitem(self, item):
-#FIXME        item = self.getindex(space, item)
         return self.storage[item]
 
     @unwrap_spec(item=int, value=float)
@@ -330,7 +320,6 @@ BaseArray.typedef = TypeDef(
     __len__ = interp2app(BaseArray.descr_len),
     __getitem__ = interp2app(BaseArray.descr_getitem),
     __setitem__ = interp2app(BaseArray.descr_setitem),
-#    __getslice__ = interp2app(BaseArray.descr_getslice),
 
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),

@@ -21,6 +21,8 @@ Getting into PyPy ...
 
 * `speed.pypy.org`_: Daily benchmarks of how fast PyPy is
 
+* `potential project ideas`_: In case you want to get your feet wet...
+
 Documentation for the PyPy Python Interpreter
 ===============================================
 
@@ -59,8 +61,6 @@ Mailing lists, bug tracker, IRC channel
   (if they are not already developed in the FAQ_).
   You can find logs of the channel here_.
 
-.. XXX play1? 
-
 Meeting PyPy developers
 =======================
 
@@ -83,7 +83,7 @@ on the `development mailing list`_.
 .. _`Release 1.5`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
-
+.. _`potential project ideas`: project-ideas.html
 
 Project Documentation
 =====================================

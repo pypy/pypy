@@ -1,8 +1,9 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
     FloatWrapper, Call1, Call2, SingleDimSlice, add, mul)
 from pypy.module.micronumpy.interp_ufuncs import negative
-
+from pypy.module.micronumpy.compile import numpy_compile
 
 class FakeSpace(object):
     pass
@@ -126,3 +127,19 @@ class TestNumpyJIt(LLJitMixin):
                           'setarrayitem_raw': 1, 'int_add': 1,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
         assert result == f(5)
+
+class TestTranslation(object):
+    def test_compile(self):
+        x = numpy_compile('aa+f*f/a-', 10)
+        x = x.compute()
+        assert isinstance(x, SingleDimArray)
+        assert x.size == 10
+        assert x.storage[0] == 0
+        assert x.storage[1] == ((1 + 1) * 1.2) / 1.2 - 1
+    
+    def test_translation(self):
+        # we import main to check if the target compiles
+        from pypy.translator.goal.targetnumpystandalone import main
+        from pypy.rpython.annlowlevel import llstr
+        
+        interpret(main, [llstr('af+'), 100])

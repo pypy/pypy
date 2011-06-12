@@ -145,7 +145,7 @@ def _sortboxes(boxes):
 class BaseTestOptimizeOpt(BaseTest):
     jit_ffi = False
 
-    def invent_fail_descr(self, fail_args):
+    def invent_fail_descr(self, model, fail_args):
         if fail_args is None:
             return None
         descr = Storage()
@@ -3399,6 +3399,56 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         expected = '''
         [p1]
         jump(p1)
+        '''
+        self.optimize_loop(ops, expected)
+
+    def test_arraycopy_dest_not_virtual(self):
+        ops = '''
+        []
+        p1 = new_array(3, descr=arraydescr)
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        call(0, p1, p2, 0, 0, 3, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        expected = '''
+        []
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        setarrayitem_gc(p2, 0, 0, descr=arraydescr)
+        setarrayitem_gc(p2, 1, 0, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 10, descr=arraydescr)
+        escape(p2)
+        jump()
+        '''
+        self.optimize_loop(ops, expected)
+
+    def test_arraycopy_dest_not_virtual_too_long(self):
+        ops = '''
+        []
+        p1 = new_array(10, descr=arraydescr)
+        p2 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        expected = '''
+        []
+        p2 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        p1 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
+        escape(p2)
+        jump()
         '''
         self.optimize_loop(ops, expected)
 

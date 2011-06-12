@@ -222,6 +222,15 @@ void boehm_gc_startup_code(void)
 
 #endif /* USING_BOEHM_GC */
 
+
+#ifdef USING_NO_GC_AT_ALL
+#define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)  \
+  r = (restype) calloc(1, size);
+#define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
+#define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
+#define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#endif
+
 /************************************************************/
 /* weakref support */
 

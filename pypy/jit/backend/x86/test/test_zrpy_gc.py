@@ -1,8 +1,7 @@
 """
-This is a test that translates a complete JIT to C and runs it.  It is
-not testing much, expect that it basically works.  What it *is* testing,
-however, is the correct handling of GC, i.e. if objects are freed as
-soon as possible (at least in a simple case).
+This is a test that translates a complete JIT together with a GC and runs it.
+It is testing that the GC-dependent aspects basically work, mostly the mallocs
+and the various cases of write barrier.
 """
 
 import weakref
@@ -10,16 +9,11 @@ import py, os
 from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.jit import purefunction, unroll_safe
-from pypy.jit.backend.x86.runner import CPU386
-from pypy.jit.backend.llsupport.gc import GcRefList, GcRootMap_asmgcc
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
-from pypy.jit.backend.x86.arch import IS_X86_64
 from pypy.config.translationoption import DEFL_GC
-import py.test
 
 class X(object):
     def __init__(self, x=0):
@@ -86,7 +80,7 @@ def get_functions_to_patch():
     #
     return {(gc.GcLLDescr_framework, 'can_inline_malloc'): can_inline_malloc2}
 
-def compile(f, gc, **kwds):
+def compile(f, gc, enable_opts='', **kwds):
     from pypy.annotation.listdef import s_list_of_strings
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import apply_jit
@@ -110,14 +104,14 @@ def compile(f, gc, **kwds):
                 old_value[obj, attr] = getattr(obj, attr)
                 setattr(obj, attr, value)
             #
-            apply_jit(t, enable_opts='')
+            apply_jit(t, enable_opts=enable_opts)
             #
         finally:
             for (obj, attr), oldvalue in old_value.items():
                 setattr(obj, attr, oldvalue)
 
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
-    cbuilder.generate_source()
+    cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
     cbuilder.compile()
     return cbuilder
 
@@ -154,8 +148,10 @@ def test_compile_boehm():
 
 # ______________________________________________________________________
 
-class CompileFrameworkTests(object):
-    # Test suite using (so far) the minimark GC.
+
+class BaseFrameworkTests(object):
+    compile_kwds = {}
+
     def setup_class(cls):
         funcs = []
         name_to_func = {}
@@ -205,7 +201,8 @@ class CompileFrameworkTests(object):
         try:
             GcLLDescr_framework.DEBUG = True
             cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
-                                   gcrootfinder=cls.gcrootfinder, jit=True)
+                                   gcrootfinder=cls.gcrootfinder, jit=True,
+                                   **cls.compile_kwds)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
@@ -224,32 +221,36 @@ class CompileFrameworkTests(object):
     def run_orig(self, name, n, x):
         self.main_allfuncs(name, n, x)
 
-    def define_libffi_workaround(cls):
-        # XXX: this is a workaround for a bug in database.py.  It seems that
-        # the problem is triggered by optimizeopt/fficall.py, and in
-        # particular by the ``cast_base_ptr_to_instance(Func, llfunc)``: in
-        # these tests, that line is the only place where libffi.Func is
-        # referenced.
-        #
-        # The problem occurs because the gctransformer tries to annotate a
-        # low-level helper to call the __del__ of libffi.Func when it's too
-        # late.
-        #
-        # This workaround works by forcing the annotator (and all the rest of
-        # the toolchain) to see libffi.Func in a "proper" context, not just as
-        # the target of cast_base_ptr_to_instance.  Note that the function
-        # below is *never* called by any actual test, it's just annotated.
-        #
-        from pypy.rlib.libffi import get_libc_name, CDLL, types, ArgChain
-        libc_name = get_libc_name()
-        def f(n, x, *args):
-            libc = CDLL(libc_name)
-            ptr = libc.getpointer('labs', [types.slong], types.slong)
-            chain = ArgChain()
-            chain.arg(n)
-            n = ptr.call(chain, lltype.Signed)
-            return (n, x) + args
-        return None, f, None
+
+class CompileFrameworkTests(BaseFrameworkTests):
+    # Test suite using (so far) the minimark GC.
+
+##    def define_libffi_workaround(cls):
+##        # XXX: this is a workaround for a bug in database.py.  It seems that
+##        # the problem is triggered by optimizeopt/fficall.py, and in
+##        # particular by the ``cast_base_ptr_to_instance(Func, llfunc)``: in
+##        # these tests, that line is the only place where libffi.Func is
+##        # referenced.
+##        #
+##        # The problem occurs because the gctransformer tries to annotate a
+##        # low-level helper to call the __del__ of libffi.Func when it's too
+##        # late.
+##        #
+##        # This workaround works by forcing the annotator (and all the rest of
+##        # the toolchain) to see libffi.Func in a "proper" context, not just as
+##        # the target of cast_base_ptr_to_instance.  Note that the function
+##        # below is *never* called by any actual test, it's just annotated.
+##        #
+##        from pypy.rlib.libffi import get_libc_name, CDLL, types, ArgChain
+##        libc_name = get_libc_name()
+##        def f(n, x, *args):
+##            libc = CDLL(libc_name)
+##            ptr = libc.getpointer('labs', [types.slong], types.slong)
+##            chain = ArgChain()
+##            chain.arg(n)
+##            n = ptr.call(chain, lltype.Signed)
+##            return (n, x) + args
+##        return None, f, None
 
     def define_compile_framework_1(cls):
         # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works
@@ -455,6 +456,73 @@ class CompileFrameworkTests(object):
 
     def test_compile_framework_7(self):
         self.run('compile_framework_7')
+
+    def define_compile_framework_8(cls):
+        # Array of pointers, of unknown length (test write_barrier_from_array)
+        def before(n, x):
+            return n, x, None, None, None, None, None, None, None, None, [X(123)], None
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            if n < 1900:
+                check(l[0].x == 123)
+                l = [None] * (16 + (n & 7))
+                l[0] = X(123)
+                l[1] = X(n)
+                l[2] = X(n+10)
+                l[3] = X(n+20)
+                l[4] = X(n+30)
+                l[5] = X(n+40)
+                l[6] = X(n+50)
+                l[7] = X(n+60)
+                l[8] = X(n+70)
+                l[9] = X(n+80)
+                l[10] = X(n+90)
+                l[11] = X(n+100)
+                l[12] = X(n+110)
+                l[13] = X(n+120)
+                l[14] = X(n+130)
+                l[15] = X(n+140)
+            if n < 1800:
+                check(len(l) == 16 + (n & 7))
+                check(l[0].x == 123)
+                check(l[1].x == n)
+                check(l[2].x == n+10)
+                check(l[3].x == n+20)
+                check(l[4].x == n+30)
+                check(l[5].x == n+40)
+                check(l[6].x == n+50)
+                check(l[7].x == n+60)
+                check(l[8].x == n+70)
+                check(l[9].x == n+80)
+                check(l[10].x == n+90)
+                check(l[11].x == n+100)
+                check(l[12].x == n+110)
+                check(l[13].x == n+120)
+                check(l[14].x == n+130)
+                check(l[15].x == n+140)
+            n -= x.foo
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        def after(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            check(len(l) >= 16)
+            check(l[0].x == 123)
+            check(l[1].x == 2)
+            check(l[2].x == 12)
+            check(l[3].x == 22)
+            check(l[4].x == 32)
+            check(l[5].x == 42)
+            check(l[6].x == 52)
+            check(l[7].x == 62)
+            check(l[8].x == 72)
+            check(l[9].x == 82)
+            check(l[10].x == 92)
+            check(l[11].x == 102)
+            check(l[12].x == 112)
+            check(l[13].x == 122)
+            check(l[14].x == 132)
+            check(l[15].x == 142)
+        return before, f, after
+
+    def test_compile_framework_8(self):
+        self.run('compile_framework_8')
 
     def define_compile_framework_external_exception_handling(cls):
         def before(n, x):

@@ -1,4 +1,5 @@
 import re, sys
+
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.tool.oparser import OpParser
 
@@ -51,6 +52,7 @@ class SimpleParser(OpParser):
 
     # factory method
     Op = Op
+    use_mock_model = True
 
     @classmethod
     def parse_from_input(cls, input):
@@ -61,7 +63,7 @@ class SimpleParser(OpParser):
         if not argspec.strip():
             return [], None
         if opname == 'debug_merge_point':
-            return argspec.rsplit(", ", 1), None
+            return argspec.split(", ", 1), None
         else:
             args = argspec.split(', ')
             descr = None
@@ -95,12 +97,12 @@ class TraceForOpcode(object):
 
     def __init__(self, operations, storage):
         if operations[0].name == 'debug_merge_point':
-            self.inline_level = int(operations[0].args[1])
+            self.inline_level = int(operations[0].args[0])
             m = re.search('<code object ([<>\w]+), file \'(.+?)\', line (\d+)> #(\d+) (\w+)',
-                         operations[0].getarg(0))
+                         operations[0].getarg(1))
             if m is None:
                 # a non-code loop, like StrLiteralSearch or something
-                self.bytecode_name = operations[0].args[0].split(" ")[0][1:]
+                self.bytecode_name = operations[0].args[1].split(" ")[0][1:]
             else:
                 self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
                 self.startlineno = int(lineno)

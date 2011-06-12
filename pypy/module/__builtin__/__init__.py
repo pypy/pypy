@@ -31,6 +31,8 @@ class Module(MixedModule):
 
         'apply'         : 'app_functional.apply',
         'sorted'        : 'app_functional.sorted',
+        'any'           : 'app_functional.any',
+        'all'           : 'app_functional.all',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -95,8 +97,6 @@ class Module(MixedModule):
         'range'         : 'functional.range_int',
         'xrange'        : 'functional.W_XRange',
         'enumerate'     : 'functional.W_Enumerate',
-        'all'           : 'functional.all',
-        'any'           : 'functional.any',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
         'sum'           : 'functional.sum',

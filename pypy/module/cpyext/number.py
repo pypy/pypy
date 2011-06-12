@@ -49,6 +49,13 @@ def PyNumber_Long(space, w_obj):
     failure.  This is the equivalent of the Python expression long(o)."""
     return space.long(w_obj)
 
+@cpython_api([PyObject], PyObject)
+def PyNumber_Index(space, w_obj):
+    """Returns the o converted to a Python int or long on success or NULL with a
+    TypeError exception raised on failure.
+    """
+    return space.index(w_obj)
+
 def func_rename(newname):
     return lambda func: func_with_new_name(func, newname)
 

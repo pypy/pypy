@@ -139,10 +139,10 @@ def llexternal(name, args, result, _callable=None,
         source = py.code.Source("""
             def call_external_function(%(argnames)s):
                 before = aroundstate.before
-                after = aroundstate.after
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
                 res = funcptr(%(argnames)s)
+                after = aroundstate.after
                 if after: after()
                 return res
         """ % locals())
@@ -244,7 +244,7 @@ class CallbackHolder:
     def __init__(self):
         self.callbacks = {}
 
-def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
+def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
@@ -253,21 +253,18 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
     if hasattr(callable, '_errorcode_'):
         errorcode = callable._errorcode_
     else:
-        errorcode = TP.TO.RESULT._example()
+        errorcode = TP.TO.RESULT._defl()
     callable_name = getattr(callable, '__name__', '?')
-    callbackholder.callbacks[callable] = True
+    if callbackholder is not None:
+        callbackholder.callbacks[callable] = True
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
-                before = aroundstate.before
                 after = aroundstate.after
-            else:
-                before = None
-                after = None
-            if after:
-                after()
+                if after:
+                    after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
@@ -281,8 +278,10 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
                     traceback.print_exc()
                 result = errorcode
             stackcounter.stacks_counter -= 1
-            if before:
-                before()
+            if aroundstate is not None:
+                before = aroundstate.before
+                if before:
+                    before()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().

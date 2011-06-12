@@ -26,6 +26,7 @@ class LibTest(unittest.TestCase):
         self.assertEqual(chars.raw, "   ,,aaaadmmmnpppsss\x00")
 
     def test_no_more_xfail(self):
+        import socket
         import ctypes.test
         self.assertTrue(not hasattr(ctypes.test, 'xfail'),
                         "You should incrementally grep for '@xfail' and remove them, they are real failures")

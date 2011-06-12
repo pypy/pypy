@@ -39,10 +39,15 @@ class FunctionGcRootTracker(object):
         self.uses_frame_pointer = False
         self.r_localvar = self.r_localvarnofp
         self.filetag = filetag
-        # a "stack bottom" function is either main() or a callback from C code
+        # a "stack bottom" function is either pypy_main_function() or a
+        # callback from C code.  In both cases they are identified by
+        # the presence of pypy_asm_stack_bottom().
         self.is_stack_bottom = False
 
     def computegcmaptable(self, verbose=0):
+        if self.funcname in ['main', '_main']:
+            return []     # don't analyze main(), its prologue may contain
+                          # strange instructions
         self.findlabels()
         self.parse_instructions()
         try:
@@ -226,7 +231,7 @@ class FunctionGcRootTracker(object):
         # in the frame at this point.  This doesn't count the return address
         # which is the word immediately following the frame in memory.
         # The 'framesize' is set to an odd value if it is only an estimate
-        # (see visit_andl()).
+        # (see InsnCannotFollowEsp).
 
         def walker(insn, size_delta):
             check = deltas.setdefault(insn, size_delta)
@@ -266,7 +271,8 @@ class FunctionGcRootTracker(object):
 
             match = self.r_localvar_esp.match(localvar)
             if match:
-                if localvar == self.TOP_OF_STACK: # for pushl and popl, by
+                if localvar == self.TOP_OF_STACK_MINUS_WORD:
+                                                  # for pushl and popl, by
                     hint = None                   # default ebp addressing is
                 else:                             # a bit nicer
                     hint = 'esp'
@@ -521,10 +527,8 @@ class FunctionGcRootTracker(object):
         target = match.group("target")
         if target == self.ESP:
             # only for  andl $-16, %esp  used to align the stack in main().
-            # The exact amount of adjutment is not known yet, so we use
-            # an odd-valued estimate to make sure the real value is not used
-            # elsewhere by the FunctionGcRootTracker.
-            return InsnCannotFollowEsp()
+            # main() should not be seen at all.
+            raise AssertionError("instruction unexpected outside of main()")
         else:
             return self.binary_insn(line)
 
@@ -588,10 +592,12 @@ class FunctionGcRootTracker(object):
     def _visit_push(self, line):
         match = self.r_unaryinsn.match(line)
         source = match.group(1)
-        return [InsnStackAdjust(-self.WORD)] + self.insns_for_copy(source, self.TOP_OF_STACK)
+        return self.insns_for_copy(source, self.TOP_OF_STACK_MINUS_WORD) + \
+               [InsnStackAdjust(-self.WORD)]
 
     def _visit_pop(self, target):
-        return self.insns_for_copy(self.TOP_OF_STACK, target) + [InsnStackAdjust(+self.WORD)]
+        return [InsnStackAdjust(+self.WORD)] + \
+               self.insns_for_copy(self.TOP_OF_STACK_MINUS_WORD, target)
 
     def _visit_prologue(self):
         # for the prologue of functions that use %ebp as frame pointer
@@ -983,15 +989,15 @@ class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
     LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
     OFFSET_LABELS   = 2**30
-    TOP_OF_STACK = '0(%esp)'
+    TOP_OF_STACK_MINUS_WORD = '-4(%esp)'
 
     r_functionstart = re.compile(r"\t.type\s+"+LABEL+",\s*[@]function\s*$")
     r_functionend   = re.compile(r"\t.size\s+"+LABEL+",\s*[.]-"+LABEL+"\s*$")
-    LOCALVAR        = r"%eax|%edx|%ecx|%ebx|%esi|%edi|%ebp|\d*[(]%esp[)]"
+    LOCALVAR        = r"%eax|%edx|%ecx|%ebx|%esi|%edi|%ebp|-?\d*[(]%esp[)]"
     LOCALVARFP      = LOCALVAR + r"|-?\d*[(]%ebp[)]"
     r_localvarnofp  = re.compile(LOCALVAR)
     r_localvarfp    = re.compile(LOCALVARFP)
-    r_localvar_esp  = re.compile(r"(\d*)[(]%esp[)]")
+    r_localvar_esp  = re.compile(r"(-?\d*)[(]%esp[)]")
     r_localvar_ebp  = re.compile(r"(-?\d*)[(]%ebp[)]")
 
     r_rel_label      = re.compile(r"(\d+):\s*$")
@@ -1044,7 +1050,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
     LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
     OFFSET_LABELS   = 2**30
-    TOP_OF_STACK = '0(%rsp)'
+    TOP_OF_STACK_MINUS_WORD = '-8(%rsp)'
 
     r_functionstart = re.compile(r"\t.type\s+"+LABEL+",\s*[@]function\s*$")
     r_functionend   = re.compile(r"\t.size\s+"+LABEL+",\s*[.]-"+LABEL+"\s*$")
@@ -1140,7 +1146,7 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker32):
     CALLEE_SAVE_REGISTERS = ['ebx', 'esi', 'edi', 'ebp']
     REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
-    TOP_OF_STACK = 'DWORD PTR [esp]'
+    TOP_OF_STACK_MINUS_WORD = 'DWORD PTR [esp-4]'
 
     OPERAND = r'(?:(:?WORD|DWORD|BYTE) PTR |OFFSET )?[_\w?:@$]*(?:[-+0-9]+)?(:?\[[-+*\w0-9]+\])?'
     LABEL   = r'([a-zA-Z_$@.][a-zA-Z0-9_$@.]*)'
@@ -1323,12 +1329,11 @@ class AssemblerParser(object):
         self.verbose = verbose
         self.shuffle = shuffle
         self.gcmaptable = []
-        self.seen_main = False
 
-    def process(self, iterlines, newfile, entrypoint='main', filename='?'):
+    def process(self, iterlines, newfile, filename='?'):
         for in_function, lines in self.find_functions(iterlines):
             if in_function:
-                tracker = self.process_function(lines, entrypoint, filename)
+                tracker = self.process_function(lines, filename)
                 lines = tracker.lines
             self.write_newfile(newfile, lines, filename.split('.')[0])
         if self.verbose == 1:
@@ -1337,11 +1342,9 @@ class AssemblerParser(object):
     def write_newfile(self, newfile, lines, grist):
         newfile.writelines(lines)
 
-    def process_function(self, lines, entrypoint, filename):
+    def process_function(self, lines, filename):
         tracker = self.FunctionGcRootTracker(
             lines, filetag=getidentifier(filename))
-        is_main = tracker.funcname == entrypoint
-        tracker.is_stack_bottom = is_main
         if self.verbose == 1:
             sys.stderr.write('.')
         elif self.verbose > 1:
@@ -1356,7 +1359,6 @@ class AssemblerParser(object):
             self.gcmaptable[:0] = table
         else:
             self.gcmaptable.extend(table)
-        self.seen_main |= is_main
         return tracker
 
 class ElfAssemblerParser(AssemblerParser):
@@ -1432,11 +1434,6 @@ class DarwinAssemblerParser(AssemblerParser):
         if functionlines:
             yield in_function, functionlines
 
-    def process_function(self, lines, entrypoint, filename):
-        entrypoint = '_' + entrypoint
-        return super(DarwinAssemblerParser, self).process_function(
-            lines, entrypoint, filename)
-
 class DarwinAssemblerParser64(DarwinAssemblerParser):
     format = "darwin64"
     FunctionGcRootTracker = DarwinFunctionGcRootTracker64
@@ -1493,11 +1490,6 @@ class MsvcAssemblerParser(AssemblerParser):
         assert not in_function, (
             "missed the end of the previous function")
         yield False, functionlines
-
-    def process_function(self, lines, entrypoint, filename):
-        entrypoint = '_' + entrypoint
-        return super(MsvcAssemblerParser, self).process_function(
-            lines, entrypoint, filename)
 
     def write_newfile(self, newfile, lines, grist):
         newlines = []
@@ -1560,24 +1552,21 @@ class GcRootTracker(object):
         self.shuffle = shuffle     # to debug the sorting logic in asmgcroot.py
         self.format = format
         self.gcmaptable = []
-        self.seen_main = False
 
     def dump_raw_table(self, output):
-        print >> output, "seen_main = %d" % (self.seen_main,)
+        print 'raw table'
         for entry in self.gcmaptable:
             print >> output, entry
 
     def reload_raw_table(self, input):
         firstline = input.readline()
-        assert firstline.startswith("seen_main = ")
-        self.seen_main |= bool(int(firstline[len("seen_main = "):].strip()))
+        assert firstline == 'raw table\n'
         for line in input:
             entry = eval(line)
             assert type(entry) is tuple
             self.gcmaptable.append(entry)
 
     def dump(self, output):
-        assert self.seen_main
 
         def _globalname(name, disp=""):
             return tracker_cls.function_names_prefix + name
@@ -1649,8 +1638,8 @@ class GcRootTracker(object):
             s = """\
             /* See description in asmgcroot.py */
             .cfi_startproc
-            movq\t%rdi, %rdx\t/* 1st argument, which is the callback */
-            movq\t%rsi, %rcx\t/* 2nd argument, which is gcrootanchor */
+            /* %rdi is the 1st argument, which is the callback */
+            /* %rsi is the 2nd argument, which is gcrootanchor */
             movq\t%rsp, %rax\t/* my frame top address */
             pushq\t%rax\t\t/* ASM_FRAMEDATA[8] */
             pushq\t%rbp\t\t/* ASM_FRAMEDATA[7] */
@@ -1663,15 +1652,15 @@ class GcRootTracker(object):
             /* Add this ASM_FRAMEDATA to the front of the circular linked */
             /* list.  Let's call it 'self'.                               */
 
-            movq\t8(%rcx), %rax\t/* next = gcrootanchor->next */
+            movq\t8(%rsi), %rax\t/* next = gcrootanchor->next */
             pushq\t%rax\t\t\t\t/* self->next = next */
-            pushq\t%rcx\t\t\t/* self->prev = gcrootanchor */
-            movq\t%rsp, 8(%rcx)\t/* gcrootanchor->next = self */
+            pushq\t%rsi\t\t\t/* self->prev = gcrootanchor */
+            movq\t%rsp, 8(%rsi)\t/* gcrootanchor->next = self */
             movq\t%rsp, 0(%rax)\t\t\t/* next->prev = self */
             .cfi_def_cfa_offset 80\t/* 9 pushes + the retaddr = 80 bytes */
 
             /* note: the Mac OS X 16 bytes aligment must be respected. */
-            call\t*%rdx\t\t/* invoke the callback */
+            call\t*%rdi\t\t/* invoke the callback */
 
             /* Detach this ASM_FRAMEDATA from the circular linked list */
             popq\t%rsi\t\t/* prev = self->prev */
@@ -1688,7 +1677,7 @@ class GcRootTracker(object):
             popq\t%rcx\t\t/* ignored      ASM_FRAMEDATA[8] */
 
             /* the return value is the one of the 'call' above, */
-            /* because %rax (and possibly %rdx) are unmodified  */
+            /* because %rax is unmodified  */
             ret
             .cfi_endproc
             """
@@ -1835,11 +1824,11 @@ class GcRootTracker(object):
             """.replace("__gccallshapes", _globalname("__gccallshapes"))
             output.writelines(shapelines)
 
-    def process(self, iterlines, newfile, entrypoint='main', filename='?'):
+    def process(self, iterlines, newfile, filename='?'):
         parser = PARSERS[format](verbose=self.verbose, shuffle=self.shuffle)
         for in_function, lines in parser.find_functions(iterlines):
             if in_function:
-                tracker = parser.process_function(lines, entrypoint, filename)
+                tracker = parser.process_function(lines, filename)
                 lines = tracker.lines
             parser.write_newfile(newfile, lines, filename.split('.')[0])
         if self.verbose == 1:
@@ -1848,7 +1837,6 @@ class GcRootTracker(object):
             self.gcmaptable[:0] = parser.gcmaptable
         else:
             self.gcmaptable.extend(parser.gcmaptable)
-        self.seen_main |= parser.seen_main
 
 
 class UnrecognizedOperation(Exception):
@@ -1915,7 +1903,6 @@ if __name__ == '__main__':
             format = 'elf64'
         else:
             format = 'elf'
-    entrypoint = 'main'
     while len(sys.argv) > 1:
         if sys.argv[1] == '-v':
             del sys.argv[1]
@@ -1929,9 +1916,9 @@ if __name__ == '__main__':
         elif sys.argv[1].startswith('-f'):
             format = sys.argv[1][2:]
             del sys.argv[1]
-        elif sys.argv[1].startswith('-m'):
-            entrypoint = sys.argv[1][2:]
-            del sys.argv[1]
+        elif sys.argv[1].startswith('-'):
+            print >> sys.stderr, "unrecognized option:", sys.argv[1]
+            sys.exit(1)
         else:
             break
     tracker = GcRootTracker(verbose=verbose, shuffle=shuffle, format=format)
@@ -1940,7 +1927,7 @@ if __name__ == '__main__':
         firstline = f.readline()
         f.seek(0)
         assert firstline, "file %r is empty!" % (fn,)
-        if firstline.startswith('seen_main = '):
+        if firstline == 'raw table\n':
             tracker.reload_raw_table(f)
             f.close()
         else:
@@ -1948,7 +1935,7 @@ if __name__ == '__main__':
             lblfn = fn[:-2] + '.lbl.s'
             g = open(lblfn, 'w')
             try:
-                tracker.process(f, g, entrypoint=entrypoint, filename=fn)
+                tracker.process(f, g, filename=fn)
             except:
                 g.close()
                 os.unlink(lblfn)

@@ -18,6 +18,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[13] = 5.3
         assert a[13] == 5.3
 
+    def test_empty(self):
+        """
+        Test that empty() works.
+        """
+
+        from numpy import empty
+        a = empty(2)
+        a[1] = 1.0
+        assert a[1] == 1.0
+
     def test_iterator_init(self):
         from numpy import array
         a = array(range(5))

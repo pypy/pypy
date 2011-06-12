@@ -175,6 +175,14 @@ class Optimization(object):
     def __init__(self):
         pass # make rpython happy
 
+    def propagate_begin_forward(self):
+        if self.next_optimization:
+            self.next_optimization.propagate_begin_forward()
+
+    def propagate_end_forward(self):
+        if self.next_optimization:
+            self.next_optimization.propagate_end_forward()
+
     def propagate_forward(self, op):
         raise NotImplementedError
 
@@ -406,11 +414,13 @@ class Optimizer(Optimization):
         # ^^^ at least at the start of bridges.  For loops, we could set
         # it to False, but we probably don't care
         self.newoperations = []
+        self.first_optimization.propagate_begin_forward()
         self.i = 0
         while self.i < len(self.loop.operations):
             op = self.loop.operations[self.i]
             self.first_optimization.propagate_forward(op)
             self.i += 1
+        self.first_optimization.propagate_end_forward()
         self.loop.operations = self.newoperations
         self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters

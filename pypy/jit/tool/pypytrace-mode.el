@@ -8,10 +8,16 @@
 (defun set-truncate-lines ()
   (setq truncate-lines t))
 
+;; to generate the list of keywords:
+;; from pypy.jit.metainterp import resoperation
+;; print ' '.join(sorted('"%s"' % op.lower() for op in resoperation.opname.values() if not op.startswith('GUARD')))
+
+
+
 (define-generic-mode 
   'pypytrace-mode                   ;; name of the mode to create
   nil
-  '("jump" "finish" "int_add" "int_sub" "int_mul" "int_floordiv" "uint_floordiv" "int_mod" "int_and" "int_or" "int_xor" "int_rshift" "int_lshift" "uint_rshift" "float_add" "float_sub" "float_mul" "float_truediv" "float_neg" "float_abs" "cast_float_to_int" "cast_int_to_float" "int_lt" "int_le" "int_eq" "int_ne" "int_gt" "int_ge" "uint_lt" "uint_le" "uint_gt" "uint_ge" "float_lt" "float_le" "float_eq" "float_ne" "float_gt" "float_ge" "int_is_zero" "int_is_true" "int_neg" "int_invert" "same_as" "ptr_eq" "ptr_ne" "arraylen_gc" "strlen" "strgetitem" "getfield_gc_pure" "getfield_raw_pure" "getarrayitem_gc_pure" "unicodelen" "unicodegetitem" "getarrayitem_gc" "getarrayitem_raw" "getfield_gc" "getfield_raw" "new" "new_with_vtable" "new_array" "force_token" "virtual_ref" "setarrayitem_gc" "setarrayitem_raw" "setfield_gc" "setfield_raw" "arraycopy" "newstr" "strsetitem" "unicodesetitem" "newunicode" "cond_call_gc_wb" "virtual_ref_finish" "call" "call_assembler" "call_may_force" "call_loopinvariant" "call_pure" "int_add_ovf" "int_sub_ovf" "int_mul_ovf") ;; keywords
+  '("arraylen_gc" "call" "call_assembler" "call_loopinvariant" "call_may_force" "call_pure" "call_release_gil" "cast_float_to_int" "cast_int_to_float" "cond_call_gc_wb" "copystrcontent" "copyunicodecontent" "debug_merge_point" "finish" "float_abs" "float_add" "float_eq" "float_ge" "float_gt" "float_le" "float_lt" "float_mul" "float_ne" "float_neg" "float_sub" "float_truediv" "force_token" "getarrayitem_gc" "getarrayitem_gc_pure" "getarrayitem_raw" "getfield_gc" "getfield_gc_pure" "getfield_raw" "getfield_raw_pure" "int_add" "int_add_ovf" "int_and" "int_eq" "int_floordiv" "int_ge" "int_gt" "int_invert" "int_is_true" "int_is_zero" "int_le" "int_lshift" "int_lt" "int_mod" "int_mul" "int_mul_ovf" "int_ne" "int_neg" "int_or" "int_rshift" "int_sub" "int_sub_ovf" "int_xor" "jit_debug" "jump" "new" "new_array" "new_with_vtable" "newstr" "newunicode" "ptr_eq" "ptr_ne" "quasiimmut_field" "read_timestamp" "same_as" "setarrayitem_gc" "setarrayitem_raw" "setfield_gc" "setfield_raw" "strgetitem" "strlen" "strsetitem" "uint_floordiv" "uint_ge" "uint_gt" "uint_le" "uint_lt" "uint_rshift" "unicodegetitem" "unicodelen" "unicodesetitem" "virtual_ref" "virtual_ref_finish") ;; keywords
   '( ;; additional regexps
     ("^# Loop.*" . 'hi-blue)
     ("\\[.*\\]" . 'font-lock-comment-face) ;; comment out argument lists
