@@ -1262,8 +1262,7 @@ class MetaInterpStaticData(object):
     logger_ops = None
 
     def __init__(self, cpu, options,
-                 ProfilerClass=EmptyProfiler, warmrunnerdesc=None,
-                 jit_ffi=True):
+                 ProfilerClass=EmptyProfiler, warmrunnerdesc=None):
         self.cpu = cpu
         self.stats = self.cpu.stats
         self.options = options
@@ -1273,7 +1272,6 @@ class MetaInterpStaticData(object):
         self.profiler = ProfilerClass()
         self.profiler.cpu = cpu
         self.warmrunnerdesc = warmrunnerdesc
-        self.jit_ffi = jit_ffi
 
         backendmodule = self.cpu.__module__
         backendmodule = backendmodule.split('.')[-2]

@@ -22,12 +22,11 @@ class Fake(object):
 
 class FakeMetaInterpStaticData(object):
 
-    def __init__(self, cpu, jit_ffi=False):
+    def __init__(self, cpu):
         self.cpu = cpu
         self.profiler = EmptyProfiler()
         self.options = Fake()
         self.globaldata = Fake()
-        self.jit_ffi = jit_ffi
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
@@ -143,7 +142,6 @@ def _sortboxes(boxes):
     return sorted(boxes, key=lambda box: _kind2count[box.type])
 
 class BaseTestOptimizeOpt(BaseTest):
-    jit_ffi = False
 
     def invent_fail_descr(self, model, fail_args):
         if fail_args is None:
@@ -180,7 +178,7 @@ class BaseTestOptimizeOpt(BaseTest):
         loop.preamble = TreeLoop('preamble')
         loop.preamble.inputargs = loop.inputargs
         loop.preamble.token = LoopToken()
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu, self.jit_ffi)
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
