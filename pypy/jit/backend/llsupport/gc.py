@@ -552,7 +552,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))
         self.WB_ARRAY_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address, lltype.Signed], lltype.Void))
+            [llmemory.Address, lltype.Signed, llmemory.Address], lltype.Void))
         self.write_barrier_descr = WriteBarrierDescr(self)
         #
         def malloc_array(itemsize, tid, num_elem):
@@ -763,10 +763,8 @@ class GcLLDescr_framework(GcLLDescription):
             newops.append(op)
         return newops
 
-    def _gen_write_barrier(self, newops, v_base, v_value_or_index):
-        # NB. the 2nd argument of COND_CALL_GC_WB is either a pointer
-        # (regular case), or an index (case of write_barrier_from_array)
-        args = [v_base, v_value_or_index]
+    def _gen_write_barrier(self, newops, v_base, v_value):
+        args = [v_base, v_value]
         newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
                                    descr=self.write_barrier_descr))
 
@@ -780,7 +778,10 @@ class GcLLDescr_framework(GcLLDescription):
             length = known_lengths.get(v_base, LARGE)
             if length >= LARGE:
                 # unknown or too big: produce a write_barrier_from_array
-                self._gen_write_barrier(newops, v_base, v_index)
+                args = [v_base, v_value, v_index]
+                newops.append(ResOperation(rop.COND_CALL_GC_WB_ARRAY, args,
+                                           None,
+                                           descr=self.write_barrier_descr))
                 return
         # fall-back case: produce a write_barrier
         self._gen_write_barrier(newops, v_base, v_value)

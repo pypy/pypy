@@ -884,12 +884,18 @@ class RegAlloc(object):
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
-        loc_newvalue_or_index= self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        # ^^^ we force loc_newvalue_or_index in a reg (unless it's a Const),
+        loc_newvalue = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
         # because it will be needed anyway by the following setfield_gc.
         # It avoids loading it twice from the memory.
         loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        arglocs = [loc_base, loc_newvalue_or_index]
+        #
+        if len(args) == 2:
+            arglocs = [loc_base, loc_newvalue]    # cond_call_gc_wb
+        else:
+            # cond_call_gc_wb_array
+            loc_arrayindex = self.rm.make_sure_var_in_reg(op.getarg(2), args)
+            arglocs = [loc_base, loc_newvalue, loc_arrayindex]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these
         # registers really need to be saved (a bit of a hack).  Moreover,
@@ -902,6 +908,8 @@ class RegAlloc(object):
                 arglocs.append(reg)
         self.PerformDiscard(op, arglocs)
         self.rm.possibly_free_vars_for_op(op)
+
+    consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
     def fastpath_malloc_fixedsize(self, op, descr):
         assert isinstance(descr, BaseSizeDescr)

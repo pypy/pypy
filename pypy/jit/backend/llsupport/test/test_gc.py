@@ -553,12 +553,15 @@ class TestFramework(object):
                 del operations[:2]
             assert len(operations) == 2
             #
-            assert operations[0].getopnum() == rop.COND_CALL_GC_WB
-            assert operations[0].getarg(0) == v_base
             if isinstance(v_new_length, ConstInt) and v_new_length.value < 130:
+                assert operations[0].getopnum() == rop.COND_CALL_GC_WB
+                assert operations[0].getarg(0) == v_base
                 assert operations[0].getarg(1) == v_value
             else:
-                assert operations[0].getarg(1) == v_index
+                assert operations[0].getopnum() == rop.COND_CALL_GC_WB_ARRAY
+                assert operations[0].getarg(0) == v_base
+                assert operations[0].getarg(1) == v_value
+                assert operations[0].getarg(2) == v_index
             assert operations[0].result is None
             #
             assert operations[1].getopnum() == rop.SETARRAYITEM_RAW
