@@ -84,7 +84,7 @@ class BaseArray(Wrappable):
         return self.get_concrete().descr_len(space)
 
     def descr_getitem(self, space, w_idx):
-        # TODO: indexation by tuples
+        # TODO: indexing by tuples
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
         if step == 0:
             # Single index
@@ -93,7 +93,6 @@ class BaseArray(Wrappable):
             # Slice
             res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
             return space.wrap(res)
-            
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
@@ -233,7 +232,7 @@ class ViewArray(BaseArray):
 
     def descr_len(self, space):
         return space.wrap(self.find_size())
-        
+
     def calc_index(self, item):
         raise NotImplementedError
 

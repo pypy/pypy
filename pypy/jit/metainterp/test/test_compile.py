@@ -61,7 +61,6 @@ class FakeMetaInterpStaticData(object):
     stats = Stats()
     profiler = jitprof.EmptyProfiler()
     warmrunnerdesc = None
-    jit_ffi = False
     def log(self, msg, event_kind=None):
         pass
 
