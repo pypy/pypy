@@ -46,7 +46,7 @@ class BaseArray(Wrappable):
     def invalidated(self):
         for arr in self.invalidates:
             arr.force_if_needed()
-        self.invalidates = []
+        del self.invalidates[:]
 
     def _binop_impl(function):
         signature = Signature()
@@ -83,15 +83,22 @@ class BaseArray(Wrappable):
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
 
-    @unwrap_spec(item=int)
-    def descr_getitem(self, space, item):
-        return self.get_concrete().descr_getitem(space, item)
+    def descr_getitem(self, space, w_idx):
+        # TODO: indexation by tuples
+        start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
+        if step == 0:
+            # Single index
+            return space.wrap(self.get_concrete().getitem(start))
+        else:
+            # Slice
+            res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
+            return space.wrap(res)
+            
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
         self.invalidated()
         return self.get_concrete().descr_setitem(space, item, value)
-
 
 class FloatWrapper(BaseArray):
     """
@@ -119,6 +126,10 @@ class VirtualArray(BaseArray):
         self.forced_result = None
         self.signature = signature
 
+    def _del_sources(self):
+        # Function for deleting references to source arrays, to allow garbage-collecting them
+        raise NotImplementedError
+
     def compute(self):
         i = 0
         signature = self.signature
@@ -135,6 +146,7 @@ class VirtualArray(BaseArray):
     def force_if_needed(self):
         if self.forced_result is None:
             self.forced_result = self.compute()
+            self._del_sources()
 
     def get_concrete(self):
         self.force_if_needed()
@@ -145,6 +157,13 @@ class VirtualArray(BaseArray):
             return self.forced_result.eval(i)
         return self._eval(i)
 
+    def find_size(self):
+        if self.forced_result is not None:
+            # The result has been computed and sources may be unavailable
+            return self.forced_result.find_size()
+        return self._find_size()
+
+
 class Call1(VirtualArray):
     _immutable_fields_ = ["function", "values"]
 
@@ -153,7 +172,10 @@ class Call1(VirtualArray):
         self.function = function
         self.values = values
 
-    def find_size(self):
+    def _del_sources(self):
+        self.values = None
+
+    def _find_size(self):
         return self.values.find_size()
 
     def _eval(self, i):
@@ -170,7 +192,11 @@ class Call2(VirtualArray):
         self.left = left
         self.right = right
 
-    def find_size(self):
+    def _del_sources(self):
+        self.left = None
+        self.right = None
+
+    def _find_size(self):
         try:
             return self.left.find_size()
         except ValueError:
@@ -180,6 +206,53 @@ class Call2(VirtualArray):
     def _eval(self, i):
         lhs, rhs = self.left.eval(i), self.right.eval(i)
         return self.function(lhs, rhs)
+
+class ViewArray(BaseArray):
+    """
+    Class for representing views of arrays, they will reflect changes of parrent arrays. Example: slices
+    """
+    _immutable_fields_ = ["parent"]
+    def __init__(self, parent, signature):
+        BaseArray.__init__(self)
+        self.signature = signature
+        self.parent = parent
+        self.invalidates = parent.invalidates
+
+    def get_concrete(self):
+        return self # in fact, ViewArray never gets "concrete" as it never stores data. This implementation is needed for BaseArray getitem/setitem to work, can be refactored.
+
+    def eval(self, i):
+        return self.parent.eval(self.calc_index(i))
+
+    def getitem(self, item):
+        return self.parent.getitem(self.calc_index(item))
+
+    @unwrap_spec(item=int, value=float)
+    def descr_setitem(self, space, item, value):
+        return self.parent.descr_setitem(space, self.calc_index(item), value)
+
+    def descr_len(self, space):
+        return space.wrap(self.find_size())
+        
+    def calc_index(self, item):
+        raise NotImplementedError
+
+class SingleDimSlice(ViewArray):
+    _immutable_fields_ = ["start", "stop", "step", "size"]
+    static_signature = Signature()
+
+    def __init__(self, start, stop, step, slice_length, parent, signature):
+        ViewArray.__init__(self, parent, signature)
+        self.start = start
+        self.stop = stop
+        self.step = step
+        self.size = slice_length
+
+    def find_size(self):
+        return self.size
+
+    def calc_index(self, item):
+        return (self.start + item * self.step)
 
 
 class SingleDimArray(BaseArray):
@@ -215,10 +288,8 @@ class SingleDimArray(BaseArray):
     def descr_len(self, space):
         return space.wrap(self.size)
 
-    @unwrap_spec(item=int)
-    def descr_getitem(self, space, item):
-        item = self.getindex(space, item)
-        return space.wrap(self.storage[item])
+    def getitem(self, item):
+        return self.storage[item]
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
