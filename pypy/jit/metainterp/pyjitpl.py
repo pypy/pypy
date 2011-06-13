@@ -1273,7 +1273,7 @@ class MetaInterpStaticData(object):
         self.profiler.cpu = cpu
         self.warmrunnerdesc = warmrunnerdesc
         if warmrunnerdesc:
-            import pdb;pdb.set_trace()
+            self.config = warmrunnerdesc.translator.config
         else:
             from pypy.config.pypyoption import get_pypy_config
             self.config = get_pypy_config(translating=True)
