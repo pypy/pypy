@@ -66,6 +66,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
+                    function_threshold=4,
                     enable_opts=ALL_OPTS_NAMES, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
@@ -80,6 +81,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests
+        jd.warmstate.set_param_function_threshold(function_threshold)
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
