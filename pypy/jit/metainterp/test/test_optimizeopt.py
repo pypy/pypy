@@ -5,7 +5,7 @@ from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
                                                         BaseTest)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT
+from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
 from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
@@ -15,6 +15,7 @@ from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp.test.test_optimizebasic import equaloplists
 from pypy.jit.metainterp.optimizeutil import args_dict
+from pypy.config.pypyoption import get_pypy_config
 
 class Fake(object):
     failargs_limit = 1000
@@ -27,6 +28,43 @@ class FakeMetaInterpStaticData(object):
         self.profiler = EmptyProfiler()
         self.options = Fake()
         self.globaldata = Fake()
+        self.config = get_pypy_config(translating=True)
+        self.config.translation.jit_ffi = True
+
+
+def test_build_opt_chain():
+    def check(chain, expected_names):
+        names = [opt.__class__.__name__ for opt in chain]
+        assert names == expected_names
+    #
+    metainterp_sd = FakeMetaInterpStaticData(None)
+    chain, _ = build_opt_chain(metainterp_sd, "", inline_short_preamble=False)
+    check(chain, ["OptSimplify"])
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "")
+    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "")
+    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "heap:intbounds")
+    check(chain, ["OptInlineShortPreamble", "OptIntBounds", "OptHeap", "OptSimplify"])
+    #
+    chain, unroll = build_opt_chain(metainterp_sd, "unroll")
+    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    assert unroll
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb", inline_short_preamble=False)
+    check(chain, ["OptSimplify"])
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "ffi", inline_short_preamble=False)
+    check(chain, ["OptFfiCall", "OptSimplify"])
+    #
+    metainterp_sd.config = get_pypy_config(translating=True)
+    assert not metainterp_sd.config.translation.jit_ffi
+    chain, _ = build_opt_chain(metainterp_sd, "ffi", inline_short_preamble=False)
+    check(chain, ["OptSimplify"])
+
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr

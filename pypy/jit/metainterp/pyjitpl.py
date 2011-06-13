@@ -1272,6 +1272,11 @@ class MetaInterpStaticData(object):
         self.profiler = ProfilerClass()
         self.profiler.cpu = cpu
         self.warmrunnerdesc = warmrunnerdesc
+        if warmrunnerdesc:
+            import pdb;pdb.set_trace()
+        else:
+            from pypy.config.pypyoption import get_pypy_config
+            self.config = get_pypy_config(translating=True)
 
         backendmodule = self.cpu.__module__
         backendmodule = backendmodule.split('.')[-2]
