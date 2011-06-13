@@ -53,7 +53,7 @@ class AppFrame(py.code.Frame):
         for key, w_value in vars.items():
             space.setitem(self.w_locals, space.wrap(key), w_value)
         pyc = pycode.PyCode._from_code(space, code)
-        return pyc.exec_host_bytecode(None, self.w_globals, self.w_locals)
+        return pyc.exec_host_bytecode(self.w_globals, self.w_locals)
     exec_ = eval
 
     def repr(self, w_value):
