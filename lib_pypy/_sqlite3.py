@@ -275,8 +275,8 @@ def unicode_text_factory(x):
     return unicode(x, 'utf-8')
 
 class Connection(object):
-    def __init__(self, database, isolation_level="", detect_types=0, timeout=None, 
-                 check_same_thread=True, cached_statements=None, factory=None):
+    def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
+                 check_same_thread=True, factory=None, cached_statements=100):
         self.db = c_void_p()
         if sqlite.sqlite3_open(database, byref(self.db)) != SQLITE_OK:
             raise OperationalError("Could not open database")
