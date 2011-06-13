@@ -134,7 +134,8 @@ HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
-    eci.export_symbols += (name,)
+    if not kw.get('macro', False):
+        eci.export_symbols += (name,)
     return rffi.llexternal(
         name, argtypes, restype, **kw)
 
