@@ -989,6 +989,7 @@ class ObjSpace(object):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
                                          hidden_applevel=hidden_applevel)
+        else:
             raise TypeError, 'space.eval(): expected a string, code or PyCode object'
         return expression.exec_code(self, w_globals, w_locals)
 
