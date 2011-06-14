@@ -5,7 +5,7 @@ from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
 from pypy.jit.metainterp import jitprof, typesystem, compile
-from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
+from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 

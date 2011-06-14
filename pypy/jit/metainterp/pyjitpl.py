@@ -21,7 +21,8 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr, MissingLiveness
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.jit.metainterp.optimizeutil import RetraceLoop, args_dict_box, args_dict
+from pypy.jit.metainterp.optimizeopt.util import args_dict_box, args_dict
+from pypy.jit.metainterp.optimize import RetraceLoop
 
 # ____________________________________________________________
 

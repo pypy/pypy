@@ -9,7 +9,7 @@ from pypy.jit.metainterp.gc import get_description
 from pypy.jit.metainterp.resoperation import get_deep_immutable_oplist
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
-from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
+from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import equaloplists
 
 def test_boehm():
     gc_ll_descr = GcLLDescr_boehm(None, None, None)

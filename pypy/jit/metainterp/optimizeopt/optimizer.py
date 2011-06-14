@@ -4,9 +4,9 @@ from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp import jitprof
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
-from pypy.jit.metainterp.optimizeutil import descrlist_dict
-from pypy.jit.metainterp.optimizeutil import InvalidLoop, args_dict
+from pypy.jit.metainterp.optimizeopt.util import _findall, sort_descrs
+from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, args_dict
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rpython.lltypesystem import lltype

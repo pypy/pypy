@@ -527,8 +527,9 @@ class FunctionGcRootTracker(object):
         target = match.group("target")
         if target == self.ESP:
             # only for  andl $-16, %esp  used to align the stack in main().
-            # main() should not be seen at all.
-            raise AssertionError("instruction unexpected outside of main()")
+            # main() should not be seen at all.  But on e.g. MSVC we see
+            # the instruction somewhere else too...
+            return InsnCannotFollowEsp()
         else:
             return self.binary_insn(line)
 

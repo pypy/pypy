@@ -2,8 +2,8 @@ from pypy.rpython.lltypesystem import llmemory
 from pypy.rlib.libffi import Func, types
 from pypy.jit.metainterp.history import AbstractDescr
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.test.test_optimizebasic import BaseTestBasic
-from pypy.jit.metainterp.test.test_optimizebasic import LLtypeMixin
+from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import BaseTestBasic
+from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import LLtypeMixin
 
 class MyCallDescr(AbstractDescr):
     """
