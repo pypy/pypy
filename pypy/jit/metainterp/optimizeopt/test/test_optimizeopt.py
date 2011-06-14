@@ -64,7 +64,7 @@ class FakeDescr(compile.ResumeGuardDescr):
         return self
 
 
-class BaseTestOptimizeOpt(BaseTest):
+class BaseTestWithUnroll(BaseTest):
 
     enable_opts = "intbounds:rewrite:virtualize:string:heap:unroll"
 
@@ -97,7 +97,7 @@ class BaseTestOptimizeOpt(BaseTest):
                               text_right='expected preamble')
         return loop
 
-class OptimizeOptTest(BaseTestOptimizeOpt):
+class OptimizeOptTest(BaseTestWithUnroll):
 
     def setup_method(self, meth=None):
         class FailDescr(compile.ResumeGuardDescr):
