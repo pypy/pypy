@@ -11,8 +11,7 @@ from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
-from pypy.jit.tool.oparser import pure_parse
-from pypy.jit.metainterp.optimizeopt.util import args_dict
+from pypy.jit.metainterp.optimizeopt.util import args_dict, equaloplists
 
 ##class FakeFrame(object):
 ##    parent_resumedata_snapshot = None
@@ -133,86 +132,7 @@ def test_descrlist_dict():
 
 # ____________________________________________________________
 
-def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
-                 text_right=None):
-    # try to use the full width of the terminal to display the list
-    # unfortunately, does not work with the default capture method of py.test
-    # (which is fd), you you need to use either -s or --capture=sys, else you
-    # get the standard 80 columns width
-    totwidth = py.io.get_terminal_width()
-    width = totwidth / 2 - 1
-    print ' Comparing lists '.center(totwidth, '-')
-    text_right = text_right or 'expected'
-    print '%s| %s' % ('optimized'.center(width), text_right.center(width))
-    for op1, op2 in zip(oplist1, oplist2):
-        txt1 = str(op1)
-        txt2 = str(op2)
-        while txt1 or txt2:
-            print '%s| %s' % (txt1[:width].ljust(width), txt2[:width])
-            txt1 = txt1[width:]
-            txt2 = txt2[width:]
-        assert op1.getopnum() == op2.getopnum()
-        assert op1.numargs() == op2.numargs()
-        for i in range(op1.numargs()):
-            x = op1.getarg(i)
-            y = op2.getarg(i)
-            assert x == remap.get(y, y)
-        if op2.result in remap:
-            assert op1.result == remap[op2.result]
-        else:
-            remap[op2.result] = op1.result
-        if op1.getopnum() != rop.JUMP:      # xxx obscure
-            assert op1.getdescr() == op2.getdescr()
-        if op1.getfailargs() or op2.getfailargs():
-            assert len(op1.getfailargs()) == len(op2.getfailargs())
-            if strict_fail_args:
-                for x, y in zip(op1.getfailargs(), op2.getfailargs()):
-                    assert x == remap.get(y, y)
-            else:
-                fail_args1 = set(op1.getfailargs())
-                fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])
-                assert fail_args1 == fail_args2
-    assert len(oplist1) == len(oplist2)
-    print '-'*totwidth
-    return True
 
-def test_equaloplists():
-    ops = """
-    [i0]
-    i1 = int_add(i0, 1)
-    i2 = int_add(i1, 1)
-    guard_true(i1) [i2]
-    jump(i1)
-    """
-    namespace = {}
-    loop1 = pure_parse(ops, namespace=namespace)
-    loop2 = pure_parse(ops, namespace=namespace)
-    loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
-                       namespace=namespace)
-    assert equaloplists(loop1.operations, loop2.operations)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
-
-def test_equaloplists_fail_args():
-    ops = """
-    [i0]
-    i1 = int_add(i0, 1)
-    i2 = int_add(i1, 1)
-    guard_true(i1) [i2, i1]
-    jump(i1)
-    """
-    namespace = {}
-    loop1 = pure_parse(ops, namespace=namespace)
-    loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
-                       namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop2.operations)")
-    assert equaloplists(loop1.operations, loop2.operations,
-                        strict_fail_args=False)
-    loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
-                       namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
 
 # ____________________________________________________________
 

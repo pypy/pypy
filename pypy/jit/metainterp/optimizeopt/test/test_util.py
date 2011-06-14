@@ -9,11 +9,11 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          Const, TreeLoop, BoxObj,
                                          ConstObj, AbstractDescr)
-from pypy.jit.metainterp.optimizeopt.util import sort_descrs
+from pypy.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.heaptracker import register_known_gctype, adr2int
-from pypy.jit.tool.oparser import parse
+from pypy.jit.tool.oparser import parse, pure_parse
 from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
 
 def test_sort_descrs():
@@ -28,6 +28,44 @@ def test_sort_descrs():
         random.shuffle(lst2)
         sort_descrs(lst2)
         assert lst2 == lst
+
+def test_equaloplists():
+    ops = """
+    [i0]
+    i1 = int_add(i0, 1)
+    i2 = int_add(i1, 1)
+    guard_true(i1) [i2]
+    jump(i1)
+    """
+    namespace = {}
+    loop1 = pure_parse(ops, namespace=namespace)
+    loop2 = pure_parse(ops, namespace=namespace)
+    loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
+                       namespace=namespace)
+    assert equaloplists(loop1.operations, loop2.operations)
+    py.test.raises(AssertionError,
+                   "equaloplists(loop1.operations, loop3.operations)")
+
+def test_equaloplists_fail_args():
+    ops = """
+    [i0]
+    i1 = int_add(i0, 1)
+    i2 = int_add(i1, 1)
+    guard_true(i1) [i2, i1]
+    jump(i1)
+    """
+    namespace = {}
+    loop1 = pure_parse(ops, namespace=namespace)
+    loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
+                       namespace=namespace)
+    py.test.raises(AssertionError,
+                   "equaloplists(loop1.operations, loop2.operations)")
+    assert equaloplists(loop1.operations, loop2.operations,
+                        strict_fail_args=False)
+    loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
+                       namespace=namespace)
+    py.test.raises(AssertionError,
+                   "equaloplists(loop1.operations, loop3.operations)")
 
 # ____________________________________________________________
 

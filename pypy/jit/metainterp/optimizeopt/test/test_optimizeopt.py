@@ -13,9 +13,8 @@ from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
-from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import equaloplists
-from pypy.jit.metainterp.optimizeopt.util import args_dict
-
+from pypy.jit.metainterp.optimizeopt.util import args_dict, equaloplists
+from pypy.config.pypyoption import get_pypy_config
 
 class Fake(object):
     failargs_limit = 1000
