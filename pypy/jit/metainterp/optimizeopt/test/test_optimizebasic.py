@@ -6,7 +6,7 @@ from pypy.jit.metainterp.optimizeopt.test.test_util import (LLtypeMixin,
 from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt.util import InvalidLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
