@@ -299,7 +299,7 @@ class ExtCallTest(unittest.TestCase):
         def f(a):
             return a
         self.assertEqual(f(**{u'a': 4}), 4)
-        self.assertRaises(TypeError, lambda: f(**{u'stören': 4}))
+        self.assertRaises(TypeError, f, **{u'stören': 4})
         self.assertRaises(TypeError, f, **{u'someLongString':2})
         try:
             f(a=4, **{u'a': 4})
