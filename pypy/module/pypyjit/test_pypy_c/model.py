@@ -2,7 +2,6 @@ import py
 import sys
 import re
 import os.path
-from _pytest.assertion import newinterpret
 from pypy.tool.jitlogparser.parser import SimpleParser, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
@@ -195,7 +194,7 @@ class InvalidMatch(Exception):
             # transform self._assert(x, 'foo') into assert x, 'foo'
             source = source.replace('self._assert(', 'assert ')
             source = source[:-1] # remove the trailing ')'
-            self.msg = newinterpret.interpret(source, f, should_fail=True)
+            self.msg = py.code._reinterpret(source, f, should_fail=True)
         else:
             self.msg = "<could not determine information>"
 

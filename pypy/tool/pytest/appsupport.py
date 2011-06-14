@@ -1,7 +1,6 @@
 import autopath
 import py
-from _pytest.assertion import newinterpret
-from pypy.interpreter import gateway, pycode
+from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 
 # ____________________________________________________________
@@ -52,9 +51,13 @@ class AppFrame(py.code.Frame):
         space = self.space
         for key, w_value in vars.items():
             space.setitem(self.w_locals, space.wrap(key), w_value)
-        pyc = pycode.PyCode._from_code(space, code)
-        return pyc.exec_host_bytecode(self.w_globals, self.w_locals)
-    exec_ = eval
+        return space.eval(code, self.w_globals, self.w_locals)
+
+    def exec_(self, code, **vars):
+        space = self.space
+        for key, w_value in vars.items():
+            space.setitem(self.w_locals, space.wrap(key), w_value)
+        space.exec_(code, self.w_globals, self.w_locals)
 
     def repr(self, w_value):
         return self.space.unwrap(self.space.repr(w_value))
@@ -160,8 +163,8 @@ def build_pytest_assertion(space):
             except py.error.ENOENT: 
                 source = None
             from pypy import conftest
-            if source and py.test.config._assertstate.mode != "off":
-                msg = newinterpret.interpret(source, runner, should_fail=True)
+            if source and not py.test.config.option.nomagic:
+                msg = py.code._reinterpret_old(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),
                             space.newtuple([space.wrap(msg)]))
                 w_msg = space.wrap(msg)

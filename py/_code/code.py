@@ -145,6 +145,17 @@ class TracebackEntry(object):
         return self.frame.f_locals
     locals = property(getlocals, None, None, "locals of underlaying frame")
 
+    def reinterpret(self):
+        """Reinterpret the failing statement and returns a detailed information
+           about what operations are performed."""
+        if self.exprinfo is None:
+            source = str(self.statement).strip()
+            x = py.code._reinterpret(source, self.frame, should_fail=True)
+            if not isinstance(x, str):
+                raise TypeError("interpret returned non-string %r" % (x,))
+            self.exprinfo = x
+        return self.exprinfo
+
     def getfirstlinesource(self):
         # on Jython this firstlineno can be -1 apparently
         return max(self.frame.code.firstlineno, 0)
@@ -299,7 +310,7 @@ class ExceptionInfo(object):
         #     ExceptionInfo-like classes may have different attributes.
         if tup is None:
             tup = sys.exc_info()
-            if exprinfo is None and isinstance(tup[1], AssertionError):
+            if exprinfo is None and isinstance(tup[1], py.code._AssertionError):
                 exprinfo = getattr(tup[1], 'msg', None)
                 if exprinfo is None:
                     exprinfo = str(tup[1])
@@ -679,15 +690,22 @@ class ReprFuncArgs(TerminalRepr):
 
 oldbuiltins = {}
 
-def patch_builtins(compile=True):
-    """ put compile builtins to Python's builtins. """
+def patch_builtins(assertion=True, compile=True):
+    """ put compile and AssertionError builtins to Python's builtins. """
+    if assertion:
+        from py._code import assertion
+        l = oldbuiltins.setdefault('AssertionError', [])
+        l.append(py.builtin.builtins.AssertionError)
+        py.builtin.builtins.AssertionError = assertion.AssertionError
     if compile:
         l = oldbuiltins.setdefault('compile', [])
         l.append(py.builtin.builtins.compile)
         py.builtin.builtins.compile = py.code.compile
 
-def unpatch_builtins(compile=True):
+def unpatch_builtins(assertion=True, compile=True):
     """ remove compile and AssertionError builtins from Python builtins. """
+    if assertion:
+        py.builtin.builtins.AssertionError = oldbuiltins['AssertionError'].pop()
     if compile:
         py.builtin.builtins.compile = oldbuiltins['compile'].pop()
 

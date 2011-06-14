@@ -1031,7 +1031,7 @@ class PyObjectNode(ContainerNode):
             if (issubclass(value, BaseException) and
                 value.__module__ == 'exceptions'):
                 return 'PyExc_' + value.__name__
-            if issubclass(value, AssertionError):
+            if value is py.code._AssertionError:
                 return 'PyExc_AssertionError'
             if value is _StackOverflow:
                 return 'PyExc_RuntimeError'

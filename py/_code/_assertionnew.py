@@ -1,14 +1,13 @@
 """
 Find intermediate evalutation results in assert statements through builtin AST.
-This should replace oldinterpret.py eventually.
+This should replace _assertionold.py eventually.
 """
 
 import sys
 import ast
 
 import py
-from _pytest.assertion import util
-from _pytest.assertion.reinterpret import BuiltinAssertionError
+from py._code.assertion import _format_explanation, BuiltinAssertionError
 
 
 if sys.platform.startswith("java") and sys.version_info < (2, 5, 2):
@@ -60,17 +59,20 @@ def run(offending_line, frame=None):
         frame = py.code.Frame(sys._getframe(1))
     return interpret(offending_line, frame)
 
-def getfailure(e):
-    explanation = util.format_explanation(e.explanation)
-    value = e.cause[1]
+def getfailure(failure):
+    explanation = _format_explanation(failure.explanation)
+    value = failure.cause[1]
     if str(value):
-        lines = explanation.split('\n')
-        lines[0] += "  << %s" % (value,)
-        explanation = '\n'.join(lines)
-    text = "%s: %s" % (e.cause[0].__name__, explanation)
-    if text.startswith('AssertionError: assert '):
+        lines = explanation.splitlines()
+        if not lines:
+            lines.append("")
+        lines[0] += " << %s" % (value,)
+        explanation = "\n".join(lines)
+    text = "%s: %s" % (failure.cause[0].__name__, explanation)
+    if text.startswith("AssertionError: assert "):
         text = text[16:]
     return text
+
 
 operator_map = {
     ast.BitOr : "|",
@@ -152,8 +154,8 @@ class DebugInterpreter(ast.NodeVisitor):
             local = self.frame.eval(co)
         except Exception:
             # have to assume it isn't
-            local = None
-        if local is None or not self.frame.is_true(local):
+            local = False
+        if not local:
             return name.id, result
         return explanation, result
 
@@ -173,7 +175,7 @@ class DebugInterpreter(ast.NodeVisitor):
             except Exception:
                 raise Failure(explanation)
             try:
-                if not self.frame.is_true(result):
+                if not result:
                     break
             except KeyboardInterrupt:
                 raise
@@ -181,8 +183,9 @@ class DebugInterpreter(ast.NodeVisitor):
                 break
             left_explanation, left_result = next_explanation, next_result
 
-        if util._reprcompare is not None:
-            res = util._reprcompare(op_symbol, left_result, next_result)
+        rcomp = py.code._reprcompare
+        if rcomp:
+            res = rcomp(op_symbol, left_result, next_result)
             if res:
                 explanation = res
         return explanation, result
@@ -299,8 +302,8 @@ class DebugInterpreter(ast.NodeVisitor):
         try:
             from_instance = self.frame.eval(co, __exprinfo_expr=source_result)
         except Exception:
-            from_instance = None
-        if from_instance is None or self.frame.is_true(from_instance):
+            from_instance = True
+        if from_instance:
             rep = self.frame.repr(result)
             pattern = "%s\n{%s = %s\n}"
             explanation = pattern % (rep, rep, explanation)
@@ -308,8 +311,11 @@ class DebugInterpreter(ast.NodeVisitor):
 
     def visit_Assert(self, assrt):
         test_explanation, test_result = self.visit(assrt.test)
+        if test_explanation.startswith("False\n{False =") and \
+                test_explanation.endswith("\n"):
+            test_explanation = test_explanation[15:-2]
         explanation = "assert %s" % (test_explanation,)
-        if not self.frame.is_true(test_result):
+        if not test_result:
             try:
                 raise BuiltinAssertionError
             except Exception:
