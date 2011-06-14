@@ -95,7 +95,9 @@ class Arguments(object):
         assert isinstance(args_w, list)
         self.arguments_w = args_w
         self.keywords = keywords
+        self.lexical_keywords = len(keywords) if keywords is not None else 0
         self.keywords_w = keywords_w
+        self.keyword_names_w = None
         if keywords is not None:
             assert keywords_w is not None
             assert len(keywords_w) == len(keywords)
@@ -182,6 +184,7 @@ class Arguments(object):
                 raise
             keys_w = space.unpackiterable(w_keys)
         if keys_w:
+            self.keyword_names_w = keys_w
             self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
             return True
         else:
@@ -201,11 +204,11 @@ class Arguments(object):
                         space.w_TypeError,
                         space.wrap("keywords must be strings"))
                 if e.match(space, space.w_UnicodeEncodeError):
-                    raise OperationError(
-                        space.w_TypeError,
-                        space.wrap("keyword cannot be encoded to ascii"))
-                raise
-            if self.keywords and key in self.keywords:
+                    # Allow this to pass through
+                    key = None
+                else:
+                    raise
+            if key is not None and self.keywords and key in self.keywords:
                 raise operationerrfmt(self.space.w_TypeError,
                                       "got multiple values "
                                       "for keyword argument "
@@ -339,6 +342,10 @@ class Arguments(object):
             used_keywords = [False] * num_kwds
             for i in range(num_kwds):
                 name = keywords[i]
+                # If name was not encoded as a string, it could be None. In that
+                # case, it's definitely not going to be in the signature.
+                if name is None:
+                    continue
                 j = signature.find_argname(name)
                 if j < 0:
                     continue
@@ -376,15 +383,21 @@ class Arguments(object):
             if num_remainingkwds:
                 for i in range(len(keywords)):
                     if not used_keywords[i]:
-                        key = keywords[i]
-                        self.space.setitem(w_kwds, self.space.wrap(key), keywords_w[i])
+                        if i < self.lexical_keywords:
+                            w_key = self.space.wrap(keywords[i])
+                        else:
+                            j = i - self.lexical_keywords
+                            w_key = self.keyword_names_w[j]
+                        self.space.setitem(w_kwds, w_key, keywords_w[i])
             scope_w[co_argcount + has_vararg] = w_kwds
         elif num_remainingkwds:
             if co_argcount == 0:
                 raise ArgErrCount(avail, num_kwds,
                               co_argcount, has_vararg, has_kwarg,
                               defaults_w, missing)
-            raise ArgErrUnknownKwds(num_remainingkwds, keywords, used_keywords)
+            raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
+                                    self.keyword_names_w, self.lexical_keywords,
+                                    used_keywords)
 
         if missing:
             raise ArgErrCount(avail, num_kwds,
@@ -666,13 +679,25 @@ class ArgErrMultipleValues(ArgErr):
 
 class ArgErrUnknownKwds(ArgErr):
 
-    def __init__(self, num_remainingkwds, keywords, used_keywords):
+    def __init__(self, space, num_remainingkwds, keywords, keyword_names_w,
+                 lexical_keywords, used_keywords):
         self.kwd_name = ''
         self.num_kwds = num_remainingkwds
         if num_remainingkwds == 1:
             for i in range(len(keywords)):
                 if not used_keywords[i]:
-                    self.kwd_name = keywords[i]
+                    if i < lexical_keywords:
+                        name = keywords[i]
+                    else:
+                        w_name = keyword_names_w[i - lexical_keywords]
+                        if not space.isinstance_w(w_name, space.w_str):
+                            # We'll assume it's unicode. Encode it.
+                            w_enc = space.wrap(space.sys.defaultencoding)
+                            w_err = space.wrap("replace")
+                            w_name = space.call_method(w_name, "encode", w_enc,
+                                                       w_err)
+                        name = space.str_w(w_name)
+                    self.kwd_name = name
                     break
 
     def getmsg(self, fnname):
