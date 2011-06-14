@@ -1694,12 +1694,13 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert record == []
 
     def test_cond_call_gc_wb_array(self):
-        def func_void(a, b):
-            record.append((a, b))
+        def func_void(a, b, c):
+            record.append((a, b, c))
         record = []
         #
         S = lltype.GcStruct('S', ('tid', lltype.Signed))
-        FUNC = self.FuncType([lltype.Ptr(S), lltype.Signed], lltype.Void)
+        FUNC = self.FuncType([lltype.Ptr(S), lltype.Signed, lltype.Ptr(S)],
+                             lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
@@ -1719,11 +1720,11 @@ class LLtypeBackendTest(BaseBackendTest):
             s.tid = value
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
             del record[:]
-            self.execute_operation(rop.COND_CALL_GC_WB,
-                                   [BoxPtr(sgcref), ConstInt(123)],
-                                   'void', descr=WriteBarrierDescr())
+            self.execute_operation(rop.COND_CALL_GC_WB_ARRAY,
+                       [BoxPtr(sgcref), ConstInt(123), BoxPtr(sgcref)],
+                       'void', descr=WriteBarrierDescr())
             if cond:
-                assert record == [(s, 123)]
+                assert record == [(s, 123, s)]
             else:
                 assert record == []
 

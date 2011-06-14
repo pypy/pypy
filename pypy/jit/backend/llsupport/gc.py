@@ -476,6 +476,7 @@ class WriteBarrierDescr(AbstractDescr):
         return cpu.cast_adr_to_int(funcaddr)
 
     def get_write_barrier_from_array_fn(self, cpu):
+        # returns a function with arguments [array, index, newvalue]
         llop1 = self.llop1
         funcptr = llop1.get_write_barrier_from_array_failing_case(
             self.WB_ARRAY_FUNCPTR)
@@ -778,7 +779,7 @@ class GcLLDescr_framework(GcLLDescription):
             length = known_lengths.get(v_base, LARGE)
             if length >= LARGE:
                 # unknown or too big: produce a write_barrier_from_array
-                args = [v_base, v_value, v_index]
+                args = [v_base, v_index, v_value]
                 newops.append(ResOperation(rop.COND_CALL_GC_WB_ARRAY, args,
                                            None,
                                            descr=self.write_barrier_descr))
