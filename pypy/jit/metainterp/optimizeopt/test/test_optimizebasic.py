@@ -127,35 +127,8 @@ def test_descrlist_dict():
 
 # ____________________________________________________________
 
-class Storage(compile.ResumeGuardDescr):
-    "for tests."
-    def __init__(self, metainterp_sd=None, original_greenkey=None):
-        self.metainterp_sd = metainterp_sd
-        self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes):
-        op.setfailargs(boxes)
-    def __eq__(self, other):
-        return type(self) is type(other)      # xxx obscure
-    def clone_if_mutable(self):
-        res = Storage(self.metainterp_sd, self.original_greenkey)
-        self.copy_all_attributes_into(res)
-        return res
-
-def _sortboxes(boxes):
-    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
-    return sorted(boxes, key=lambda box: _kind2count[box.type])
-
-
 
 class BaseTestBasic(BaseTest):
-
-    def invent_fail_descr(self, model, fail_args):
-        if fail_args is None:
-            return None
-        descr = Storage()
-        descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-        descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
-        return descr
 
     def assert_equal(self, optimized, expected):
         assert len(optimized.inputargs) == len(expected.inputargs)

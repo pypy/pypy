@@ -1,8 +1,7 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.optimizeopt.test.test_util import (LLtypeMixin,
-                                                            #OOtypeMixin,
-                                                            BaseTest)
+from pypy.jit.metainterp.optimizeopt.test.test_util import (
+    LLtypeMixin, BaseTest, Storage, _sortboxes)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
@@ -14,8 +13,7 @@ from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp.optimizeopt.util import args_dict, equaloplists
-from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import (
-    FakeMetaInterpStaticData, Storage, _sortboxes)
+from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import FakeMetaInterpStaticData
 from pypy.config.pypyoption import get_pypy_config
 
 
@@ -57,17 +55,7 @@ def test_build_opt_chain():
 
 
 
-
-
 class BaseTestOptimizeOpt(BaseTest):
-
-    def invent_fail_descr(self, model, fail_args):
-        if fail_args is None:
-            return None
-        descr = Storage()
-        descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-        descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
-        return descr
 
     def assert_equal(self, optimized, expected, text_right=None):
         assert len(optimized.inputargs) == len(expected.inputargs)
