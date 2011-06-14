@@ -1,18 +1,18 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
-                                                        #OOtypeMixin,
-                                                        BaseTest)
+from pypy.jit.metainterp.optimizeopt.test.test_util import (LLtypeMixin,
+                                                            #OOtypeMixin,
+                                                            BaseTest)
 from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.optimizeopt.util import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
-from pypy.jit.metainterp.optimizeutil import args_dict
+from pypy.jit.metainterp.optimizeopt.util import args_dict
 
 ##class FakeFrame(object):
 ##    parent_resumedata_snapshot = None
@@ -104,7 +104,7 @@ def test_reuse_vinfo():
     assert vinfo3 is vinfo4
 
 def test_descrlist_dict():
-    from pypy.jit.metainterp import optimizeutil
+    from pypy.jit.metainterp.optimizeopt import util as optimizeutil
     h1 = optimizeutil.descrlist_hash([])
     h2 = optimizeutil.descrlist_hash([LLtypeMixin.valuedescr])
     h3 = optimizeutil.descrlist_hash(

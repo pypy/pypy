@@ -9,7 +9,7 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          Const, TreeLoop, BoxObj,
                                          ConstObj, AbstractDescr)
-from pypy.jit.metainterp.optimizeutil import sort_descrs, InvalidLoop
+from pypy.jit.metainterp.optimizeopt.util import sort_descrs, InvalidLoop
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.heaptracker import register_known_gctype, adr2int
 from pypy.jit.tool.oparser import parse

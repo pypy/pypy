@@ -4,7 +4,7 @@ from pypy.rlib.libffi import Func
 from pypy.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import _findall
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
 from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
 
