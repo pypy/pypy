@@ -542,13 +542,24 @@ class TestErrorHandling(object):
 
     def test_unknown_keywords(self):
         space = DummySpace()
-        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], None, 2, [True, False])
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [True, False], None)
         s = err.getmsg('foo')
         assert s == "foo() got an unexpected keyword argument 'b'"
-        err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'], None, 3,
-                                [True, False, False])
+        err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'],
+                                [True, False, False], None)
         s = err.getmsg('foo')
         assert s == "foo() got 2 unexpected keyword arguments"
+
+    def test_unknown_unicode_keyword(self):
+        class DummySpaceUnicode(DummySpace):
+            class sys:
+                defaultencoding = 'utf-8'
+        space = DummySpaceUnicode()
+        err = ArgErrUnknownKwds(space, 1, ['a', None, 'b', 'c'],
+                                [True, False, True, True],
+                                [unichr(0x1234), u'b', u'c'])
+        s = err.getmsg('foo')
+        assert s == "foo() got an unexpected keyword argument '\xe1\x88\xb4'"
 
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')
