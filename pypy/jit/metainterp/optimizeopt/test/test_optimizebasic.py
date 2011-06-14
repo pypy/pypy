@@ -12,18 +12,12 @@ from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.metainterp.optimizeopt.util import args_dict, equaloplists
-
-##class FakeFrame(object):
-##    parent_resumedata_snapshot = None
-##    parent_resumedata_frame_info_list = None
-
-##    def __init__(self, code="", pc=0):
-##        self.jitcode = code
-##        self.pc = pc
+from pypy.config.pypyoption import get_pypy_config
 
 class Fake(object):
     failargs_limit = 1000
     storedebug = None
+
 
 class FakeMetaInterpStaticData(object):
 
@@ -32,8 +26,9 @@ class FakeMetaInterpStaticData(object):
         self.profiler = EmptyProfiler()
         self.options = Fake()
         self.globaldata = Fake()
-        self.logger_ops = FakeLogger()
-        self.logger_noopt = FakeLogger()
+        self.config = get_pypy_config(translating=True)
+        self.config.translation.jit_ffi = True
+
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
@@ -132,10 +127,6 @@ def test_descrlist_dict():
 
 # ____________________________________________________________
 
-
-
-# ____________________________________________________________
-
 class Storage(compile.ResumeGuardDescr):
     "for tests."
     def __init__(self, metainterp_sd=None, original_greenkey=None):
@@ -145,10 +136,16 @@ class Storage(compile.ResumeGuardDescr):
         op.setfailargs(boxes)
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure
+    def clone_if_mutable(self):
+        res = Storage(self.metainterp_sd, self.original_greenkey)
+        self.copy_all_attributes_into(res)
+        return res
 
 def _sortboxes(boxes):
     _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
     return sorted(boxes, key=lambda box: _kind2count[box.type])
+
+
 
 class BaseTestBasic(BaseTest):
 

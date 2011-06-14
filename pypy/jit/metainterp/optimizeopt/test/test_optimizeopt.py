@@ -14,21 +14,9 @@ from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp.optimizeopt.util import args_dict, equaloplists
+from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import (
+    FakeMetaInterpStaticData, Storage, _sortboxes)
 from pypy.config.pypyoption import get_pypy_config
-
-class Fake(object):
-    failargs_limit = 1000
-    storedebug = None
-
-class FakeMetaInterpStaticData(object):
-
-    def __init__(self, cpu):
-        self.cpu = cpu
-        self.profiler = EmptyProfiler()
-        self.options = Fake()
-        self.globaldata = Fake()
-        self.config = get_pypy_config(translating=True)
-        self.config.translation.jit_ffi = True
 
 
 def test_build_opt_chain():
@@ -66,23 +54,10 @@ def test_build_opt_chain():
 
 
 # ____________________________________________________________
-class Storage(compile.ResumeGuardDescr):
-    "for tests."
-    def __init__(self, metainterp_sd=None, original_greenkey=None):
-        self.metainterp_sd = metainterp_sd
-        self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes):
-        op.setfailargs(boxes)
-    def __eq__(self, other):
-        return type(self) is type(other)      # xxx obscure
-    def clone_if_mutable(self):
-        res = Storage(self.metainterp_sd, self.original_greenkey)
-        self.copy_all_attributes_into(res)
-        return res
 
-def _sortboxes(boxes):
-    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
-    return sorted(boxes, key=lambda box: _kind2count[box.type])
+
+
+
 
 class BaseTestOptimizeOpt(BaseTest):
 
