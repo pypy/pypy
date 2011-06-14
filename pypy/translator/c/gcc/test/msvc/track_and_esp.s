@@ -153,6 +153,7 @@ $block3$88242:
 	push	OFFSET _pypy_g_pypy_rpython_memory_gc_semispace_SemiSpaceGC
 $block12$88259:
 	call	_pypy_g_SemiSpaceGC_obtain_free_space
+    ;; expected {4(%ebp) | 16(%esp), 12(%esp), 8(%esp), (%ebp) | }
 
 ; 58362: 	l_v21669 = (&pypy_g_ExcData)->ed_exc_type;
 ; 58363: 	l_v21670 = (l_v21669 == NULL);
@@ -225,6 +226,7 @@ $block2$88245:
 	push	1
 $block14$88247:
 	call	_pypy_g__ll_malloc_varsize_no_length__Signed_Signed_Sign
+    ;; expected {4(%ebp) | 20(%esp), 16(%esp), 12(%esp), (%ebp) | }
 	mov	esi, eax
 
 ; 58377: 	OP_TRACK_ALLOC_START(l_v21672, /* nothing */);
@@ -232,6 +234,7 @@ $block14$88247:
 	push	OFFSET ??_C@_0BN@BIPHFGBC@pypy_g_ll_math_ll_math_frexp?$AA@
 	push	esi
 	call	_pypy_debug_alloc_start
+    ;; expected {4(%ebp) | 28(%esp), 24(%esp), 20(%esp), (%ebp) | }
 	add	esp, 20					; 00000014H
 
 ; 58378: 	l_exp_p_0 = (long *)l_v21672;
@@ -283,6 +286,7 @@ $block15$88324:
 	sub	esp, 8
 	fstp	QWORD PTR [esp]
 	call	_pypy_g_frexp__Float_arrayPtr_star_2
+    ;; expected {4(%ebp) | 20(%esp), 16(%esp), 12(%esp), (%ebp) | }
 
 ; 58387: 	l_v21675 = (&pypy_g_ExcData)->ed_exc_type;
 ; 58388: 	l_v21676 = (l_v21675 == NULL);
@@ -331,11 +335,13 @@ $LN2@pypy_g_ll_@159:
 	mov	DWORD PTR _pypy_g_ExcData+4, eax
 	mov	DWORD PTR _pypy_g_ExcData, eax
 	call	_pypy_debug_alloc_stop
+    ;; expected {4(%ebp) | 12(%esp), 8(%esp), 4(%esp), (%ebp) | }
 
 ; 58413: 	OP_RAW_FREE(l_v21688, /* nothing */);
 
 	push	esi
 	call	_PyObject_Free
+    ;; expected {4(%ebp) | 16(%esp), 12(%esp), 8(%esp), (%ebp) | }
 
 ; 58414: 	l_v21691 = (struct pypy_object0 *)l_v21687;
 ; 58415: 	pypy_g_RPyReRaiseException(l_v21683, l_v21691);
@@ -376,11 +382,13 @@ $block16$88328:
 
 	push	esi
 	call	_pypy_debug_alloc_stop
+    ;; expected {4(%ebp) | 12(%esp), 8(%esp), 4(%esp), (%ebp) | }
 
 ; 58399: 	OP_RAW_FREE(l_v21679, /* nothing */);
 
 	push	esi
 	call	_PyObject_Free
+    ;; expected {4(%ebp) | 16(%esp), 12(%esp), 8(%esp), (%ebp) | }
 
 ; 58400: 	l_v21637 = l_v21678;
 ; 58401: 	l_v21638 = l_mantissa_0;
