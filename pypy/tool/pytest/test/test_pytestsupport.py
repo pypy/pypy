@@ -59,6 +59,12 @@ def app_test_exception_with_message():
     except AssertionError, e:
         assert e.msg == "Failed"
 
+def app_test_comparison():
+    try:
+        assert 3 > 4
+    except AssertionError, e:
+        assert "3 > 4" in e.msg
+
 
 def test_appexecinfo(space):
     try:
