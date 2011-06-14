@@ -57,17 +57,17 @@ def test_build_opt_chain():
 
 class BaseTestOptimizeOpt(BaseTest):
 
-    def optimize_loop(self, ops, optops, expected_preamble=None,
+    def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None):
         loop = self.parse(ops)
-        if optops != "crash!":
-            expected = self.parse(optops)
-        else:
-            expected = "crash!"
+        self.loop = loop
+
+        if expected != "crash!":
+            expected = self.parse(expected)
         if expected_preamble:
             expected_preamble = self.parse(expected_preamble)
         #
-        self.loop = loop
+
         loop.call_pure_results = args_dict()
         if call_pure_results is not None:
             for k, v in call_pure_results.items():
@@ -80,6 +80,7 @@ class BaseTestOptimizeOpt(BaseTest):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
+
         class FakeDescr(compile.ResumeGuardDescr):
             class rd_snapshot:
                 class prev:
