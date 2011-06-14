@@ -1,3 +1,4 @@
+from pypy.config.pypyoption import get_pypy_config
 from pypy.jit.metainterp.history import LoopToken, ConstInt, History, Stats
 from pypy.jit.metainterp.history import BoxInt, INT
 from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
@@ -57,6 +58,7 @@ class FakeMetaInterpStaticData(object):
     
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
+    config = get_pypy_config(translating=True)
 
     stats = Stats()
     profiler = jitprof.EmptyProfiler()
