@@ -5,18 +5,6 @@ from pypy.jit.metainterp import resoperation, history
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.rlib.debug import make_sure_not_resized
 
-class InvalidLoop(JitException):
-    """Raised when the optimize*.py detect that the loop that
-    we are trying to build cannot possibly make sense as a
-    long-running loop (e.g. it cannot run 2 complete iterations)."""
-
-class RetraceLoop(JitException):
-    """ Raised when inlining a short preamble resulted in an
-        InvalidLoop. This means the optimized loop is too specialized
-        to be useful here, so we trace it again and produced a second
-        copy specialized in some different way.
-    """
-
 # ____________________________________________________________
 # Misc. utilities
 

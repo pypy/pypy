@@ -6,7 +6,7 @@ from pypy.jit.metainterp.optimizeopt.test.test_util import (LLtypeMixin,
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
-from pypy.jit.metainterp.optimizeopt.util import InvalidLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.jit.metainterp.jitprof import EmptyProfiler
@@ -134,7 +134,7 @@ def test_reuse_vinfo():
     assert vinfo3 is vinfo4
 
 def test_descrlist_dict():
-    from pypy.jit.metainterp import optimizeutil
+    from pypy.jit.metainterp.optimizeopt import util as optimizeutil
     h1 = optimizeutil.descrlist_hash([])
     h2 = optimizeutil.descrlist_hash([LLtypeMixin.valuedescr])
     h3 = optimizeutil.descrlist_hash(
