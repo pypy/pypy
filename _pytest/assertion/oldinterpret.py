@@ -1,7 +1,8 @@
 import py
 import sys, inspect
 from compiler import parse, ast, pycodegen
-from py._code.assertion import BuiltinAssertionError, _format_explanation
+from _pytest.assertion.util import format_explanation
+from _pytest.assertion.reinterpret import BuiltinAssertionError
 
 passthroughex = py.builtin._sysex
 
@@ -131,7 +132,7 @@ class Interpretable(View):
             raise Failure(self)
 
     def nice_explanation(self):
-        return _format_explanation(self.explanation)
+        return format_explanation(self.explanation)
 
 
 class Name(Interpretable):
@@ -383,10 +384,6 @@ class Assert(Interpretable):
     def run(self, frame):
         test = Interpretable(self.test)
         test.eval(frame)
-        # simplify 'assert False where False = ...'
-        if (test.explanation.startswith('False\n{False = ') and
-            test.explanation.endswith('\n}')):
-            test.explanation = test.explanation[15:-2]
         # print the result as  'assert <explanation>'
         self.result = test.result
         self.explanation = 'assert ' + test.explanation
