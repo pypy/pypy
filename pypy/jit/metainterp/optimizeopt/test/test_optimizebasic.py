@@ -130,7 +130,11 @@ def test_descrlist_dict():
 
 class BaseTestBasic(BaseTest):
 
+    enable_opts = "intbounds:rewrite:virtualize:string:heap"
+
     def optimize_loop(self, ops, optops, call_pure_results=None):
+        from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+
         loop = self.parse(ops)
         #
         self.loop = loop
@@ -144,25 +148,7 @@ class BaseTestBasic(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        # XXX list the exact optimizations that are needed for each test
-        from pypy.jit.metainterp.optimizeopt import (OptIntBounds,
-                                                     OptRewrite,
-                                                     OptVirtualize,
-                                                     OptString,
-                                                     OptHeap,
-                                                     Optimizer)
-        from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
-
-        optimizations = [OptIntBounds(),
-                         OptRewrite(),
-                         OptVirtualize(),
-                         OptString(),
-                         OptHeap(),
-                         OptFfiCall(),
-                         ]
-        optimizer = Optimizer(metainterp_sd, loop, optimizations)
-        optimizer.propagate_all_forward()
-        #
+        optimize_loop_1(metainterp_sd, loop, self.enable_opts)
         expected = self.parse(optops)
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)

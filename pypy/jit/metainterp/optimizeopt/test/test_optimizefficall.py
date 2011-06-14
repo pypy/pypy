@@ -33,6 +33,8 @@ class FakeLLObject(object):
 
 class TestFfiCall(BaseTestBasic, LLtypeMixin):
 
+    enable_opts = "intbounds:rewrite:virtualize:string:heap:ffi"
+
     class namespace:
         cpu = LLtypeMixin.cpu
         FUNC = LLtypeMixin.FUNC
