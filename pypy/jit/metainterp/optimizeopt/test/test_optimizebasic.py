@@ -11,7 +11,7 @@ from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
-from pypy.jit.metainterp.optimizeopt.util import args_dict, equaloplists
+from pypy.jit.metainterp.optimizeopt.util import args_dict
 from pypy.config.pypyoption import get_pypy_config
 
 class Fake(object):
@@ -129,15 +129,6 @@ def test_descrlist_dict():
 
 
 class BaseTestBasic(BaseTest):
-
-    def assert_equal(self, optimized, expected):
-        assert len(optimized.inputargs) == len(expected.inputargs)
-        remap = {}
-        for box1, box2 in zip(optimized.inputargs, expected.inputargs):
-            assert box1.__class__ == box2.__class__
-            remap[box2] = box1
-        assert equaloplists(optimized.operations,
-                            expected.operations, False, remap)
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
         loop = self.parse(ops)

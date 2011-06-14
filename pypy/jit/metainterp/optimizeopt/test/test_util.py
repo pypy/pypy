@@ -333,5 +333,15 @@ class BaseTest(object):
         descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
         return descr
 
+    def assert_equal(self, optimized, expected, text_right=None):
+        from pypy.jit.metainterp.optimizeopt.util import equaloplists
+        assert len(optimized.inputargs) == len(expected.inputargs)
+        remap = {}
+        for box1, box2 in zip(optimized.inputargs, expected.inputargs):
+            assert box1.__class__ == box2.__class__
+            remap[box2] = box1
+        assert equaloplists(optimized.operations,
+                            expected.operations, False, remap, text_right)
+
 # ____________________________________________________________
 
