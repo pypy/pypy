@@ -54,45 +54,35 @@ def test_build_opt_chain():
 # ____________________________________________________________
 
 
+class FakeDescr(compile.ResumeGuardDescr):
+    class rd_snapshot:
+        class prev:
+            prev = None
+            boxes = []
+        boxes = []
+    def clone_if_mutable(self):
+        return self
+
 
 class BaseTestOptimizeOpt(BaseTest):
+
+    enable_opts = "intbounds:rewrite:virtualize:string:heap:unroll"
 
     def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None):
         loop = self.parse(ops)
-        self.loop = loop
-
         if expected != "crash!":
             expected = self.parse(expected)
         if expected_preamble:
             expected_preamble = self.parse(expected_preamble)
-        #
 
-        loop.call_pure_results = args_dict()
-        if call_pure_results is not None:
-            for k, v in call_pure_results.items():
-                loop.call_pure_results[list(k)] = v
         loop.preamble = TreeLoop('preamble')
         loop.preamble.inputargs = loop.inputargs
         loop.preamble.token = LoopToken()
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
-
-        class FakeDescr(compile.ResumeGuardDescr):
-            class rd_snapshot:
-                class prev:
-                    prev = None
-                    boxes = []
-                boxes = []
-            def clone_if_mutable(self):
-                return self
         loop.preamble.start_resumedescr = FakeDescr()
-        optimize_loop_1(metainterp_sd, loop, ALL_OPTS_DICT)
         #
-
+        self._do_optimize_loop(loop, call_pure_results)
+        #
         print
         print loop.preamble.inputargs
         print '\n'.join([str(o) for o in loop.preamble.operations])
@@ -100,13 +90,11 @@ class BaseTestOptimizeOpt(BaseTest):
         print loop.inputargs
         print '\n'.join([str(o) for o in loop.operations])
         print
-
         assert expected != "crash!", "should have raised an exception"
         self.assert_equal(loop, expected)
         if expected_preamble:
             self.assert_equal(loop.preamble, expected_preamble,
                               text_right='expected preamble')
-
         return loop
 
 class OptimizeOptTest(BaseTestOptimizeOpt):

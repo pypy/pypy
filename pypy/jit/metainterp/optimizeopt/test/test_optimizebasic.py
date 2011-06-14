@@ -1,33 +1,14 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.optimizeopt.test.test_util import (LLtypeMixin,
-                                                            #OOtypeMixin,
-                                                            BaseTest)
+from pypy.jit.metainterp.optimizeopt.test.test_util import (
+    LLtypeMixin, BaseTest, FakeMetaInterpStaticData)
 from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
-from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
-from pypy.jit.metainterp.optimizeopt.util import args_dict
-from pypy.config.pypyoption import get_pypy_config
-
-class Fake(object):
-    failargs_limit = 1000
-    storedebug = None
-
-
-class FakeMetaInterpStaticData(object):
-
-    def __init__(self, cpu):
-        self.cpu = cpu
-        self.profiler = EmptyProfiler()
-        self.options = Fake()
-        self.globaldata = Fake()
-        self.config = get_pypy_config(translating=True)
-        self.config.translation.jit_ffi = True
 
 
 def test_store_final_boxes_in_guard():
@@ -133,25 +114,13 @@ class BaseTestBasic(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
-        from pypy.jit.metainterp.optimizeopt import optimize_loop_1
 
         loop = self.parse(ops)
-        #
-        self.loop = loop
-        loop.call_pure_results = args_dict()
-        if call_pure_results is not None:
-            for k, v in call_pure_results.items():
-                loop.call_pure_results[list(k)] = v
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
-        #
-        optimize_loop_1(metainterp_sd, loop, self.enable_opts)
         expected = self.parse(optops)
+        self._do_optimize_loop(loop, call_pure_results)
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
+
 
 
 class BaseTestOptimizeBasic(BaseTestBasic):

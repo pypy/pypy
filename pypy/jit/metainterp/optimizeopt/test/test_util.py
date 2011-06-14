@@ -16,6 +16,8 @@ from pypy.jit.codewriter.heaptracker import register_known_gctype, adr2int
 from pypy.jit.tool.oparser import parse, pure_parse
 from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
 from pypy.jit.metainterp import compile, resume, history
+from pypy.jit.metainterp.jitprof import EmptyProfiler
+from pypy.config.pypyoption import get_pypy_config
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -299,6 +301,23 @@ class OOtypeMixin_xxx_disabled(object):
 # ____________________________________________________________
 
 
+
+class Fake(object):
+    failargs_limit = 1000
+    storedebug = None
+
+
+class FakeMetaInterpStaticData(object):
+
+    def __init__(self, cpu):
+        self.cpu = cpu
+        self.profiler = EmptyProfiler()
+        self.options = Fake()
+        self.globaldata = Fake()
+        self.config = get_pypy_config(translating=True)
+        self.config.translation.jit_ffi = True
+
+
 class Storage(compile.ResumeGuardDescr):
     "for tests."
     def __init__(self, metainterp_sd=None, original_greenkey=None):
@@ -342,6 +361,23 @@ class BaseTest(object):
             remap[box2] = box1
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
+
+    def _do_optimize_loop(self, loop, call_pure_results):
+        from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+        from pypy.jit.metainterp.optimizeopt.util import args_dict
+
+        self.loop = loop
+        loop.call_pure_results = args_dict()
+        if call_pure_results is not None:
+            for k, v in call_pure_results.items():
+                loop.call_pure_results[list(k)] = v
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        if hasattr(self, 'vrefinfo'):
+            metainterp_sd.virtualref_info = self.vrefinfo
+        if hasattr(self, 'callinfocollection'):
+            metainterp_sd.callinfocollection = self.callinfocollection
+        #
+        optimize_loop_1(metainterp_sd, loop, self.enable_opts)
 
 # ____________________________________________________________
 
