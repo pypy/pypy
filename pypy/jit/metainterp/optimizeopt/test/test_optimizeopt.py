@@ -2741,8 +2741,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
     # ----------
 
-class TestLLtype(OptimizeOptTest, LLtypeMixin):
-
     def test_residual_call_does_not_invalidate_caches(self):
         ops = """
         [p1, p2]
@@ -5837,3 +5835,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i3, i4)
         """
         self.optimize_loop(ops, expected)
+
+class TestLLtype(OptimizeOptTest, LLtypeMixin):
+    pass
