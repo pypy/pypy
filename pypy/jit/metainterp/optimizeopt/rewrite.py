@@ -184,6 +184,18 @@ class OptRewrite(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_FLOAT_MUL(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+
+        # Constant fold f0 * 1.0, this works in all cases, including NaN and inf
+        if v1.is_constant() and v1.box.getfloat() == 1.0:
+            self.make_equal_to(op.result, v2)
+        elif v2.is_constant() and v2.box.getfloat() == 1.0:
+            self.make_equal_to(op.result, v1)
+        else:
+            self.emit_operation(op)
+
     def optimize_CALL_PURE(self, op):
         arg_consts = []
         for i in range(op.numargs()):
