@@ -2153,6 +2153,35 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+
+        ops = """
+        [f0]
+        f1 = float_mul(f0, -1.0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [f0]
+        f1 = float_mul(-1.0, f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
     def make_fail_descr(self):
