@@ -2525,9 +2525,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             where p2 is a node_vtable, valuedescr=i2
             ''', rop.GUARD_TRUE)
 
-
-class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
-
     def test_residual_call_does_not_invalidate_caches(self):
         ops = """
         [p1, p2]
@@ -4404,6 +4401,10 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         # more generally, supporting non-constant but virtual cases is
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
+
+
+class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
+    pass
 
 
 ##class TestOOtype(BaseTestOptimizeBasic, OOtypeMixin):
