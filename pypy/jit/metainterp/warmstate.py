@@ -296,7 +296,7 @@ class WarmEnterState(object):
         self.make_jitdriver_callbacks()
         confirm_enter_jit = self.confirm_enter_jit
 
-        def maybe_compile_and_run(use_loop_threshold, *args):
+        def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
@@ -312,10 +312,6 @@ class WarmEnterState(object):
 
             if cell.counter >= 0:
                 # update the profiling counter
-                if use_loop_threshold:
-                    threshold = self.increment_threshold
-                else: # function threshold
-                    threshold = self.increment_function_threshold
                 n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n

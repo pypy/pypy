@@ -424,7 +424,7 @@ class WarmRunnerDesc(object):
         if self.translator.rtyper.type_system.name == 'lltypesystem':
             def maybe_enter_jit(*args):
                 try:
-                    maybe_compile_and_run(True, *args)
+                    maybe_compile_and_run(state.increment_threshold, *args)
                 except JitException:
                     raise     # go through
                 except Exception, e:
@@ -432,14 +432,13 @@ class WarmRunnerDesc(object):
             maybe_enter_jit._always_inline_ = True
         else:
             def maybe_enter_jit(*args):
-                maybe_compile_and_run(True, *args)
+                maybe_compile_and_run(state.increment_threshold, *args)
             maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
 
-        can_inline = state.can_inline_greenargs
         num_green_args = jd.num_green_args
         def maybe_enter_from_start(*args):
-            maybe_compile_and_run(not can_inline(*args[:num_green_args]), *args)
+            maybe_compile_and_run(state.increment_function_threshold, *args)
         maybe_enter_from_start._always_inline_ = True
         jd._maybe_enter_from_start_fn = maybe_enter_from_start
 
