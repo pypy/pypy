@@ -1194,6 +1194,19 @@ class RecursiveTests:
                 i -= 1
         self.meta_interp(portal, [0, 10], inline=True)
 
+    def test_trace_from_start(self):
+        driver = JitDriver(greens = ['c'], reds = ['i'])
+
+        def portal(c, i):
+            while i > 0:
+                driver.can_enter_jit(c=c, i=i)
+                driver.jit_merge_point(c=c, i=i)
+                portal(c, i - 1)
+                break
+
+        self.meta_interp(portal, [10, 10], inline=True)
+        self.check_tree_loop_count(1)
+        self.check_loop_count(0)
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
