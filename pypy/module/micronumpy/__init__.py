@@ -11,6 +11,7 @@ class Module(MixedModule):
         'empty': 'interp_numarray.zeros',
 
         # ufuncs
+        'abs': 'interp_ufuncs.absolute',
         'absolute': 'interp_ufuncs.absolute',
         'copysign': 'interp_ufuncs.copysign',
         'exp': 'interp_ufuncs.exp',
