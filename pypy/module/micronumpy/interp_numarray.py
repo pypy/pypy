@@ -102,9 +102,10 @@ class BaseArray(Wrappable):
     def descr_mean(self, space):
         s = 0
         concrete = self.get_concrete()
-        for i in xrange(concrete.size):
+        size = concrete.find_size()
+        for i in xrange(size):
             s += concrete.getitem(i)
-        return space.wrap(s / concrete.size)
+        return space.wrap(s / size)
 
 
 class FloatWrapper(BaseArray):
