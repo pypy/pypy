@@ -1204,9 +1204,17 @@ class RecursiveTests:
                 portal(c, i - 1)
                 break
 
-        self.meta_interp(portal, [10, 10], inline=True)
+        def main(c, i, set_param):
+            if set_param:
+                driver.set_param('function_threshold', 0)
+            portal(c, i)
+
+        self.meta_interp(main, [10, 10, False], inline=True)
         self.check_tree_loop_count(1)
         self.check_loop_count(0)
+        # XXX fix
+        #self.meta_interp(main, [3, 10, True], inline=True)
+        #self.check_tree_loop_count(1)
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
