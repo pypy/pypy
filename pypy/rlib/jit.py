@@ -274,6 +274,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 PARAMETERS = {'threshold': 1000,
+              'function_threshold': 1000,
               'trace_eagerness': 200,
               'trace_limit': 12000,
               'inlining': 0,

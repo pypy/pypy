@@ -500,7 +500,7 @@ class BasicTests:
                 y -= x
             return y
         #
-        res = self.meta_interp(f, [3, 6], repeat=7)
+        res = self.meta_interp(f, [3, 6], repeat=7, function_threshold=0)
         assert res == 6 - 4 - 5
         self.check_history(call=0)   # because the trace starts in the middle
         #

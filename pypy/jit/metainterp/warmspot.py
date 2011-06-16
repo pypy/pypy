@@ -66,6 +66,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
+                    function_threshold=4,
                     enable_opts=ALL_OPTS_NAMES, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
@@ -80,6 +81,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests
+        jd.warmstate.set_param_function_threshold(function_threshold)
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
@@ -422,7 +424,7 @@ class WarmRunnerDesc(object):
         if self.translator.rtyper.type_system.name == 'lltypesystem':
             def maybe_enter_jit(*args):
                 try:
-                    maybe_compile_and_run(*args)
+                    maybe_compile_and_run(state.increment_threshold, *args)
                 except JitException:
                     raise     # go through
                 except Exception, e:
@@ -430,15 +432,13 @@ class WarmRunnerDesc(object):
             maybe_enter_jit._always_inline_ = True
         else:
             def maybe_enter_jit(*args):
-                maybe_compile_and_run(*args)
+                maybe_compile_and_run(state.increment_threshold, *args)
             maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
 
-        can_inline = state.can_inline_greenargs
         num_green_args = jd.num_green_args
         def maybe_enter_from_start(*args):
-            if not can_inline(*args[:num_green_args]):
-                maybe_compile_and_run(*args)
+            maybe_compile_and_run(state.increment_function_threshold, *args)
         maybe_enter_from_start._always_inline_ = True
         jd._maybe_enter_from_start_fn = maybe_enter_from_start
 
