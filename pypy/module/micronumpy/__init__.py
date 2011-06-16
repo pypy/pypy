@@ -21,4 +21,6 @@ class Module(MixedModule):
         'sign': 'interp_ufuncs.sign',
     }
 
-    appleveldefs = {}
+    appleveldefs = {
+        'mean': 'app_numpy.mean',
+    }

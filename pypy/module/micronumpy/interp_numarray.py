@@ -99,6 +99,14 @@ class BaseArray(Wrappable):
         self.invalidated()
         return self.get_concrete().descr_setitem(space, item, value)
 
+    def descr_mean(self, space):
+        s = 0
+        concrete = self.get_concrete()
+        for i in xrange(concrete.size):
+            s += concrete.getitem(i)
+        return space.wrap(s / concrete.size)
+
+
 class FloatWrapper(BaseArray):
     """
     Intermediate class representing a float literal.
@@ -324,4 +332,6 @@ BaseArray.typedef = TypeDef(
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
+
+    mean = interp2app(BaseArray.descr_mean),
 )

@@ -165,7 +165,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert len(s) == 4
         for i in range(4):
             assert s[i] == a[2*i+1]
-        
+
     def test_slice_update(self):
         from numpy import array
         a = array(range(5))
@@ -177,17 +177,24 @@ class AppTestNumArray(BaseNumpyAppTest):
 
 
     def test_slice_invaidate(self):
-        # check that slice shares invalidation list with 
+        # check that slice shares invalidation list with
         from numpy import array
         a = array(range(5))
         s = a[0:2]
         b = array([10,11])
         c = s + b
-        a[0]=100
+        a[0] = 100
         assert c[0] == 10
         assert c[1] == 12
         d = s + b
-        a[1]=101
+        a[1] = 101
         assert d[0] == 110
         assert d[1] == 12
 
+    def test_mean(self):
+        from numpy import array, mean
+        a = array(range(5))
+        assert a.mean() == 2.0
+        assert mean(a) == 2.0
+        assert mean(range(5)) == 2.0
+        assert a[:4].mean() == 1.5
