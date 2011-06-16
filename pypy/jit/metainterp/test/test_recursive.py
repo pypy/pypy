@@ -1194,27 +1194,34 @@ class RecursiveTests:
                 i -= 1
         self.meta_interp(portal, [0, 10], inline=True)
 
-    def test_trace_from_start(self):
-        driver = JitDriver(greens = ['c'], reds = ['i'])
+    def test_trace_from_start_always(self):
+        from pypy.rlib.nonconst import NonConstant
+        
+        driver = JitDriver(greens = ['c'], reds = ['i', 'v'])
 
-        def portal(c, i):
+        def portal(c, i, v):
             while i > 0:
-                driver.can_enter_jit(c=c, i=i)
-                driver.jit_merge_point(c=c, i=i)
-                portal(c, i - 1)
+                driver.jit_merge_point(c=c, i=i, v=v)
+                portal(c, i - 1, v)
+                if v:
+                    driver.can_enter_jit(c=c, i=i, v=v)
                 break
 
-        def main(c, i, set_param):
+        def main(c, i, set_param, v):
             if set_param:
                 driver.set_param('function_threshold', 0)
-            portal(c, i)
+            portal(c, i, v)
 
-        self.meta_interp(main, [10, 10, False], inline=True)
+        self.meta_interp(main, [10, 10, False, False], inline=True)
         self.check_tree_loop_count(1)
         self.check_loop_count(0)
-        # XXX fix
-        #self.meta_interp(main, [3, 10, True], inline=True)
-        #self.check_tree_loop_count(1)
+        self.meta_interp(main, [3, 10, True, False], inline=True)
+        self.check_tree_loop_count(0)
+        self.check_loop_count(0)
+
+    def test_trace_from_start_does_not_prevent_inlining(self):
+        def portal(c, i):
+            xxx
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
