@@ -10,6 +10,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from pypy.rlib.rdynload import DLOpenError, DLLHANDLE
+from pypy.rlib import jit
 from pypy.tool.autopath import pypydir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
@@ -270,6 +271,7 @@ if not _WIN32:
 elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
+    @jit.dont_look_inside
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
 

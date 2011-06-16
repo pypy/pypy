@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import py
 from pypy.interpreter.argument import (Arguments, ArgumentsForTranslation,
     ArgErr, ArgErrUnknownKwds, ArgErrMultipleValues, ArgErrCount, rawshape,
@@ -126,6 +127,7 @@ class DummySpace(object):
     w_AttributeError = AttributeError
     w_UnicodeEncodeError = UnicodeEncodeError
     w_dict = dict
+    w_str = str
 
 class TestArgumentsNormal(object):
 
@@ -485,26 +487,6 @@ class TestArgumentsNormal(object):
         args._match_signature(None, l, Signature(['abc']))
         assert len(l) == 1
         assert l[0] == space.wrap(5)
-        #
-        def str_w(w):
-            try:
-                return str(w)
-            except UnicodeEncodeError:
-                raise OperationError(space.w_UnicodeEncodeError,
-                                     space.wrap("oups"))
-        space.str_w = str_w
-        w_starstar = space.wrap({u'\u1234': 5})
-        err = py.test.raises(OperationError, Arguments,
-                             space, [], w_starstararg=w_starstar)
-        # Check that we get a TypeError.  On CPython it is because of
-        # "no argument called '?'".  On PyPy we get a TypeError too, but
-        # earlier: "keyword cannot be encoded to ascii".  The
-        # difference, besides the error message, is only apparent if the
-        # receiver also takes a **arg.  Then CPython passes the
-        # non-ascii unicode unmodified, whereas PyPy complains.  We will
-        # not care until someone has a use case for that.
-        assert not err.value.match(space, space.w_UnicodeEncodeError)
-        assert     err.value.match(space, space.w_TypeError)
 
 class TestErrorHandling(object):
     def test_missing_args(self):
@@ -559,12 +541,25 @@ class TestErrorHandling(object):
             assert 0, "did not raise"
 
     def test_unknown_keywords(self):
-        err = ArgErrUnknownKwds(1, ['a', 'b'], [True, False])
+        space = DummySpace()
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [True, False], None)
         s = err.getmsg('foo')
         assert s == "foo() got an unexpected keyword argument 'b'"
-        err = ArgErrUnknownKwds(2, ['a', 'b', 'c'], [True, False, False])
+        err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'],
+                                [True, False, False], None)
         s = err.getmsg('foo')
         assert s == "foo() got 2 unexpected keyword arguments"
+
+    def test_unknown_unicode_keyword(self):
+        class DummySpaceUnicode(DummySpace):
+            class sys:
+                defaultencoding = 'utf-8'
+        space = DummySpaceUnicode()
+        err = ArgErrUnknownKwds(space, 1, ['a', None, 'b', 'c'],
+                                [True, False, True, True],
+                                [unichr(0x1234), u'b', u'c'])
+        s = err.getmsg('foo')
+        assert s == "foo() got an unexpected keyword argument '\xe1\x88\xb4'"
 
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')
@@ -591,6 +586,14 @@ class AppTestArgument:
         assert exc.value.message == "<lambda>() takes at least 2 non-keyword arguments (0 given)"
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
         assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
+
+    def test_unicode_keywords(self):
+        def f(**kwargs):
+            assert kwargs[u"美"] == 42
+        f(**{u"美" : 42})
+        def f(x): pass
+        e = raises(TypeError, "f(**{u'ü' : 19})")
+        assert "?" in str(e.value)
 
 def make_arguments_for_translation(space, args_w, keywords_w={},
                                    w_stararg=None, w_starstararg=None):

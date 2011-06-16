@@ -4,7 +4,7 @@ from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
-from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
+from pypy.jit.metainterp.optimizeopt.util import equaloplists
 from pypy.jit.metainterp.history import AbstractDescr, LoopToken, BasicFailDescr
 from pypy.jit.backend.model import AbstractCPU
 

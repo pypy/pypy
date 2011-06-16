@@ -78,6 +78,10 @@ def jittify_and_run(interp, graph, args, repeat=1,
         translator.config.translation.list_comprehension_operations = True
     except ConfigError:
         pass
+    try:
+        translator.config.translation.jit_ffi = True
+    except ConfigError:
+        pass
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests
