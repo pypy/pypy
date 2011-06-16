@@ -1220,8 +1220,25 @@ class RecursiveTests:
         self.check_loop_count(0)
 
     def test_trace_from_start_does_not_prevent_inlining(self):
-        def portal(c, i):
-            xxx
+        driver = JitDriver(greens = ['c', 'bc'], reds = ['i'])
+        
+        def portal(bc, c, i):
+            while True:
+                driver.jit_merge_point(c=c, bc=bc, i=i)
+                if bc == 0:
+                    portal(1, 8, 0)
+                    c += 1
+                else:
+                    return
+                if c == 10: # bc == 0                    
+                    c = 0
+                    if i >= 100:
+                        return
+                    driver.can_enter_jit(c=c, bc=bc, i=i)
+                i += 1
+
+        self.meta_interp(portal, [0, 0, 0], inline=True)
+        self.check_loops(call=0, call_may_force=0)
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
