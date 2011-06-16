@@ -195,6 +195,4 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array, mean
         a = array(range(5))
         assert a.mean() == 2.0
-        assert mean(a) == 2.0
-        assert mean(range(5)) == 2.0
         assert a[:4].mean() == 1.5

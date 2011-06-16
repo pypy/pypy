@@ -22,5 +22,6 @@ class Module(MixedModule):
     }
 
     appleveldefs = {
+        'average': 'app_numpy.average',
         'mean': 'app_numpy.mean',
     }
