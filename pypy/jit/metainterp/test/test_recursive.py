@@ -483,6 +483,7 @@ class RecursiveTests:
  
         def main(inline):
             myjitdriver.set_param("threshold", 10)
+            myjitdriver.set_param('function_threshold', 60)
             if inline:
                 myjitdriver.set_param('inlining', True)
             else:
