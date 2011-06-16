@@ -439,7 +439,7 @@ class WarmRunnerDesc(object):
         can_inline = state.can_inline_greenargs
         num_green_args = jd.num_green_args
         def maybe_enter_from_start(*args):
-            maybe_compile_and_run(can_inline(*args[:num_green_args]), *args)
+            maybe_compile_and_run(not can_inline(*args[:num_green_args]), *args)
         maybe_enter_from_start._always_inline_ = True
         jd._maybe_enter_from_start_fn = maybe_enter_from_start
 
