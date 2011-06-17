@@ -33,7 +33,6 @@ class AppTestJitHook(object):
         oplist = parse("""
         [i1, i2]
         i3 = int_add(i1, i2)
-        debug_merge_point(0, 0, 0, 0, ConstPtr(ptr0))
         guard_true(i3) []
         """, namespace={'ptr0': 3}).operations
 

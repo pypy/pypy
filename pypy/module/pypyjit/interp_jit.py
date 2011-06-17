@@ -47,10 +47,11 @@ def can_never_inline(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
 
-def wrap_oplist(space, logger, operations):
+def wrap_oplist(space, logops, operations):
     list_w = []
     for op in operations:
-        xxx
+        list_w.append(space.wrap(logops.repr_of_resop(op)))
+    return list_w
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
@@ -67,7 +68,7 @@ class PyPyJitDriver(JitDriver):
             return
         if space.is_true(cache.w_compile_hook):
             logops = logger._make_log_operations()
-            list_w = wrap_oplist(space, logger, operations)
+            list_w = wrap_oplist(space, logops, operations)
             pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
             cache.in_recursion = True
             try:
@@ -89,7 +90,7 @@ class PyPyJitDriver(JitDriver):
             return
         if space.is_true(cache.w_compile_hook):
             logops = logger._make_log_operations()
-            list_w = wrap_oplist(space, logger, operations)
+            list_w = wrap_oplist(space, logops, operations)
             cache.in_recursion = True
             try:
                 space.call_function(cache.w_compile_hook,
