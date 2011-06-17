@@ -197,6 +197,7 @@ class Call2(VirtualArray):
     Intermediate class for performing binary operations.
     """
     _immutable_fields_ = ["function", "left", "right"]
+
     def __init__(self, function, left, right, signature):
         VirtualArray.__init__(self, signature)
         self.function = function
@@ -220,9 +221,11 @@ class Call2(VirtualArray):
 
 class ViewArray(BaseArray):
     """
-    Class for representing views of arrays, they will reflect changes of parrent arrays. Example: slices
+    Class for representing views of arrays, they will reflect changes of parent
+    arrays. Example: slices
     """
     _immutable_fields_ = ["parent"]
+
     def __init__(self, parent, signature):
         BaseArray.__init__(self)
         self.signature = signature
@@ -230,7 +233,10 @@ class ViewArray(BaseArray):
         self.invalidates = parent.invalidates
 
     def get_concrete(self):
-        return self # in fact, ViewArray never gets "concrete" as it never stores data. This implementation is needed for BaseArray getitem/setitem to work, can be refactored.
+        # in fact, ViewArray never gets "concrete" as it never stores data.
+        # This implementation is needed for BaseArray getitem/setitem to work,
+        # can be refactored.
+        return self
 
     def eval(self, i):
         return self.parent.eval(self.calc_index(i))
@@ -320,10 +326,16 @@ def descr_new_numarray(space, w_type, w_size_or_iterable):
         i += 1
     return space.wrap(arr)
 
-@unwrap_spec(ObjSpace, int)
+@unwrap_spec(size=int)
 def zeros(space, size):
     return space.wrap(SingleDimArray(size))
 
+@unwrap_spec(size=int)
+def ones(space, size):
+    arr = SingleDimArray(size)
+    for i in xrange(size):
+        arr.storage[i] = 1.0
+    return space.wrap(arr)
 
 BaseArray.typedef = TypeDef(
     'numarray',

@@ -9,6 +9,7 @@ class Module(MixedModule):
         'array': 'interp_numarray.SingleDimArray',
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
+        'ones': 'interp_numarray.ones',
 
         # ufuncs
         'abs': 'interp_ufuncs.absolute',

@@ -28,6 +28,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[1] = 1.0
         assert a[1] == 1.0
 
+    def test_ones(self):
+        from numpy import ones
+        a = ones(3)
+        assert len(a) == 3
+        assert a[0] == 1
+        raises(IndexError, "a[3]")
+        a[2] = 4
+        assert a[2] == 4
+
     def test_iterator_init(self):
         from numpy import array
         a = array(range(5))
