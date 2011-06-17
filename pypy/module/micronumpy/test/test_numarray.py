@@ -56,6 +56,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert len(a) == 5
         assert len(a + a) == 5
 
+    def test_shape(self):
+        from numpy import array
+        a = array(range(5))
+        assert a.shape == (5,)
+        b = a + a
+        assert b.shape == (5,)
+        c = a[:3]
+        assert c.shape == (3,)
+
     def test_add(self):
         from numpy import array
         a = array(range(5))

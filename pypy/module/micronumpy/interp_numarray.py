@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
@@ -79,6 +79,9 @@ class BaseArray(Wrappable):
 
     def get_concrete(self):
         raise NotImplementedError
+
+    def descr_get_shape(self, space):
+        return space.newtuple([self.descr_len(space)])
 
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
@@ -325,6 +328,9 @@ def zeros(space, size):
 BaseArray.typedef = TypeDef(
     'numarray',
     __new__ = interp2app(descr_new_numarray),
+
+    shape = GetSetProperty(BaseArray.descr_get_shape),
+
     __len__ = interp2app(BaseArray.descr_len),
     __getitem__ = interp2app(BaseArray.descr_getitem),
     __setitem__ = interp2app(BaseArray.descr_setitem),
