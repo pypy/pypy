@@ -267,6 +267,9 @@ class BaseCallDescr(AbstractDescr):
 
     def __repr__(self):
         res = '%s(%s)' % (self.__class__.__name__, self.arg_classes)
+        extraeffect = getattr(self.extrainfo, 'extraeffect', None)
+        if extraeffect is not None:
+            res += ' EF=%r' % extraeffect
         oopspecindex = getattr(self.extrainfo, 'oopspecindex', 0)
         if oopspecindex:
             from pypy.jit.codewriter.effectinfo import EffectInfo
