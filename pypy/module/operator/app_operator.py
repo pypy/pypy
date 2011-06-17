@@ -105,20 +105,16 @@ def single_attr_getter(attr):
     return make_getter(attr[last:], getter)
 
 
-class itemgetter(object):
+def itemgetter(item, *items):
+    if items:
+        list_of_indices = [item] + list(items)
+        def getter(obj):
+            return tuple([obj[i] for i in list_of_indices])
+    else:
+        def getter(obj):
+            return obj[item]
+    return builtinify(getter)
 
-    def __init__(self, item, *args):
-        self.items = args
-        self.item = item
-
-    def __call__(self, obj):
-        result = obj[self.item]
-
-        if self.items:
-            list = [result] + [obj[item] for item in self.items]
-            return tuple(list)
-
-        return result
 
 class methodcaller(object):
 
