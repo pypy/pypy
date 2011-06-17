@@ -13,7 +13,7 @@ from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.typesystem import llhelper
 
 class MockSD(object):
-    class cpu:
+    class cpu(object):
         ts = llhelper
 
 class AppTestJitHook(object):
@@ -33,8 +33,9 @@ class AppTestJitHook(object):
         oplist = parse("""
         [i1, i2]
         i3 = int_add(i1, i2)
+        debug_merge_point(0, 0, 0, 0, ConstPtr(ptr0))
         guard_true(i3) []
-        """).operations
+        """, namespace={'ptr0': 3}).operations
 
         def interp_on_compile():
             pypyjitdriver.on_compile(logger, LoopToken(), oplist, 'loop',

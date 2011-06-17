@@ -103,6 +103,7 @@ class LogOperations(object):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
             s = jd_sd.warmstate.get_location_str(op.getarglist()[2:])
+            s = s.replace(',', '.') # we use comma for argument splitting
             return "debug_merge_point(%d, '%s')" % (op.getarg(1).getint(), s)
         if ops_offset is None:
             offset = -1

@@ -147,13 +147,13 @@ class BaseTestOparser(object):
         []
         debug_merge_point(0, "info")
         debug_merge_point(0, 'info')
-        debug_merge_point(1, '<some ('other,')> info')
+        debug_merge_point(1, '<some ('other.')> info')
         debug_merge_point(0, '(stuff) #1')
         '''
         loop = self.parse(x)
         assert loop.operations[0].getarg(1)._get_str() == 'info'
         assert loop.operations[1].getarg(1)._get_str() == 'info'
-        assert loop.operations[2].getarg(1)._get_str() == "<some ('other,')> info"
+        assert loop.operations[2].getarg(1)._get_str() == "<some ('other.')> info"
         assert loop.operations[3].getarg(1)._get_str() == "(stuff) #1"
 
 
