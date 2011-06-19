@@ -95,7 +95,7 @@ class PyCode(eval.Code):
             if self.co_flags & CO_VARKEYWORDS:
                 argcount += 1
             # Cell vars could shadow already-set arguments.
-            # astcompiler.pyassem used to be clever about the order of
+            # The compiler used to be clever about the order of
             # the variables in both co_varnames and co_cellvars, but
             # it no longer is for the sake of simplicity.  Moreover
             # code objects loaded from CPython don't necessarily follow
