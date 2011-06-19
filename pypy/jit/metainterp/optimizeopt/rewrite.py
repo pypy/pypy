@@ -205,6 +205,11 @@ class OptRewrite(Optimization):
                     return
         self.emit_operation(op)
 
+    def optimize_FLOAT_NEG(self, op):
+        v1 = op.getarg(0)
+        self.emit_operation(op)
+        self.pure(rop.FLOAT_NEG, [op.result], v1)
+
     def optimize_CALL_PURE(self, op):
         arg_consts = []
         for i in range(op.numargs()):
