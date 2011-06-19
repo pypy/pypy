@@ -87,7 +87,8 @@ NUMBERINGP.TO.become(NUMBERING)
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
                                    ('lldescr', annlowlevel.base_ptr_lltype()),
                                    ('num', rffi.SHORT),
-                                   ('fieldnum', rffi.SHORT))
+                                   ('fieldnum', rffi.SHORT),
+                                   ('itemindex', rffi.INT))
 PENDINGFIELDSP = lltype.Ptr(lltype.GcArray(PENDINGFIELDSTRUCT))
 
 TAGMASK = 3
@@ -418,13 +419,20 @@ class ResumeDataVirtualAdder(object):
             n = len(pending_setfields)
             rd_pendingfields = lltype.malloc(PENDINGFIELDSP.TO, n)
             for i in range(n):
-                descr, box, fieldbox = pending_setfields[i]
+                descr, box, fieldbox, itemindex = pending_setfields[i]
                 lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)
                 fieldnum = self._gettagged(fieldbox)
+                # the index is limited to 2147483647 (64-bit machines only)
+                if itemindex > 2147483647:
+                    from pypy.jit.metainterp import compile
+                    compile.giveup()
+                itemindex = rffi.cast(rffi.INT, itemindex)
+                #
                 rd_pendingfields[i].lldescr  = lldescr
                 rd_pendingfields[i].num      = num
                 rd_pendingfields[i].fieldnum = fieldnum
+                rd_pendingfields[i].itemindex= itemindex
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
@@ -745,10 +753,23 @@ class AbstractResumeDataReader(object):
                 lldescr  = pendingfields[i].lldescr
                 num      = pendingfields[i].num
                 fieldnum = pendingfields[i].fieldnum
+                itemindex= pendingfields[i].itemindex
                 descr = annlowlevel.cast_base_ptr_to_instance(AbstractDescr,
                                                               lldescr)
                 struct = self.decode_ref(num)
-                self.setfield(descr, struct, fieldnum)
+                itemindex = rffi.cast(lltype.Signed, itemindex)
+                if itemindex < 0:
+                    self.setfield(descr, struct, fieldnum)
+                else:
+                    self.setarrayitem(descr, struct, itemindex, fieldnum)
+
+    def setarrayitem(self, arraydescr, array, index, fieldnum):
+        if arraydescr.is_array_of_pointers():
+            self.setarrayitem_ref(arraydescr, array, index, fieldnum)
+        elif arraydescr.is_array_of_floats():
+            self.setarrayitem_float(arraydescr, array, index, fieldnum)
+        else:
+            self.setarrayitem_int(arraydescr, array, index, fieldnum)
 
     def _prepare_next_section(self, info):
         # Use info.enumerate_vars(), normally dispatching to
@@ -921,15 +942,15 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
                                            structbox, fieldbox)
 
     def setarrayitem_int(self, arraydescr, arraybox, index, fieldnum):
-        self.setarrayitem(arraydescr, arraybox, index, fieldnum, INT)
+        self._setarrayitem(arraydescr, arraybox, index, fieldnum, INT)
 
     def setarrayitem_ref(self, arraydescr, arraybox, index, fieldnum):
-        self.setarrayitem(arraydescr, arraybox, index, fieldnum, REF)
+        self._setarrayitem(arraydescr, arraybox, index, fieldnum, REF)
 
     def setarrayitem_float(self, arraydescr, arraybox, index, fieldnum):
-        self.setarrayitem(arraydescr, arraybox, index, fieldnum, FLOAT)
+        self._setarrayitem(arraydescr, arraybox, index, fieldnum, FLOAT)
 
-    def setarrayitem(self, arraydescr, arraybox, index, fieldnum, kind):
+    def _setarrayitem(self, arraydescr, arraybox, index, fieldnum, kind):
         itembox = self.decode_box(fieldnum, kind)
         self.metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                            arraydescr, arraybox,
