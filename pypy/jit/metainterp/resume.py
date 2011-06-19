@@ -338,7 +338,7 @@ class ResumeDataVirtualAdder(object):
                 value = values[box]
                 value.get_args_for_fail(self)
 
-        for _, box, fieldbox in pending_setfields:
+        for _, box, fieldbox, _ in pending_setfields:
             self.register_box(box)
             self.register_box(fieldbox)
             value = values[fieldbox]

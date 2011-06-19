@@ -332,7 +332,7 @@ class OptHeap(Optimization):
             if fieldvalue.is_virtual():
                 # this is the case that we leave to resume.py
                 pendingfields.append((op.getdescr(), value.box,
-                                      fieldvalue.get_key_box()))
+                                      fieldvalue.get_key_box(), -1))
             else:
                 cf.force_lazy_setfield(self)
                 self.fixup_guard_situation()
