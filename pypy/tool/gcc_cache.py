@@ -39,7 +39,16 @@ def try_compile_cache(c_files, eci):
         data = ''
     if not (data.startswith('True') or data.startswith('FAIL\n')):
         try:
-            platform.compile(c_files, eci)
+            _previous = platform.log_errors
+            try:
+                platform.log_errors = False
+                platform.compile(c_files, eci)
+            finally:
+                del platform.log_errors
+                # ^^^remove from the instance --- needed so that it can
+                # compare equal to another instance without it
+                if platform.log_errors != _previous:
+                    platform.log_errors = _previous
             data = 'True'
             path.write(data)
         except CompilationError, e:

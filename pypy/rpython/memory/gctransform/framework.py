@@ -463,7 +463,7 @@ class FrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
                                            inline=True)
-                func = getattr(gcdata.gc, 'remember_young_pointer_from_array',
+                func = getattr(gcdata.gc, 'remember_young_pointer_from_array3',
                                None)
                 if func is not None:
                     # func should not be a bound method, but a real function
@@ -471,7 +471,8 @@ class FrameworkGCTransformer(GCTransformer):
                     self.write_barrier_from_array_failing_case_ptr = \
                                              getfn(func,
                                                    [annmodel.SomeAddress(),
-                                                    annmodel.SomeInteger()],
+                                                    annmodel.SomeInteger(),
+                                                    annmodel.SomeAddress()],
                                                    annmodel.s_None)
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
                                     [s_gc, annmodel.SomeInteger()],
@@ -860,9 +861,9 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_get_write_barrier_from_array_failing_case(self, hop):
         op = hop.spaceop
-        hop.genop("same_as",
-                  [self.write_barrier_from_array_failing_case_ptr],
-                  resultvar=op.result)
+        v = getattr(self, 'write_barrier_from_array_failing_case_ptr',
+                    lltype.nullptr(op.result.concretetype.TO))
+        hop.genop("same_as", [v], resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):
         if not self.malloc_zero_filled:

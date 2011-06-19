@@ -55,7 +55,7 @@ class TestCompiler:
         co_expr = compile(evalexpr, '<evalexpr>', 'eval')
         space = self.space
         pyco_expr = PyCode._from_code(space, co_expr)
-        w_res = pyco_expr.exec_host_bytecode(space, w_dict, w_dict)
+        w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
         res = space.str_w(space.repr(w_res))
         if not isinstance(expected, float):
             assert res == repr(expected)

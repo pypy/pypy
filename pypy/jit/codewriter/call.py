@@ -237,6 +237,8 @@ class CallControl(object):
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
             oopspecindex, can_invalidate)
         #
+        if oopspecindex != EffectInfo.OS_NONE:
+            assert effectinfo is not None
         if pure or loopinvariant:
             assert effectinfo is not None
             assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE

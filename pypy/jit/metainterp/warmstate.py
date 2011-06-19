@@ -208,14 +208,19 @@ class WarmEnterState(object):
             meth = getattr(self, 'set_param_' + name)
             meth(default_value)
 
-    def set_param_threshold(self, threshold):
+    def _compute_threshold(self, threshold):
         if threshold <= 0:
-            self.increment_threshold = 0   # never reach the THRESHOLD_LIMIT
-            return
+            return 0 # never reach the THRESHOLD_LIMIT
         if threshold < 2:
             threshold = 2
-        self.increment_threshold = (self.THRESHOLD_LIMIT // threshold) + 1
+        return (self.THRESHOLD_LIMIT // threshold) + 1
         # the number is at least 1, and at most about half THRESHOLD_LIMIT
+
+    def set_param_threshold(self, threshold):
+        self.increment_threshold = self._compute_threshold(threshold)
+
+    def set_param_function_threshold(self, threshold):
+        self.increment_function_threshold = self._compute_threshold(threshold)
 
     def set_param_trace_eagerness(self, value):
         self.trace_eagerness = value
@@ -291,7 +296,7 @@ class WarmEnterState(object):
         self.make_jitdriver_callbacks()
         confirm_enter_jit = self.confirm_enter_jit
 
-        def maybe_compile_and_run(*args):
+        def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
@@ -307,7 +312,7 @@ class WarmEnterState(object):
 
             if cell.counter >= 0:
                 # update the profiling counter
-                n = cell.counter + self.increment_threshold
+                n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
@@ -599,12 +604,8 @@ class WarmEnterState(object):
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
             missing = '(no jitdriver.get_printable_location!)'
-            missingll = llstr(missing)
             def get_location_str(greenkey):
-                if we_are_translated():
-                    return missingll
-                else:
-                    return missing
+                return missing
         else:
             rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
@@ -612,10 +613,10 @@ class WarmEnterState(object):
             def get_location_str(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
-                res = fn(*greenargs)
-                if not we_are_translated() and not isinstance(res, str):
-                    res = hlstr(res)
-                return res
+                llres = fn(*greenargs)
+                if not we_are_translated() and isinstance(llres, str):
+                    return llres
+                return hlstr(llres)
         self.get_location_str = get_location_str
         #
         confirm_enter_jit_ptr = self.jitdriver_sd._confirm_enter_jit_ptr

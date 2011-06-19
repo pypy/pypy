@@ -1,37 +1,15 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
-                                                        #OOtypeMixin,
-                                                        BaseTest)
+from pypy.jit.metainterp.optimizeopt.test.test_util import (
+    LLtypeMixin, BaseTest, FakeMetaInterpStaticData)
+from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
-from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
-from pypy.jit.tool.oparser import pure_parse
-from pypy.jit.metainterp.optimizeutil import args_dict
 
-##class FakeFrame(object):
-##    parent_resumedata_snapshot = None
-##    parent_resumedata_frame_info_list = None
-
-##    def __init__(self, code="", pc=0):
-##        self.jitcode = code
-##        self.pc = pc
-
-class Fake(object):
-    failargs_limit = 1000
-    storedebug = None
-
-class FakeMetaInterpStaticData(object):
-
-    def __init__(self, cpu):
-        self.cpu = cpu
-        self.profiler = EmptyProfiler()
-        self.options = Fake()
-        self.globaldata = Fake()
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
@@ -101,7 +79,7 @@ def test_reuse_vinfo():
     assert vinfo3 is vinfo4
 
 def test_descrlist_dict():
-    from pypy.jit.metainterp import optimizeutil
+    from pypy.jit.metainterp.optimizeopt import util as optimizeutil
     h1 = optimizeutil.descrlist_hash([])
     h2 = optimizeutil.descrlist_hash([LLtypeMixin.valuedescr])
     h3 = optimizeutil.descrlist_hash(
@@ -130,158 +108,19 @@ def test_descrlist_dict():
 
 # ____________________________________________________________
 
-def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
-                 text_right=None):
-    # try to use the full width of the terminal to display the list
-    # unfortunately, does not work with the default capture method of py.test
-    # (which is fd), you you need to use either -s or --capture=sys, else you
-    # get the standard 80 columns width
-    totwidth = py.io.get_terminal_width()
-    width = totwidth / 2 - 1
-    print ' Comparing lists '.center(totwidth, '-')
-    text_right = text_right or 'expected'
-    print '%s| %s' % ('optimized'.center(width), text_right.center(width))
-    for op1, op2 in zip(oplist1, oplist2):
-        txt1 = str(op1)
-        txt2 = str(op2)
-        while txt1 or txt2:
-            print '%s| %s' % (txt1[:width].ljust(width), txt2[:width])
-            txt1 = txt1[width:]
-            txt2 = txt2[width:]
-        assert op1.getopnum() == op2.getopnum()
-        assert op1.numargs() == op2.numargs()
-        for i in range(op1.numargs()):
-            x = op1.getarg(i)
-            y = op2.getarg(i)
-            assert x == remap.get(y, y)
-        if op2.result in remap:
-            assert op1.result == remap[op2.result]
-        else:
-            remap[op2.result] = op1.result
-        if op1.getopnum() != rop.JUMP:      # xxx obscure
-            assert op1.getdescr() == op2.getdescr()
-        if op1.getfailargs() or op2.getfailargs():
-            assert len(op1.getfailargs()) == len(op2.getfailargs())
-            if strict_fail_args:
-                for x, y in zip(op1.getfailargs(), op2.getfailargs()):
-                    assert x == remap.get(y, y)
-            else:
-                fail_args1 = set(op1.getfailargs())
-                fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])
-                assert fail_args1 == fail_args2
-    assert len(oplist1) == len(oplist2)
-    print '-'*totwidth
-    return True
-
-def test_equaloplists():
-    ops = """
-    [i0]
-    i1 = int_add(i0, 1)
-    i2 = int_add(i1, 1)
-    guard_true(i1) [i2]
-    jump(i1)
-    """
-    namespace = {}
-    loop1 = pure_parse(ops, namespace=namespace)
-    loop2 = pure_parse(ops, namespace=namespace)
-    loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
-                       namespace=namespace)
-    assert equaloplists(loop1.operations, loop2.operations)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
-
-def test_equaloplists_fail_args():
-    ops = """
-    [i0]
-    i1 = int_add(i0, 1)
-    i2 = int_add(i1, 1)
-    guard_true(i1) [i2, i1]
-    jump(i1)
-    """
-    namespace = {}
-    loop1 = pure_parse(ops, namespace=namespace)
-    loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
-                       namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop2.operations)")
-    assert equaloplists(loop1.operations, loop2.operations,
-                        strict_fail_args=False)
-    loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
-                       namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
-
-# ____________________________________________________________
-
-class Storage(compile.ResumeGuardDescr):
-    "for tests."
-    def __init__(self, metainterp_sd=None, original_greenkey=None):
-        self.metainterp_sd = metainterp_sd
-        self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes):
-        op.setfailargs(boxes)
-    def __eq__(self, other):
-        return type(self) is type(other)      # xxx obscure
-
-def _sortboxes(boxes):
-    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
-    return sorted(boxes, key=lambda box: _kind2count[box.type])
 
 class BaseTestBasic(BaseTest):
 
-    def invent_fail_descr(self, fail_args):
-        if fail_args is None:
-            return None
-        descr = Storage()
-        descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-        descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
-        return descr
-
-    def assert_equal(self, optimized, expected):
-        assert len(optimized.inputargs) == len(expected.inputargs)
-        remap = {}
-        for box1, box2 in zip(optimized.inputargs, expected.inputargs):
-            assert box1.__class__ == box2.__class__
-            remap[box2] = box1
-        assert equaloplists(optimized.operations,
-                            expected.operations, False, remap)
+    enable_opts = "intbounds:rewrite:virtualize:string:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
-        loop = self.parse(ops)
-        #
-        self.loop = loop
-        loop.call_pure_results = args_dict()
-        if call_pure_results is not None:
-            for k, v in call_pure_results.items():
-                loop.call_pure_results[list(k)] = v
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
-        #
-        # XXX list the exact optimizations that are needed for each test
-        from pypy.jit.metainterp.optimizeopt import (OptIntBounds,
-                                                     OptRewrite,
-                                                     OptVirtualize,
-                                                     OptString,
-                                                     OptHeap,
-                                                     Optimizer)
-        from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 
-        optimizations = [OptIntBounds(),
-                         OptRewrite(),
-                         OptVirtualize(),
-                         OptString(),
-                         OptHeap(),
-                         OptFfiCall(),
-                         ]
-        optimizer = Optimizer(metainterp_sd, loop, optimizations)
-        optimizer.propagate_all_forward()
-        #
+        loop = self.parse(ops)
         expected = self.parse(optops)
+        self._do_optimize_loop(loop, call_pure_results)
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
+
 
 
 class BaseTestOptimizeBasic(BaseTestBasic):
@@ -2284,6 +2123,81 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0]
         jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_fold_constant_partial_ops_float(self):
+        ops = """
+        [f0]
+        f1 = float_mul(f0, 1.0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f2 = escape(f0)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [f0]
+        f1 = float_mul(1.0, f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f2 = escape(f0)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+
+        ops = """
+        [f0]
+        f1 = float_mul(f0, -1.0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [f0]
+        f1 = float_mul(-1.0, f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_fold_repeated_float_neg(self):
+        ops = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = float_neg(f1)
+        f3 = float_neg(f2)
+        f4 = float_neg(f3)
+        escape(f4)
+        jump(f4)
+        """
+        expected = """
+        [f0]
+        # The backend removes this dead op.
+        f1 = float_neg(f0)
+        escape(f0)
+        jump(f0)
         """
         self.optimize_loop(ops, expected)
 

@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import (
     cpython_api, build_type_checkers, PyObject,
     CONST_STRING, CANNOT_FAIL, Py_ssize_t)
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask, LONG_TEST
 import sys
 
 PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
@@ -73,13 +73,24 @@ def PyInt_AsSsize_t(space, w_obj):
                              space.wrap("an integer is required, got NULL"))
     return space.int_w(w_obj) # XXX this is wrong on win64
 
+LONG_MAX = int(LONG_TEST - 1)
+
+@cpython_api([rffi.SIZE_T], PyObject)
+def PyInt_FromSize_t(space, ival):
+    """Create a new integer object with a value of ival. If the value exceeds
+    LONG_MAX, a long integer object is returned.
+    """
+    if ival <= LONG_MAX:
+        return space.wrap(intmask(ival))
+    return space.wrap(ival)
+
 @cpython_api([Py_ssize_t], PyObject)
 def PyInt_FromSsize_t(space, ival):
     """Create a new integer object with a value of ival. If the value is larger
     than LONG_MAX or smaller than LONG_MIN, a long integer object is
     returned.
     """
-    return space.wrap(ival) # XXX this is wrong on win64
+    return space.wrap(ival)
 
 @cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
 def PyInt_FromString(space, str, pend, base):

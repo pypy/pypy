@@ -4,6 +4,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.rlib import rstack
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -13,7 +14,7 @@ from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.resume import NUMBERING
 from pypy.jit.codewriter import heaptracker, longlong
 
@@ -156,6 +157,7 @@ def insert_loop_token(old_loop_tokens, loop_token):
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     jitdriver_sd.on_compile(metainterp_sd.logger_ops, loop.token,
                             loop.operations, type, greenkey)
+    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     loop_token = loop.token
     loop_token.number = n = globaldata.loopnumbering
@@ -170,7 +172,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     debug_start("jit-backend")
     try:
         ops_offset = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
-                                                    loop.token)
+                                                    loop.token, name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -452,9 +454,17 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # Called during a residual call from the assembler, if the code
         # actually needs to force one of the virtualrefs or the virtualizable.
         # Implemented by forcing *all* virtualrefs and the virtualizable.
-        faildescr = cpu.force(token)
-        assert isinstance(faildescr, ResumeGuardForcedDescr)
-        faildescr.handle_async_forcing(token)
+
+        # don't interrupt me! If the stack runs out in force_from_resumedata()
+        # then we have seen cpu.force() but not self.save_data(), leaving in
+        # an inconsistent state
+        rstack._stack_criticalcode_start()
+        try:
+            faildescr = cpu.force(token)
+            assert isinstance(faildescr, ResumeGuardForcedDescr)
+            faildescr.handle_async_forcing(token)
+        finally:
+            rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, force_token):
         from pypy.jit.metainterp.resume import force_from_resumedata

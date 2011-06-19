@@ -113,6 +113,7 @@ class MultipleJitDriversTests(object):
             return n
         #
         def loop2(g, r):
+            myjitdriver1.set_param('function_threshold', 0)
             while r > 0:
                 myjitdriver2.can_enter_jit(g=g, r=r)
                 myjitdriver2.jit_merge_point(g=g, r=r)

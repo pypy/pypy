@@ -117,6 +117,8 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
+    # jit_ffi is automatically turned on by withmod-_ffi (which is enabled by default)
+    BoolOption("jit_ffi", "optimize libffi calls", default=False, cmdline=None),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),

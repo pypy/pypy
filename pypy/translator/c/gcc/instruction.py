@@ -187,8 +187,8 @@ class InsnRet(InsnStop):
 
     def requestgcroots(self, tracker):
         # no need to track the value of these registers in the caller
-        # function if we are the main(), or if we are flagged as a
-        # "bottom" function (a callback from C code)
+        # function if we are flagged as a "bottom" function (a callback
+        # from C code, or pypy_main_function())
         if tracker.is_stack_bottom:
             return {}
         else:

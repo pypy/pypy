@@ -15,7 +15,7 @@ ALL_OPTS = [('intbounds', OptIntBounds),
             ('virtualize', OptVirtualize),
             ('string', OptString),
             ('heap', OptHeap),
-            ('ffi', OptFfiCall),
+            ('ffi', None),
             ('unroll', None)]
 # no direct instantiation of unroll
 unroll_all_opts = unrolling_iterable(ALL_OPTS)
@@ -25,10 +25,9 @@ ALL_OPTS_DICT = dict.fromkeys([name for name, _ in ALL_OPTS])
 ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
 PARAMETERS['enable_opts'] = ALL_OPTS_NAMES
 
-def optimize_loop_1(metainterp_sd, loop, enable_opts,
+def build_opt_chain(metainterp_sd, enable_opts,
                     inline_short_preamble=True, retraced=False):
-    """Optimize loop.operations to remove internal overheadish operations.
-    """
+    config = metainterp_sd.config
     optimizations = []
     unroll = 'unroll' in enable_opts
     for name, opt in unroll_all_opts:
@@ -36,6 +35,11 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
             if opt is not None:
                 o = opt()
                 optimizations.append(o)
+            elif name == 'ffi' and config.translation.jit_ffi:
+                # we cannot put the class directly in the unrolling_iterable,
+                # because we do not want it to be seen at all (to avoid to
+                # introduce a dependency on libffi in case we do not need it)
+                optimizations.append(OptFfiCall())
 
     if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
         or 'heap' not in enable_opts):
@@ -43,6 +47,17 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
 
     if inline_short_preamble:
         optimizations = [OptInlineShortPreamble(retraced)] + optimizations
+
+    return optimizations, unroll
+
+
+def optimize_loop_1(metainterp_sd, loop, enable_opts,
+                    inline_short_preamble=True, retraced=False):
+    """Optimize loop.operations to remove internal overheadish operations.
+    """
+
+    optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts,
+                                            inline_short_preamble, retraced)
 
     if unroll:
         optimize_unroll(metainterp_sd, loop, optimizations)

@@ -540,6 +540,17 @@ class AppTestPartialEvaluation:
         else:
             assert res == u"\x00\x00\x01\x00\x00" # UCS2 build
 
+    def test_encode_error_bad_handler(self):
+        import codecs
+        codecs.register_error("test.bad_handler", lambda e: (repl, 1))
+        assert u"xyz".encode("latin-1", "test.bad_handler") == "xyz"
+        repl = u"\u1234"
+        raises(UnicodeEncodeError, u"\u5678".encode, "latin-1",
+               "test.bad_handler")
+        repl = u"\u00E9"
+        s = u"\u5678".encode("latin-1", "test.bad_handler")
+        assert s == '\xe9'
+
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == 'xxx'
 
@@ -593,3 +604,11 @@ class AppTestPartialEvaluation:
         assert u'caf\xe9'.encode('mbcs') == 'caf\xe9'
         assert u'\u040a'.encode('mbcs') == '?' # some cyrillic letter
         assert 'cafx\e9'.decode('mbcs') == u'cafx\e9'
+
+    def test_bad_handler_string_result(self):
+        import _codecs
+        def f(exc):
+            return ('foo', exc.end)
+        _codecs.register_error("test.test_codecs_not_a_string", f)
+        raises(TypeError, u'\u1234'.encode, 'ascii',
+               'test.test_codecs_not_a_string')

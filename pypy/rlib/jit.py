@@ -275,7 +275,8 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-PARAMETERS = {'threshold': 1000,
+PARAMETERS = {'threshold': 1032, # just above 1024
+              'function_threshold': 1617, # slightly more than one above 
               'trace_eagerness': 200,
               'trace_limit': 12000,
               'inlining': 0,

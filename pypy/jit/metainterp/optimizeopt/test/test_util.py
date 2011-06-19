@@ -9,11 +9,15 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          Const, TreeLoop, BoxObj,
                                          ConstObj, AbstractDescr)
-from pypy.jit.metainterp.optimizeutil import sort_descrs, InvalidLoop
+from pypy.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter.heaptracker import register_known_gctype, adr2int
-from pypy.jit.tool.oparser import parse
+from pypy.jit.tool.oparser import parse, pure_parse
 from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
+from pypy.jit.metainterp import compile, resume, history
+from pypy.jit.metainterp.jitprof import EmptyProfiler
+from pypy.config.pypyoption import get_pypy_config
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -27,6 +31,44 @@ def test_sort_descrs():
         random.shuffle(lst2)
         sort_descrs(lst2)
         assert lst2 == lst
+
+def test_equaloplists():
+    ops = """
+    [i0]
+    i1 = int_add(i0, 1)
+    i2 = int_add(i1, 1)
+    guard_true(i1) [i2]
+    jump(i1)
+    """
+    namespace = {}
+    loop1 = pure_parse(ops, namespace=namespace)
+    loop2 = pure_parse(ops, namespace=namespace)
+    loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
+                       namespace=namespace)
+    assert equaloplists(loop1.operations, loop2.operations)
+    py.test.raises(AssertionError,
+                   "equaloplists(loop1.operations, loop3.operations)")
+
+def test_equaloplists_fail_args():
+    ops = """
+    [i0]
+    i1 = int_add(i0, 1)
+    i2 = int_add(i1, 1)
+    guard_true(i1) [i2, i1]
+    jump(i1)
+    """
+    namespace = {}
+    loop1 = pure_parse(ops, namespace=namespace)
+    loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
+                       namespace=namespace)
+    py.test.raises(AssertionError,
+                   "equaloplists(loop1.operations, loop2.operations)")
+    assert equaloplists(loop1.operations, loop2.operations,
+                        strict_fail_args=False)
+    loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
+                       namespace=namespace)
+    py.test.raises(AssertionError,
+                   "equaloplists(loop1.operations, loop3.operations)")
 
 # ____________________________________________________________
 
@@ -256,14 +298,86 @@ class OOtypeMixin_xxx_disabled(object):
 ##                       u_vtable_adr: cpu.typedescrof(U)}
 ##    namespace = locals()
 
+# ____________________________________________________________
+
+
+
+class Fake(object):
+    failargs_limit = 1000
+    storedebug = None
+
+
+class FakeMetaInterpStaticData(object):
+
+    def __init__(self, cpu):
+        self.cpu = cpu
+        self.profiler = EmptyProfiler()
+        self.options = Fake()
+        self.globaldata = Fake()
+        self.config = get_pypy_config(translating=True)
+        self.config.translation.jit_ffi = True
+
+
+class Storage(compile.ResumeGuardDescr):
+    "for tests."
+    def __init__(self, metainterp_sd=None, original_greenkey=None):
+        self.metainterp_sd = metainterp_sd
+        self.original_greenkey = original_greenkey
+    def store_final_boxes(self, op, boxes):
+        op.setfailargs(boxes)
+    def __eq__(self, other):
+        return type(self) is type(other)      # xxx obscure
+    def clone_if_mutable(self):
+        res = Storage(self.metainterp_sd, self.original_greenkey)
+        self.copy_all_attributes_into(res)
+        return res
+
+def _sortboxes(boxes):
+    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
+    return sorted(boxes, key=lambda box: _kind2count[box.type])
+
 class BaseTest(object):
-    invent_fail_descr = None
 
     def parse(self, s, boxkinds=None):
         return parse(s, self.cpu, self.namespace,
                      type_system=self.type_system,
                      boxkinds=boxkinds,
                      invent_fail_descr=self.invent_fail_descr)
+
+    def invent_fail_descr(self, model, fail_args):
+        if fail_args is None:
+            return None
+        descr = Storage()
+        descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
+        descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
+        return descr
+
+    def assert_equal(self, optimized, expected, text_right=None):
+        from pypy.jit.metainterp.optimizeopt.util import equaloplists
+        assert len(optimized.inputargs) == len(expected.inputargs)
+        remap = {}
+        for box1, box2 in zip(optimized.inputargs, expected.inputargs):
+            assert box1.__class__ == box2.__class__
+            remap[box2] = box1
+        assert equaloplists(optimized.operations,
+                            expected.operations, False, remap, text_right)
+
+    def _do_optimize_loop(self, loop, call_pure_results):
+        from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+        from pypy.jit.metainterp.optimizeopt.util import args_dict
+
+        self.loop = loop
+        loop.call_pure_results = args_dict()
+        if call_pure_results is not None:
+            for k, v in call_pure_results.items():
+                loop.call_pure_results[list(k)] = v
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        if hasattr(self, 'vrefinfo'):
+            metainterp_sd.virtualref_info = self.vrefinfo
+        if hasattr(self, 'callinfocollection'):
+            metainterp_sd.callinfocollection = self.callinfocollection
+        #
+        optimize_loop_1(metainterp_sd, loop, self.enable_opts)
 
 # ____________________________________________________________
 

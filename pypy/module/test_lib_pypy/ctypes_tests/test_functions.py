@@ -91,6 +91,13 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(0, 0, 0, 0, 0, 0)
         assert result == u'\x00'
 
+    def test_char_result(self):
+        f = dll._testfunc_i_bhilfd
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_char
+        result = f(0, 0, 0, 0, 0, 0)
+        assert result == '\x00'
+
     def test_voidresult(self):
         f = dll._testfunc_v
         f.restype = None
@@ -211,8 +218,19 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f(byref(c_int(99)))
         assert not result.contents == 99
 
+    def test_convert_pointers(self):
+        f = dll.deref_LP_c_char_p
+        f.restype = c_char
+        f.argtypes = [POINTER(c_char_p)]
+        #
+        s = c_char_p('hello world')
+        ps = pointer(s)
+        assert f(ps) == 'h'
+        assert f(s) == 'h'  # automatic conversion from char** to char*
+
     def test_errors_1(self):
         f = dll._testfunc_p_p
+        f.argtypes = [POINTER(c_int)]
         f.restype = c_int
 
         class X(Structure):
@@ -428,6 +446,16 @@ class TestFunctions(BaseCTypesTestChecker):
         u = dll.ret_un_func(a[1])
         assert u.y == 33*10000
 
+    def test_cache_funcptr(self):
+        tf_b = dll.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        assert tf_b(-126) == -42
+        ptr = tf_b._ptr
+        assert ptr is not None
+        assert tf_b(-126) == -42
+        assert tf_b._ptr is ptr
+
     def test_warnings(self):
         import warnings
         warnings.simplefilter("always")
@@ -439,6 +467,22 @@ class TestFunctions(BaseCTypesTestChecker):
             assert "C function without declared arguments called" in str(w[0].message)
             assert "C function without declared return type called" in str(w[1].message)
 
+    def test_errcheck(self):
+        py.test.skip('fixme')
+        def errcheck(result, func, args):
+            assert result == -42
+            assert type(result) is int
+            arg, = args
+            assert arg == -126
+            assert type(arg) is int
+            return result
+        #
+        tf_b = dll.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        tf_b.errcheck = errcheck
+        assert tf_b(-126) == -42
+        del tf_b.errcheck
         with warnings.catch_warnings(record=True) as w:
             dll.get_an_integer.argtypes = []
             dll.get_an_integer()

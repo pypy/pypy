@@ -712,10 +712,14 @@ def dc_hash(c):
         return -2      # xxx risk of changing hash...
 
 def make_hashable_int(i):
+    from pypy.rpython.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
     if not we_are_translated() and isinstance(i, llmemory.AddressAsInt):
         # Warning: such a hash changes at the time of translation
         adr = heaptracker.int2adr(i)
-        return llmemory.cast_adr_to_int(adr, "emulated")
+        try:
+            return llmemory.cast_adr_to_int(adr, "emulated")
+        except NotCtypesAllocatedStructure:
+            return 12345 # use an arbitrary number for the hash
     return i
 
 def get_const_ptr_for_string(s):
@@ -793,6 +797,7 @@ class TreeLoop(object):
     operations = None
     token = None
     call_pure_results = None
+    logops = None
     quasi_immutable_deps = None
 
     def __init__(self, name):

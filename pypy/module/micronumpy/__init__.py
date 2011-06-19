@@ -8,8 +8,11 @@ class Module(MixedModule):
     interpleveldefs = {
         'array': 'interp_numarray.SingleDimArray',
         'zeros': 'interp_numarray.zeros',
+        'empty': 'interp_numarray.zeros',
+        'ones': 'interp_numarray.ones',
 
         # ufuncs
+        'abs': 'interp_ufuncs.absolute',
         'absolute': 'interp_ufuncs.absolute',
         'copysign': 'interp_ufuncs.copysign',
         'exp': 'interp_ufuncs.exp',
@@ -20,4 +23,7 @@ class Module(MixedModule):
         'sign': 'interp_ufuncs.sign',
     }
 
-    appleveldefs = {}
+    appleveldefs = {
+        'average': 'app_numpy.average',
+        'mean': 'app_numpy.mean',
+    }

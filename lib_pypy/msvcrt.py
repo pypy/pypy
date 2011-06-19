@@ -46,4 +46,42 @@ def locking(fd, mode, nbytes):
         e = get_errno()
         raise IOError(e, errno.errorcode[e])
 
+# Console I/O routines
+
+kbhit = _c._kbhit
+kbhit.argtypes = []
+kbhit.restype = ctypes.c_int
+
+getch = _c._getch
+getch.argtypes = []
+getch.restype = ctypes.c_char
+
+getwch = _c._getwch
+getwch.argtypes = []
+getwch.restype = ctypes.c_wchar
+
+getche = _c._getche
+getche.argtypes = []
+getche.restype = ctypes.c_char
+
+getwche = _c._getwche
+getwche.argtypes = []
+getwche.restype = ctypes.c_wchar
+
+putch = _c._putch
+putch.argtypes = [ctypes.c_char]
+putch.restype = None
+
+putwch = _c._putwch
+putwch.argtypes = [ctypes.c_wchar]
+putwch.restype = None
+
+ungetch = _c._ungetch
+ungetch.argtypes = [ctypes.c_char]
+ungetch.restype = None
+
+ungetwch = _c._ungetwch
+ungetwch.argtypes = [ctypes.c_wchar]
+ungetwch.restype = None
+
 del ctypes

@@ -418,6 +418,9 @@ def add_storage(instance, mixin_cls, ctypes_storage):
     instance._storage = ctypes_storage
     assert ctypes_storage   # null pointer?
 
+class NotCtypesAllocatedStructure(ValueError):
+    pass
+
 class _parentable_mixin(object):
     """Mixin added to _parentable containers when they become ctypes-based.
     (This is done by changing the __class__ of the instance to reference
@@ -436,7 +439,7 @@ class _parentable_mixin(object):
     def _addressof_storage(self):
         "Returns the storage address as an int"
         if self._storage is None or self._storage is True:
-            raise ValueError("Not a ctypes allocated structure")
+            raise NotCtypesAllocatedStructure("Not a ctypes allocated structure")
         return intmask(ctypes.cast(self._storage, ctypes.c_void_p).value)
 
     def _free(self):

@@ -526,15 +526,7 @@ def make_array(mytype):
 
     def array_tostring__Array(space, self):
         cbuf = self.charbuf()
-        s = ''.join([cbuf[i] for i in xrange(self.len * mytype.bytes)])
-        return self.space.wrap(s)
-##
-##         s = ''
-##         i = 0
-##         while i < self.len * mytype.bytes:
-##             s += cbuf[i]
-##             i += 1
-##         return self.space.wrap(s)
+        return self.space.wrap(rffi.charpsize2str(cbuf, self.len * mytype.bytes))
 
     def array_fromfile__Array_ANY_ANY(space, self, w_f, w_n):
         if not isinstance(w_f, W_File):

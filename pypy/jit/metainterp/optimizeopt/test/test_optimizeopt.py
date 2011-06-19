@@ -1,206 +1,91 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
-                                                        #OOtypeMixin,
-                                                        BaseTest)
+from pypy.jit.metainterp.optimizeopt.test.test_util import (
+    LLtypeMixin, BaseTest, Storage, _sortboxes)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.tool.oparser import pure_parse
-from pypy.jit.metainterp.test.test_optimizebasic import equaloplists
-from pypy.jit.metainterp.optimizeutil import args_dict
+from pypy.jit.metainterp.optimizeopt.util import args_dict
+from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import FakeMetaInterpStaticData
+from pypy.config.pypyoption import get_pypy_config
 
-class Fake(object):
-    failargs_limit = 1000
-    storedebug = None
 
-class FakeMetaInterpStaticData(object):
-
-    def __init__(self, cpu, jit_ffi=False):
-        self.cpu = cpu
-        self.profiler = EmptyProfiler()
-        self.options = Fake()
-        self.globaldata = Fake()
-        self.jit_ffi = jit_ffi
-
-def test_store_final_boxes_in_guard():
-    from pypy.jit.metainterp.compile import ResumeGuardDescr
-    from pypy.jit.metainterp.resume import tag, TAGBOX
-    b0 = BoxInt()
-    b1 = BoxInt()
-    opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
-                                None)
-    fdescr = ResumeGuardDescr()
-    op = ResOperation(rop.GUARD_TRUE, ['dummy'], None, descr=fdescr)
-    # setup rd data
-    fi0 = resume.FrameInfo(None, "code0", 11)
-    fdescr.rd_frame_info_list = resume.FrameInfo(fi0, "code1", 33)
-    snapshot0 = resume.Snapshot(None, [b0])
-    fdescr.rd_snapshot = resume.Snapshot(snapshot0, [b1])
+def test_build_opt_chain():
+    def check(chain, expected_names):
+        names = [opt.__class__.__name__ for opt in chain]
+        assert names == expected_names
     #
-    opt.store_final_boxes_in_guard(op)
-    if op.getfailargs() == [b0, b1]:
-        assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
-        assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
-    else:
-        assert op.getfailargs() == [b1, b0]
-        assert list(fdescr.rd_numb.nums)      == [tag(0, TAGBOX)]
-        assert list(fdescr.rd_numb.prev.nums) == [tag(1, TAGBOX)]
-    assert fdescr.rd_virtuals is None
-    assert fdescr.rd_consts == []
+    metainterp_sd = FakeMetaInterpStaticData(None)
+    chain, _ = build_opt_chain(metainterp_sd, "", inline_short_preamble=False)
+    check(chain, ["OptSimplify"])
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "")
+    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "")
+    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "heap:intbounds")
+    check(chain, ["OptInlineShortPreamble", "OptIntBounds", "OptHeap", "OptSimplify"])
+    #
+    chain, unroll = build_opt_chain(metainterp_sd, "unroll")
+    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    assert unroll
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb", inline_short_preamble=False)
+    check(chain, ["OptSimplify"])
+    #
+    chain, _ = build_opt_chain(metainterp_sd, "ffi", inline_short_preamble=False)
+    check(chain, ["OptFfiCall", "OptSimplify"])
+    #
+    metainterp_sd.config = get_pypy_config(translating=True)
+    assert not metainterp_sd.config.translation.jit_ffi
+    chain, _ = build_opt_chain(metainterp_sd, "ffi", inline_short_preamble=False)
+    check(chain, ["OptSimplify"])
 
-def test_sharing_field_lists_of_virtual():
-    class FakeOptimizer(object):
-        class cpu(object):
-            pass
-    opt = FakeOptimizer()
-    virt1 = virtualize.AbstractVirtualStructValue(opt, None)
-    lst1 = virt1._get_field_descr_list()
-    assert lst1 == []
-    lst2 = virt1._get_field_descr_list()
-    assert lst1 is lst2
-    virt1.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
-    lst3 = virt1._get_field_descr_list()
-    assert lst3 == [LLtypeMixin.valuedescr]
-    lst4 = virt1._get_field_descr_list()
-    assert lst3 is lst4
-
-    virt2 = virtualize.AbstractVirtualStructValue(opt, None)
-    lst5 = virt2._get_field_descr_list()
-    assert lst5 is lst1
-    virt2.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
-    lst6 = virt1._get_field_descr_list()
-    assert lst6 is lst3
-
-def test_reuse_vinfo():
-    class FakeVInfo(object):
-        def set_content(self, fieldnums):
-            self.fieldnums = fieldnums
-        def equals(self, fieldnums):
-            return self.fieldnums == fieldnums
-    class FakeVirtualValue(virtualize.AbstractVirtualValue):
-        def _make_virtual(self, *args):
-            return FakeVInfo()
-    v1 = FakeVirtualValue(None, None, None)
-    vinfo1 = v1.make_virtual_info(None, [1, 2, 4])
-    vinfo2 = v1.make_virtual_info(None, [1, 2, 4])
-    assert vinfo1 is vinfo2
-    vinfo3 = v1.make_virtual_info(None, [1, 2, 6])
-    assert vinfo3 is not vinfo2
-    vinfo4 = v1.make_virtual_info(None, [1, 2, 6])
-    assert vinfo3 is vinfo4
-
-def test_descrlist_dict():
-    from pypy.jit.metainterp import optimizeutil
-    h1 = optimizeutil.descrlist_hash([])
-    h2 = optimizeutil.descrlist_hash([LLtypeMixin.valuedescr])
-    h3 = optimizeutil.descrlist_hash(
-            [LLtypeMixin.valuedescr, LLtypeMixin.nextdescr])
-    assert h1 != h2
-    assert h2 != h3
-    assert optimizeutil.descrlist_eq([], [])
-    assert not optimizeutil.descrlist_eq([], [LLtypeMixin.valuedescr])
-    assert optimizeutil.descrlist_eq([LLtypeMixin.valuedescr],
-                                     [LLtypeMixin.valuedescr])
-    assert not optimizeutil.descrlist_eq([LLtypeMixin.valuedescr],
-                                         [LLtypeMixin.nextdescr])
-    assert optimizeutil.descrlist_eq([LLtypeMixin.valuedescr, LLtypeMixin.nextdescr],
-                                     [LLtypeMixin.valuedescr, LLtypeMixin.nextdescr])
-    assert not optimizeutil.descrlist_eq([LLtypeMixin.nextdescr, LLtypeMixin.valuedescr],
-                                         [LLtypeMixin.valuedescr, LLtypeMixin.nextdescr])
-
-    # descrlist_eq should compare by identity of the descrs, not by the result
-    # of sort_key
-    class FakeDescr(object):
-        def sort_key(self):
-            return 1
-
-    assert not optimizeutil.descrlist_eq([FakeDescr()], [FakeDescr()])
 
 # ____________________________________________________________
-class Storage(compile.ResumeGuardDescr):
-    "for tests."
-    def __init__(self, metainterp_sd=None, original_greenkey=None):
-        self.metainterp_sd = metainterp_sd
-        self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes):
-        op.setfailargs(boxes)
-    def __eq__(self, other):
-        return type(self) is type(other)      # xxx obscure
+
+
+class FakeDescr(compile.ResumeGuardDescr):
+    class rd_snapshot:
+        class prev:
+            prev = None
+            boxes = []
+        boxes = []
     def clone_if_mutable(self):
-        res = Storage(self.metainterp_sd, self.original_greenkey)
-        self.copy_all_attributes_into(res)
-        return res
+        return self
 
-def _sortboxes(boxes):
-    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
-    return sorted(boxes, key=lambda box: _kind2count[box.type])
 
-class BaseTestOptimizeOpt(BaseTest):
-    jit_ffi = False
+class BaseTestWithUnroll(BaseTest):
 
-    def invent_fail_descr(self, fail_args):
-        if fail_args is None:
-            return None
-        descr = Storage()
-        descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-        descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
-        return descr
+    enable_opts = "intbounds:rewrite:virtualize:string:heap:unroll"
 
-    def assert_equal(self, optimized, expected, text_right=None):
-        assert len(optimized.inputargs) == len(expected.inputargs)
-        remap = {}
-        for box1, box2 in zip(optimized.inputargs, expected.inputargs):
-            assert box1.__class__ == box2.__class__
-            remap[box2] = box1
-        assert equaloplists(optimized.operations,
-                            expected.operations, False, remap, text_right)
-
-    def optimize_loop(self, ops, optops, expected_preamble=None,
+    def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None, expected_short=None):
         loop = self.parse(ops)
-        if optops != "crash!":
-            expected = self.parse(optops)
-        else:
-            expected = "crash!"
+        if expected != "crash!":
+            expected = self.parse(expected)
         if expected_preamble:
             expected_preamble = self.parse(expected_preamble)
         if expected_short:
             expected_short = self.parse(expected_short)
-        #
-        self.loop = loop
-        loop.call_pure_results = args_dict()
-        if call_pure_results is not None:
-            for k, v in call_pure_results.items():
-                loop.call_pure_results[list(k)] = v
         loop.preamble = TreeLoop('preamble')
         loop.preamble.inputargs = loop.inputargs
         loop.preamble.token = LoopToken()
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu, self.jit_ffi)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
-        class FakeDescr(compile.ResumeGuardDescr):
-            class rd_snapshot:
-                class prev:
-                    prev = None
-                    boxes = []
-                boxes = []
-            def clone_if_mutable(self):
-                return self
             def __eq__(self, other):
                 return isinstance(other, Storage) or isinstance(other, FakeDescr)
         loop.preamble.start_resumedescr = FakeDescr()
-        optimize_loop_1(metainterp_sd, loop, ALL_OPTS_DICT)
         #
-
+        self._do_optimize_loop(loop, call_pure_results)
+        #
         print
         print "Preamble:"
         print loop.preamble.inputargs
@@ -220,7 +105,6 @@ class BaseTestOptimizeOpt(BaseTest):
             print '\n'.join([str(o) for o in short.operations])        
             print
         
-
         assert expected != "crash!", "should have raised an exception"
         self.assert_equal(loop, expected)
         if expected_preamble:
@@ -230,10 +114,9 @@ class BaseTestOptimizeOpt(BaseTest):
             self.assert_equal(short, expected_short,
                               text_right='expected short preamble')
             
-
         return loop
 
-class OptimizeOptTest(BaseTestOptimizeOpt):
+class OptimizeOptTest(BaseTestWithUnroll):
 
     def setup_method(self, meth=None):
         class FailDescr(compile.ResumeGuardDescr):
@@ -3649,6 +3532,56 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         expected = '''
         [p1]
         jump(p1)
+        '''
+        self.optimize_loop(ops, expected)
+
+    def test_arraycopy_dest_not_virtual(self):
+        ops = '''
+        []
+        p1 = new_array(3, descr=arraydescr)
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        call(0, p1, p2, 0, 0, 3, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        expected = '''
+        []
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        setarrayitem_gc(p2, 0, 0, descr=arraydescr)
+        setarrayitem_gc(p2, 1, 0, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 10, descr=arraydescr)
+        escape(p2)
+        jump()
+        '''
+        self.optimize_loop(ops, expected)
+
+    def test_arraycopy_dest_not_virtual_too_long(self):
+        ops = '''
+        []
+        p1 = new_array(10, descr=arraydescr)
+        p2 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        expected = '''
+        []
+        p2 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        p1 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
+        escape(p2)
+        jump()
         '''
         self.optimize_loop(ops, expected)
 

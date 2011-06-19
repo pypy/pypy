@@ -21,7 +21,8 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr, MissingLiveness
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.jit.metainterp.optimizeutil import RetraceLoop, args_dict_box, args_dict
+from pypy.jit.metainterp.optimizeopt.util import args_dict_box, args_dict
+from pypy.jit.metainterp.optimize import RetraceLoop
 
 # ____________________________________________________________
 
@@ -867,7 +868,7 @@ class MIFrame(object):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
-        self.debug_merge_point(jitdriver_sd, self.metainterp.in_recursion,
+        self.debug_merge_point(jdindex, self.metainterp.in_recursion,
                                greenboxes)
 
         if self.metainterp.seen_loop_header_for_jdindex < 0:
@@ -914,13 +915,10 @@ class MIFrame(object):
                                     assembler_call=True)
             raise ChangeFrame
 
-    def debug_merge_point(self, jitdriver_sd, in_recursion, greenkey):
+    def debug_merge_point(self, jd_index, in_recursion, greenkey):
         # debugging: produce a DEBUG_MERGE_POINT operation
-        loc = jitdriver_sd.warmstate.get_location_str(greenkey)
-        debug_print(loc)
-        constloc = self.metainterp.cpu.ts.conststr(loc)
-        self.metainterp.history.record(rop.DEBUG_MERGE_POINT,
-                                       [constloc, ConstInt(in_recursion)], None)
+        args = [ConstInt(jd_index), ConstInt(in_recursion)] + greenkey
+        self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")
     def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):
@@ -1265,8 +1263,7 @@ class MetaInterpStaticData(object):
     logger_ops = None
 
     def __init__(self, cpu, options,
-                 ProfilerClass=EmptyProfiler, warmrunnerdesc=None,
-                 jit_ffi=True):
+                 ProfilerClass=EmptyProfiler, warmrunnerdesc=None):
         self.cpu = cpu
         self.stats = self.cpu.stats
         self.options = options
@@ -1276,7 +1273,11 @@ class MetaInterpStaticData(object):
         self.profiler = ProfilerClass()
         self.profiler.cpu = cpu
         self.warmrunnerdesc = warmrunnerdesc
-        self.jit_ffi = jit_ffi
+        if warmrunnerdesc:
+            self.config = warmrunnerdesc.translator.config
+        else:
+            from pypy.config.pypyoption import get_pypy_config
+            self.config = get_pypy_config(translating=True)
 
         backendmodule = self.cpu.__module__
         backendmodule = backendmodule.split('.')[-2]
@@ -1927,7 +1928,6 @@ class MetaInterp(object):
 
         self.history.inputargs = original_inputargs
         self.history.operations.pop()     # remove the JUMP
-        # FIXME: Why is self.history.inputargs not restored?
 
     def compile_bridge(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -1963,6 +1963,8 @@ class MetaInterp(object):
                                               start_resumedescr, False)
         self.history.operations.pop()     # remove the JUMP
         if loop_token is None:
+            self.history.inputargs = original_inputargs
+            self.history.operations = original_operations
             return
 
         if loop_token.short_preamble:

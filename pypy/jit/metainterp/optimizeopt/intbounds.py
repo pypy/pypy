@@ -1,5 +1,5 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import _findall
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
     IntLowerBound, IntUpperBound
 from pypy.jit.metainterp.history import Const, ConstInt
@@ -20,6 +20,14 @@ class OptIntBounds(Optimization):
 
     def flush(self):
         assert self.posponedop is None
+
+    def setup(self):
+        self.posponedop = None
+        self.nextop = None
+
+    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+        assert self.posponedop is None
+        return self 
         
     def propagate_forward(self, op):
         if op.is_ovf():

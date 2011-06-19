@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.resoperation import opboolinvers, opboolreflex
 from pypy.jit.metainterp.history import ConstInt
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
@@ -196,6 +196,32 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
+
+    def optimize_FLOAT_MUL(self, op):
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+
+        # Constant fold f0 * 1.0 and turn f0 * -1.0 into a FLOAT_NEG, these
+        # work in all cases, including NaN and inf
+        for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
+            v1 = self.getvalue(lhs)
+            v2 = self.getvalue(rhs)
+
+            if v1.is_constant():
+                if v1.box.getfloat() == 1.0:
+                    self.make_equal_to(op.result, v2)
+                    return
+                elif v1.box.getfloat() == -1.0:
+                    self.emit_operation(ResOperation(
+                        rop.FLOAT_NEG, [rhs], op.result
+                    ))
+                    return
+        self.emit_operation(op)
+
+    def optimize_FLOAT_NEG(self, op):
+        v1 = op.getarg(0)
+        self.emit_operation(op)
+        self.pure(rop.FLOAT_NEG, [op.result], v1)
 
     def optimize_CALL_PURE(self, op):
         arg_consts = []
@@ -430,14 +456,22 @@ class OptRewrite(Optimization):
         dest_start_box = self.get_constant_box(op.getarg(4))
         length = self.get_constant_box(op.getarg(5))
         if (source_value.is_virtual() and source_start_box and dest_start_box
-            and length and dest_value.is_virtual()):
-            # XXX optimize the case where dest value is not virtual,
-            #     but we still can avoid a mess
+            and length and (dest_value.is_virtual() or length.getint() <= 8)):
+            from pypy.jit.metainterp.optimizeopt.virtualize import VArrayValue
+            assert isinstance(source_value, VArrayValue)
             source_start = source_start_box.getint()
             dest_start = dest_start_box.getint()
             for index in range(length.getint()):
                 val = source_value.getitem(index + source_start)
-                dest_value.setitem(index + dest_start, val)
+                if dest_value.is_virtual():
+                    dest_value.setitem(index + dest_start, val)
+                else:
+                    newop = ResOperation(rop.SETARRAYITEM_GC,
+                                         [op.getarg(2),
+                                          ConstInt(index + dest_start),
+                                          val.force_box()], None,
+                                         descr=source_value.arraydescr)
+                    self.emit_operation(newop)
             return True
         if length and length.getint() == 0:
             return True # 0-length arraycopy
