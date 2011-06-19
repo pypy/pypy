@@ -17,6 +17,8 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from opcode import opmap
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.nonconst import NonConstant
+from pypy.jit.metainterp.resoperation import rop
+from pypy.module.pypyjit.interp_resop import W_DebugMergePoint
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'valuestack_w[*]',
@@ -50,7 +52,10 @@ def can_never_inline(next_instr, is_being_profiled, bytecode):
 def wrap_oplist(space, logops, operations):
     list_w = []
     for op in operations:
-        list_w.append(space.wrap(logops.repr_of_resop(op)))
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            list_w.append(space.wrap(W_DebugMergePoint(op.getarglist())))
+        else:
+            list_w.append(space.wrap(logops.repr_of_resop(op)))
     return list_w
 
 class PyPyJitDriver(JitDriver):
