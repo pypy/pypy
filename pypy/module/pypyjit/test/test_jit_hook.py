@@ -119,3 +119,8 @@ class AppTestJitHook(object):
         dmp = l[0][3][1]
         assert isinstance(dmp, pypyjit.DebugMergePoint)
         assert dmp.code is self.f.func_code
+
+    def test_creation(self):
+        import pypyjit
+        dmp = pypyjit.DebugMergePoint(0, 0, self.f.func_code)
+        assert dmp.code is self.f.func_code 
