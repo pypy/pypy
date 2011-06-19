@@ -49,7 +49,7 @@ class ListTests:
                 x = l[n]
                 l = [3] * 100
                 l[3] = x
-                l[3] = x + 1
+                l[4] = x + 1
                 n -= 1
             return l[0]
 
