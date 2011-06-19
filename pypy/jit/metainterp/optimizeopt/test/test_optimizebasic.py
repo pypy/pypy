@@ -2182,6 +2182,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_fold_repeated_float_neg(self):
+        ops = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = float_neg(f1)
+        f3 = float_neg(f2)
+        f4 = float_neg(f3)
+        escape(f4)
+        jump(f4)
+        """
+        expected = """
+        [f0]
+        # The backend removes this dead op.
+        f1 = float_neg(f0)
+        escape(f0)
+        jump(f0)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
     def make_fail_descr(self):
