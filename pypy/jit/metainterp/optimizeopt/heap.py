@@ -201,6 +201,8 @@ class OptHeap(Optimization):
                 # XXX stored on effectinfo are large
                 for fielddescr in effectinfo.readonly_descrs_fields:
                     self.force_lazy_setfield(fielddescr)
+                for arraydescr in effectinfo.readonly_descrs_arrays:
+                    self.force_lazy_setarrayitem(arraydescr)
                 for fielddescr in effectinfo.write_descrs_fields:
                     self.force_lazy_setfield(fielddescr)
                     try:
