@@ -62,6 +62,8 @@ class FakeDescr(compile.ResumeGuardDescr):
         boxes = []
     def clone_if_mutable(self):
         return self
+    def __eq__(self, other):
+        return isinstance(other, Storage) or isinstance(other, FakeDescr)
 
 
 class BaseTestWithUnroll(BaseTest):
@@ -80,8 +82,6 @@ class BaseTestWithUnroll(BaseTest):
         loop.preamble = TreeLoop('preamble')
         loop.preamble.inputargs = loop.inputargs
         loop.preamble.token = LoopToken()
-            def __eq__(self, other):
-                return isinstance(other, Storage) or isinstance(other, FakeDescr)
         loop.preamble.start_resumedescr = FakeDescr()
         #
         self._do_optimize_loop(loop, call_pure_results)
