@@ -570,7 +570,10 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('ASMFILES', sfiles)
             mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
-            mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+            if sys.platform == 'win32':
+                mk.definition('DEBUGFLAGS', '/Zi')
+            else:
+                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -623,7 +626,10 @@ class CStandaloneBuilder(CBuilder):
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
 
         else:
-            mk.definition('DEBUGFLAGS', '-O1 -g')
+            if sys.platform == 'win32':
+                mk.definition('DEBUGFLAGS', '/Zi')
+            else:
+                mk.definition('DEBUGFLAGS', '-O1 -g')
         mk.write()
         #self.translator.platform,
         #                           ,
