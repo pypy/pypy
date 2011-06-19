@@ -2,10 +2,12 @@ import sys, os
 from pypy.jit.metainterp.history import Box, Const, ConstInt, getkind
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat
 from pypy.jit.metainterp.history import INT, REF, FLOAT, HOLE
+from pypy.jit.metainterp.history import AbstractDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import jitprof
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr
+from pypy.rpython import annlowlevel
 from pypy.rlib import rarithmetic, rstack
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.debug import have_debug_prints, ll_assert
@@ -81,6 +83,12 @@ NUMBERING = lltype.GcStruct('Numbering',
                             ('prev', NUMBERINGP),
                             ('nums', lltype.Array(rffi.SHORT)))
 NUMBERINGP.TO.become(NUMBERING)
+
+PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
+                                   ('lldescr', annlowlevel.base_ptr_lltype()),
+                                   ('num', rffi.SHORT),
+                                   ('fieldnum', rffi.SHORT))
+PENDINGFIELDSP = lltype.Ptr(lltype.GcArray(PENDINGFIELDSTRUCT))
 
 TAGMASK = 3
 
@@ -405,13 +413,18 @@ class ResumeDataVirtualAdder(object):
         return False
 
     def _add_pending_fields(self, pending_setfields):
-        rd_pendingfields = None
+        rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
         if pending_setfields:
-            rd_pendingfields = []
-            for descr, box, fieldbox in pending_setfields:
+            n = len(pending_setfields)
+            rd_pendingfields = lltype.malloc(PENDINGFIELDSP.TO, n)
+            for i in range(n):
+                descr, box, fieldbox = pending_setfields[i]
+                lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)
                 fieldnum = self._gettagged(fieldbox)
-                rd_pendingfields.append((descr, num, fieldnum))
+                rd_pendingfields[i].lldescr  = lldescr
+                rd_pendingfields[i].num      = num
+                rd_pendingfields[i].fieldnum = fieldnum
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
@@ -727,8 +740,13 @@ class AbstractResumeDataReader(object):
             self.virtuals_cache = [self.virtual_default] * len(virtuals)
 
     def _prepare_pendingfields(self, pendingfields):
-        if pendingfields is not None:
-            for descr, num, fieldnum in pendingfields:
+        if pendingfields:
+            for i in range(len(pendingfields)):
+                lldescr  = pendingfields[i].lldescr
+                num      = pendingfields[i].num
+                fieldnum = pendingfields[i].fieldnum
+                descr = annlowlevel.cast_base_ptr_to_instance(AbstractDescr,
+                                                              lldescr)
                 struct = self.decode_ref(num)
                 self.setfield(descr, struct, fieldnum)
 
