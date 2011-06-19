@@ -10,17 +10,16 @@ from pypy.rpython.lltypesystem.rclass import OBJECT
 class W_DebugMergePoint(Wrappable):
     """ A class representing debug_merge_point JIT operation
     """
-    
+
     def __init__(self, mp_no, offset, pycode):
         self.mp_no = mp_no
         self.offset = offset
         self.pycode = pycode
 
-    @unwrap_spec('self', ObjSpace)
     def descr_repr(self, space):
         return space.wrap('DebugMergePoint()')
 
-@unwrap_spec(ObjSpace, W_Root, int, int, PyCode)
+@unwrap_spec(mp_no=int, offset=int, pycode=PyCode)
 def new_debug_merge_point(space, w_tp, mp_no, offset, pycode):
     return W_DebugMergePoint(mp_no, offset, pycode)
 
@@ -39,4 +38,3 @@ W_DebugMergePoint.typedef = TypeDef(
     __repr__ = interp2app(W_DebugMergePoint.descr_repr),
     code = interp_attrproperty('pycode', W_DebugMergePoint),
 )
-
