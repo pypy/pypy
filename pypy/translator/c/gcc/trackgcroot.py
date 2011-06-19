@@ -1177,7 +1177,7 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker32):
     r_gcroot_marker = re.compile(r"$1") # never matches
     r_gcroot_marker_var = re.compile(r"DWORD PTR .+_constant_always_one_.+pypy_asm_gcroot")
     r_gcnocollect_marker = re.compile(r"\spypy_asm_gc_nocollect\(("+OPERAND+")\);")
-    r_bottom_marker = re.compile(r"; .+\tpypy_asm_stack_bottom\(\);")
+    r_bottom_marker = re.compile(r"; .+\spypy_asm_stack_bottom\(\);")
 
     FUNCTIONS_NOT_RETURNING = {
         '__exit': None,
