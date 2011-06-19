@@ -1928,7 +1928,6 @@ class MetaInterp(object):
 
         self.history.inputargs = original_inputargs
         self.history.operations.pop()     # remove the JUMP
-        # FIXME: Why is self.history.inputargs not restored?
 
     def compile_bridge(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -1964,6 +1963,8 @@ class MetaInterp(object):
                                               start_resumedescr, False)
         self.history.operations.pop()     # remove the JUMP
         if loop_token is None:
+            self.history.inputargs = original_inputargs
+            self.history.operations = original_operations
             return
 
         if loop_token.short_preamble:
