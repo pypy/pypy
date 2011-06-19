@@ -18,7 +18,7 @@ from opcode import opmap
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.nonconst import NonConstant
 from pypy.jit.metainterp.resoperation import rop
-from pypy.module.pypyjit.interp_resop import W_DebugMergePoint
+from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'valuestack_w[*]',
@@ -53,7 +53,8 @@ def wrap_oplist(space, logops, operations):
     list_w = []
     for op in operations:
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
-            list_w.append(space.wrap(W_DebugMergePoint(op.getarglist())))
+            list_w.append(space.wrap(debug_merge_point_from_boxes(
+                op.getarglist())))
         else:
             list_w.append(space.wrap(logops.repr_of_resop(op)))
     return list_w
