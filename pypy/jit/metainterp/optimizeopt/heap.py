@@ -103,8 +103,6 @@ class CachedField(object):
 class CachedArrayItems(object):
     def __init__(self):
         self.fixed_index_items = {}
-        self.var_index_item = None
-        self.var_index_indexvalue = None
 
 class BogusPureField(JitException):
     pass
@@ -140,12 +138,6 @@ class OptHeap(Optimization):
             for value, cache in d.items():
                 newcache = CachedArrayItems()
                 newd[value.get_reconstructed(optimizer, valuemap)] = newcache
-                if cache.var_index_item:
-                    newcache.var_index_item = \
-                          cache.var_index_item.get_reconstructed(optimizer, valuemap)
-                if cache.var_index_indexvalue:
-                    newcache.var_index_indexvalue = \
-                          cache.var_index_indexvalue.get_reconstructed(optimizer, valuemap)
                 for index, fieldvalue in cache.fixed_index_items.items():
                     newcache.fixed_index_items[index] = \
                            fieldvalue.get_reconstructed(optimizer, valuemap)
@@ -178,8 +170,6 @@ class OptHeap(Optimization):
                 for value, othercache in d.iteritems():
                     # fixed index, clean the variable index cache, in case the
                     # index is the same
-                    othercache.var_index_indexvalue = None
-                    othercache.var_index_item = None
                     try:
                         del othercache.fixed_index_items[index]
                     except KeyError:
@@ -189,11 +179,7 @@ class OptHeap(Optimization):
             if write:
                 for value, othercache in d.iteritems():
                     # variable index, clear all caches for this descr
-                    othercache.var_index_indexvalue = None
-                    othercache.var_index_item = None
                     othercache.fixed_index_items.clear()
-            cache.var_index_indexvalue = indexvalue
-            cache.var_index_item = fieldvalue
 
     def read_cached_arrayitem(self, descr, value, indexvalue):
         d = self.cached_arrayitems.get(descr, None)
@@ -205,8 +191,6 @@ class OptHeap(Optimization):
         indexbox = self.get_constant_box(indexvalue.box)
         if indexbox is not None:
             return cache.fixed_index_items.get(indexbox.getint(), None)
-        elif cache.var_index_indexvalue is indexvalue:
-            return cache.var_index_item
         return None
 
     def emit_operation(self, op):
