@@ -1259,6 +1259,60 @@ def test_virtual_adder_pending_fields():
     assert len(expected) == len(trace)
     assert demo55.next == demo66
 
+def test_virtual_adder_pending_fields_2():
+    class Storage(object):
+        pass
+    storage = Storage()
+    modifier = ResumeDataVirtualAdder(storage, None)
+    modifier._add_pending_fields([])
+    assert not storage.rd_pendingfields
+    #
+    class FieldDescr(object):
+        pass
+    field_a = FieldDescr()
+    storage = Storage()
+    modifier = ResumeDataVirtualAdder(storage, None)
+    modifier.liveboxes_from_env = {42: rffi.cast(rffi.SHORT, 1042),
+                                   61: rffi.cast(rffi.SHORT, 1061)}
+    modifier._add_pending_fields([(field_a, 42, 61)])
+    pf = storage.rd_pendingfields
+    assert len(pf) == 1
+    assert (annlowlevel.cast_base_ptr_to_instance(FieldDescr, pf[0].lldescr)
+            is field_a)
+    assert rffi.cast(lltype.Signed, pf[0].num) == 1042
+    assert rffi.cast(lltype.Signed, pf[0].fieldnum) == 1061
+
+def test_resume_reader_fields_2():
+    class ResumeReader(AbstractResumeDataReader):
+        def __init__(self, got):
+            self.got = got
+        def setfield(self, descr, struct, fieldnum):
+            assert lltype.typeOf(struct) is lltype.Signed
+            assert lltype.typeOf(fieldnum) is rffi.SHORT
+            fieldnum = rffi.cast(lltype.Signed, fieldnum)
+            self.got.append((descr, struct, fieldnum))
+        def decode_ref(self, num):
+            return rffi.cast(lltype.Signed, num) * 100
+    got = []
+    pf = lltype.nullptr(PENDINGFIELDSP.TO)
+    ResumeReader(got)._prepare_pendingfields(pf)
+    assert got == []
+    #
+    class FieldDescr(AbstractDescr):
+        pass
+    field_a = FieldDescr()
+    field_b = FieldDescr()
+    pf = lltype.malloc(PENDINGFIELDSP.TO, 2)
+    pf[0].lldescr = annlowlevel.cast_instance_to_base_ptr(field_a)
+    pf[0].num = rffi.cast(rffi.SHORT, 1042)
+    pf[0].fieldnum = rffi.cast(rffi.SHORT, 1061)
+    pf[1].lldescr = annlowlevel.cast_instance_to_base_ptr(field_b)
+    pf[1].num = rffi.cast(rffi.SHORT, 2042)
+    pf[1].fieldnum = rffi.cast(rffi.SHORT, 2061)
+    got = []
+    ResumeReader(got)._prepare_pendingfields(pf)
+    assert got == [(field_a, 104200, 1061), (field_b, 204200, 2061)]
+
 
 def test_invalidation_needed():
     class options:
