@@ -5838,3 +5838,24 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(i3, i4)
         """
         self.optimize_loop(ops, expected)
+
+    def test_setarrayitem_lazy(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        i2 = escape()
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setarrayitem_gc(p0, 2, p1, descr=arraydescr)
+        guard_true(i2) []
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        i2 = escape()
+        guard_true(i2) [p0]
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
