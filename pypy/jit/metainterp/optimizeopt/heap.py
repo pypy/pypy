@@ -150,13 +150,11 @@ class OptHeap(Optimization):
 
     def arrayitem_cache(self, descr, index):
         try:
-            try:
-                submap = self.cached_arrayitems[descr]
-            except KeyError:
-                submap = self.cached_arrayitems[descr] = {}
-                raise KeyError
-            else:
-                cf = submap[index]
+            submap = self.cached_arrayitems[descr]
+        except KeyError:
+            submap = self.cached_arrayitems[descr] = {}
+        try:
+            cf = submap[index]
         except KeyError:
             cf = submap[index] = CachedField()
         return cf
