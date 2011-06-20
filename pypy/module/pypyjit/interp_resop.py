@@ -29,6 +29,7 @@ def debug_merge_point_from_boxes(boxes):
     llcode = lltype.cast_opaque_ptr(lltype.Ptr(OBJECT),
                                     boxes[4].getref_base())
     pycode = cast_base_ptr_to_instance(PyCode, llcode)
+    assert pycode is not None
     return W_DebugMergePoint(mp_no, offset, pycode)
 
 W_DebugMergePoint.typedef = TypeDef(
