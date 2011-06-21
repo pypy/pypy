@@ -44,6 +44,10 @@ class BaseArray(Wrappable):
         self.invalidates = []
 
     def invalidated(self):
+        if self.invalidates:
+            self._invalidated()
+
+    def _invalidated(self):
         for arr in self.invalidates:
             arr.force_if_needed()
         del self.invalidates[:]
