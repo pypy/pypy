@@ -68,12 +68,10 @@ class Darwin(posix.BasePosix):
 
 class Darwin_i386(Darwin):
     name = "darwin_i386"
-    link_flags = ('-arch', 'i386', '-mmacosx-version-min=10.4')
-    cflags = ('-arch', 'i386', '-O3', '-fomit-frame-pointer',
-              '-mmacosx-version-min=10.4')
+    link_flags = ('-arch', 'i386')
+    cflags = ('-arch', 'i386', '-O3', '-fomit-frame-pointer')
 
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
-    link_flags = ('-arch', 'x86_64', '-mmacosx-version-min=10.4')
-    cflags = ('-arch', 'x86_64', '-O3', '-fomit-frame-pointer',
-              '-mmacosx-version-min=10.4')
+    link_flags = ('-arch', 'x86_64')
+    cflags = ('-arch', 'x86_64', '-O3', '-fomit-frame-pointer')
