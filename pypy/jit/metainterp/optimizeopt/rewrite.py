@@ -219,7 +219,7 @@ class OptRewrite(Optimization):
                 break
             arg_consts.append(const)
         else:
-            # all constant arguments: check if we already know the reslut
+            # all constant arguments: check if we already know the result
             try:
                 result = self.optimizer.call_pure_results[arg_consts]
             except KeyError:
