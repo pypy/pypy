@@ -31,6 +31,20 @@ class TestCall(BaseTestPyPyC):
             ...
         """)
 
+    def test_fib(self):
+        def fib(n):
+            if n == 0 or n == 1:
+                return 1
+            return fib(n - 1) + fib(n - 2) # ID: call_rec
+
+        log = self.run(fib, [7], function_threshold=15)
+        loop, = log.loops_by_filename(self.filepath, is_entry_bridge='*')
+        #assert loop.match_by_id('call_rec', '''
+        #...
+        #p1 = call_assembler(..., descr=...)
+        #...
+        #''')
+
     def test_simple_call(self):
         src = """
             OFFSET = 0
