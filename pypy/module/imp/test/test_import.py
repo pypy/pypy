@@ -37,6 +37,7 @@ def setup_directory_structure(space):
                     ambig = "imamodule = 1",
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload; reload(infinite_reload)",
+                    del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
                     )
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
     setuppkg("pkg",
@@ -561,6 +562,14 @@ class AppTestImport:
                 foobarbazmod,)
         except ImportError:
             pass
+
+    def test_del_from_sys_modules(self):
+        try:
+            import del_sys_module
+        except ImportError:
+            pass    # ok
+        else:
+            assert False, 'should not work'
 
 class TestAbi:
     def test_abi_tag(self):

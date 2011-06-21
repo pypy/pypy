@@ -141,6 +141,9 @@ class OptValue(object):
         # meaning it has been forced.
         return self.box is None
 
+    def is_forced_virtual(self):
+        return False
+
     def getfield(self, ofs, default):
         raise NotImplementedError
 
