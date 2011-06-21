@@ -106,21 +106,6 @@ class ARMv7RegisterMananger(RegisterManager):
     def call_result_location(self, v):
         return r.r0
 
-    def before_call(self, force_store=[], save_all_regs=False):
-        for v, reg in self.reg_bindings.items():
-            if(reg in self.save_around_call_regs and v not in force_store and
-                        self.longevity[v][1] <= self.position):
-                # variable dies
-                del self.reg_bindings[v]
-                self.free_regs.append(reg)
-                continue
-            if not save_all_regs and reg not in self.save_around_call_regs:
-                # we don't have to
-                continue
-            self._sync_var(v)
-            del self.reg_bindings[v]
-            self.free_regs.append(reg)
-
     def convert_to_imm(self, c):
         if isinstance(c, ConstInt):
             return locations.ImmLocation(c.value)
