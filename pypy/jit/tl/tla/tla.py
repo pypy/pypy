@@ -1,5 +1,5 @@
 
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, hint
 
 
 class W_Object:
@@ -76,12 +76,9 @@ def get_printable_location(pc, bytecode):
 
 jitdriver = JitDriver(greens=['pc', 'bytecode'],
                       reds=['self'],
-                      virtualizables=['self'],
                       get_printable_location=get_printable_location)
 
 class Frame(object):
-    _virtualizable2_ = ['stackpos', 'stack[*]']
-    
     def __init__(self, bytecode):
         self.bytecode = bytecode
         self.stack = [None] * 8
@@ -105,6 +102,8 @@ class Frame(object):
 
         while pc < len(bytecode):
             jitdriver.jit_merge_point(bytecode=bytecode, pc=pc, self=self)
+            self.stackpos = hint(self.stackpos, promote=True)
+
             opcode = ord(bytecode[pc])
             pc += 1
 
