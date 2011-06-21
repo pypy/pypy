@@ -937,13 +937,14 @@ class AllocOpAssembler(object):
     # from: ../x86/regalloc.py:750
     # called from regalloc
     # XXX kill this function at some point
-    def _regalloc_malloc_varsize(self, size, size_box, vloc, ofs_items_loc, regalloc, result):
+    def _regalloc_malloc_varsize(self, size, size_box, vloc, vbox, ofs_items_loc, regalloc, result):
         self.mc.MUL(size.value, size.value, vloc.value)
         if ofs_items_loc.is_imm():
             self.mc.ADD_ri(size.value, size.value, ofs_items_loc.value)
         else:
             self.mc.ADD_rr(size.value, size.value, ofs_items_loc.value)
         force_index = self.write_new_force_index()
+        regalloc.force_spill_var(vbox)
         self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
                                     result=result)
 
