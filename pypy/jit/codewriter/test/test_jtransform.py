@@ -658,7 +658,7 @@ def test_dict_getinteriorfield():
                         v_result)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'getinteriorfield'
-    assert op1.args == [v, i, ('sizedescr', DICT.OF),
+    assert op1.args == [v, i, ('arraydescr', DICT),
                         ('fielddescr', DICT.OF, 'v')]
 
 def test_str_setinteriorfield():

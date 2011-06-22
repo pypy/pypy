@@ -712,9 +712,9 @@ class Transformer(object):
             assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
             STRUCT = v_inst.concretetype.TO.OF
             assert isinstance(STRUCT, lltype.Struct)
-            sizedescr = self.cpu.sizeof(STRUCT)
+            arraydescr = self.cpu.arraydescrof(v_inst.concretetype.TO)
             fielddescr = self.cpu.fielddescrof(STRUCT, c_field.value)
-            args = [v_inst, v_index, sizedescr, fielddescr]
+            args = [v_inst, v_index, arraydescr, fielddescr]
             return SpaceOperation('getinteriorfield', args, op.result)
 
     def rewrite_op_setinteriorfield(self, op):
