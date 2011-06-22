@@ -5323,7 +5323,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p0, i0]
-        i1 = strgetitem(p0, i0)
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
@@ -5338,7 +5337,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p0, i0]
-        i1 = unicodegetitem(p0, i0)
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
