@@ -324,7 +324,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
-        w_value = self.fastlocals_w[varindex]
+        w_value = self.locals_stack_w[varindex]
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
@@ -343,7 +343,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.fastlocals_w[varindex] = w_newvalue
+        self.locals_stack_w[varindex] = w_newvalue
 
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
@@ -696,12 +696,12 @@ class __extend__(pyframe.PyFrame):
     LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
-        if self.fastlocals_w[varindex] is None:
+        if self.locals_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise operationerrfmt(self.space.w_UnboundLocalError, message,
                                   varname)
-        self.fastlocals_w[varindex] = None
+        self.locals_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
