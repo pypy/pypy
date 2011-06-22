@@ -36,7 +36,7 @@ class ModuleDictStrategy(DictStrategy):
         if makenew or jit.we_are_jitted():
             # when we are jitting, we always go through the pure function
             # below, to ensure that we have no residual dict lookup
-            self = jit.hint(self, promote=True)
+            w_dict = jit.hint(w_dict, promote=True)
             return self._getcell_makenew(w_dict, key)
         return self.unerase(w_dict.dstorage).get(key, None)
 
