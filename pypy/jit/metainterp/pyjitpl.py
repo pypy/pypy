@@ -1,5 +1,5 @@
-import py, os, sys
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+import py, sys
+from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
@@ -15,13 +15,12 @@ from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
-                                        ABORT_BAD_LOOP, ABORT_FORCE_QUASIIMMUT
+                                        ABORT_FORCE_QUASIIMMUT
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
-from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
-from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr, MissingLiveness
-from pypy.jit.codewriter import heaptracker, longlong
-from pypy.jit.metainterp.optimizeopt.util import args_dict_box, args_dict
+from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from pypy.jit.codewriter import heaptracker
+from pypy.jit.metainterp.optimizeopt.util import args_dict_box
 from pypy.jit.metainterp.optimize import RetraceLoop
 
 # ____________________________________________________________
@@ -2119,7 +2118,6 @@ class MetaInterp(object):
     def vrefs_after_residual_call(self):
         vrefinfo = self.staticdata.virtualref_info
         for i in range(0, len(self.virtualref_boxes), 2):
-            virtualbox = self.virtualref_boxes[i]
             vrefbox = self.virtualref_boxes[i+1]
             vref = vrefbox.getref_base()
             if vrefinfo.tracing_after_residual_call(vref):
