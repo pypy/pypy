@@ -24,10 +24,7 @@ class W_UnicodeBuilder(Wrappable):
     @unwrap_spec(s=unicode)
     def descr_append(self, space, s):
         self._check_done(space)
-        if len(s) == 1:
-            self.builder.append(s[0])
-        else:
-            self.builder.append(s)
+        self.builder.append(s)
 
     @unwrap_spec(s=unicode, start=int, end=int)
     def descr_append_slice(self, space, s, start, end):
