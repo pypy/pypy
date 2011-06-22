@@ -4,7 +4,7 @@ from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.jit import purefunction, we_are_jitted
+from pypy.rlib.jit import purefunction, we_are_jitted, dont_look_inside
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import inputconst, IntegerRepr
@@ -57,6 +57,8 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
                 llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
 
+    # It'd be nice to be able to look inside this function.
+    @dont_look_inside
     @enforceargs(None, None, int, int, int)
     def copy_string_contents(src, dst, srcstart, dststart, length):
         assert srcstart >= 0
