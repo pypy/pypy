@@ -1,5 +1,5 @@
 import os
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.jitexc import JitException
@@ -112,7 +112,7 @@ class BogusPureField(JitException):
 
 class OptHeap(Optimization):
     """Cache repeated heap accesses"""
-    
+
     def __init__(self):
         # cached fields:  {descr: CachedField}
         self.cached_fields = {}
@@ -129,7 +129,7 @@ class OptHeap(Optimization):
             self.force_all_lazy_setfields()
         else:
             assert 0   # was: new.lazy_setfields = self.lazy_setfields
-        
+
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_reconstructed(optimizer, valuemap)
 

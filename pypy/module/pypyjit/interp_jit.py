@@ -17,6 +17,8 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from opcode import opmap
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.nonconst import NonConstant
+from pypy.jit.metainterp.resoperation import rop
+from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'valuestack_w[*]',
@@ -47,6 +49,16 @@ def can_never_inline(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
 
+def wrap_oplist(space, logops, operations):
+    list_w = []
+    for op in operations:
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            list_w.append(space.wrap(debug_merge_point_from_boxes(
+                op.getarglist())))
+        else:
+            list_w.append(space.wrap(logops.repr_of_resop(op)))
+    return list_w
+
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
     greens = ['next_instr', 'is_being_profiled', 'pycode']
@@ -62,8 +74,7 @@ class PyPyJitDriver(JitDriver):
             return
         if space.is_true(cache.w_compile_hook):
             logops = logger._make_log_operations()
-            list_w = [space.wrap(logops.repr_of_resop(op))
-                      for op in operations]
+            list_w = wrap_oplist(space, logops, operations)
             pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
             cache.in_recursion = True
             try:
@@ -85,8 +96,7 @@ class PyPyJitDriver(JitDriver):
             return
         if space.is_true(cache.w_compile_hook):
             logops = logger._make_log_operations()
-            list_w = [space.wrap(logops.repr_of_resop(op))
-                      for op in operations]
+            list_w = wrap_oplist(space, logops, operations)
             cache.in_recursion = True
             try:
                 space.call_function(cache.w_compile_hook,

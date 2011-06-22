@@ -323,6 +323,8 @@ class LLHelpers(AbstractLLHelpers):
         return s
     ll_str2unicode.oopspec = 'str.str2unicode(str)'
 
+    # it's pure but it does not look like it
+    @purefunction
     def ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
@@ -334,7 +336,6 @@ class LLHelpers(AbstractLLHelpers):
                 x = 29872897
             s.hash = x
         return x
-    ll_strhash._pure_function_ = True # it's pure but it does not look like it
 
     def ll_strfasthash(s):
         return s.hash     # assumes that the hash is already computed

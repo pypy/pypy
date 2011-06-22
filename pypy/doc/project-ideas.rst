@@ -91,7 +91,7 @@ experiments can be done for the general purpose. Examples
 Remove the GIL
 --------------
 
-This is a major task that requiers lots of thinking. However, few subprojects
+This is a major task that requires lots of thinking. However, few subprojects
 can be potentially specified, unless a better plan can be thought out:
 
 * A thread-aware garbage collector
@@ -123,6 +123,25 @@ Experiment (again) with LLVM backend for RPython compilation
 We already tried working with LLVM and at the time, LLVM was not mature enough
 for our needs. It's possible that this has changed, reviving the LLVM backend
 (or writing new from scratch) for static compilation would be a good project.
+
+(On the other hand, just generating C code and using clang might be enough.
+The issue with that is the so-called "asmgcc GC root finder", which has tons
+of issues of this own.  In my opinion (arigo), it would be definitely a
+better project to try to optimize the alternative, the "shadowstack" GC root
+finder, which is nicely portable.  So far it gives a pypy that is around
+7% slower.)
+
+Embedding PyPy
+----------------------------------------
+
+Being able to embed PyPy, say with its own limited C API, would be
+useful.  But here is the most interesting variant, straight from
+EuroPython live discussion :-)  We can have a generic "libpypy.so" that
+can be used as a placeholder dynamic library, and when it gets loaded,
+it runs a .py module that installs (via ctypes) the interface it wants
+exported.  This would give us a one-size-fits-all generic .so file to be
+imported by any application that wants to load .so files :-)
+
 
 .. _`issue tracker`: http://bugs.pypy.org
 .. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev

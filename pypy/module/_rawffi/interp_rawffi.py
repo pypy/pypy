@@ -176,7 +176,7 @@ class W_CDLL(Wrappable):
             except KeyError:
                 raise operationerrfmt(space.w_AttributeError,
                     "No symbol %s found in library %s", name, self.name)
-        
+
         elif (_MS_WINDOWS and
               space.is_true(space.isinstance(w_name, space.w_int))):
             ordinal = space.int_w(w_name)
@@ -261,7 +261,7 @@ class W_DataShape(Wrappable):
     def descr_size_alignment(self, space, n=1):
         return space.newtuple([space.wrap(self.size * n),
                                space.wrap(self.alignment)])
-    
+
 
 class W_DataInstance(Wrappable):
     def __init__(self, space, size, address=r_uint(0)):
@@ -427,7 +427,7 @@ class W_FuncPtr(Wrappable):
                     if not (argletter in TYPEMAP_PTR_LETTERS and
                             letter in TYPEMAP_PTR_LETTERS):
                         msg = "Argument %d should be typecode %s, got %s"
-                        raise operationerrfmt(space.w_TypeError, msg, 
+                        raise operationerrfmt(space.w_TypeError, msg,
                                               i+1, argletter, letter)
             args_ll.append(arg.ll_buffer)
             # XXX we could avoid the intermediate list args_ll
@@ -480,17 +480,25 @@ sizeof = _create_new_accessor('sizeof', 'c_size')
 alignment = _create_new_accessor('alignment', 'c_alignment')
 
 @unwrap_spec(address=r_uint, maxlength=int)
-def charp2string(space, address, maxlength=sys.maxint):
+def charp2string(space, address, maxlength=-1):
     if address == 0:
         return space.w_None
-    s = rffi.charp2strn(rffi.cast(rffi.CCHARP, address), maxlength)
+    charp_addr = rffi.cast(rffi.CCHARP, address)
+    if maxlength == -1:
+        s = rffi.charp2str(charp_addr)
+    else:
+        s = rffi.charp2strn(charp_addr, maxlength)
     return space.wrap(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)
-def wcharp2unicode(space, address, maxlength=sys.maxint):
+def wcharp2unicode(space, address, maxlength=-1):
     if address == 0:
         return space.w_None
-    s = rffi.wcharp2unicoden(rffi.cast(rffi.CWCHARP, address), maxlength)
+    wcharp_addr = rffi.cast(rffi.CWCHARP, address)
+    if maxlength == -1:
+        s = rffi.wcharp2unicode(wcharp_addr)
+    else:
+        s = rffi.wcharp2unicoden(wcharp_addr, maxlength)
     return space.wrap(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)

@@ -3,6 +3,13 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def test_single_item(self):
+        from numpy import negative, sign, minimum
+
+        assert negative(5.0) == -5.0
+        assert sign(-0.0) == 0.0
+        assert minimum(2.0, 3.0) == 2.0
+
     def test_negative(self):
         from numpy import array, negative
 

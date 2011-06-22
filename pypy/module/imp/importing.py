@@ -622,7 +622,13 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         try:
             if find_info:
                 w_mod = load_module(space, w_modulename, find_info)
-                w_mod = space.getitem(space.sys.get("modules"), w_modulename)
+                try:
+                    w_mod = space.getitem(space.sys.get("modules"),
+                                          w_modulename)
+                except OperationError, oe:
+                    if not oe.match(space, space.w_KeyError):
+                        raise
+                    raise OperationError(space.w_ImportError, w_modulename)
                 if w_parent is not None:
                     space.setattr(w_parent, space.wrap(partname), w_mod)
                 return w_mod

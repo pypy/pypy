@@ -1,8 +1,19 @@
 from pypy.rlib.debug import debug_start, debug_stop
+from pypy.jit.metainterp.jitexc import JitException
+
+class InvalidLoop(JitException):
+    """Raised when the optimize*.py detect that the loop that
+    we are trying to build cannot possibly make sense as a
+    long-running loop (e.g. it cannot run 2 complete iterations)."""
+
+class RetraceLoop(JitException):
+    """ Raised when inlining a short preamble resulted in an
+        InvalidLoop. This means the optimized loop is too specialized
+        to be useful here, so we trace it again and produced a second
+        copy specialized in some different way.
+    """
 
 # ____________________________________________________________
-
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1, optimize_bridge_1
 
 def optimize_loop(metainterp_sd, old_loop_tokens, loop, enable_opts):
     debug_start("jit-optimize")
@@ -13,6 +24,7 @@ def optimize_loop(metainterp_sd, old_loop_tokens, loop, enable_opts):
         debug_stop("jit-optimize")
 
 def _optimize_loop(metainterp_sd, old_loop_tokens, loop, enable_opts):
+    from pypy.jit.metainterp.optimizeopt import optimize_loop_1
     cpu = metainterp_sd.cpu
     loop.logops = metainterp_sd.logger_noopt.log_loop(loop.inputargs,
                                                       loop.operations)
@@ -36,6 +48,7 @@ def optimize_bridge(metainterp_sd, old_loop_tokens, bridge, enable_opts,
 
 def _optimize_bridge(metainterp_sd, old_loop_tokens, bridge, enable_opts,
                      inline_short_preamble, retraced=False):
+    from pypy.jit.metainterp.optimizeopt import optimize_bridge_1
     cpu = metainterp_sd.cpu
     bridge.logops = metainterp_sd.logger_noopt.log_loop(bridge.inputargs,
                                                         bridge.operations)

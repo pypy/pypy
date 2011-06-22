@@ -1,4 +1,5 @@
 import re, sys
+
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.tool.oparser import OpParser
 
@@ -51,6 +52,7 @@ class SimpleParser(OpParser):
 
     # factory method
     Op = Op
+    use_mock_model = True
 
     @classmethod
     def parse_from_input(cls, input):
@@ -96,7 +98,7 @@ class TraceForOpcode(object):
     def __init__(self, operations, storage):
         if operations[0].name == 'debug_merge_point':
             self.inline_level = int(operations[0].args[0])
-            m = re.search('<code object ([<>\w]+), file \'(.+?)\', line (\d+)> #(\d+) (\w+)',
+            m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
                          operations[0].getarg(1))
             if m is None:
                 # a non-code loop, like StrLiteralSearch or something

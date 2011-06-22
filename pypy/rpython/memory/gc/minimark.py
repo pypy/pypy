@@ -927,7 +927,7 @@ class MiniMarkGC(MovingGCBase):
     def write_barrier_from_array(self, newvalue, addr_array, index):
         if self.header(addr_array).tid & GCFLAG_NO_YOUNG_PTRS:
             if self.card_page_indices > 0:     # <- constant-folded
-                self.remember_young_pointer_from_array(addr_array, index)
+                self.remember_young_pointer_from_array2(addr_array, index)
             else:
                 self.remember_young_pointer(addr_array, newvalue)
 
@@ -976,7 +976,7 @@ class MiniMarkGC(MovingGCBase):
 
     def _init_writebarrier_with_card_marker(self):
         DEBUG = self.DEBUG
-        def remember_young_pointer_from_array(addr_array, index):
+        def remember_young_pointer_from_array2(addr_array, index):
             # 'addr_array' is the address of the object in which we write,
             # which must have an array part;  'index' is the index of the
             # item that is (or contains) the pointer that we write.
@@ -1011,7 +1011,7 @@ class MiniMarkGC(MovingGCBase):
             #
             # We set the flag (even if the newly written address does not
             # actually point to the nursery, which seems to be ok -- actually
-            # it seems more important that remember_young_pointer_from_array()
+            # it seems more important that remember_young_pointer_from_array2()
             # does not take 3 arguments).
             addr_byte.char[0] = chr(byte | bitmask)
             #
@@ -1019,10 +1019,67 @@ class MiniMarkGC(MovingGCBase):
                 self.old_objects_with_cards_set.append(addr_array)
                 objhdr.tid |= GCFLAG_CARDS_SET
 
-        remember_young_pointer_from_array._dont_inline_ = True
+        remember_young_pointer_from_array2._dont_inline_ = True
         assert self.card_page_indices > 0
-        self.remember_young_pointer_from_array = (
-            remember_young_pointer_from_array)
+        self.remember_young_pointer_from_array2 = (
+            remember_young_pointer_from_array2)
+
+        # xxx trying it out for the JIT: a 3-arguments version of the above
+        def remember_young_pointer_from_array3(addr_array, index, newvalue):
+            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
+                ll_assert(self.debug_is_old_object(addr_array),
+                          "young array with GCFLAG_NO_YOUNG_PTRS")
+            objhdr = self.header(addr_array)
+            #
+            # a single check for the common case of neither GCFLAG_HAS_CARDS
+            # nor GCFLAG_NO_HEAP_PTRS
+            if objhdr.tid & (GCFLAG_HAS_CARDS | GCFLAG_NO_HEAP_PTRS) == 0:
+                # common case: fast path, jump to the end of the function
+                pass
+            elif objhdr.tid & GCFLAG_HAS_CARDS == 0:
+                # no cards, but GCFLAG_NO_HEAP_PTRS is set.
+                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+                self.prebuilt_root_objects.append(addr_array)
+                # jump to the end of the function
+            else:
+                # case with cards.
+                #
+                # If the newly written address does not actually point to the
+                # nursery, leave now.
+                if not self.appears_to_be_young(newvalue):
+                    return
+                #
+                # 'addr_array' is a raw_malloc'ed array with card markers
+                # in front.  Compute the index of the bit to set:
+                bitindex = index >> self.card_page_shift
+                byteindex = bitindex >> 3
+                bitmask = 1 << (bitindex & 7)
+                #
+                # If the bit is already set, leave now.
+                size_gc_header = self.gcheaderbuilder.size_gc_header
+                addr_byte = addr_array - size_gc_header
+                addr_byte = llarena.getfakearenaaddress(addr_byte) + \
+                            (~byteindex)
+                byte = ord(addr_byte.char[0])
+                if byte & bitmask:
+                    return
+                addr_byte.char[0] = chr(byte | bitmask)
+                #
+                if objhdr.tid & GCFLAG_CARDS_SET == 0:
+                    self.old_objects_with_cards_set.append(addr_array)
+                    objhdr.tid |= GCFLAG_CARDS_SET
+                return
+            #
+            # Logic for the no-cards case, put here to minimize the number
+            # of checks done at the start of the function
+            if self.appears_to_be_young(newvalue):
+                self.old_objects_pointing_to_young.append(addr_array)
+                objhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
+
+        remember_young_pointer_from_array3._dont_inline_ = True
+        assert self.card_page_indices > 0
+        self.remember_young_pointer_from_array3 = (
+            remember_young_pointer_from_array3)
 
 
     def assume_young_pointers(self, addr_struct):

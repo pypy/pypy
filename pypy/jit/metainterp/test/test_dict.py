@@ -130,6 +130,38 @@ class DictTests:
         assert res == 50
         self.check_loops(int_mod=1)
 
+    def test_repeated_lookup(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'd'])
+        class Wrapper(object):
+            _immutable_fields_ = ["value"]
+            def __init__(self, value):
+                self.value = value
+        def eq_func(a, b):
+            return a.value == b.value
+        def hash_func(x):
+            return objectmodel.compute_hash(x.value)
+
+        def f(n):
+            d = None
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, d=d)
+                d = objectmodel.r_dict(eq_func, hash_func)
+                y = Wrapper(str(n))
+                d[y] = n - 1
+                n = d[y]
+            return d[Wrapper(str(n + 1))]
+
+        res = self.meta_interp(f, [100], listops=True)
+        assert res == f(50)
+        # XXX: ideally there would be 7 calls here, but repeated CALL_PURE with
+        # the same arguments are not folded, because we have conflicting
+        # definitions of pure, once strhash can be appropriately folded
+        # this should be decreased to seven.
+        self.check_loops({"call": 8, "guard_false": 1, "guard_no_exception": 5,
+                          "guard_true": 1, "int_and": 1, "int_gt": 1,
+                          "int_is_true": 1, "int_sub": 1, "jump": 1,
+                          "new_with_vtable": 1, "setfield_gc": 1})
+
 
 class TestOOtype(DictTests, OOJitMixin):
     pass
