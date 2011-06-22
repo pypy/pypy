@@ -100,12 +100,12 @@ class Frame(Wrappable):
 
     @jit.dont_look_inside
     def fast2locals(self):
-        # Copy values from self.fastlocals_w to self.w_locals
+        # Copy values from the fastlocals to self.w_locals
         if self.w_locals is None:
             self.w_locals = self.space.newdict()
         varnames = self.getcode().getvarnames()
         fastscope_w = self.getfastscope()
-        for i in range(min(len(varnames), len(fastscope_w))):
+        for i in range(min(len(varnames), self.getfastscopelength())):
             name = varnames[i]
             w_value = fastscope_w[i]
             if w_value is not None:
@@ -114,7 +114,7 @@ class Frame(Wrappable):
 
     @jit.dont_look_inside
     def locals2fast(self):
-        # Copy values from self.w_locals to self.fastlocals_w
+        # Copy values from self.w_locals to the fastlocals
         assert self.w_locals is not None
         varnames = self.getcode().getvarnames()
         numlocals = self.getfastscopelength()
