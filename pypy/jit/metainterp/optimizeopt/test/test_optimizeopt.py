@@ -5311,7 +5311,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_strunicode_loop(ops, expected)
 
-    def test_strgetitem_small(self):
+    def test_strgetitem_bounds(self):
         ops = """
         [p0, i0]
         i1 = strgetitem(p0, i0)
@@ -5324,6 +5324,21 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         expected = """
         [p0, i0]
         i1 = strgetitem(p0, i0)
+        jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_unicodegetitem_bounds(self):
+        ops = """
+        [p0, i0]
+        i1 = unicodegetitem(p0, i0)
+        i2 = int_lt(i1, 0)
+        guard_false(i2) []
+        jump(p0, i0)
+        """
+        expected = """
+        [p0, i0]
+        i1 = unicodegetitem(p0, i0)
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
