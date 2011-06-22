@@ -29,6 +29,13 @@ class W_UnicodeBuilder(Wrappable):
         else:
             self.builder.append(s)
 
+    @unwrap_spec(s=unicode, start=int, end=int)
+    def descr_append_slice(self, space, s, start, end):
+        self._check_done(space)
+        if not 0 <= start <= end <= len(s):
+            raise OperationError(space.w_ValueError, space.wrap("bad start/stop"))
+        self.builder.append_slice(s, start, end)
+
     def descr_build(self, space):
         self._check_done(space)
         w_s = space.wrap(self.builder.build())
@@ -40,6 +47,7 @@ W_UnicodeBuilder.typedef = TypeDef("UnicodeBuilder",
     __new__ = interp2app(W_UnicodeBuilder.descr__new__.im_func),
 
     append = interp2app(W_UnicodeBuilder.descr_append),
+    append_slice = interp2app(W_UnicodeBuilder.descr_append_slice),
     build = interp2app(W_UnicodeBuilder.descr_build),
 )
 W_UnicodeBuilder.typedef.acceptable_as_base_class = False

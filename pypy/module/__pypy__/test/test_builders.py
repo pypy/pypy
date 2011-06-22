@@ -23,3 +23,12 @@ class AppTestBuilders(object):
         b.append(u"123")
         s = b.build()
         assert s == u"abc123"
+
+    def test_append_slice(self):
+        from __pypy__.builders import UnicodeBuilder
+        b = UnicodeBuilder()
+        b.append_slice(u"abcdefgh", 2, 5)
+        raises(ValueError, b.append_slice, u"1", 2, 1)
+        s = b.build()
+        assert s == "cde"
+        raises(ValueError, b.append_slice, u"abc", 1, 2)
