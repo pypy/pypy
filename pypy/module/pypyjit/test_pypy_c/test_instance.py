@@ -115,7 +115,6 @@ class TestInstance(BaseTestPyPyC):
         # ----------------------
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i8 = getfield_gc_pure(p5, descr=<SignedFieldDescr .*W_IntObject.inst_intval.*>)
             i9 = int_lt(i8, i7)
             guard_true(i9, descr=.*)
             guard_not_invalidated(descr=.*)
