@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
-from pypy.rlib import objectmodel, jit
+from pypy.rlib import objectmodel
 from pypy.rpython import rmodel
 
 HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
@@ -408,7 +408,6 @@ def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
-@jit.dont_look_inside
 def ll_get_value(d, i):
     return d.entries[i].value
 
@@ -439,7 +438,6 @@ def ll_dict_setitem(d, key, value):
     i = ll_dict_lookup(d, key, hash)
     return _ll_dict_setitem_lookup_done(d, key, value, hash, i)
 
-@jit.dont_look_inside
 def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     valid = (i & HIGHEST_BIT) == 0
     i = i & MASK
@@ -553,10 +551,17 @@ def ll_dict_lookup(d, key, hash):
         freeslot = i
     else:
         return i | HIGHEST_BIT # pristine entry -- lookup failed
+    return _ll_dict_lookup_slowpath(d, key, hash, freeslot)
 
+def _ll_dict_lookup_slowpath(d, key, hash, freeslot):
     # In the loop, a deleted entry (everused and not valid) is by far
     # (factor of 100s) the least likely outcome, so test for that last.
     perturb = r_uint(hash) 
+    entries = d.entries
+    ENTRIES = lltype.typeOf(entries).TO
+    direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
+    mask = len(entries) - 1
+    i = hash & mask
     while 1: 
         # compute the next index using unsigned arithmetic
         i = r_uint(i)

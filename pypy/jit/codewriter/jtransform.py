@@ -698,14 +698,16 @@ class Transformer(object):
     def rewrite_op_getinteriorfield(self, op):
         # only supports strings and unicodes
         assert len(op.args) == 3
-        assert op.args[1].value == 'chars'
-        optype = op.args[0].concretetype
-        if optype == lltype.Ptr(rstr.STR):
-            opname = "strgetitem"
+        if isinstance(op.args[1], Constant) and op.args[1].value == 'chars':
+            optype = op.args[0].concretetype
+            if optype == lltype.Ptr(rstr.STR):
+                opname = "strgetitem"
+            else:
+                assert optype == lltype.Ptr(rstr.UNICODE)
+                opname = "unicodegetitem"
+            return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
         else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
-            opname = "unicodegetitem"
-        return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+            return SpaceOperation('getinteriorfield', op.args[:], op.result)
 
     def rewrite_op_setinteriorfield(self, op):
         # only supports strings and unicodes

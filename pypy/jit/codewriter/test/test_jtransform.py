@@ -2,13 +2,13 @@ import py
 import random
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
-from pypy.jit.codewriter.jtransform import Transformer
-from pypy.jit.metainterp.history import getkind
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rlist
 from pypy.rpython.lltypesystem.module import ll_math
 from pypy.translator.unsimplify import varoftype
 from pypy.jit.codewriter import heaptracker, effectinfo
 from pypy.jit.codewriter.flatten import ListOfKind
+from pypy.jit.codewriter.jtransform import Transformer
+from pypy.jit.metainterp.history import getkind
 
 def const(x):
     return Constant(x, lltype.typeOf(x))
@@ -645,6 +645,17 @@ def test_unicode_getinteriorfield():
     assert op1.opname == 'unicodegetitem'
     assert op1.args == [v, v_index]
     assert op1.result == v_result
+
+def test_dict_getinteriorfield():
+    DICT = lltype.GcArray(lltype.Struct('ENTRY', ('v', lltype.Signed),
+                                        ('k', lltype.Signed)))
+    v = varoftype(DICT)
+    i = varoftype(lltype.Signed)
+    v_result = varoftype(lltype.Signed)
+    op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
+                        v_result)
+    op1 = Transformer().rewrite_operation(op)
+    assert op1.opname == 'getinteriorfield'
 
 def test_str_setinteriorfield():
     v = varoftype(lltype.Ptr(rstr.STR))
