@@ -707,7 +707,15 @@ class Transformer(object):
                 opname = "unicodegetitem"
             return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
         else:
-            return SpaceOperation('getinteriorfield', op.args[:], op.result)
+            v_inst, v_index, c_field = op.args
+            # only GcArray of Struct supported
+            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
+            STRUCT = v_inst.concretetype.TO.OF
+            assert isinstance(STRUCT, lltype.Struct)
+            sizedescr = self.cpu.sizeof(STRUCT)
+            fielddescr = self.cpu.fielddescrof(STRUCT, c_field.value)
+            args = [v_inst, v_index, sizedescr, fielddescr]
+            return SpaceOperation('getinteriorfield', args, op.result)
 
     def rewrite_op_setinteriorfield(self, op):
         # only supports strings and unicodes

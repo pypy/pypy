@@ -23,6 +23,8 @@ class FakeCPU:
         return ('calldescr', FUNC, ARGS, RESULT)
     def fielddescrof(self, STRUCT, name):
         return ('fielddescr', STRUCT, name)
+    def interiorfielddescrof(self, ARRAY, name):
+        return ('interiorfielddescr', ARRAY, name)
     def arraydescrof(self, ARRAY):
         return FakeDescr(('arraydescr', ARRAY))
     def sizeof(self, STRUCT):
@@ -649,13 +651,15 @@ def test_unicode_getinteriorfield():
 def test_dict_getinteriorfield():
     DICT = lltype.GcArray(lltype.Struct('ENTRY', ('v', lltype.Signed),
                                         ('k', lltype.Signed)))
-    v = varoftype(DICT)
+    v = varoftype(lltype.Ptr(DICT))
     i = varoftype(lltype.Signed)
     v_result = varoftype(lltype.Signed)
     op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
                         v_result)
-    op1 = Transformer().rewrite_operation(op)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'getinteriorfield'
+    assert op1.args == [v, i, ('sizedescr', DICT.OF),
+                        ('fielddescr', DICT.OF, 'v')]
 
 def test_str_setinteriorfield():
     v = varoftype(lltype.Ptr(rstr.STR))
