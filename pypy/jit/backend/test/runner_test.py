@@ -5,7 +5,7 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          BoxInt, Box, BoxPtr,
                                          LoopToken,
                                          ConstInt, ConstPtr,
-                                         BoxObj, Const,
+                                         BoxObj,
                                          ConstObj, BoxFloat, ConstFloat)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
@@ -870,6 +870,39 @@ class BaseBackendTest(Runner):
                                    'int', descr=arraydescr)
         assert r.value == 7441
 
+    def test_array_of_structs(self):
+        TP = lltype.GcStruct('x')
+        ITEM = lltype.Struct('x', ('v', lltype.Signed),
+                             ('k', lltype.Float),
+                             ('p', lltype.Ptr(TP)))
+        a_box, A = self.alloc_array_of(ITEM, 15)
+        s_box, S = self.alloc_instance(TP)
+        adescr = self.cpu.arraydescrof(A)
+        kdescr = self.cpu.fielddescrof(ITEM, 'k')
+        vdescr = self.cpu.fielddescrof(ITEM, 'v')
+        pdescr = self.cpu.fielddescrof(ITEM, 'p')
+        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
+                                                         BoxFloat(1.5), adescr],
+                               'void', descr=kdescr)
+        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3),
+                                                             adescr], 'float',
+                                   descr=kdescr)
+        assert r.getfloat() == 1.5
+        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
+                                                         BoxInt(15), adescr],
+                               'void', descr=vdescr)
+        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3),
+                                                             adescr], 'int',
+                                   descr=vdescr)
+        assert r.getint() == 15
+        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
+                                                         s_box, adescr],
+                               'void', descr=pdescr)
+        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3),
+                                                             adescr], 'ref',
+                                   descr=pdescr)
+        assert r.getref_base() == s_box.getref_base()
+
     def test_string_basic(self):
         s_box = self.alloc_string("hello\xfe")
         r = self.execute_operation(rop.STRLEN, [s_box], 'int')
@@ -1429,7 +1462,6 @@ class LLtypeBackendTest(BaseBackendTest):
         return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
 
     def alloc_array_of(self, ITEM, length):
-        cpu = self.cpu
         A = lltype.GcArray(ITEM)
         a = lltype.malloc(A, length)
         a_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, a))

@@ -1,11 +1,8 @@
 """This implements pyjitpl's execution of operations.
 """
 
-import py
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr
-from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask, r_longlong
+from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong
 from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
@@ -122,6 +119,13 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
                                   itembox.getfloatstorage())
     else:
         cpu.bh_setarrayitem_raw_i(arraydescr, array, index, itembox.getint())
+
+def do_getinteriorfield_gc(cpu, _, arraybox, indexbox, arraydescr, fielddescr):
+    xxx
+
+def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, arraydescr,
+                           fielddecr):
+    xxx
 
 def do_getfield_gc(cpu, _, structbox, fielddescr):
     struct = structbox.getref_base()

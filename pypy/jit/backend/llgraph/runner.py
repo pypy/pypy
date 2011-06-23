@@ -2,7 +2,6 @@
 Minimal-API wrapper around the llinterpreter to run operations.
 """
 
-import sys
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
@@ -11,12 +10,11 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import REF, INT, FLOAT
 from pypy.jit.metainterp.warmstate import unwrap
-from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.rlib import rgc
 
 class MiniStats:
     pass
@@ -172,8 +170,10 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add(c, op.getopnum())
             descr = op.getdescr()
             if isinstance(descr, Descr):
-                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo, descr.arg_types)
-            if isinstance(descr, history.LoopToken) and op.getopnum() != rop.JUMP:
+                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
+                                         descr.arg_types)
+            if (isinstance(descr, history.LoopToken) and
+                op.getopnum() != rop.JUMP):
                 llimpl.compile_add_loop_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
@@ -188,6 +188,9 @@ class BaseCPU(model.AbstractCPU):
                     llimpl.compile_add_ref_const(c, x.value, self.ts.BASETYPE)
                 elif isinstance(x, history.ConstFloat):
                     llimpl.compile_add_float_const(c, x.value)
+                elif isinstance(x, Descr):
+                    llimpl.compile_add_descr_arg(c, x.ofs, x.typeinfo,
+                                                 x.arg_types)
                 else:
                     raise Exception("'%s' args contain: %r" % (op.getopname(),
                                                                x))
@@ -343,8 +346,11 @@ class LLtypeCPU(BaseCPU):
     def arraydescrof(self, A):
         assert A.OF != lltype.Void
         size = symbolic.get_size(A)
-        token = history.getkind(A.OF)
-        return self.getdescr(size, token[0])
+        if isinstance(A.OF, lltype.Ptr) or isinstance(A.OF, lltype.Primitive):
+            token = history.getkind(A.OF)[0]
+        else:
+            token = '?'
+        return self.getdescr(size, token)
 
     # ---------- the backend-dependent operations ----------
 
@@ -408,7 +414,6 @@ class LLtypeCPU(BaseCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result = struct.typeptr
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
