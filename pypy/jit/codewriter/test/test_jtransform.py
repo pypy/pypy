@@ -1,8 +1,7 @@
-import py
 import random
-from pypy.objspace.flow.model import FunctionGraph, Block, Link
+from pypy.objspace.flow.model import Block, Link
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rlist
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.lltypesystem.module import ll_math
 from pypy.translator.unsimplify import varoftype
 from pypy.jit.codewriter import heaptracker, effectinfo
@@ -686,6 +685,20 @@ def test_unicode_setinteriorfield():
     assert op1.opname == 'unicodesetitem'
     assert op1.args == [v, v_index, v_newchr]
     assert op1.result == v_void
+
+def test_dict_setinteriorfield():
+    DICT = lltype.GcArray(lltype.Struct('ENTRY', ('v', lltype.Signed),
+                                        ('k', lltype.Signed)))
+    v = varoftype(lltype.Ptr(DICT))
+    i = varoftype(lltype.Signed)
+    v_void = varoftype(lltype.Void)
+    op = SpaceOperation('setinteriorfield', [v, i, Constant('v', lltype.Void),
+                                             i],
+                        v_void)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'setinteriorfield'
+    assert op1.args == [v, i, i, ('arraydescr', DICT),
+                        ('fielddescr', DICT.OF, 'v')]
 
 def test_promote_1():
     v1 = varoftype(lltype.Signed)
