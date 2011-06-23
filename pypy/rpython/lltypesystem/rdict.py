@@ -1,12 +1,10 @@
 from pypy.tool.pairtype import pairtype
-from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rlib.objectmodel import hlinvoke
-from pypy.rpython import robject
 from pypy.rlib import objectmodel
 from pypy.rpython import rmodel
 
@@ -493,6 +491,8 @@ def _ll_dict_del(d, i):
         key = entry.key   # careful about destructor side effects:
                           # keep key alive until entry.value has also
                           # been zeroed (if it must be)
+        # XXX is this *actually* keeping stuff alive without
+        #     keepalive_until_here?
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
