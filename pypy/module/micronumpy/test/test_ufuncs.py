@@ -10,6 +10,28 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert sign(-0.0) == 0.0
         assert minimum(2.0, 3.0) == 2.0
 
+    def test_sequence(self):
+        from numpy import array, negative, minimum
+        a = array(range(3))
+        b = [2.0, 1.0, 0.0]
+        c = 1.0
+        b_neg = negative(b)
+        assert isinstance(b_neg, array)
+        for i in range(3):
+            assert b_neg[i] == -b[i]
+        min_a_b = minimum(a, b)
+        assert isinstance(min_a_b, array)
+        for i in range(3):
+            assert min_a_b[i] == min(a[i], b[i])
+        min_a_c = minimum(a, c)
+        assert isinstance(min_a_c, array)
+        for i in range(3):
+            assert min_a_c[i] == min(a[i], c)
+        min_b_c = minimum(b, c)
+        assert isinstance(min_b_c, array)
+        for i in range(3):
+            assert min_b_c[i] == min(b[i], c)
+
     def test_negative(self):
         from numpy import array, negative
 

@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib import jit
@@ -114,6 +114,14 @@ class BaseArray(Wrappable):
             s += concrete.getitem(i)
         return space.wrap(s / size)
 
+def access_as_array (space, w_obj):
+    try:
+        # If it's a scalar
+        return FloatWrapper(space.float_w(w_obj))
+    except OperationError:
+        # Convert to array.
+        # Could we somehow use COW in some cases?
+        return new_numarray(space, w_obj)
 
 class FloatWrapper(BaseArray):
     """
@@ -321,14 +329,17 @@ class SingleDimArray(BaseArray):
     def __del__(self):
         lltype.free(self.storage, flavor='raw')
 
-def descr_new_numarray(space, w_type, w_size_or_iterable):
+def new_numarray(space, w_size_or_iterable):
     l = space.listview(w_size_or_iterable)
     arr = SingleDimArray(len(l))
     i = 0
     for w_elem in l:
         arr.storage[i] = space.float_w(space.float(w_elem))
         i += 1
-    return space.wrap(arr)
+    return arr
+
+def descr_new_numarray(space, w_type, w_size_or_iterable):
+    return space.wrap(new_numarray(space, w_size_or_iterable))
 
 @unwrap_spec(size=int)
 def zeros(space, size):
