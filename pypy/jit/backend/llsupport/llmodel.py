@@ -1,24 +1,20 @@
-import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.llinterp import LLInterpreter, LLException
+from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.jit.metainterp.history import BoxInt, BoxPtr, set_future_values,\
-     BoxFloat
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
-from pypy.jit.backend.llsupport.descr import get_size_descr,  BaseSizeDescr
+from pypy.jit.backend.llsupport.descr import get_size_descr
 from pypy.jit.backend.llsupport.descr import get_field_descr, BaseFieldDescr
 from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
 from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
 from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
-from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
 
 class AbstractLLCPU(AbstractCPU):
@@ -475,7 +471,6 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result = struct.typeptr
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
