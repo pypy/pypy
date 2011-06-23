@@ -1,13 +1,10 @@
 import py
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory, rclass
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.llsupport import symbolic, support
-from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
-from pypy.jit.metainterp.history import BasicFailDescr, LoopToken, BoxFloat
+from pypy.jit.metainterp.history import AbstractDescr, getkind
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
 
 # The point of the class organization in this file is to make instances
 # as compact as possible.  This is done by not storing the field size or
