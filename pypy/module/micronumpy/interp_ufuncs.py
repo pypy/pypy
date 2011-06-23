@@ -93,6 +93,10 @@ def reciprocal(value):
     return 1.0 / value
 
 @ufunc
+def floor(value):
+    return math.floor(value)
+
+@ufunc
 def sign(value):
     if value == 0.0:
         return 0.0

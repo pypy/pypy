@@ -89,6 +89,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(4):
             assert b[i] == reference[i]
 
+    def test_floor(self):
+        from numpy import array, floor
+
+        reference = [-2.0, -1.0, 0.0, 1.0, 1.0]
+        a = array([-1.4, -1.0, 0.0, 1.0, 1.4])
+        b = floor(a)
+        for i in range(5):
+            assert b[i] == reference[i]
+
     def test_copysign(self):
         from numpy import array, copysign
 

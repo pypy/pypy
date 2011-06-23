@@ -206,7 +206,7 @@ class DictRepr(AbstractDictRepr):
         if dictobj is None:
             return lltype.nullptr(self.DICT)
         if not isinstance(dictobj, (dict, objectmodel.r_dict)):
-            raise TyperError("expected a dict: %r" % (dictobj,))
+            raise TypeError("expected a dict: %r" % (dictobj,))
         try:
             key = Constant(dictobj)
             return self.dict_cache[key]
