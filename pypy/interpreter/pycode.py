@@ -63,6 +63,7 @@ class PyCode(eval.Code):
         the pypy compiler"""
         self.space = space
         eval.Code.__init__(self, name)
+        assert nlocals >= 0
         self.co_argcount = argcount
         self.co_nlocals = nlocals
         self.co_stacksize = stacksize
