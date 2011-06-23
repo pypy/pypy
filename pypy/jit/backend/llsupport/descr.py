@@ -487,7 +487,8 @@ def getDescrClass(TYPE, BaseDescr, GcPtrDescr, NonGcPtrDescr,
         #
         if TYPE is lltype.Float or is_longlong(TYPE):
             setattr(Descr, floatattrname, True)
-        elif TYPE is not lltype.Bool and rffi.cast(TYPE, -1) == -1:
+        elif (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
+              rffi.cast(TYPE, -1) == -1):
             setattr(Descr, signedattrname, True)
         #
         _cache[nameprefix, TYPE] = Descr
