@@ -65,7 +65,7 @@ class BaseArray(Wrappable):
                 )
                 w_other.invalidates.append(res)
             else:
-                w_other = FloatWrapper(space.float_w(w_other))
+                w_other = access_as_array(space, w_other)
                 res = Call2(
                     function,
                     self,
