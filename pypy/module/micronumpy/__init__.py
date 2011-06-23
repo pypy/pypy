@@ -16,6 +16,7 @@ class Module(MixedModule):
         'absolute': 'interp_ufuncs.absolute',
         'copysign': 'interp_ufuncs.copysign',
         'exp': 'interp_ufuncs.exp',
+        'floor': 'interp_ufuncs.floor',
         'maximum': 'interp_ufuncs.maximum',
         'minimum': 'interp_ufuncs.minimum',
         'negative': 'interp_ufuncs.negative',
