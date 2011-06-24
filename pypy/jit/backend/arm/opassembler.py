@@ -986,6 +986,7 @@ class FloatOpAssemlber(object):
 
     emit_op_float_neg = gen_emit_unary_float_op('VNEG')
     emit_op_float_abs = gen_emit_unary_float_op('VABS')
+    emit_op_math_sqrt = gen_emit_unary_float_op('VSQRT')
 
     emit_op_float_lt = gen_emit_float_cmp_op(c.VFP_LT)
     emit_op_float_le = gen_emit_float_cmp_op(c.VFP_LE)

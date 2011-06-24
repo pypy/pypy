@@ -21,6 +21,7 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.rlib.objectmodel import we_are_translated
 
 class TempInt(TempBox):
@@ -442,6 +443,14 @@ class Regalloc(object):
     prepare_op_int_invert = prepare_op_int_neg
 
     def prepare_op_call(self, op, fcond):
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                args = self.prepare_op_math_sqrt(op, fcond)
+                self.assembler.emit_op_math_sqrt(op, args, self, fcond)
+                return
+        self._consider_call(op)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
 
@@ -1046,6 +1055,13 @@ class Regalloc(object):
     prepare_op_float_ge = prepare_float_op(float_result=False)
     prepare_op_float_neg = prepare_float_op(base=False)
     prepare_op_float_abs = prepare_float_op(base=False)
+
+    def prepare_op_math_sqrt(self, op, fcond):
+        loc, box = self._ensure_value_is_boxed(op.getarg(1))
+        self.possibly_free_var(box)
+        res = self.vfprm.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [loc, res]
 
     def prepare_op_cast_float_to_int(self, op, fcond):
         locs = []

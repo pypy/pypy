@@ -703,7 +703,8 @@ class AssemblerARM(ResOpAssembler):
                 regalloc.prepare_force_spill(op, fcond)
             else:
                 arglocs = regalloc.operations[opnum](regalloc, op, fcond)
-                fcond = self.operations[opnum](self, op, arglocs, regalloc, fcond)
+                if arglocs is not None:
+                    fcond = self.operations[opnum](self, op, arglocs, regalloc, fcond)
             if op.result:
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)

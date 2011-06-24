@@ -129,12 +129,13 @@ float_load_store = {
 # based on encoding from A7.5	VFP data-processing instructions
 # opc2 is one of the parameters and therefore ignored here
 float64_data_proc_instructions = {
-    'VADD' : {'opc1':0x3, 'opc3':0x0},
-    'VSUB' : {'opc1':0x3, 'opc3':0x1},
-    'VMUL' : {'opc1':0x2, 'opc3':0x0},
-    'VDIV' : {'opc1':0x8, 'opc3':0x0},
-    'VCMP' : {'opc1':0xB, 'opc2':0x4, 'opc3':0x1, 'result': False},
-    'VNEG' : {'opc1':0xB, 'opc2':0x1, 'opc3':0x1, 'base': False},
-    'VABS' : {'opc1':0xB, 'opc2':0x0, 'opc3':0x3, 'base': False},
+    'VADD'  : {'opc1':0x3, 'opc3':0x0},
+    'VSUB'  : {'opc1':0x3, 'opc3':0x1},
+    'VMUL'  : {'opc1':0x2, 'opc3':0x0},
+    'VDIV'  : {'opc1':0x8, 'opc3':0x0},
+    'VCMP'  : {'opc1':0xB, 'opc2':0x4, 'opc3':0x1, 'result': False},
+    'VNEG'  : {'opc1':0xB, 'opc2':0x1, 'opc3':0x1, 'base': False},
+    'VABS'  : {'opc1':0xB, 'opc2':0x0, 'opc3':0x3, 'base': False},
+    'VSQRT' : {'opc1':0xB, 'opc2':0x1, 'opc3':0x3, 'base': False},
     #'VCVT' : {'opc1':0xB, 'opc2':0xE, 'opc3':0x1, 'base': False},
 }
