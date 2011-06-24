@@ -9,6 +9,7 @@ from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.codewriter import longlong
+from pypy.rlib.rfloat import isinf, isnan
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, **kwds):
@@ -51,6 +52,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     testself.cw = cw
     policy = JitPolicy()
+    policy.set_supports_floats(True)
     policy.set_supports_longlong(supports_longlong)
     cw.find_all_graphs(policy)
     #
@@ -180,10 +182,10 @@ class JitMixin:
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
         result2 = _run_with_pyjitpl(self, args)
-        assert result1 == result2
+        assert result1 == result2 or isnan(result1) and isnan(result2)
         # try to run it by running the code compiled just before
         result3 = _run_with_machine_code(self, args)
-        assert result1 == result3 or result3 == NotImplemented
+        assert result1 == result3 or result3 == NotImplemented or isnan(result1) and isnan(result3)
         #
         if (longlong.supports_longlong and
             isinstance(result1, longlong.r_float_storage)):

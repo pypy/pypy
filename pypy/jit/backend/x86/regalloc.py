@@ -324,6 +324,11 @@ class RegAlloc(object):
         if not we_are_translated():
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform_llong(op, arglocs, result_loc)
+        
+    def PerformMath(self, op, arglocs, result_loc):
+        if not we_are_translated():
+            self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
+        self.assembler.regalloc_perform_math(op, arglocs, result_loc)
 
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
@@ -619,15 +624,13 @@ class RegAlloc(object):
     consider_float_gt = _consider_float_cmp
     consider_float_ge = _consider_float_cmp
 
-    def consider_float_neg(self, op):
+    def _consider_float_unary_op(self, op):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0))
         self.Perform(op, [loc0], loc0)
         self.xrm.possibly_free_var(op.getarg(0))
-
-    def consider_float_abs(self, op):
-        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0))
-        self.Perform(op, [loc0], loc0)
-        self.xrm.possibly_free_var(op.getarg(0))
+        
+    consider_float_neg = _consider_float_unary_op
+    consider_float_abs = _consider_float_unary_op
 
     def consider_cast_float_to_int(self, op):
         loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
@@ -713,6 +716,11 @@ class RegAlloc(object):
         loc1 = self.rm.make_sure_var_in_reg(op.getarg(1))
         self.PerformLLong(op, [loc1], loc0)
         self.rm.possibly_free_vars_for_op(op)
+        
+    def _consider_math_sqrt(self, op):
+        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
+        self.PerformMath(op, [loc0], loc0)
+        self.xrm.possibly_free_var(op.getarg(1))
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         save_all_regs = guard_not_forced_op is not None
@@ -749,12 +757,12 @@ class RegAlloc(object):
                    guard_not_forced_op=guard_not_forced_op)
 
     def consider_call(self, op):
-        if IS_X86_32:
-            # support for some of the llong operations,
-            # which only exist on x86-32
-            effectinfo = op.getdescr().get_extra_info()
-            if effectinfo is not None:
-                oopspecindex = effectinfo.oopspecindex
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if IS_X86_32:
+                # support for some of the llong operations,
+                # which only exist on x86-32
                 if oopspecindex in (EffectInfo.OS_LLONG_ADD,
                                     EffectInfo.OS_LLONG_SUB,
                                     EffectInfo.OS_LLONG_AND,
@@ -773,7 +781,8 @@ class RegAlloc(object):
                 if oopspecindex == EffectInfo.OS_LLONG_LT:
                     if self._maybe_consider_llong_lt(op):
                         return
-        #
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                return self._consider_math_sqrt(op)
         self._consider_call(op)
 
     def consider_call_may_force(self, op, guard_op):

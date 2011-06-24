@@ -9,7 +9,7 @@ from pypy.tool.autopath import pypydir
 from pypy.rlib import jit, rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
-from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
+from pypy.rlib.rfloat import isfinite, isinf, isnan, INFINITY, NAN
 
 if sys.platform == "win32":
     if platform.name == "msvc":
@@ -68,6 +68,13 @@ math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, pure_function=True)
+
+math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
+
+@jit.purefunction
+def sqrt_nonneg(x):
+    return math_sqrt(x)
+sqrt_nonneg.oopspec = "math.sqrt_nonneg(x)"
 
 # ____________________________________________________________
 #
@@ -319,6 +326,15 @@ def ll_math_pow(x, y):
         _likely_raise(errno, r)
     return r
 
+def ll_math_sqrt(x):
+    if x < 0.0:
+        raise ValueError, "math domain error"
+    
+    if isfinite(x):
+        return sqrt_nonneg(x)
+
+    return x   # +inf or nan
+
 # ____________________________________________________________
 #
 # Default implementations
@@ -357,7 +373,7 @@ def new_unary_math_function(name, can_overflow, c99):
 unary_math_functions = [
     'acos', 'asin', 'atan',
     'ceil', 'cos', 'cosh', 'exp', 'fabs',
-    'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
+    'sin', 'sinh', 'tan', 'tanh', 'log', 'log10',
     'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
     ]
 unary_math_functions_can_overflow = [
