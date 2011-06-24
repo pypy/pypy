@@ -512,6 +512,15 @@ class MIFrame(object):
     opimpl_getfield_gc_r_pure = _opimpl_getfield_gc_pure_any
     opimpl_getfield_gc_f_pure = _opimpl_getfield_gc_pure_any
 
+    @arguments("box", "box", "descr", "descr")
+    def _opimpl_getinteriorfield_gc_any(self, array, index, arraydescr,
+                                        fielddescr):
+        return self.execute_with_descr(rop.GETINTERIORFIELD_GC, fielddescr,
+                                array, index, arraydescr)
+    opimpl_getinteriorfield_gc_i = _opimpl_getinteriorfield_gc_any
+    opimpl_getinteriorfield_gc_f = _opimpl_getinteriorfield_gc_any
+    opimpl_getinteriorfield_gc_r = _opimpl_getinteriorfield_gc_any
+
     @arguments("orgpc", "box", "descr")
     def _opimpl_getfield_gc_greenfield_any(self, pc, box, fielddescr):
         ginfo = self.metainterp.jitdriver_sd.greenfield_info
@@ -534,6 +543,16 @@ class MIFrame(object):
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
     opimpl_setfield_gc_f = _opimpl_setfield_gc_any
+
+    @arguments("box", "box", "box", "descr", "descr")
+    def _opimpl_setinteriorfield_gc_any(self, array, index, value, arraydescr,
+                                        fielddescr):
+        self.execute_with_descr(rop.SETINTERIORFIELD_GC, fielddescr,
+                                array, index, value, arraydescr)
+    opimpl_setinteriorfield_gc_i = _opimpl_setinteriorfield_gc_any
+    opimpl_setinteriorfield_gc_f = _opimpl_setinteriorfield_gc_any
+    opimpl_setinteriorfield_gc_r = _opimpl_setinteriorfield_gc_any
+                                
 
     @arguments("box", "descr")
     def _opimpl_getfield_raw_any(self, box, fielddescr):

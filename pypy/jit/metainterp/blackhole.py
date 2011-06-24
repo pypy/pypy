@@ -1120,10 +1120,10 @@ class BlackholeInterpreter(object):
                                             fielddescr)
 
     @arguments("cpu", "r", "i", "d", "i", "d")
-    def bhimpl_setinteriorfield_gc_i(cpu, array, index, arraydescr, value,
-                                     fielddescr):
-        cpu.bh_setinteriorfield_gc_i(array, index, arraydescr, value,
-                                     fielddescr)    
+    def bhimpl_setinteriorfield_gc_i(cpu, array, index, arraydescr,
+                                     fielddescr, value):
+        cpu.bh_setinteriorfield_gc_i(array, index, arraydescr, fielddescr,
+                                     value)
 
     @arguments("cpu", "r", "d", returns="i")
     def bhimpl_getfield_gc_i(cpu, struct, fielddescr):

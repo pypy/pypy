@@ -402,6 +402,38 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(fielddescr, Descr)
         return llimpl.do_getfield_raw_float(struct, fielddescr.ofs)
 
+    def bh_getinteriorfield_gc_i(self, array, index, arraydescr, fielddescr):
+        assert isinstance(arraydescr, Descr)
+        assert isinstance(fielddescr, Descr)
+        return llimpl.do_getinteriorfield_gc_int(array, index, fielddescr.ofs)
+    def bh_getinteriorfield_gc_r(self, array, index, arraydescr, fielddescr):
+        assert isinstance(arraydescr, Descr)
+        assert isinstance(fielddescr, Descr)
+        return llimpl.do_getinteriorfield_gc_ptr(array, index, fielddescr.ofs)
+    def bh_getinteriorfield_gc_f(self, array, index, arraydescr, fielddescr):
+        assert isinstance(arraydescr, Descr)
+        assert isinstance(fielddescr, Descr)
+        return llimpl.do_getinteriorfield_gc_float(array, index, fielddescr.ofs)
+
+    def bh_setinteriorfield_gc_i(self, array, index, arraydescr, fielddescr,
+                                 value):
+        assert isinstance(arraydescr, Descr)
+        assert isinstance(fielddescr, Descr)
+        return llimpl.do_setinteriorfield_gc_int(array, index, fielddescr.ofs,
+                                                 value)
+    def bh_setinteriorfield_gc_r(self, array, index, arraydescr, fielddescr,
+                                 value):
+        assert isinstance(arraydescr, Descr)
+        assert isinstance(fielddescr, Descr)
+        return llimpl.do_setinteriorfield_gc_ptr(array, index, fielddescr.ofs,
+                                                 value)
+    def bh_setinteriorfield_gc_f(self, array, index, arraydescr, fielddescr,
+                                 value):
+        assert isinstance(arraydescr, Descr)
+        assert isinstance(fielddescr, Descr)
+        return llimpl.do_setinteriorfield_gc_float(array, index, fielddescr.ofs,
+                                                 value)
+
     def bh_new(self, sizedescr):
         assert isinstance(sizedescr, Descr)
         return llimpl.do_new(sizedescr.ofs)
