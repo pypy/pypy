@@ -1,5 +1,6 @@
-from pypy.jit.backend.arm.helper.assembler import count_reg_args, decode32, \
-                                                    decode64, encode32
+from pypy.jit.backend.arm.helper.assembler import count_reg_args, \
+                                                    decode32, encode32, \
+                                                    decode64, encode64
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, BoxFloat,
                                         INT, REF, FLOAT)
 
@@ -36,3 +37,8 @@ def test_decode32():
 def test_decode64():
     mem = list('\x87\xd6\x12\x00\x00\x00\x0F\x00')
     assert decode64(mem, 0) == 4222124651894407L
+
+def test_encode64():
+    mem = [None] * 8
+    encode64(mem, 0, 4222124651894407L)
+    assert ''.join(mem) ==  '\x87\xd6\x12\x00\x00\x00\x0F\x00'

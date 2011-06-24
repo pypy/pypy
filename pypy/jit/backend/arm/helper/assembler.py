@@ -152,3 +152,7 @@ def encode32(mem, i, n):
     mem[i+1] = chr((n >> 8) & 0xFF)
     mem[i+2] = chr((n >> 16) & 0xFF)
     mem[i+3] = chr((n >> 24) & 0xFF)
+
+def encode64(mem, i, n):
+    for x in range(8):
+        mem[i+x] = chr((n >> (x*8)) & 0xFF)
