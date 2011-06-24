@@ -15,7 +15,7 @@ from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimize import InvalidLoop
-from pypy.jit.metainterp.resume import NUMBERING
+from pypy.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP
 from pypy.jit.codewriter import heaptracker, longlong
 
 def giveup():
@@ -302,7 +302,7 @@ class ResumeGuardDescr(ResumeDescr):
     rd_numb = lltype.nullptr(NUMBERING)
     rd_consts = None
     rd_virtuals = None
-    rd_pendingfields = None
+    rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     CNT_INT   = -0x20000000
     CNT_REF   = -0x40000000

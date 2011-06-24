@@ -1381,8 +1381,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i1, p0]
-        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
         p1 = new_array(i1, descr=arraydescr)
+        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
         jump(i1, p1)
         """
         self.optimize_loop(ops, expected)
@@ -1806,9 +1806,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getarrayitem_gc_pure(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
-        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         #
         setfield_gc(p1, i2, descr=valuedescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         setfield_gc(p1, i4, descr=nextdescr)
         escape()
         jump(p1, i1, i2, p3, i3)
@@ -1818,9 +1818,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #
         i4 = getarrayitem_gc(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
-        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         #
         setfield_gc(p1, i2, descr=valuedescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         setfield_gc(p1, i4, descr=nextdescr)
         escape()
         jump(p1, i1, i2, p3, i3)
@@ -2055,6 +2055,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
+        py.test.skip("setarrayitem with variable index")
         ops = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
@@ -5875,5 +5876,26 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         escape(p1)
         escape(p0)
         jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_setarrayitem_lazy(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        i2 = escape()
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setarrayitem_gc(p0, 2, p1, descr=arraydescr)
+        guard_true(i2) []
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        i2 = escape()
+        guard_true(i2) [p0]
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
         """
         self.optimize_loop(ops, expected)

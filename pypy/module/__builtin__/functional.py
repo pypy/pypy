@@ -294,7 +294,7 @@ def map_single_user_function(code, w_func, w_iter):
             break
         new_frame = space.createframe(code, w_func.w_func_globals,
                                       w_func.closure)
-        new_frame.fastlocals_w[0] = w_item
+        new_frame.locals_stack_w[0] = w_item
         w_res = new_frame.run()
         result_w.append(w_res)
     return result_w

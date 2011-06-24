@@ -166,19 +166,19 @@ class LLtypeMixin(object):
     FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
     plaincalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
     nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                    EffectInfo([], [], []))
+                                    EffectInfo([], [], [], []))
     writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [adescr], []))
+                                  EffectInfo([], [], [adescr], []))
     writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                      EffectInfo([], [adescr], [arraydescr]))
+                                  EffectInfo([], [], [adescr], [arraydescr]))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                 EffectInfo([adescr], [], []))
+                                 EffectInfo([adescr], [], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([nextdescr], [], [],
+                 EffectInfo([nextdescr], [], [], [],
                             EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE,
                             can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([], [], [], oopspecindex=EffectInfo.OS_ARRAYCOPY))
+             EffectInfo([], [], [], [], oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
@@ -195,15 +195,15 @@ class LLtypeMixin(object):
         _oopspecindex = getattr(EffectInfo, _os)
         locals()[_name] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], oopspecindex=_oopspecindex))
+                EffectInfo([], [], [], [], oopspecindex=_oopspecindex))
         #
         _oopspecindex = getattr(EffectInfo, _os.replace('STR', 'UNI'))
         locals()[_name.replace('str', 'unicode')] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], oopspecindex=_oopspecindex))
+                EffectInfo([], [], [], [], oopspecindex=_oopspecindex))
 
     s2u_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], oopspecindex=EffectInfo.OS_STR2UNICODE))
+            EffectInfo([], [], [], [], oopspecindex=EffectInfo.OS_STR2UNICODE))
     #
 
     class LoopToken(AbstractDescr):

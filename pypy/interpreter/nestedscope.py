@@ -170,7 +170,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(len(args_to_copy)):
             argnum = args_to_copy[i]
             if argnum >= 0:
-                self.cells[i].set(self.fastlocals_w[argnum])
+                self.cells[i].set(self.locals_stack_w[argnum])
 
     def getfreevarname(self, index):
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
