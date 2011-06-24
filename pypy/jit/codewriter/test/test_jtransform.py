@@ -656,7 +656,7 @@ def test_dict_getinteriorfield():
     op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
                         v_result)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
-    assert op1.opname == 'getinteriorfield_i'
+    assert op1.opname == 'getinteriorfield_gc_i'
     assert op1.args == [v, i, ('arraydescr', DICT),
                         ('fielddescr', DICT.OF, 'v')]
 
@@ -696,7 +696,7 @@ def test_dict_setinteriorfield():
                                              i],
                         v_void)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
-    assert op1.opname == 'setinteriorfield_i'
+    assert op1.opname == 'setinteriorfield_gc_i'
     assert op1.args == [v, i, i, ('arraydescr', DICT),
                         ('fielddescr', DICT.OF, 'v')]
 

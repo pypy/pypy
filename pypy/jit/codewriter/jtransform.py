@@ -715,7 +715,8 @@ class Transformer(object):
             fielddescr = self.cpu.fielddescrof(STRUCT, c_field.value)
             args = [v_inst, v_index, arraydescr, fielddescr]
             kind = getkind(op.result.concretetype)[0]
-            return SpaceOperation('getinteriorfield_%s' % kind, args, op.result)
+            return SpaceOperation('getinteriorfield_gc_%s' % kind, args,
+                                  op.result)
 
     def rewrite_op_setinteriorfield(self, op):
         # only supports strings and unicodes
@@ -739,8 +740,8 @@ class Transformer(object):
             fielddescr = self.cpu.fielddescrof(STRUCT, c_field.value)
             kind = getkind(v_value.concretetype)[0]
             args = [v_inst, v_index, v_value, arraydescr, fielddescr]
-            return SpaceOperation('setinteriorfield_%s' % kind, args, op.result)
-            
+            return SpaceOperation('setinteriorfield_gc_%s' % kind, args,
+                                  op.result)
 
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args

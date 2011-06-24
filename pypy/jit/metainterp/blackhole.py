@@ -1114,6 +1114,17 @@ class BlackholeInterpreter(object):
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         return cpu.bh_arraylen_gc(adescr, array)
 
+    @arguments("cpu", "r", "i", "d", "d", returns="i")
+    def bhimpl_getinteriorfield_gc_i(cpu, array, index, arraydescr, fielddescr):
+        return cpu.bh_getinteriorfield_gc_i(array, index, arraydescr,
+                                            fielddescr)
+
+    @arguments("cpu", "r", "i", "d", "i", "d")
+    def bhimpl_setinteriorfield_gc_i(cpu, array, index, arraydescr, value,
+                                     fielddescr):
+        cpu.bh_setinteriorfield_gc_i(array, index, arraydescr, value,
+                                     fielddescr)    
+
     @arguments("cpu", "r", "d", returns="i")
     def bhimpl_getfield_gc_i(cpu, struct, fielddescr):
         return cpu.bh_getfield_gc_i(struct, fielddescr)
