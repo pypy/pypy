@@ -450,7 +450,6 @@ class Regalloc(object):
                 args = self.prepare_op_math_sqrt(op, fcond)
                 self.assembler.emit_op_math_sqrt(op, args, self, fcond)
                 return
-        self._consider_call(op)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
 
