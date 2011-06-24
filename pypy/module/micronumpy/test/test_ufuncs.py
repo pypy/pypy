@@ -23,14 +23,26 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isinstance(min_a_b, array)
         for i in range(3):
             assert min_a_b[i] == min(a[i], b[i])
+        min_b_a = minimum(b, a)
+        assert isinstance(min_b_a, array)
+        for i in range(3):
+            assert min_b_a[i] == min(a[i], b[i])
         min_a_c = minimum(a, c)
         assert isinstance(min_a_c, array)
         for i in range(3):
             assert min_a_c[i] == min(a[i], c)
+        min_c_a = minimum(c, a)
+        assert isinstance(min_c_a, array)
+        for i in range(3):
+            assert min_c_a[i] == min(a[i], c)
         min_b_c = minimum(b, c)
         assert isinstance(min_b_c, array)
         for i in range(3):
             assert min_b_c[i] == min(b[i], c)
+        min_c_b = minimum(c, b)
+        assert isinstance(min_c_b, array)
+        for i in range(3):
+            assert min_c_b[i] == min(b[i], c)
 
     def test_negative(self):
         from numpy import array, negative

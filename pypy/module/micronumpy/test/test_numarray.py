@@ -96,7 +96,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i + 5
 
-    def test_add_other(self):
+    def test_add_list(self):
         from numpy import array
         a = array(range(5))
         b = list(reversed(range(5)))
