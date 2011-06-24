@@ -2554,6 +2554,29 @@ class LLtypeBackendTest(BaseBackendTest):
         assert mem2 < mem1
         assert mem2 == mem0
 
+    def test_math_sqrt(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+
+        def math_sqrt(a):
+            assert False, 'should not be called'
+        from pypy.jit.codewriter.effectinfo import EffectInfo
+
+        effectinfo = EffectInfo([], [], [], EffectInfo.EF_CAN_RAISE, EffectInfo.OS_MATH_SQRT)
+        FPTR = self.Ptr(self.FuncType([lltype.Float], lltype.Float))
+        func_ptr = llhelper(FPTR, math_sqrt)
+        FUNC = deref(FPTR)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
+        testcases = [(4.0, 2.0), (6.25, 2.5)]
+        for arg, expected in testcases:
+            res = self.execute_operation(rop.CALL, 
+                        [funcbox, boxfloat(arg)],
+                         'float', descr=calldescr)
+            assert res.getfloat() == expected
+
+
 
 class OOtypeBackendTest(BaseBackendTest):
 
