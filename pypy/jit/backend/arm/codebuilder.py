@@ -58,13 +58,102 @@ class AbstractARMv7Builder(object):
                 | nregs)
         self.write32(instr)
 
+    def VPOP(self, regs, cond=cond.AL):
+        nregs = len(regs)
+        assert nregs > 0 and nregs <= 16
+        freg = regs[0]
+        D = (freg & 0x10) >> 4
+        Dd = (freg & 0xF)
+        nregs *= 2
+        instr = (cond << 28
+                | 0xCBD << 16
+                | D << 22
+                | Dd << 12
+                | 0xB << 8
+                | nregs)
+        self.write32(instr)
+    
+    def VMOV_rc(self, rt, rt2, dm, cond=cond.AL):
+        """This instruction copies two words from two ARM core registers into a
+        doubleword extension register, or from a doubleword extension register
+        to two ARM core registers.
+        """
+        op = 1
+        instr = (cond << 28
+                | 0xC << 24
+                | 0x4 << 20
+                | op << 20
+                | (rt2 & 0xF) << 16
+                | (rt & 0xF) << 12
+                | 0xB << 8
+                | 0x1 << 4
+                | (dm & 0xF))
+        self.write32(instr)
+
+    # VMOV<c> <Dm>, <Rt>, <Rt2>
+    def VMOV_cr(self, dm, rt, rt2, cond=cond.AL):
+        """This instruction copies two words from two ARM core registers into a
+        doubleword extension register, or from a doubleword extension register
+        to two ARM core registers.
+        """
+        op = 0
+        instr = (cond << 28
+                | 0xC << 24
+                | 0x4 << 20
+                | op << 20
+                | (rt2 & 0xF) << 16
+                | (rt & 0xF) << 12
+                | 0xB << 8
+                | 0x1 << 4
+                | (dm & 0xF))
+        self.write32(instr)
+
+    def VMOV_cc(self, dd, dm, cond=cond.AL):
+        sz = 1 # for 64-bit mode
+        instr = (cond << 28
+                | 0xEB << 20
+                | (dd & 0xF) << 12
+                | 0x5 << 9
+                | (sz & 0x1) << 8
+                | 0x1 << 6
+                | (dm & 0xF))
+        self.write32(instr)
+
+    def VCVT_float_to_int(self, target, source, cond=cond.AL):
+        opc2 = 0x5
+        sz = 1
+        self._VCVT(target, source, cond, opc2, sz)
+
+    def VCVT_int_to_float(self, target, source, cond=cond.AL):
+        self._VCVT(target, source, cond, 0, 1)
+
+    def _VCVT(self, target, source, cond, opc2, sz):
+        D = 0x0
+        M = 0
+        op = 1
+        instr = (cond << 28
+                | 0xEB8 << 16
+                | D << 22
+                | opc2 << 16
+                | (target & 0xF) << 12
+                | 0x5 << 9
+                | sz << 8
+                | op << 7
+                | 1 << 6
+                | M << 5
+                | (source & 0xF))
+        self.write32(instr)
+
     def POP(self, regs, cond=cond.AL):
-        assert reg.lr.value not in regs
         instr = self._encode_reg_list(cond << 28 | 0x8BD << 16, regs)
         self.write32(instr)
 
     def BKPT(self, cond=cond.AL):
         self.write32(cond << 28 | 0x1200070)
+
+    # corresponds to the instruction vmrs APSR_nzcv, fpscr
+    def VMRS(self, cond=cond.AL):
+        self.write32(cond << 28 | 0xEF1FA10)
 
     def B(self, target, c=cond.AL):
         if c == cond.AL:

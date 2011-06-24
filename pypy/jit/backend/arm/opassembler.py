@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
@@ -10,13 +11,18 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
                                                     gen_emit_op_ri,
                                                     gen_emit_cmp_op,
-                                                    saved_registers)
+                                                    gen_emit_float_op,
+                                                    gen_emit_float_cmp_op,
+                                                    gen_emit_unary_float_op, 
+                                                    saved_registers,
+                                                    count_reg_args)
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
-from pypy.jit.backend.arm.regalloc import ARMRegisterManager
+from pypy.jit.backend.arm.regalloc import Regalloc, TempInt, TempPtr
+from pypy.jit.backend.arm.locations import imm
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
-from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
+from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
 from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, Box,
                                         AbstractFailDescr, LoopToken, INT, FLOAT, REF)
 from pypy.jit.metainterp.resoperation import rop
@@ -25,34 +31,44 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 
+NO_FORCE_INDEX = -1
+
 class IntOpAsslember(object):
 
     _mixin_ = True
 
-    def emit_op_int_add(self, op, arglocs, regalloc, fcond):
+    def emit_op_int_add(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
+        if flags:
+            s = 1
+        else:
+            s = 0
         if l0.is_imm():
-            self.mc.ADD_ri(res.value, l1.value, imm=l0.value, s=1)
+            self.mc.ADD_ri(res.value, l1.value, imm=l0.value, s=s)
         elif l1.is_imm():
-            self.mc.ADD_ri(res.value, l0.value, imm=l1.value, s=1)
+            self.mc.ADD_ri(res.value, l0.value, imm=l1.value, s=s)
         else:
             self.mc.ADD_rr(res.value, l0.value, l1.value, s=1)
 
         return fcond
 
-    def emit_op_int_sub(self, op, arglocs, regalloc, fcond):
+    def emit_op_int_sub(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
+        if flags:
+            s = 1
+        else:
+            s = 0
         if l0.is_imm():
             value = l0.getint()
             assert value >= 0
             # reverse substract ftw
-            self.mc.RSB_ri(res.value, l1.value, value, s=1)
+            self.mc.RSB_ri(res.value, l1.value, value, s=s)
         elif l1.is_imm():
             value = l1.getint()
             assert value >= 0
-            self.mc.SUB_ri(res.value, l0.value, value, s=1)
+            self.mc.SUB_ri(res.value, l0.value, value, s=s)
         else:
-            self.mc.SUB_rr(res.value, l0.value, l1.value, s=1)
+            self.mc.SUB_rr(res.value, l0.value, l1.value, s=s)
 
         return fcond
 
@@ -76,6 +92,16 @@ class IntOpAsslember(object):
             fcond = self._emit_guard(guard, failargs, c.EQ)
         else:
             assert 0
+        return fcond
+
+    def emit_guard_int_add_ovf(self, op, guard, arglocs, regalloc, fcond):
+        self.emit_op_int_add(op, arglocs[0:3], regalloc, fcond, flags=True)
+        self._emit_guard_overflow(guard, arglocs[3:], fcond)
+        return fcond
+    
+    def emit_guard_int_sub_ovf(self, op, guard, arglocs, regalloc, fcond):
+        self.emit_op_int_sub(op, arglocs[0:3], regalloc, fcond, flags=True)
+        self._emit_guard_overflow(guard, arglocs[3:], fcond)
         return fcond
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
@@ -147,6 +173,15 @@ class GuardOpAssembler(object):
         descr._failure_recovery_code = memaddr
         return c.AL
 
+    def _emit_guard_overflow(self, guard, failargs, fcond):
+        if guard.getopnum() == rop.GUARD_OVERFLOW:
+            fcond = self._emit_guard(guard, failargs, c.VS)
+        elif guard.getopnum() == rop.GUARD_NO_OVERFLOW:
+            fcond = self._emit_guard(guard, failargs, c.VC)
+        else:
+            assert 0
+        return fcond
+
     def emit_op_guard_true(self, op, arglocs, regalloc, fcond):
         l0 = arglocs[0]
         failargs = arglocs[1:]
@@ -166,10 +201,15 @@ class GuardOpAssembler(object):
         l1 = arglocs[1]
         failargs = arglocs[2:]
 
-        if l1.is_imm():
-            self.mc.CMP_ri(l0.value, l1.getint())
-        else:
-            self.mc.CMP_rr(l0.value, l1.value)
+        if l0.is_reg():
+            if l1.is_imm():
+                self.mc.CMP_ri(l0.value, l1.getint())
+            else:
+                self.mc.CMP_rr(l0.value, l1.value)
+        elif l0.is_vfp_reg():
+            assert l1.is_vfp_reg()
+            self.mc.VCMP(l0.value, l1.value)
+            self.mc.VMRS(cond=fcond)
         fcond = self._emit_guard(op, failargs, c.EQ)
         return fcond
 
@@ -221,10 +261,9 @@ class OpAssembler(object):
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
-        destlocs = descr._arm_arglocs
         assert fcond == c.AL
 
-        remap_frame_layout(self, arglocs, destlocs, r.ip)
+        self._insert_checks()
         if descr._arm_bootstrap_code == 0:
             self.mc.B_offs(descr._arm_loop_code, fcond)
         else:
@@ -238,15 +277,18 @@ class OpAssembler(object):
         self._gen_path_to_exit_path(op, op.getarglist(), arglocs, c.AL)
         return fcond
 
-    def emit_op_call(self, op, args, regalloc, fcond):
+    def emit_op_call(self, op, args, regalloc, fcond, force_index=-1):
         adr = args[0].value
         arglist = op.getarglist()[1:]
-        cond =  self._emit_call(adr, arglist, regalloc, fcond,
-                                op.result)
+        if force_index == -1:
+            force_index = self.write_new_force_index()
+        cond =  self._emit_call(force_index, adr, arglist, 
+                                    regalloc, fcond, op.result)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr, LoopToken):
-            loc = regalloc.call_result_location(op.result)
+            #XXX check result type
+            loc = regalloc.rm.call_result_location(op.result)
             size = descr.get_result_size(False)
             signed = descr.is_result_signed()
             self._ensure_result_bit_extension(loc, size, signed)
@@ -255,55 +297,97 @@ class OpAssembler(object):
     # XXX improve this interface
     # emit_op_call_may_force
     # XXX improve freeing of stuff here
-    def _emit_call(self, adr, args, regalloc, fcond=c.AL, result=None):
-        n = 0
+    def _emit_call(self, force_index, adr, args, regalloc, fcond=c.AL, result=None):
         n_args = len(args)
-        reg_args = min(n_args, 4)
-        # prepare arguments passed in registers
-        for i in range(0, reg_args):
-            l = regalloc.make_sure_var_in_reg(args[i],
-                                            selected_reg=r.all_regs[i])
-        # save caller saved registers
-        if result:
-            # XXX hack if the call has a result force the value in r0 to be
-            # spilled
-            if reg_args == 0 or (isinstance(args[0], Box) and
-                    regalloc.stays_alive(args[0])):
-                t = TempBox()
-                regalloc.force_allocate_reg(t, selected_reg=regalloc.call_result_location(t))
-                regalloc.possibly_free_var(t)
-            saved_regs = r.caller_resp[1:]
-        else:
-            saved_regs = r.caller_resp
-        with saved_registers(self.mc, saved_regs, regalloc=regalloc):
-            # all arguments past the 4th go on the stack
-            if n_args > 4:
-                stack_args = n_args - 4
-                n = stack_args*WORD
-                self._adjust_sp(n, fcond=fcond)
-                for i in range(4, n_args):
-                    self.mov_loc_loc(regalloc.loc(args[i]), r.ip)
-                    self.mc.STR_ri(r.ip.value, r.sp.value, (i-4)*WORD)
+        reg_args = count_reg_args(args)
 
-            #the actual call
-            self.mc.BL(adr)
-            regalloc.possibly_free_vars(args)
-            # readjust the sp in case we passed some args on the stack
-            if n_args > 4:
-                assert n > 0
-                self._adjust_sp(-n, fcond=fcond)
 
-            # restore the argumets stored on the stack
-            if result is not None:
-                regalloc.after_call(result)
+        # all arguments past the 4th go on the stack
+        n = 0   # used to count the number of words pushed on the stack, so we
+                #can later modify the SP back to its original value
+        if n_args > reg_args:
+            # first we need to prepare the list so it stays aligned
+            stack_args = []
+            count = 0
+            for i in range(reg_args, n_args):
+                arg = args[i]
+                if arg.type != FLOAT:
+                    count += 1
+                    n += WORD
+                else:
+                    n += 2 * WORD
+                    if count % 2 != 0:
+                        stack_args.append(None)
+                        n += WORD
+                        count = 0
+                stack_args.append(arg)
+            if count % 2 != 0:
+                n += WORD
+                stack_args.append(None)
+
+            #then we push every thing on the stack
+            for i in range(len(stack_args) -1, -1, -1):
+                arg = stack_args[i]
+                if arg is None:
+                    self.mc.PUSH([r.ip.value])
+                else:
+                    self.regalloc_push(regalloc.loc(arg))
+
+        # collect variables that need to go in registers
+        # and the registers they will be stored in 
+        num = 0
+        count = 0
+        non_float_locs = []
+        non_float_regs = []
+        float_locs = []
+        for i in range(reg_args):
+            arg = args[i]
+            if arg.type == FLOAT and count % 2 != 0:
+                    num += 1
+                    count = 0
+            reg = r.caller_resp[num]
+
+            if arg.type == FLOAT:
+                float_locs.append((regalloc.loc(arg), reg))
+            else:
+                non_float_locs.append(regalloc.loc(arg))
+                non_float_regs.append(reg)
+
+            if arg.type == FLOAT:
+                num += 2
+            else:
+                num += 1
+                count += 1
+
+        # spill variables that need to be saved around calls
+        regalloc.before_call(save_all_regs=2)
+
+        # remap values stored in core registers
+        remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
+
+        for loc, reg in float_locs:
+            self.mov_from_vfp_loc(loc, reg, r.all_regs[reg.value+1])
+
+        #the actual call
+        self.mc.BL(adr)
+        self.mark_gc_roots(force_index)
+        regalloc.possibly_free_vars(args)
+        # readjust the sp in case we passed some args on the stack
+        if n > 0:
+            self._adjust_sp(-n, fcond=fcond)
+
+        # restore the argumets stored on the stack
+        if result is not None:
+            resloc = regalloc.after_call(result)
+            if resloc.is_vfp_reg():
+                # move result to the allocated register
+                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
+
         return fcond
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):
         argloc, resloc = arglocs
-        if argloc.is_imm():
-            self.mc.MOV_ri(resloc.value, argloc.getint())
-        else:
-            self.mc.MOV_rr(resloc.value, argloc.value)
+        self.mov_loc_loc(argloc, resloc)
         return fcond
 
     def emit_op_guard_no_exception(self, op, arglocs, regalloc, fcond):
@@ -333,7 +417,44 @@ class OpAssembler(object):
     def emit_op_debug_merge_point(self, op, arglocs, regalloc, fcond):
         return fcond
     emit_op_jit_debug = emit_op_debug_merge_point
-    emit_op_cond_call_gc_wb = emit_op_debug_merge_point
+
+    def emit_op_cond_call_gc_wb(self, op, arglocs, regalloc, fcond):
+        # Write code equivalent to write_barrier() in the GC: it checks
+        # a flag in the object at arglocs[0], and if set, it calls the
+        # function remember_young_pointer() from the GC.  The two arguments
+        # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
+        # registers that need to be saved and restored across the call.
+        descr = op.getdescr()
+        if we_are_translated():
+            cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+            assert cls is not None and isinstance(descr, cls)
+        loc_base = arglocs[0]
+        self.mc.LDR_ri(r.ip.value, loc_base.value)
+        # calculate the shift value to rotate the ofs according to the ARM
+        # shifted imm values
+        # (4 - 0) * 4 & 0xF = 0
+        # (4 - 1) * 4 & 0xF = 12
+        # (4 - 2) * 4 & 0xF = 8
+        # (4 - 3) * 4 & 0xF = 4
+        ofs = (((4 - descr.jit_wb_if_flag_byteofs) * 4) & 0xF) << 8
+        ofs |= descr.jit_wb_if_flag_singlebyte
+        self.mc.TST_ri(r.ip.value, imm=ofs)
+
+        jz_location = self.mc.currpos()
+        self.mc.NOP()
+
+        # the following is supposed to be the slow path, so whenever possible
+        # we choose the most compact encoding over the most efficient one.
+        with saved_registers(self.mc, r.caller_resp, regalloc=regalloc):
+            remap_frame_layout(self, arglocs, [r.r0, r.r1], r.ip)
+            self.mc.BL(descr.get_write_barrier_fn(self.cpu))
+
+        # patch the JZ above
+        offset = self.mc.currpos() - jz_location
+        pmc = OverwritingBuilder(self.mc, jz_location, WORD)
+        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
+        return fcond
+
 
 class FieldOpAssembler(object):
 
@@ -341,7 +462,14 @@ class FieldOpAssembler(object):
 
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs
-        if size.value == 4:
+        if size.value == 8:
+            assert value_loc.is_vfp_reg()
+            if ofs.is_reg():
+                base_loc = r.ip
+                ofs = imm(0)
+                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
+            self.mc.VSTR(value_loc.value, base_loc.value, ofs.value)
+        elif size.value == 4:
             if ofs.is_imm():
                 self.mc.STR_ri(value_loc.value, base_loc.value, ofs.value)
             else:
@@ -364,7 +492,14 @@ class FieldOpAssembler(object):
 
     def emit_op_getfield_gc(self, op, arglocs, regalloc, fcond):
         base_loc, ofs, res, size = arglocs
-        if size.value == 4:
+        if size.value == 8:
+            assert res.is_vfp_reg()
+            if ofs.is_reg():
+                base_loc = r.ip
+                ofs = imm(0)
+                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
+            self.mc.VLDR(res.value, base_loc.value, ofs.value)
+        elif size.value == 4:
             if ofs.is_imm():
                 self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
             else:
@@ -417,7 +552,12 @@ class ArrayOpAssember(object):
             self.mc.ADD_ri(r.ip.value, scale_loc.value, ofs.value)
             scale_loc = r.ip
 
-        if scale.value == 2:
+        if scale.value == 3:
+            assert value_loc.is_vfp_reg()
+            assert scale_loc.is_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
+            self.mc.VSTR(value_loc.value, r.ip.value, cond=fcond)
+        elif scale.value == 2:
             self.mc.STR_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 1:
             self.mc.STRH_rr(value_loc.value, base_loc.value, scale_loc.value, cond=fcond)
@@ -440,7 +580,12 @@ class ArrayOpAssember(object):
             self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
             scale_loc = r.ip
 
-        if scale.value == 2:
+        if scale.value == 3:
+            assert res.is_vfp_reg()
+            assert scale_loc.is_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
+            self.mc.VLDR(res.value, r.ip.value, cond=fcond)
+        elif scale.value == 2:
             self.mc.LDR_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
         elif scale.value == 1:
             self.mc.LDRH_rr(res.value, base_loc.value, scale_loc.value, cond=fcond)
@@ -515,7 +660,7 @@ class StrOpAssembler(object):
         regalloc.possibly_free_var(args[0])
         if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
             regalloc.possibly_free_var(args[2])     # it if ==args[3] or args[4]
-        srcaddr_box = TempBox()
+        srcaddr_box = TempPtr()
         forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
         srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box, selected_reg=r.r1)
         self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
@@ -523,7 +668,7 @@ class StrOpAssembler(object):
 
         # compute the destination address
         forbidden_vars = [args[4], args[3], srcaddr_box]
-        dstaddr_box = TempBox()
+        dstaddr_box = TempPtr()
         dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box, selected_reg=r.r0)
         forbidden_vars.append(dstaddr_box)
         base_loc, box = regalloc._ensure_value_is_boxed(args[1], forbidden_vars)
@@ -545,7 +690,7 @@ class StrOpAssembler(object):
         args.append(length_box)
         if is_unicode:
             forbidden_vars = [srcaddr_box, dstaddr_box]
-            bytes_box = TempBox()
+            bytes_box = TempPtr()
             bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
             assert length_loc.is_reg()
@@ -554,7 +699,7 @@ class StrOpAssembler(object):
             length_box = bytes_box
             length_loc = bytes_loc
         # call memcpy()
-        self._emit_call(self.memcpy_addr, [dstaddr_box, srcaddr_box, length_box], regalloc)
+        self._emit_call(NO_FORCE_INDEX, self.memcpy_addr, [dstaddr_box, srcaddr_box, length_box], regalloc)
 
         regalloc.possibly_free_vars(args)
         regalloc.possibly_free_var(length_box)
@@ -648,9 +793,10 @@ class ForceOpAssembler(object):
 
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
-        assert op.numargs() == len(descr._arm_arglocs)
-        resbox = TempBox()
-        self._emit_call(descr._arm_direct_bootstrap_code, op.getarglist(),
+        # XXX check this
+        assert op.numargs() == len(descr._arm_arglocs[0])
+        resbox = TempInt()
+        self._emit_call(fail_index, descr._arm_direct_bootstrap_code, op.getarglist(),
                                 regalloc, fcond, result=resbox)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
@@ -681,12 +827,16 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        with saved_registers(self.mc, r.caller_resp[1:], regalloc=regalloc):
+        with saved_registers(self.mc, r.caller_resp[1:], r.caller_vfp_resp, regalloc=regalloc):
             # resbox is allready in r0
             self.mov_loc_loc(arglocs[1], r.r1)
             self.mc.BL(asm_helper_adr)
-        if op.result:
-            regalloc.after_call(op.result)
+            if op.result:
+                resloc = regalloc.after_call(op.result)
+                if resloc.is_vfp_reg():
+                    # move result to the allocated register
+                    self.mov_to_vfp_loc(r.r0, r.r1, resloc)
+
         # jump to merge point
         jmp_pos = self.mc.currpos()
         #jmp_location = self.mc.curraddr()
@@ -718,12 +868,17 @@ class ForceOpAssembler(object):
                 adr = self.fail_boxes_int.get_addr_for_num(0)
             elif kind == REF:
                 adr = self.fail_boxes_ptr.get_addr_for_num(0)
+            elif kind == FLOAT:
+                adr = self.fail_boxes_float.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
             resloc = regalloc.force_allocate_reg(op.result)
             regalloc.possibly_free_var(resbox)
             self.mc.gen_load_int(r.ip.value, adr)
-            self.mc.LDR_ri(resloc.value, r.ip.value)
+            if op.result.type == FLOAT:
+                self.mc.VLDR(resloc.value, r.ip.value)
+            else:
+                self.mc.LDR_ri(resloc.value, r.ip.value)
 
         # merge point
         offset = self.mc.currpos() - jmp_pos
@@ -756,6 +911,20 @@ class ForceOpAssembler(object):
         self._emit_guard(guard_op, arglocs, c.GE)
         return fcond
 
+    def write_new_force_index(self):
+        # for shadowstack only: get a new, unused force_index number and
+        # write it to FORCE_INDEX_OFS.  Used to record the call shape
+        # (i.e. where the GC pointers are in the stack) around a CALL
+        # instruction that doesn't already have a force_index.
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            clt = self.current_clt
+            force_index = clt.reserve_and_record_some_faildescr_index()
+            self._write_fail_index(force_index)
+            return force_index
+        else:
+            return 0
+
     def _write_fail_index(self, fail_index):
         self.mc.gen_load_int(r.ip.value, fail_index)
         self.mc.STR_ri(r.ip.value, r.fp.value)
@@ -768,13 +937,15 @@ class AllocOpAssembler(object):
     # from: ../x86/regalloc.py:750
     # called from regalloc
     # XXX kill this function at some point
-    def _regalloc_malloc_varsize(self, size, size_box, vloc, ofs_items_loc, regalloc, result):
+    def _regalloc_malloc_varsize(self, size, size_box, vloc, vbox, ofs_items_loc, regalloc, result):
         self.mc.MUL(size.value, size.value, vloc.value)
         if ofs_items_loc.is_imm():
             self.mc.ADD_ri(size.value, size.value, ofs_items_loc.value)
         else:
             self.mc.ADD_rr(size.value, size.value, ofs_items_loc.value)
-        self._emit_call(self.malloc_func_addr, [size_box], regalloc,
+        force_index = self.write_new_force_index()
+        regalloc.force_spill_var(vbox)
+        self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
                                     result=result)
 
     def emit_op_new(self, op, arglocs, regalloc, fcond):
@@ -791,18 +962,58 @@ class AllocOpAssembler(object):
             self.mc.gen_load_int(r.ip.value, adr)
             self.mc.STR_ri(r.ip.value, r.r0.value, self.cpu.vtable_offset)
 
+    def set_new_array_length(self, loc, ofs_length, loc_num_elem):
+        assert loc.is_reg()
+        self.mc.gen_load_int(r.ip.value, loc_num_elem)
+        self.mc.STR_ri(r.ip.value, loc.value, imm=ofs_length)
+
     def emit_op_new_array(self, op, arglocs, regalloc, fcond):
-        value_loc, base_loc, ofs_length = arglocs
-        self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length.value)
+        if len(arglocs) > 0:
+            value_loc, base_loc, ofs_length = arglocs
+            self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length.value)
         return fcond
 
     emit_op_newstr = emit_op_new_array
     emit_op_newunicode = emit_op_new_array
 
+class FloatOpAssemlber(object):
+    _mixin_ = True
+
+    emit_op_float_add = gen_emit_float_op('VADD')
+    emit_op_float_sub = gen_emit_float_op('VSUB')
+    emit_op_float_mul = gen_emit_float_op('VMUL')
+    emit_op_float_truediv = gen_emit_float_op('VDIV')
+
+    emit_op_float_neg = gen_emit_unary_float_op('VNEG')
+    emit_op_float_abs = gen_emit_unary_float_op('VABS')
+
+    emit_op_float_lt = gen_emit_float_cmp_op(c.VFP_LT)
+    emit_op_float_le = gen_emit_float_cmp_op(c.VFP_LE)
+    emit_op_float_eq = gen_emit_float_cmp_op(c.EQ)
+    emit_op_float_ne = gen_emit_float_cmp_op(c.NE)
+    emit_op_float_gt = gen_emit_float_cmp_op(c.GT)
+    emit_op_float_ge = gen_emit_float_cmp_op(c.GE)
+
+    def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
+        arg, temp, res = arglocs
+        self.mc.VCVT_float_to_int(temp.value, arg.value)
+        self.mc.VPUSH([temp.value])
+        # res is lower register than r.ip
+        self.mc.POP([res.value, r.ip.value])
+        return fcond
+
+    def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
+        arg, temp, res = arglocs
+        self.mc.PUSH([arg.value, r.ip.value])
+        self.mc.VPOP([temp.value])
+        self.mc.VCVT_int_to_float(res.value, temp.value)
+        return fcond
+
 class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
                     OpAssembler, UnaryIntOpAssembler,
                     FieldOpAssembler, ArrayOpAssember,
                     StrOpAssembler, UnicodeOpAssembler,
-                    ForceOpAssembler, AllocOpAssembler):
+                    ForceOpAssembler, AllocOpAssembler,
+                    FloatOpAssemlber):
     pass
 

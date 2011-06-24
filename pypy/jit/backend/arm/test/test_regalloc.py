@@ -8,7 +8,7 @@ from pypy.jit.metainterp.history import BoxInt, ConstInt,\
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.backend.arm.regalloc import ARMRegisterManager
+from pypy.jit.backend.arm.regalloc import Regalloc
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
@@ -57,7 +57,7 @@ class MockAssembler(object):
     def load_effective_addr(self, *args):
         self.lea.append(args)
 
-class RegAllocForTests(ARMRegisterManager):
+class RegAllocForTests(Regalloc):
     position = 0
     def _compute_next_usage(self, v, _):
         return -1

@@ -21,9 +21,11 @@ class FakeStats(object):
     pass
 
 class TestARM(LLtypeBackendTest):
-    def __init__(self):
-        self.cpu = ArmCPU(rtyper=None, stats=FakeStats())
-        self.cpu.setup_once()
+
+    def setup_class(cls):
+        cls.cpu = ArmCPU(rtyper=None, stats=FakeStats())
+        cls.cpu.setup_once()
+
     # for the individual tests see
     # ====> ../../test/runner_test.py
     def test_result_is_spilled(self):
@@ -102,3 +104,14 @@ class TestARM(LLtypeBackendTest):
         self.cpu.set_future_value_int(0, 11)
         res = self.cpu.execute_token(lt1)
         assert self.cpu.get_latest_value_int(0) == 10
+
+    def test_new_array_with_const_length(self):
+        """ Test for an issue with malloc_varsize when the size is an imm
+        that gets lost around the call to malloc"""
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        r1 = self.execute_operation(rop.NEW_ARRAY, [ConstInt(6)],
+                                    'ref', descr=arraydescr)
+        a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
+        assert a[0] == 0
+        assert len(a) == 6

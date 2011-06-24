@@ -110,7 +110,23 @@ class BaseBackendTest(Runner):
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
         res = self.cpu.get_latest_value_int(0)
-        assert res == 3        
+        assert res == 3
+        assert fail.identifier == 1
+
+    def test_compile_linear_float_loop(self):
+        i0 = BoxFloat()
+        i1 = BoxFloat()
+        operations = [
+            ResOperation(rop.FLOAT_ADD, [i0, constfloat(2.3)], i1),
+            ResOperation(rop.FINISH, [i1], None, descr=BasicFailDescr(1))
+            ]
+        inputargs = [i0]
+        looptoken = LoopToken()
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.set_future_value_float(0, longlong.getfloatstorage(2.8))
+        fail = self.cpu.execute_token(looptoken)
+        res = self.cpu.get_latest_value_float(0)
+        assert longlong.getrealfloat(res) == 5.1
         assert fail.identifier == 1
 
     def test_compile_loop(self):
@@ -452,8 +468,8 @@ class BaseBackendTest(Runner):
             (func_char, lltype.Char, types.uchar, 12)
             ]
 
+        cpu = self.cpu
         for func, TP, ffi_type, num in functions:
-            cpu = self.cpu
             #
             FPTR = self.Ptr(self.FuncType([TP, TP], TP))
             func_ptr = llhelper(FPTR, func)
@@ -481,17 +497,17 @@ class BaseBackendTest(Runner):
             
 
         if cpu.supports_floats:
-            def func(f0, f1, f2, f3, f4, f5, f6, i0, i1, f7, f8, f9):
+            def func(f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9):
                 return f0 + f1 + f2 + f3 + f4 + f5 + f6 + float(i0 + i1) + f7 + f8 + f9
             F = lltype.Float
             I = lltype.Signed
-            FUNC = self.FuncType([F] * 7 + [I] * 2 + [F] * 3, F)
+            FUNC = self.FuncType([F] * 7 + [I] + [F] + [I] + [F]* 2, F)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
             calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
             args = ([boxfloat(.1) for i in range(7)] +
-                    [BoxInt(1), BoxInt(2), boxfloat(.2), boxfloat(.3),
+                    [BoxInt(1), boxfloat(.2), BoxInt(2), boxfloat(.3),
                      boxfloat(.4)])
             res = self.execute_operation(rop.CALL,
                                          [funcbox] + args,

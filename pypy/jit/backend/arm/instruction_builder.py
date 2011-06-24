@@ -303,15 +303,36 @@ def define_float64_data_proc_instructions_func(name, table):
     n = (0xE << 24
         | 0x5 << 9
         | 0x1 << 8 # 64 bit flag
-        | (table['opc1'] & 0xF) << 20
         | (table['opc3'] & 0x3) << 6)
-    def f(self, dd, dn, dm, cond=cond.AL):
-        instr = (n
-                | (cond & 0xF) << 28
-                | (dn & 0xF) << 16
-                | (dd & 0xF) << 12
-                | (dm & 0xF))
-        self.write32(instr)
+
+    if 'opc1' in table:
+        n |= (table['opc1'] & 0xF) << 20
+    if 'opc2' in table:
+        n |= (table['opc2'] & 0xF) << 16
+
+    if 'result' in table and not table['result']:
+        def f(self, dd, dm, cond=cond.AL):
+            instr = (n
+                    | (cond & 0xF) << 28
+                    | 0x4 << 16
+                    | (dd & 0xF) << 12
+                    | (dm & 0xF))
+            self.write32(instr)
+    elif 'base' in table and not table['base']:
+        def f(self, dd, dm, cond=cond.AL):
+            instr = (n
+                    | (cond & 0xF) << 28
+                    | (dd & 0xF) << 12
+                    | (dm & 0xF))
+            self.write32(instr)
+    else:
+        def f(self, dd, dn, dm, cond=cond.AL):
+            instr = (n
+                    | (cond & 0xF) << 28
+                    | (dn & 0xF) << 16
+                    | (dd & 0xF) << 12
+                    | (dm & 0xF))
+            self.write32(instr)
     return f
 
 def imm_operation(rt, rn, imm):
@@ -338,6 +359,7 @@ def define_instructions(target):
             continue
         try:
             func = globals()['define_%s_func' % name]
+            func.__name__ = name
         except KeyError:
             print 'No instr generator for %s instructions' % name
             continue

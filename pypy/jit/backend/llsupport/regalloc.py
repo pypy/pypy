@@ -1,6 +1,7 @@
 
 from pypy.jit.metainterp.history import Const, Box, REF
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp.resoperation import rop
 
 class TempBox(Box):
     def __init__(self):
@@ -213,6 +214,27 @@ class RegisterManager(object):
         self.reg_bindings[v] = loc
         return loc
 
+    def force_spill_var(self, var):
+        self._sync_var(var)
+        try:
+            loc = self.reg_bindings[var]
+            del self.reg_bindings[var]
+            self.free_regs.append(loc)
+        except KeyError:
+            if not we_are_translated():
+                import pdb; pdb.set_trace()
+            else:
+                raise ValueError
+
+    def force_spill_var(self, var):
+        self._sync_var(var)
+        try:
+            loc = self.reg_bindings[var]
+            del self.reg_bindings[var]
+            self.free_regs.append(loc)
+        except KeyError:
+            pass   # 'var' is already not in a register
+
     def loc(self, box):
         """ Return the location of 'box'.
         """
@@ -367,6 +389,11 @@ def compute_vars_longevity(inputargs, operations):
     last_used = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
+        if op.result:
+            if op.result not in last_used and op.has_no_side_effect():
+                continue
+            assert op.result not in produced
+            produced[op.result] = i
         for j in range(op.numargs()):
             arg = op.getarg(j)
             if isinstance(arg, Box) and arg not in last_used:
@@ -378,12 +405,7 @@ def compute_vars_longevity(inputargs, operations):
                 assert isinstance(arg, Box)
                 if arg not in last_used:
                     last_used[arg] = i
-        if op.result:
-            if op.result not in last_used and op.has_no_side_effect():
-                continue
-            assert op.result not in produced
-            produced[op.result] = i
-
+                    
     longevity = {}
     for arg in produced:
         if arg in last_used:

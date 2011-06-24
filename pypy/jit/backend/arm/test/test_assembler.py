@@ -11,13 +11,17 @@ from pypy.jit.metainterp.resoperation import rop
 
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.jit.metainterp.history import LoopToken
+from pypy.jit.backend.model import CompiledLoopToken
 
 skip_unless_arm()
 
 CPU = getcpuclass()
-class TestRunningAssembler():
+class TestRunningAssembler(object):
     def setup_method(self, method):
         cpu = CPU(None, None)
+        #lp = LoopToken()
+        #lp.compiled_loop_token = CompiledLoopToken(cpu, None)
         self.a = AssemblerARM(cpu)
         self.a.setup_once()
         self.a.setup()
