@@ -714,7 +714,8 @@ class Transformer(object):
             arraydescr = self.cpu.arraydescrof(v_inst.concretetype.TO)
             fielddescr = self.cpu.fielddescrof(STRUCT, c_field.value)
             args = [v_inst, v_index, arraydescr, fielddescr]
-            return SpaceOperation('getinteriorfield', args, op.result)
+            kind = getkind(op.result.concretetype)[0]
+            return SpaceOperation('getinteriorfield_%s' % kind, args, op.result)
 
     def rewrite_op_setinteriorfield(self, op):
         # only supports strings and unicodes
@@ -736,8 +737,9 @@ class Transformer(object):
             assert isinstance(STRUCT, lltype.Struct)
             arraydescr = self.cpu.arraydescrof(v_inst.concretetype.TO)
             fielddescr = self.cpu.fielddescrof(STRUCT, c_field.value)
+            kind = getkind(v_value.concretetype)[0]
             args = [v_inst, v_index, v_value, arraydescr, fielddescr]
-            return SpaceOperation('setinteriorfield', args, op.result)
+            return SpaceOperation('setinteriorfield_%s' % kind, args, op.result)
             
 
     def _rewrite_equality(self, op, opname):
