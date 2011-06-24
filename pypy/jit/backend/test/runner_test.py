@@ -332,6 +332,30 @@ class BaseBackendTest(Runner):
         fail = self.cpu.execute_token(looptoken)
         assert fail is faildescr
 
+        if self.cpu.supports_floats:
+            looptoken = LoopToken()
+            f0 = BoxFloat()
+            operations = [
+                ResOperation(rop.FINISH, [f0], None, descr=faildescr)
+                ]
+            self.cpu.compile_loop([f0], operations, looptoken)
+            value = longlong.getfloatstorage(-61.25)
+            self.cpu.set_future_value_float(0, value)
+            fail = self.cpu.execute_token(looptoken)
+            assert fail is faildescr
+            res = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(res) == -61.25
+
+            looptoken = LoopToken()
+            operations = [
+                ResOperation(rop.FINISH, [constfloat(42.5)], None, descr=faildescr)
+                ]
+            self.cpu.compile_loop([], operations, looptoken)
+            fail = self.cpu.execute_token(looptoken)
+            assert fail is faildescr
+            res = self.cpu.get_latest_value_float(0)
+            assert longlong.getrealfloat(res) == 42.5
+
     def test_execute_operations_in_env(self):
         cpu = self.cpu
         x = BoxInt(123)

@@ -1662,3 +1662,20 @@ class TestPyPyCNew(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('shift', "")  # optimized away
+
+    def test_division_to_rshift(self):
+        def main(b):
+            res = 0
+            a = 0
+            while a < 300:
+                assert a >= 0
+                assert 0 <= b <= 10
+                res = a/b     # ID: div
+                a += 1
+            return res
+        #
+        log = self.run(main, [3], threshold=200)
+        #assert log.result == 149
+        loop, = log.loops_by_filename(self.filepath)
+        import pdb;pdb.set_trace()
+        assert loop.match_by_id('div', "")  # optimized away
