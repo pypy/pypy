@@ -1,7 +1,7 @@
 from __future__ import with_statement
-from pypy.jit.backend.arm.helper.assembler import saved_registers, \
-                                                    count_reg_args, decode32, \
-                                                    decode64, encode32
+from pypy.jit.backend.arm.helper.assembler import saved_registers, count_reg_args, \
+                                                    decode32, encode32, \
+                                                    decode64, encode64
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
@@ -19,9 +19,9 @@ from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
                                         INT, REF, FLOAT)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib import rgc
-from pypy.rlib.longlong2float import float2longlong, longlong2float
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rarithmetic import r_uint, r_longlong
+from pypy.rlib.longlong2float import float2longlong, longlong2float
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -173,10 +173,17 @@ class AssemblerARM(ResOpAssembler):
             i += 1
             res = enc[i]
             if res == self.IMM_LOC:
-                assert group == self.INT_TYPE or group == self.REF_TYPE
                 # imm value
-                value = decode32(enc, i+1)
-                i += 4
+                if group == self.INT_TYPE or group == self.REF_TYPE:
+                    value = decode32(enc, i+1)
+                    i += 4
+                else:
+                    assert group == self.FLOAT_TYPE
+                    adr = decode32(enc, i+1)
+                    value = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0]
+                    self.fail_boxes_float.setitem(fail_index, value)
+                    i += 4
+                    continue
             elif res == self.STACK_LOC:
                 stack_loc = decode32(enc, i+1)
                 i += 4
@@ -306,6 +313,7 @@ class AssemblerARM(ResOpAssembler):
         # 1 byte for the location
         # 1 separator byte
         # 4 bytes for the faildescr
+        # const floats are stored in memory and the box contains the address
         memsize = (len(arglocs)-1)*6+5
         memaddr = self.datablockwrapper.malloc_aligned(memsize, alignment=1)
         mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
@@ -330,8 +338,9 @@ class AssemblerARM(ResOpAssembler):
                 if loc.is_reg() or loc.is_vfp_reg():
                     mem[j] = chr(loc.value)
                     j += 1
-                elif loc.is_imm():
-                    assert arg.type == INT or arg.type == REF
+                elif loc.is_imm() or loc.is_imm_float():
+                    assert (arg.type == INT or arg.type == REF
+                                or arg.type == FLOAT)
                     mem[j] = self.IMM_LOC
                     encode32(mem, j+1, loc.getint())
                     j += 5
