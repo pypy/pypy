@@ -5312,7 +5312,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_strunicode_loop(ops, expected)
 
-    def test_strgetitem_small(self):
+    def test_strgetitem_bounds(self):
         ops = """
         [p0, i0]
         i1 = strgetitem(p0, i0)
@@ -5324,7 +5324,20 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p0, i0]
-        i1 = strgetitem(p0, i0)
+        jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_unicodegetitem_bounds(self):
+        ops = """
+        [p0, i0]
+        i1 = unicodegetitem(p0, i0)
+        i2 = int_lt(i1, 0)
+        guard_false(i2) []
+        jump(p0, i0)
+        """
+        expected = """
+        [p0, i0]
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
@@ -5836,6 +5849,33 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i3 = escape(421)
         i4 = escape(421)
         jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_forced_virtual_pure_getfield(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc_pure(p0, descr=valuedescr)
+        jump(p1)
+        """
+        self.optimize_loop(ops, ops)
+
+        ops = """
+        [p0]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p0, descr=valuedescr)
+        escape(p1)
+        p2 = getfield_gc_pure(p1, descr=valuedescr)
+        escape(p2)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p0, descr=valuedescr)
+        escape(p1)
+        escape(p0)
+        jump(p0)
         """
         self.optimize_loop(ops, expected)
 

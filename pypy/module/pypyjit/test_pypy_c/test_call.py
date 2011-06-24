@@ -11,21 +11,14 @@ class TestCall(BaseTestPyPyC):
                 return 1 + rec(n-1)
             #
             # this loop is traced and then aborted, because the trace is too
-            # long. But then "rec" is marked as "don't inline"
-            i = 0
-            j = 0
-            while i < 20:
-                i += 1
-                j += rec(100)
-            #
-            # next time we try to trace "rec", instead of inlining we compile
-            # it separately and generate a call_assembler
+            # long. But then "rec" is marked as "don't inline". Since we
+            # already traced function from the start (because of number),
+            # now we can inline it as call assembler
             i = 0
             j = 0
             while i < 20:
                 i += 1
                 j += rec(100) # ID: call_rec
-                a = 0
             return j
         #
         log = self.run(fn, [], threshold=18)
@@ -37,6 +30,20 @@ class TestCall(BaseTestPyPyC):
             guard_no_exception(descr=...)
             ...
         """)
+
+    def test_fib(self):
+        def fib(n):
+            if n == 0 or n == 1:
+                return 1
+            return fib(n - 1) + fib(n - 2) # ID: call_rec
+
+        log = self.run(fib, [7], function_threshold=15)
+        loop, = log.loops_by_filename(self.filepath, is_entry_bridge='*')
+        #assert loop.match_by_id('call_rec', '''
+        #...
+        #p1 = call_assembler(..., descr=...)
+        #...
+        #''')
 
     def test_simple_call(self):
         src = """

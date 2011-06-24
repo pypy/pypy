@@ -106,7 +106,7 @@ class BogusPureField(JitException):
 
 class OptHeap(Optimization):
     """Cache repeated heap accesses"""
-    
+
     def __init__(self):
         # cached fields:  {descr: CachedField}
         self.cached_fields = {}
@@ -124,7 +124,7 @@ class OptHeap(Optimization):
             self.force_all_lazy_setfields_and_arrayitems()
         else:
             assert 0   # was: new.lazy_setfields = self.lazy_setfields
-        
+
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_reconstructed(optimizer, valuemap)
 

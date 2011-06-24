@@ -72,6 +72,23 @@ class AppTest_Greenlet:
         g1 = greenlet(f)
         raises(ValueError, g2.switch)
 
+
+    def test_exc_info_save_restore(self):
+        from _stackless import greenlet
+        import sys
+        def f():
+            try:
+                raise ValueError('fun')
+            except:
+                exc_info = sys.exc_info()
+                greenlet(h).switch()
+                assert exc_info == sys.exc_info()
+
+        def h():
+            assert sys.exc_info() == (None, None, None)
+
+        greenlet(f).switch()
+
     def test_exception(self):
         from _stackless import greenlet
         import sys

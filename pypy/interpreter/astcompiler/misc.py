@@ -92,7 +92,10 @@ def mangle(name, klass):
         return name
     if len(name) + 2 >= MANGLE_LEN:
         return name
-    if name.endswith('__'):
+    # Don't mangle __id__ or names with dots. The only time a name with a dot
+    # can occur is when we are compiling an import statement that has a package
+    # name.
+    if name.endswith('__') or '.' in name:
         return name
     try:
         i = 0

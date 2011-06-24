@@ -4481,6 +4481,24 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
+    def test_strgetitem_repeated(self):
+        ops = """
+        [p0, i0]
+        i1 = strgetitem(p0, i0)
+        i2 = strgetitem(p0, i0)
+        i3 = int_eq(i1, i2)
+        guard_true(i3) []
+        escape(i2)
+        jump(p0, i0)
+        """
+        expected = """
+        [p0, i0]
+        i1 = strgetitem(p0, i0)
+        escape(i1)
+        jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 ##class TestOOtype(BaseTestOptimizeBasic, OOtypeMixin):
 
