@@ -217,7 +217,7 @@ class W_FuncPtr(Wrappable):
         if meth:
             return space.call_function(meth, w_arg, w_argtype)
         else:
-            return w_arg
+            raise OperationError(space.w_TypeError, space.wrap('not an ffi pointer type'))
 
     @jit.dont_look_inside
     def arg_longlong(self, space, argchain, kind, w_arg):
