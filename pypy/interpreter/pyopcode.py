@@ -1048,13 +1048,13 @@ class __extend__(pyframe.PyFrame):
 
     def SET_ADD(self, oparg, next_instr):
         w_value = self.popvalue()
-        w_set = self.peekvalue(oparg)
+        w_set = self.peekvalue(oparg - 1)
         self.space.call_method(w_set, 'add', w_value)
 
     def MAP_ADD(self, oparg, next_instr):
         w_key = self.popvalue()
         w_value = self.popvalue()
-        w_dict = self.peekvalue(oparg)
+        w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
 
     def SET_LINENO(self, lineno, next_instr):

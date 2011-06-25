@@ -39,6 +39,7 @@ import pypy.module.cpyext.typeobject
 import pypy.module.cpyext.object
 import pypy.module.cpyext.stringobject
 import pypy.module.cpyext.tupleobject
+import pypy.module.cpyext.setobject
 import pypy.module.cpyext.dictobject
 import pypy.module.cpyext.intobject
 import pypy.module.cpyext.longobject

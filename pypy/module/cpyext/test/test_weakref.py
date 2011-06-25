@@ -7,6 +7,7 @@ class TestWeakReference(BaseApiTest):
         w_ref = api.PyWeakref_NewRef(w_obj, space.w_None)
         assert w_ref is not None
         assert space.is_w(api.PyWeakref_GetObject(w_ref), w_obj)
+        assert space.is_w(api.PyWeakref_GET_OBJECT(w_ref), w_obj)
         assert space.is_w(api.PyWeakref_LockObject(w_ref), w_obj)
 
         w_obj = space.newtuple([])
