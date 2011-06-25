@@ -480,39 +480,6 @@ def PyComplex_FromCComplex(space, v):
     """Create a new Python complex number object from a C Py_complex value."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
-def PyOS_string_to_double(space, s, endptr, overflow_exception):
-    """Convert a string s to a double, raising a Python
-    exception on failure.  The set of accepted strings corresponds to
-    the set of strings accepted by Python's float() constructor,
-    except that s must not have leading or trailing whitespace.
-    The conversion is independent of the current locale.
-
-    If endptr is NULL, convert the whole string.  Raise
-    ValueError and return -1.0 if the string is not a valid
-    representation of a floating-point number.
-
-    If endptr is not NULL, convert as much of the string as
-    possible and set *endptr to point to the first unconverted
-    character.  If no initial segment of the string is the valid
-    representation of a floating-point number, set *endptr to point
-    to the beginning of the string, raise ValueError, and return
-    -1.0.
-
-    If s represents a value that is too large to store in a float
-    (for example, "1e500" is such a string on many platforms) then
-    if overflow_exception is NULL return Py_HUGE_VAL (with
-    an appropriate sign) and don't set any exception.  Otherwise,
-    overflow_exception must point to a Python exception object;
-    raise that exception and return -1.0.  In both cases, set
-    *endptr to point to the first character after the converted value.
-
-    If any other error occurs during the conversion (for example an
-    out-of-memory error), set the appropriate Python exception and
-    return -1.0.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE, error=CANNOT_FAIL)
 def PyOS_ascii_strtod(space, nptr, endptr):
     """Convert a string to a double. This function behaves like the Standard C
