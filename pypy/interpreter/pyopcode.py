@@ -1091,12 +1091,10 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def BUILD_SET(self, itemcount, next_instr):
-        w_set = self.space.call_function(self.space.w_set)
-        if itemcount:
-            w_add = self.space.getattr(w_set, self.space.wrap("add"))
-            for i in range(itemcount):
-                w_item = self.popvalue()
-                self.space.call_function(w_add, w_item)
+        w_set = self.space.newset()
+        for i in range(itemcount):
+            w_item = self.popvalue()
+            self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
     def STORE_MAP(self, oparg, next_instr):

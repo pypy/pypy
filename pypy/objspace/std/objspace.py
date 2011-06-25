@@ -311,6 +311,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 classofinstance=classofinstance,
                 strdict=strdict)
 
+    def newset(self):
+        from pypy.objspace.std.setobject import newset
+        return W_SetObject(self, newset(self))
+
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
 
