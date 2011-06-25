@@ -523,3 +523,11 @@ def Py_UNICODE_COPY(space, target, source, length):
     copies sizeof(Py_UNICODE) * length bytes from source to target"""
     for i in range(0, length):
         target[i] = source[i]
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyUnicode_Format(space, w_format, w_args):
+    return space.mod(w_format, w_args)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyUnicode_Join(space, w_sep, w_seq):
+    return space.call_method(w_sep, 'join', w_seq)
