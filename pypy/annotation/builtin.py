@@ -311,8 +311,10 @@ def robjmodel_instantiate(s_clspbc):
 def robjmodel_we_are_translated():
     return immutablevalue(True)
 
-def robjmodel_r_dict(s_eqfn, s_hashfn):
-    dictdef = getbookkeeper().getdictdef(is_r_dict=True)
+def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null):
+    assert s_force_non_null.is_constant()
+    dictdef = getbookkeeper().getdictdef(is_r_dict=True,
+                                         force_non_null=s_force_non_null.const)
     dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
     return SomeDict(dictdef)
 

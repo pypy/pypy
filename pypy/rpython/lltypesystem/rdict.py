@@ -9,6 +9,7 @@ from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rlib import objectmodel, jit
 from pypy.rpython import rmodel
+from pypy.rpython.error import TyperError
 
 HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
 MASK = intmask(HIGHEST_BIT - 1)
@@ -42,7 +43,7 @@ MASK = intmask(HIGHEST_BIT - 1)
 class DictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None):
+                 custom_eq_hash=None, force_non_null=False):
         self.rtyper = rtyper
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)
@@ -61,6 +62,7 @@ class DictRepr(AbstractDictRepr):
         self.dictvalue = dictvalue
         self.dict_cache = {}
         self._custom_eq_hash_repr = custom_eq_hash
+        self.force_non_null = force_non_null
         # setup() needs to be called to finish this initialization
 
     def _externalvsinternal(self, rtyper, item_repr):
@@ -97,6 +99,13 @@ class DictRepr(AbstractDictRepr):
             s_value = self.dictvalue.s_value
             nullkeymarker = not self.key_repr.can_ll_be_null(s_key)
             nullvaluemarker = not self.value_repr.can_ll_be_null(s_value)
+            if self.force_non_null:
+                if not nullkeymarker:
+                    rmodel.warning("%s can be null, but forcing non-null in dict key" % s_key)
+                    nullkeymarker = True
+                if not nullvaluemarker:
+                    rmodel.warning("%s can be null, but forcing non-null in dict value" % s_value)
+                    nullvaluemarker = True
             dummykeyobj = self.key_repr.get_ll_dummyval_obj(self.rtyper,
                                                             s_key)
             dummyvalueobj = self.value_repr.get_ll_dummyval_obj(self.rtyper,
@@ -640,12 +649,13 @@ def _ll_free_entries(entries):
     pass
 
 
-def rtype_r_dict(hop):
+def rtype_r_dict(hop, i_force_non_null=-1):
     r_dict = hop.r_result
     if not r_dict.custom_eq_hash:
         raise TyperError("r_dict() call does not return an r_dict instance")
-    v_eqfn, v_hashfn = hop.inputargs(r_dict.r_rdict_eqfn,
-                                     r_dict.r_rdict_hashfn)
+    v_eqfn, v_hashfn, _ = hop.inputargs(r_dict.r_rdict_eqfn,
+                                        r_dict.r_rdict_hashfn,
+                                        lltype.Void)
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
     hop.exception_cannot_occur()
     v_result = hop.gendirectcall(ll_newdict, cDICT)
