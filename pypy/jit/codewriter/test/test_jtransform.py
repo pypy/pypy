@@ -657,8 +657,7 @@ def test_dict_getinteriorfield():
                         v_result)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'getinteriorfield_gc_i'
-    assert op1.args == [v, i, ('arraydescr', DICT),
-                        ('fielddescr', DICT.OF, 'v')]
+    assert op1.args == [v, i, ('interiorfielddescr', DICT, 'v')]
 
 def test_str_setinteriorfield():
     v = varoftype(lltype.Ptr(rstr.STR))
@@ -697,8 +696,7 @@ def test_dict_setinteriorfield():
                         v_void)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'setinteriorfield_gc_i'
-    assert op1.args == [v, i, i, ('arraydescr', DICT),
-                        ('fielddescr', DICT.OF, 'v')]
+    assert op1.args == [v, i, i, ('interiorfielddescr', DICT, 'v')]
 
 def test_promote_1():
     v1 = varoftype(lltype.Signed)

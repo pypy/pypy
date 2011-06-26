@@ -711,9 +711,9 @@ class Transformer(object):
             assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
             STRUCT = v_inst.concretetype.TO.OF
             assert isinstance(STRUCT, lltype.Struct)
-            arraydescr = self.cpu.arraydescrof(v_inst.concretetype.TO)
-            fielddescr = self.cpu.fielddescrof(STRUCT, c_field.value)
-            args = [v_inst, v_index, arraydescr, fielddescr]
+            descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
+                                                  c_field.value)
+            args = [v_inst, v_index, descr]
             kind = getkind(op.result.concretetype)[0]
             return SpaceOperation('getinteriorfield_gc_%s' % kind, args,
                                   op.result)
@@ -736,10 +736,10 @@ class Transformer(object):
             assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
             STRUCT = v_inst.concretetype.TO.OF
             assert isinstance(STRUCT, lltype.Struct)
-            arraydescr = self.cpu.arraydescrof(v_inst.concretetype.TO)
-            fielddescr = self.cpu.fielddescrof(STRUCT, c_field.value)
+            descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
+                                                  c_field.value)
             kind = getkind(v_value.concretetype)[0]
-            args = [v_inst, v_index, v_value, arraydescr, fielddescr]
+            args = [v_inst, v_index, v_value, descr]
             return SpaceOperation('setinteriorfield_gc_%s' % kind, args,
                                   op.result)
 
