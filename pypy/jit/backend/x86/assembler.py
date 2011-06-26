@@ -706,7 +706,7 @@ class Assembler386(object):
         if rx86.fits_in_32bits(rst):
             self.mc.MOV_rj(eax.value, rst)            # MOV eax, [rootstacktop]
         else:
-            self.mc.MOV_ri64(r13.value, rst)          # MOV r13, rootstacktop
+            self.mc.MOV_ri(r13.value, rst)            # MOV r13, rootstacktop
             self.mc.MOV_rm(eax.value, (r13.value, 0)) # MOV eax, [r13]
         #
         self.mc.LEA_rm(ebx.value, (eax.value, 2*WORD))  # LEA ebx, [eax+2*WORD]
@@ -723,7 +723,7 @@ class Assembler386(object):
         if rx86.fits_in_32bits(rst):
             self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
         else:
-            self.mc.MOV_ri64(ebx.value, rst)         # MOV ebx, rootstacktop
+            self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
             self.mc.SUB_mi8((ebx.value, 0), 2*WORD)  # SUB [ebx], 2*WORD
 
     def _assemble_bootstrap_direct_call(self, arglocs, jmppos, stackdepth):
