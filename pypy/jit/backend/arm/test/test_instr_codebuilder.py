@@ -156,10 +156,6 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.VMRS(conditions.AL)
         self.assert_equal("vmrs APSR_nzcv, fpscr")
 
-    def test_pop_raises_on_lr(self):
-        assert py.test.raises(AssertionError, 'self.cb.POP([r.lr.value])')
-
-
 class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):
         self.cb = CodeBuilder()
