@@ -550,6 +550,16 @@ class TestMiniMarkGCSimple(DirectGCTest):
         res = self.gc.writebarrier_before_copy(addr_src, addr_dst)
         assert res # we optimized it
         assert hdr_dst.tid & minimark.GCFLAG_NO_YOUNG_PTRS == 0 # and we copied the flag
+        #
+        # in this case, we have cards, so GCFLAG_NO_YOUNG_PTRS is set (because
+        # cards takes precedence over it)
+        hdr_src.tid |= minimark.GCFLAG_NO_YOUNG_PTRS
+        hdr_dst.tid |= minimark.GCFLAG_NO_YOUNG_PTRS
+        hdr_src.tid |= minimark.GCFLAG_CARDS_SET
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst)
+        assert not res # there might be young ptrs, let ll_arraycopy to find them
+        assert hdr_dst.tid & minimark.GCFLAG_NO_YOUNG_PTRS
+
         
 class TestMiniMarkGCFull(DirectGCTest):
     from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass
