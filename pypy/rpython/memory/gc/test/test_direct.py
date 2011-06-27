@@ -522,5 +522,34 @@ class TestMiniMarkGCSimple(DirectGCTest):
             self.stackroots.pop()
     test_card_marker.GC_PARAMS = {"card_page_indices": 4}
 
+    def test_writebarrier_before_copy(self):
+        from pypy.rpython.memory.gc import minimark
+        largeobj_size =  self.gc.nonlarge_max + 1
+        p_src = self.malloc(VAR, largeobj_size)
+        p_dst = self.malloc(VAR, largeobj_size)
+        # make them old
+        self.stackroots.append(p_src)
+        self.stackroots.append(p_dst)
+        self.gc.collect()
+        p_dst = self.stackroots.pop()
+        p_src = self.stackroots.pop()
+        #
+        addr_src = llmemory.cast_ptr_to_adr(p_src)
+        addr_dst = llmemory.cast_ptr_to_adr(p_dst)
+        hdr_src = self.gc.header(addr_src)
+        hdr_dst = self.gc.header(addr_dst)
+        #
+        assert hdr_src.tid & minimark.GCFLAG_NO_YOUNG_PTRS
+        assert hdr_dst.tid & minimark.GCFLAG_NO_YOUNG_PTRS
+        #
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst)
+        assert res
+        assert hdr_dst.tid & minimark.GCFLAG_NO_YOUNG_PTRS
+        #
+        hdr_src.tid &= ~minimark.GCFLAG_NO_YOUNG_PTRS  # pretend we have young ptrs
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst)
+        assert res # we optimized it
+        assert hdr_dst.tid & minimark.GCFLAG_NO_YOUNG_PTRS == 0 # and we copied the flag
+        
 class TestMiniMarkGCFull(DirectGCTest):
     from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass
