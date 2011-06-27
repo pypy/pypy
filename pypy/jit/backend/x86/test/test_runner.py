@@ -6,6 +6,7 @@ from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstFloat,
                                          ConstPtr, Box, BoxFloat, BasicFailDescr)
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.arch import WORD
+from pypy.jit.backend.x86.rx86 import fits_in_32bits
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute
@@ -240,6 +241,23 @@ class TestX86(LLtypeBackendTest):
         assert c.value == 2
         c = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofsc3)
         assert c.value == 3
+
+    def test_bug_setfield_64bit(self):
+        if WORD == 4:
+            py.test.skip("only for 64 bits")
+        TP = lltype.GcStruct('S', ('i', lltype.Signed))
+        ofsi = self.cpu.fielddescrof(TP, 'i')
+        for i in range(500):
+            p = lltype.malloc(S)
+            addr = rffi.cast(lltype.Signed, p)
+            if fits_in_32bits(addr):
+                break    # fitting in 32 bits, good
+        else:
+            py.test.skip("cannot get a 32-bit pointer")
+        res = ConstPtr(rffi.cast(llmemory.GCREF, addr))
+        self.execute_operation(rop.SETFIELD_RAW, [res, ConstInt(3**33)],
+                               'void', ofsi)
+        assert p.i == 3**33
 
     def test_nullity_with_guard(self):
         allops = [rop.INT_IS_TRUE]
