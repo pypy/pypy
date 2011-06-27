@@ -108,20 +108,30 @@ def make_cppnamespace(namespace_name, cppns):
     _existing_cppitems[namespace_name] = pycppns
     return pycppns
 
+
+def _drop_cycles(bases):
+    # TODO: figure this out, as it seems to be a PyPy bug?!
+    for b1 in bases:
+        for b2 in bases:
+            if not (b1 is b2) and issubclass(b2, b1):
+                bases.remove(b1)   # removes lateral class
+                break
+    return tuple(bases)
+
 def make_cppclass(class_name, cpptype):
 
     # get a list of base classes for class creation
-    bases = tuple([get_cppclass(base) for base in cpptype.get_base_names()])
+    bases = [get_cppclass(base) for base in cpptype.get_base_names()]
     if not bases:
-        bases = (CppyyObject,)
+        bases = [CppyyObject,]
 
     # create a meta class to allow properties (for static data write access)
-    metabases = tuple([type(base) for base in bases])
-    metacpp = type(CppyyClass)(class_name+'_meta', metabases, {})
+    metabases = [type(base) for base in bases]
+    metacpp = type(CppyyClass)(class_name+'_meta', _drop_cycles(metabases), {})
 
     # create the python-side C++ class representation
     d = {"_cppyyclass" : cpptype}
-    pycpptype = metacpp(class_name, bases, d)
+    pycpptype = metacpp(class_name, _drop_cycles(bases), d)
  
     # cache result early so that the class methods can find the class itself
     _existing_cppitems[class_name] = pycpptype

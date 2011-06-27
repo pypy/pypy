@@ -23,7 +23,7 @@ class AppTestADVANCEDCPP:
             import cppyy
             return cppyy.load_lib(%r)""" % (shared_lib, ))
 
-    def test01_simple_inheritence(self):
+    def test01_simple_inheritance(self):
         """Test binding of a basic inheritance structure"""
 
         import cppyy
@@ -37,16 +37,43 @@ class AppTestADVANCEDCPP:
         assert isinstance(b, base_class)
         assert not isinstance(b, derived_class)
 
+        assert b.m_b              == 1
         assert b.get_value()      == 1
+        assert b.m_db             == 1.1
         assert b.get_base_value() == 1.1
+
+        b.m_b, b.m_db = 11, 11.11
+        assert b.m_b              == 11
+        assert b.get_value()      == 11
+        assert b.m_db             == 11.11
+        assert b.get_base_value() == 11.11
+
+        b.destruct()
 
         d = derived_class()
         assert isinstance(d, derived_class)
         assert isinstance(d, base_class)
 
+        assert d.m_d                 == 2
         assert d.get_value()         == 2
-        assert d.get_base_value()    == 1.1
+        assert d.m_dd                == 2.2
         assert d.get_derived_value() == 2.2
+
+        assert d.m_b                 == 1
+        assert d.m_db                == 1.1
+        assert d.get_base_value()    == 1.1
+
+        d.m_b, d.m_db = 11, 11.11
+        d.m_d, d.m_dd = 22, 22.22
+
+        assert d.m_d                 == 22
+        assert d.get_value()         == 22
+        assert d.m_dd                == 22.22
+        assert d.get_derived_value() == 22.22
+
+        assert d.m_b                 == 11
+        assert d.m_db                == 11.11
+        assert d.get_base_value()    == 11.11
 
         d.destruct()
 
@@ -112,11 +139,111 @@ class AppTestADVANCEDCPP:
         assert t1.value() == 111
         t1.destruct()
 
-    def test04_instantiation(self):
+    def test04_abstract_classes(self):
         """Test non-instatiatability of abstract classes"""
 
         import cppyy
-   
-        raises(TypeError, cppyy.gbl.a_class)
-        raises(TypeError, cppyy.gbl.some_abstract_class)
+        gbl = cppyy.gbl
 
+        raises(TypeError, gbl.a_class)
+        raises(TypeError, gbl.some_abstract_class)
+
+        assert issubclass(gbl.some_concrete_class, gbl.some_abstract_class)
+
+        c = gbl.some_concrete_class()
+        assert isinstance(c, gbl.some_concrete_class)
+        assert isinstance(c, gbl.some_abstract_class)
+
+    def test05_data_members(self):
+        """Test data member access when using virtual inheritence"""
+
+        import cppyy
+        a_class   = cppyy.gbl.a_class
+        b_class   = cppyy.gbl.b_class
+        c_class_1 = cppyy.gbl.c_class_1
+        c_class_2 = cppyy.gbl.c_class_2
+        d_class   = cppyy.gbl.d_class
+
+        assert issubclass(b_class, a_class)
+        assert issubclass(c_class_1, a_class)
+        assert issubclass(c_class_1, b_class)
+        assert issubclass(c_class_2, a_class)
+        assert issubclass(c_class_2, b_class)
+        assert issubclass(d_class, a_class)
+        assert issubclass(d_class, b_class)
+        assert issubclass(d_class, c_class_2)
+
+        #-----
+        b = b_class()
+        assert b.m_a          == 1
+        assert b.m_da         == 1.1
+        assert b.m_b          == 2
+        assert b.m_db         == 2.2
+
+        b.m_a = 11
+        assert b.m_a          == 11
+        assert b.m_b          == 2
+
+        b.m_da = 11.11
+        assert b.m_da         == 11.11
+        assert b.m_db         == 2.2
+
+        b.m_b = 22
+        assert b.m_a          == 11
+        assert b.m_da         == 11.11
+        assert b.m_b          == 22
+      # assert b.get_value()  == 22
+
+        b.m_db = 22.22
+        assert b.m_db         == 22.22
+
+        b.destruct()
+
+        #-----
+        c1 = c_class_1()
+        assert c1.m_a         == 1
+        assert c1.m_b         == 2
+        assert c1.m_c         == 3
+
+        c1.m_a = 11
+        assert c1.m_a         == 11
+
+        c1.m_b = 22
+        assert c1.m_a         == 11
+        assert c1.m_b         == 22
+
+        c1.m_c = 33
+        assert c1.m_a         == 11
+        assert c1.m_b         == 22
+        assert c1.m_c         == 33
+      # assert c1.get_value() == 33
+
+        c1.destruct()
+
+        #-----
+        d = d_class()
+        assert d.m_a          == 1
+        assert d.m_b          == 2
+        assert d.m_c          == 3
+        assert d.m_d          == 4
+
+        d.m_a = 11
+        assert d.m_a          == 11
+
+        d.m_b = 22
+        assert d.m_a          == 11
+        assert d.m_b          == 22
+
+        d.m_c = 33
+        assert d.m_a          == 11
+        assert d.m_b          == 22
+        assert d.m_c          == 33
+
+        d.m_d = 44
+        assert d.m_a          == 11
+        assert d.m_b          == 22
+        assert d.m_c          == 33
+        assert d.m_d          == 44
+      # assert d.get_value()  == 44
+
+        d.destruct()

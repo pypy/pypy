@@ -2,6 +2,7 @@
 #include "reflexcwrapper.h"
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 
@@ -120,8 +121,7 @@ static cppyy_methptrgetter_t get_methptr_getter(Reflex::Member m) {
     return 0;
 }
 
-cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int method_index)
-{
+cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return get_methptr_getter(m);
@@ -219,33 +219,69 @@ int cppyy_is_staticmethod(cppyy_typehandle_t handle, int method_index) {
 /* data member reflection information ------------------------------------- */
 int cppyy_num_data_members(cppyy_typehandle_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
-    return s.DataMemberSize();
+    return s.DataMemberSize(Reflex::INHERITEDMEMBERS_ALSO);
 }
 
 char* cppyy_data_member_name(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(data_member_index, Reflex::INHERITEDMEMBERS_ALSO);
     std::string name = m.Name();
     return cppstring_to_cstring(name);
 }
 
 char* cppyy_data_member_type(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(data_member_index, Reflex::INHERITEDMEMBERS_ALSO);
     std::string name = m.TypeOf().Name(Reflex::FINAL|Reflex::SCOPED|Reflex::QUALIFIED);
     return cppstring_to_cstring(name);
 }
 
+static void* fgFakeObject  = 0;
+static void* fgFakeAddress = &fgFakeObject;
+
 size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(data_member_index, Reflex::INHERITEDMEMBERS_ALSO);
+
+    if (s != m.DeclaringScope()) {
+        // in case this data member is part of a base class, the offset is complicated
+        // when dealing with virtual inheritance and only (reasonably) well-defined with a
+        // Reflex internal base table, that contains all offsets within the full hierarchy
+        Reflex::Member getbases = s.FunctionMemberByName(
+            "__getBasesTable", Reflex::Type(), 0, Reflex::INHERITEDMEMBERS_NO, Reflex::DELAYEDLOAD_OFF);
+        if (getbases) {
+            typedef std::vector<std::pair<Reflex::Base, int> > Bases_t;
+            Bases_t* bases;
+            Reflex::Object bases_holder(Reflex::Type::ByTypeInfo(typeid(Bases_t)), &bases);
+            getbases.Invoke(&bases_holder);
+
+            Reflex::Type d = m.DeclaringType();
+
+            for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
+                if (ibase->first.ToType() == d) {
+                    if (d.IsVirtual()) {
+                        Reflex::Type t = type_from_handle(handle);
+                        Reflex::Object o = t.Construct();
+                        size_t offset = ibase->first.Offset(o.Address()) + m.Offset();
+                        o.Destruct();
+                        return offset;
+                    } else
+                        return ibase->first.Offset(0);
+                }
+            }
+
+            // contrary to typical invoke()s, the result of the internal getbases function
+            // is a pointer to a function static, so no delete
+        }
+    }
+
     return m.Offset();
 }
 
 
 int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(data_member_index, Reflex::INHERITEDMEMBERS_ALSO);
     return m.IsStatic();
 }
 
