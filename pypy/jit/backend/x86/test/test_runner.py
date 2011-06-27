@@ -248,7 +248,7 @@ class TestX86(LLtypeBackendTest):
         TP = lltype.GcStruct('S', ('i', lltype.Signed))
         ofsi = self.cpu.fielddescrof(TP, 'i')
         for i in range(500):
-            p = lltype.malloc(S)
+            p = lltype.malloc(TP)
             addr = rffi.cast(lltype.Signed, p)
             if fits_in_32bits(addr):
                 break    # fitting in 32 bits, good
