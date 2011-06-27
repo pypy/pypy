@@ -4497,6 +4497,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_is_true_bounds(self):
+        ops = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        i2 = int_ge(0, i0)
+        guard_false(i2) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
