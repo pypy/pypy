@@ -213,6 +213,8 @@ class AppTestTypeDef:
         bm = A().m
         assert bm.__func__ is bm.im_func
         assert bm.__self__ is bm.im_self
+        assert bm.__objclass__ is bm.im_class is A
         assert bm.__doc__ == "aaa"
         assert bm.x == 3
         raises(AttributeError, setattr, bm, 'x', 15)
+        assert [].append.__objclass__ is list
