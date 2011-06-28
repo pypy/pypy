@@ -59,7 +59,8 @@ class W_DictMultiObject(W_Object):
 
     def initialize_as_rdict(self):
         assert self.r_dict_content is None
-        self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
+        self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w,
+                                     force_non_null=True)
         return self.r_dict_content
 
 
@@ -317,6 +318,7 @@ class StrDictImplementation(W_DictMultiObject):
             self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
     def impl_setitem_str(self, key, w_value):
+        assert key is not None
         self.content[key] = w_value
 
     def impl_setdefault(self, w_key, w_default):
@@ -342,6 +344,7 @@ class StrDictImplementation(W_DictMultiObject):
         return len(self.content)
 
     def impl_getitem_str(self, key):
+        assert key is not None
         return self.content.get(key, None)
 
     def impl_getitem(self, w_key):
