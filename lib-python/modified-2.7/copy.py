@@ -51,6 +51,35 @@ __getstate__() and __setstate__().  See the documentation for module
 import types
 import weakref
 from copy_reg import dispatch_table
+from __pypy__ import identity_dict
+
+class _MemoWrapper(object):
+    """Wrapper around dictionaries, to make them behave like identity_dict
+(or directly return an identity_dict istance)
+used to avoid breaking code that may rely on supplying a dictionary to deepcopy"""
+    def __new__(cls, inner_dict):
+        if isinstance(inner_dict, (_MemoWrapper, identity_dict)):
+            return inner_dict
+        elif inner_dict is None:
+            return identity_dict()
+        else:
+            return super(_MemoWrapper, cls).__new__(cls)
+    
+    def __init__(self, inner_dict):
+        if isinstance(inner_dict, (_MemoWrapper, identity_dict)):
+            return
+        else:
+            self.inner_dict = inner_dict
+        
+    def __getitem__(self, key):
+        return self.inner_dict[id(key)]
+        
+    def __setitem__(self, key, value):
+        self.inner_dict[id(key)] = value
+        
+    def get(self, key, *args, **kwargs):
+        return self.inner_dict.get(id(key), *args, **kwargs)
+    
 
 class Error(Exception):
     pass
@@ -148,11 +177,9 @@ def deepcopy(x, memo=None, _nil=[]):
     See the module's __doc__ string for more info.
     """
 
-    if memo is None:
-        memo = {}
+    memo = _MemoWrapper(memo)
 
-    d = id(x)
-    y = memo.get(d, _nil)
+    y = memo.get(x, _nil)
     if y is not _nil:
         return y
 
@@ -189,7 +216,7 @@ def deepcopy(x, memo=None, _nil=[]):
                                 "un(deep)copyable object of type %s" % cls)
                 y = _reconstruct(x, rv, 1, memo)
 
-    memo[d] = y
+    memo[x] = y
     _keep_alive(x, memo) # Make sure x lives at least as long as d
     return y
 
@@ -225,7 +252,7 @@ d[weakref.ref] = _deepcopy_atomic
 
 def _deepcopy_list(x, memo):
     y = []
-    memo[id(x)] = y
+    memo[x] = y
     for a in x:
         y.append(deepcopy(a, memo))
     return y
@@ -235,9 +262,8 @@ def _deepcopy_tuple(x, memo):
     y = []
     for a in x:
         y.append(deepcopy(a, memo))
-    d = id(x)
     try:
-        return memo[d]
+        return memo[x]
     except KeyError:
         pass
     for i in range(len(x)):
@@ -246,13 +272,13 @@ def _deepcopy_tuple(x, memo):
             break
     else:
         y = x
-    memo[d] = y
+    memo[x] = y
     return y
 d[tuple] = _deepcopy_tuple
 
 def _deepcopy_dict(x, memo):
     y = {}
-    memo[id(x)] = y
+    memo[x] = y
     for key, value in x.iteritems():
         y[deepcopy(key, memo)] = deepcopy(value, memo)
     return y
@@ -275,10 +301,10 @@ def _keep_alive(x, memo):
     the memo itself...
     """
     try:
-        memo[id(memo)].append(x)
+        memo[memo].append(x)
     except KeyError:
         # aha, this is the first one :-)
-        memo[id(memo)]=[x]
+        memo[memo]=[x]
 
 def _deepcopy_inst(x, memo):
     if hasattr(x, '__deepcopy__'):
@@ -290,7 +316,7 @@ def _deepcopy_inst(x, memo):
     else:
         y = _EmptyClass()
         y.__class__ = x.__class__
-    memo[id(x)] = y
+    memo[x] = y
     if hasattr(x, '__getstate__'):
         state = x.__getstate__()
     else:
@@ -307,8 +333,9 @@ def _reconstruct(x, info, deep, memo=None):
     if isinstance(info, str):
         return x
     assert isinstance(info, tuple)
-    if memo is None:
-        memo = {}
+    
+    memo = _MemoWrapper(memo)
+    
     n = len(info)
     assert n in (2, 3, 4, 5)
     callable, args = info[:2]
@@ -327,7 +354,7 @@ def _reconstruct(x, info, deep, memo=None):
     if deep:
         args = deepcopy(args, memo)
     y = callable(*args)
-    memo[id(x)] = y
+    memo[x] = y
 
     if state:
         if deep:
