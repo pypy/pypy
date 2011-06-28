@@ -7,4 +7,5 @@
   <class pattern="std::_Vector_base<*>::_Vector_impl" />
   <class pattern="std::allocator<*>" />
 
+  <class name="just_a_class" />
 </lcgdict>

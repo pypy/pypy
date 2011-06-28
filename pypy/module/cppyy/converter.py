@@ -403,7 +403,7 @@ def get_converter(space, name):
     #   5) generalized cases (covers basically all user classes)
     cpptype = interp_cppyy.type_byname(space, clean_name)
 
-    if cpptype and compound == "*":
+    if cpptype and (compound == "*" or compound == "&"):
         # type check for the benefit of the annotator
         from pypy.module.cppyy.interp_cppyy import W_CPPType
         cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
