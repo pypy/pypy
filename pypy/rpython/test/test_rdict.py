@@ -598,7 +598,6 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(func, [])
         assert res in [5263, 6352]
 
-
 class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):
         def func(i):
@@ -859,6 +858,25 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         f = compile(func, [])
         res = f()
         assert res == 1
+
+    def test_nonnull_hint(self):
+        def eq(a, b):
+            return a == b
+        def rhash(a):
+            return 3
+        
+        def func(i):
+            d = r_dict(eq, rhash, force_non_null=True)
+            if not i:
+                d[None] = i
+            else:
+                d[str(i)] = i
+            return "12" in d, d
+
+        llres = self.interpret(func, [12])
+        assert llres.item0 == 1
+        DICT = lltype.typeOf(llres.item1)
+        assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
     # ____________________________________________________________
 
