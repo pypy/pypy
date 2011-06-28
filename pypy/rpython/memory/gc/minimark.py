@@ -75,9 +75,14 @@ NULL = llmemory.NULL
 
 first_gcflag = 1 << (LONG_BIT//2)
 
-# The following flag is never set on young objects.  It is initially set
+# The following flag is usually not set on young objects.  It is initially set
 # on all prebuilt and old objects, and gets cleared by the write_barrier()
-# when we write in them a pointer to a young object.
+# when we write in them a pointer to a young object.  If the object is a
+# large array (young or old), then GCFLAG_HAS_CARDS is set; in this case,
+# GCFLAG_NO_YOUNG_PTRS is also generally set (a bit counter-intuitively).
+# However, if card-marking lost track and is now useless, then
+# GCFLAG_NO_YOUNG_PTRS is cleared: there might be young pointers anywhere
+# in the array.
 GCFLAG_NO_YOUNG_PTRS = first_gcflag << 0
 
 # The following flag is set on some prebuilt objects.  The flag is set
@@ -256,7 +261,8 @@ class MiniMarkGC(MovingGCBase):
         # that it is possible for an object to be listed both in here
         # and in 'old_objects_pointing_to_young', in which case we
         # should just clear the cards and trace it fully, as usual.
-        self.old_objects_with_cards_set = self.AddressStack()
+        # Note also that young array objects may be added to this list.
+        self.objects_with_cards_set = self.AddressStack()
         #
         # A list of all prebuilt GC objects that contain pointers to the heap
         self.prebuilt_root_objects = self.AddressStack()
@@ -643,7 +649,7 @@ class MiniMarkGC(MovingGCBase):
                 # Reserve N extra words containing card bits before the object.
                 extra_words = self.card_marking_words_for_length(length)
                 cardheadersize = WORD * extra_words
-                extra_flags = GCFLAG_HAS_CARDS
+                extra_flags = GCFLAG_HAS_CARDS | GCFLAG_NO_YOUNG_PTRS
                 # note that if 'can_make_young', then card marking will only
                 # be used later, after (and if) the object becomes old
             #
@@ -980,11 +986,12 @@ class MiniMarkGC(MovingGCBase):
             # 'addr_array' is the address of the object in which we write,
             # which must have an array part;  'index' is the index of the
             # item that is (or contains) the pointer that we write.
-            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
-                ll_assert(self.debug_is_old_object(addr_array),
-                          "young array with GCFLAG_NO_YOUNG_PTRS")
             objhdr = self.header(addr_array)
             if objhdr.tid & GCFLAG_HAS_CARDS == 0:
+                #
+                if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
+                    ll_assert(self.debug_is_old_object(addr_array),
+                              "young array with GCFLAG_NO_YOUNG_PTRS")
                 #
                 # no cards, use default logic.  Mostly copied from above.
                 self.old_objects_pointing_to_young.append(addr_array)
@@ -1016,7 +1023,7 @@ class MiniMarkGC(MovingGCBase):
             addr_byte.char[0] = chr(byte | bitmask)
             #
             if objhdr.tid & GCFLAG_CARDS_SET == 0:
-                self.old_objects_with_cards_set.append(addr_array)
+                self.objects_with_cards_set.append(addr_array)
                 objhdr.tid |= GCFLAG_CARDS_SET
 
         remember_young_pointer_from_array2._dont_inline_ = True
@@ -1026,9 +1033,6 @@ class MiniMarkGC(MovingGCBase):
 
         # xxx trying it out for the JIT: a 3-arguments version of the above
         def remember_young_pointer_from_array3(addr_array, index, newvalue):
-            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
-                ll_assert(self.debug_is_old_object(addr_array),
-                          "young array with GCFLAG_NO_YOUNG_PTRS")
             objhdr = self.header(addr_array)
             #
             # a single check for the common case of neither GCFLAG_HAS_CARDS
@@ -1066,12 +1070,16 @@ class MiniMarkGC(MovingGCBase):
                 addr_byte.char[0] = chr(byte | bitmask)
                 #
                 if objhdr.tid & GCFLAG_CARDS_SET == 0:
-                    self.old_objects_with_cards_set.append(addr_array)
+                    self.objects_with_cards_set.append(addr_array)
                     objhdr.tid |= GCFLAG_CARDS_SET
                 return
             #
             # Logic for the no-cards case, put here to minimize the number
             # of checks done at the start of the function
+            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
+                ll_assert(self.debug_is_old_object(addr_array),
+                          "young array with GCFLAG_NO_YOUNG_PTRS")
+            #
             if self.appears_to_be_young(newvalue):
                 self.old_objects_pointing_to_young.append(addr_array)
                 objhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
@@ -1141,17 +1149,25 @@ class MiniMarkGC(MovingGCBase):
         # 'old_objects_pointing_to_young'.
         self.collect_roots_in_nursery()
         #
-        # If we are using card marking, do a partial trace of the arrays
-        # that are flagged with GCFLAG_CARDS_SET.
-        if self.card_page_indices > 0:
-            self.collect_cardrefs_to_nursery()
-        #
-        # Now trace objects from 'old_objects_pointing_to_young'.
-        # All nursery objects they reference are copied out of the
-        # nursery, and again added to 'old_objects_pointing_to_young'.
-        # All young raw-malloced object found is flagged GCFLAG_VISITED.
-        # We proceed until 'old_objects_pointing_to_young' is empty.
-        self.collect_oldrefs_to_nursery()
+        while True:
+            # If we are using card marking, do a partial trace of the arrays
+            # that are flagged with GCFLAG_CARDS_SET.
+            if self.card_page_indices > 0:
+                self.collect_cardrefs_to_nursery()
+            #
+            # Now trace objects from 'old_objects_pointing_to_young'.
+            # All nursery objects they reference are copied out of the
+            # nursery, and again added to 'old_objects_pointing_to_young'.
+            # All young raw-malloced object found is flagged GCFLAG_VISITED.
+            # We proceed until 'old_objects_pointing_to_young' is empty.
+            self.collect_oldrefs_to_nursery()
+            #
+            # We have to loop back if collect_oldrefs_to_nursery caused
+            # new objects to show up in objects_with_cards_set
+            if self.card_page_indices > 0:
+                if self.objects_with_cards_set.non_empty():
+                    continue
+            break
         #
         # Now all live nursery objects should be out.  Update the young
         # weakrefs' targets.
@@ -1192,7 +1208,7 @@ class MiniMarkGC(MovingGCBase):
 
     def collect_cardrefs_to_nursery(self):
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        oldlist = self.old_objects_with_cards_set
+        oldlist = self.objects_with_cards_set
         while oldlist.non_empty():
             obj = oldlist.pop()
             #
@@ -1299,7 +1315,19 @@ class MiniMarkGC(MovingGCBase):
                 # 'obj' points to a young, raw-malloced object
                 if (self.header(obj).tid & GCFLAG_VISITED) == 0:
                     self.header(obj).tid |= GCFLAG_VISITED
-                    self.old_objects_pointing_to_young.append(obj)
+                    #
+                    # we just made 'obj' old, so we may need to add it
+                    # in the correct list:
+                    if self.header(obj).tid & GCFLAG_NO_YOUNG_PTRS == 0:
+                        # common case: GCFLAG_NO_YOUNG_PTRS is not set, so
+                        # the object may contain young pointers anywhere
+                        self.old_objects_pointing_to_young.append(obj)
+                    else:
+                        # large array case: the object contains card marks
+                        # that tell us where young pointers are, and it
+                        # is already in objects_with_cards_set.
+                        ll_assert(self.header(obj).tid & GCFLAG_HAS_CARDS != 0,
+                                  "neither YOUNG_PTRS nor HAS_CARDS??")
             return
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
