@@ -112,7 +112,7 @@ def next__SetIterObject(space, w_setiter):
 # some helper functions
 
 def newset(space):
-    return r_dict(space.eq_w, space.hash_w)
+    return r_dict(space.eq_w, space.hash_w, force_non_null=True)
 
 def make_setdata_from_w_iterable(space, w_iterable=None):
     """Return a new r_dict with the content of w_iterable."""
