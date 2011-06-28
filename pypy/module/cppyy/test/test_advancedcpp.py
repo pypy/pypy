@@ -23,7 +23,37 @@ class AppTestADVANCEDCPP:
             import cppyy
             return cppyy.load_lib(%r)""" % (shared_lib, ))
 
-    def test01_simple_inheritance(self):
+    def test01_default_argeumetns(self):
+        """Test usage of default arguments"""
+
+        import cppyy
+        defaulter = cppyy.gbl.defaulter
+
+        d = defaulter()
+        assert d.m_a == 11
+        assert d.m_b == 22
+        assert d.m_c == 33
+        d.destruct()
+
+        d = defaulter(0)
+        assert d.m_a ==  0
+        assert d.m_b == 22
+        assert d.m_c == 33
+        d.destruct()
+
+        d = defaulter(1, 2)
+        assert d.m_a ==  1
+        assert d.m_b ==  2
+        assert d.m_c == 33
+        d.destruct()
+
+        d = defaulter(3, 4, 5)
+        assert d.m_a ==  3
+        assert d.m_b ==  4
+        assert d.m_c ==  5
+        d.destruct()
+
+    def test02_simple_inheritance(self):
         """Test binding of a basic inheritance structure"""
 
         import cppyy
@@ -77,7 +107,7 @@ class AppTestADVANCEDCPP:
 
         d.destruct()
 
-    def test02_namespaces(self):
+    def test03_namespaces(self):
         """Test access to namespaces and inner classes"""
 
         import cppyy
@@ -101,7 +131,7 @@ class AppTestADVANCEDCPP:
         assert gbl.a_ns.d_ns.e_class         is gbl.a_ns.d_ns.e_class
         assert gbl.a_ns.d_ns.e_class.f_class is gbl.a_ns.d_ns.e_class.f_class
 
-    def test03_template_types(self):
+    def test04_template_types(self):
         """Test bindings of templated types"""
 
         import cppyy
@@ -139,7 +169,7 @@ class AppTestADVANCEDCPP:
         assert t1.value() == 111
         t1.destruct()
 
-    def test04_abstract_classes(self):
+    def test05_abstract_classes(self):
         """Test non-instatiatability of abstract classes"""
 
         import cppyy
@@ -154,7 +184,7 @@ class AppTestADVANCEDCPP:
         assert isinstance(c, gbl.some_concrete_class)
         assert isinstance(c, gbl.some_abstract_class)
 
-    def test05_data_members(self):
+    def test06_data_members(self):
         """Test data member access when using virtual inheritence"""
 
         import cppyy

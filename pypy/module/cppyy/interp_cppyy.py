@@ -87,11 +87,12 @@ class CPPMethod(object):
     _immutable_ = True
     _immutable_fields_ = ["arg_types[*]", "arg_converters[*]"]
     
-    def __init__(self, cpptype, method_index, result_type, arg_types):
+    def __init__(self, cpptype, method_index, result_type, arg_types, args_required):
         self.cpptype = cpptype
         self.space = cpptype.space
         self.method_index = method_index
         self.arg_types = arg_types
+        self.args_required = args_required
         self.executor = executor.get_executor(self.space, result_type)
         self.arg_converters = None
         methgetter = get_methptr_getter(self.cpptype.handle,
@@ -113,13 +114,13 @@ class CPPMethod(object):
         try:
             return self.executor.execute(self.space, self, cppthis, len(args_w), args)
         finally:
-            self.free_arguments(args)
+            self.free_arguments(args, len(args_w))
 
     @jit.unroll_safe
     def do_fast_call(self, cppthis, args_w):
         space = self.space
         # XXX factor out
-        if len(args_w) != len(self.arg_types):
+        if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
             raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
         if self.arg_converters is None:
             self._build_converters()
@@ -161,7 +162,7 @@ class CPPMethod(object):
     @jit.unroll_safe
     def prepare_arguments(self, args_w):
         space = self.space
-        if len(args_w) != len(self.arg_types):
+        if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
             raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
         if self.arg_converters is None:
             self._build_converters()
@@ -182,8 +183,8 @@ class CPPMethod(object):
         return args
 
     @jit.unroll_safe
-    def free_arguments(self, args):
-        for i in range(len(self.arg_types)):
+    def free_arguments(self, args, nargs):
+        for i in range(nargs):
             conv = self.arg_converters[i]
             conv.free_argument(args[i])
         lltype.free(args, flavor='raw')
@@ -209,7 +210,7 @@ class CPPFunction(CPPMethod):
             return self.executor.execute(self.space, self, NULL_VOIDP,
                                          len(args_w), args)
         finally:
-            self.free_arguments(args)
+            self.free_arguments(args, len(args_w))
  
 
 class CPPConstructor(CPPMethod):
@@ -393,10 +394,12 @@ class W_CPPNamespace(W_CPPScope):
     def _make_cppfunction(self, method_index):
         result_type = capi.charp2str_free(capi.c_method_result_type(self.handle, method_index))
         num_args = capi.c_method_num_args(self.handle, method_index)
+        args_required = capi.c_method_req_args(self.handle, method_index)
         argtypes = []
         for i in range(num_args):
             argtype = capi.charp2str_free(capi.c_method_arg_type(self.handle, method_index, i))
-        return CPPFunction(self, method_index, result_type, argtypes)
+            argtypes.append(argtype)
+        return CPPFunction(self, method_index, result_type, argtypes, args_required)
 
     def _find_data_members(self):
         num_data_members = capi.c_num_data_members(self.handle)
@@ -425,6 +428,7 @@ class W_CPPType(W_CPPScope):
     def _make_cppfunction(self, method_index):
         result_type = capi.charp2str_free(capi.c_method_result_type(self.handle, method_index))
         num_args = capi.c_method_num_args(self.handle, method_index)
+        args_required = capi.c_method_req_args(self.handle, method_index)
         argtypes = []
         for i in range(num_args):
             argtype = capi.charp2str_free(capi.c_method_arg_type(self.handle, method_index, i))
@@ -435,7 +439,7 @@ class W_CPPType(W_CPPScope):
             cls = CPPFunction
         else:
             cls = CPPMethod
-        return cls(self, method_index, result_type, argtypes)
+        return cls(self, method_index, result_type, argtypes, args_required)
 
     def _find_data_members(self):
         num_data_members = capi.c_num_data_members(self.handle)

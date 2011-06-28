@@ -132,6 +132,10 @@ c_method_num_args = rffi.llexternal(
     "cppyy_method_num_args",
     [C_TYPEHANDLE, rffi.INT], rffi.INT,
     compilation_info=eci)
+c_method_req_args = rffi.llexternal(
+    "cppyy_method_req_args",
+    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    compilation_info=eci)
 c_method_arg_type = rffi.llexternal(
     "cppyy_method_arg_type",
     [C_TYPEHANDLE, rffi.INT, rffi.INT], rffi.CCHARP,

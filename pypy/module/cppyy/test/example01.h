@@ -13,16 +13,13 @@ private:
 
 class example01 {
 public:
-    static int count;
-    int m_somedata;
-
     example01();
     example01(int a);
     example01(const example01& e);
     example01& operator=(const example01& e);
     ~example01();
 
-// class methods
+public:        // class-level methods
     static int staticAddOneToInt(int a);
     static int staticAddOneToInt(int a, int b);
     static double staticAddToDouble(double a);
@@ -32,7 +29,7 @@ public:
     static payload* staticCyclePayload(payload* p, double d);
     static int getCount();
 
-// instance methods
+public:        // instance methods
     int addDataToInt(int a);
     double addDataToDouble(double a);
     int addDataToAtoi(const char* str);
@@ -40,4 +37,10 @@ public:
 
     void setPayload(payload* p);
     payload* cyclePayload(payload* p);
+
+public:        // class-level data
+    static int count;
+
+public:        // instance data
+    int m_somedata;
 };

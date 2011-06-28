@@ -1,6 +1,14 @@
 #include "advancedcpp.h"
 
 
+// for testing of default arguments
+defaulter::defaulter(int a, int b, int c ) {
+   m_a = a;
+   m_b = b;
+   m_c = c;
+}
+
+
 // for esoteric inheritance testing
 int get_a( a_class& a ) { return a.m_a; }
 int get_b( b_class& b ) { return b.m_b; }

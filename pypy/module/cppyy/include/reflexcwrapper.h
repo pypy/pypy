@@ -42,6 +42,7 @@ extern "C" {
     char* cppyy_method_name(cppyy_typehandle_t handle, int method_index);
     char* cppyy_method_result_type(cppyy_typehandle_t handle, int method_index);
     int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index);
+    int cppyy_method_req_args(cppyy_typehandle_t handle, int method_index);
     char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int index);
 
     /* method properties */

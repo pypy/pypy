@@ -2,6 +2,16 @@
 
 
 //===========================================================================
+class defaulter {                 // for testing of default arguments
+public:
+    defaulter(int a = 11, int b = 22, int c = 33 );
+
+public:
+    int m_a, m_b, m_c;
+};
+
+
+//===========================================================================
 class base_class {                 // for simple inheritance testing
 public:
    base_class() { m_b = 1; m_db = 1.1; }

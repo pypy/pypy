@@ -40,6 +40,18 @@ class AppTestSTL:
         assert tv1 is tv2
 
         #-----
+        v = tv1(self.N)
+        for i in range(self.N):
+          #  v[i] = i
+          #  assert v[i] == i
+          #  assert v.at(i) == i
+            pass
+
+        assert v.size() == self.N
+        assert len(v) == self.N
+        v.destruct()
+
+        #-----
         v = tv1()
         for i in range(self.N):
             v.push_back(i)

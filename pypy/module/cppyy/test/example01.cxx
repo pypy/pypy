@@ -34,7 +34,7 @@ example01::~example01() {
     count--;
 }
 
-// class methods
+// class-level methods
 int example01::staticAddOneToInt(int a) {
     return a + 1;
 }
@@ -98,4 +98,5 @@ payload* example01::cyclePayload(payload* p) {
     return p;
 }
 
+// class-level data
 int example01::count = 0;

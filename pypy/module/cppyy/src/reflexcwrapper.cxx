@@ -194,6 +194,12 @@ int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index) {
     return m.FunctionParameterSize();
 }
 
+int cppyy_method_req_args(cppyy_typehandle_t handle, int method_index) {
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.FunctionMemberAt(method_index);
+    return m.FunctionParameterSize(true);
+}
+
 char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int arg_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
@@ -235,9 +241,6 @@ char* cppyy_data_member_type(cppyy_typehandle_t handle, int data_member_index) {
     std::string name = m.TypeOf().Name(Reflex::FINAL|Reflex::SCOPED|Reflex::QUALIFIED);
     return cppstring_to_cstring(name);
 }
-
-static void* fgFakeObject  = 0;
-static void* fgFakeAddress = &fgFakeObject;
 
 size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);

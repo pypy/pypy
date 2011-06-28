@@ -1,5 +1,7 @@
 <lcgdict>
 
+  <class name="defaulter" />
+
   <class name="base_class" />
   <class name="derived_class" />
 
