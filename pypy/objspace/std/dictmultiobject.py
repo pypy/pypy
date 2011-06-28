@@ -1,13 +1,14 @@
 import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
-from pypy.objspace.std.settype import set_typedef as settypedef
+from pypy.rlib.debug import mark_dict_non_null
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -309,6 +310,7 @@ class StrDictImplementation(W_DictMultiObject):
     def __init__(self, space):
         self.space = space
         self.content = {}
+        mark_dict_non_null(self.content)
 
     def impl_setitem(self, w_key, w_value):
         space = self.space
