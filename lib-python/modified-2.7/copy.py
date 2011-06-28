@@ -53,23 +53,12 @@ import weakref
 from copy_reg import dispatch_table
 from __pypy__ import identity_dict
 
-class _MemoWrapper(object):
+class _MemoAdapter(object):
     """Wrapper around dictionaries, to make them behave like identity_dict
-(or directly return an identity_dict istance)
 used to avoid breaking code that may rely on supplying a dictionary to deepcopy"""
-    def __new__(cls, inner_dict):
-        if isinstance(inner_dict, (_MemoWrapper, identity_dict)):
-            return inner_dict
-        elif inner_dict is None:
-            return identity_dict()
-        else:
-            return super(_MemoWrapper, cls).__new__(cls)
-    
+
     def __init__(self, inner_dict):
-        if isinstance(inner_dict, (_MemoWrapper, identity_dict)):
-            return
-        else:
-            self.inner_dict = inner_dict
+        self.inner_dict = inner_dict
         
     def __getitem__(self, key):
         return self.inner_dict[id(key)]
@@ -79,7 +68,15 @@ used to avoid breaking code that may rely on supplying a dictionary to deepcopy"
         
     def get(self, key, *args, **kwargs):
         return self.inner_dict.get(id(key), *args, **kwargs)
-    
+
+def _get_memo(memo_dict):
+    if isinstance(memo_dict, (_MemoAdapter, identity_dict)):
+        return memo_dict
+    elif memo_dict is None:
+        return identity_dict()
+    else:
+        return _MemoAdapter(memo_dict)
+
 
 class Error(Exception):
     pass
@@ -177,7 +174,7 @@ def deepcopy(x, memo=None, _nil=[]):
     See the module's __doc__ string for more info.
     """
 
-    memo = _MemoWrapper(memo)
+    memo = _get_memo(memo)
 
     y = memo.get(x, _nil)
     if y is not _nil:
@@ -334,7 +331,7 @@ def _reconstruct(x, info, deep, memo=None):
         return x
     assert isinstance(info, tuple)
     
-    memo = _MemoWrapper(memo)
+    memo = _get_memo(memo)
     
     n = len(info)
     assert n in (2, 3, 4, 5)
