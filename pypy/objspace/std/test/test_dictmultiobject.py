@@ -1,3 +1,4 @@
+import py
 import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
@@ -737,6 +738,8 @@ class AppTestDictViews:
 class AppTestModuleDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
 
     def w_impl_used(self, obj):
         import __pypy__
