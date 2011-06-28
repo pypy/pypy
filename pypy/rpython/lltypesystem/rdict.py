@@ -649,13 +649,15 @@ def _ll_free_entries(entries):
     pass
 
 
-def rtype_r_dict(hop, i_force_non_null=-1):
+def rtype_r_dict(hop, i_force_non_null=None):
     r_dict = hop.r_result
     if not r_dict.custom_eq_hash:
         raise TyperError("r_dict() call does not return an r_dict instance")
-    v_eqfn, v_hashfn, _ = hop.inputargs(r_dict.r_rdict_eqfn,
-                                        r_dict.r_rdict_hashfn,
-                                        lltype.Void)
+    v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
+    v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
+    if i_force_non_null is not None:
+        assert i_force_non_null == 2
+        hop.inputarg(lltype.Void, arg=2)
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
     hop.exception_cannot_occur()
     v_result = hop.gendirectcall(ll_newdict, cDICT)
