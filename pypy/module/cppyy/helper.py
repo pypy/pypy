@@ -55,7 +55,7 @@ def clean_type(name):
 #- operator mappings --------------------------------------------------------
 _operator_mappings = {}
 
-def map_operator_name(cppname, nargs):
+def map_operator_name(cppname, nargs, result_type):
     from pypy.module.cppyy import capi
 
     if cppname[0:8] == "operator":
@@ -71,6 +71,14 @@ def map_operator_name(cppname, nargs):
             return _operator_mappings[op]
         except KeyError:
             pass
+
+        # return-type dependent mapping
+        if op == "[]":
+            if result_type.find("const") != 0:
+                cpd = compound(result_type)
+                if cpd and cpd[len(cpd)-1] == "&":
+                    return "__setitem__"
+            return "__getitem__"
 
         # a couple more cases that depend on whether args were given
 
@@ -98,7 +106,7 @@ def map_operator_name(cppname, nargs):
 # _operator_mappings["-"]   = "__sub__"          # id. (eq. __neg__)
 # _operator_mappings["*"]   = "__mul__"          # double meaning in C++
 
-_operator_mappings["[]"]  = "__getitem__"
+# _operator_mappings["[]"]  = "__getitem__"      # depends on return type
 _operator_mappings["()"]  = "__call__"
 _operator_mappings["/"]   = "__div__"            # __truediv__ in p3
 _operator_mappings["%"]   = "__mod__"

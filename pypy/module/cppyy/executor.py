@@ -77,12 +77,22 @@ class LongExecutor(FunctionExecutor):
     _immutable_ = True
     libffitype = libffi.types.slong
 
+    def _wrap_result(self, space, result):
+        return space.wrap(result)
+
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
-        return space.wrap(result)
+        return self._wrap_result(space, result)
 
     def execute_libffi(self, space, libffifunc, argchain):
         return space.wrap(libffifunc.call(argchain, lltype.Signed))
+
+class ConstLongRefExecutor(LongExecutor):
+    _immutable_ = True
+
+    def _wrap_result(self, space, result):
+        longptr = rffi.cast(rffi.LONGP, result)
+        return space.wrap(longptr[0])
 
 class FloatExecutor(FunctionExecutor):
     _immutable_ = True
@@ -170,6 +180,7 @@ def get_executor(space, name):
 
     #   2) drop '&': by-ref is pretty much the same as by-value, python-wise
     if compound and compound[len(compound)-1] == "&":
+        # TODO: this does not actually work with Reflex (?)
         try:
             return _executors[clean_name](space, "", None)
         except KeyError:
@@ -203,6 +214,8 @@ _executors["unsigned short int"]  = ShortExecutor
 _executors["unsigned short int*"] = ShortPtrExecutor
 _executors["int"]                 = LongExecutor
 _executors["int*"]                = LongPtrExecutor
+_executors["const int&"]          = ConstLongRefExecutor
+_executors["int&"]                = ConstLongRefExecutor
 _executors["unsigned int"]        = LongExecutor
 _executors["unsigned int*"]       = LongPtrExecutor
 _executors["long int"]            = LongExecutor

@@ -43,8 +43,9 @@ class AppTestSTL:
         for i in range(self.N):
             v.push_back(i)
             assert v.size() == i+1
-#           assert v[i] == i
+            assert v.at(i) == i
+            assert v[i] == i
 
         assert v.size() == self.N
-#       assert len(v) == self.N
+        assert len(v) == self.N
         v.destruct()

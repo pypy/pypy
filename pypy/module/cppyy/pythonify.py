@@ -153,6 +153,7 @@ def make_cppclass(class_name, cpptype):
         if cppdm.is_static():
             setattr(metacpp, dm_name, cppdm)
 
+    _pythonize(pycpptype)
     return pycpptype
 
 def make_cpptemplatetype(template_name, scope):
@@ -193,6 +194,14 @@ def get_cppitem(name, scope=None):
     raise AttributeError("'%s' has no attribute '%s'", (str(scope), name))
 
 get_cppclass = get_cppitem         # TODO: restrict to classes only (?)
+
+
+def _pythonize(pyclass):
+
+    # map size -> __len__ (generally true for STL)
+    if hasattr(pyclass, 'size') and \
+            not hasattr(pyclass,'__len__') and callable(pyclass.size):
+        pyclass.__len__ = pyclass.size
 
 
 _loaded_shared_libs = {}
