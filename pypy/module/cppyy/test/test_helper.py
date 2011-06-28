@@ -22,18 +22,20 @@ def test_clean_type():
 
 
 def test_operator_mapping():
-    assert helper.map_operator_name("operator[]", 1)  == "__getitem__"
-    assert helper.map_operator_name("operator()", 1)  == "__call__"
-    assert helper.map_operator_name("operator%", 1)   == "__mod__"
-    assert helper.map_operator_name("operator**", 1)  == "__pow__"
-    assert helper.map_operator_name("operator<<", 1)  == "__lshift__"
-    assert helper.map_operator_name("operator|", 1)   == "__or__"
+    assert helper.map_operator_name("operator[]", 1, "const int&")  == "__getitem__"
+    assert helper.map_operator_name("operator[]", 1, "int&")        == "__setitem__"
 
-    assert helper.map_operator_name("operator*", 1) == "__mul__"
-    assert helper.map_operator_name("operator*", 0) == "__deref__"
+    assert helper.map_operator_name("operator()", 1, "")  == "__call__"
+    assert helper.map_operator_name("operator%", 1, "")   == "__mod__"
+    assert helper.map_operator_name("operator**", 1, "")  == "__pow__"
+    assert helper.map_operator_name("operator<<", 1, "")  == "__lshift__"
+    assert helper.map_operator_name("operator|", 1, "")   == "__or__"
 
-    assert helper.map_operator_name("operator+", 1) == "__add__"
-    assert helper.map_operator_name("operator+", 0) == "__pos__"
+    assert helper.map_operator_name("operator*", 1, "") == "__mul__"
+    assert helper.map_operator_name("operator*", 0, "") == "__deref__"
 
-    assert helper.map_operator_name("func", 0)        == "func"
-    assert helper.map_operator_name("some_method", 0) == "some_method"
+    assert helper.map_operator_name("operator+", 1, "") == "__add__"
+    assert helper.map_operator_name("operator+", 0, "") == "__pos__"
+
+    assert helper.map_operator_name("func", 0, "")        == "func"
+    assert helper.map_operator_name("some_method", 0, "") == "some_method"
