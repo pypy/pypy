@@ -48,7 +48,7 @@ int example01::staticAtoi(const char* str) {
     return ::atoi(str);
 }
 char* example01::staticStrcpy(const char* strin) {
-    char* strout = (char*)malloc(::strlen(strin + 1));
+    char* strout = (char*)malloc(::strlen(strin)+1);
     ::strcpy(strout, strin);
     return strout;
 }

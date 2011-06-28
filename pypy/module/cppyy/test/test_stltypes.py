@@ -25,7 +25,7 @@ class AppTestSTL:
             return cppyy.load_lib(%r)""" % (shared_lib, ))
 
     def test1BuiltinTypeVectorType( self ):
-        """Test access to a vector<int>"""
+        """Test access to an std::vector<int>"""
 
         import cppyy
 
@@ -39,6 +39,7 @@ class AppTestSTL:
 
         assert tv1 is tv2
 
+        #-----
         v = tv1()
         for i in range(self.N):
             v.push_back(i)
