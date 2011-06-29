@@ -820,7 +820,7 @@ eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
 def repr__DictViewKeys(space, w_dictview):
     w_seq = space.call_function(space.w_list, w_dictview)
     w_repr = space.repr(w_seq)
-    return space.wrap("%s(%s)" % (space.type(w_dictview).getname(space, "?"),
+    return space.wrap("%s(%s)" % (space.type(w_dictview).getname(space),
                                   space.str_w(w_repr)))
 repr__DictViewItems  = repr__DictViewKeys
 repr__DictViewValues = repr__DictViewKeys

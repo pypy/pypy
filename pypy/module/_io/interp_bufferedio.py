@@ -175,7 +175,7 @@ class BufferedMixin:
         return space.call_method(self.w_raw, "isatty")
 
     def repr_w(self, space):
-        typename = space.type(self).getname(space, '?')
+        typename = space.type(self).getname(space)
         module = space.str_w(space.type(self).get_module())
         try:
             w_name = space.getattr(self, space.wrap("name"))
