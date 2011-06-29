@@ -7,5 +7,9 @@
   <class pattern="std::_Vector_base<*>::_Vector_impl" />
   <class pattern="std::allocator<*>" />
 
+  <function name="__gnu_cxx::operator=="/>
+  <function name="__gnu_cxx::operator!="/>
+
   <class name="just_a_class" />
+
 </lcgdict>

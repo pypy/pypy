@@ -18,8 +18,8 @@ else
   cppflags2=-Wno-pmf-conversions -O3
 endif
 
-example01Dict.so: example01.cxx example01.h
-	$(genreflex) example01.h $(genreflexflags)
+example01Dict.so: example01.cxx example01.h example01.xml
+	$(genreflex) example01.h $(genreflexflags) --selection=example01.xml
 	g++ -o $@ example01_rflx.cpp example01.cxx -shared -lReflex $(cppflags) $(cppflags2)
 
 datatypesDict.so: datatypes.cxx datatypes.h

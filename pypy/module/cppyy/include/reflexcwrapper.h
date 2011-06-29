@@ -19,6 +19,7 @@ extern "C" {
 
     /* method/function dispatching */
     void   cppyy_call_v(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
+    long   cppyy_call_o(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[], cppyy_typehandle_t rettype);
     int    cppyy_call_b(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
     char   cppyy_call_c(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
     short  cppyy_call_h(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);

@@ -151,6 +151,17 @@ class InstancePtrExecutor(FunctionExecutor):
         ptr_result = rffi.cast(rffi.VOIDP, long_result)
         return interp_cppyy.W_CPPInstance(space, self.cpptype, ptr_result)
 
+class InstanceExecutor(InstancePtrExecutor):
+    _immutable_ = True
+
+    def execute(self, space, func, cppthis, num_args, args):
+        from pypy.module.cppyy import interp_cppyy
+        long_result = capi.c_call_o(
+            func.cpptype.handle, func.method_index, cppthis, num_args, args, self.cpptype.handle)
+        ptr_result = rffi.cast(rffi.VOIDP, long_result)
+        # TODO: take ownership of result ...
+        return interp_cppyy.W_CPPInstance(space, self.cpptype, ptr_result)
+
 
 def get_executor(space, name):
     # Matching of 'name' to an executor factory goes through up to four levels:
@@ -188,11 +199,14 @@ def get_executor(space, name):
 
     #   3) types/classes, either by ref/ptr or by value
     cpptype = interp_cppyy.type_byname(space, clean_name)
-    if cpptype and (compound == "*" or compound == "&"):
+    if cpptype:
         # type check for the benefit of the annotator
         from pypy.module.cppyy.interp_cppyy import W_CPPType
         cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
-        return InstancePtrExecutor(space, clean_name, cpptype)
+        if (compound == "*" or compound == "&"):
+            return InstancePtrExecutor(space, clean_name, cpptype)
+        elif compound == "":
+            return InstanceExecutor(space, clean_name, cpptype)
 
     # 4) additional special cases
     # ... none for now

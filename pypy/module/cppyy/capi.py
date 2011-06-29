@@ -84,6 +84,10 @@ c_call_v = rffi.llexternal(
     "cppyy_call_v",
     [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDPP], lltype.Void,
     compilation_info=eci)
+c_call_o = rffi.llexternal(
+    "cppyy_call_o",
+    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDPP, C_TYPEHANDLE], rffi.LONG,
+    compilation_info=eci)
 c_call_b = rffi.llexternal(
     "cppyy_call_b",
     [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDPP], rffi.INT,

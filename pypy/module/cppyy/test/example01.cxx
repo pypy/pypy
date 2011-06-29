@@ -61,6 +61,11 @@ payload* example01::staticCyclePayload(payload* p, double d) {
     return p;
 }
 
+payload example01::staticCopyCyclePayload(payload* p, double d) {
+    staticSetPayload(p, d);
+    return *p;
+}
+
 int example01::getCount() {
     std::cout << "getcount called" << std::endl;
     return count;
@@ -98,5 +103,20 @@ payload* example01::cyclePayload(payload* p) {
     return p;
 }
 
+payload example01::copyCyclePayload(payload* p) {
+    setPayload(p);
+    return *p;
+}
+
 // class-level data
 int example01::count = 0;
+
+
+// global
+int globalAddOneToInt(int a) {
+   return a + 1;
+}
+
+int ns_example01::globalAddOneToInt(int a) {
+   return ::globalAddOneToInt(a);
+}

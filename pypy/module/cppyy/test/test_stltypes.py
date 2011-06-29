@@ -101,6 +101,31 @@ class AppTestSTL:
         import cppyy
 
         v = cppyy.gbl.std.vector(int)()
-     #   for arg in v:
-     #       pass
+        for arg in v:
+            pass
+        v.destruct()
+
+    def test04_vector_iteration(self):
+        """Test iteration over an std::vector<int>"""
+
+        import cppyy
+
+        v = cppyy.gbl.std.vector(int)()
+
+        for i in range(self.N):
+            v.push_back(i)
+            assert v.size() == i+1
+            assert v.at(i) == i
+            assert v[i] == i
+
+        assert v.size() == self.N
+        assert len(v) == self.N
+
+        i = 0
+        for arg in v:
+            assert arg == i
+            i += 1
+
+        assert list(v) == [i for i in range(self.N)]
+
         v.destruct()

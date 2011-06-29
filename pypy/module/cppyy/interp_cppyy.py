@@ -339,11 +339,12 @@ class W_CPPScope(Wrappable):
         for i in range(num_methods):
             method_name = capi.charp2str_free(capi.c_method_name(self.handle, i))
             pymethod_name = helper.map_operator_name(
-                method_name, capi.c_method_num_args(self.handle, i),
-                capi.charp2str_free(capi.c_method_result_type(self.handle, i)))
-            cppfunction = self._make_cppfunction(i)
-            overload = args_temp.setdefault(pymethod_name, [])
-            overload.append(cppfunction)
+                    method_name, capi.c_method_num_args(self.handle, i),
+                    capi.charp2str_free(capi.c_method_result_type(self.handle, i)))
+            if not self.methods.has_key(pymethod_name):
+                cppfunction = self._make_cppfunction(i)
+                overload = args_temp.setdefault(pymethod_name, [])
+                overload.append(cppfunction)
         for name, functions in args_temp.iteritems():
             overload = W_CPPOverload(self.space, name, functions[:])
             self.methods[name] = overload
@@ -405,21 +406,28 @@ class W_CPPNamespace(W_CPPScope):
         num_data_members = capi.c_num_data_members(self.handle)
         for i in range(num_data_members):
             data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
-            type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
-            offset = capi.c_data_member_offset(self.handle, i)
-            data_member = W_CPPStaticDataMember(self.space, type_name, offset)
-            self.data_members[data_member_name] = data_member
+            if not self.data_members.has_key(data_member_name):
+                type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
+                offset = capi.c_data_member_offset(self.handle, i)
+                data_member = W_CPPStaticDataMember(self.space, type_name, offset)
+                self.data_members[data_member_name] = data_member
+
+    def update(self):
+        self._find_methods()
+        self._find_data_members()
 
     def is_namespace(self):
         return self.space.w_True
 
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
+    update = interp2app(W_CPPNamespace.update, unwrap_spec=['self']),
     get_method_names = interp2app(W_CPPNamespace.get_method_names, unwrap_spec=['self']),
     get_overload = interp2app(W_CPPNamespace.get_overload, unwrap_spec=['self', str]),
     get_data_member_names = interp2app(W_CPPNamespace.get_data_member_names, unwrap_spec=['self']),
     get_data_member = interp2app(W_CPPNamespace.get_data_member, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPNamespace.is_namespace, unwrap_spec=['self']),
+    invoke = interp2app(W_CPPNamespace.invoke, unwrap_spec=['self', W_CPPOverload, 'args_w']),
 )
 
 

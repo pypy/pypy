@@ -24,13 +24,13 @@ class AppTestPYTHONIFY:
             import cppyy
             return cppyy.load_lib(%r)""" % (shared_lib, ))
 
-    def test0_load_lib_cache(self):
+    def test01_load_lib_cache(self):
         """Test whether loading a library twice results in the same object."""
         import cppyy
         lib2 = cppyy.load_lib(self.shared_lib)
         assert self.example01 is lib2
 
-    def test1_finding_classes(self):
+    def test02_finding_classes(self):
         """Test the lookup of a class, and its caching."""
         import cppyy
         example01_class = cppyy.gbl.example01
@@ -39,7 +39,7 @@ class AppTestPYTHONIFY:
 
         raises(AttributeError, "cppyy.gbl.nonexistingclass")
 
-    def test2_calling_static_functions(self):
+    def test03_calling_static_functions(self):
         """Test calling of static methods."""
         import cppyy, sys
         example01_class = cppyy.gbl.example01
@@ -74,7 +74,7 @@ class AppTestPYTHONIFY:
 
         raises(TypeError, 'example01_class.staticStrcpy(1.)')
 
-    def test3_constructing_and_calling(self):
+    def test04_constructing_and_calling(self):
         """Test object and method calls."""
         import cppyy
         example01_class = cppyy.gbl.example01
@@ -125,7 +125,7 @@ class AppTestPYTHONIFY:
         instance.destruct()
         assert example01_class.getCount() == 0
 
-    def test4_passing_object_by_pointer(self):
+    def test05_passing_object_by_pointer(self):
         import cppyy
         example01_class = cppyy.gbl.example01
         payload_class = cppyy.gbl.payload
@@ -148,14 +148,14 @@ class AppTestPYTHONIFY:
         e.destruct()
         assert example01_class.getCount() == 0
 
-    def test5_returning_object_by_pointer(self):
+    def test06_returning_object_by_pointer(self):
         import cppyy
         example01_class = cppyy.gbl.example01
         payload_class = cppyy.gbl.payload
 
         pl = payload_class(3.14)
         assert round(pl.getData()-3.14, 8) == 0
-        
+
         pl2 = example01_class.staticCyclePayload(pl, 38.)
         assert pl2.getData() == 38.
 
@@ -163,7 +163,38 @@ class AppTestPYTHONIFY:
 
         pl2 = e.cyclePayload(pl)
         assert round(pl2.getData()-14., 8) == 0
-        
+
         pl.destruct()
         e.destruct()
         assert example01_class.getCount() == 0
+
+    def test07_returning_object_by_value(self):
+        import cppyy
+        example01_class = cppyy.gbl.example01
+        payload_class = cppyy.gbl.payload
+
+        pl = payload_class(3.14)
+        assert round(pl.getData()-3.14, 8) == 0
+
+        pl2 = example01_class.staticCopyCyclePayload(pl, 38.)
+        assert pl2.getData() == 38.
+        pl2.destruct()
+
+        e = example01_class(14)
+
+        pl2 = e.copyCyclePayload(pl)
+        assert round(pl2.getData()-14., 8) == 0
+        pl2.destruct()
+
+        pl.destruct()
+        e.destruct()
+        assert example01_class.getCount() == 0
+
+    def test08_global_functions(self):
+        import cppyy
+
+        assert cppyy.gbl.globalAddOneToInt(3) == 4     # creation lookup
+        assert cppyy.gbl.globalAddOneToInt(3) == 4     # cached lookup
+
+        assert cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
+        assert cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5

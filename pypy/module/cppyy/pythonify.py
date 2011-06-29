@@ -10,7 +10,6 @@ class CppyyScopeMeta(type):
     def __getattr__(self, attr):
         try:
             cppitem = get_cppitem(attr, self)
-            self.__dict__[attr] = cppitem
             return cppitem
         except TypeError:
             raise AttributeError("%s object has no attribute '%s'" % (self, attr))
@@ -45,7 +44,7 @@ class CppyyObject(object):
     __metaclass__ = CppyyClass
 
     def __init__(self, *args):
-        self._cppinstance = self._cppyyclass.construct(*args)
+        self._cppinstance = self._cpp_proxy.construct(*args)
         
     def destruct(self):
         self._cppinstance.destruct()
@@ -61,14 +60,14 @@ def bind_object(cppobj, cppclass):
 def make_static_function(cpptype, func_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
-        def method(*args):
+        def function(*args):
             return cpptype.invoke(cppol, *args)
     else:                                        # return instance
         cppclass = get_cppclass(rettype)
-        def method(*args):
+        def function(*args):
             return bind_object(cpptype.invoke(cppol, *args), cppclass)
-    method.__name__ = func_name
-    return staticmethod(method)
+    function.__name__ = func_name
+    return staticmethod(function)
 
 def make_method(meth_name, cppol):
     rettype = cppol.get_returntype()
@@ -84,11 +83,11 @@ def make_method(meth_name, cppol):
 
 
 def make_cppnamespace(namespace_name, cppns):
-    d = {}
+    d = {"_cpp_proxy" : cppns}
 
     # insert static methods into the "namespace" dictionary
     for func_name in cppns.get_method_names():
-        cppol = cppns.get_overload(f)
+        cppol = cppns.get_overload(func_name)
         d[func_name] = make_static_function(cppns, func_name, cppol)
 
     # create a meta class to allow properties (for static data write access)
@@ -130,7 +129,7 @@ def make_cppclass(class_name, cpptype):
     metacpp = type(CppyyClass)(class_name+'_meta', _drop_cycles(metabases), {})
 
     # create the python-side C++ class representation
-    d = {"_cppyyclass" : cpptype}
+    d = {"_cpp_proxy" : cpptype}
     pycpptype = metacpp(class_name, _drop_cycles(bases), d)
  
     # cache result early so that the class methods can find the class itself
@@ -160,11 +159,12 @@ def make_cpptemplatetype(template_name, scope):
     return CppyyTemplateType(scope, template_name)
 
 
-_existing_cppitems = {}               # to merge with gbl.__dict__ (?)
+_existing_cppitems = {}               # TODO: to merge with gbl.__dict__ (?)
 def get_cppitem(name, scope=None):
     if scope and not scope is gbl:
         fullname = scope.__name__+"::"+name
     else:
+        scope = gbl
         fullname = name
 
     # lookup class ...
@@ -173,19 +173,30 @@ def get_cppitem(name, scope=None):
     except KeyError:
         pass
 
-    # ... if lookup failed, create
+    # ... if lookup failed, create (classes, templates, functions)
     pycppitem = None
+
     cppitem = cppyy._type_byname(fullname)
     if cppitem:
         if cppitem.is_namespace():
             pycppitem = make_cppnamespace(fullname, cppitem)
         else:
             pycppitem = make_cppclass(fullname, cppitem)
-    else:
+        scope.__dict__[name] = pycppitem
+
+    if not cppitem:
         cppitem = cppyy._template_byname(fullname)
         if cppitem:
             pycppitem = make_cpptemplatetype(name, scope)
             _existing_cppitems[fullname] = pycppitem
+            scope.__dict__[name] = pycppitem
+
+    if not cppitem and isinstance(scope, CppyyNamespaceMeta):
+        scope._cpp_proxy.update()  # TODO: this is currently quadratic
+        cppitem = scope._cpp_proxy.get_overload(name)
+        pycppitem = make_static_function(scope._cpp_proxy, name, cppitem)
+        setattr(scope.__class__, name, pycppitem)
+        pycppitem = getattr(scope, name)
 
     if pycppitem:
         _existing_cppitems[fullname] = pycppitem
@@ -202,6 +213,17 @@ def _pythonize(pyclass):
     if hasattr(pyclass, 'size') and \
             not hasattr(pyclass,'__len__') and callable(pyclass.size):
         pyclass.__len__ = pyclass.size
+
+    # map begin()/end() protocol to iter protocol
+    if hasattr(pyclass, 'begin') and hasattr(pyclass, 'end'):
+        def __iter__(self):
+            iter = self.begin()
+            while gbl.__gnu_cxx.__ne__(iter, self.end()):
+                yield iter.__deref__()
+                iter.__preinc__()
+            iter.destruct()
+            raise StopIteration
+        pyclass.__iter__ = __iter__
 
 
 _loaded_shared_libs = {}
