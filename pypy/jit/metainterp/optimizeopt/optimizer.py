@@ -391,9 +391,9 @@ class Optimizer(Optimization):
             new.values[box] = value.get_cloned(new, valuemap)
             
         new.pure_operations = args_dict()
-        for key, op in self.pure_operations.items():
-            if op.result in short_boxes:
-                new.pure_operations[key] = op
+        #for key, op in self.pure_operations.items():
+        #    if op.result in short_boxes:
+        #        new.pure_operations[key] = op
         new.producer = self.producer
         assert self.posponedop is None
         new.quasi_immutable_deps = self.quasi_immutable_deps
@@ -419,8 +419,8 @@ class Optimizer(Optimization):
         return new
 
     def produce_potential_short_preamble_ops(self, potential_ops):
-        for op in self.emitted_pure_operations:
-            potential_ops[op.result] = op
+        #for op in self.emitted_pure_operations:
+        #    potential_ops[op.result] = op
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(potential_ops)
 

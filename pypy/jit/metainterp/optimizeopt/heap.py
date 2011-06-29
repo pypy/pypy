@@ -146,6 +146,7 @@ class OptHeap(Optimization):
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         new = OptHeap()
+        return new
 
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_cloned(optimizer, valuemap, short_boxes)
@@ -173,7 +174,8 @@ class OptHeap(Optimization):
 
         return new
 
-    def produce_potential_short_preamble_ops(self, potential_ops):        
+    def produce_potential_short_preamble_ops(self, potential_ops):
+        return
         for descr, d in self.cached_fields.items():
             d.produce_potential_short_preamble_ops(self.optimizer,
                                                    potential_ops, descr)
