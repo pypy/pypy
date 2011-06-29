@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.rlib.rarithmetic import intmask, r_int64
+from pypy.rlib.rarithmetic import r_int64
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -791,6 +791,7 @@ class LoopToken(AbstractDescr):
 
     def dump(self):
         self.compiled_loop_token.cpu.dump_loop_token(self)
+
 class TreeLoop(object):
     inputargs = None
     operations = None

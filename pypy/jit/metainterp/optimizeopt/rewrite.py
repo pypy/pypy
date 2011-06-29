@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.resoperation import opboolinvers, opboolreflex
 from pypy.jit.metainterp.history import ConstInt
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
@@ -184,6 +184,32 @@ class OptRewrite(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_FLOAT_MUL(self, op):
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+
+        # Constant fold f0 * 1.0 and turn f0 * -1.0 into a FLOAT_NEG, these
+        # work in all cases, including NaN and inf
+        for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
+            v1 = self.getvalue(lhs)
+            v2 = self.getvalue(rhs)
+
+            if v1.is_constant():
+                if v1.box.getfloat() == 1.0:
+                    self.make_equal_to(op.result, v2)
+                    return
+                elif v1.box.getfloat() == -1.0:
+                    self.emit_operation(ResOperation(
+                        rop.FLOAT_NEG, [rhs], op.result
+                    ))
+                    return
+        self.emit_operation(op)
+
+    def optimize_FLOAT_NEG(self, op):
+        v1 = op.getarg(0)
+        self.emit_operation(op)
+        self.pure(rop.FLOAT_NEG, [op.result], v1)
+
     def optimize_CALL_PURE(self, op):
         arg_consts = []
         for i in range(op.numargs()):
@@ -193,7 +219,7 @@ class OptRewrite(Optimization):
                 break
             arg_consts.append(const)
         else:
-            # all constant arguments: check if we already know the reslut
+            # all constant arguments: check if we already know the result
             try:
                 result = self.optimizer.call_pure_results[arg_consts]
             except KeyError:

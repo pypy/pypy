@@ -79,6 +79,7 @@ int pypy_main_function(int argc, char *argv[])
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
 #endif
     abort();
+    return 1;
 }
 
 int PYPY_MAIN_FUNCTION(int argc, char *argv[])

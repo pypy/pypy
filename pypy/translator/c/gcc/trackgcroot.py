@@ -271,7 +271,8 @@ class FunctionGcRootTracker(object):
 
             match = self.r_localvar_esp.match(localvar)
             if match:
-                if localvar == self.TOP_OF_STACK: # for pushl and popl, by
+                if localvar == self.TOP_OF_STACK_MINUS_WORD:
+                                                  # for pushl and popl, by
                     hint = None                   # default ebp addressing is
                 else:                             # a bit nicer
                     hint = 'esp'
@@ -526,8 +527,9 @@ class FunctionGcRootTracker(object):
         target = match.group("target")
         if target == self.ESP:
             # only for  andl $-16, %esp  used to align the stack in main().
-            # main() should not be seen at all.
-            raise AssertionError("instruction unexpected outside of main()")
+            # main() should not be seen at all.  But on e.g. MSVC we see
+            # the instruction somewhere else too...
+            return InsnCannotFollowEsp()
         else:
             return self.binary_insn(line)
 
@@ -591,10 +593,12 @@ class FunctionGcRootTracker(object):
     def _visit_push(self, line):
         match = self.r_unaryinsn.match(line)
         source = match.group(1)
-        return [InsnStackAdjust(-self.WORD)] + self.insns_for_copy(source, self.TOP_OF_STACK)
+        return self.insns_for_copy(source, self.TOP_OF_STACK_MINUS_WORD) + \
+               [InsnStackAdjust(-self.WORD)]
 
     def _visit_pop(self, target):
-        return self.insns_for_copy(self.TOP_OF_STACK, target) + [InsnStackAdjust(+self.WORD)]
+        return [InsnStackAdjust(+self.WORD)] + \
+               self.insns_for_copy(self.TOP_OF_STACK_MINUS_WORD, target)
 
     def _visit_prologue(self):
         # for the prologue of functions that use %ebp as frame pointer
@@ -986,15 +990,15 @@ class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
     LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
     OFFSET_LABELS   = 2**30
-    TOP_OF_STACK = '0(%esp)'
+    TOP_OF_STACK_MINUS_WORD = '-4(%esp)'
 
     r_functionstart = re.compile(r"\t.type\s+"+LABEL+",\s*[@]function\s*$")
     r_functionend   = re.compile(r"\t.size\s+"+LABEL+",\s*[.]-"+LABEL+"\s*$")
-    LOCALVAR        = r"%eax|%edx|%ecx|%ebx|%esi|%edi|%ebp|\d*[(]%esp[)]"
+    LOCALVAR        = r"%eax|%edx|%ecx|%ebx|%esi|%edi|%ebp|-?\d*[(]%esp[)]"
     LOCALVARFP      = LOCALVAR + r"|-?\d*[(]%ebp[)]"
     r_localvarnofp  = re.compile(LOCALVAR)
     r_localvarfp    = re.compile(LOCALVARFP)
-    r_localvar_esp  = re.compile(r"(\d*)[(]%esp[)]")
+    r_localvar_esp  = re.compile(r"(-?\d*)[(]%esp[)]")
     r_localvar_ebp  = re.compile(r"(-?\d*)[(]%ebp[)]")
 
     r_rel_label      = re.compile(r"(\d+):\s*$")
@@ -1047,7 +1051,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
     LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
     OFFSET_LABELS   = 2**30
-    TOP_OF_STACK = '0(%rsp)'
+    TOP_OF_STACK_MINUS_WORD = '-8(%rsp)'
 
     r_functionstart = re.compile(r"\t.type\s+"+LABEL+",\s*[@]function\s*$")
     r_functionend   = re.compile(r"\t.size\s+"+LABEL+",\s*[.]-"+LABEL+"\s*$")
@@ -1143,7 +1147,7 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker32):
     CALLEE_SAVE_REGISTERS = ['ebx', 'esi', 'edi', 'ebp']
     REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
-    TOP_OF_STACK = 'DWORD PTR [esp]'
+    TOP_OF_STACK_MINUS_WORD = 'DWORD PTR [esp-4]'
 
     OPERAND = r'(?:(:?WORD|DWORD|BYTE) PTR |OFFSET )?[_\w?:@$]*(?:[-+0-9]+)?(:?\[[-+*\w0-9]+\])?'
     LABEL   = r'([a-zA-Z_$@.][a-zA-Z0-9_$@.]*)'
@@ -1173,7 +1177,7 @@ class MsvcFunctionGcRootTracker(FunctionGcRootTracker32):
     r_gcroot_marker = re.compile(r"$1") # never matches
     r_gcroot_marker_var = re.compile(r"DWORD PTR .+_constant_always_one_.+pypy_asm_gcroot")
     r_gcnocollect_marker = re.compile(r"\spypy_asm_gc_nocollect\(("+OPERAND+")\);")
-    r_bottom_marker = re.compile(r"; .+\tpypy_asm_stack_bottom\(\);")
+    r_bottom_marker = re.compile(r"; .+\spypy_asm_stack_bottom\(\);")
 
     FUNCTIONS_NOT_RETURNING = {
         '__exit': None,

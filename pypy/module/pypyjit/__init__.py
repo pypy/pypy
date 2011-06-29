@@ -8,6 +8,7 @@ class Module(MixedModule):
         'set_param':    'interp_jit.set_param',
         'residual_call': 'interp_jit.residual_call',
         'set_compile_hook': 'interp_jit.set_compile_hook',
+        'DebugMergePoint': 'interp_resop.W_DebugMergePoint',
     }
 
     def setup_after_space_initialization(self):

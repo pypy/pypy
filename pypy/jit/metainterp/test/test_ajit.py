@@ -500,7 +500,7 @@ class BasicTests:
                 y -= x
             return y
         #
-        res = self.meta_interp(f, [3, 6], repeat=7)
+        res = self.meta_interp(f, [3, 6], repeat=7, function_threshold=0)
         assert res == 6 - 4 - 5
         self.check_history(call=0)   # because the trace starts in the middle
         #
@@ -1677,6 +1677,8 @@ class BasicTests:
         res = self.meta_interp(g, [6, 14])
         assert res == g(6, 14)
         self.check_loop_count(9)
+        self.check_loops(getarrayitem_gc=8, everywhere=True)
+        py.test.skip("for the following, we need setarrayitem(varindex)")
         self.check_loops(getarrayitem_gc=6, everywhere=True)
 
     def test_multiple_specialied_versions_bridge(self):
@@ -2230,6 +2232,87 @@ class BasicTests:
         self.check_loops(getfield_gc_pure=0)
         self.check_loops(getfield_gc_pure=2, everywhere=True)
         
+    def test_frame_finished_during_retrace(self):
+        class Base(object):
+            pass
+        class A(Base):
+            def __init__(self, a):
+                self.val = a
+                self.num = 1
+            def inc(self):
+                return A(self.val + 1)
+        class B(Base):
+            def __init__(self, a):
+                self.val = a
+                self.num = 1000
+            def inc(self):
+                return B(self.val + 1)
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'a'])
+        def f():
+            myjitdriver.set_param('threshold', 3)
+            myjitdriver.set_param('trace_eagerness', 2)
+            a = A(0)
+            sa = 0
+            while a.val < 8:
+                myjitdriver.jit_merge_point(a=a, sa=sa)
+                a = a.inc()
+                if a.val > 4:
+                    a = B(a.val)
+                sa += a.num
+            return sa
+        res = self.meta_interp(f, [])
+        assert res == f()
+        
+    def test_frame_finished_during_continued_retrace(self):
+        class Base(object):
+            pass
+        class A(Base):
+            def __init__(self, a):
+                self.val = a
+                self.num = 100
+            def inc(self):
+                return A(self.val + 1)
+        class B(Base):
+            def __init__(self, a):
+                self.val = a
+                self.num = 10000
+            def inc(self):
+                return B(self.val + 1)
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'b', 'a'])
+        def f(b):
+            myjitdriver.set_param('threshold', 6)
+            myjitdriver.set_param('trace_eagerness', 4)
+            a = A(0)
+            sa = 0
+            while a.val < 15:
+                myjitdriver.jit_merge_point(a=a, b=b, sa=sa)
+                a = a.inc()
+                if a.val > 8:
+                    a = B(a.val)
+                if b == 1:
+                    b = 2
+                else:
+                    b = 1
+                sa += a.num + b
+            return sa
+        res = self.meta_interp(f, [1])
+        assert res == f(1)
+
+    def test_remove_array_operations(self):
+        myjitdriver = JitDriver(greens = [], reds = ['a'])
+        class W_Int:
+            def __init__(self, intvalue):
+                self.intvalue = intvalue
+        def f(x):
+            a = [W_Int(x)]
+            while a[0].intvalue > 0:
+                myjitdriver.jit_merge_point(a=a)
+                a[0] = W_Int(a[0].intvalue - 3)
+            return a[0].intvalue
+        res = self.meta_interp(f, [100])
+        assert res == -2
+        #self.check_loops(getarrayitem_gc=0, setarrayitem_gc=0) -- xxx?
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

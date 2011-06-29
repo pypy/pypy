@@ -703,22 +703,28 @@ class Assembler386(object):
         # we need to put two words into the shadowstack: the MARKER
         # and the address of the frame (ebp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
-        assert rx86.fits_in_32bits(rst)
-        if IS_X86_64:
-            # cannot use rdx here, it's used to pass arguments!
-            tmp = X86_64_SCRATCH_REG
+        if rx86.fits_in_32bits(rst):
+            self.mc.MOV_rj(eax.value, rst)            # MOV eax, [rootstacktop]
         else:
-            tmp = edx
-        self.mc.MOV_rj(eax.value, rst)                # MOV eax, [rootstacktop]
-        self.mc.LEA_rm(tmp.value, (eax.value, 2*WORD))  # LEA edx, [eax+2*WORD]
+            self.mc.MOV_ri(r13.value, rst)            # MOV r13, rootstacktop
+            self.mc.MOV_rm(eax.value, (r13.value, 0)) # MOV eax, [r13]
+        #
+        self.mc.LEA_rm(ebx.value, (eax.value, 2*WORD))  # LEA ebx, [eax+2*WORD]
         self.mc.MOV_mi((eax.value, 0), gcrootmap.MARKER)    # MOV [eax], MARKER
         self.mc.MOV_mr((eax.value, WORD), ebp.value)      # MOV [eax+WORD], ebp
-        self.mc.MOV_jr(rst, tmp.value)                # MOV [rootstacktop], edx
+        #
+        if rx86.fits_in_32bits(rst):
+            self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
+        else:
+            self.mc.MOV_mr((r13.value, 0), ebx.value) # MOV [r13], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
-        assert rx86.fits_in_32bits(rst)
-        self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
+        if rx86.fits_in_32bits(rst):
+            self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
+        else:
+            self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
+            self.mc.SUB_mi8((ebx.value, 0), 2*WORD)  # SUB [ebx], 2*WORD
 
     def _assemble_bootstrap_direct_call(self, arglocs, jmppos, stackdepth):
         if IS_X86_64:
@@ -889,7 +895,7 @@ class Assembler386(object):
 
     def regalloc_push(self, loc):
         if isinstance(loc, RegLoc) and loc.is_xmm:
-            self.mc.SUB_ri(esp.value, 2*WORD)
+            self.mc.SUB_ri(esp.value, 8)   # = size of doubles
             self.mc.MOVSD_sx(0, loc.value)
         elif WORD == 4 and isinstance(loc, StackLoc) and loc.width == 8:
             # XXX evil trick
@@ -901,7 +907,7 @@ class Assembler386(object):
     def regalloc_pop(self, loc):
         if isinstance(loc, RegLoc) and loc.is_xmm:
             self.mc.MOVSD_xs(loc.value, 0)
-            self.mc.ADD_ri(esp.value, 2*WORD)
+            self.mc.ADD_ri(esp.value, 8)   # = size of doubles
         elif WORD == 4 and isinstance(loc, StackLoc) and loc.width == 8:
             # XXX evil trick
             self.mc.POP_b(get_ebp_ofs(loc.position + 1))
@@ -2223,15 +2229,26 @@ class Assembler386(object):
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls the
-        # function remember_young_pointer() from the GC.  The two arguments
-        # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
+        # function remember_young_pointer() from the GC.  The arguments
+        # to the call are in arglocs[:N].  The rest, arglocs[N:], contains
         # registers that need to be saved and restored across the call.
-        # If op.getarg(1) is a int, it is an array index and we must call
-        # instead remember_young_pointer_from_array().
+        # N is either 2 (regular write barrier) or 3 (array write barrier).
         descr = op.getdescr()
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
+        #
+        opnum = op.getopnum()
+        if opnum == rop.COND_CALL_GC_WB:
+            N = 2
+            func = descr.get_write_barrier_fn(self.cpu)
+        elif opnum == rop.COND_CALL_GC_WB_ARRAY:
+            N = 3
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            assert func != 0
+        else:
+            raise AssertionError(opnum)
+        #
         loc_base = arglocs[0]
         self.mc.TEST8(addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs),
                       imm(descr.jit_wb_if_flag_singlebyte))
@@ -2242,29 +2259,27 @@ class Assembler386(object):
         if IS_X86_32:
             limit = -1      # push all arglocs on the stack
         elif IS_X86_64:
-            limit = 1       # push only arglocs[2:] on the stack
+            limit = N - 1   # push only arglocs[N:] on the stack
         for i in range(len(arglocs)-1, limit, -1):
             loc = arglocs[i]
             if isinstance(loc, RegLoc):
                 self.mc.PUSH_r(loc.value)
             else:
-                assert not IS_X86_64 # there should only be regs in arglocs[2:]
+                assert not IS_X86_64 # there should only be regs in arglocs[N:]
                 self.mc.PUSH_i32(loc.getint())
         if IS_X86_64:
             # We clobber these registers to pass the arguments, but that's
             # okay, because consider_cond_call_gc_wb makes sure that any
             # caller-save registers with values in them are present in
-            # arglocs[2:] too, so they are saved on the stack above and
+            # arglocs[N:] too, so they are saved on the stack above and
             # restored below.
-            remap_frame_layout(self, arglocs[:2], [edi, esi],
+            if N == 2:
+                callargs = [edi, esi]
+            else:
+                callargs = [edi, esi, edx]
+            remap_frame_layout(self, arglocs[:N], callargs,
                                X86_64_SCRATCH_REG)
-
-        if op.getarg(1).type == INT:
-            func = descr.get_write_barrier_from_array_fn(self.cpu)
-            assert func != 0
-        else:
-            func = descr.get_write_barrier_fn(self.cpu)
-
+        #
         # misaligned stack in the call, but it's ok because the write barrier
         # is not going to call anything more.  Also, this assumes that the
         # write barrier does not touch the xmm registers.  (Slightly delicate
@@ -2273,8 +2288,8 @@ class Assembler386(object):
         # be done properly)
         self.mc.CALL(imm(func))
         if IS_X86_32:
-            self.mc.ADD_ri(esp.value, 2*WORD)
-        for i in range(2, len(arglocs)):
+            self.mc.ADD_ri(esp.value, N*WORD)
+        for i in range(N, len(arglocs)):
             loc = arglocs[i]
             assert isinstance(loc, RegLoc)
             self.mc.POP_r(loc.value)
@@ -2282,6 +2297,8 @@ class Assembler386(object):
         offset = self.mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
         self.mc.overwrite(jz_location-1, chr(offset))
+
+    genop_discard_cond_call_gc_wb_array = genop_discard_cond_call_gc_wb
 
     def genop_force_token(self, op, arglocs, resloc):
         # RegAlloc.consider_force_token ensures this:

@@ -2,8 +2,8 @@ from pypy.rpython.lltypesystem import llmemory
 from pypy.rlib.libffi import Func, types
 from pypy.jit.metainterp.history import AbstractDescr
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.test.test_optimizebasic import BaseTestBasic
-from pypy.jit.metainterp.test.test_optimizebasic import LLtypeMixin
+from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import BaseTestBasic
+from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import LLtypeMixin
 
 class MyCallDescr(AbstractDescr):
     """
@@ -32,7 +32,8 @@ class FakeLLObject(object):
 
 
 class TestFfiCall(BaseTestBasic, LLtypeMixin):
-    jit_ffi = True
+
+    enable_opts = "intbounds:rewrite:virtualize:string:heap:ffi"
 
     class namespace:
         cpu = LLtypeMixin.cpu
@@ -50,7 +51,7 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
                              restype=types.sint)
         #
         def calldescr(cpu, FUNC, oopspecindex, extraeffect=None):
-            einfo = EffectInfo([], [], [], oopspecindex=oopspecindex,
+            einfo = EffectInfo([], [], [], [], oopspecindex=oopspecindex,
                                extraeffect=extraeffect)
             return cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, einfo)
         #

@@ -35,6 +35,15 @@ def test_include_write_field():
     assert not effectinfo.readonly_descrs_fields
     assert not effectinfo.write_descrs_arrays
 
+def test_include_read_array():
+    A = lltype.GcArray(lltype.Signed)
+    effects = frozenset([("readarray", lltype.Ptr(A))])
+    effectinfo = effectinfo_from_writeanalyze(effects, FakeCPU())
+    assert not effectinfo.readonly_descrs_fields
+    assert list(effectinfo.readonly_descrs_arrays) == [('arraydescr', A)]
+    assert not effectinfo.write_descrs_fields
+    assert not effectinfo.write_descrs_arrays
+
 def test_include_write_array():
     A = lltype.GcArray(lltype.Signed)
     effects = frozenset([("array", lltype.Ptr(A))])
@@ -51,6 +60,16 @@ def test_dont_include_read_and_write_field():
     assert not effectinfo.readonly_descrs_fields
     assert list(effectinfo.write_descrs_fields) == [('fielddescr', S, "a")]
     assert not effectinfo.write_descrs_arrays
+
+def test_dont_include_read_and_write_array():
+    A = lltype.GcArray(lltype.Signed)
+    effects = frozenset([("readarray", lltype.Ptr(A)),
+                         ("array", lltype.Ptr(A))])
+    effectinfo = effectinfo_from_writeanalyze(effects, FakeCPU())
+    assert not effectinfo.readonly_descrs_fields
+    assert not effectinfo.readonly_descrs_arrays
+    assert not effectinfo.write_descrs_fields
+    assert list(effectinfo.write_descrs_arrays) == [('arraydescr', A)]
 
 
 def test_filter_out_typeptr():

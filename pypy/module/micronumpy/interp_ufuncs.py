@@ -8,22 +8,24 @@ from pypy.tool.sourcetools import func_with_new_name
 
 def ufunc(func):
     signature = Signature()
-    @unwrap_spec(array=BaseArray)
-    def impl(space, array):
-        w_res = Call1(func, array, array.signature.transition(signature))
-        array.invalidates.append(w_res)
-        return w_res
+    def impl(space, w_obj):
+        if isinstance(w_obj, BaseArray):
+            w_res = Call1(func, w_obj, w_obj.signature.transition(signature))
+            w_obj.invalidates.append(w_res)
+            return w_res
+        return space.wrap(func(space.float_w(w_obj)))
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 def ufunc2(func):
     signature = Signature()
-    @unwrap_spec(larray=BaseArray, rarray=BaseArray)
-    def impl(space, larray, rarray):
-        new_sig = larray.signature.transition(signature).transition(rarray.signature)
-        w_res = Call2(func, larray, rarray, new_sig)
-        larray.invalidates.append(w_res)
-        rarray.invalidates.append(w_res)
-        return w_res
+    def impl(space, w_lhs, w_rhs):
+        if isinstance(w_lhs, BaseArray) and isinstance(w_rhs, BaseArray):
+            new_sig = w_lhs.signature.transition(signature).transition(w_rhs.signature)
+            w_res = Call2(func, w_lhs, w_rhs, new_sig)
+            w_lhs.invalidates.append(w_res)
+            w_rhs.invalidates.append(w_res)
+            return w_res
+        return space.wrap(func(space.float_w(w_lhs), space.float_w(w_rhs)))
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 @ufunc
@@ -58,6 +60,10 @@ def reciprocal(value):
     if value == 0.0:
         return rfloat.copysign(rfloat.INFINITY, value)
     return 1.0 / value
+
+@ufunc
+def floor(value):
+    return math.floor(value)
 
 @ufunc
 def sign(value):

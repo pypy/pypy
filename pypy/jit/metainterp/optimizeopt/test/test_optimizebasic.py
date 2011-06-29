@@ -1,40 +1,15 @@
 import py
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.metainterp.test.test_optimizeutil import (LLtypeMixin,
-                                                        #OOtypeMixin,
-                                                        BaseTest)
+from pypy.jit.metainterp.optimizeopt.test.test_util import (
+    LLtypeMixin, BaseTest, FakeMetaInterpStaticData)
 from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
-from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
-from pypy.jit.tool.oparser import pure_parse
-from pypy.jit.metainterp.optimizeutil import args_dict
 
-##class FakeFrame(object):
-##    parent_resumedata_snapshot = None
-##    parent_resumedata_frame_info_list = None
-
-##    def __init__(self, code="", pc=0):
-##        self.jitcode = code
-##        self.pc = pc
-
-class Fake(object):
-    failargs_limit = 1000
-    storedebug = None
-
-class FakeMetaInterpStaticData(object):
-
-    def __init__(self, cpu):
-        self.cpu = cpu
-        self.profiler = EmptyProfiler()
-        self.options = Fake()
-        self.globaldata = Fake()
-        self.logger_ops = FakeLogger()
-        self.logger_noopt = FakeLogger()
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
@@ -104,7 +79,7 @@ def test_reuse_vinfo():
     assert vinfo3 is vinfo4
 
 def test_descrlist_dict():
-    from pypy.jit.metainterp import optimizeutil
+    from pypy.jit.metainterp.optimizeopt import util as optimizeutil
     h1 = optimizeutil.descrlist_hash([])
     h2 = optimizeutil.descrlist_hash([LLtypeMixin.valuedescr])
     h3 = optimizeutil.descrlist_hash(
@@ -133,158 +108,54 @@ def test_descrlist_dict():
 
 # ____________________________________________________________
 
-def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
-                 text_right=None):
-    # try to use the full width of the terminal to display the list
-    # unfortunately, does not work with the default capture method of py.test
-    # (which is fd), you you need to use either -s or --capture=sys, else you
-    # get the standard 80 columns width
-    totwidth = py.io.get_terminal_width()
-    width = totwidth / 2 - 1
-    print ' Comparing lists '.center(totwidth, '-')
-    text_right = text_right or 'expected'
-    print '%s| %s' % ('optimized'.center(width), text_right.center(width))
-    for op1, op2 in zip(oplist1, oplist2):
-        txt1 = str(op1)
-        txt2 = str(op2)
-        while txt1 or txt2:
-            print '%s| %s' % (txt1[:width].ljust(width), txt2[:width])
-            txt1 = txt1[width:]
-            txt2 = txt2[width:]
-        assert op1.getopnum() == op2.getopnum()
-        assert op1.numargs() == op2.numargs()
-        for i in range(op1.numargs()):
-            x = op1.getarg(i)
-            y = op2.getarg(i)
-            assert x == remap.get(y, y)
-        if op2.result in remap:
-            assert op1.result == remap[op2.result]
-        else:
-            remap[op2.result] = op1.result
-        if op1.getopnum() != rop.JUMP:      # xxx obscure
-            assert op1.getdescr() == op2.getdescr()
-        if op1.getfailargs() or op2.getfailargs():
-            assert len(op1.getfailargs()) == len(op2.getfailargs())
-            if strict_fail_args:
-                for x, y in zip(op1.getfailargs(), op2.getfailargs()):
-                    assert x == remap.get(y, y)
-            else:
-                fail_args1 = set(op1.getfailargs())
-                fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])
-                assert fail_args1 == fail_args2
-    assert len(oplist1) == len(oplist2)
-    print '-'*totwidth
-    return True
-
-def test_equaloplists():
-    ops = """
-    [i0]
-    i1 = int_add(i0, 1)
-    i2 = int_add(i1, 1)
-    guard_true(i1) [i2]
-    jump(i1)
-    """
-    namespace = {}
-    loop1 = pure_parse(ops, namespace=namespace)
-    loop2 = pure_parse(ops, namespace=namespace)
-    loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
-                       namespace=namespace)
-    assert equaloplists(loop1.operations, loop2.operations)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
-
-def test_equaloplists_fail_args():
-    ops = """
-    [i0]
-    i1 = int_add(i0, 1)
-    i2 = int_add(i1, 1)
-    guard_true(i1) [i2, i1]
-    jump(i1)
-    """
-    namespace = {}
-    loop1 = pure_parse(ops, namespace=namespace)
-    loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
-                       namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop2.operations)")
-    assert equaloplists(loop1.operations, loop2.operations,
-                        strict_fail_args=False)
-    loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
-                       namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
-
-# ____________________________________________________________
-
-class Storage(compile.ResumeGuardDescr):
-    "for tests."
-    def __init__(self, metainterp_sd=None, original_greenkey=None):
-        self.metainterp_sd = metainterp_sd
-        self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes):
-        op.setfailargs(boxes)
-    def __eq__(self, other):
-        return type(self) is type(other)      # xxx obscure
-
-def _sortboxes(boxes):
-    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
-    return sorted(boxes, key=lambda box: _kind2count[box.type])
 
 class BaseTestBasic(BaseTest):
 
-    def invent_fail_descr(self, fail_args):
-        if fail_args is None:
-            return None
-        descr = Storage()
-        descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-        descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
-        return descr
-
-    def assert_equal(self, optimized, expected):
-        assert len(optimized.inputargs) == len(expected.inputargs)
-        remap = {}
-        for box1, box2 in zip(optimized.inputargs, expected.inputargs):
-            assert box1.__class__ == box2.__class__
-            remap[box2] = box1
-        assert equaloplists(optimized.operations,
-                            expected.operations, False, remap)
+    enable_opts = "intbounds:rewrite:virtualize:string:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
-        loop = self.parse(ops)
-        #
-        self.loop = loop
-        loop.call_pure_results = args_dict()
-        if call_pure_results is not None:
-            for k, v in call_pure_results.items():
-                loop.call_pure_results[list(k)] = v
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
-        #
-        # XXX list the exact optimizations that are needed for each test
-        from pypy.jit.metainterp.optimizeopt import (OptIntBounds,
-                                                     OptRewrite,
-                                                     OptVirtualize,
-                                                     OptString,
-                                                     OptHeap,
-                                                     Optimizer)
-        from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 
-        optimizations = [OptIntBounds(),
-                         OptRewrite(),
-                         OptVirtualize(),
-                         OptString(),
-                         OptHeap(),
-                         OptFfiCall(),
-                         ]
-        optimizer = Optimizer(metainterp_sd, loop, optimizations)
-        optimizer.propagate_all_forward()
-        #
+        loop = self.parse(ops)
         expected = self.parse(optops)
+        self._do_optimize_loop(loop, call_pure_results)
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
+
+    def setup_method(self, meth=None):
+        class FailDescr(compile.ResumeGuardDescr):
+            oparse = None
+            def _oparser_uses_descr_of_guard(self, oparse, fail_args):
+                # typically called 3 times: once when parsing 'ops',
+                # once when parsing 'preamble', once when parsing 'expected'.
+                self.oparse = oparse
+                self.rd_frame_info_list, self.rd_snapshot = snapshot(fail_args)
+            def _clone_if_mutable(self):
+                assert self is fdescr
+                return fdescr2
+            def __repr__(self):
+                if self is fdescr:
+                    return 'fdescr'
+                if self is fdescr2:
+                    return 'fdescr2'
+                return compile.ResumeGuardDescr.__repr__(self)
+        #
+        def snapshot(fail_args, got=[]):
+            if not got:    # only the first time, i.e. when parsing 'ops'
+                rd_frame_info_list = resume.FrameInfo(None, "code", 11)
+                rd_snapshot = resume.Snapshot(None, fail_args)
+                got.append(rd_frame_info_list)
+                got.append(rd_snapshot)
+            return got
+        #
+        fdescr = instantiate(FailDescr)
+        self.namespace['fdescr'] = fdescr
+        fdescr2 = instantiate(FailDescr)
+        self.namespace['fdescr2'] = fdescr2
+
+    def teardown_method(self, meth):
+        self.namespace.pop('fdescr', None)
+        self.namespace.pop('fdescr2', None)
+
 
 
 class BaseTestOptimizeBasic(BaseTestBasic):
@@ -1234,8 +1105,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i1, p0]
-        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
         p1 = new_array(i1, descr=arraydescr)
+        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
         jump(i1, p1)
         """
         self.optimize_loop(ops, expected)
@@ -1600,9 +1471,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i3 = getarrayitem_gc_pure(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
-        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         #
         setfield_gc(p1, i2, descr=valuedescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         setfield_gc(p1, i4, descr=nextdescr)
         jump(p1, i1, i2, p3)
         """
@@ -1776,6 +1647,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
+        py.test.skip("setarrayitem with variable index")
         ops = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
@@ -2038,7 +1910,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_merge_guard_nonnull_guard_class(self):
-        self.make_fail_descr()
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1, descr=fdescr) [i0]
@@ -2056,7 +1927,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.check_expanded_fail_descr("i0", rop.GUARD_NONNULL_CLASS)
 
     def test_merge_guard_nonnull_guard_value(self):
-        self.make_fail_descr()
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1, descr=fdescr) [i0]
@@ -2074,7 +1944,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
     def test_merge_guard_nonnull_guard_class_guard_value(self):
-        self.make_fail_descr()
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1, descr=fdescr) [i0]
@@ -2290,24 +2159,82 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_fold_constant_partial_ops_float(self):
+        ops = """
+        [f0]
+        f1 = float_mul(f0, 1.0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f2 = escape(f0)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [f0]
+        f1 = float_mul(1.0, f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f2 = escape(f0)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+
+        ops = """
+        [f0]
+        f1 = float_mul(f0, -1.0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [f0]
+        f1 = float_mul(-1.0, f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        expected = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = escape(f1)
+        jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_fold_repeated_float_neg(self):
+        ops = """
+        [f0]
+        f1 = float_neg(f0)
+        f2 = float_neg(f1)
+        f3 = float_neg(f2)
+        f4 = float_neg(f3)
+        escape(f4)
+        jump(f4)
+        """
+        expected = """
+        [f0]
+        # The backend removes this dead op.
+        f1 = float_neg(f0)
+        escape(f0)
+        jump(f0)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
-
-    def make_fail_descr(self):
-        class FailDescr(compile.ResumeGuardDescr):
-            oparse = None
-            def _oparser_uses_descr_of_guard(self, oparse, fail_args):
-                # typically called twice, before and after optimization
-                if self.oparse is None:
-                    fdescr.rd_frame_info_list = resume.FrameInfo(None,
-                                                                 "code", 11)
-                    fdescr.rd_snapshot = resume.Snapshot(None, fail_args)
-                self.oparse = oparse
-        #
-        fdescr = instantiate(FailDescr)
-        self.namespace['fdescr'] = fdescr
-
-    def teardown_method(self, meth):
-        self.namespace.pop('fdescr', None)
 
     def _verify_fail_args(self, boxes, oparse, text):
         import re
@@ -2417,7 +2344,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self._verify_fail_args(boxes, fdescr.oparse, expectedtext)
 
     def test_expand_fail_1(self):
-        self.make_fail_descr()
         ops = """
         [i1, i3]
         # first rename i3 into i4
@@ -2438,7 +2364,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.check_expanded_fail_descr('15, i3', rop.GUARD_TRUE)
 
     def test_expand_fail_2(self):
-        self.make_fail_descr()
         ops = """
         [i1, i2]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -2458,7 +2383,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_3(self):
-        self.make_fail_descr()
         ops = """
         [i1, i2, i3, p3]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -2484,7 +2408,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_expand_fail_4(self):
         for arg in ['p1', 'i2,p1', 'p1,p2', 'p2,p1',
                     'i2,p1,p2', 'i2,p2,p1']:
-            self.make_fail_descr()
+            self.setup_method() # humpf
             ops = """
             [i1, i2, i3]
             p1 = new_with_vtable(ConstClass(node_vtable))
@@ -2509,7 +2433,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                                            rop.GUARD_TRUE)
 
     def test_expand_fail_5(self):
-        self.make_fail_descr()
         ops = """
         [i1, i2, i3, i4]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -2533,7 +2456,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_6(self):
-        self.make_fail_descr()
         ops = """
         [p0, i0, i1]
         guard_true(i0, descr=fdescr) [p0]
@@ -2554,7 +2476,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_varray(self):
-        self.make_fail_descr()
         ops = """
         [i1]
         p1 = new_array(3, descr=arraydescr)
@@ -2575,7 +2496,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_vstruct(self):
-        self.make_fail_descr()
         ops = """
         [i1, p1]
         p2 = new(descr=ssize)
@@ -2597,7 +2517,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_v_all_1(self):
-        self.make_fail_descr()
         ops = """
         [i1, p1a, i2]
         p6s = getarrayitem_gc(p1a, 0, descr=arraydescr2)
@@ -2639,7 +2558,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_lazy_setfield_1(self):
-        self.make_fail_descr()
         ops = """
         [p1, i2, i3]
         p2 = new_with_vtable(ConstClass(node_vtable))
@@ -2665,7 +2583,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_lazy_setfield_2(self):
-        self.make_fail_descr()
         ops = """
         [i2, i3]
         p2 = new_with_vtable(ConstClass(node_vtable))
@@ -2688,9 +2605,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             ConstPtr(myptr).nextdescr = p2
             where p2 is a node_vtable, valuedescr=i2
             ''', rop.GUARD_TRUE)
-
-
-class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
 
     def test_residual_call_does_not_invalidate_caches(self):
         ops = """
@@ -2983,7 +2897,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         self.optimize_loop(ops, expected)
 
     def test_vref_virtual_2(self):
-        self.make_fail_descr()
         ops = """
         [p0, i1]
         #
@@ -3029,7 +2942,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
             ''', rop.GUARD_NOT_FORCED)
 
     def test_vref_virtual_and_lazy_setfield(self):
-        self.make_fail_descr()
         ops = """
         [p0, i1]
         #
@@ -3068,7 +2980,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
             ''', rop.GUARD_NO_EXCEPTION)
 
     def test_vref_virtual_after_finish(self):
-        self.make_fail_descr()
         ops = """
         [i1]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3095,7 +3006,6 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         self.optimize_loop(ops, expected)
 
     def test_vref_nonvirtual_and_lazy_setfield(self):
-        self.make_fail_descr()
         ops = """
         [i1, p1]
         p2 = virtual_ref(p1, 23)
@@ -4568,6 +4478,47 @@ class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
         # more generally, supporting non-constant but virtual cases is
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
+
+    def test_strgetitem_repeated(self):
+        ops = """
+        [p0, i0]
+        i1 = strgetitem(p0, i0)
+        i2 = strgetitem(p0, i0)
+        i3 = int_eq(i1, i2)
+        guard_true(i3) []
+        escape(i2)
+        jump(p0, i0)
+        """
+        expected = """
+        [p0, i0]
+        i1 = strgetitem(p0, i0)
+        escape(i1)
+        jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_is_true_bounds(self):
+        ops = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        i2 = int_ge(0, i0)
+        guard_false(i2) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+
+class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
+    pass
 
 
 ##class TestOOtype(BaseTestOptimizeBasic, OOtypeMixin):

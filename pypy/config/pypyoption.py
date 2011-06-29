@@ -84,6 +84,7 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
+    "_ffi":    [("translation.jit_ffi", True)],
 }
 
 module_import_dependencies = {

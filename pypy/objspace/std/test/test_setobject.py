@@ -50,6 +50,10 @@ class TestW_SetObject:
         u = self.space.wrap(set('simsalabim'))
         assert self.space.eq_w(s,u)
 
+    def test_space_newset(self):
+        s = self.space.newset()
+        assert self.space.str_w(self.space.repr(s)) == 'set([])'
+
 class AppTestAppSetTest:
     def test_subtype(self):
         class subset(set):pass

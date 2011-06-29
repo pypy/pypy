@@ -3,9 +3,9 @@
 It uses 'pypy/translator/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py root-pypy-dir [name-of-archive] [name-of-pypy-c]
+    package.py root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
 
-Usually you would do:   package.py ../../.. pypy-VER-PLATFORM.
+Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.
 """
 
@@ -122,7 +122,10 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
+            if sys.platform == 'darwin':
+                e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+            else:
+                e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:

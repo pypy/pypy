@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
-from pypy.jit.metainterp.optimizeutil import descrlist_dict
+from pypy.jit.metainterp.optimizeopt.util import _findall, sort_descrs
+from pypy.jit.metainterp.optimizeopt.util import descrlist_dict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.optimizeopt import optimizer
 from pypy.jit.metainterp.executor import execute
@@ -19,6 +19,9 @@ class AbstractVirtualValue(optimizer.OptValue):
         self.keybox = keybox   # only used as a key in dictionaries
         self.source_op = source_op  # the NEW_WITH_VTABLE/NEW_ARRAY operation
                                     # that builds this box
+
+    def is_forced_virtual(self):
+        return self.box is not None
 
     def get_key_box(self):
         if self.box is None:
@@ -120,7 +123,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
                 newoperations.append(op)
-            self._fields = None
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
@@ -351,7 +353,7 @@ class OptVirtualize(optimizer.Optimization):
         if not self.optimizer.cpu.ts.CONST_NULL.same_constant(objbox):
             seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
                              descr = vrefinfo.descr_forced))
-        
+
         # - set 'virtual_token' to TOKEN_NONE
         args = [op.getarg(0), ConstInt(vrefinfo.TOKEN_NONE)]
         seo(ResOperation(rop.SETFIELD_GC, args, None,
@@ -365,6 +367,14 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_GETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
+        # If this is an immutable field (as indicated by op.is_always_pure())
+        # then it's safe to reuse the virtual's field, even if it has been
+        # forced, because it should never be written to again.
+        if value.is_forced_virtual() and op.is_always_pure():
+            fieldvalue = value.getfield(op.getdescr(), None)
+            if fieldvalue is not None:
+                self.make_equal_to(op.result, fieldvalue)
+                return
         if value.is_virtual():
             assert isinstance(value, AbstractVirtualValue)
             fieldvalue = value.getfield(op.getdescr(), None)
@@ -382,6 +392,7 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_SETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
+
         if value.is_virtual():
             fieldvalue = self.getvalue(op.getarg(1))
             value.setfield(op.getdescr(), fieldvalue)

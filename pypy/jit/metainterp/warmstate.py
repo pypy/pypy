@@ -1,7 +1,7 @@
 import sys, weakref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import hlstr, llstr, cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import hlstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
 from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
 from pypy.rlib.rarithmetic import intmask
@@ -208,14 +208,19 @@ class WarmEnterState(object):
             meth = getattr(self, 'set_param_' + name)
             meth(default_value)
 
-    def set_param_threshold(self, threshold):
+    def _compute_threshold(self, threshold):
         if threshold <= 0:
-            self.increment_threshold = 0   # never reach the THRESHOLD_LIMIT
-            return
+            return 0 # never reach the THRESHOLD_LIMIT
         if threshold < 2:
             threshold = 2
-        self.increment_threshold = (self.THRESHOLD_LIMIT // threshold) + 1
+        return (self.THRESHOLD_LIMIT // threshold) + 1
         # the number is at least 1, and at most about half THRESHOLD_LIMIT
+
+    def set_param_threshold(self, threshold):
+        self.increment_threshold = self._compute_threshold(threshold)
+
+    def set_param_function_threshold(self, threshold):
+        self.increment_function_threshold = self._compute_threshold(threshold)
 
     def set_param_trace_eagerness(self, value):
         self.trace_eagerness = value
@@ -291,7 +296,7 @@ class WarmEnterState(object):
         self.make_jitdriver_callbacks()
         confirm_enter_jit = self.confirm_enter_jit
 
-        def maybe_compile_and_run(*args):
+        def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
@@ -307,7 +312,7 @@ class WarmEnterState(object):
 
             if cell.counter >= 0:
                 # update the profiling counter
-                n = cell.counter + self.increment_threshold
+                n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
@@ -497,7 +502,6 @@ class WarmEnterState(object):
         if hasattr(self, 'set_future_values'):
             return self.set_future_values
 
-        warmrunnerdesc = self.warmrunnerdesc
         jitdriver_sd   = self.jitdriver_sd
         cpu = self.cpu
         vinfo = jitdriver_sd.virtualizable_info
@@ -513,7 +517,6 @@ class WarmEnterState(object):
         #
         if vinfo is not None:
             i0 = len(jitdriver_sd._red_args_types)
-            num_green_args = jitdriver_sd.num_green_args
             index_of_virtualizable = jitdriver_sd.index_of_virtualizable
             vable_static_fields = unrolling_iterable(
                 zip(vinfo.static_extra_types, vinfo.static_fields))

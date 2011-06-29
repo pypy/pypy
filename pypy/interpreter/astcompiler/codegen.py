@@ -134,7 +134,7 @@ class __extend__(ast.SetComp):
 
     def accept_comp_iteration(self, codegen, index):
         self.elt.walkabout(codegen)
-        codegen.emit_op_arg(ops.SET_ADD, index)
+        codegen.emit_op_arg(ops.SET_ADD, index + 1)
 
 
 class __extend__(ast.DictComp):
@@ -148,7 +148,7 @@ class __extend__(ast.DictComp):
     def accept_comp_iteration(self, codegen, index):
         self.value.walkabout(codegen)
         self.key.walkabout(codegen)
-        codegen.emit_op_arg(ops.MAP_ADD, index)
+        codegen.emit_op_arg(ops.MAP_ADD, index + 1)
 
 
 # These are frame blocks.

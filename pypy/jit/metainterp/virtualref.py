@@ -1,5 +1,5 @@
 from pypy.rpython.rmodel import inputconst, log
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.jit import InvalidVirtualRef

@@ -569,7 +569,10 @@ class CStandaloneBuilder(CBuilder):
             gcmapfiles = ['%s.gcmap' % (c,) for c in trackgcfiles]
             mk.definition('ASMFILES', sfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
-            mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+            if sys.platform == 'win32':
+                mk.definition('DEBUGFLAGS', '/Zi')
+            else:
+                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -644,7 +647,10 @@ class CStandaloneBuilder(CBuilder):
                             '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)')
 
         else:
-            mk.definition('DEBUGFLAGS', '-O1 -g')
+            if sys.platform == 'win32':
+                mk.definition('DEBUGFLAGS', '/Zi')
+            else:
+                mk.definition('DEBUGFLAGS', '-O1 -g')
         mk.write()
         #self.translator.platform,
         #                           ,
