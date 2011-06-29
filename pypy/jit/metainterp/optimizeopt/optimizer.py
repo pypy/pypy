@@ -392,7 +392,7 @@ class Optimizer(Optimization):
             
         new.pure_operations = args_dict()
         for key, op in self.pure_operations.items():
-            if op.result in short_boxes:
+            if op.result in short_boxes and short_boxes[op.result] is op:
                 new.pure_operations[key] = op
         new.producer = self.producer
         assert self.posponedop is None
