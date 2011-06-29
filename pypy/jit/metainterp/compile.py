@@ -119,6 +119,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
         old_loop_token = optimize_loop(metainterp_sd, old_loop_tokens, loop,
                                        jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
+        debug_print("compile_new_loop: got an InvalidLoop")
         return None
     if old_loop_token is not None:
         metainterp.staticdata.log("reusing old loop")
@@ -633,6 +634,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
                                             new_loop, state.enable_opts,
                                             inline_short_preamble, retraced)
     except InvalidLoop:
+        debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
         return None
