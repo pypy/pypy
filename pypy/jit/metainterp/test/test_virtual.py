@@ -919,6 +919,30 @@ class VirtualMiscTests:
 
         res = self.meta_interp(f, [16])
         assert res == f(16)
+
+    def test_virtual_loop_invariant_getitem(self):
+        mydriver = JitDriver(reds = ['i', 'sa', 'n', 'node1', 'node2'], greens = [])
+        class A(object):
+            def __init__(self, v1, v2):
+                self.v1 = v1
+                self.v2 = v2
+        def f(n):
+            i = sa = 0
+            node1 = A(1, 2)
+            node2 = A(n, n)
+            while i < n:
+                mydriver.jit_merge_point(i=i, sa=sa, n=n, node1=node1, node2=node2)
+                sa += node1.v1 + node2.v1 + node2.v2
+                if i < n/2:
+                    node1 = A(node2.v1, 2)
+                else:
+                    node1 = A(i, 2)
+                i += 1
+            return sa
+
+        res = self.meta_interp(f, [16])
+        assert res == f(16)
+        self.check_loops(getfield_gc=2)
         
 
 # ____________________________________________________________

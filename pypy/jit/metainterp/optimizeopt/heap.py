@@ -98,7 +98,7 @@ class CachedField(object):
         cf = CachedField()
         for structvalue, fieldvalue in self._cached_fields.iteritems():
             op = self._cached_fields_getfield_op.get(structvalue, None)
-            if op and op.result in short_boxes:
+            if op and op.result in short_boxes and short_boxes[op.result] is op:
                 structvalue2 = structvalue.get_cloned(optimizer, valuemap)
                 fieldvalue2  = fieldvalue .get_cloned(optimizer, valuemap)
                 cf._cached_fields[structvalue2] = fieldvalue2
@@ -146,10 +146,10 @@ class OptHeap(Optimization):
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         new = OptHeap()
-        return new
 
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_cloned(optimizer, valuemap, short_boxes)
+        return new
 
         new.cached_arrayitems = {}
         for descr, d in self.cached_arrayitems.items():
@@ -175,10 +175,10 @@ class OptHeap(Optimization):
         return new
 
     def produce_potential_short_preamble_ops(self, potential_ops):
-        return
         for descr, d in self.cached_fields.items():
             d.produce_potential_short_preamble_ops(self.optimizer,
                                                    potential_ops, descr)
+        return
 
         for descr, d in self.cached_arrayitems.items():
             for value, cache in d.items():
