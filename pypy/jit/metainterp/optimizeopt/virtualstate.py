@@ -231,7 +231,11 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 bad[self] = True
                 bad[other] = True
                 return False
-        return self.intbound.contains_bound(other.intbound)
+        if not self.intbound.contains_bound(other.intbound):
+            bad[self] = True
+            bad[other] = True
+            return False
+        return True
 
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualStateInfo):
