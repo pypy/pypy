@@ -420,8 +420,7 @@ class Optimizer(Optimization):
 
     def produce_potential_short_preamble_ops(self, potential_ops):
         for op in self.emitted_pure_operations:
-            if op.is_always_pure():
-                potential_ops[op.result] = op
+            potential_ops[op.result] = op
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(potential_ops)
 
