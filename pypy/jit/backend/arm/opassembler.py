@@ -33,6 +33,13 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 
 NO_FORCE_INDEX = -1
 
+class GuardToken(object):
+    def __init__(self, descr, offset=0, encoded_args=0, is_invalidate=False):
+        self.descr = descr
+        self.offset = offset
+        self.encoded_args = encoded_args
+        self.is_invalidate = is_invalidate
+
 class IntOpAsslember(object):
 
     _mixin_ = True
@@ -161,16 +168,17 @@ class GuardOpAssembler(object):
     def _emit_guard(self, op, arglocs, fcond, save_exc=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
-        self.guard_descrs.append(descr)
+
+
         if not we_are_translated() and hasattr(op, 'getfailargs'):
            print 'Failargs: ', op.getfailargs()
 
         self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size-PC_OFFSET, cond=fcond)
-        descr._arm_guard_pos = self.mc.currpos()
+        pos = self.mc.currpos()
 
         memaddr = self._gen_path_to_exit_path(op, op.getfailargs(),
                                             arglocs, save_exc=save_exc)
-        descr._failure_recovery_code = memaddr
+        self.pending_guards.append(GuardToken(op.getdescr(), pos=pos, memaddr=memaddr))
         return c.AL
 
     def _emit_guard_overflow(self, guard, failargs, fcond):
@@ -237,6 +245,11 @@ class GuardOpAssembler(object):
             raise NotImplementedError
         self._cmp_guard_class(op, arglocs, regalloc, fcond)
         return fcond
+
+    def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
+        pos = self.mc.currpos() # after potential jmp
+        memaddr = self.gen_descr_encoding(op, op.getfailargs(), locs)
+        self.pending_guards.append(GuardToken(op.getdescr(), pos, memaddr, True))
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
         offset = locs[2]

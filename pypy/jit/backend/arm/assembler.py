@@ -25,7 +25,7 @@ from pypy.rlib.longlong2float import float2longlong, longlong2float
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.jit.backend.arm.opassembler import ResOpAssembler
+from pypy.jit.backend.arm.opassembler import ResOpAssembler, GuardToken
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
 
@@ -76,7 +76,7 @@ class AssemblerARM(ResOpAssembler):
         self.malloc_str_func_addr = 0
         self.malloc_unicode_func_addr = 0
         self.memcpy_addr = 0
-        self.guard_descrs = None
+        self.pending_guards = None
         self._exit_code_addr = 0
         self.current_clt = None
         self.malloc_slowpath = 0
@@ -88,7 +88,7 @@ class AssemblerARM(ResOpAssembler):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.current_clt = looptoken.compiled_loop_token
         self.mc = ARMv7Builder()
-        self.guard_descrs = []
+        self.pending_guards = []
         assert self.datablockwrapper is None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
@@ -98,7 +98,7 @@ class AssemblerARM(ResOpAssembler):
         self.current_clt = None
         self._regalloc = None
         self.mc = None
-        self.guard_descrs = None
+        self.pending_guards = None
 
     def setup_once(self):
         # Addresses of functions called by new_xxx operations
@@ -300,7 +300,7 @@ class AssemblerARM(ResOpAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [],
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def _gen_path_to_exit_path(self, op, args, arglocs, fcond=c.AL, save_exc=False):
+    def gen_descr_encoding(self, op, args, arglocs):
         descr = op.getdescr()
         if op.getopnum() != rop.FINISH:
             assert isinstance(descr, AbstractFailDescr)
@@ -357,15 +357,21 @@ class AssemblerARM(ResOpAssembler):
 
         n = self.cpu.get_fail_descr_number(descr)
         encode32(mem, j+1, n)
-        self.mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
+        return memaddr
+
+    def _gen_path_to_exit_path(self, op, args, arglocs, fcond=c.AL, save_exc=False):
+        memaddr = self.gen_descr_encoding(op, args, arglocs)
+        self.gen_exit_code(self.mc, memaddr, fcond, save_exc)
+        return memaddr
+
+    def gen_exit_code(self, mc, memaddr, fcond=c.AL, save_exc=False):
+        mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
         if save_exc:
             path = self._leave_jitted_hook_save_exc
         else:
             path = self._leave_jitted_hook
-        self.mc.B(path)
-        self.mc.write32(memaddr)
-
-        return memaddr
+        mc.B(path)
+        mc.write32(memaddr)
 
     def align(self):
         while(self.mc.currpos() % FUNC_ALIGN != 0):
@@ -583,7 +589,7 @@ class AssemblerARM(ResOpAssembler):
         loop_start = self.materialize_loop(looptoken)
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_direct_bootstrap_code = loop_start + direct_bootstrap_code
-        self.update_descrs_for_bridges(loop_start)
+        self.process_pending_guards(loop_start)
         if log and not we_are_translated():
             print 'Loop', inputargs, operations
             self.mc._dump_trace(loop_start, 'loop_%s.asm' % self.cpu.total_compiled_loops)
@@ -612,7 +618,7 @@ class AssemblerARM(ResOpAssembler):
         self._patch_sp_offset(sp_patch_location, regalloc.frame_manager.frame_depth)
 
         bridge_start = self.materialize_loop(original_loop_token)
-        self.update_descrs_for_bridges(bridge_start)
+        self.process_pending_guards(bridge_start)
 
         self.patch_trace(faildescr, original_loop_token, bridge_start, regalloc)
         if log and not we_are_translated():
@@ -628,10 +634,17 @@ class AssemblerARM(ResOpAssembler):
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def update_descrs_for_bridges(self, block_start):
-        for descr in self.guard_descrs:
+    def process_pending_guards(self, block_start):
+        clt = self.current_clt
+        for tok in self.pending_guards:
+            descr = tok.descr
+            #XXX _arm_block_start should go in the looptoken
             descr._arm_block_start = block_start
-
+            descr._failure_recovery_code = tok.encoded_args
+            descr._arm_guard_pos = tok.offset
+            if tok.is_invalidate:
+                clt.invalidate_positions.append(
+                    (block_start + tok.offset, tok.encoded_args))
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token

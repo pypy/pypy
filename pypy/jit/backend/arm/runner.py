@@ -128,3 +128,20 @@ class ArmCPU(AbstractLLCPU):
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
+
+    def invalidate_loop(self, looptoken):
+        """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
+        bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
+        after this call, they all fail.  Note that afterwards, if one such
+        guard fails often enough, it has a bridge attached to it; it is
+        possible then to re-call invalidate_loop() on the same looptoken,
+        which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
+        old one that already has a bridge attached to it."""
+        from pypy.jit.backend.arm.codebuilder import ARMv7Builder
+
+        for tgt, memaddr in looptoken.compiled_loop_token.invalidate_positions:
+            mc = ARMv7Builder()
+            self.assembler.gen_exit_code(mc, memaddr)
+            mc.copy_to_raw_memory(tgt)
+        # positions invalidated
+        looptoken.compiled_loop_token.invalidate_positions = []
