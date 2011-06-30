@@ -1,4 +1,5 @@
 import sys
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.buffer import Buffer
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -359,7 +360,7 @@ class InstancePtrConverter(TypeConverter):
             if capi.c_is_subtype(obj.cppclass.handle, self.cpptype.handle):
                 offset = capi.c_base_offset(obj.cppclass.handle, self.cpptype.handle)
                 obj_address = lltype.direct_ptradd(obj.rawobject, offset)
-                objptr = rffi.cast(rffi.CCHARP, obj_address)
+                objptr = rffi.cast(rffi.VOIDP, obj_address)
                 return objptr
         raise OperationError(space.w_TypeError,
                              space.wrap("cannot pass %s as %s" % (
@@ -368,7 +369,19 @@ class InstancePtrConverter(TypeConverter):
 
     def free_argument(self, arg):
         pass
-        
+
+class InstanceConverter(InstancePtrConverter):
+    _immutable_ = True
+
+    def from_memory(self, space, w_obj, offset):
+        address = self._get_raw_address(space, w_obj, offset)
+        obj_address = rffi.cast(rffi.VOIDP, address)
+        from pypy.module.cppyy import interp_cppyy
+        return interp_cppyy.W_CPPInstance(space, self.cpptype, obj_address)
+
+    def free_argument(self, arg):
+        pass
+
 
 def get_converter(space, name):
     from pypy.module.cppyy import interp_cppyy
@@ -379,6 +392,8 @@ def get_converter(space, name):
     #   4) accept ref as pointer
     #   5) generalized cases (covers basically all user classes)
     #   6) void converter, which fails on use
+
+    from pypy.module.cppyy import interp_cppyy
 
     #   1) full, exact match
     try:
@@ -405,12 +420,14 @@ def get_converter(space, name):
 
     #   5) generalized cases (covers basically all user classes)
     cpptype = interp_cppyy.type_byname(space, clean_name)
-
-    if cpptype and (compound == "*" or compound == "&"):
+    if cpptype:
         # type check for the benefit of the annotator
         from pypy.module.cppyy.interp_cppyy import W_CPPType
         cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
-        return InstancePtrConverter(space, cpptype)
+        if compound == "*" or compound == "&":
+            return InstancePtrConverter(space, cpptype)
+        elif compound == "":
+            return InstanceConverter(space, cpptype)
     
     #   6) void converter, which fails on use
     #

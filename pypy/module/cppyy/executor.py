@@ -1,7 +1,6 @@
 import sys
 
 from pypy.interpreter.error import OperationError
-
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi
 
@@ -203,7 +202,7 @@ def get_executor(space, name):
         # type check for the benefit of the annotator
         from pypy.module.cppyy.interp_cppyy import W_CPPType
         cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
-        if (compound == "*" or compound == "&"):
+        if compound == "*" or compound == "&":
             return InstancePtrExecutor(space, clean_name, cpptype)
         elif compound == "":
             return InstanceExecutor(space, clean_name, cpptype)
