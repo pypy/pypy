@@ -847,8 +847,12 @@ global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
 
 def ll_popitem(ELEM, dic):
     entries = dic.entries
+    ENTRY = lltype.typeOf(entries).TO.OF
     dmask = len(entries) - 1
-    base = global_popitem_index.nextindex
+    if hasattr(ENTRY, 'f_hash'):
+        base = entries[0].f_hash
+    else:
+        base = global_popitem_index.nextindex
     counter = 0
     while counter <= dmask:
         i = (base + counter) & dmask
@@ -857,7 +861,10 @@ def ll_popitem(ELEM, dic):
             break
     else:
         raise KeyError
-    global_popitem_index.nextindex += counter
+    if hasattr(ENTRY, 'f_hash'):
+        entries[0].f_hash = base + counter
+    else:
+        global_popitem_index.nextindex = base + counter
     entry = entries[i]
     r = lltype.malloc(ELEM.TO)
     r.item0 = recast(ELEM.TO.item0, entry.key)
