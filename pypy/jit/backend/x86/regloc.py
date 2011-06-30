@@ -318,7 +318,9 @@ class LocationCodeBuilder(object):
             # must be careful not to combine it with location types that
             # might need to use the scratch register themselves.
             if loc2 is X86_64_SCRATCH_REG:
-                assert code1 != 'j'
+                if code1 == 'j':
+                    assert (name.startswith("MOV") and
+                            rx86.fits_in_32bits(loc1.value_j()))
             if loc1 is X86_64_SCRATCH_REG and not name.startswith("MOV"):
                 assert code2 not in ('j', 'i')
 

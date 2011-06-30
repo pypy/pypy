@@ -1,7 +1,7 @@
 import sys, weakref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import hlstr, llstr, cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import hlstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
 from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
 from pypy.rlib.rarithmetic import intmask
@@ -502,7 +502,6 @@ class WarmEnterState(object):
         if hasattr(self, 'set_future_values'):
             return self.set_future_values
 
-        warmrunnerdesc = self.warmrunnerdesc
         jitdriver_sd   = self.jitdriver_sd
         cpu = self.cpu
         vinfo = jitdriver_sd.virtualizable_info
@@ -518,7 +517,6 @@ class WarmEnterState(object):
         #
         if vinfo is not None:
             i0 = len(jitdriver_sd._red_args_types)
-            num_green_args = jitdriver_sd.num_green_args
             index_of_virtualizable = jitdriver_sd.index_of_virtualizable
             vable_static_fields = unrolling_iterable(
                 zip(vinfo.static_extra_types, vinfo.static_fields))

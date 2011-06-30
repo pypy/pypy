@@ -168,7 +168,7 @@ def test_adjust_bridges():
     []
     int_add(0, 1)
     ''')
-    loops = LoopStorage().reconnect_loops([main, bridge])
+    LoopStorage().reconnect_loops([main, bridge])
     assert adjust_bridges(main, {})[1].name == 'guard_true'
     assert adjust_bridges(main, {'loop-13': True})[1].name == 'int_add'
 

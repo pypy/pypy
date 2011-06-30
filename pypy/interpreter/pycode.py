@@ -63,6 +63,7 @@ class PyCode(eval.Code):
         the pypy compiler"""
         self.space = space
         eval.Code.__init__(self, name)
+        assert nlocals >= 0
         self.co_argcount = argcount
         self.co_nlocals = nlocals
         self.co_stacksize = stacksize
@@ -202,7 +203,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(None, fresh_frame.fastlocals_w,
+        args_matched = args.parse_into_scope(None, fresh_frame.locals_stack_w,
                                              func.name,
                                              sig, func.defs_w)
         fresh_frame.init_cells()
@@ -215,7 +216,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(w_obj, fresh_frame.fastlocals_w,
+        args_matched = args.parse_into_scope(w_obj, fresh_frame.locals_stack_w,
                                              func.name,
                                              sig, func.defs_w)
         fresh_frame.init_cells()
