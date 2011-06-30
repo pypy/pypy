@@ -66,7 +66,7 @@ class TestCall(BaseTestPyPyC):
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_value",
                                     "getfield_gc", "guard_value",
-                                    "getfield_gc", "guard_isnull",
+                                    "getfield_gc", "guard_value",
                                     "getfield_gc", "guard_nonnull_class"]
         # LOAD_GLOBAL of OFFSET but in different function partially folded
         # away
