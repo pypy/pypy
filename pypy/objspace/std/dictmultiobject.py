@@ -4,7 +4,6 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.function import Defaults
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
@@ -617,7 +616,7 @@ def report():
 
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
-init_defaults = Defaults([None])
+init_defaults = [None]
 
 def update1(space, w_dict, w_data):
     if space.findattr(w_data, space.wrap("keys")) is None:

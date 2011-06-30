@@ -969,3 +969,48 @@ def test_math_sqrt():
     assert op1.args[3] == ListOfKind("ref", [])
     assert op1.args[4] == ListOfKind('float', [v1])
     assert op1.result == v2
+
+def test_quasi_immutable():
+    from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
+    accessor = FieldListAccessor()
+    accessor.initialize(None, {'inst_x': IR_QUASIIMMUTABLE})
+    v2 = varoftype(lltype.Signed)
+    STRUCT = lltype.GcStruct('struct', ('inst_x', lltype.Signed),
+                             ('mutate_x', rclass.OBJECTPTR),
+                             hints={'immutable_fields': accessor})
+    for v_x in [const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
+        op = SpaceOperation('getfield', [v_x, Constant('inst_x', lltype.Void)],
+                            v2)
+        tr = Transformer(FakeCPU())
+        [_, op1, op2] = tr.rewrite_operation(op)
+        assert op1.opname == 'record_quasiimmut_field'
+        assert len(op1.args) == 3
+        assert op1.args[0] == v_x
+        assert op1.args[1] == ('fielddescr', STRUCT, 'inst_x')
+        assert op1.args[2] == ('fielddescr', STRUCT, 'mutate_x')
+        assert op1.result is None
+        assert op2.opname == 'getfield_gc_i'
+        assert len(op2.args) == 2
+        assert op2.args[0] == v_x
+        assert op2.args[1] == ('fielddescr', STRUCT, 'inst_x')
+        assert op2.result is op.result
+
+def test_quasi_immutable_setfield():
+    from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
+    accessor = FieldListAccessor()
+    accessor.initialize(None, {'inst_x': IR_QUASIIMMUTABLE})
+    v1 = varoftype(lltype.Signed)
+    STRUCT = lltype.GcStruct('struct', ('inst_x', lltype.Signed),
+                             ('mutate_x', rclass.OBJECTPTR),
+                             hints={'immutable_fields': accessor})
+    for v_x in [const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
+        op = SpaceOperation('jit_force_quasi_immutable',
+                            [v_x, Constant('mutate_x', lltype.Void)],
+                            varoftype(lltype.Void))
+        tr = Transformer(FakeCPU(), FakeRegularCallControl())
+        tr.graph = 'currentgraph'
+        op0, op1 = tr.rewrite_operation(op)
+        assert op0.opname == '-live-'
+        assert op1.opname == 'jit_force_quasi_immutable'
+        assert op1.args[0] == v_x
+        assert op1.args[1] == ('fielddescr', STRUCT, 'mutate_x')
