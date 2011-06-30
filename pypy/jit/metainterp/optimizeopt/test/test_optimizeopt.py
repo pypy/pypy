@@ -6195,7 +6195,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-     def test_constant_getfield1(self):
+    def test_constant_getfield1(self):
         ops = """
         [p1, p187, i184]
         p188 = getarrayitem_gc(p187, i184, descr=<GcPtrArrayDescr>)
@@ -6364,7 +6364,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, expected_short=short)
         
-   def test_forced_virtual_pure_getfield(self):
+    def test_forced_virtual_pure_getfield(self):
         ops = """
         [p0]
         p1 = getfield_gc_pure(p0, descr=valuedescr)
