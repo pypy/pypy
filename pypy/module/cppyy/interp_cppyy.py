@@ -341,7 +341,7 @@ class W_CPPScope(Wrappable):
             pymethod_name = helper.map_operator_name(
                     method_name, capi.c_method_num_args(self.handle, i),
                     capi.charp2str_free(capi.c_method_result_type(self.handle, i)))
-            if not self.methods.has_key(pymethod_name):
+            if not pymethod_name in self.methods:
                 cppfunction = self._make_cppfunction(i)
                 overload = args_temp.setdefault(pymethod_name, [])
                 overload.append(cppfunction)
@@ -406,7 +406,7 @@ class W_CPPNamespace(W_CPPScope):
         num_data_members = capi.c_num_data_members(self.handle)
         for i in range(num_data_members):
             data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
-            if not self.data_members.has_key(data_member_name):
+            if not data_member_name in self.data_members:
                 type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
                 offset = capi.c_data_member_offset(self.handle, i)
                 data_member = W_CPPStaticDataMember(self.space, type_name, offset)
