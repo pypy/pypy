@@ -117,13 +117,16 @@ class OptHeap(Optimization):
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        new = OptHeap()
+    def force_at_end_of_preamble(self):
+        self.force_all_lazy_setfields_and_arrayitems()
 
-        if True:
-            self.force_all_lazy_setfields_and_arrayitems()
-        else:
-            assert 0   # was: new.lazy_setfields = self.lazy_setfields
+    def flush(self):
+        self.force_all_lazy_setfields_and_arrayitems()
+        
+    def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
+                                       optimizer, valuemap):
+        new = OptHeap()
+        return new
 
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_reconstructed(optimizer, valuemap)
