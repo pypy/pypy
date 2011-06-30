@@ -103,6 +103,8 @@ def load_target(targetspec):
     specname = os.path.splitext(os.path.basename(targetspec))[0]
     sys.path.insert(0, os.path.dirname(targetspec))
     mod = __import__(specname)
+    if 'target' not in mod.__dict__:
+        raise Exception("file %r is not a valid targetxxx.py." % (targetspec,))
     return mod.__dict__
 
 def parse_options_and_load_target():

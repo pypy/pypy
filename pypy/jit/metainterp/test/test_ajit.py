@@ -1712,6 +1712,7 @@ class BasicTests:
         assert res == g(6, 14)
         self.check_loop_count(9)
         self.check_loops(getarrayitem_gc=8, everywhere=True)
+        py.test.skip("for the following, we need setarrayitem(varindex)")
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
@@ -2687,6 +2688,20 @@ class BasicTests:
         res = self.meta_interp(f, [1])
         assert res == f(1)
 
+    def test_remove_array_operations(self):
+        myjitdriver = JitDriver(greens = [], reds = ['a'])
+        class W_Int:
+            def __init__(self, intvalue):
+                self.intvalue = intvalue
+        def f(x):
+            a = [W_Int(x)]
+            while a[0].intvalue > 0:
+                myjitdriver.jit_merge_point(a=a)
+                a[0] = W_Int(a[0].intvalue - 3)
+            return a[0].intvalue
+        res = self.meta_interp(f, [100])
+        assert res == -2
+        #self.check_loops(getarrayitem_gc=0, setarrayitem_gc=0) -- xxx?
 
 class TestOOtype(BasicTests, OOJitMixin):
 

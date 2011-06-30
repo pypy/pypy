@@ -1482,8 +1482,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i1, p0]
-        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
         p1 = new_array(i1, descr=arraydescr)
+        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
         jump(i1, p1)
         """
         self.optimize_loop(ops, expected)
@@ -1926,9 +1926,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getarrayitem_gc_pure(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
-        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         #
         setfield_gc(p1, i2, descr=valuedescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         setfield_gc(p1, i4, descr=nextdescr)
         escape()
         jump(p1, i1, i2, p3, i3)
@@ -1938,9 +1938,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #
         i4 = getarrayitem_gc(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
-        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         #
         setfield_gc(p1, i2, descr=valuedescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         setfield_gc(p1, i4, descr=nextdescr)
         escape()
         jump(p1, i1, i2, p3, i3)
@@ -2208,6 +2208,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
+        py.test.skip("setarrayitem with variable index")
         ops = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
@@ -2989,8 +2990,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     # ----------
-
-class TestLLtype(OptimizeOptTest, LLtypeMixin):
 
     def test_residual_call_does_not_invalidate_caches(self):
         ops = """
@@ -5597,7 +5596,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_strunicode_loop(ops, expected, expected)
 
-    def test_strgetitem_small(self):
+    def test_strgetitem_bounds(self):
         ops = """
         [p0, i0]
         i1 = strgetitem(p0, i0)
@@ -5609,7 +5608,20 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         expected = """
         [p0, i0]
-        i1 = strgetitem(p0, i0)
+        jump(p0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_unicodegetitem_bounds(self):
+        ops = """
+        [p0, i0]
+        i1 = unicodegetitem(p0, i0)
+        i2 = int_lt(i1, 0)
+        guard_false(i2) []
+        jump(p0, i0)
+        """
+        expected = """
+        [p0, i0]
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected, expected)
@@ -6183,7 +6195,7 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
-    def test_constant_getfield1(self):
+     def test_constant_getfield1(self):
         ops = """
         [p1, p187, i184]
         p188 = getarrayitem_gc(p187, i184, descr=<GcPtrArrayDescr>)
@@ -6351,4 +6363,55 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         jump(p0)
         """
         self.optimize_loop(ops, expected, expected_short=short)
+        
+   def test_forced_virtual_pure_getfield(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc_pure(p0, descr=valuedescr)
+        jump(p1)
+        """
+        self.optimize_loop(ops, ops)
+
+        ops = """
+        [p0]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p0, descr=valuedescr)
+        escape(p1)
+        p2 = getfield_gc_pure(p1, descr=valuedescr)
+        escape(p2)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p0, descr=valuedescr)
+        escape(p1)
+        escape(p0)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_setarrayitem_lazy(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        i2 = escape()
+        p1 = new_with_vtable(ConstClass(node_vtable))
+        setarrayitem_gc(p0, 2, p1, descr=arraydescr)
+        guard_true(i2) []
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        i2 = escape()
+        guard_true(i2) [p0]
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+class TestLLtype(OptimizeOptTest, LLtypeMixin):
+    pass
         

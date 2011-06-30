@@ -4,6 +4,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {
+       'factorial' : 'app_math.factorial'
     }
 
     interpleveldefs = {
@@ -40,7 +41,6 @@ class Module(MixedModule):
        'isnan'          : 'interp_math.isnan',
        'trunc'          : 'interp_math.trunc',
        'fsum'           : 'interp_math.fsum',
-       'factorial'      : 'interp_math.factorial',
        'asinh'          : 'interp_math.asinh',
        'acosh'          : 'interp_math.acosh',
        'atanh'          : 'interp_math.atanh',

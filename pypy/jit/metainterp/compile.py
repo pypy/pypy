@@ -15,7 +15,7 @@ from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimize import InvalidLoop
-from pypy.jit.metainterp.resume import NUMBERING
+from pypy.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP
 from pypy.jit.codewriter import heaptracker, longlong
 
 def giveup():
@@ -119,6 +119,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
         old_loop_token = optimize_loop(metainterp_sd, old_loop_tokens, loop,
                                        jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
+        debug_print("compile_new_loop: got an InvalidLoop")
         return None
     if old_loop_token is not None:
         metainterp.staticdata.log("reusing old loop")
@@ -302,7 +303,7 @@ class ResumeGuardDescr(ResumeDescr):
     rd_numb = lltype.nullptr(NUMBERING)
     rd_consts = None
     rd_virtuals = None
-    rd_pendingfields = None
+    rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     CNT_INT   = -0x20000000
     CNT_REF   = -0x40000000
@@ -633,6 +634,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
                                             new_loop, state.enable_opts,
                                             inline_short_preamble, retraced)
     except InvalidLoop:
+        debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
         debug_print('InvalidLoop in compile_new_bridge')

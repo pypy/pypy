@@ -25,7 +25,6 @@ def optimize_loop(metainterp_sd, old_loop_tokens, loop, enable_opts):
 
 def _optimize_loop(metainterp_sd, old_loop_tokens, loop, enable_opts):
     from pypy.jit.metainterp.optimizeopt import optimize_loop_1
-    cpu = metainterp_sd.cpu
     loop.logops = metainterp_sd.logger_noopt.log_loop(loop.inputargs,
                                                       loop.operations)
     # XXX do we really still need a list?
@@ -49,7 +48,6 @@ def optimize_bridge(metainterp_sd, old_loop_tokens, bridge, enable_opts,
 def _optimize_bridge(metainterp_sd, old_loop_tokens, bridge, enable_opts,
                      inline_short_preamble, retraced=False):
     from pypy.jit.metainterp.optimizeopt import optimize_bridge_1
-    cpu = metainterp_sd.cpu
     bridge.logops = metainterp_sd.logger_noopt.log_loop(bridge.inputargs,
                                                         bridge.operations)
     if old_loop_tokens:

@@ -169,7 +169,7 @@ class TestMisc(BaseTestPyPyC):
             guard_false(i16, descr=<Guard3>)
             p17 = getarrayitem_gc(p15, i12, descr=<GcPtrArrayDescr>)
             i19 = int_add(i12, 1)
-            setfield_gc(p4, i19, descr=<SignedFieldDescr .*W_AbstractSeqIterObject.inst_index .*>)
+            setfield_gc(p9, i19, descr=<SignedFieldDescr .*W_AbstractSeqIterObject.inst_index .*>)
             guard_nonnull_class(p17, 146982464, descr=<Guard4>)
             i21 = getfield_gc(p17, descr=<SignedFieldDescr .*W_ArrayTypei.inst_len .*>)
             i23 = int_lt(0, i21)
@@ -182,6 +182,7 @@ class TestMisc(BaseTestPyPyC):
             guard_no_overflow(descr=<Guard7>)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i13, p14, p15, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, p6, i28, i25, p9, p10, p11, i19, i13, p14, p15, descr=<Loop0>)
         """)
 
 
