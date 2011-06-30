@@ -357,7 +357,10 @@ class InstancePtrConverter(TypeConverter):
         obj = space.interpclass_w(w_obj)
         if isinstance(obj, W_CPPInstance):
             if capi.c_is_subtype(obj.cppclass.handle, self.cpptype.handle):
-                return obj.rawobject
+                offset = capi.c_base_offset(obj.cppclass.handle, self.cpptype.handle)
+                obj_address = lltype.direct_ptradd(obj.rawobject, offset)
+                objptr = rffi.cast(rffi.CCHARP, obj_address)
+                return objptr
         raise OperationError(space.w_TypeError,
                              space.wrap("cannot pass %s as %s" % (
                                  space.type(w_obj).getname(space, "?"),

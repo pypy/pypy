@@ -21,6 +21,36 @@ static inline Reflex::Type type_from_handle(cppyy_typehandle_t handle) {
     return Reflex::Scope((Reflex::ScopeName*)handle);
 }
 
+static inline size_t base_offset(const Reflex::Type& td, const Reflex::Type& tb) {
+    // when dealing with virtual inheritance the only (reasonably) well-defined info is
+    // in a Reflex internal base table, that contains all offsets within the hierarchy
+    Reflex::Member getbases = td.FunctionMemberByName(
+           "__getBasesTable", Reflex::Type(), 0, Reflex::INHERITEDMEMBERS_NO, Reflex::DELAYEDLOAD_OFF);
+    if (getbases) {
+        typedef std::vector<std::pair<Reflex::Base, int> > Bases_t;
+        Bases_t* bases;
+        Reflex::Object bases_holder(Reflex::Type::ByTypeInfo(typeid(Bases_t)), &bases);
+        getbases.Invoke(&bases_holder);
+
+        for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
+            if (ibase->first.ToType() == tb) {
+                if (ibase->first.IsVirtual()) {
+                    Reflex::Object o = td.Construct();
+                    size_t offset = ibase->first.Offset(o.Address());
+                    o.Destruct();
+                    return offset;
+                } else
+                   return ibase->first.Offset(0);
+            }
+        }
+
+        // contrary to typical invoke()s, the result of the internal getbases function
+        // is a pointer to a function static, so no delete
+    }
+
+    return 0;
+}
+
 
 /* name to handle --------------------------------------------------------- */
 cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
@@ -171,12 +201,20 @@ char* cppyy_base_name(cppyy_typehandle_t handle, int base_index) {
     return cppstring_to_cstring(name);
 }
 
-int cppyy_is_subtype(cppyy_typehandle_t h1, cppyy_typehandle_t h2) {
-    if (h1 == h2)
+int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
+    if (dh == bh)
         return 1;
-    Reflex::Type t1 = type_from_handle(h1);
-    Reflex::Type t2 = type_from_handle(h2);
-    return (int)t2.HasBase(t1);
+    Reflex::Type td = type_from_handle(dh);
+    Reflex::Type tb = type_from_handle(bh);
+    return (int)td.HasBase(tb);
+}
+
+size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
+    if (dh == bh)
+        return 0;
+    Reflex::Type td = type_from_handle(dh);
+    Reflex::Type tb = type_from_handle(bh);
+    return base_offset(td, tb);
 }
 
 
@@ -265,34 +303,8 @@ size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index
 
     if (s != m.DeclaringScope()) {
         // in case this data member is part of a base class, the offset is complicated
-        // when dealing with virtual inheritance and only (reasonably) well-defined with a
-        // Reflex internal base table, that contains all offsets within the full hierarchy
-        Reflex::Member getbases = s.FunctionMemberByName(
-            "__getBasesTable", Reflex::Type(), 0, Reflex::INHERITEDMEMBERS_NO, Reflex::DELAYEDLOAD_OFF);
-        if (getbases) {
-            typedef std::vector<std::pair<Reflex::Base, int> > Bases_t;
-            Bases_t* bases;
-            Reflex::Object bases_holder(Reflex::Type::ByTypeInfo(typeid(Bases_t)), &bases);
-            getbases.Invoke(&bases_holder);
-
-            Reflex::Type d = m.DeclaringType();
-
-            for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
-                if (ibase->first.ToType() == d) {
-                    if (d.IsVirtual()) {
-                        Reflex::Type t = type_from_handle(handle);
-                        Reflex::Object o = t.Construct();
-                        size_t offset = ibase->first.Offset(o.Address()) + m.Offset();
-                        o.Destruct();
-                        return offset;
-                    } else
-                        return ibase->first.Offset(0);
-                }
-            }
-
-            // contrary to typical invoke()s, the result of the internal getbases function
-            // is a pointer to a function static, so no delete
-        }
+        // when dealing with virtual inheritance and needs to be calculated
+        return base_offset(s, m.DeclaringType()) + m.Offset();
     }
 
     return m.Offset();

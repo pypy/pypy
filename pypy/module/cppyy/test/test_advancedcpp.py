@@ -23,7 +23,7 @@ class AppTestADVANCEDCPP:
             import cppyy
             return cppyy.load_lib(%r)""" % (shared_lib, ))
 
-    def test01_default_argeumetns(self):
+    def test01_default_arguments(self):
         """Test usage of default arguments"""
 
         import cppyy
@@ -276,4 +276,37 @@ class AppTestADVANCEDCPP:
         assert d.m_d          == 44
       # assert d.get_value()  == 44
 
+        d.destruct()
+
+    def test07_pass_by_reference(self):
+        """Test reference passing when using virtual inheritance"""
+
+        import cppyy
+        gbl = cppyy.gbl
+        b_class = gbl.b_class
+        c_class = gbl.c_class_2
+        d_class = gbl.d_class
+
+        #-----
+        b = b_class()
+        b.m_a, b.m_b = 11, 22
+        assert gbl.get_a(b) == 11
+        assert gbl.get_b(b) == 22
+        b.destruct()
+
+        #-----
+        c = c_class()
+        c.m_a, c.m_b, c.m_c = 11, 22, 33
+        assert gbl.get_a(c) == 11
+        assert gbl.get_b(c) == 22
+        assert gbl.get_c(c) == 33
+        c.destruct()
+
+        #-----
+        d = d_class()
+        d.m_a, d.m_b, d.m_c, d.m_d = 11, 22, 33, 44
+        assert gbl.get_a(d) == 11
+        assert gbl.get_b(d) == 22
+        assert gbl.get_c(d) == 33
+        assert gbl.get_d(d) == 44
         d.destruct()

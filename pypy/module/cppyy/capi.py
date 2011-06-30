@@ -78,6 +78,10 @@ c_is_subtype = rffi.llexternal(
     "cppyy_is_subtype",
     [C_TYPEHANDLE, C_TYPEHANDLE], rffi.INT,
     compilation_info=eci)
+c_base_offset = rffi.llexternal(
+    "cppyy_base_offset",
+    [C_TYPEHANDLE, C_TYPEHANDLE], rffi.SIZE_T,
+    compilation_info=eci)
 
 
 c_call_v = rffi.llexternal(
@@ -168,7 +172,7 @@ c_data_member_type = rffi.llexternal(
     compilation_info=eci)
 c_data_member_offset = rffi.llexternal(
     "cppyy_data_member_offset",
-    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    [C_TYPEHANDLE, rffi.INT], rffi.SIZE_T,
     compilation_info=eci)
 
 c_is_staticdata = rffi.llexternal(
