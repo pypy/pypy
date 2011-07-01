@@ -845,11 +845,13 @@ def ll_contains(d, key):
 POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Signed))
 global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
 
-def ll_popitem(ELEM, dic):
+def _ll_getnextitem(dic):
     entries = dic.entries
     ENTRY = lltype.typeOf(entries).TO.OF
     dmask = len(entries) - 1
     if hasattr(ENTRY, 'f_hash'):
+        if entries.valid(0):
+            return 0
         base = entries[0].f_hash
     else:
         base = global_popitem_index.nextindex
@@ -865,7 +867,11 @@ def ll_popitem(ELEM, dic):
         entries[0].f_hash = base + counter
     else:
         global_popitem_index.nextindex = base + counter
-    entry = entries[i]
+    return i
+
+def ll_popitem(ELEM, dic):
+    i = _ll_getnextitem(dic)
+    entry = dic.entries[i]
     r = lltype.malloc(ELEM.TO)
     r.item0 = recast(ELEM.TO.item0, entry.key)
     r.item1 = recast(ELEM.TO.item1, entry.value)
