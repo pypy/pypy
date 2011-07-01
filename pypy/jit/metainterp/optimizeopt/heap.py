@@ -155,12 +155,11 @@ class OptHeap(Optimization):
 
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_cloned(optimizer, valuemap, short_boxes)
-        return new
 
         for descr, submap in self.cached_arrayitems.items():
             newdict = {}
             for index, d in submap.items():
-                newdict[index] = d.get_reconstructed(optimizer, valuemap)
+                newdict[index] = d.get_cloned(optimizer, valuemap, short_boxes)
             new.cached_arrayitems[descr] = newdict
 
         return new
@@ -169,7 +168,11 @@ class OptHeap(Optimization):
         for descr, d in self.cached_fields.items():
             d.produce_potential_short_preamble_ops(self.optimizer,
                                                    potential_ops, descr)
-        
+
+        for descr, submap in self.cached_arrayitems.items():
+            for index, d in submap.items():
+                d.produce_potential_short_preamble_ops(self.optimizer,
+                                                       potential_ops, descr)
 
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]
@@ -248,7 +251,7 @@ class OptHeap(Optimization):
                     try:
                         submap = self.cached_arrayitems[arraydescr]
                         for cf in submap.itervalues():
-                            cf._cached_fields.clear()
+                            cf.clear()
                     except KeyError:
                         pass
                 if effectinfo.check_forces_virtual_or_virtualizable():
@@ -405,7 +408,7 @@ class OptHeap(Optimization):
         # the remember the result of reading the array item
         if cf is not None:
             fieldvalue = self.getvalue(op.result)
-            cf.remember_field_value(arrayvalue, fieldvalue)
+            cf.remember_field_value(arrayvalue, fieldvalue, op)
 
     def optimize_SETARRAYITEM_GC(self, op):
         if self.has_pure_result(rop.GETARRAYITEM_GC_PURE, [op.getarg(0),
