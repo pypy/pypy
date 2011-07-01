@@ -148,18 +148,6 @@ class ModuleDictStrategy(DictStrategy):
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
 
-    def _as_rdict(self):
-        r_dict_content = self.initialize_as_rdict()
-        for k, cell in self.content.iteritems():
-            if cell.w_value is not None:
-                r_dict_content[self.space.wrap(k)] = cell.w_value
-            cell.invalidate()
-        self._clear_fields()
-        return self
-
-    def _clear_fields(self):
-        self.content = None
-
 class ModuleDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
