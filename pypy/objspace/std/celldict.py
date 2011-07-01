@@ -45,7 +45,7 @@ class ModuleDictStrategy(DictStrategy):
     def getdictvalue_no_unwrapping(self, w_dict, key):
         return self._getdictvalue_no_unwrapping_pure(self.version, w_dict, key)
 
-    @jit.elidablefunction_promote('0,1,2')
+    @jit.elidable_promote('0,1,2')
     def _getdictvalue_no_unwrapping_pure(self, version, w_dict, key):
         return self.unerase(w_dict.dstorage).get(key, None)
 
