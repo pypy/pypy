@@ -139,9 +139,9 @@ class ArmCPU(AbstractLLCPU):
         old one that already has a bridge attached to it."""
         from pypy.jit.backend.arm.codebuilder import ARMv7Builder
 
-        for tgt, memaddr in looptoken.compiled_loop_token.invalidate_positions:
+        for jmp, tgt  in looptoken.compiled_loop_token.invalidate_positions:
             mc = ARMv7Builder()
-            self.assembler.gen_exit_code(mc, memaddr)
-            mc.copy_to_raw_memory(tgt)
+            mc.B_offs(tgt)
+            mc.copy_to_raw_memory(jmp)
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []

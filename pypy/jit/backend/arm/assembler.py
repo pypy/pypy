@@ -300,11 +300,7 @@ class AssemblerARM(ResOpAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [],
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def gen_descr_encoding(self, op, args, arglocs):
-        descr = op.getdescr()
-        if op.getopnum() != rop.FINISH:
-            assert isinstance(descr, AbstractFailDescr)
-            descr._arm_frame_depth = arglocs[0].getint()
+    def gen_descr_encoding(self, descr, args, arglocs):
         # The size of the allocated memory is based on the following sizes
         # first argloc is the frame depth and not considered for the memory
         # allocation
@@ -359,8 +355,8 @@ class AssemblerARM(ResOpAssembler):
         encode32(mem, j+1, n)
         return memaddr
 
-    def _gen_path_to_exit_path(self, op, args, arglocs, fcond=c.AL, save_exc=False):
-        memaddr = self.gen_descr_encoding(op, args, arglocs)
+    def _gen_path_to_exit_path(self, descr, args, arglocs, fcond=c.AL, save_exc=False):
+        memaddr = self.gen_descr_encoding(descr, args, arglocs)
         self.gen_exit_code(self.mc, memaddr, fcond, save_exc)
         return memaddr
 
@@ -586,6 +582,7 @@ class AssemblerARM(ResOpAssembler):
         direct_bootstrap_code = self.mc.currpos()
         self.gen_direct_bootstrap_code(loop_head, looptoken, inputargs)
 
+        self.write_pending_failure_recoveries()
         loop_start = self.materialize_loop(looptoken)
         looptoken._arm_bootstrap_code = loop_start
         looptoken._arm_direct_bootstrap_code = loop_start + direct_bootstrap_code
@@ -617,6 +614,7 @@ class AssemblerARM(ResOpAssembler):
         #original_loop_token._arm_frame_depth = regalloc.frame_manager.frame_depth
         self._patch_sp_offset(sp_patch_location, regalloc.frame_manager.frame_depth)
 
+        self.write_pending_failure_recoveries()
         bridge_start = self.materialize_loop(original_loop_token)
         self.process_pending_guards(bridge_start)
 
@@ -634,17 +632,38 @@ class AssemblerARM(ResOpAssembler):
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
+    def write_pending_failure_recoveries(self):
+        for tok in self.pending_guards:
+            descr = tok.descr
+            #generate the exit stub and the encoded representation
+            pos = self.mc.currpos()
+            tok.pos_recovery_stub = pos 
+
+            memaddr = self._gen_path_to_exit_path(descr, tok.failargs,
+                                            tok.faillocs, save_exc=tok.save_exc)
+            # store info on the descr
+            descr._arm_frame_depth = tok.faillocs[0].getint()
+            descr._failure_recovery_code = memaddr
+            descr._arm_guard_pos = pos
+
     def process_pending_guards(self, block_start):
         clt = self.current_clt
         for tok in self.pending_guards:
             descr = tok.descr
+            assert isinstance(descr, AbstractFailDescr)
+
             #XXX _arm_block_start should go in the looptoken
             descr._arm_block_start = block_start
-            descr._failure_recovery_code = tok.encoded_args
-            descr._arm_guard_pos = tok.offset
-            if tok.is_invalidate:
+
+            if not tok.is_invalidate:
+                #patch the guard jumpt to the stub
+                # overwrite the generate NOP with a B_offs to the pos of the stub
+                mc = ARMv7Builder()
+                mc.B_offs(descr._arm_guard_pos - tok.offset, c.get_opposite_of(tok.fcond))
+                mc.copy_to_raw_memory(block_start + tok.offset)
+            else:
                 clt.invalidate_positions.append(
-                    (block_start + tok.offset, tok.encoded_args))
+                    (block_start + tok.offset, descr._arm_guard_pos - tok.offset))
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token

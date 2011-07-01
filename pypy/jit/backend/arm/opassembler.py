@@ -34,11 +34,15 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 NO_FORCE_INDEX = -1
 
 class GuardToken(object):
-    def __init__(self, descr, offset=0, encoded_args=0, is_invalidate=False):
+    def __init__(self, descr, failargs, faillocs, offset, fcond=c.AL,
+                                        save_exc=False, is_invalidate=False):
         self.descr = descr
         self.offset = offset
-        self.encoded_args = encoded_args
         self.is_invalidate = is_invalidate
+        self.failargs = failargs
+        self.faillocs = faillocs
+        self.save_exc = save_exc
+        self.fcond=fcond
 
 class IntOpAsslember(object):
 
@@ -165,7 +169,7 @@ class GuardOpAssembler(object):
     _mixin_ = True
 
     guard_size = 5*WORD
-    def _emit_guard(self, op, arglocs, fcond, save_exc=False):
+    def _emit_guard(self, op, arglocs, fcond, save_exc=False, is_guard_not_ivalidated=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
 
@@ -173,13 +177,15 @@ class GuardOpAssembler(object):
         if not we_are_translated() and hasattr(op, 'getfailargs'):
            print 'Failargs: ', op.getfailargs()
 
-        self.mc.ADD_ri(r.pc.value, r.pc.value, self.guard_size-PC_OFFSET, cond=fcond)
         pos = self.mc.currpos()
-
-        memaddr = self._gen_path_to_exit_path(op, op.getfailargs(),
-                                            arglocs, save_exc=save_exc)
-        self.pending_guards.append(GuardToken(op.getdescr(), 
-                                    offset=pos, encoded_args=memaddr))
+        self.mc.NOP()
+        self.pending_guards.append(GuardToken(descr,
+                                    failargs=op.getfailargs(),
+                                    faillocs=arglocs,
+                                    offset=pos,
+                                    fcond=fcond,
+                                    is_invalidate=is_guard_not_ivalidated,
+                                    save_exc=save_exc))
         return c.AL
 
     def _emit_guard_overflow(self, guard, failargs, fcond):
@@ -241,17 +247,14 @@ class GuardOpAssembler(object):
 
         self.mc.CMP_ri(arglocs[0].value, 0)
         if offset is not None:
-            self.mc.ADD_ri(r.pc.value, r.pc.value, 2*WORD, cond=c.EQ)
+            self._emit_guard(op, arglocs[3:], c.NE)
         else:
             raise NotImplementedError
         self._cmp_guard_class(op, arglocs, regalloc, fcond)
         return fcond
 
     def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
-        pos = self.mc.currpos() # after potential jmp
-        memaddr = self.gen_descr_encoding(op, op.getfailargs(), locs)
-        self.pending_guards.append(GuardToken(op.getdescr(), pos, memaddr, True))
-        return fcond
+        return self._emit_guard(op, locs, fcond, is_guard_not_ivalidated=True)
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
         offset = locs[2]
@@ -289,7 +292,7 @@ class OpAssembler(object):
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
-        self._gen_path_to_exit_path(op, op.getarglist(), arglocs, c.AL)
+        self._gen_path_to_exit_path(op.getdescr(), op.getarglist(), arglocs, c.AL)
         return fcond
 
     def emit_op_call(self, op, args, regalloc, fcond, force_index=-1):

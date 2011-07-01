@@ -156,6 +156,8 @@ class AbstractARMv7Builder(object):
         self.write32(cond << 28 | 0xEF1FA10)
 
     def B(self, target, c=cond.AL):
+        #assert self._fits_in_24bits(target)
+        #return (c << 20 | 0xA << 24 | target & 0xFFFFFF)
         if c == cond.AL:
             self.LDR_ri(reg.pc.value, reg.pc.value, -arch.PC_OFFSET/2)
             self.write32(target)
@@ -165,12 +167,9 @@ class AbstractARMv7Builder(object):
 
     def B_offs(self, target_ofs, c=cond.AL):
         pos = self.currpos()
-        if target_ofs > pos:
-            raise NotImplementedError
-        else:
-            target_ofs = target_ofs - (pos + arch.PC_OFFSET)
-            assert target_ofs & 0x3 == 0
-            self.write32(c << 28 | 0xA << 24 | (target_ofs >> 2) & 0xFFFFFF)
+        target_ofs = target_ofs - (pos + arch.PC_OFFSET)
+        assert target_ofs & 0x3 == 0
+        self.write32(c << 28 | 0xA << 24 | (target_ofs >> 2) & 0xFFFFFF)
 
     def BL(self, target, c=cond.AL):
         if c == cond.AL:
@@ -241,6 +240,9 @@ class OverwritingBuilder(AbstractARMv7Builder):
         self.cb = cb
         self.index = start
         self.end = start + size
+
+    def currpos(self):
+        return self.index
 
     def writechar(self, char):
         assert self.index <= self.end
