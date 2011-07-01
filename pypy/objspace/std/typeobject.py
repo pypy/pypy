@@ -9,8 +9,8 @@ from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from pypy.rlib.jit import hint, purefunction_promote, we_are_jitted
-from pypy.rlib.jit import purefunction, dont_look_inside, unroll_safe
+from pypy.rlib.jit import hint, elidable_promote, we_are_jitted
+from pypy.rlib.jit import elidable, dont_look_inside, unroll_safe
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 class TypeCell(W_Root):
@@ -177,7 +177,7 @@ class W_TypeObject(W_Object):
         # prebuilt objects cannot get their version_tag changed
         return w_self._pure_version_tag()
 
-    @purefunction_promote()
+    @elidable_promote()
     def _pure_version_tag(w_self):
         return w_self._version_tag
 
@@ -247,7 +247,7 @@ class W_TypeObject(W_Object):
                     return w_value
         return w_value
 
-    @purefunction
+    @elidable
     def _pure_getdictvalue_no_unwrapping(w_self, space, version_tag, attr):
         return w_self._getdictvalue_no_unwrapping(space, attr)
 
@@ -360,7 +360,7 @@ class W_TypeObject(W_Object):
         w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         return w_class, unwrap_cell(space, w_value)
 
-    @purefunction
+    @elidable
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
         space = w_self.space
         cache = space.fromcache(MethodCache)
@@ -820,7 +820,7 @@ def call__Type(space, w_type, __args__):
 def _issubtype(w_sub, w_type):
     return w_type in w_sub.mro_w
 
-@purefunction_promote()
+@elidable_promote()
 def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
     return _issubtype(w_sub, w_type)
 

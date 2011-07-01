@@ -40,7 +40,7 @@ class types(object):
         del cls._import
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def getkind(ffi_type):
         """Returns 'v' for void, 'f' for float, 'i' for signed integer,
         and 'u' for unsigned integer.
@@ -74,7 +74,7 @@ class types(object):
         raise KeyError
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def is_struct(ffi_type):
         return intmask(ffi_type.c_type) == intmask(FFI_TYPE_STRUCT)
 

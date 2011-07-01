@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
-from pypy.rlib.jit import loop_invariant
+from pypy.rlib.jit import loop_invariant, elidable
 from pypy.rlib.jit import jit_debug, assert_green, AssertGreenFailed
 from pypy.rlib.jit import unroll_safe, current_trace_length
 from pypy.jit.metainterp import pyjitpl, history
@@ -304,10 +304,10 @@ class BasicTests:
         assert res == 42
         self.check_operations_history(int_add=1, int_mul=0, call=1, guard_no_exception=0)
 
-    def test_residual_call_pure(self):
+    def test_residual_call_elidable(self):
         def externfn(x, y):
             return x * y
-        externfn._pure_function_ = True
+        externfn._elidable_function_ = True
         def f(n):
             n = hint(n, promote=True)
             return externfn(n, n+1)
@@ -317,10 +317,10 @@ class BasicTests:
         self.check_operations_history(int_add=0, int_mul=0,
                                       call=0, call_pure=0)
 
-    def test_residual_call_pure_1(self):
+    def test_residual_call_elidable_1(self):
+        @elidable
         def externfn(x, y):
             return x * y
-        externfn._pure_function_ = True
         def f(n):
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
@@ -329,11 +329,11 @@ class BasicTests:
         self.check_operations_history(int_add=1, int_mul=0,
                                       call=0, call_pure=1)
 
-    def test_residual_call_pure_2(self):
+    def test_residual_call_elidable_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
+        @elidable
         def externfn(x):
             return x - 1
-        externfn._pure_function_ = True
         def f(n):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n)
@@ -346,11 +346,11 @@ class BasicTests:
         # by optimizeopt.py
         self.check_loops(int_sub=0, call=1, call_pure=0)
 
-    def test_constfold_call_pure(self):
+    def test_constfold_call_elidable(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        @elidable
         def externfn(x):
             return x - 3
-        externfn._pure_function_ = True
         def f(n, m):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, m=m)
@@ -362,11 +362,11 @@ class BasicTests:
         # the CALL_PURE is constant-folded away by optimizeopt.py
         self.check_loops(int_sub=1, call=0, call_pure=0)
 
-    def test_constfold_call_pure_2(self):
+    def test_constfold_call_elidable_2(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        @elidable
         def externfn(x):
             return x - 3
-        externfn._pure_function_ = True
         class V:
             def __init__(self, value):
                 self.value = value
@@ -382,19 +382,19 @@ class BasicTests:
         # the CALL_PURE is constant-folded away by optimizeopt.py
         self.check_loops(int_sub=1, call=0, call_pure=0)
 
-    def test_pure_function_returning_object(self):
+    def test_elidable_function_returning_object(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
         class V:
             def __init__(self, x):
                 self.x = x
         v1 = V(1)
         v2 = V(2)
+        @elidable
         def externfn(x):
             if x:
                 return v1
             else:
                 return v2
-        externfn._pure_function_ = True
         def f(n, m):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, m=m)

@@ -546,7 +546,7 @@ class ExeState(object):
             effectinfo = descr.get_extra_info()
             if effectinfo is not None:
                 if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-                   effectinfo.extraeffect == EffectInfo.EF_PURE:
+                   effectinfo.extraeffect == EffectInfo.EF_ELIDABLE:
                     return True
         return False
     

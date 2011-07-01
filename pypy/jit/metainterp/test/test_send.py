@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, hint, purefunction
+from pypy.rlib.jit import JitDriver, hint, elidable
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
@@ -604,7 +604,7 @@ class SendTests(object):
     def test_constfold_pure_oosend(self):
         myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])
         class A:
-            @purefunction
+            @elidable
             def foo(self):
                 return 42
         def fn(n, i):

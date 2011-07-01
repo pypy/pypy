@@ -16,7 +16,7 @@ from pypy.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
 
-@jit.purefunction_promote()
+@jit.elidable_promote()
 def _get_immutable_code(func):
     assert not func.can_change_code
     return func.code

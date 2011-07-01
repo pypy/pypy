@@ -53,7 +53,7 @@ class AbstractAttribute(object):
         else:
             return self._index_indirection(selector)
 
-    @jit.purefunction
+    @jit.elidable
     def _index_jit_pure(self, name, index):
         return self._index_indirection((name, index))
 
@@ -113,14 +113,14 @@ class AbstractAttribute(object):
     def set_terminator(self, obj, terminator):
         raise NotImplementedError("abstract base class")
 
-    @jit.purefunction
+    @jit.elidable
     def size_estimate(self):
         return self._size_estimate >> NUM_DIGITS
 
     def search(self, attrtype):
         return None
 
-    @jit.purefunction
+    @jit.elidable
     def _get_new_attr(self, name, index):
         selector = name, index
         cache = self.cache_attrs
