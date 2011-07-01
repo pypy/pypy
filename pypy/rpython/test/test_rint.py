@@ -389,12 +389,32 @@ class BaseTestRint(BaseRtypingTest):
             return objectmodel.compute_hash(x)
         res = self.interpret(f, [123456789])
         assert res == 123456789
-        res = self.interpret(f, [r_int64(123456789012345678)])
-        if sys.maxint == 2147483647:
+        num = r_int64(123456789012345678)
+        res = self.interpret(f, [num])
+        if isinstance(num, r_longlong):
             # check the way we compute such a hash so far
             assert res == -1506741426 + 9 * 28744523
         else:
             assert res == 123456789012345678
+    
+    def test_strange_behaviour(self):
+        def f(x):
+            return objectmodel.compute_hash(x)
+        
+        #happened on 64bit when changing sys.maxint
+        old_maxint = sys.maxint
+        sys.maxint = 2**31-1
+        num1 = r_int64(2**32 - 1)
+        num2 = r_int64(2**32)
+        
+        interpreted_res = self.interpret(f, [num1])
+        res = f(num1)
+        sys.maxint = old_maxint
+        assert res == interpreted_res
+        
+        interpreted_res = self.interpret(f, [num2])
+        res = f(num2)
+        assert res == interpreted_res
 
     def test_int_between(self):
         def fn(a, b, c):

@@ -41,7 +41,7 @@ from pypy.rlib import objectmodel
 _bits = 0
 _itest = 1
 _Ltest = 1L
-while _itest == _Ltest and type(_itest) is int:
+while _itest == _Ltest and _itest <= sys.maxint:
     _itest *= 2
     _Ltest *= 2
     _bits += 1
@@ -59,11 +59,11 @@ while (1 << LONG_BIT_SHIFT) != LONG_BIT:
     assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
 
 def intmask(n):
-    if isinstance(n, int):
-        return int(n)   # possibly bool->int
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
+    if -sys.maxint -1 < n < sys.maxint:
+        return int(n)
     n = long(n)
     n &= LONG_MASK
     if n >= LONG_TEST:
@@ -107,8 +107,8 @@ def ovfcheck(r):
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
-    assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
-    if type(r) is long:
+    assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
+    if r > sys.maxint or r < -sys.maxint - 1:
         raise OverflowError, "signed integer expression did overflow"
     return r
 
@@ -116,7 +116,7 @@ def _local_ovfcheck(r):
     # a copy of the above, because we cannot call ovfcheck
     # in a context where no primitiveoperator is involved.
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
-    if isinstance(r, long):
+    if r > sys.maxint or r < -sys.maxint - 1:
         raise OverflowError, "signed integer expression did overflow"
     return r
 

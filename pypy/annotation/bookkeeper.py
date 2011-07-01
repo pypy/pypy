@@ -332,9 +332,7 @@ class Bookkeeper(object):
             return result
         if tp is bool:
             result = SomeBool()
-        elif tp is int:
-            result = SomeInteger(nonneg = x>=0)
-        elif tp is long:
+        elif tp is int or tp is long:
             if -sys.maxint-1 <= x <= sys.maxint:
                 x = int(x)
                 result = SomeInteger(nonneg = x>=0)

@@ -11,6 +11,8 @@ For more information, use test_all.py -h.
 """
 import sys, os
 
+sys.maxint = (2**31)-1
+
 if len(sys.argv) == 1 and os.path.dirname(sys.argv[0]) in '.':
     print >> sys.stderr, __doc__
     sys.exit(2)

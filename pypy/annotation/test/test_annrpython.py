@@ -849,7 +849,7 @@ class TestAnnotateTestCase:
         assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
 
     def test_large_unsigned(self):
-        large_constant = sys.maxint * 2 + 1 # 0xFFFFFFFF on 32-bit platforms
+        large_constant = 2**64-1 # 0xFFFFFFFF on 32-bit platforms
         def f():
             return large_constant
         a = self.RPythonAnnotator()
