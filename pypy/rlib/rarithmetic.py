@@ -76,7 +76,6 @@ def intmask(n):
     n &= LONG_MASK
     if n >= LONG_TEST:
         n -= 2*LONG_TEST
-    # return int(n)
     return n
 
 def longlongmask(n):
@@ -117,7 +116,6 @@ def ovfcheck(r):
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
-    # if type(r) is long:
     if abs(r) > sys.maxint:
         raise OverflowError, "signed integer expression did overflow"
     return r
