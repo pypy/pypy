@@ -237,6 +237,7 @@ def _ll_list_resize_ge(l, newsize):
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
+_ll_list_resize_ge.oopspec = 'list._resize_ge(l, newsize)'
 
 def _ll_list_resize_le(l, newsize):
     if newsize >= (len(l.items) >> 1) - 5:
@@ -249,12 +250,11 @@ def ll_append_noresize(l, newitem):
     length = l.length
     l.length = length + 1
     l.ll_setitem_fast(length, newitem)
-ll_append_noresize.oopspec = 'list.append(l, newitem)'
 
 
 def ll_both_none(lst1, lst2):
     return not lst1 and not lst2
-        
+
 
 # ____________________________________________________________
 #

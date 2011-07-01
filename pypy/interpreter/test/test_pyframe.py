@@ -98,6 +98,15 @@ class AppTestPyFrame:
             return sys._getframe().f_back.f_code.co_name 
         f()
 
+    def test_f_back_virtualref(self):
+        import sys
+        def f():
+            return g()
+        def g():
+            return sys._getframe()
+        frame = f()
+        assert frame.f_back.f_code.co_name == 'f'
+
     def test_f_exc_xxx(self):
         import sys
 
@@ -121,6 +130,21 @@ class AppTestPyFrame:
             raise OuterException
         except:
             g(sys.exc_info())
+
+    def test_virtualref_through_traceback(self):
+        import sys
+        def g():
+            try:
+                raise ValueError
+            except:
+                _, _, tb = sys.exc_info()
+            return tb
+        def f():
+            return g()
+        #
+        tb = f()
+        assert tb.tb_frame.f_code.co_name == 'g'
+        assert tb.tb_frame.f_back.f_code.co_name == 'f'
 
     def test_trace_basic(self):
         import sys

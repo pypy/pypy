@@ -1,21 +1,10 @@
+import py
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp import resoperation, history
-from pypy.jit.metainterp.jitexc import JitException
 from pypy.rlib.debug import make_sure_not_resized
-
-class InvalidLoop(JitException):
-    """Raised when the optimize*.py detect that the loop that
-    we are trying to build cannot possibly make sense as a
-    long-running loop (e.g. it cannot run 2 complete iterations)."""
-
-class RetraceLoop(JitException):
-    """ Raised when inlining a short preamble resulted in an
-        InvalidLoop. This means the optimized loop is too specialized
-        to be useful here, so we trace it again and produced a second
-        copy specialized in some different way.
-    """
+from pypy.jit.metainterp.resoperation import rop
 
 # ____________________________________________________________
 # Misc. utilities
@@ -113,3 +102,49 @@ def args_dict():
 
 def args_dict_box():
     return r_dict(args_eq, args_hash)
+
+
+# ____________________________________________________________
+
+def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
+                 text_right=None):
+    # try to use the full width of the terminal to display the list
+    # unfortunately, does not work with the default capture method of py.test
+    # (which is fd), you you need to use either -s or --capture=sys, else you
+    # get the standard 80 columns width
+    totwidth = py.io.get_terminal_width()
+    width = totwidth / 2 - 1
+    print ' Comparing lists '.center(totwidth, '-')
+    text_right = text_right or 'expected'
+    print '%s| %s' % ('optimized'.center(width), text_right.center(width))
+    for op1, op2 in zip(oplist1, oplist2):
+        txt1 = str(op1)
+        txt2 = str(op2)
+        while txt1 or txt2:
+            print '%s| %s' % (txt1[:width].ljust(width), txt2[:width])
+            txt1 = txt1[width:]
+            txt2 = txt2[width:]
+        assert op1.getopnum() == op2.getopnum()
+        assert op1.numargs() == op2.numargs()
+        for i in range(op1.numargs()):
+            x = op1.getarg(i)
+            y = op2.getarg(i)
+            assert x == remap.get(y, y)
+        if op2.result in remap:
+            assert op1.result == remap[op2.result]
+        else:
+            remap[op2.result] = op1.result
+        if op1.getopnum() != rop.JUMP:      # xxx obscure
+            assert op1.getdescr() == op2.getdescr()
+        if op1.getfailargs() or op2.getfailargs():
+            assert len(op1.getfailargs()) == len(op2.getfailargs())
+            if strict_fail_args:
+                for x, y in zip(op1.getfailargs(), op2.getfailargs()):
+                    assert x == remap.get(y, y)
+            else:
+                fail_args1 = set(op1.getfailargs())
+                fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])
+                assert fail_args1 == fail_args2
+    assert len(oplist1) == len(oplist2)
+    print '-'*totwidth
+    return True

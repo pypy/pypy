@@ -64,6 +64,7 @@ syntax: regexp
 ^pypy/doc/image/lattice3\.png$
 ^pypy/doc/image/stackless_informal\.png$
 ^pypy/doc/image/parsing_example.+\.png$
+^pypy/module/test_lib_pypy/ctypes_tests/_ctypes_test\.o$
 ^compiled
 ^.git/
 ^release/

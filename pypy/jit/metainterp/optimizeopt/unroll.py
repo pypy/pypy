@@ -5,7 +5,7 @@ from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
+from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.history import make_hashable_int
 from pypy.jit.codewriter.effectinfo import EffectInfo
@@ -546,7 +546,7 @@ class ExeState(object):
             effectinfo = descr.get_extra_info()
             if effectinfo is not None:
                 if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-                   effectinfo.extraeffect == EffectInfo.EF_PURE:
+                   effectinfo.extraeffect == EffectInfo.EF_ELIDABLE:
                     return True
         return False
     

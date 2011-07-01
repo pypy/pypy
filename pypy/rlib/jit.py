@@ -6,20 +6,25 @@ from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.nonconst import NonConstant
 
-def purefunction(func):
-    """ Decorate a function as pure. Pure means precisely that:
+def elidable(func):
+    """ Decorate a function as "trace-elidable". This means precisely that:
 
     (1) the result of the call should not change if the arguments are
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
     according to rule 1
 
-    Most importantly it doesn't mean that pure function has no observable
-    side effect, but those side effects can be ommited (ie caching).
+    Most importantly it doesn't mean that an elidable function has no observable
+    side effect, but those side effects are idempotent (ie caching).
     For now, such a function should never raise an exception.
     """
-    func._pure_function_ = True
+    func._elidable_function_ = True
     return func
+
+def purefunction(*args, **kwargs):
+    import warnings
+    warnings.warn("purefunction is deprecated, use elidable instead", DeprecationWarning)
+    return elidable(*args, **kwargs)
 
 def hint(x, **kwds):
     """ Hint for the JIT
@@ -35,6 +40,10 @@ def hint(x, **kwds):
                             access_directly=True
     """
     return x
+
+@specialize.argtype(0)
+def promote(x):
+    return hint(x, promote=True)
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
@@ -60,13 +69,13 @@ def loop_invariant(func):
     func._jit_loop_invariant_ = True
     return func
 
-def purefunction_promote(promote_args='all'):
+def elidable_promote(promote_args='all'):
     """ A decorator that promotes all arguments and then calls the supplied
     function
     """
     def decorator(func):
         import inspect
-        purefunction(func)
+        elidable(func)
         args, varargs, varkw, defaults = inspect.getargspec(func)
         args = ["v%s" % (i, ) for i in range(len(args))]
         assert varargs is None and varkw is None
@@ -84,6 +93,12 @@ def purefunction_promote(promote_args='all'):
         result.func_name = func.func_name + "_promote"
         return result
     return decorator
+
+def purefunction_promote(*args, **kwargs):
+    import warnings
+    warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
+    return elidable_promote(*args, **kwargs)
+
 
 def oopspec(spec):
     def decorator(func):
@@ -183,7 +198,6 @@ class AssertGreenFailed(Exception):
 # VRefs
 
 def virtual_ref(x):
-
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
     is that the object 'x' is supposed to be JITted as a virtual between
@@ -194,10 +208,10 @@ def virtual_ref(x):
     return DirectJitVRef(x)
 virtual_ref.oopspec = 'virtual_ref(x)'
 
-def virtual_ref_finish(x):
-    """See docstring in virtual_ref(x).  Note that virtual_ref_finish
-    takes as argument the real object, not the vref."""
+def virtual_ref_finish(vref, x):
+    """See docstring in virtual_ref(x)"""
     keepalive_until_here(x)   # otherwise the whole function call is removed
+    _virtual_ref_finish(vref, x)
 virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
 
 def non_virtual_ref(x):
@@ -205,18 +219,38 @@ def non_virtual_ref(x):
     Used for None or for frames outside JIT scope."""
     return DirectVRef(x)
 
+class InvalidVirtualRef(Exception):
+    """
+    Raised if we try to call a non-forced virtualref after the call to
+    virtual_ref_finish
+    """
+
 # ---------- implementation-specific ----------
 
 class DirectVRef(object):
     def __init__(self, x):
         self._x = x
+        self._state = 'non-forced'
+
     def __call__(self):
+        if self._state == 'non-forced':
+            self._state = 'forced'
+        elif self._state == 'invalid':
+            raise InvalidVirtualRef
         return self._x
+
+    def _finish(self):
+        if self._state == 'non-forced':
+            self._state = 'invalid'
 
 class DirectJitVRef(DirectVRef):
     def __init__(self, x):
         assert x is not None, "virtual_ref(None) is not allowed"
         DirectVRef.__init__(self, x)
+
+def _virtual_ref_finish(vref, x):
+    assert vref._x is x, "Invalid call to virtual_ref_finish"
+    vref._finish()
 
 class Entry(ExtRegistryEntry):
     _about_ = (non_virtual_ref, DirectJitVRef)
@@ -237,6 +271,15 @@ class Entry(ExtRegistryEntry):
         s_obj = self.bookkeeper.immutablevalue(self.instance())
         return _jit_vref.SomeVRef(s_obj)
 
+class Entry(ExtRegistryEntry):
+    _about_ = _virtual_ref_finish
+
+    def compute_result_annotation(self, s_vref, s_obj):
+        pass
+
+    def specialize_call(self, hop):
+        pass
+    
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
@@ -245,7 +288,8 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-PARAMETERS = {'threshold': 1000,
+PARAMETERS = {'threshold': 1032, # just above 1024
+              'function_threshold': 1617, # slightly more than one above 
               'trace_eagerness': 200,
               'trace_limit': 12000,
               'inlining': 0,
@@ -341,6 +385,24 @@ class JitDriver(object):
                         except ValueError:
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
+
+    
+    def on_compile(self, logger, looptoken, operations, type, *greenargs):
+        """ A hook called when loop is compiled. Overwrite
+        for your own jitdriver if you want to do something special, like
+        call applevel code
+        """
+
+    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
+        """ A hook called when a bridge is compiled. Overwrite
+        for your own jitdriver if you want to do something special
+        """
+
+    # note: if you overwrite this functions with the above signature it'll
+    #       work, but the *greenargs is different for each jitdriver, so we
+    #       can't share the same methods
+    del on_compile
+    del on_compile_bridge
 
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions

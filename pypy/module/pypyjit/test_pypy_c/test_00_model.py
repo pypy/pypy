@@ -5,6 +5,7 @@ import py
 from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
+from pypy.jit.tool.jitoutput import parse_prof
 from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, \
     LoopWithIds, OpMatcher
 
@@ -21,6 +22,7 @@ class BaseTestPyPyC(object):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
 
     def run(self, func_or_src, args=[], import_site=False, **jitopts):
+        jitopts.setdefault('threshold', 200)
         src = py.code.Source(func_or_src)
         if isinstance(func_or_src, types.FunctionType):
             funcname = func_or_src.func_name
@@ -56,6 +58,8 @@ class BaseTestPyPyC(object):
         stdout, stderr = pipe.communicate()
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
+        if stderr.startswith('debug_alloc.h:'):   # lldebug builds
+            stderr = ''
         assert not stderr
         #
         # parse the JIT log
@@ -63,6 +67,13 @@ class BaseTestPyPyC(object):
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
         log = Log(rawtraces)
         log.result = eval(stdout)
+        #
+        summaries  = logparser.extract_category(rawlog, 'jit-summary')
+        if len(summaries) > 0:
+            log.jit_summary = parse_prof(summaries[-1])
+        else:
+            log.jit_summary = None
+        #
         return log
 
     def run_and_check(self, src, args=[], **jitopts):

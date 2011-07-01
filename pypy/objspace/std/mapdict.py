@@ -53,7 +53,7 @@ class AbstractAttribute(object):
         else:
             return self._index_indirection(selector)
 
-    @jit.purefunction
+    @jit.elidable
     def _index_jit_pure(self, name, index):
         return self._index_indirection((name, index))
 
@@ -113,14 +113,14 @@ class AbstractAttribute(object):
     def set_terminator(self, obj, terminator):
         raise NotImplementedError("abstract base class")
 
-    @jit.purefunction
+    @jit.elidable
     def size_estimate(self):
         return self._size_estimate >> NUM_DIGITS
 
     def search(self, attrtype):
         return None
 
-    @jit.purefunction
+    @jit.elidable
     def _get_new_attr(self, name, index):
         selector = name, index
         cache = self.cache_attrs
@@ -357,7 +357,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def _get_mapdict_map(self):
-        return jit.hint(self.map, promote=True)
+        return jit.promote(self.map)
     def _set_mapdict_map(self, map):
         self.map = map
     # _____________________________________________
@@ -668,8 +668,13 @@ class MapDictStrategy(DictStrategy):
         new_obj = w_obj._get_mapdict_map().remove_dict_entries(w_obj)
         _become(w_obj, new_obj)
 
-    def _clear_fields(self, w_dict):
-        self.w_obj = None
+    def popitem(self, w_dict):
+        curr = self.unerase(w_dict.dstorage)._get_mapdict_map().search(DICT)
+        key = curr.selector[0]
+        w_value = self.getitem_str(w_dict, key)
+        w_key = self.space.wrap(key)
+        self.delitem(w_dict, w_key)
+        return (w_key, w_value)
 
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()

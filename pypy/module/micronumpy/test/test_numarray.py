@@ -18,6 +18,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[13] = 5.3
         assert a[13] == 5.3
 
+    def test_empty(self):
+        """
+        Test that empty() works.
+        """
+
+        from numpy import empty
+        a = empty(2)
+        a[1] = 1.0
+        assert a[1] == 1.0
+
+    def test_ones(self):
+        from numpy import ones
+        a = ones(3)
+        assert len(a) == 3
+        assert a[0] == 1
+        raises(IndexError, "a[3]")
+        a[2] = 4
+        assert a[2] == 4
+
     def test_iterator_init(self):
         from numpy import array
         a = array(range(5))
@@ -45,6 +64,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         assert len(a) == 5
         assert len(a + a) == 5
+
+    def test_shape(self):
+        from numpy import array
+        a = array(range(5))
+        assert a.shape == (5,)
+        b = a + a
+        assert b.shape == (5,)
+        c = a[:3]
+        assert c.shape == (3,)
 
     def test_add(self):
         from numpy import array
@@ -139,3 +167,50 @@ class AppTestNumArray(BaseNumpyAppTest):
         c = b + b
         b[1] = 5
         assert c[1] == 4
+
+    def test_getslice(self):
+        from numpy import array
+        a = array(range(5))
+        s = a[1:5]
+        assert len(s) == 4
+        for i in range(4):
+            assert s[i] == a[i+1]
+
+    def test_getslice_step(self):
+        from numpy import array
+        a = array(range(10))
+        s = a[1:9:2]
+        assert len(s) == 4
+        for i in range(4):
+            assert s[i] == a[2*i+1]
+
+    def test_slice_update(self):
+        from numpy import array
+        a = array(range(5))
+        s = a[0:3]
+        s[1] = 10
+        assert a[1] == 10
+        a[2] = 20
+        assert s[2] == 20
+
+
+    def test_slice_invaidate(self):
+        # check that slice shares invalidation list with
+        from numpy import array
+        a = array(range(5))
+        s = a[0:2]
+        b = array([10,11])
+        c = s + b
+        a[0] = 100
+        assert c[0] == 10
+        assert c[1] == 12
+        d = s + b
+        a[1] = 101
+        assert d[0] == 110
+        assert d[1] == 12
+
+    def test_mean(self):
+        from numpy import array, mean
+        a = array(range(5))
+        assert a.mean() == 2.0
+        assert a[:4].mean() == 1.5

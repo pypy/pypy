@@ -40,3 +40,14 @@ class TestClassObject(BaseApiTest):
         assert not isinstance(api.PyObject_GetAttr(w_instance, space.wrap('f')), Function)
         # _PyInstance_Lookup returns the raw descriptor
         assert isinstance(api._PyInstance_Lookup(w_instance, space.wrap('f')), Function)
+
+    def test_pyclass_new(self, space, api):
+        w_bases = space.newtuple([])
+        w_dict = space.newdict()
+        w_name = space.wrap("C")
+        w_class = api.PyClass_New(w_bases, w_dict, w_name)
+        assert not space.isinstance_w(w_class, space.w_type)
+        w_instance = space.call_function(w_class)
+        assert api.PyInstance_Check(w_instance)
+        assert space.is_true(space.call_method(space.builtin, "isinstance",
+                                               w_instance, w_class))

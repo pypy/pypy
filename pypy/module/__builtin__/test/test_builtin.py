@@ -1,5 +1,6 @@
 import autopath
 import sys
+from pypy import conftest
 
 class AppTestBuiltinApp:
     def setup_class(cls):
@@ -15,6 +16,15 @@ class AppTestBuiltinApp:
             cls.w_sane_lookup = cls.space.wrap(True)
         except KeyError:
             cls.w_sane_lookup = cls.space.wrap(False)
+        # starting with CPython 2.6, when the stack is almost out, we
+        # can get a random error, instead of just a RuntimeError.
+        # For example if an object x has a __getattr__, we can get
+        # AttributeError if attempting to call x.__getattr__ runs out
+        # of stack.  That's annoying, so we just work around it.
+        if conftest.option.runappdirect:
+            cls.w_safe_runtimerror = cls.space.wrap(True)
+        else:
+            cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
 
     def test_bytes_alias(self):
         assert bytes is str
@@ -399,6 +409,8 @@ class AppTestBuiltinApp:
     def test_cmp_cyclic(self):
         if not self.sane_lookup:
             skip("underlying Python implementation has insane dict lookup")
+        if not self.safe_runtimerror:
+            skip("underlying Python may raise random exceptions on stack ovf")
         a = []; a.append(a)
         b = []; b.append(b)
         from UserList import UserList

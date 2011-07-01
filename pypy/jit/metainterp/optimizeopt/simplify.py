@@ -1,7 +1,7 @@
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import _findall
 
 class OptSimplify(Optimization):
     def optimize_CALL_PURE(self, op):

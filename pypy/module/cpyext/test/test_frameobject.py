@@ -64,3 +64,31 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
         # Cython does not work on CPython as well...
         assert exc.traceback.tb_lineno == 42 # should be 48
         assert frame.f_lineno == 42
+
+    def test_traceback_check(self):
+        module = self.import_extension('foo', [
+            ("traceback_check", "METH_NOARGS",
+             """
+                 int check;
+                 PyObject *type, *value, *tb;
+                 PyObject *ret = PyRun_String("XXX", Py_eval_input, 
+                                              Py_None, Py_None);
+                 if (ret) {
+                     Py_DECREF(ret);
+                     PyErr_SetString(PyExc_AssertionError, "should raise");
+                     return NULL;
+                 }
+                 PyErr_Fetch(&type, &value, &tb);
+                 check = PyTraceBack_Check(tb);
+                 Py_XDECREF(type);
+                 Py_XDECREF(value);
+                 Py_XDECREF(tb);
+                 if (check) {
+                     Py_RETURN_TRUE;
+                 }
+                 else {
+                     Py_RETURN_FALSE;
+                 }
+             """),
+            ])
+        assert module.traceback_check()

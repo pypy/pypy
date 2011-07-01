@@ -45,7 +45,7 @@ class ModuleDictStrategy(DictStrategy):
     def getdictvalue_no_unwrapping(self, w_dict, key):
         return self._getdictvalue_no_unwrapping_pure(self.version, w_dict, key)
 
-    @jit.purefunction_promote('0,1,2')
+    @jit.elidablefunction_promote('0,1,2')
     def _getdictvalue_no_unwrapping_pure(self, version, w_dict, key):
         return self.unerase(w_dict.dstorage).get(key, None)
 
@@ -147,9 +147,6 @@ class ModuleDictStrategy(DictStrategy):
             d_new[self.space.wrap(key)] = unwrap_cell(cell)
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
-
-    def _clear_fields(self):
-        self.content = None
 
 class ModuleDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):

@@ -1,5 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory, rclass
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.llsupport import symbolic, support
 from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
 from pypy.jit.metainterp.history import BasicFailDescr, LoopToken, BoxFloat
@@ -44,6 +45,8 @@ else:
 class SizeDescr(AbstractDescr):
     size = 0      # help translation
     is_immutable = False
+
+    tid = llop.combine_ushort(lltype.Signed, 0, 0)
 
     def __init__(self, size, count_fields_if_immut=-1):
         self.size = size
@@ -149,6 +152,7 @@ _AF = lltype.GcArray(lltype.Float)     # an array of C doubles
 
 class BaseArrayDescr(AbstractDescr):
     _clsname = ''
+    tid = llop.combine_ushort(lltype.Signed, 0, 0)
 
     def get_base_size(self, translate_support_code):
         basesize, _, _ = symbolic.get_array_token(_A, translate_support_code)
@@ -263,6 +267,9 @@ class BaseCallDescr(AbstractDescr):
 
     def __repr__(self):
         res = '%s(%s)' % (self.__class__.__name__, self.arg_classes)
+        extraeffect = getattr(self.extrainfo, 'extraeffect', None)
+        if extraeffect is not None:
+            res += ' EF=%r' % extraeffect
         oopspecindex = getattr(self.extrainfo, 'oopspecindex', 0)
         if oopspecindex:
             from pypy.jit.codewriter.effectinfo import EffectInfo

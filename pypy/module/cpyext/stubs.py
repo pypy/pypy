@@ -172,12 +172,6 @@ def PyObject_GetBuffer(space, obj, view, flags):
     This is equivalent to (PyBUF_ND)."""
     raise NotImplementedError
 
-@cpython_api([Py_buffer], lltype.Void)
-def PyBuffer_Release(space, view):
-    """Release the buffer view.  This should be called when the buffer
-    is no longer being used as it may free memory from it."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
 def PyBuffer_SizeFromFormat(space, format):
     """Return the implied ~Py_buffer.itemsize from the struct-stype
@@ -196,13 +190,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     """Fill the strides array with byte-strides of a contiguous (C-style if
     fortran is 'C' or Fortran-style if fortran is 'F' array of the
     given shape with the given number of bytes per element."""
-    raise NotImplementedError
-
-@cpython_api([Py_buffer, PyObject, rffi.VOIDP, Py_ssize_t, rffi.INT_real, rffi.INT_real], rffi.INT_real, error=-1)
-def PyBuffer_FillInfo(space, view, obj, buf, len, readonly, infoflags):
-    """Fill in a buffer-info structure, view, correctly for an exporter that can
-    only share a contiguous chunk of memory of "unsigned bytes" of the given
-    length.  Return 0 on success and -1 (with raising an error) on error."""
     raise NotImplementedError
 
 @cpython_api([Py_buffer], PyObject)
@@ -491,39 +478,6 @@ def _Py_c_pow(space, num, exp):
 @cpython_api([Py_complex], PyObject)
 def PyComplex_FromCComplex(space, v):
     """Create a new Python complex number object from a C Py_complex value."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
-def PyOS_string_to_double(space, s, endptr, overflow_exception):
-    """Convert a string s to a double, raising a Python
-    exception on failure.  The set of accepted strings corresponds to
-    the set of strings accepted by Python's float() constructor,
-    except that s must not have leading or trailing whitespace.
-    The conversion is independent of the current locale.
-
-    If endptr is NULL, convert the whole string.  Raise
-    ValueError and return -1.0 if the string is not a valid
-    representation of a floating-point number.
-
-    If endptr is not NULL, convert as much of the string as
-    possible and set *endptr to point to the first unconverted
-    character.  If no initial segment of the string is the valid
-    representation of a floating-point number, set *endptr to point
-    to the beginning of the string, raise ValueError, and return
-    -1.0.
-
-    If s represents a value that is too large to store in a float
-    (for example, "1e500" is such a string on many platforms) then
-    if overflow_exception is NULL return Py_HUGE_VAL (with
-    an appropriate sign) and don't set any exception.  Otherwise,
-    overflow_exception must point to a Python exception object;
-    raise that exception and return -1.0.  In both cases, set
-    *endptr to point to the first character after the converted value.
-
-    If any other error occurs during the conversion (for example an
-    out-of-memory error), set the appropriate Python exception and
-    return -1.0.
-    """
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE, error=CANNOT_FAIL)
@@ -1094,14 +1048,6 @@ def PyImport_ImportModuleLevel(space, name, globals, locals, fromlist, level):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyImport_ReloadModule(space, m):
-    """Reload a module.  This is best described by referring to the built-in
-    Python function reload(), as the standard reload() function calls this
-    function directly.  Return a new reference to the reloaded module, or NULL
-    with an exception set on failure (the module still exists in this case)."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
 def PyImport_ExecCodeModule(space, name, co):
     """Given a module name (possibly of the form package.module) and a code
@@ -1138,13 +1084,6 @@ def PyImport_GetMagicNumber(space):
     """Return the magic number for Python bytecode files (a.k.a. .pyc and
     .pyo files).  The magic number should be present in the first four bytes
     of the bytecode file, in little-endian byte order."""
-    raise NotImplementedError
-
-@cpython_api([], PyObject)
-def PyImport_GetModuleDict(space):
-    """Return the dictionary used for the module administration (a.k.a.
-    sys.modules).  Note that this is a per-interpreter variable."""
-    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
@@ -1701,13 +1640,6 @@ def PyThreadState_Next(space, tstate):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.SIZE_T], PyObject)
-def PyInt_FromSize_t(space, ival):
-    """Create a new integer object with a value of ival. If the value exceeds
-    LONG_MAX, a long integer object is returned.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.ULONGLONG, error=-1)
 def PyInt_AsUnsignedLongLongMask(space, io):
     """Will first attempt to cast the object to a PyIntObject or
@@ -1918,13 +1850,6 @@ def PyNumber_CoerceEx(space, p1, p2):
     """This function is similar to PyNumber_Coerce(), except that it returns
     1 when the conversion is not possible and when no error is raised.
     Reference counts are still not increased in this case."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyNumber_Index(space, o):
-    """Returns the o converted to a Python int or long on success or NULL with a
-    TypeError exception raised on failure.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
@@ -2254,15 +2179,6 @@ def Py_Exit(space, status):
     standard C library function exit(status)."""
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
-def PyTuple_GetSlice(space, p, low, high):
-    """Take a slice of the tuple pointed to by p from low to high and return it
-    as a new tuple.
-
-    This function used an int type for low and high. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyTuple_ClearFreeList(space):
     """Clear the free list. Return the total number of freed items.
@@ -2272,14 +2188,6 @@ def PyTuple_ClearFreeList(space):
 @cpython_api([], rffi.UINT, error=CANNOT_FAIL)
 def PyType_ClearCache(space):
     """Clear the internal lookup cache. Return the current version tag.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyTypeObjectPtr], lltype.Void)
-def PyType_Modified(space, type):
-    """Invalidate the internal lookup cache for the type and all of its
-    subtypes.  This function must be called after any manual
-    modification of the attributes or base classes of the type.
     """
     raise NotImplementedError
 

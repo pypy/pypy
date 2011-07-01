@@ -22,6 +22,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
+    with_threads = False
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -38,6 +39,7 @@ class AbstractX86CPU(AbstractLLCPU):
                 if not oprofile.OPROFILE_AVAILABLE:
                     log.WARNING('oprofile support was explicitly enabled, but oprofile headers seem not to be available')
                 profile_agent = oprofile.OProfileAgent()
+            self.with_threads = config.translation.thread
 
         self.profile_agent = profile_agent
 
@@ -77,9 +79,9 @@ class AbstractX86CPU(AbstractLLCPU):
         lines = machine_code_dump(data, addr, self.backend_name, label_list)
         print ''.join(lines)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True):
-        return self.assembler.assemble_loop(inputargs, operations, looptoken,
-                                            log=log)
+    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+        return self.assembler.assemble_loop(name, inputargs, operations,
+                                            looptoken, log=log)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True):
@@ -122,8 +124,8 @@ class AbstractX86CPU(AbstractLLCPU):
         addr = executable_token._x86_bootstrap_code
         #llop.debug_print(lltype.Void, ">>>> Entering", addr)
         func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        #llop.debug_print(lltype.Void, "<<<< Back")
         fail_index = self._execute_call(func)
+        #llop.debug_print(lltype.Void, "<<<< Back")
         return self.get_fail_descr_from_number(fail_index)
 
     def _execute_call(self, func):
@@ -140,10 +142,11 @@ class AbstractX86CPU(AbstractLLCPU):
                 LLInterpreter.current_interpreter = prev_interpreter
         return res
 
-    @staticmethod
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return CPU386.cast_adr_to_int(adr)
+    cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
+    cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
     all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
                                        flavor='raw', zero=True,

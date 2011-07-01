@@ -24,8 +24,7 @@ class Random(object):
     def __init__(self, seed=r_uint(0)):
         self.state = [r_uint(0)] * N
         self.index = 0
-        if seed:
-            self.init_genrand(seed)
+        self.init_genrand(seed)
 
     def init_genrand(self, s):
         mt = self.state

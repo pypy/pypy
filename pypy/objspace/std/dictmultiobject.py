@@ -1,12 +1,13 @@
 import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
-from pypy.objspace.std.settype import set_typedef as settypedef
+from pypy.rlib.debug import mark_dict_non_null
 
 from pypy.rlib import rerased
 
@@ -216,7 +217,8 @@ class EmptyDictStrategy(DictStrategy):
     def clear(self, w_dict):
         return
 
-
+    def popitem(self, w_dict):
+        raise KeyError
 
 registerimplementation(W_DictMultiObject)
 
@@ -380,7 +382,8 @@ class ObjectDictStrategy(AbtractTypedStrategy, DictStrategy):
         return True
 
     def get_empty_storage(self):
-       new_dict = r_dict(self.space.eq_w, self.space.hash_w)
+       new_dict = r_dict(self.space.eq_w, self.space.hash_w,
+                         force_non_null=True)
        return self.erase(new_dict)
 
     def iter(self, w_dict):
@@ -409,9 +412,12 @@ class StringDictStrategy(AbtractTypedStrategy, DictStrategy):
         return space.is_w(space.type(w_obj), space.w_str)
 
     def get_empty_storage(self):
-       return self.erase({})
+        res = {}
+        mark_dict_non_null(res)
+        return self.erase(res)
 
     def setitem_str(self, w_dict, key, w_value):
+        assert key is not None
         self.unerase(w_dict.dstorage)[key] = w_value
 
     def getitem(self, w_dict, w_key):
@@ -430,6 +436,7 @@ class StringDictStrategy(AbtractTypedStrategy, DictStrategy):
             return w_dict.getitem(w_key)
 
     def getitem_str(self, w_dict, key):
+        assert key is not None
         return self.unerase(w_dict.dstorage).get(key, None)
 
     def iter(self, w_dict):

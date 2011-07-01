@@ -120,7 +120,7 @@ def check_sys_modules(space, w_modulename):
 def check_sys_modules_w(space, modulename):
     return space.finditem_str(space.sys.get('modules'), modulename)
 
-@jit.purefunction
+@jit.elidable
 def _get_dot_position(str, n):
     # return the index in str of the '.' such that there are n '.'-separated
     # strings after it
@@ -133,8 +133,8 @@ def _get_dot_position(str, n):
 def _get_relative_name(space, modulename, level, w_globals):
     w = space.wrap
     ctxt_w_package = space.finditem_str(w_globals, '__package__')
-    ctxt_w_package = jit.hint(ctxt_w_package, promote=True)
-    level = jit.hint(level, promote=True)
+    ctxt_w_package = jit.promote(ctxt_w_package)
+    level = jit.promote(level)
 
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
@@ -184,7 +184,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_w_name = space.finditem_str(w_globals, '__name__')
         ctxt_w_path = space.finditem_str(w_globals, '__path__')
 
-        ctxt_w_name = jit.hint(ctxt_w_name, promote=True)
+        ctxt_w_name = jit.promote(ctxt_w_name)
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
@@ -622,7 +622,13 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         try:
             if find_info:
                 w_mod = load_module(space, w_modulename, find_info)
-                w_mod = space.getitem(space.sys.get("modules"), w_modulename)
+                try:
+                    w_mod = space.getitem(space.sys.get("modules"),
+                                          w_modulename)
+                except OperationError, oe:
+                    if not oe.match(space, space.w_KeyError):
+                        raise
+                    raise OperationError(space.w_ImportError, w_modulename)
                 if w_parent is not None:
                     space.setattr(w_parent, space.wrap(partname), w_mod)
                 return w_mod

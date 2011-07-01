@@ -3,6 +3,13 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def test_single_item(self):
+        from numpy import negative, sign, minimum
+
+        assert negative(5.0) == -5.0
+        assert sign(-0.0) == 0.0
+        assert minimum(2.0, 3.0) == 2.0
+
     def test_negative(self):
         from numpy import array, negative
 
@@ -58,6 +65,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = array([-5.0, 0.0, -0.0, 0.5])
         b = reciprocal(a)
         for i in range(4):
+            assert b[i] == reference[i]
+
+    def test_floor(self):
+        from numpy import array, floor
+
+        reference = [-2.0, -1.0, 0.0, 1.0, 1.0]
+        a = array([-1.4, -1.0, 0.0, 1.0, 1.4])
+        b = floor(a)
+        for i in range(5):
             assert b[i] == reference[i]
 
     def test_copysign(self):

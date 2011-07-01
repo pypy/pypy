@@ -49,7 +49,7 @@ class ListTests:
                 x = l[n]
                 l = [3] * 100
                 l[3] = x
-                l[3] = x + 1
+                l[4] = x + 1
                 n -= 1
             return l[0]
 
@@ -236,4 +236,8 @@ class TestLLtype(ListTests, LLJitMixin):
             return a * b
         res = self.meta_interp(f, [37])
         assert res == f(37)
-        self.check_loops(getfield_gc=1, everywhere=True)
+        # There is the one actual field on a, plus 2 getfield's from the list
+        # itself, 1 to get the length (which is then incremented and passed to
+        # the resize func), and then a read of the items field to actually
+        # perform the setarrayitem on
+        self.check_loops(getfield_gc=5, everywhere=True)

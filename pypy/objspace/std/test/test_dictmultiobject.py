@@ -1,3 +1,4 @@
+import py
 import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
@@ -5,7 +6,7 @@ from pypy.objspace.std.dictmultiobject import \
      StringDictStrategy, ObjectDictStrategy
 
 from pypy.conftest import gettestobjspace
-
+from pypy.conftest import option
 
 class TestW_DictObject:
 
@@ -231,6 +232,31 @@ class AppTest_DictObject:
         it1 = d.popitem()
         assert it1 == ('x', 5)
         raises(KeyError, d.popitem)
+
+    def test_popitem3(self):
+        #object
+        d = {"a": 1, 2:2, "c":3}
+        l = []
+        while True:
+            try:
+                l.append(d.popitem())
+            except KeyError:
+                break;
+        assert ("a",1) in l
+        assert (2,2) in l
+        assert ("c",3) in l
+
+        #string
+        d = {"a": 1, "b":2, "c":3}
+        l = []
+        while True:
+            try:
+                l.append(d.popitem())
+            except KeyError:
+                break;
+        assert ("a",1) in l
+        assert ("b",2) in l
+        assert ("c",3) in l
 
     def test_setdefault(self):
         d = {1:2, 3:4}
@@ -526,6 +552,12 @@ class AppTest_DictObject:
             __missing__ = SpecialDescr(missing)
         assert X()['hi'] == 42
 
+    def test_empty_dict(self):
+        d = {}
+        raises(KeyError, d.popitem)
+        assert d.items() == []
+        assert d.values() == []
+        assert d.keys() == []
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
@@ -702,8 +734,14 @@ class AppTestDictViews:
                 set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
 
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
 
 class AppTestStrategies(object):
+    def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
+
     def w_get_strategy(self, obj):
         import __pypy__
         r = __pypy__.internal_repr(obj)

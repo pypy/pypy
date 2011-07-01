@@ -650,3 +650,13 @@ def _PyType_Lookup(space, type, w_name):
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
     return borrow_from(w_type, w_obj)
+
+@cpython_api([PyTypeObjectPtr], lltype.Void)
+def PyType_Modified(space, w_obj):
+    """Invalidate the internal lookup cache for the type and all of its
+    subtypes.  This function must be called after any manual
+    modification of the attributes or base classes of the type.
+    """
+    # PyPy already takes care of direct modifications to type.__dict__
+    # (which is a W_DictProxyObject).
+    pass

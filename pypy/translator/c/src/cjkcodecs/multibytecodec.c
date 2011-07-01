@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include "src/cjkcodecs/multibytecodec.h"
 
 
@@ -91,6 +92,22 @@ Py_ssize_t pypy_cjk_dec_inbuf_remaining(struct pypy_cjk_dec_s *d)
 Py_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d)
 {
   return d->inbuf - d->inbuf_start;
+}
+
+Py_ssize_t pypy_cjk_dec_replace_on_error(struct pypy_cjk_dec_s* d,
+                                         Py_UNICODE *newbuf, Py_ssize_t newlen,
+                                         Py_ssize_t in_offset)
+{
+  if (newlen > 0)
+    {
+      if (d->outbuf + newlen > d->outbuf_end)
+        if (expand_decodebuffer(d, newlen) == -1)
+          return MBERR_NOMEMORY;
+      memcpy(d->outbuf, newbuf, newlen * sizeof(Py_UNICODE));
+      d->outbuf += newlen;
+    }
+  d->inbuf = d->inbuf_start + in_offset;
+  return 0;
 }
 
 /************************************************************/
@@ -208,4 +225,20 @@ Py_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d)
 Py_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d)
 {
   return d->inbuf - d->inbuf_start;
+}
+
+Py_ssize_t pypy_cjk_enc_replace_on_error(struct pypy_cjk_enc_s* d,
+                                         char *newbuf, Py_ssize_t newlen,
+                                         Py_ssize_t in_offset)
+{
+  if (newlen > 0)
+    {
+      if (d->outbuf + newlen > d->outbuf_end)
+        if (expand_encodebuffer(d, newlen) == -1)
+          return MBERR_NOMEMORY;
+      memcpy(d->outbuf, newbuf, newlen);
+      d->outbuf += newlen;
+    }
+  d->inbuf = d->inbuf_start + in_offset;
+  return 0;
 }

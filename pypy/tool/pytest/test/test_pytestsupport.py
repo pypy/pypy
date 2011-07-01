@@ -4,7 +4,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
 from pypy.tool.pytest.appsupport import (AppFrame, build_pytest_assertion,
-    AppExceptionInfo)
+    AppExceptionInfo, interpret)
 import py
 from pypy.tool.udir import udir
 import os
@@ -22,8 +22,8 @@ def test_AppFrame(space):
     co = PyCode._from_code(space, somefunc.func_code)
     pyframe = PyFrame(space, co, space.newdict(), None)
     runner = AppFrame(space, pyframe)
-    py.code._reinterpret_old("f = lambda x: x+1", runner, should_fail=False)
-    msg = py.code._reinterpret_old("assert isinstance(f(2), float)", runner)
+    interpret("f = lambda x: x+1", runner, should_fail=False)
+    msg = interpret("assert isinstance(f(2), float)", runner)
     assert msg.startswith("assert isinstance(3, float)\n"
                           " +  where 3 = ")
 
@@ -57,6 +57,12 @@ def app_test_exception_with_message():
         assert 0, "Failed"
     except AssertionError, e:
         assert e.msg == "Failed"
+
+def app_test_comparison():
+    try:
+        assert 3 > 4
+    except AssertionError, e:
+        assert "3 > 4" in e.msg
 
 
 def test_appexecinfo(space):

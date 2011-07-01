@@ -714,6 +714,12 @@ class TestECCompiler(BaseTestCompiler):
 
 class AppTestCompiler:
 
+    def test_bom_with_future(self):
+        s = '\xef\xbb\xbffrom __future__ import division\nx = 1/2'
+        ns = {}
+        exec s in ns
+        assert ns["x"] == .5
+
     def test_values_of_different_types(self):
         exec "a = 0; b = 0L; c = 0.0; d = 0j"
         assert type(a) is int

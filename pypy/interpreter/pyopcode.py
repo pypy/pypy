@@ -11,7 +11,7 @@ from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit, rstackovf, rstack
+from pypy.rlib import jit, rstackovf
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import check_nonneg
@@ -83,16 +83,12 @@ class __extend__(pyframe.PyFrame):
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-                rstack.resume_point("dispatch", self, co_code, ec,
-                                    returns=next_instr)
         except ExitFrame:
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
-            rstack.resume_point("handle_bytecode", self, co_code, ec,
-                                returns=next_instr)
         except OperationError, operr:
             next_instr = self.handle_operation_error(ec, operr)
         except Reraise:
@@ -248,9 +244,6 @@ class __extend__(pyframe.PyFrame):
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)
                         res = meth(oparg, next_instr)
-                        if opdesc.index == self.opcodedesc.CALL_FUNCTION.index:
-                            rstack.resume_point("dispatch_call", self, co_code,
-                                                next_instr, ec)
                         # !! warning, for the annotator the next line is not
                         # comparing an int and None - you can't do that.
                         # Instead, it's constant-folded to either True or False
@@ -331,7 +324,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
-        w_value = self.fastlocals_w[varindex]
+        w_value = self.locals_stack_w[varindex]
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
@@ -350,7 +343,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.fastlocals_w[varindex] = w_newvalue
+        self.locals_stack_w[varindex] = w_newvalue
 
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
@@ -573,7 +566,7 @@ class __extend__(pyframe.PyFrame):
         else:
             msg = "raise: arg 3 must be a traceback or None"
             tb = pytraceback.check_traceback(space, w_traceback, msg)
-            operror.application_traceback = tb
+            operror.set_traceback(tb)
             # special 3-arguments raise, no new traceback obj will be attached
             raise RaiseWithExplicitTraceback(operror)
 
@@ -703,12 +696,12 @@ class __extend__(pyframe.PyFrame):
     LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
-        if self.fastlocals_w[varindex] is None:
+        if self.locals_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise operationerrfmt(self.space.w_UnboundLocalError, message,
                                   varname)
-        self.fastlocals_w[varindex] = None
+        self.locals_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
@@ -953,7 +946,7 @@ class __extend__(pyframe.PyFrame):
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
             operr = unroller.operr
-            w_traceback = self.space.wrap(operr.application_traceback)
+            w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
@@ -997,7 +990,6 @@ class __extend__(pyframe.PyFrame):
                                                           args)
         else:
             w_result = self.space.call_args(w_function, args)
-        rstack.resume_point("call_function", self, returns=w_result)
         self.pushvalue(w_result)
 
     def CALL_FUNCTION(self, oparg, next_instr):
@@ -1008,8 +1000,6 @@ class __extend__(pyframe.PyFrame):
             w_function = self.peekvalue(nargs)
             try:
                 w_result = self.space.call_valuestack(w_function, nargs, self)
-                rstack.resume_point("CALL_FUNCTION", self, nargs,
-                                    returns=w_result)
             finally:
                 self.dropvalues(nargs + 1)
             self.pushvalue(w_result)
@@ -1058,13 +1048,13 @@ class __extend__(pyframe.PyFrame):
 
     def SET_ADD(self, oparg, next_instr):
         w_value = self.popvalue()
-        w_set = self.peekvalue(oparg)
+        w_set = self.peekvalue(oparg - 1)
         self.space.call_method(w_set, 'add', w_value)
 
     def MAP_ADD(self, oparg, next_instr):
         w_key = self.popvalue()
         w_value = self.popvalue()
-        w_dict = self.peekvalue(oparg)
+        w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
 
     def SET_LINENO(self, lineno, next_instr):
@@ -1087,13 +1077,12 @@ class __extend__(pyframe.PyFrame):
         w_dict = self.space.newdict()
         self.pushvalue(w_dict)
 
+    @jit.unroll_safe
     def BUILD_SET(self, itemcount, next_instr):
-        w_set = self.space.call_function(self.space.w_set)
-        if itemcount:
-            w_add = self.space.getattr(w_set, self.space.wrap("add"))
-            for i in range(itemcount):
-                w_item = self.popvalue()
-                self.space.call_function(w_add, w_item)
+        w_set = self.space.newset()
+        for i in range(itemcount):
+            w_item = self.popvalue()
+            self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
     def STORE_MAP(self, oparg, next_instr):

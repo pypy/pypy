@@ -185,6 +185,13 @@ def test_push32():
     cb = CodeBuilder32
     assert_encodes_as(cb, 'PUSH_i32', (9,), '\x68\x09\x00\x00\x00')
 
+def test_sub_ji8():
+    cb = CodeBuilder32
+    assert_encodes_as(cb, 'SUB_ji8', (11223344, 55),
+                      '\x83\x2D\x30\x41\xAB\x00\x37')
+    assert_encodes_as(cb, 'SUB_mi8', ((edx, 16), 55),
+                      '\x83\x6A\x10\x37')
+
 class CodeBuilder64(CodeBuilderMixin, X86_64_CodeBuilder):
     pass
 

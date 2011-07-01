@@ -1,10 +1,13 @@
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.libffi import Func
+from pypy.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import _findall
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
+from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
+
 
 class FuncInfo(object):
 
@@ -12,14 +15,18 @@ class FuncInfo(object):
     restype = None
     descr = None
     prepare_op = None
-    force_token_op = None
 
     def __init__(self, funcval, cpu, prepare_op):
         self.funcval = funcval
         self.opargs = []
         argtypes, restype = self._get_signature(funcval)
-        self.descr = cpu.calldescrof_dynamic(argtypes, restype)
+        try:
+            self.descr = cpu.calldescrof_dynamic(argtypes, restype)
+        except UnsupportedKind:
+            # e.g., I or U for long longs
+            self.descr = None
         self.prepare_op = prepare_op
+        self.delayed_ops = []
 
     def _get_signature(self, funcval):
         """
@@ -64,37 +71,51 @@ class FuncInfo(object):
 
 class OptFfiCall(Optimization):
 
-    def __init__(self):
+    def setup(self):
         self.funcinfo = None
+        if self.optimizer.loop is not None:
+            self.logops = self.optimizer.loop.logops
+        else:
+            self.logops = None
+
+    def propagate_begin_forward(self):
+        debug_start('jit-log-ffiopt')
+        Optimization.propagate_begin_forward(self)
+
+    def propagate_end_forward(self):
+        debug_stop('jit-log-ffiopt')
+        Optimization.propagate_end_forward(self)
 
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return OptFfiCall()
         # FIXME: Should any status be saved for next iteration?
 
     def begin_optimization(self, funcval, op):
-        self.rollback_maybe()
+        self.rollback_maybe('begin_optimization', op)
         self.funcinfo = FuncInfo(funcval, self.optimizer.cpu, op)
 
     def commit_optimization(self):
         self.funcinfo = None
 
-    def rollback_maybe(self):
+    def rollback_maybe(self, msg, op):
         if self.funcinfo is None:
             return # nothing to rollback
         #
         # we immediately set funcinfo to None to prevent recursion when
         # calling emit_op
+        if self.logops is not None:
+            debug_print('rollback: ' + msg + ': ', self.logops.repr_of_resop(op))
         funcinfo = self.funcinfo
         self.funcinfo = None
         self.emit_operation(funcinfo.prepare_op)
         for op in funcinfo.opargs:
             self.emit_operation(op)
-        if funcinfo.force_token_op:
-            self.emit_operation(funcinfo.force_token_op)
+        for delayed_op in funcinfo.delayed_ops:
+            self.emit_operation(delayed_op)
 
     def emit_operation(self, op):
         # we cannot emit any operation during the optimization
-        self.rollback_maybe()
+        self.rollback_maybe('invalid op', op)
         Optimization.emit_operation(self, op)
 
     def optimize_CALL(self, op):
@@ -135,13 +156,18 @@ class OptFfiCall(Optimization):
         # call_may_force and the setfield_gc, so the final result we get is
         # again force_token/setfield_gc/call_may_force.
         #
+        # However, note that nowadays we also allow to have any setfield_gc
+        # between libffi_prepare and libffi_call, so while the comment above
+        # it's a bit superfluous, it has been left there for future reference.
         if self.funcinfo is None:
             self.emit_operation(op)
         else:
-            self.funcinfo.force_token_op = op
+            self.funcinfo.delayed_ops.append(op)
+
+    optimize_SETFIELD_GC = optimize_FORCE_TOKEN
 
     def do_prepare_call(self, op):
-        self.rollback_maybe()
+        self.rollback_maybe('prepare call', op)
         funcval = self._get_funcval(op)
         if not funcval.is_constant():
             return [op] # cannot optimize
@@ -165,16 +191,18 @@ class OptFfiCall(Optimization):
         for push_op in funcinfo.opargs:
             argval = self.getvalue(push_op.getarg(2))
             arglist.append(argval.force_box())
-        newop = ResOperation(rop.CALL_MAY_FORCE, arglist, op.result,
+        newop = ResOperation(rop.CALL_RELEASE_GIL, arglist, op.result,
                              descr=funcinfo.descr)
         self.commit_optimization()
         ops = []
-        if funcinfo.force_token_op:
-            ops.append(funcinfo.force_token_op)
+        for delayed_op in funcinfo.delayed_ops:
+            ops.append(delayed_op)
         ops.append(newop)
         return ops
 
     def propagate_forward(self, op):
+        if self.logops is not None:
+            debug_print(self.logops.repr_of_resop(op))
         opnum = op.getopnum()
         for value, func in optimize_ops:
             if opnum == value:

@@ -24,3 +24,13 @@ class AppTestPyPyJIT:
                 i += 1
 
         assert list(gen(3)) == [0, 1, 4]
+
+def test_interface_residual_call():
+    space = gettestobjspace(usemodules=['pypyjit'])
+    space.appexec([], """():
+        import pypyjit
+        def f(*args, **kwds):
+            return (args, kwds)
+        res = pypyjit.residual_call(f, 4, x=6)
+        assert res == ((4,), {'x': 6})
+    """)
