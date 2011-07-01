@@ -120,31 +120,27 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
     else:
         cpu.bh_setarrayitem_raw_i(arraydescr, array, index, itembox.getint())
 
-def do_getinteriorfield_gc(cpu, _, arraybox, indexbox, arraydescr, fielddescr):
+def do_getinteriorfield_gc(cpu, _, arraybox, indexbox, descr):
     array = arraybox.getref_base()
     index = indexbox.getint()
-    if fielddescr.is_pointer_field():
-        return BoxPtr(cpu.bh_getinteriorfield_gc_r(array, index, arraydescr,
-                                                   fielddescr))
-    elif fielddescr.is_float_field():
-        return BoxFloat(cpu.bh_getinteriorfield_gc_f(array, index, arraydescr,
-                                                     fielddescr))
+    if descr.is_pointer_field():
+        return BoxPtr(cpu.bh_getinteriorfield_gc_r(array, index, descr))
+    elif descr.is_float_field():
+        return BoxFloat(cpu.bh_getinteriorfield_gc_f(array, index, descr))
     else:
-        return BoxInt(cpu.bh_getinteriorfield_gc_i(array, index, arraydescr,
-                                                     fielddescr))
+        return BoxInt(cpu.bh_getinteriorfield_gc_i(array, index, descr))
 
-def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, arraydescr,
-                           fielddescr):
+def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, descr):
     array = arraybox.getref_base()
     index = indexbox.getint()
-    if fielddescr.is_pointer_field():
-        cpu.bh_setinteriorfield_gc_r(array, index, arraydescr, fielddescr,
+    if descr.is_pointer_field():
+        cpu.bh_setinteriorfield_gc_r(array, index, descr,
                                      valuebox.getref_base())
-    elif fielddescr.is_float_field():
-        cpu.bh_setinteriorfield_gc_f(array, index, arraydescr, fielddescr,
+    elif descr.is_float_field():
+        cpu.bh_setinteriorfield_gc_f(array, index, descr,
                                      valuebox.getfloatstorage())
     else:
-        cpu.bh_setinteriorfield_gc_i(array, index, arraydescr, fielddescr,
+        cpu.bh_setinteriorfield_gc_i(array, index, descr,
                                      valuebox.getint())
 
 def do_getfield_gc(cpu, _, structbox, fielddescr):

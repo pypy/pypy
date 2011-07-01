@@ -512,11 +512,10 @@ class MIFrame(object):
     opimpl_getfield_gc_r_pure = _opimpl_getfield_gc_pure_any
     opimpl_getfield_gc_f_pure = _opimpl_getfield_gc_pure_any
 
-    @arguments("box", "box", "descr", "descr")
-    def _opimpl_getinteriorfield_gc_any(self, array, index, arraydescr,
-                                        fielddescr):
-        return self.execute_with_descr(rop.GETINTERIORFIELD_GC, fielddescr,
-                                array, index, arraydescr)
+    @arguments("box", "box", "descr")
+    def _opimpl_getinteriorfield_gc_any(self, array, index, descr):
+        return self.execute_with_descr(rop.GETINTERIORFIELD_GC, descr,
+                                       array, index)
     opimpl_getinteriorfield_gc_i = _opimpl_getinteriorfield_gc_any
     opimpl_getinteriorfield_gc_f = _opimpl_getinteriorfield_gc_any
     opimpl_getinteriorfield_gc_r = _opimpl_getinteriorfield_gc_any
@@ -544,11 +543,10 @@ class MIFrame(object):
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
     opimpl_setfield_gc_f = _opimpl_setfield_gc_any
 
-    @arguments("box", "box", "box", "descr", "descr")
-    def _opimpl_setinteriorfield_gc_any(self, array, index, value, arraydescr,
-                                        fielddescr):
-        self.execute_with_descr(rop.SETINTERIORFIELD_GC, fielddescr,
-                                array, index, value, arraydescr)
+    @arguments("box", "box", "box", "descr")
+    def _opimpl_setinteriorfield_gc_any(self, array, index, value, descr):
+        self.execute_with_descr(rop.SETINTERIORFIELD_GC, descr,
+                                array, index, value)
     opimpl_setinteriorfield_gc_i = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_f = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_r = _opimpl_setinteriorfield_gc_any

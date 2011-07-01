@@ -92,7 +92,7 @@ class DictTests:
         res1 = f(100)
         res2 = self.meta_interp(f, [100], listops=True)
         assert res1 == res2
-        self.check_loops(int_mod=1) # the hash was traced
+        self.check_loops(int_mod=3) # the hash was traced and eq
 
     def test_dict_setdefault(self):
         myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
@@ -129,7 +129,7 @@ class DictTests:
         assert f(100) == 50
         res = self.meta_interp(f, [100], listops=True)
         assert res == 50
-        self.check_loops(int_mod=1)
+        self.check_loops(int_mod=3) # key + eq
 
     def test_repeated_lookup(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'd'])
@@ -154,14 +154,7 @@ class DictTests:
 
         res = self.meta_interp(f, [100], listops=True)
         assert res == f(50)
-        # XXX: ideally there would be 7 calls here, but repeated CALL_PURE with
-        # the same arguments are not folded, because we have conflicting
-        # definitions of pure, once strhash can be appropriately folded
-        # this should be decreased to seven.
-        self.check_loops({"call": 8, "guard_false": 1, "guard_no_exception": 5,
-                          "guard_true": 1, "int_and": 1, "int_gt": 1,
-                          "int_is_true": 1, "int_sub": 1, "jump": 1,
-                          "new_with_vtable": 1, "setfield_gc": 1})
+        self.check_loops(call=4)
 
 
 class TestOOtype(DictTests, OOJitMixin):
