@@ -53,7 +53,7 @@ class AbstractAttribute(object):
         else:
             return self._index_indirection(selector)
 
-    @jit.purefunction
+    @jit.elidable
     def _index_jit_pure(self, name, index):
         return self._index_indirection((name, index))
 
@@ -113,14 +113,14 @@ class AbstractAttribute(object):
     def set_terminator(self, obj, terminator):
         raise NotImplementedError("abstract base class")
 
-    @jit.purefunction
+    @jit.elidable
     def size_estimate(self):
         return self._size_estimate >> NUM_DIGITS
 
     def search(self, attrtype):
         return None
 
-    @jit.purefunction
+    @jit.elidable
     def _get_new_attr(self, name, index):
         selector = name, index
         cache = self.cache_attrs
@@ -357,7 +357,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def _get_mapdict_map(self):
-        return jit.hint(self.map, promote=True)
+        return jit.promote(self.map)
     def _set_mapdict_map(self, map):
         self.map = map
     # _____________________________________________

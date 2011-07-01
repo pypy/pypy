@@ -16,7 +16,7 @@ from pypy.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
 
-@jit.purefunction_promote()
+@jit.elidable_promote()
 def _get_immutable_code(func):
     assert not func.can_change_code
     return func.code
@@ -63,7 +63,7 @@ class Function(Wrappable):
         if jit.we_are_jitted():
             if not self.can_change_code:
                 return _get_immutable_code(self)
-            return jit.hint(self.code, promote=True)
+            return jit.promote(self.code)
         return self.code
 
     def funccall(self, *args_w): # speed hack
