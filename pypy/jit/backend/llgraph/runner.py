@@ -314,6 +314,13 @@ class LLtypeCPU(BaseCPU):
         token = history.getkind(getattr(S, fieldname))
         return self.getdescr(ofs, token[0], name=fieldname)
 
+    def interiorfielddescrof(self, A, fieldname):
+        S = A.OF
+        ofs2 = symbolic.get_size(A)
+        ofs, size = symbolic.get_field_token(S, fieldname)
+        token = history.getkind(getattr(S, fieldname))
+        return self.getdescr(ofs, token[0], name=fieldname, extrainfo=ofs2)
+
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
         arg_types = []
         for ARG in ARGS:

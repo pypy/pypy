@@ -1,5 +1,5 @@
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
-from pypy.jit.metainterp import history, compile
+from pypy.jit.metainterp import history
 
 
 class AbstractCPU(object):
@@ -210,6 +210,10 @@ class AbstractCPU(object):
 
     @staticmethod
     def typedescrof(TYPE):
+        raise NotImplementedError
+
+    @staticmethod
+    def interiorfielddescrof(A, fieldname):
         raise NotImplementedError
 
     # ---------- the backend-dependent operations ----------

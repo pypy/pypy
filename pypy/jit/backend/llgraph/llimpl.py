@@ -808,26 +808,25 @@ class Frame(object):
         else:
             raise NotImplementedError
 
-    def op_getinteriorfield_gc(self, fielddescr, array, index, arraydescr):
-        if fielddescr.typeinfo == REF:
-            return do_getinteriorfield_gc_ptr(array, index, fielddescr.ofs)
-        elif fielddescr.typeinfo == INT:
-            return do_getinteriorfield_gc_int(array, index, fielddescr.ofs)
-        elif fielddescr.typeinfo == FLOAT:
-            return do_getinteriorfield_gc_float(array, index, fielddescr.ofs)
+    def op_getinteriorfield_gc(self, descr, array, index):
+        if descr.typeinfo == REF:
+            return do_getinteriorfield_gc_ptr(array, index, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_getinteriorfield_gc_int(array, index, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_getinteriorfield_gc_float(array, index, descr.ofs)
         else:
             raise NotImplementedError
 
-    def op_setinteriorfield_gc(self, fielddescr, array, index, newvalue,
-                               arraydescr):
-        if fielddescr.typeinfo == REF:
-            return do_setinteriorfield_gc_ptr(array, index, fielddescr.ofs,
+    def op_setinteriorfield_gc(self, descr, array, index, newvalue):
+        if descr.typeinfo == REF:
+            return do_setinteriorfield_gc_ptr(array, index, descr.ofs,
                                               newvalue)
-        elif fielddescr.typeinfo == INT:
-            return do_setinteriorfield_gc_int(array, index, fielddescr.ofs,
+        elif descr.typeinfo == INT:
+            return do_setinteriorfield_gc_int(array, index, descr.ofs,
                                               newvalue)
-        elif fielddescr.typeinfo == FLOAT:
-            return do_setinteriorfield_gc_float(array, index, fielddescr.ofs,
+        elif descr.typeinfo == FLOAT:
+            return do_setinteriorfield_gc_float(array, index, descr.ofs,
                                                 newvalue)
         else:
             raise NotImplementedError

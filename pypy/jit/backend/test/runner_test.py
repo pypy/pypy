@@ -877,30 +877,26 @@ class BaseBackendTest(Runner):
                              ('p', lltype.Ptr(TP)))
         a_box, A = self.alloc_array_of(ITEM, 15)
         s_box, S = self.alloc_instance(TP)
-        adescr = self.cpu.arraydescrof(A)
-        kdescr = self.cpu.fielddescrof(ITEM, 'k')
-        vdescr = self.cpu.fielddescrof(ITEM, 'v')
-        pdescr = self.cpu.fielddescrof(ITEM, 'p')
+        kdescr = self.cpu.interiorfielddescrof(A, 'k')
+        vdescr = self.cpu.interiorfielddescrof(A, 'v')
+        pdescr = self.cpu.interiorfielddescrof(A, 'p')
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                         BoxFloat(1.5), adescr],
+                                                         BoxFloat(1.5)],
                                'void', descr=kdescr)
-        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                             adescr], 'float',
-                                   descr=kdescr)
+        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
+                                   'float', descr=kdescr)
         assert r.getfloat() == 1.5
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                         BoxInt(15), adescr],
+                                                         BoxInt(15)],
                                'void', descr=vdescr)
-        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                             adescr], 'int',
-                                   descr=vdescr)
+        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
+                                   'int', descr=vdescr)
         assert r.getint() == 15
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                         s_box, adescr],
+                                                         s_box],
                                'void', descr=pdescr)
-        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                             adescr], 'ref',
-                                   descr=pdescr)
+        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
+                                   'ref', descr=pdescr)
         assert r.getref_base() == s_box.getref_base()
 
     def test_string_basic(self):
