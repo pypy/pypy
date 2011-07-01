@@ -143,9 +143,6 @@ def div_ovf(x, y):
 def mod_ovf(x, y):
     return ovfcheck(x % y)
 
-##def pow_ovf(*two_or_three_args):
-##    return ovfcheck(pow(*two_or_three_args))
-
 def lshift_ovf(x, y):
     return ovfcheck_lshift(x, y)
 
