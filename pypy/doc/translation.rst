@@ -684,7 +684,7 @@ backend as part of his `Master's thesis`_, the Google's Summer of Code
 .. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/
-.. _`Master's thesis`: http://codespeak.net/~antocuni/Implementing%20Python%20in%20.NET.pdf
+.. _`Master's thesis`: http://buildbot.pypy.org/misc/Implementing%20Python%20in%20.NET.pdf
 .. _GenCLI: cli-backend.html
 
 GenJVM

@@ -1,6 +1,6 @@
 
 from cStringIO import StringIO
-from pypy.config.support import detect_number_of_processors
+from pypy.config import support
 import os, sys, py
 
 cpuinfo = """
@@ -39,15 +39,38 @@ class FakeEnviron:
         assert varname == 'MAKEFLAGS'
         return self._value
 
-def test_cpuinfo():
+def test_cpuinfo_linux():
     if sys.platform != 'linux2':
         py.test.skip("linux only")
     saved = os.environ
     try:
         os.environ = FakeEnviron(None)
-        assert detect_number_of_processors(StringIO(cpuinfo)) == 3
-        assert detect_number_of_processors('random crap that does not exist') == 1
+        assert support.detect_number_of_processors(StringIO(cpuinfo)) == 3
+        assert support.detect_number_of_processors('random crap that does not exist') == 1
         os.environ = FakeEnviron('-j2')
-        assert detect_number_of_processors(StringIO(cpuinfo)) == 1
+        assert support.detect_number_of_processors(StringIO(cpuinfo)) == 1
     finally:
         os.environ = saved
+
+def test_cpuinfo_darwin():
+    if sys.platform != 'darwin':
+        py.test.skip('mac only')
+    saved_func = support.darwin_get_cpu_count
+    saved = os.environ
+    def count():
+        return 42
+    try:
+        support.darwin_get_cpu_count = count
+        os.environ = FakeEnviron(None)
+        assert support.detect_number_of_processors() == 42
+        os.environ = FakeEnviron('-j2')
+        assert support.detect_number_of_processors() == 1
+    finally:
+        os.environ = saved
+        support.darwin_get_cpu_count = saved_func
+
+def test_darwin_get_cpu_count():
+    if sys.platform != 'darwin':
+        py.test.skip('mac only')
+    assert support.darwin_get_cpu_count() > 0 # hopefully
+    assert support.darwin_get_cpu_count("false") == 1

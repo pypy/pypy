@@ -73,3 +73,10 @@ def PyImport_AddModule(space, name):
         w_mod = Module(space, space.wrap(modulename))
     return borrow_from(None, w_mod)
 
+@cpython_api([], PyObject)
+def PyImport_GetModuleDict(space):
+    """Return the dictionary used for the module administration (a.k.a.
+    sys.modules).  Note that this is a per-interpreter variable."""
+    w_modulesDict = space.sys.get('modules')
+    return borrow_from(None, w_modulesDict)
+

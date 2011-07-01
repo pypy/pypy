@@ -372,11 +372,12 @@ class AppTestSocket:
     def test_socket_connect(self):
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        # XXX temporarily we use codespeak to test, will have more robust tests in
-        # the absence of a network connection later when more parts of the socket
-        # API are implemented. currently skip the test if there is no connection.
+        # XXX temporarily we use python.org to test, will have more robust tests
+        # in the absence of a network connection later when more parts of the
+        # socket API are implemented.  Currently skip the test if there is no
+        # connection.
         try:
-            s.connect(("codespeak.net", 80))
+            s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         name = s.getpeername() # Will raise socket.error if not connected
@@ -506,11 +507,12 @@ class AppTestSocket:
         # Test that send/sendall/sendto accept a buffer or a unicode as arg
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        # XXX temporarily we use codespeak to test, will have more robust tests in
-        # the absence of a network connection later when more parts of the socket
-        # API are implemented. currently skip the test if there is no connection.
+        # XXX temporarily we use python.org to test, will have more robust tests
+        # in the absence of a network connection later when more parts of the
+        # socket API are implemented.  Currently skip the test if there is no
+        # connection.
         try:
-            s.connect(("codespeak.net", 80))
+            s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         s.send(buffer(''))

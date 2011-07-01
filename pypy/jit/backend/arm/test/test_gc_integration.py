@@ -69,6 +69,7 @@ class MockGcDescr(GcCache):
         self.gcrefs.initialize()
         self.single_gcref_descr = GcPtrFieldDescr('', 0)
         
+    replace_constptrs_with_getfield_raw = GcLLDescr_framework.replace_constptrs_with_getfield_raw.im_func
     rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
 
 class TestRegallocDirectGcIntegration(object):
