@@ -136,6 +136,11 @@ suddenly they will really be dead, raising a ``ReferenceError`` on the
 next access.  Any code that uses weak proxies must carefully catch such
 ``ReferenceError`` at any place that uses them.
 
+As a side effect, the ``finally`` clause inside a generator will be executed
+only when the generator object is garbage collected (see `issue 736`__).
+
+.. __: http://bugs.pypy.org/issue736
+
 There are a few extra implications for the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
 than once in PyPy; but CPython will call the same ``__del__`` several times

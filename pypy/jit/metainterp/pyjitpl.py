@@ -4,7 +4,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import nonconst
+from pypy.rlib import nonconst, rstack
 
 from pypy.jit.metainterp import history, compile, resume
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstFloat
@@ -867,7 +867,6 @@ class MIFrame(object):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
-        # xxx we may disable the following line in some context later
         self.debug_merge_point(jitdriver_sd, self.metainterp.in_recursion,
                                greenboxes)
 
@@ -1049,8 +1048,10 @@ class MIFrame(object):
         vrefinfo = metainterp.staticdata.virtualref_info
         vref = vrefbox.getref_base()
         if vrefinfo.is_virtual_ref(vref):
+            # XXX write a comment about nullbox
+            nullbox = self.metainterp.cpu.ts.CONST_NULL
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
-                                      [vrefbox, lastbox], None)
+                                      [vrefbox, nullbox], None)
 
     @arguments()
     def opimpl_ll_read_timestamp(self):
@@ -1844,9 +1845,9 @@ class MetaInterp(object):
                 else:
                     self.compile(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
-                #self.staticdata.log('cancelled, tracing more...')
-                self.staticdata.log('cancelled, stopping tracing')
-                raise SwitchToBlackhole(ABORT_BAD_LOOP)
+                self.staticdata.log('cancelled, tracing more...')
+                #self.staticdata.log('cancelled, stopping tracing')
+                #raise SwitchToBlackhole(ABORT_BAD_LOOP)
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
@@ -1911,6 +1912,7 @@ class MetaInterp(object):
 
     def compile(self, original_boxes, live_arg_boxes, start, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
+        original_inputargs = self.history.inputargs
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         old_loop_tokens = self.get_compiled_merge_points(greenkey)
@@ -1919,7 +1921,11 @@ class MetaInterp(object):
                                               greenkey, start, start_resumedescr)
         if loop_token is not None: # raise if it *worked* correctly
             self.set_compiled_merge_points(greenkey, old_loop_tokens)
+            self.history.inputargs = None
+            self.history.operations = None
             raise GenerateMergePoint(live_arg_boxes, loop_token)
+
+        self.history.inputargs = original_inputargs
         self.history.operations.pop()     # remove the JUMP
         # FIXME: Why is self.history.inputargs not restored?
 
@@ -1936,10 +1942,12 @@ class MetaInterp(object):
             target_loop_token = compile.compile_new_bridge(self,
                                                            old_loop_tokens,
                                                            self.resumekey)
-            if target_loop_token is not None: # raise if it *worked* correctly
-                raise GenerateMergePoint(live_arg_boxes, target_loop_token)
         finally:
             self.history.operations.pop()     # remove the JUMP
+        if target_loop_token is not None: # raise if it *worked* correctly
+            self.history.inputargs = None
+            self.history.operations = None
+            raise GenerateMergePoint(live_arg_boxes, target_loop_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):
@@ -1974,7 +1982,8 @@ class MetaInterp(object):
             assert False
         assert target_loop_token is not None
 
-        self.history.operations = original_operations
+        self.history.inputargs = None
+        self.history.operations = None
         raise GenerateMergePoint(live_arg_boxes, old_loop_tokens[0])
 
     def compile_done_with_this_frame(self, exitbox):
@@ -2044,10 +2053,16 @@ class MetaInterp(object):
 
     def initialize_state_from_guard_failure(self, resumedescr):
         # guard failure: rebuild a complete MIFrame stack
-        self.in_recursion = -1 # always one portal around
-        self.history = history.History()
-        inputargs_and_holes = self.rebuild_state_after_failure(resumedescr)
-        self.history.inputargs = [box for box in inputargs_and_holes if box]
+        # This is stack-critical code: it must not be interrupted by StackOverflow,
+        # otherwise the jit_virtual_refs are left in a dangling state.
+        rstack._stack_criticalcode_start()
+        try:
+            self.in_recursion = -1 # always one portal around
+            self.history = history.History()
+            inputargs_and_holes = self.rebuild_state_after_failure(resumedescr)
+            self.history.inputargs = [box for box in inputargs_and_holes if box]
+        finally:
+            rstack._stack_criticalcode_stop()
 
     def initialize_virtualizable(self, original_boxes):
         vinfo = self.jitdriver_sd.virtualizable_info

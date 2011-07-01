@@ -1345,6 +1345,7 @@ def _AsScaledDouble(v):
 # XXX make sure that we don't ignore this!
 # YYY no, we decided to do ignore this!
 
+@jit.dont_look_inside
 def _AsDouble(n):
     """ Get a C double from a bigint object. """
     # This is a "correctly-rounded" version from Python 2.7.

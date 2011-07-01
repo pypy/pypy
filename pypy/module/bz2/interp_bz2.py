@@ -363,42 +363,44 @@ class ReadBZ2Filter(Stream):
 
     def seek(self, offset, whence):
         READMAX = 2**18   # 256KB
-        if whence == 1:
-            if offset >= 0:
-                read = r_longlong(0)
-                while read < offset:
-                    count = offset - read
-                    if count < READMAX:
-                        count = intmask(count)
-                    else:
-                        count = READMAX
-                    read += len(self.read(count))
-            else:
-                pos = self.readlength + offset
-                self.seek(pos, 0)
+
+        # Make offset relative to the start of the file
+        if whence == 2:
+            # Read everything to arrive at the end
+            while len(self.read(READMAX)) > 0:
+                pass
+            offset += self.readlength
+        elif whence == 1:
+            offset += self.readlength
         elif whence == 0:
+            pass
+        else:
+            raise operationerrfmt(self.space.w_ValueError,
+                                  "Invalid value for whence: %d", whence)
+
+        # Make offset relative to the current pos
+        # Rewind iff necessary
+        if offset < self.readlength:
             self.stream.seek(0, 0)
             self.decompressor = W_BZ2Decompressor(self.space)
             self.readlength = r_longlong(0)
             self.buffer = ""
             self.finished = False
-            read = 0
-            while read < offset:
-                count = offset - read
-                if count < READMAX:
-                    count = intmask(count)
-                else:
-                    count = READMAX
-                length = len(self.read(count))
-                read += length
-                if not length:
-                    break
         else:
-            # first measure the length by reading everything left
-            while len(self.read(READMAX)) > 0:
-                pass
-            pos = self.readlength + offset
-            self.seek(pos, 0)
+            offset -= self.readlength
+
+        # Seek
+        read = r_longlong(0)
+        while read < offset:
+            count = offset - read
+            if count < READMAX:
+                count = intmask(count)
+            else:
+                count = READMAX
+            length = len(self.read(count))
+            if not length:
+                break
+            read += length
 
     def readall(self):
         w_result = self.decompressor.decompress(self.stream.readall())

@@ -28,6 +28,7 @@ class Module(MixedModule):
 
     appleveldefs = {
         'version': 'app_oracle.version',
+        'paramstyle': 'app_oracle.paramstyle',
         'makedsn': 'app_oracle.makedsn',
         'TimestampFromTicks': 'app_oracle.TimestampFromTicks',
     }

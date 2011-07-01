@@ -25,6 +25,8 @@ syntax: regexp
 ^pypy/translator/c/src/libffi_msvc/.+\.dll$
 ^pypy/translator/c/src/libffi_msvc/.+\.lib$
 ^pypy/translator/c/src/libffi_msvc/.+\.exp$
+^pypy/translator/c/src/cjkcodecs/.+\.o$
+^pypy/translator/c/src/cjkcodecs/.+\.obj$
 ^pypy/translator/jvm/\.project$
 ^pypy/translator/jvm/\.classpath$
 ^pypy/translator/jvm/eclipse-bin$

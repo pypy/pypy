@@ -137,10 +137,11 @@ class Assembler386(object):
         self.current_clt = looptoken.compiled_loop_token
         self.pending_guard_tokens = []
         self.mc = codebuf.MachineCodeBlockWrapper()
-        if self.datablockwrapper is None:
-            allblocks = self.get_asmmemmgr_blocks(looptoken)
-            self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
-                                                            allblocks)
+        #assert self.datablockwrapper is None --- but obscure case
+        # possible, e.g. getting MemoryError and continuing
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                        allblocks)
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -620,11 +621,11 @@ class Assembler386(object):
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
-            startaddr, length, _ = self.cpu.insert_stack_check()
-            self.mc.MOV(eax, esp)                       # MOV eax, current
-            self.mc.SUB(eax, heap(startaddr))           # SUB eax, [startaddr]
-            self.mc.CMP(eax, imm(length))               # CMP eax, length
-            self.mc.J_il8(rx86.Conditions['B'], 0)      # JB .skip
+            endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+            self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
+            self.mc.SUB(eax, esp)                       # SUB eax, current
+            self.mc.CMP(eax, heap(lengthaddr))          # CMP eax, [length]
+            self.mc.J_il8(rx86.Conditions['BE'], 0)     # JBE .skip
             jb_location = self.mc.get_relative_pos()
             self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
             # patch the JB above                        # .skip:
@@ -678,27 +679,29 @@ class Assembler386(object):
         nonfloatlocs, floatlocs = arglocs
         self._call_header_with_stack_check()
         self.mc.LEA_rb(esp.value, self._get_offset_of_ebp_from_esp(stackdepth))
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if isinstance(loc, RegLoc):
-                assert not loc.is_xmm
-                self.mc.MOV_rb(loc.value, (2 + i) * WORD)
-            loc = floatlocs[i]
-            if isinstance(loc, RegLoc):
-                assert loc.is_xmm
-                self.mc.MOVSD_xb(loc.value, (1 + i) * 2 * WORD)
+        offset = 2 * WORD
         tmp = eax
         xmmtmp = xmm0
         for i in range(len(nonfloatlocs)):
             loc = nonfloatlocs[i]
-            if loc is not None and not isinstance(loc, RegLoc):
-                self.mc.MOV_rb(tmp.value, (2 + i) * WORD)
-                self.mc.MOV(loc, tmp)
+            if loc is not None:
+                if isinstance(loc, RegLoc):
+                    assert not loc.is_xmm
+                    self.mc.MOV_rb(loc.value, offset)
+                else:
+                    self.mc.MOV_rb(tmp.value, offset)
+                    self.mc.MOV(loc, tmp)
+                offset += WORD
             loc = floatlocs[i]
-            if loc is not None and not isinstance(loc, RegLoc):
-                self.mc.MOVSD_xb(xmmtmp.value, (1 + i) * 2 * WORD)
-                assert isinstance(loc, StackLoc)
-                self.mc.MOVSD_bx(loc.value, xmmtmp.value)
+            if loc is not None:
+                if isinstance(loc, RegLoc):
+                    assert loc.is_xmm
+                    self.mc.MOVSD_xb(loc.value, offset)
+                else:
+                    self.mc.MOVSD_xb(xmmtmp.value, offset)
+                    assert isinstance(loc, StackLoc)
+                    self.mc.MOVSD_bx(loc.value, xmmtmp.value)
+                offset += 2 * WORD
         endpos = self.mc.get_relative_pos() + 5
         self.mc.JMP_l(jmppos - endpos)
         assert endpos == self.mc.get_relative_pos()
@@ -1099,6 +1102,8 @@ class Assembler386(object):
             self.mc.MOV_bi(FORCE_INDEX_OFS, force_index)
             return force_index
         else:
+            # the return value is ignored, apart from the fact that it
+            # is not negative.
             return 0
 
     genop_int_neg = _unaryop("NEG")
@@ -2182,7 +2187,8 @@ class Assembler386(object):
         # a no-op.
 
         # reserve room for the argument to the real malloc and the
-        # 8 saved XMM regs
+        # saved XMM regs (on 32 bit: 8 * 2 words; on 64 bit: 16 * 1
+        # word)
         self._regalloc.reserve_param(1+16)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap

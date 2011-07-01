@@ -1,9 +1,10 @@
 import py
-from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace
+from pypy.interpreter.typedef import GetSetProperty, TypeDef
+from pypy.rlib import jit
 import weakref
 
 
@@ -13,7 +14,7 @@ class WeakrefLifeline(W_Root):
         self.refs_weak = []
         self.cached_weakref_index = -1
         self.cached_proxy_index = -1
-        
+
     def __del__(self):
         """This runs when the interp-level object goes away, and allows
         its lifeline to go away.  The purpose of this is to activate the
@@ -37,6 +38,7 @@ class WeakrefLifeline(W_Root):
         # weakref callbacks are not invoked eagerly here.  They are
         # invoked by self.__del__() anyway.
 
+    @jit.dont_look_inside
     def get_or_make_weakref(self, space, w_subtype, w_obj, w_callable):
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
         is_weakreftype = space.is_w(w_weakreftype, w_subtype)
@@ -55,6 +57,7 @@ class WeakrefLifeline(W_Root):
             self.cached_weakref_index = index
         return w_ref
 
+    @jit.dont_look_inside
     def get_or_make_proxy(self, space, w_obj, w_callable):
         can_reuse = space.is_w(w_callable, space.w_None)
         if can_reuse and self.cached_proxy_index >= 0:
@@ -81,7 +84,7 @@ class WeakrefLifeline(W_Root):
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
         for i in range(len(self.refs_weak)):
             w_ref = self.refs_weak[i]()
-            if (w_ref is not None and 
+            if (w_ref is not None and
                 space.is_true(space.isinstance(w_ref, w_weakreftype))):
                 return w_ref
         return space.w_None
@@ -106,6 +109,7 @@ class W_WeakrefBase(Wrappable):
         w_self.w_obj_weak = weakref.ref(w_obj)
         w_self.w_callable = w_callable
 
+    @jit.dont_look_inside
     def dereference(self):
         w_obj = self.w_obj_weak()
         return w_obj
@@ -244,7 +248,7 @@ is about to be finalized."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
         lifeline = WeakrefLifeline(space)
-        w_obj.setweakref(space, lifeline) 
+        w_obj.setweakref(space, lifeline)
     return lifeline.get_or_make_proxy(space, w_obj, w_callable)
 
 def descr__new__proxy(space, w_subtype, w_obj, w_callable=None):

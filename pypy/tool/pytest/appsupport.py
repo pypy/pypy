@@ -81,7 +81,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         self.space = space
         self.operr = operr
         self.typename = operr.w_type.getname(space, "?")
-        self.traceback = AppTraceback(space, self.operr.application_traceback)
+        self.traceback = AppTraceback(space, self.operr.get_traceback())
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:
             self._excinfo = debug_excs[0]

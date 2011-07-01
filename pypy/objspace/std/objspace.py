@@ -266,6 +266,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return None
 
     def unwrap(self, w_obj):
+        """NOT_RPYTHON"""
         if isinstance(w_obj, Wrappable):
             return w_obj
         if isinstance(w_obj, model.W_Object):
@@ -295,9 +296,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return newlong(self, val)
 
     def newtuple(self, list_w):
+        from pypy.objspace.std.tupletype import wraptuple
         assert isinstance(list_w, list)
         make_sure_not_resized(list_w)
-        return W_TupleObject(list_w)
+        return wraptuple(self, list_w)
 
     def newlist(self, list_w):
         return W_ListObject(list_w)

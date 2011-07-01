@@ -228,7 +228,7 @@ class RPythonAnnotator(object):
             # graph -- it's already low-level operations!
             for a, s_newarg in zip(graph.getargs(), cells):
                 s_oldarg = self.binding(a)
-                assert s_oldarg.contains(s_newarg)
+                assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
         else:
             assert not self.frozen
             for a in cells:

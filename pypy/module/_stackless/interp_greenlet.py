@@ -124,7 +124,7 @@ class AppGreenlet(Coroutine):
                 space.gettypeobject(pytraceback.PyTraceback.typedef))):
                 raise OperationError(space.w_TypeError,
                       space.wrap("throw: arg 3 must be a traceback or None"))
-            operror.application_traceback = tb
+            operror.set_traceback(tb)
         # Dead greenlet: turn GreenletExit into a regular return
         if self.isdead() and operror.match(space, self.costate.w_GreenletExit):
             args_w = [operror.get_w_value(space)]

@@ -3402,6 +3402,56 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         '''
         self.optimize_loop(ops, expected)
 
+    def test_arraycopy_dest_not_virtual(self):
+        ops = '''
+        []
+        p1 = new_array(3, descr=arraydescr)
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        call(0, p1, p2, 0, 0, 3, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        expected = '''
+        []
+        p2 = new_array(3, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        setarrayitem_gc(p2, 0, 0, descr=arraydescr)
+        setarrayitem_gc(p2, 1, 0, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 10, descr=arraydescr)
+        escape(p2)
+        jump()
+        '''
+        self.optimize_loop(ops, expected)
+
+    def test_arraycopy_dest_not_virtual_too_long(self):
+        ops = '''
+        []
+        p1 = new_array(10, descr=arraydescr)
+        p2 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        expected = '''
+        []
+        p2 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p2, 2, 13, descr=arraydescr)
+        escape(p2)
+        p1 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 2, 10, descr=arraydescr)
+        call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
+        escape(p2)
+        jump()
+        '''
+        self.optimize_loop(ops, expected)
+
     def test_bound_lt(self):
         ops = """
         [i0]
@@ -3900,6 +3950,50 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
+    def test_add_sub_ovf(self):
+        ops = """
+        [i1]
+        i2 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        i3 = int_sub_ovf(i2, 1)
+        guard_no_overflow() []
+        escape(i3)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        i2 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        escape(i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_add_sub_ovf_virtual_unroll(self):
+        ops = """
+        [p15]
+        i886 = getfield_gc_pure(p15, descr=valuedescr)
+        i888 = int_sub_ovf(i886, 1)
+        guard_no_overflow() []
+        escape(i888)
+        i4360 = getfield_gc_pure(p15, descr=valuedescr)
+        i4362 = int_add_ovf(i4360, 1)
+        guard_no_overflow() []
+        i4360p = int_sub_ovf(i4362, 1)
+        guard_no_overflow() []
+        p4364 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p4364, i4362, descr=valuedescr)
+        jump(p4364)
+        """
+        expected = """
+        [i0, i1]
+        escape(i1)
+        i2 = int_add_ovf(i0, 1)
+        guard_no_overflow() []
+        jump(i2, i0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_framestackdepth_overhead(self):
         ops = """
         [p0, i22]
@@ -4376,7 +4470,6 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i8 = int_floordiv(4, i2)
         i9 = int_rshift(i1, 2)
         i10 = int_floordiv(i1, 0)
-        i11 = int_rshift(i1, 0)
         i12 = int_floordiv(i2, 2)
         i13 = int_floordiv(i2, 3)
         i14 = int_floordiv(i2, 4)
@@ -4450,6 +4543,18 @@ class TestLLtype(OptimizeOptTest, LLtypeMixin):
         i17 = int_lshift(i1b, 100)
         i18 = int_rshift(i17, 100)
         jump(i2, i3, i1b, i2b)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_div_1(self):
+        ops = """
+        [i0]
+        i1 = int_floordiv(i0, 1)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
         """
         self.optimize_loop(ops, expected)
 
