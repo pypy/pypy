@@ -65,8 +65,10 @@ class BaseTestRint(BaseRtypingTest):
         res = self.interpret(dummy, [-123])
         assert self.ll_to_string(res) == '-123'
 
-        res = self.interpret(dummy, [-sys.maxint-1])
-        assert self.ll_to_string(res) == str(-sys.maxint-1)
+        # hack for win64
+        maxint = sys.orig_maxint if hasattr(sys, "orig_maxint") else sys.maxint
+        res = self.interpret(dummy, [-maxint-1])
+        assert self.ll_to_string(res) == str(-maxint-1)
 
     def test_hex_of_int(self):
         def dummy(i):

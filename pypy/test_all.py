@@ -1,3 +1,7 @@
+import sys
+sys.orig_maxint = sys.maxint
+sys.maxint = 2**63-1
+
 #! /usr/bin/env python
 """
 PyPy Test runner interface

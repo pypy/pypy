@@ -37,18 +37,16 @@ import sys
 from pypy.rpython import extregistry
 from pypy.rlib import objectmodel
 
-# set up of machine internals
-_bits = 0
-_itest = 1
-_Ltest = 1L
-while _itest == _Ltest and type(_itest) is int:
-    _itest *= 2
-    _Ltest *= 2
+# set up of machine internals, using sys.maxint only.
+_bits = 1
+_test = sys.maxint
+while _test:
     _bits += 1
-
-LONG_BIT = _bits+1
-LONG_MASK = _Ltest*2-1
-LONG_TEST = _Ltest
+    _test >>= 1
+    
+LONG_BIT = _bits
+LONG_MASK = (2**LONG_BIT)-1
+LONG_TEST = 2**(LONG_BIT-1)
 LONGLONG_BIT  = 64
 LONGLONG_MASK = (2**LONGLONG_BIT)-1
 LONGLONG_TEST = 2**(LONGLONG_BIT-1)
@@ -58,6 +56,12 @@ while (1 << LONG_BIT_SHIFT) != LONG_BIT:
     LONG_BIT_SHIFT += 1
     assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
 
+"""
+int is no longer necessarily the same size as the target int.
+We therefore can no longer use the int type as it is, but need
+to use long everywhere.
+"""
+    
 def intmask(n):
     if isinstance(n, int):
         return int(n)   # possibly bool->int
@@ -68,7 +72,8 @@ def intmask(n):
     n &= LONG_MASK
     if n >= LONG_TEST:
         n -= 2*LONG_TEST
-    return int(n)
+    # return int(n)
+    return n
 
 def longlongmask(n):
     if isinstance(n, int):
@@ -99,7 +104,7 @@ def _should_widen_type(tp):
         r_class.BITS == LONG_BIT and r_class.SIGNED)
 _should_widen_type._annspecialcase_ = 'specialize:memo'
 
-del _bits, _itest, _Ltest
+del _bits, _test
 
 def ovfcheck(r):
     "NOT_RPYTHON"
@@ -108,7 +113,8 @@ def ovfcheck(r):
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
-    if type(r) is long:
+    # if type(r) is long:
+    if abs(r) > sys.maxint:
         raise OverflowError, "signed integer expression did overflow"
     return r
 
@@ -116,7 +122,8 @@ def _local_ovfcheck(r):
     # a copy of the above, because we cannot call ovfcheck
     # in a context where no primitiveoperator is involved.
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
-    if isinstance(r, long):
+    # if isinstance(r, long):
+    if abs(r) > sys.maxint:
         raise OverflowError, "signed integer expression did overflow"
     return r
 
