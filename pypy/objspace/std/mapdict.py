@@ -668,6 +668,14 @@ class MapDictStrategy(DictStrategy):
         new_obj = w_obj._get_mapdict_map().remove_dict_entries(w_obj)
         _become(w_obj, new_obj)
 
+    def popitem(self, w_dict):
+        curr = self.unerase(w_dict.dstorage)._get_mapdict_map().search(DICT)
+        key = curr.selector[0]
+        w_value = self.getitem_str(w_dict, key)
+        w_key = self.space.wrap(key)
+        self.delitem(w_dict, w_key)
+        return (w_key, w_value)
+
     def _clear_fields(self, w_dict):
         self.w_obj = None
 

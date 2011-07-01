@@ -468,6 +468,19 @@ class AppTestWithMapDict(object):
         d['dd'] = 43
         assert a.dd == 41
 
+    def test_popitem(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 5
+        a.y = 6
+        it1 = a.__dict__.popitem()
+        assert it1 == ("y", 6)
+        it2 = a.__dict__.popitem()
+        assert it2 == ("x", 5)
+        assert a.__dict__ == {}
+
+
 
     def test_slot_name_conflict(self):
         class A(object):
