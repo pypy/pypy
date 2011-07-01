@@ -1,13 +1,14 @@
 import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
-from pypy.objspace.std.settype import set_typedef as settypedef
+from pypy.rlib.debug import mark_dict_non_null
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -59,7 +60,8 @@ class W_DictMultiObject(W_Object):
 
     def initialize_as_rdict(self):
         assert self.r_dict_content is None
-        self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
+        self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w,
+                                     force_non_null=True)
         return self.r_dict_content
 
 
@@ -308,6 +310,7 @@ class StrDictImplementation(W_DictMultiObject):
     def __init__(self, space):
         self.space = space
         self.content = {}
+        mark_dict_non_null(self.content)
 
     def impl_setitem(self, w_key, w_value):
         space = self.space
@@ -317,6 +320,7 @@ class StrDictImplementation(W_DictMultiObject):
             self._as_rdict().impl_fallback_setitem(w_key, w_value)
 
     def impl_setitem_str(self, key, w_value):
+        assert key is not None
         self.content[key] = w_value
 
     def impl_setdefault(self, w_key, w_default):
@@ -342,6 +346,7 @@ class StrDictImplementation(W_DictMultiObject):
         return len(self.content)
 
     def impl_getitem_str(self, key):
+        assert key is not None
         return self.content.get(key, None)
 
     def impl_getitem(self, w_key):

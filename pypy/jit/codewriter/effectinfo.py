@@ -75,12 +75,13 @@ class EffectInfo(object):
     #
     OS_MATH_SQRT                = 100
 
-    def __new__(cls, readonly_descrs_fields,
+    def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 write_descrs_fields, write_descrs_arrays,
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
                 can_invalidate=False):
         key = (frozenset(readonly_descrs_fields),
+               frozenset(readonly_descrs_arrays),
                frozenset(write_descrs_fields),
                frozenset(write_descrs_arrays),
                extraeffect,
@@ -89,6 +90,7 @@ class EffectInfo(object):
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
+        result.readonly_descrs_arrays = readonly_descrs_arrays
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
            extraeffect == EffectInfo.EF_PURE:            
             result.write_descrs_fields = []
@@ -119,7 +121,7 @@ def effectinfo_from_writeanalyze(effects, cpu,
     if effects is top_set:
         return None
     readonly_descrs_fields = []
-    # readonly_descrs_arrays = [] --- not enabled for now
+    readonly_descrs_arrays = []
     write_descrs_fields = []
     write_descrs_arrays = []
 
@@ -145,10 +147,13 @@ def effectinfo_from_writeanalyze(effects, cpu,
         elif tup[0] == "array":
             add_array(write_descrs_arrays, tup)
         elif tup[0] == "readarray":
-            pass
+            tupw = ("array",) + tup[1:]
+            if tupw not in effects:
+                add_array(readonly_descrs_arrays, tup)
         else:
             assert 0
     return EffectInfo(readonly_descrs_fields,
+                      readonly_descrs_arrays,
                       write_descrs_fields,
                       write_descrs_arrays,
                       extraeffect,

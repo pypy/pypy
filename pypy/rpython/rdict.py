@@ -15,6 +15,7 @@ class __extend__(annmodel.SomeDict):
         dictvalue = self.dictdef.dictvalue
         s_key     = dictkey  .s_value
         s_value   = dictvalue.s_value
+        force_non_null = self.dictdef.force_non_null
         if (s_key.__class__ is annmodel.SomeObject and s_key.knowntype == object and
             s_value.__class__ is annmodel.SomeObject and s_value.knowntype == object):
             return robject.pyobj_repr
@@ -29,7 +30,8 @@ class __extend__(annmodel.SomeDict):
                                                      lambda: rtyper.getrepr(s_value),
                                                      dictkey,
                                                      dictvalue,
-                                                     custom_eq_hash)
+                                                     custom_eq_hash,
+                                                     force_non_null)
 
     def rtyper_makekey(self):
         self.dictdef.dictkey  .dont_change_any_more = True

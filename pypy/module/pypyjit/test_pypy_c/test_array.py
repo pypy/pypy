@@ -46,7 +46,7 @@ class TestArray(BaseTestPyPyC):
             guard_no_overflow(descr=<Guard4>)
             i18 = int_add(i7, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, i18, i16, i9, i10, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i18, i16, p8, i9, i10, descr=<Loop0>)
         """)
 
     def test_array_intimg(self):
@@ -83,7 +83,7 @@ class TestArray(BaseTestPyPyC):
             setarrayitem_raw(i11, i8, _, descr=<.*ArrayNoLengthDescr>)
             i28 = int_add(i8, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, p7, i28, i15, i10, i11, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, p6, i28, i15, p9, i10, i11, descr=<Loop0>)
         """)
 
 

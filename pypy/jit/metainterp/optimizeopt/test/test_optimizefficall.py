@@ -51,7 +51,7 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
                              restype=types.sint)
         #
         def calldescr(cpu, FUNC, oopspecindex, extraeffect=None):
-            einfo = EffectInfo([], [], [], oopspecindex=oopspecindex,
+            einfo = EffectInfo([], [], [], [], oopspecindex=oopspecindex,
                                extraeffect=extraeffect)
             return cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, einfo)
         #
