@@ -676,9 +676,6 @@ class MapDictStrategy(DictStrategy):
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
-    def _clear_fields(self, w_dict):
-        self.w_obj = None
-
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
     new_obj = map.materialize_r_dict(space, obj, dict_w)
