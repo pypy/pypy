@@ -266,7 +266,7 @@ class EmptyIteratorImplementation(IteratorImplementation):
 
 # concrete subclasses of the above
 
-class AbtractTypedStrategy(object):
+class AbstractTypedStrategy(object):
     _mixin_ = True
 
     @staticmethod
@@ -364,7 +364,7 @@ class AbtractTypedStrategy(object):
         w_dict.dstorage = strategy.erase(d_new)
 
 
-class ObjectDictStrategy(AbtractTypedStrategy, DictStrategy):
+class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     erase, unerase = rerased.new_erasing_pair("object")
     erase = staticmethod(erase)
@@ -390,7 +390,7 @@ class ObjectDictStrategy(AbtractTypedStrategy, DictStrategy):
     def keys(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
 
-class StringDictStrategy(AbtractTypedStrategy, DictStrategy):
+class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     erase, unerase = rerased.new_erasing_pair("string")
     erase = staticmethod(erase)
@@ -424,14 +424,10 @@ class StringDictStrategy(AbtractTypedStrategy, DictStrategy):
         if type(w_key) is space.StringObjectCls:
             return self.getitem_str(w_dict, w_key.unwrap(space))
         # -- End of performance hack --
-
-        if self.is_correct_type(w_key):
-            return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
-        elif _never_equal_to_string(space, space.type(w_key)):
+        if _never_equal_to_string(space, space.type(w_key)):
             return None
-        else:
-            self.switch_to_object_strategy(w_dict)
-            return w_dict.getitem(w_key)
+
+        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
     def getitem_str(self, w_dict, key):
         assert key is not None
