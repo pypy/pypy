@@ -58,7 +58,6 @@ class W_DictMultiObject(W_Object):
         self.space = space
         self.strategy = strategy
         self.dstorage = storage
-                                     force_non_null=True)
 
     def __repr__(w_self):
         """ representation for debugging purposes """
