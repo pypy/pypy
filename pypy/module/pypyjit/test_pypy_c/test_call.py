@@ -72,7 +72,7 @@ class TestCall(BaseTestPyPyC):
         # away
         # XXX could be improved
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["guard_value", "getfield_gc", "guard_isnull"]
+        assert log.opnames(ops) == ["guard_value", "getfield_gc", "guard_value"]
         #
         # two LOAD_GLOBAL of f, the second is folded away
         ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
