@@ -29,7 +29,7 @@ else:
     r_longlong_result = r_longlong
 
 argtype_by_name = {
-    'int': long, # XXX int,
+    'int': (int, long),
     'float': float,
     'uint': r_uint,
     'llong': r_longlong_arg,
