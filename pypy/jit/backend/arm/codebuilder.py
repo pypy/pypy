@@ -168,16 +168,9 @@ class AbstractARMv7Builder(object):
         if target_ofs > pos:
             raise NotImplementedError
         else:
-            target_ofs = pos - target_ofs
-            target = WORD + target_ofs + arch.PC_OFFSET/2
-            if target >= 0 and target <= 0xFF:
-                self.SUB_ri(reg.pc.value, reg.pc.value, target, cond=c)
-            else:
-                assert c == cond.AL
-                self.LDR_ri(reg.ip.value, reg.pc.value, cond=c)
-                self.SUB_rr(reg.pc.value, reg.pc.value, reg.ip.value, cond=c)
-                target += WORD
-                self.write32(target)
+            target_ofs = target_ofs - (pos + arch.PC_OFFSET)
+            assert target_ofs & 0x3 == 0
+            self.write32(c << 28 | 0xA << 24 | (target_ofs >> 2) & 0xFFFFFF)
 
     def BL(self, target, c=cond.AL):
         if c == cond.AL:
