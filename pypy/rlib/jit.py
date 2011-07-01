@@ -21,10 +21,10 @@ def elidable(func):
     func._elidable_function_ = True
     return func
 
-def purefunction(*args, **args):
+def purefunction(*args, **kwargs):
     import warnings
     warnings.warn("purefunction is deprecated, use elidable instead", DeprecationWarning)
-    return elidable(*args, **args)
+    return elidable(*args, **kwargs)
 
 def hint(x, **kwds):
     """ Hint for the JIT
@@ -90,10 +90,10 @@ def elidable_promote(promote_args='all'):
         return result
     return decorator
 
-def purefunction_promote(*args, **args):
+def purefunction_promote(*args, **kwargs):
     import warnings
     warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
-    return elidable_promote(*args, **args)
+    return elidable_promote(*args, **kwargs)
 
 
 def oopspec(spec):
