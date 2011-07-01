@@ -21,21 +21,25 @@ class TestCellDict(object):
         v2 = strategy.version
         assert v1 is not v2
         assert d.getitem("a") == 1
+        assert d.strategy.getdictvalue_no_unwrapping(d, "a") == 1
 
         d.setitem("a", 2)
         v3 = strategy.version
         assert v2 is not v3
         assert d.getitem("a") == 2
+        assert d.strategy.getdictvalue_no_unwrapping(d, "a").w_value == 2
 
         d.setitem("a", 3)
         v4 = strategy.version
         assert v3 is v4
         assert d.getitem("a") == 3
+        assert d.strategy.getdictvalue_no_unwrapping(d, "a").w_value == 3
 
         d.delitem("a")
         v5 = strategy.version
         assert v5 is not v4
         assert d.getitem("a") is None
+        assert d.strategy.getdictvalue_no_unwrapping(d, "a") is None
 
 class AppTestModuleDict(object):
     def setup_class(cls):
