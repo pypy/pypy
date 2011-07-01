@@ -2,13 +2,11 @@ import sys
 from pypy.objspace.flow.model import Variable
 from pypy.tool.algo.color import DependencyGraph
 from pypy.tool.algo.unionfind import UnionFind
-from pypy.jit.metainterp.history import getkind
-from pypy.jit.codewriter.flatten import ListOfKind
 
-def perform_register_allocation(graph, kind):
+def perform_register_allocation(graph, consider_var, ListOfKind=()):
     """Perform register allocation for the Variables of the given 'kind'
     in the 'graph'."""
-    regalloc = RegAllocator(graph, kind)
+    regalloc = RegAllocator(graph, consider_var, ListOfKind)
     regalloc.make_dependencies()
     regalloc.coalesce_variables()
     regalloc.find_node_coloring()
@@ -18,9 +16,10 @@ def perform_register_allocation(graph, kind):
 class RegAllocator(object):
     DEBUG_REGALLOC = False
 
-    def __init__(self, graph, kind):
+    def __init__(self, graph, consider_var, ListOfKind):
         self.graph = graph
-        self.kind = kind
+        self.consider_var = consider_var
+        self.ListOfKind = ListOfKind
 
     def make_dependencies(self):
         dg = DependencyGraph()
@@ -31,7 +30,7 @@ class RegAllocator(object):
                 for v in op.args:
                     if isinstance(v, Variable):
                         die_at[v] = i
-                    elif isinstance(v, ListOfKind):
+                    elif isinstance(v, self.ListOfKind):
                         for v1 in v:
                             if isinstance(v1, Variable):
                                 die_at[v1] = i
@@ -51,7 +50,7 @@ class RegAllocator(object):
             # Done.  XXX the code above this line runs 3 times
             # (for kind in KINDS) to produce the same result...
             livevars = [v for v in block.inputargs
-                          if getkind(v.concretetype) == self.kind]
+                          if self.consider_var(v)]
             # Add the variables of this block to the dependency graph
             for i, v in enumerate(livevars):
                 dg.add_node(v)
@@ -67,10 +66,10 @@ class RegAllocator(object):
                         pass
                     die_index += 1
                 if (op.result is not None and
-                    getkind(op.result.concretetype) == self.kind):
+                        self.consider_var(op.result)):
                     dg.add_node(op.result)
                     for v in livevars:
-                        if getkind(v.concretetype) == self.kind:
+                        if self.consider_var(v):
                             dg.add_edge(v, op.result)
                     livevars.add(op.result)
         self._depgraph = dg
@@ -95,7 +94,7 @@ class RegAllocator(object):
                     self._try_coalesce(v, link.target.inputargs[i])
 
     def _try_coalesce(self, v, w):
-        if isinstance(v, Variable) and getkind(v.concretetype) == self.kind:
+        if isinstance(v, Variable) and self.consider_var(v):
             dg = self._depgraph
             uf = self._unionfind
             v0 = uf.find_rep(v)
