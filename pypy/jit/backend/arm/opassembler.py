@@ -178,7 +178,8 @@ class GuardOpAssembler(object):
 
         memaddr = self._gen_path_to_exit_path(op, op.getfailargs(),
                                             arglocs, save_exc=save_exc)
-        self.pending_guards.append(GuardToken(op.getdescr(), pos=pos, memaddr=memaddr))
+        self.pending_guards.append(GuardToken(op.getdescr(), 
+                                    offset=pos, encoded_args=memaddr))
         return c.AL
 
     def _emit_guard_overflow(self, guard, failargs, fcond):
@@ -250,6 +251,7 @@ class GuardOpAssembler(object):
         pos = self.mc.currpos() # after potential jmp
         memaddr = self.gen_descr_encoding(op, op.getfailargs(), locs)
         self.pending_guards.append(GuardToken(op.getdescr(), pos, memaddr, True))
+        return fcond
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
         offset = locs[2]
