@@ -29,7 +29,7 @@ else:
     r_longlong_result = r_longlong
 
 argtype_by_name = {
-    'int': long, # XXX int,
+    'int': (int, long),
     'float': float,
     'uint': r_uint,
     'llong': r_longlong_arg,
@@ -397,7 +397,7 @@ def op_cast_uint_to_int(b):
     return intmask(b)
 
 def op_cast_int_to_longlong(b):
-    assert isinstance(x, (int, long))
+    assert isinstance(b, (int, long))
     return r_longlong_result(b)
 
 def op_truncate_longlong_to_int(b):
