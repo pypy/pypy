@@ -6,20 +6,25 @@ from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.nonconst import NonConstant
 
-def purefunction(func):
-    """ Decorate a function as pure. Pure means precisely that:
+def elidable(func):
+    """ Decorate a function as "trace-elidable". This means precisely that:
 
     (1) the result of the call should not change if the arguments are
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
     according to rule 1
 
-    Most importantly it doesn't mean that pure function has no observable
-    side effect, but those side effects can be ommited (ie caching).
+    Most importantly it doesn't mean that an elidable function has no observable
+    side effect, but those side effects are idempotent (ie caching).
     For now, such a function should never raise an exception.
     """
-    func._pure_function_ = True
+    func._elidable_function_ = True
     return func
+
+def purefunction(*args, **kwargs):
+    import warnings
+    warnings.warn("purefunction is deprecated, use elidable instead", DeprecationWarning)
+    return elidable(*args, **kwargs)
 
 def hint(x, **kwds):
     """ Hint for the JIT
@@ -35,6 +40,10 @@ def hint(x, **kwds):
                             access_directly=True
     """
     return x
+
+@specialize.argtype(0)
+def promote(x):
+    return hint(x, promote=True)
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
@@ -60,13 +69,13 @@ def loop_invariant(func):
     func._jit_loop_invariant_ = True
     return func
 
-def purefunction_promote(promote_args='all'):
+def elidable_promote(promote_args='all'):
     """ A decorator that promotes all arguments and then calls the supplied
     function
     """
     def decorator(func):
         import inspect
-        purefunction(func)
+        elidable(func)
         args, varargs, varkw, defaults = inspect.getargspec(func)
         args = ["v%s" % (i, ) for i in range(len(args))]
         assert varargs is None and varkw is None
@@ -84,6 +93,12 @@ def purefunction_promote(promote_args='all'):
         result.func_name = func.func_name + "_promote"
         return result
     return decorator
+
+def purefunction_promote(*args, **kwargs):
+    import warnings
+    warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
+    return elidable_promote(*args, **kwargs)
+
 
 def oopspec(spec):
     def decorator(func):
