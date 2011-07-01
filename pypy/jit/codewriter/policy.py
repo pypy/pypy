@@ -44,10 +44,6 @@ class JitPolicy(object):
             return True
         if mod.startswith('pypy.translator.'): # XXX wtf?
             return True
-        # string builder interface
-        if mod == 'pypy.rpython.lltypesystem.rbuilder':
-            return True
-        
         return False
 
     def look_inside_graph(self, graph):

@@ -32,7 +32,7 @@
     ("<.*FieldDescr \\([^ ]*\\)" (1 'font-lock-variable-name-face))
     ;; comment out debug_merge_point, but then highlight specific part of it
     ("^debug_merge_point.*" . font-lock-comment-face)
-    ("^\\(debug_merge_point\\).*code object\\(.*\\), file \\('.*'\\), \\(line .*\\)> \\(.*\\)"
+    ("^\\(debug_merge_point\\).*code object\\(.*\\). file \\('.*'\\). \\(line .*\\)> \\(.*\\)"
      (1 'compilation-warning t)
      (2 'escape-glyph t)
      (3 'font-lock-string-face t)

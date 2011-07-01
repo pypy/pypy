@@ -21,8 +21,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
-                            'valuestackdepth', 'valuestack_w[*]',
-                            'fastlocals_w[*]',
+                            'valuestackdepth', 'locals_stack_w[*]',
                             'last_exception',
                             'lastblock',
                             'is_being_profiled',

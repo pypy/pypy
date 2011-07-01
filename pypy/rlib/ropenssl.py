@@ -151,7 +151,7 @@ ssl_external('CRYPTO_set_locking_callback',
                 [rffi.INT, rffi.INT, rffi.CCHARP, rffi.INT], lltype.Void))],
              lltype.Void)
 ssl_external('CRYPTO_set_id_callback',
-             [lltype.Ptr(lltype.FuncType([], rffi.INT))],
+             [lltype.Ptr(lltype.FuncType([], rffi.LONG))],
              lltype.Void)
              
 if HAVE_OPENSSL_RAND:
