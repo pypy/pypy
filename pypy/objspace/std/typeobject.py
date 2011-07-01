@@ -423,10 +423,13 @@ class W_TypeObject(W_Object):
         return False
 
     def getdict(w_self, space): # returning a dict-proxy!
-        from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+        from pypy.objspace.std.dictproxyobject import DictProxyStrategy
+        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
-        return W_DictProxyObject(space, w_self)
+        strategy = space.fromcache(DictProxyStrategy)
+        storage = strategy.erase(w_self)
+        return W_DictMultiObject(space, strategy, storage)
 
     def unwrap(w_self, space):
         if w_self.instancetypedef.fakedcpytype is not None:
