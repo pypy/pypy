@@ -63,7 +63,7 @@ class Function(Wrappable):
         if jit.we_are_jitted():
             if not self.can_change_code:
                 return _get_immutable_code(self)
-            return jit.hint(self.code, promote=True)
+            return jit.promote(self.code)
         return self.code
 
     def funccall(self, *args_w): # speed hack

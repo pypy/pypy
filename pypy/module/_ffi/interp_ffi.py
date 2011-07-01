@@ -235,7 +235,7 @@ class W_FuncPtr(Wrappable):
         argchain.arg_longlong(floatval)
 
     def call(self, space, args_w):
-        self = jit.hint(self, promote=True)
+        self = jit.promote(self)
         argchain = self.build_argchain(space, args_w)
         w_restype = self.w_restype
         if w_restype.is_longlong():

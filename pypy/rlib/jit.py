@@ -41,6 +41,10 @@ def hint(x, **kwds):
     """
     return x
 
+@specialize.argtype(0)
+def promote(x):
+    return hint(x, promote=True)
+
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
     (it becomes a call instead)

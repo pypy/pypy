@@ -28,7 +28,7 @@ class ModuleDictImplementation(W_DictMultiObject):
         if makenew or jit.we_are_jitted():
             # when we are jitting, we always go through the pure function
             # below, to ensure that we have no residual dict lookup
-            self = jit.hint(self, promote=True)
+            self = jit.promote(self)
             return self._getcell_makenew(key)
         return self.content.get(key, None)
 

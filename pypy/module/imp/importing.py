@@ -133,8 +133,8 @@ def _get_dot_position(str, n):
 def _get_relative_name(space, modulename, level, w_globals):
     w = space.wrap
     ctxt_w_package = space.finditem_str(w_globals, '__package__')
-    ctxt_w_package = jit.hint(ctxt_w_package, promote=True)
-    level = jit.hint(level, promote=True)
+    ctxt_w_package = jit.promote(ctxt_w_package)
+    level = jit.promote(level)
 
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
@@ -184,7 +184,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_w_name = space.finditem_str(w_globals, '__name__')
         ctxt_w_path = space.finditem_str(w_globals, '__path__')
 
-        ctxt_w_name = jit.hint(ctxt_w_name, promote=True)
+        ctxt_w_name = jit.promote(ctxt_w_name)
         ctxt_name = None
         if ctxt_w_name is not None:
             try:

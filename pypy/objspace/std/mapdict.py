@@ -357,7 +357,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def _get_mapdict_map(self):
-        return jit.hint(self.map, promote=True)
+        return jit.promote(self.map)
     def _set_mapdict_map(self, map):
         self.map = map
     # _____________________________________________

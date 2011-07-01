@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, hint, elidable
+from pypy.rlib.jit import JitDriver, promote, elidable
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
@@ -613,7 +613,7 @@ class SendTests(object):
             while i > 0:
                 myjitdriver.can_enter_jit(i=i, obj=obj)
                 myjitdriver.jit_merge_point(i=i, obj=obj)
-                obj = hint(obj, promote=True)
+                promote(obj)
                 res = obj.foo()
                 i-=1
             return res

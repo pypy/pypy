@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver, promote
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -300,7 +300,7 @@ class VirtualTests:
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, i=i, stufflist=stufflist)
                 myjitdriver.jit_merge_point(n=n, i=i, stufflist=stufflist)
-                i = hint(i, promote=True)
+                promote(i)
                 v = Stuff(i)
                 n -= stufflist.lst[v.x].x
             return n

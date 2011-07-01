@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
-from pypy.rlib.jit import loop_invariant, elidable
+from pypy.rlib.jit import loop_invariant, elidable, promote
 from pypy.rlib.jit import jit_debug, assert_green, AssertGreenFailed
 from pypy.rlib.jit import unroll_safe, current_trace_length
 from pypy.jit.metainterp import pyjitpl, history
@@ -309,7 +309,7 @@ class BasicTests:
             return x * y
         externfn._elidable_function_ = True
         def f(n):
-            n = hint(n, promote=True)
+            promote(n)
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
         assert res == 42
@@ -1252,7 +1252,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(x=x, l=l)
                 a = l[x]
                 x = a.g(x)
-                hint(a, promote=True)
+                promote(a)
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
@@ -1312,7 +1312,7 @@ class BasicTests:
                     x -= 5
                 else:
                     x -= 7
-                hint(a, promote=True)
+                promote(a)
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
@@ -1343,7 +1343,7 @@ class BasicTests:
                     x -= 5
                 else:
                     x -= 7
-                hint(a, promote=True)
+                promote(a)
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
@@ -1377,7 +1377,7 @@ class BasicTests:
                     x = a.g(x)
                 else:
                     x -= 7
-                hint(a, promote=True)
+                promote(a)
             return x
         res = self.meta_interp(f, [399], listops=True)
         assert res == f(399)
@@ -1496,7 +1496,7 @@ class BasicTests:
                     glob.a = B()
                     const = 2
                 else:
-                    const = hint(const, promote=True)
+                    promote(const)
                     x -= const
                     res += a.x
                     a = None
@@ -1531,7 +1531,7 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x)
                 myjitdriver.jit_merge_point(x=x)
                 a = A()
-                hint(a, promote=True)
+                promote(a)
                 x -= 1
         self.meta_interp(f, [50])
         self.check_loop_count(1)
@@ -1595,9 +1595,9 @@ class BasicTests:
         self.check_loops(jit_debug=2)
 
     def test_assert_green(self):
-        def f(x, promote):
-            if promote:
-                x = hint(x, promote=True)
+        def f(x, promote_flag):
+            if promote_flag:
+                promote(x)
             assert_green(x)
             return x
         res = self.interp_operations(f, [8, 1])
@@ -1817,7 +1817,7 @@ class BasicTests:
             while y > 0:
                 myjitdriver.can_enter_jit(y=y, x=x, res=res, const=const)
                 myjitdriver.jit_merge_point(y=y, x=x, res=res, const=const)
-                const = hint(const, promote=True)
+                const = promote(const)
                 res = res.binop(A(const))
                 if y<7:
                     res = x
@@ -2002,7 +2002,7 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if 0 < a < hint(sys.maxint/2, promote=True): pass
+                if 0 < a < promote(sys.maxint/2): pass
                 if 0 < b < 100: pass
                 sa += (((((a << b) << b) << b) >> b) >> b) >> b                
                 n += 1
@@ -2047,7 +2047,7 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if -hint(sys.maxint/2, promote=True) < a < 0: pass
+                if -promote(sys.maxint/2) < a < 0: pass
                 if 0 < b < 100: pass
                 sa += (((((a << b) << b) << b) >> b) >> b) >> b                
                 n += 1
@@ -2082,7 +2082,7 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if 0 < a < hint(sys.maxint/2, promote=True): pass
+                if 0 < a < promote(sys.maxint/2): pass
                 if 0 < b < 100: pass
                 sa += (a << b) >> b
                 n += 1
@@ -2139,7 +2139,7 @@ class BasicTests:
                 if op == 'j':
                     j += 1
                 elif op == 'c':
-                    c = hint(c, promote=True)
+                    promote(c)
                     c = 1 - c
                 elif op == '2':
                     if j < 3:
@@ -2208,7 +2208,8 @@ class BasicTests:
                 self.local_names[0] = 1
 
             def retrieve(self):
-                variables = hint(self.variables, promote=True)
+                variables = self.variables
+                promote(variables)
                 result = self.local_names[0]
                 if result == 0:
                     return -1
