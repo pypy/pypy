@@ -45,7 +45,7 @@ class TestLL2Ctypes(object):
         res = ctypes2lltype(lltype.SingleFloat, ctypes.c_float(-3.5))
         assert isinstance(res, rffi.r_singlefloat)
         assert float(res) == -3.5
-        assert lltype2ctypes(rffi.r_ulong(-1)) == sys.maxint * 2 + 1
+        assert lltype2ctypes(rffi.r_ulong(-1)) == (1 << rffi.r_ulong.BITS) - 1
         res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
         assert (res, type(res)) == (rffi.r_ulong(-1), rffi.r_ulong)
         assert ctypes2lltype(lltype.Bool, 0) is False
