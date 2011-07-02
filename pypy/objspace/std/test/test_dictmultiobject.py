@@ -805,7 +805,12 @@ class AppTestStrategies(object):
         o.a = 1
         assert "StringDictStrategy" in self.get_strategy(d)
 
-
+    def test_empty_to_int(self):
+        import sys
+        d = {}
+        d[1] = "hi"
+        assert "IntDictStrategy" in self.get_strategy(d)
+        assert d[1L] == "hi"
 
 
 class FakeString(str):
@@ -845,6 +850,10 @@ class FakeSpace:
     def str_w(self, string):
         assert isinstance(string, str)
         return string
+
+    def int_w(self, integer):
+        assert isinstance(integer, int)
+        return integer
 
     def wrap(self, obj):
         return obj

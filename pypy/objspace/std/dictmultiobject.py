@@ -6,7 +6,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
 
-from pypy.rlib.objectmodel import r_dict, we_are_translated
+from pypy.rlib.objectmodel import r_dict, we_are_translated, specialize
 from pypy.rlib.debug import mark_dict_non_null
 
 from pypy.rlib import rerased
@@ -163,15 +163,22 @@ class EmptyDictStrategy(DictStrategy):
         #XXX implement other strategies later
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_string_strategy(w_dict)
-            return
+        elif self.space.is_w(self.space.type(w_key), self.space.w_int):
+            self.switch_to_int_strategy(w_dict)
+        else:
+            strategy = self.space.fromcache(ObjectDictStrategy)
+            storage = strategy.get_empty_storage()
+            w_dict.strategy = strategy
+            w_dict.dstorage = storage
 
-        strategy = self.space.fromcache(ObjectDictStrategy)
+    def switch_to_string_strategy(self, w_dict):
+        strategy = self.space.fromcache(StringDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
 
-    def switch_to_string_strategy(self, w_dict):
-        strategy = self.space.fromcache(StringDictStrategy)
+    def switch_to_int_strategy(self, w_dict):
+        strategy = self.space.fromcache(IntDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
@@ -289,6 +296,9 @@ class AbstractTypedStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError("abstract base class")
 
+    def _never_equal_to(self, w_lookup_type):
+        raise NotImplementedError("abstract base class")
+
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
         if self.is_correct_type(w_key):
@@ -331,6 +341,8 @@ class AbstractTypedStrategy(object):
 
         if self.is_correct_type(w_key):
             return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
+        elif self._never_equal_to(space.type(w_key)):
+            return None
         else:
             self.switch_to_object_strategy(w_dict)
             return w_dict.getitem(w_key)
@@ -363,7 +375,6 @@ class AbstractTypedStrategy(object):
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
 
-
 class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     erase, unerase = rerased.new_erasing_pair("object")
@@ -384,8 +395,11 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
                          force_non_null=True)
        return self.erase(new_dict)
 
+    def _never_equal_to(self, w_lookup_type):
+        return False
+
     def iter(self, w_dict):
-        return RDictIteratorImplementation(self.space, self, w_dict)
+        return ObjectIteratorImplementation(self.space, self, w_dict)
 
     def keys(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
@@ -414,6 +428,9 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
         mark_dict_non_null(res)
         return self.erase(res)
 
+    def _never_equal_to(self, w_lookup_type):
+        return _never_equal_to_string(self.space, w_lookup_type)
+
     def setitem_str(self, w_dict, key, w_value):
         assert key is not None
         self.unerase(w_dict.dstorage)[key] = w_value
@@ -424,9 +441,6 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
         if type(w_key) is space.StringObjectCls:
             return self.getitem_str(w_dict, w_key.unwrap(space))
         # -- End of performance hack --
-        if _never_equal_to_string(space, space.type(w_key)):
-            return None
-
         return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
     def getitem_str(self, w_dict, key):
@@ -440,27 +454,67 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 class StrIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        dict_w = strategy.unerase(dictimplementation.dstorage)
-        self.iterator = dict_w.iteritems()
+        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
-        for str, w_value in self.iterator:
-            return self.space.wrap(str), w_value
+        for key, w_value in self.iterator:
+            return self.dictimplementation.strategy.wrap(key), w_value
         else:
             return None, None
 
 
-class RDictIteratorImplementation(IteratorImplementation):
+class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
+    erase, unerase = rerased.new_erasing_pair("int")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def wrap(self, unwrapped):
+        return self.space.wrap(unwrapped)
+
+    def unwrap(self, wrapped):
+        return self.space.int_w(wrapped)
+
+    def get_empty_storage(self):
+        return self.erase({})
+
+    def is_correct_type(self, w_obj):
+        space = self.space
+        return space.is_w(space.type(w_obj), space.w_int)
+
+    def _never_equal_to(self, w_lookup_type):
+        space = self.space
+        # XXX there are many more types
+        return (space.is_w(w_lookup_type, space.w_NoneType) or
+                space.is_w(w_lookup_type, space.w_str) or
+                space.is_w(w_lookup_type, space.w_unicode)
+                )
+
+    def iter(self, w_dict):
+        return IntIteratorImplementation(self.space, self, w_dict)
+
+class IntIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        d = strategy.unerase(dictimplementation.dstorage)
-        self.iterator = d.iteritems()
+        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
-        for item in self.iterator:
-            return item
+        for key, w_value in self.iterator:
+            return self.dictimplementation.strategy.wrap(key), w_value
+        else:
+            return None, None
+
+
+class ObjectIteratorImplementation(IteratorImplementation):
+    def __init__(self, space, strategy, dictimplementation):
+        IteratorImplementation.__init__(self, space, dictimplementation)
+        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
+
+    def next_entry(self):
+        # note that this 'for' loop only runs once, at most
+        for key, w_value in self.iterator:
+            return self.dictimplementation.strategy.wrap(key), w_value
         else:
             return None, None
 
