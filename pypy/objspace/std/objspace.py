@@ -1,6 +1,5 @@
 import __builtin__
 import types
-import sys
 from pypy.interpreter import pyframe, function, special
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -10,7 +9,7 @@ from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.rlib.objectmodel import instantiate, r_dict, specialize
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.rarithmetic import base_int, widen
+from pypy.rlib.rarithmetic import base_int, widen, is_valid_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint
 from pypy.rlib.rbigint import rbigint
@@ -162,7 +161,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, OperationError):
             raise TypeError, ("attempt to wrap already wrapped exception: %s"%
                               (x,))
-        if isinstance(x, (int, long)) and -sys.maxint -1 <= x <= sys.maxint:
+        if isinstance(x, (int, long)) and is_valid_int(x):
             if isinstance(x, bool):
                 return self.newbool(x)
             else:

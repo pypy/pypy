@@ -1,5 +1,5 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
 from pypy.rlib.rfloat import isfinite
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
@@ -51,14 +51,14 @@ _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
     if not we_are_translated():
-        assert type(x) in (int, long), "widen_digit() takes an int, got a %r" % type(x)
+        assert type(x) in (int, long) and is_valid_int(x), "widen_digit() takes an int, got a %r" % type(x)
     if SHIFT <= 15:
         return int(x)
     return r_longlong(x)
 
 def _store_digit(x):
     if not we_are_translated():
-        assert type(x) in (int, long), "store_digit() takes an int, got a %r" % type(x)
+        assert type(x) in (int, long) and is_valid_int(x), "store_digit() takes an int, got a %r" % type(x)
     if SHIFT <= 15:
         return rffi.cast(rffi.SHORT, x)
     elif SHIFT <= 31:
