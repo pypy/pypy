@@ -2623,6 +2623,59 @@ class BasicTests:
         # 1 preamble and 6 speciealized versions of each loop
         self.check_tree_loop_count(2*(1 + 6))
 
+    def test_nested_retrace(self):
+
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'a', 'i', 'j', 'sa'])
+        bytecode = "ij+Jj+JI"
+        def f(n, a):
+            myjitdriver.set_param('threshold', 5)
+            myjitdriver.set_param('trace_eagerness', 1)
+            myjitdriver.set_param('retrace_limit', 2)
+            pc = sa = i = j = 0
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j, a=a)
+                a = hint(a, promote=True)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = 0
+                elif op == 'j':
+                    j = 0
+                elif op == '+':
+                    sa += a
+                elif op == 'J':
+                    j += 1
+                    if j < 3:
+                        pc -= 1
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, a=a)
+                        continue
+                elif op == 'I':
+                    i += 1
+                    if i < n:
+                        pc -= 6
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, a=a)
+                        continue
+                pc += 1
+            return sa
+
+        res = self.meta_interp(f, [10, 7])
+        assert res == f(10, 7)
+        self.check_tree_loop_count(4)
+
+        def g(n):
+            return f(n, 2) + f(n, 3)
+
+        res = self.meta_interp(g, [10])
+        assert res == g(10)
+        self.check_tree_loop_count(6)
+
+
+        def g(n):
+            return f(n, 2) + f(n, 3) + f(n, 4) + f(n, 5) + f(n, 6) + f(n, 7)
+
+        res = self.meta_interp(g, [10])
+        assert res == g(10)
+        self.check_tree_loop_count(8)
+
     def test_frame_finished_during_retrace(self):
         class Base(object):
             pass
