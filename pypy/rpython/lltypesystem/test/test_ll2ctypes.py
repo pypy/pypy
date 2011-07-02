@@ -21,6 +21,21 @@ if False:    # for now, please keep it False by default
     from pypy.rpython.lltypesystem import ll2ctypes
     ll2ctypes.do_allocation_in_far_regions()
 
+"""
+Win64:
+To decouple the cpython machine level long from the faked integer
+of the target rpython, I replaced most 'lltype.Signed' by 'rffi.LONG'.
+It would be nicer to replace all lltypes constants by rffi equivalents,
+or better if we had a way to address the specific different types of
+the current and the target system layout explicitly.
+Let's think of that when we go further and make the target completely
+independent and configurable.
+Why most and not all replaced?
+Tests with direct tests become cumbersome, instead of direct number
+assignment rffi.setintfield(s, 'x', 123) must be used.
+So in cases with number constants, where the size is not relevant,
+I kept lltype.signed .
+"""
 
 class TestLL2Ctypes(object):
 
@@ -32,7 +47,7 @@ class TestLL2Ctypes(object):
         assert lltype2ctypes('?') == ord('?')
         assert lltype2ctypes('\xE0') == 0xE0
         assert lltype2ctypes(unichr(1234)) == 1234
-        assert ctypes2lltype(lltype.Signed, 5) == 5
+        assert ctypes2lltype(rffi.LONG, 5) == 5
         assert ctypes2lltype(lltype.Char, ord('a')) == 'a'
         assert ctypes2lltype(lltype.UniChar, ord(u'x')) == u'x'
         assert ctypes2lltype(lltype.Char, 0xFF) == '\xFF'
@@ -68,7 +83,7 @@ class TestLL2Ctypes(object):
     def test_simple_struct(self):
         S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
         s = lltype.malloc(S, flavor='raw')
-        s.x = 123
+        rffi.setintfield(s, 'x', 123)
         sc = lltype2ctypes(s)
         assert isinstance(sc.contents, ctypes.Structure)
         assert sc.contents.x == 123
@@ -124,7 +139,7 @@ class TestLL2Ctypes(object):
 
     def test_array_inside_struct(self):
         # like rstr.STR, but not Gc
-        STR = lltype.Struct('STR', ('x', lltype.Signed), ('y', lltype.Array(lltype.Char)))
+        STR = lltype.Struct('STR', ('x', rffi.LONG), ('y', lltype.Array(lltype.Char)))
         a = lltype.malloc(STR, 3, flavor='raw')
         a.y[0] = 'x'
         a.y[1] = 'y'
@@ -139,6 +154,11 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED
 
     def test_array_nolength(self):
+        # XXX cannot fix this test when lltype.Signed is faked for win64.
+        # Replacement with rffi.LONG does not work because then I cannot
+        # index an array. So I have to use lltype.Signed . But the rffi.sizeof
+        # at the end has a hard-coded mapping to LONG and ignores the faked
+        # maxint. So what should I do?
         A = lltype.Array(lltype.Signed, hints={'nolength': True})
         a = lltype.malloc(A, 10, flavor='raw')
         a[0] = 100
@@ -151,7 +171,7 @@ class TestLL2Ctypes(object):
         assert a[2] == 456
         a[3] = 789
         assert ac.contents.items[3] == 789
-        assert ctypes.sizeof(ac.contents) == 10 * ctypes.sizeof(ctypes.c_long)
+        assert ctypes.sizeof(ac.contents) == 10 * rffi.sizeof(lltype.Signed)
         lltype.free(a, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
 
@@ -203,20 +223,20 @@ class TestLL2Ctypes(object):
 
     def test_func_not_in_clib(self):
         eci = ExternalCompilationInfo(libraries=['m'])
-        foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed)
+        foobar = rffi.llexternal('I_really_dont_exist', [], rffi.LONG)
         py.test.raises(NotImplementedError, foobar)
 
-        foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
+        foobar = rffi.llexternal('I_really_dont_exist', [], rffi.LONG,
                                  compilation_info=eci)    # math library
         py.test.raises(NotImplementedError, foobar)
 
         eci = ExternalCompilationInfo(libraries=['m', 'z'])
-        foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
+        foobar = rffi.llexternal('I_really_dont_exist', [], rffi.LONG,
                                  compilation_info=eci)  # math and zlib
         py.test.raises(NotImplementedError, foobar)
 
         eci = ExternalCompilationInfo(libraries=['I_really_dont_exist_either'])
-        foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
+        foobar = rffi.llexternal('I_really_dont_exist', [], rffi.LONG,
                                  compilation_info=eci)
         py.test.raises(NotImplementedError, foobar)
         assert not ALLOCATED     # detects memory leaks in the test
@@ -398,7 +418,7 @@ class TestLL2Ctypes(object):
             assert e[i] == i*i
 
         c = lltype.nullptr(rffi.VOIDP.TO)
-        addr = rffi.cast(lltype.Signed, c)
+        addr = rffi.cast(rffi.LONG, c)
         assert addr == 0
 
         lltype.free(a, flavor='raw')
@@ -422,7 +442,7 @@ class TestLL2Ctypes(object):
         def dummy(n):
             return n+1
 
-        FUNCTYPE = lltype.FuncType([lltype.Signed], lltype.Signed)
+        FUNCTYPE = lltype.FuncType([rffi.LONG], rffi.LONG)
         cdummy = lltype2ctypes(llhelper(lltype.Ptr(FUNCTYPE), dummy))
         assert isinstance(cdummy,
                           ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_long))
@@ -435,7 +455,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_funcptr2(self):
-        FUNCTYPE = lltype.FuncType([rffi.CCHARP], lltype.Signed)
+        FUNCTYPE = lltype.FuncType([rffi.CCHARP], rffi.LONG)
         cstrlen = standard_c_lib.strlen
         llstrlen = ctypes2lltype(lltype.Ptr(FUNCTYPE), cstrlen)
         assert lltype.typeOf(llstrlen) == lltype.Ptr(FUNCTYPE)
@@ -459,13 +479,13 @@ class TestLL2Ctypes(object):
             export_symbols=['get_mul'])
         get_mul = rffi.llexternal(
             'get_mul', [],
-            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)),
+            lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG)),
             compilation_info=eci)
         # This call returns a pointer to a function taking one argument
         funcptr = get_mul()
         # cast it to the "real" function type
-        FUNCTYPE2 = lltype.FuncType([lltype.Signed, lltype.Signed],
-                                    lltype.Signed)
+        FUNCTYPE2 = lltype.FuncType([rffi.LONG, rffi.LONG],
+                                    rffi.LONG)
         cmul = rffi.cast(lltype.Ptr(FUNCTYPE2), funcptr)
         # and it can be called with the expected number of arguments
         res = cmul(41, 42)
@@ -482,12 +502,12 @@ class TestLL2Ctypes(object):
                                 lltype.Void)
 
         lst = [23, 43, 24, 324, 242, 34, 78, 5, 3, 10]
-        A = lltype.Array(lltype.Signed, hints={'nolength': True})
+        A = lltype.Array(rffi.LONG, hints={'nolength': True})
         a = lltype.malloc(A, 10, flavor='raw')
         for i in range(10):
             a[i] = lst[i]
 
-        SIGNEDPTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
+        SIGNEDPTR = lltype.Ptr(lltype.FixedSizeArray(rffi.LONG, 1))
 
         def my_compar(p1, p2):
             p1 = rffi.cast(SIGNEDPTR, p1)
@@ -497,7 +517,7 @@ class TestLL2Ctypes(object):
 
         qsort(rffi.cast(rffi.VOIDP, a),
               rffi.cast(rffi.SIZE_T, 10),
-              rffi.cast(rffi.SIZE_T, llmemory.sizeof(lltype.Signed)),
+              rffi.cast(rffi.SIZE_T, llmemory.sizeof(rffi.LONG)),
               llhelper(lltype.Ptr(CMPFUNC), my_compar))
 
         for i in range(10):
@@ -534,7 +554,7 @@ class TestLL2Ctypes(object):
         checkobj(uninitialized2ctypes(rffi.CCHARP),
                  ctypes.sizeof(ctypes.c_void_p))
 
-        S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+        S = lltype.Struct('S', ('x', rffi.LONG), ('y', rffi.LONG))
         s = lltype.malloc(S, flavor='raw')
         sc = lltype2ctypes(s)
         checkval(sc.contents.x, 'l')
@@ -543,7 +563,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_substructures(self):
-        S1  = lltype.Struct('S1', ('x', lltype.Signed))
+        S1  = lltype.Struct('S1', ('x', rffi.LONG))
         BIG = lltype.Struct('BIG', ('s1a', S1), ('s1b', S1))
         s = lltype.malloc(BIG, flavor='raw')
         s.s1a.x = 123
@@ -593,7 +613,7 @@ class TestLL2Ctypes(object):
 
     def test_recursive_struct(self):
         SX = lltype.ForwardReference()
-        S1 = lltype.Struct('S1', ('p', lltype.Ptr(SX)), ('x', lltype.Signed))
+        S1 = lltype.Struct('S1', ('p', lltype.Ptr(SX)), ('x', rffi.LONG))
         SX.become(S1)
         # a chained list
         s1 = lltype.malloc(S1, flavor='raw')
@@ -671,7 +691,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_arrayofstruct(self):
-        S1 = lltype.Struct('S1', ('x', lltype.Signed))
+        S1 = lltype.Struct('S1', ('x', rffi.LONG))
         A = lltype.Array(S1, hints={'nolength': True})
         a = lltype.malloc(A, 5, flavor='raw')
         a[0].x = 100
@@ -710,7 +730,7 @@ class TestLL2Ctypes(object):
         buffer = lltype.malloc(rffi.CCHARP.TO, 5, flavor='raw')
         written = os_write(12312312, buffer, 5)
         lltype.free(buffer, flavor='raw')
-        assert rffi.cast(lltype.Signed, written) < 0
+        assert rffi.cast(rffi.LONG, written) < 0
         # the next line is a random external function call,
         # to check that it doesn't reset errno
         strlen("hi!")
@@ -829,9 +849,9 @@ class TestLL2Ctypes(object):
             return one + get_x()
 
         def fy():
-            one = rffi.cast(lltype.Signed, get_y())
+            one = rffi.cast(rffi.LONG, get_y())
             set_y(rffi.cast(rffi.INT, 13))
-            return one + rffi.cast(lltype.Signed, get_y())
+            return one + rffi.cast(rffi.LONG, get_y())
 
         def g():
             l = rffi.liststr2charpp(["a", "b", "c"])
@@ -896,7 +916,7 @@ class TestLL2Ctypes(object):
         lltype.free(a, flavor='raw')
 
     def test_array_type_bug(self):
-        A = lltype.Array(lltype.Signed)
+        A = lltype.Array(rffi.LONG)
         a1 = lltype.malloc(A, 0, flavor='raw')
         a2 = lltype.malloc(A, 0, flavor='raw')
         c1 = lltype2ctypes(a1)
@@ -907,7 +927,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_varsized_struct(self):
-        S = lltype.Struct('S', ('x', lltype.Signed),
+        S = lltype.Struct('S', ('x', rffi.LONG),
                                ('a', lltype.Array(lltype.Char)))
         s1 = lltype.malloc(S, 6, flavor='raw')
         s1.x = 5
@@ -930,7 +950,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_with_explicit_length(self):
-        A = lltype.Array(lltype.Signed)
+        A = lltype.Array(rffi.LONG)
         a1 = lltype.malloc(A, 5, flavor='raw')
         a1[0] = 42
         c1 = lltype2ctypes(a1, normalize=False)
@@ -986,7 +1006,7 @@ class TestLL2Ctypes(object):
 
     def test_recursive_struct_more(self):
         NODE = lltype.ForwardReference()
-        NODE.become(lltype.Struct('NODE', ('value', lltype.Signed),
+        NODE.become(lltype.Struct('NODE', ('value', rffi.LONG),
                                           ('next', lltype.Ptr(NODE))))
         CNODEPTR = get_ctypes_type(NODE)
         pc = CNODEPTR()
@@ -1014,11 +1034,11 @@ class TestLL2Ctypes(object):
         assert p.pong.ping == p
 
     def test_typedef(self):
-        assert ctypes2lltype(lltype.Typedef(lltype.Signed, 'test'), 6) == 6
+        assert ctypes2lltype(lltype.Typedef(rffi.LONG, 'test'), 6) == 6
         assert ctypes2lltype(lltype.Typedef(lltype.Float, 'test2'), 3.4) == 3.4
 
-        assert get_ctypes_type(lltype.Signed) == get_ctypes_type(
-            lltype.Typedef(lltype.Signed, 'test3'))
+        assert get_ctypes_type(rffi.LONG) == get_ctypes_type(
+            lltype.Typedef(rffi.LONG, 'test3'))
 
     def test_cast_adr_to_int(self):
         class someaddr(object):
@@ -1026,14 +1046,14 @@ class TestLL2Ctypes(object):
                 return sys.maxint/2 * 3
 
         res = cast_adr_to_int(someaddr())
-        assert isinstance(res, int)
+        assert isinstance(res, (int, long))
         assert res == -sys.maxint/2 - 3
 
     def test_cast_gcref_back_and_forth(self):
         NODE = lltype.GcStruct('NODE')
         node = lltype.malloc(NODE)
         ref = lltype.cast_opaque_ptr(llmemory.GCREF, node)
-        back = rffi.cast(llmemory.GCREF, rffi.cast(lltype.Signed, ref))
+        back = rffi.cast(llmemory.GCREF, rffi.cast(rffi.LONG, ref))
         assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), back) == node
 
     def test_gcref_forth_and_back(self):
@@ -1060,12 +1080,12 @@ class TestLL2Ctypes(object):
 
     def test_cast_null_gcref(self):
         ref = lltype.nullptr(llmemory.GCREF.TO)
-        value = rffi.cast(lltype.Signed, ref)
+        value = rffi.cast(rffi.LONG, ref)
         assert value == 0
 
     def test_cast_null_fakeaddr(self):
         ref = llmemory.NULL
-        value = rffi.cast(lltype.Signed, ref)
+        value = rffi.cast(rffi.LONG, ref)
         assert value == 0
 
     def test_gcref_truth(self):
@@ -1090,8 +1110,8 @@ class TestLL2Ctypes(object):
         node = lltype.malloc(NODE)
         ref1 = lltype.cast_opaque_ptr(llmemory.GCREF, node)
 
-        intval  = rffi.cast(lltype.Signed, node)
-        intval1 = rffi.cast(lltype.Signed, ref1)
+        intval  = rffi.cast(rffi.LONG, node)
+        intval1 = rffi.cast(rffi.LONG, ref1)
 
         assert intval == intval1
 
@@ -1123,7 +1143,7 @@ class TestLL2Ctypes(object):
         assert node._obj._storage is True
 
         # forced!
-        rffi.cast(lltype.Signed, ref1)
+        rffi.cast(rffi.LONG, ref1)
         assert node._obj._storage not in (True, None)
 
         assert ref1 != ref2
@@ -1136,7 +1156,7 @@ class TestLL2Ctypes(object):
         NODE = lltype.GcStruct('NODE')
         node = lltype.malloc(NODE)
         ref1 = lltype.cast_opaque_ptr(llmemory.GCREF, node)
-        numb = rffi.cast(lltype.Signed, ref1)
+        numb = rffi.cast(rffi.LONG, ref1)
         ref2 = rffi.cast(llmemory.GCREF, numb)
         assert ref1 == ref2
         assert ref2 == ref1
@@ -1144,16 +1164,16 @@ class TestLL2Ctypes(object):
         assert not (ref2 != ref1)
 
     def test_convert_subarray(self):
-        A = lltype.GcArray(lltype.Signed)
+        A = lltype.GcArray(rffi.LONG)
         a = lltype.malloc(A, 20)
         inside = lltype.direct_ptradd(lltype.direct_arrayitems(a), 3)
  
         lltype2ctypes(inside)
 
-        start = rffi.cast(lltype.Signed, lltype.direct_arrayitems(a))
-        inside_int = rffi.cast(lltype.Signed, inside)
+        start = rffi.cast(rffi.LONG, lltype.direct_arrayitems(a))
+        inside_int = rffi.cast(rffi.LONG, inside)
 
-        assert inside_int == start+rffi.sizeof(lltype.Signed)*3
+        assert inside_int == start+rffi.sizeof(rffi.LONG)*3
 
     def test_gcref_comparisons_through_addresses(self):
         NODE = lltype.GcStruct('NODE')
@@ -1161,7 +1181,7 @@ class TestLL2Ctypes(object):
         adr0 = llmemory.cast_ptr_to_adr(n0)
 
         n1 = lltype.malloc(NODE)
-        i1 = rffi.cast(lltype.Signed, n1)
+        i1 = rffi.cast(rffi.LONG, n1)
         ref1 = rffi.cast(llmemory.GCREF, i1)        
         adr1 = llmemory.cast_ptr_to_adr(ref1)
 
@@ -1184,7 +1204,7 @@ class TestLL2Ctypes(object):
             s = S()
             s.x = n
             ls = cast_instance_to_base_ptr(s)
-            as_num = rffi.cast(lltype.Signed, ls)
+            as_num = rffi.cast(rffi.LONG, ls)
             # --- around this point, only 'as_num' is passed
             t = rffi.cast(rclass.OBJECTPTR, as_num)
             u = cast_base_ptr_to_instance(S, t)
@@ -1196,7 +1216,7 @@ class TestLL2Ctypes(object):
         from pypy.rpython.lltypesystem import rclass
         SCLASS = lltype.GcStruct('SCLASS',
                                  ('parent', rclass.OBJECT),
-                                 ('n', lltype.Signed))
+                                 ('n', rffi.LONG))
         sclass_vtable = lltype.malloc(rclass.OBJECT_VTABLE, zero=True,
                                       immortal=True)
         sclass_vtable.name = rclass.alloc_array_name('SClass')
@@ -1205,7 +1225,7 @@ class TestLL2Ctypes(object):
             s = lltype.malloc(SCLASS)
             s.parent.typeptr = sclass_vtable
             s.n = n
-            as_num = rffi.cast(lltype.Signed, s)
+            as_num = rffi.cast(rffi.LONG, s)
             # --- around this point, only 'as_num' is passed
             t = rffi.cast(lltype.Ptr(SCLASS), as_num)
             return t.n
@@ -1222,7 +1242,7 @@ class TestLL2Ctypes(object):
             s = S()
             s.x = n
             ls = cast_instance_to_base_ptr(s)
-            as_num = rffi.cast(lltype.Signed, ls)
+            as_num = rffi.cast(rffi.LONG, ls)
             # --- around this point, only 'as_num' is passed
             r = rffi.cast(llmemory.GCREF, as_num)
             t = lltype.cast_opaque_ptr(rclass.OBJECTPTR, r)
@@ -1235,7 +1255,7 @@ class TestLL2Ctypes(object):
         from pypy.rpython.lltypesystem import rclass
         SCLASS = lltype.GcStruct('SCLASS',
                                  ('parent', rclass.OBJECT),
-                                 ('n', lltype.Signed))
+                                 ('n', rffi.LONG))
         sclass_vtable = lltype.malloc(rclass.OBJECT_VTABLE, zero=True,
                                       immortal=True)
         sclass_vtable.name = rclass.alloc_array_name('SClass')
@@ -1244,7 +1264,7 @@ class TestLL2Ctypes(object):
             s = lltype.malloc(SCLASS)
             s.parent.typeptr = sclass_vtable
             s.n = n
-            as_num = rffi.cast(lltype.Signed, s)
+            as_num = rffi.cast(rffi.LONG, s)
             # --- around this point, only 'as_num' is passed
             r = rffi.cast(llmemory.GCREF, as_num)
             t = lltype.cast_opaque_ptr(lltype.Ptr(SCLASS), r)
@@ -1263,7 +1283,7 @@ class TestLL2Ctypes(object):
         def f():
             s = T()
             ls = cast_instance_to_base_ptr(s)
-            as_num = rffi.cast(lltype.Signed, ls)
+            as_num = rffi.cast(rffi.LONG, ls)
             # --- around this point, only 'as_num' is passed
             t = rffi.cast(rclass.OBJECTPTR, as_num)
             u = cast_base_ptr_to_instance(S, t)
@@ -1281,7 +1301,7 @@ class TestLL2Ctypes(object):
         lltype.free(p, flavor='raw')
 
     def test_freelist(self):
-        S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+        S = lltype.Struct('S', ('x', rffi.LONG), ('y', rffi.LONG))
         SP = lltype.Ptr(S)
         chunk = lltype.malloc(rffi.CArrayPtr(S).TO, 10, flavor='raw')
         assert lltype.typeOf(chunk) == rffi.CArrayPtr(S)

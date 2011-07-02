@@ -177,8 +177,8 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         MAX_SIZE = n/64
         try:
             PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
-        except OverflowError, e:
-            pass
+        except (OverflowError, AttributeError), e:
+            pass      #        ^^^ bah, blame ctypes
         else:
             break
     else:
