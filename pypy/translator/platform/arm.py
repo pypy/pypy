@@ -32,39 +32,6 @@ class ARM(Linux):
             num += 1
         return pth.ensure(dir=1)
 
-    def _copy_files_to_new_dir(self, dir_from, pattern='*.[ch]'):
-        try:
-            return self.copied_cache[dir_from]
-        except KeyError:
-            new_dirpath = self._invent_new_name(udir, 'copied_includes')
-            files = py.path.local(dir_from).listdir(pattern)
-            for f in files:
-                f.copy(new_dirpath)
-            # XXX <hack for pypy>
-            srcdir = py.path.local(dir_from).join('src')
-            if srcdir.check(dir=1):
-                target = new_dirpath.join('src').ensure(dir=1)
-                for f in srcdir.listdir(pattern):
-                    f.copy(target)
-            # XXX </hack for pypy>
-            self.copied_cache[dir_from] = new_dirpath
-            return new_dirpath
-
-    def _preprocess_include_dirs(self, include_dirs):
-        """ Tweak includedirs so they'll be available through scratchbox
-        """
-        res_incl_dirs = []
-        for incl_dir in include_dirs:
-            incl_dir = py.path.local(incl_dir)
-            for available in self.available_includedirs:
-                if incl_dir.relto(available):
-                    res_incl_dirs.append(str(incl_dir))
-                    break
-            else:
-                # we need to copy files to a place where it's accessible
-                res_incl_dirs.append(self._copy_files_to_new_dir(incl_dir))
-        return res_incl_dirs
-
     def _execute_c_compiler(self, cc, args, outname, cwd=None):
         log.execute('sb2 ' + ' '.join(SB2ARGS) + ' ' + cc + ' ' + ' '.join(args))
         args = SB2ARGS + [cc] + args
