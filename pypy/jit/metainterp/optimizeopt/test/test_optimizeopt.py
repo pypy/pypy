@@ -6412,6 +6412,23 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_setgetfield_counter(self):
+        ops = """
+        [p1]
+        i2 = getfield_gc(p1, descr=valuedescr)
+        i3 = int_add(i2, 1)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1)
+        """
+        expected = """
+        [p1, i1]
+        i2 = int_add(i1, 1)
+        setfield_gc(p1, i2, descr=valuedescr)
+        jump(p1, i2)
+        """
+        self.optimize_loop(ops, expected)
+        
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
         

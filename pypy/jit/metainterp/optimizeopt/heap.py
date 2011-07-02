@@ -91,7 +91,7 @@ class CachedField(object):
             # field.
             structvalue = optheap.getvalue(op.getarg(0))
             fieldvalue  = optheap.getvalue(op.getarglist()[-1])
-            self.remember_field_value(structvalue, fieldvalue)
+            self.remember_field_value(structvalue, fieldvalue, op)
 
     def clear(self):
         self._cached_fields.clear()
@@ -121,9 +121,21 @@ class CachedField(object):
                                              potential_ops, descr):
         if self._lazy_setfield is not None:
             return
-        for structvalue, op in self._cached_fields_getfield_op.iteritems():
+        for structvalue in self._cached_fields_getfield_op.keys():
+            op = self._cached_fields_getfield_op[structvalue]
             if op and structvalue in self._cached_fields:
-                potential_ops[op.result] = op
+                if op.getopnum() == rop.SETFIELD_GC:
+                    result = op.getarg(1)
+                    if result in potential_ops:
+                        result = result.clonebox()
+                        # XXX this will not allow for chains of operations
+                    getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
+                                         result, op.getdescr())
+                    potential_ops[result] = getop
+                    self._cached_fields_getfield_op[structvalue] = getop
+                    self._cached_fields[structvalue] = optimizer.getvalue(result)
+                elif op.result is not None:
+                    potential_ops[op.result] = op
 
 
 class BogusPureField(JitException):
