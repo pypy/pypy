@@ -15,7 +15,7 @@ from pypy.tool.udir import udir
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
-
+from pypy.rlib.rarithmetic import r_uint
 
 if False:    # for now, please keep it False by default
     from pypy.rpython.lltypesystem import ll2ctypes
@@ -47,13 +47,13 @@ class TestLL2Ctypes(object):
         assert float(res) == -3.5
         assert lltype2ctypes(rffi.r_ulong(-1)) == (1 << rffi.r_ulong.BITS) - 1
         res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
-        assert (res, type(res)) == (rffi.r_ulong(-1), rffi.r_ulong)
+        assert (res, type(res)) == (r_uint(-1), r_uint)
         assert ctypes2lltype(lltype.Bool, 0) is False
         assert ctypes2lltype(lltype.Bool, 1) is True
 
-        res = lltype2ctypes(llmemory.sizeof(lltype.Signed))
+        res = lltype2ctypes(llmemory.sizeof(rffi.LONG))
         assert res == struct.calcsize("l")
-        S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+        S = lltype.Struct('S', ('x', rffi.LONG), ('y', rffi.LONG))
         res = lltype2ctypes(llmemory.sizeof(S))
         assert res == struct.calcsize("ll")
 
