@@ -2322,6 +2322,7 @@ class BasicTests:
             myjitdriver.set_param('threshold', 3)
             myjitdriver.set_param('trace_eagerness', 1)
             myjitdriver.set_param('retrace_limit', 5)
+            myjitdriver.set_param('function_threshold', -1)
             pc = sa = i = 0
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)
