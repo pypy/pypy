@@ -1,5 +1,6 @@
 import __builtin__
 import types
+import sys
 from pypy.interpreter import pyframe, function, special
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -161,7 +162,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, OperationError):
             raise TypeError, ("attempt to wrap already wrapped exception: %s"%
                               (x,))
-        if isinstance(x, int):
+        if isinstance(x, (int, long)) and -sys.maxint -1 <= x <= sys.maxint:
             if isinstance(x, bool):
                 return self.newbool(x)
             else:

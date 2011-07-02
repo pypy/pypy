@@ -67,11 +67,11 @@ to use long everywhere.
 """
     
 def intmask(n):
-    if isinstance(n, int):
-        return int(n)   # possibly bool->int
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
+    if -sys.maxint -1 < n < sys.maxint:
+        return int(n)
     n = long(n)
     n &= LONG_MASK
     if n >= LONG_TEST:
@@ -115,8 +115,8 @@ def ovfcheck(r):
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
-    assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
-    if abs(r) > sys.maxint:
+    assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
+    if r > sys.maxint or r < -sys.maxint - 1:
         raise OverflowError, "signed integer expression did overflow"
     return r
 
