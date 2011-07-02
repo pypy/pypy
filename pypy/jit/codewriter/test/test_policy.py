@@ -45,8 +45,8 @@ def test_without_floats():
     policy.set_supports_floats(False)
     assert not policy.look_inside_graph(graph)
 
-def test_purefunction():
-    @jit.purefunction
+def test_elidable():
+    @jit.elidable
     def g(x):
         return x + 2
     graph = support.getgraph(g, [5])

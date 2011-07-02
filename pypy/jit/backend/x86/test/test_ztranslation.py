@@ -2,7 +2,7 @@ import py, os, sys
 from pypy.tool.udir import udir
 from pypy.rlib.jit import JitDriver, unroll_parameters
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
-from pypy.rlib.jit import hint
+from pypy.rlib.jit import promote
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.support import CCompiledMixin
@@ -78,8 +78,7 @@ class TestTranslationX86(CCompiledMixin):
             x = float(j)
             while i > 0:
                 jitdriver2.jit_merge_point(i=i, res=res, func=func, x=x)
-                jitdriver2.can_enter_jit(i=i, res=res, func=func, x=x)
-                func = hint(func, promote=True)
+                promote(func)
                 argchain = ArgChain()
                 argchain.arg(x)
                 res = func.call(argchain, rffi.DOUBLE)

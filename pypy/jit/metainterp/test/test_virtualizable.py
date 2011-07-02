@@ -5,7 +5,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.codewriter import heaptracker
-from pypy.rlib.jit import JitDriver, hint, dont_look_inside
+from pypy.rlib.jit import JitDriver, hint, dont_look_inside, promote
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
@@ -480,7 +480,7 @@ class ImplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(frame=frame, n=n, x=x)
                 myjitdriver.jit_merge_point(frame=frame, n=n, x=x)
-                frame.s = hint(frame.s, promote=True)
+                frame.s = promote(frame.s)
                 n -= 1
                 s = frame.s
                 assert s >= 0

@@ -40,7 +40,7 @@ class types(object):
         del cls._import
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def getkind(ffi_type):
         """Returns 'v' for void, 'f' for float, 'i' for signed integer,
         and 'u' for unsigned integer.
@@ -74,7 +74,7 @@ class types(object):
         raise KeyError
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def is_struct(ffi_type):
         return intmask(ffi_type.c_type) == intmask(FFI_TYPE_STRUCT)
 
@@ -253,7 +253,7 @@ class Func(AbstractFuncPtr):
         # the optimizer will fail to recognize the pattern and won't turn it
         # into a fast CALL.  Note that "arg = arg.next" is optimized away,
         # assuming that archain is completely virtual.
-        self = jit.hint(self, promote=True)
+        self = jit.promote(self)
         if argchain.numargs != len(self.argtypes):
             raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\
                 (argchain.numargs, len(self.argtypes))

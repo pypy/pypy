@@ -115,7 +115,7 @@ class TestInstance(BaseTestPyPyC):
         # ----------------------
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i9 = int_lt(i8, i7)
+            i9 = int_lt(i7, i8)
             guard_true(i9, descr=.*)
             guard_not_invalidated(descr=.*)
             i11 = int_add(i8, 1)
@@ -124,7 +124,7 @@ class TestInstance(BaseTestPyPyC):
             p20 = new_with_vtable(ConstClass(W_IntObject))
             setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
             setfield_gc(ConstPtr(ptr21), p20, descr=<GcPtrFieldDescr .*TypeCell.inst_w_value .*>)
-            jump(p0, p1, p2, p3, p4, p20, p6, i11, i7, descr=<Loop.>)
+            jump(p0, p1, p2, p3, p4, p20, p6, i11, i8, descr=<Loop.>)
         """)
 
     def test_oldstyle_newstyle_mix(self):
