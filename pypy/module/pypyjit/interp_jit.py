@@ -176,6 +176,8 @@ def set_param(space, __args__):
     '''Configure the tunable JIT parameters.
         * set_param(name=value, ...)            # as keyword arguments
         * set_param("name=value,name=value")    # as a user-supplied string
+        * set_param("off")                      # disable the jit
+        * set_param("default")                  # restore all defaults
     '''
     # XXXXXXXXX
     args_w, kwds_w = __args__.unpack()
