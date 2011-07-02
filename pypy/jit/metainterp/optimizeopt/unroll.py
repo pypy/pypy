@@ -676,24 +676,28 @@ class OptInlineShortPreamble(Optimization):
                             jumpop = self.optimizer.newoperations.pop()
                             assert jumpop.getopnum() == rop.JUMP
                             for guard in extra_guards:
-                                descr = sh.start_resumedescr.clone_if_mutable()
-                                self.inliner.inline_descr_inplace(descr)
-                                guard.setdescr(descr)
+                                d = sh.start_resumedescr.clone_if_mutable()
+                                self.inliner.inline_descr_inplace(d)
+                                guard.setdescr(d)
                                 self.emit_operation(guard)
                             self.optimizer.newoperations.append(jumpop)
                         return
-                retraced_count = len(short)
-                if descr.failed_states:
-                    retraced_count += len(descr.failed_states)
+                retraced_count = descr.retraced_count
+                descr.retraced_count += 1
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
                 if not self.retraced and retraced_count<limit:
                     if not descr.failed_states:
+                        debug_print("Retracing (%d of %d)" % (retraced_count,
+                                                              limit))
                         raise RetraceLoop
                     for failed in descr.failed_states:
                         if failed.generalization_of(virtual_state):
                             # Retracing once more will most likely fail again
                             break
                     else:
+                        debug_print("Retracing (%d of %d)" % (retraced_count,
+                                                              limit))
+                                                              
                         raise RetraceLoop
                 else:
                     if not descr.failed_states:
