@@ -127,7 +127,9 @@ class CachedField(object):
                 if op.getopnum() == rop.SETFIELD_GC:
                     result = op.getarg(1)
                     if result in potential_ops:
-                        result = result.clonebox()
+                        newresult = result.clonebox()
+                        optimizer.make_equal_to(newresult, optimizer.getvalue(result))
+                        newresult = result
                         # XXX this will not allow for chains of operations
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())

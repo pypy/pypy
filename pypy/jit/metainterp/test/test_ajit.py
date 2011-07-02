@@ -1445,8 +1445,8 @@ class BasicTests:
                 y.v = g(y.v) - y.v/y.v + lc/l[0] - 1
             return y.v
         res = self.meta_interp(f, [20], listops=True)
-        self.check_loops(getfield_gc=1, getarrayitem_gc=0)
-        self.check_loops(getfield_gc=2, getarrayitem_gc=0, everywhere=True)
+        self.check_loops(getfield_gc=0, getarrayitem_gc=0)
+        self.check_loops(getfield_gc=1, getarrayitem_gc=0, everywhere=True)
 
     def test_guard_isnull_nonnull(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])
