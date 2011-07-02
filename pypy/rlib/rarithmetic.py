@@ -38,8 +38,12 @@ from pypy.rpython import extregistry
 from pypy.rlib import objectmodel
 
 # set up of machine internals, using sys.maxint only.
+# if sys.maxsize exists and is greater, it is used instead.
+_maxnumber = sys.maxint
+if hasattr(sys, "maxsize"):
+    _maxnumber = max(sys.maxint, sys.maxsize)
 _bits = 1
-_test = sys.maxint
+_test = _maxnumber
 while _test:
     _bits += 1
     _test >>= 1
@@ -103,7 +107,7 @@ def _should_widen_type(tp):
         r_class.BITS == LONG_BIT and r_class.SIGNED)
 _should_widen_type._annspecialcase_ = 'specialize:memo'
 
-del _bits, _test
+del _bits, _test, _maxnumber
 
 def ovfcheck(r):
     "NOT_RPYTHON"

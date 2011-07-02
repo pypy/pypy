@@ -10,9 +10,10 @@ http://pytest.org/getting-started.html
 For more information, use test_all.py -h.
 """
 import sys, os
-sys.orig_maxint = sys.maxint
-sys.maxint = 2**63-1
-
+# XXX hack for win64:
+# this needs to be done without hacking maxint
+if hasattr(sys, "maxsize"):
+    sys.maxint = max(sys.maxint, sys.maxsize)
 
 if len(sys.argv) == 1 and os.path.dirname(sys.argv[0]) in '.':
     print >> sys.stderr, __doc__
