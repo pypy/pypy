@@ -300,6 +300,25 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % size)
 
+    def bh_getinteriorfield_gc_i(self, gcref, itemindex, descr):
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        ofs = itemindex * size + ofs
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        for STYPE, UTYPE, itemsize in unroll_basic_sizes:
+            if fieldsize == itemsize:
+                # XXX signedness
+                items = rffi.cast(rffi.CArrayPtr(STYPE), items)
+                val = items[0]
+                val = rffi.cast(lltype.Signed, val)
+                # --- end of GC unsafe code ---
+                return val
+        else:
+            raise NotImplementedError("size = %d" % fieldsize)
+
     def bh_getarrayitem_gc_r(self, arraydescr, gcref, itemindex):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
@@ -356,6 +375,23 @@ class AbstractLLCPU(AbstractCPU):
 
     bh_getarrayitem_raw_i = bh_getarrayitem_gc_i
     bh_getarrayitem_raw_f = bh_getarrayitem_gc_f
+
+    def bh_setinteriorfield_gc_i(self, gcref, itemindex, descr, value):
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        ofs = itemindex * size + ofs
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        for TYPE, _, itemsize in unroll_basic_sizes:
+            if fieldsize == itemsize:
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                items[0] = rffi.cast(TYPE, value)
+                # --- end of GC unsafe code ---
+                return
+        else:
+            raise NotImplementedError("size = %d" % fieldsize)
 
     def bh_strlen(self, string):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)

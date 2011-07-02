@@ -147,6 +147,12 @@ class InteriorFieldDescr(AbstractDescr):
         self.arraydescr = arraydescr
         self.fielddescr = fielddescr
 
+    def is_pointer_field(self):
+        return self.fielddescr.is_pointer_field()
+
+    def is_float_field(self):
+        return self.fielddescr.is_float_field()
+
 # ____________________________________________________________
 # ArrayDescrs
 

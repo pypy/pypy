@@ -1,4 +1,3 @@
-import py
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver
 from pypy.rlib import objectmodel
@@ -6,7 +5,6 @@ from pypy.rlib import objectmodel
 class DictTests:
 
     def test_dict_set_none(self):
-        py.test.skip("annoying...")
         def fn(n):
             d = {}
             d[0] = None

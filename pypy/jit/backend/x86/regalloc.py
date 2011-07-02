@@ -1088,12 +1088,14 @@ class RegAlloc(object):
         t = self._unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, _ = t
         args = op.getarglist()
+        tmpvar = TempBox()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.rm.force_result_in_reg(op.getarg(1), op.getarg(1),
+        index_loc = self.rm.force_result_in_reg(tmpvar, op.getarg(1),
                                                 args)
         # we're free to modify index now
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
         self.possibly_free_vars(args)
+        self.rm.possibly_free_var(tmpvar)
         self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,
                                  index_loc, value_loc])        
 
@@ -1166,10 +1168,12 @@ class RegAlloc(object):
         else:
             sign_loc = imm0
         args = op.getarglist()
+        tmpvar = TempBox()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.rm.force_result_in_reg(op.getarg(1), op.getarg(1),
+        index_loc = self.rm.force_result_in_reg(tmpvar, op.getarg(1),
                                                 args)
-        self.possibly_free_vars(args)
+        self.rm.possibly_free_vars_for_op(op)
+        self.rm.possibly_free_var(tmpvar)
         result_loc = self.force_allocate_reg(op.result)
         self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
                           index_loc, sign_loc], result_loc)
