@@ -453,7 +453,7 @@ class StrIteratorImplementation(IteratorImplementation):
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
         for key, w_value in self.iterator:
-            return self.dictimplementation.strategy.wrap(key), w_value
+            return self.space.wrap(key), w_value
         else:
             return None, None
 
@@ -495,7 +495,7 @@ class IntIteratorImplementation(IteratorImplementation):
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
         for key, w_value in self.iterator:
-            return self.dictimplementation.strategy.wrap(key), w_value
+            return self.space.wrap(key), w_value
         else:
             return None, None
 
@@ -507,8 +507,8 @@ class ObjectIteratorImplementation(IteratorImplementation):
 
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
-        for key, w_value in self.iterator:
-            return self.dictimplementation.strategy.wrap(key), w_value
+        for w_key, w_value in self.iterator:
+            return w_key, w_value
         else:
             return None, None
 
