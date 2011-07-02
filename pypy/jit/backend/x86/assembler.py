@@ -1,7 +1,7 @@
 import sys, os
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
-from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
+from pypy.jit.metainterp.history import Const, Box, BoxInt, ConstInt
 from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
                                          LoopToken)
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
@@ -35,7 +35,6 @@ from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
 from pypy.rlib import rgc
 from pypy.jit.backend.x86.jump import remap_frame_layout
-from pypy.jit.metainterp.history import ConstInt, BoxInt
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
 
@@ -661,8 +660,8 @@ class Assembler386(object):
         # Also, make sure this is consistent with FRAME_FIXED_SIZE.
         self.mc.PUSH_r(ebp.value)
         self.mc.MOV_rr(ebp.value, esp.value)
-        for regloc in self.cpu.CALLEE_SAVE_REGISTERS:
-            self.mc.PUSH_r(regloc.value)
+        for loc in self.cpu.CALLEE_SAVE_REGISTERS:
+            self.mc.PUSH_r(loc.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -1473,11 +1472,24 @@ class Assembler386(object):
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
 
+    def genop_getinteriorfield_gc(self, op, arglocs, resloc):
+        base_loc, ofs_loc, itemsize_loc, fieldsize_loc, index_loc, sign_loc = arglocs
+        self.mc.IMUL(index_loc, itemsize_loc)
+        src_addr = AddressLoc(base_loc, index_loc, 0, ofs_loc.value)
+        self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
+
+
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         dest_addr = AddressLoc(base_loc, ofs_loc)
         self.save_into_mem(dest_addr, value_loc, size_loc)
+
+    def genop_discard_setinteriorfield_gc(self, op, arglocs):
+        base_loc, ofs_loc, itemsize_loc, fieldsize_loc, index_loc, value_loc = arglocs
+        self.mc.IMUL(index_loc, itemsize_loc)
+        dest_addr = AddressLoc(base_loc, index_loc, 0, ofs_loc.value)
+        self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs

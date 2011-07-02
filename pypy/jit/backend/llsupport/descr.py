@@ -139,6 +139,13 @@ def get_field_descr(gccache, STRUCT, fieldname):
         cachedict[fieldname] = fielddescr
         return fielddescr
 
+# ____________________________________________________________
+# InteriorFieldDescr
+
+class InteriorFieldDescr(AbstractDescr):
+    def __init__(self, arraydescr, fielddescr):
+        self.arraydescr = arraydescr
+        self.fielddescr = fielddescr
 
 # ____________________________________________________________
 # ArrayDescrs

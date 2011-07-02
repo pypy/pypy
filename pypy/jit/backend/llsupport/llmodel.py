@@ -8,12 +8,10 @@ from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
-from pypy.jit.backend.llsupport.descr import get_size_descr
-from pypy.jit.backend.llsupport.descr import get_field_descr, BaseFieldDescr
-from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
-from pypy.jit.backend.llsupport.descr import get_call_descr
-from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
-from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
+from pypy.jit.backend.llsupport.descr import (get_size_descr,
+     get_field_descr, BaseFieldDescr, get_array_descr, BaseArrayDescr,
+     get_call_descr, BaseIntCallDescr, GcPtrCallDescr, FloatCallDescr,
+     VoidCallDescr, InteriorFieldDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
 
@@ -236,6 +234,11 @@ class AbstractLLCPU(AbstractCPU):
 
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
+
+    def interiorfielddescrof(self, A, fieldname):
+        arraydescr = get_array_descr(self.gc_ll_descr, A)
+        fielddescr = get_field_descr(self.gc_ll_descr, A.OF, fieldname)
+        return InteriorFieldDescr(arraydescr, fielddescr)
 
     def unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)

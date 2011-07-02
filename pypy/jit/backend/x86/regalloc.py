@@ -7,7 +7,7 @@ from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr, ConstFloat,
                                          BoxFloat, LoopToken, INT, REF, FLOAT)
 from pypy.jit.backend.x86.regloc import *
-from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
+from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
@@ -17,11 +17,12 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
+from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
-from pypy.rlib.rarithmetic import r_longlong, r_uint
+from pypy.rlib.rarithmetic import r_longlong
 
 class X86RegisterManager(RegisterManager):
 
@@ -800,7 +801,7 @@ class RegAlloc(object):
         save_all_regs = guard_not_forced_op is not None
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
-            gcrootmap = gc_ll_descr = self.assembler.cpu.gc_ll_descr.gcrootmap
+            gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
             if gcrootmap and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
         self.rm.before_call(force_store, save_all_regs=save_all_regs)
@@ -1057,6 +1058,16 @@ class RegAlloc(object):
         sign = fielddescr.is_field_signed()
         return imm(ofs), imm(size), ptr, sign
 
+    def _unpack_interiorfielddescr(self, descr):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        sign = descr.fielddescr.is_field_signed()
+        ofs += descr.fielddescr.offset
+        return imm(ofs), imm(itemsize), imm(fieldsize), sign
+
     def consider_setfield_gc(self, op):
         ofs_loc, size_loc, _, _ = self._unpack_fielddescr(op.getdescr())
         assert isinstance(size_loc, ImmedLoc)
@@ -1072,6 +1083,19 @@ class RegAlloc(object):
         self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
     consider_setfield_raw = consider_setfield_gc
+
+    def consider_setinteriorfield_gc(self, op):
+        t = self._unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, _ = t
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        index_loc = self.rm.force_result_in_reg(op.getarg(1), op.getarg(1),
+                                                args)
+        # we're free to modify index now
+        value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
+        self.possibly_free_vars(args)
+        self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,
+                                 index_loc, value_loc])        
 
     def consider_strsetitem(self, op):
         args = op.getarglist()
@@ -1133,6 +1157,22 @@ class RegAlloc(object):
 
     consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
+
+    def consider_getinteriorfield_gc(self, op):
+        t = self._unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = t
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        index_loc = self.rm.force_result_in_reg(op.getarg(1), op.getarg(1),
+                                                args)
+        self.possibly_free_vars(args)
+        result_loc = self.force_allocate_reg(op.result)
+        self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
+                          index_loc, sign_loc], result_loc)
 
     def consider_int_is_true(self, op, guard_op):
         # doesn't need arg to be in a register
@@ -1239,7 +1279,6 @@ class RegAlloc(object):
         self.rm.possibly_free_var(srcaddr_box)
 
     def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
-        cpu = self.assembler.cpu
         if is_unicode:
             ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
                                                   self.translate_support_code)
@@ -1298,7 +1337,7 @@ class RegAlloc(object):
         tmpreg = X86RegisterManager.all_regs[0]
         tmploc = self.rm.force_allocate_reg(box, selected_reg=tmpreg)
         xmmtmp = X86XMMRegisterManager.all_regs[0]
-        xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
+        self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
         src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs())
@@ -1366,7 +1405,7 @@ def add_none_argument(fn):
     return lambda self, op: fn(self, op, None)
 
 def is_comparison_or_ovf_op(opnum):
-    from pypy.jit.metainterp.resoperation import opclasses, AbstractResOp
+    from pypy.jit.metainterp.resoperation import opclasses
     cls = opclasses[opnum]
     # hack hack: in theory they are instance method, but they don't use
     # any instance field, we can use a fake object

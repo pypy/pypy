@@ -278,7 +278,6 @@ class RegisterManager(object):
         self.reg_bindings[to_v] = reg
 
     def _move_variable_away(self, v, prev_loc):
-        reg = None
         if self.free_regs:
             loc = self.free_regs.pop()
             self.reg_bindings[v] = loc
