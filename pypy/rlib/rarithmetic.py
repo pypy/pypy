@@ -70,7 +70,7 @@ def intmask(n):
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
-    if -sys.maxint -1 < n < sys.maxint:
+    if is_valid_int(n):
         return int(n)
     n = long(n)
     n &= LONG_MASK
@@ -109,6 +109,9 @@ _should_widen_type._annspecialcase_ = 'specialize:memo'
 
 del _bits, _test, _maxnumber
 
+def is_valid_int(r):
+    return -sys.maxint - 1 <= r <= sys.maxint
+
 def ovfcheck(r):
     "NOT_RPYTHON"
     # to be used as ovfcheck(x <op> y)
@@ -116,7 +119,7 @@ def ovfcheck(r):
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
-    if r > sys.maxint or r < -sys.maxint - 1:
+    if not is_valid_int(r):
         raise OverflowError, "signed integer expression did overflow"
     return r
 
