@@ -94,7 +94,7 @@ class ARM(Linux):
             path = path_to_makefile.makefile_dir
         else:
             path = path_to_makefile
-        log.execute('make %s in %s' % (" ".join(extra_opts), path))
+        log.execute('sb2 %s make %s in %s' % (' '.join(SB2ARGS), " ".join(extra_opts), path))
         returncode, stdout, stderr = _run_subprocess(
             'sb2', SB2ARGS + ['make', '-C', str(path)] + extra_opts)
         self._handle_error(returncode, stdout, stderr, path.join('make'))
