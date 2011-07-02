@@ -153,9 +153,6 @@ class EmptyDictStrategy(DictStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
-    def __init__(self, space):
-        self.space = space
-
     def get_empty_storage(self):
        return self.erase(None)
 
@@ -409,9 +406,6 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
     erase, unerase = rerased.new_erasing_pair("string")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
-
-    def __init__(self, space):
-        self.space = space
 
     def wrap(self, unwrapped):
         return self.space.wrap(unwrapped)
