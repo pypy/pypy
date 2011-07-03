@@ -1,5 +1,25 @@
-import sys, time
+import sys, time, os
 from pypy.rpython.extregistry import ExtRegistryEntry
+
+class DebugState(object):
+    def __init__(self):
+        self.prefixes = os.environ.get('PYPYDEFAULTLOG', 'all').split(':')
+        if self.prefixes == ['']:
+            self.prefixes = []
+        self.categories = []
+
+    def should_print(self, category=None):
+        if category is None:
+            category = self.categories[-1]
+        if self.prefixes != ['all']:
+            for prefix in self.prefixes:
+                if category.startswith(prefix):
+                    break
+            else:
+                return False
+        return True
+
+debug_state = DebugState() # a global state object
 
 def ll_assert(x, msg):
     """After translation to C, this becomes an RPyAssert."""
@@ -55,6 +75,8 @@ _log = None       # patched from tests to be an object of class DebugLog
                   # or compatible
 
 def debug_print(*args):
+    if not debug_state.should_print():
+        return
     for arg in args:
         print >> sys.stderr, arg,
     print >> sys.stderr
@@ -85,18 +107,25 @@ else:
     _stop_colors = ""
 
 def debug_start(category):
+    debug_state.categories.append(category)
+    if _log is not None:
+        _log.debug_start(category)
+    if not debug_state.should_print(category):
+        return
     c = int(time.clock() * 100)
     print >> sys.stderr, '%s[%x] {%s%s' % (_start_colors_1, c,
                                            category, _stop_colors)
-    if _log is not None:
-        _log.debug_start(category)
-
+    
 def debug_stop(category):
+    if _log is not None:
+        _log.debug_stop(category)
+    last = debug_state.categories.pop()
+    assert category == last
+    if not debug_state.should_print(category):
+        return
     c = int(time.clock() * 100)
     print >> sys.stderr, '%s[%x] %s}%s' % (_start_colors_2, c,
                                            category, _stop_colors)
-    if _log is not None:
-        _log.debug_stop(category)
 
 class Entry(ExtRegistryEntry):
     _about_ = debug_start, debug_stop
