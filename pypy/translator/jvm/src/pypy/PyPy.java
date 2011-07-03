@@ -964,7 +964,7 @@ public class PyPy implements Constants {
         return a + File.separator + b;
     }
 
-    public String ll_strtod_formatd(String format, double d)
+    public String ll_strtod_formatd(double d, char code, int precision, int flags)
     {
         // XXX: this is really a quick hack to make things work.
         // it should disappear, because this function is not
