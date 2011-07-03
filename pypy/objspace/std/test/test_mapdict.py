@@ -479,6 +479,7 @@ class AppTestWithMapDict(object):
         it2 = a.__dict__.popitem()
         assert it2 == ("x", 5)
         assert a.__dict__ == {}
+        raises(KeyError, a.__dict__.popitem)
 
 
 
