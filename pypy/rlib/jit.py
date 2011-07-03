@@ -291,7 +291,7 @@ PARAMETERS = {'threshold': 1032, # just above 1024
               'inlining': 0,
               'loop_longevity': 1000,
               'retrace_limit': 5,
-              'enable_opts': None, # patched later by optimizeopt/__init__.py
+              'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 DEFAULT = object()
@@ -355,20 +355,12 @@ class JitDriver(object):
     @specialize.arg(0, 1)
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""
-        for name1, _ in unroll_parameters:
-            if name1 == name:
-                self._set_param(name1, value)
-                return
-        raise ValueError("no such parameter")
+        self._set_param(name, value)
 
     @specialize.arg(0, 1)
     def set_param_to_default(self, name):
         """Reset one of the tunable JIT parameters to its default value."""
-        for name1, _ in unroll_parameters:
-            if name1 == name:
-                self._set_param(name1, DEFAULT)
-                return
-        raise ValueError("no such parameter")
+        self._set_param(name, DEFAULT)
 
     def set_user_param(self, text):
         """Set the tunable JIT parameters from a user-supplied string
