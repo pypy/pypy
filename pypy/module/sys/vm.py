@@ -57,7 +57,8 @@ value to N reserves N/1000 times 768KB of stack space.
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))
     space.sys.recursionlimit = new_limit
-    _stack_set_length_fraction(new_limit * 0.001)
+    if space.config.translation.type_system == 'lltype':
+        _stack_set_length_fraction(new_limit * 0.001)
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
