@@ -163,10 +163,7 @@ class EmptyDictStrategy(DictStrategy):
         elif self.space.is_w(self.space.type(w_key), self.space.w_int):
             self.switch_to_int_strategy(w_dict)
         else:
-            strategy = self.space.fromcache(ObjectDictStrategy)
-            storage = strategy.get_empty_storage()
-            w_dict.strategy = strategy
-            w_dict.dstorage = storage
+            self.switch_to_object_strategy(w_dict)
 
     def switch_to_string_strategy(self, w_dict):
         strategy = self.space.fromcache(StringDictStrategy)
@@ -176,6 +173,12 @@ class EmptyDictStrategy(DictStrategy):
 
     def switch_to_int_strategy(self, w_dict):
         strategy = self.space.fromcache(IntDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def switch_to_object_strategy(self, w_dict):
+        strategy = self.space.fromcache(ObjectDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
