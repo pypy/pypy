@@ -288,7 +288,7 @@ PARAMETERS = {'threshold': 1032, # just above 1024
               'function_threshold': 1617, # slightly more than one above 
               'trace_eagerness': 200,
               'trace_limit': 12000,
-              'inlining': 0,
+              'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
               'enable_opts': 'all',
