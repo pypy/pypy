@@ -1327,6 +1327,11 @@ class TestLL2Ctypes(object):
         round = ctypes2lltype(llmemory.GCREF, lltype2ctypes(opaque.hide()))
         assert Opaque.show(round) is opaque
 
+    def test_array_of_structs(self):
+        A = lltype.GcArray(lltype.Struct('x', ('v', lltype.Signed)))
+        a = lltype.malloc(A, 5)
+        a2 = ctypes2lltype(lltype.Ptr(A), lltype2ctypes(a))
+        assert a2._obj.getitem(0)._obj._parentstructure() is a2._obj
 
 class TestPlatform(object):
     def test_lib_on_libpaths(self):

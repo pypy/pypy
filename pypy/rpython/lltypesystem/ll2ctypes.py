@@ -525,7 +525,10 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
         return 0, sys.maxint
 
     def getitem(self, index, uninitialized_ok=False):
-        return self._storage.contents._getitem(index, boundscheck=False)
+        res = self._storage.contents._getitem(index, boundscheck=False)
+        if isinstance(self._TYPE.OF, lltype.ContainerType):
+            res._obj._setparentstructure(self, index)
+        return res
 
     def setitem(self, index, value):
         self._storage.contents._setitem(index, value, boundscheck=False)
