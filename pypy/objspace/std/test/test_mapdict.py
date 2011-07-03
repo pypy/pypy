@@ -622,6 +622,14 @@ class AppTestWithMapDict(object):
         assert a.__dict__ is d
         assert isinstance(a, B)
 
+    def test_setdict(self):
+        class A(object):
+            pass
+
+        a = A()
+        a.__dict__ = {}
+        a.__dict__ = {}
+
 
 class AppTestWithMapDictAndCounters(object):
     def setup_class(cls):
