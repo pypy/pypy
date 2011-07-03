@@ -35,6 +35,7 @@ def arguments(*args):
 
 
 class MIFrame(object):
+    debug = False
 
     def __init__(self, metainterp):
         self.metainterp = metainterp
@@ -2503,17 +2504,21 @@ def _get_opimpl_method(name, argcodes):
         self.pc = position
         #
         if not we_are_translated():
-            print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
+            if self.debug:
+                print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
             try:
                 resultbox = unboundmethod(self, *args)
             except Exception, e:
-                print '-> %s!' % e.__class__.__name__
+                if self.debug:
+                    print '-> %s!' % e.__class__.__name__
                 raise
             if num_return_args == 0:
-                print
+                if self.debug:
+                    print
                 assert resultbox is None
             else:
-                print '-> %r' % (resultbox,)
+                if self.debug:
+                    print '-> %r' % (resultbox,)
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
                 assert resultbox.type == {'i': history.INT,
