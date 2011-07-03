@@ -127,6 +127,8 @@ class CachedField(object):
                 if op.getopnum() == rop.SETFIELD_GC:
                     result = op.getarg(1)
                     if result in potential_ops:
+                        # XXX dissable for now
+                        continue
                         newresult = result.clonebox()
                         optimizer.make_equal_to(newresult, optimizer.getvalue(result))
                         newresult = result
