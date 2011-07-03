@@ -1,6 +1,6 @@
 
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.rlib.jit import JitDriver, dont_look_inside, purefunction
+from pypy.rlib.jit import JitDriver, dont_look_inside, elidable
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.jitprof import *
@@ -89,7 +89,7 @@ class TestProfile(ProfilerMixin):
         assert profiler.calls == 1
 
     def test_blackhole_pure(self):
-        @purefunction
+        @elidable
         def g(n):
             return n+1
         

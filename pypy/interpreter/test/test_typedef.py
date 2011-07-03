@@ -16,7 +16,7 @@ class AppTestTraceBackAttributes:
 
         def g():
             f()
-        
+
         try:
             g()
         except:
@@ -205,6 +205,7 @@ class AppTestTypeDef:
         raises(OSError, os.lseek, fd, 7, 0)
 
     def test_method_attrs(self):
+        import sys
         class A(object):
             def m(self):
                 "aaa"

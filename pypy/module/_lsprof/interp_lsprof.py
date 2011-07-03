@@ -149,7 +149,7 @@ class ProfilerEntry(ProfilerSubEntry):
                             factor * float(self.ll_it), w_sublist)
         return space.wrap(w_se)
 
-    @jit.purefunction
+    @jit.elidable
     def _get_or_make_subentry(self, entry, make=True):
         try:
             return self.calls[entry]
@@ -167,7 +167,7 @@ class ProfilerContext(object):
         self.previous = profobj.current_context
         entry.recursionLevel += 1
         if profobj.subcalls and self.previous:
-            caller = jit.hint(self.previous.entry, promote=True)
+            caller = jit.promote(self.previous.entry)
             subentry = caller._get_or_make_subentry(entry)
             subentry.recursionLevel += 1
         self.ll_t0 = profobj.ll_timer()
@@ -179,7 +179,7 @@ class ProfilerContext(object):
             self.previous.ll_subt += tt
         entry._stop(tt, it)
         if profobj.subcalls and self.previous:
-            caller = jit.hint(self.previous.entry, promote=True)
+            caller = jit.promote(self.previous.entry)
             subentry = caller._get_or_make_subentry(entry, False)
             if subentry is not None:
                 subentry._stop(tt, it)
@@ -282,7 +282,7 @@ class W_Profiler(Wrappable):
         c_setup_profiling()
         space.getexecutioncontext().setllprofile(lsprof_call, space.wrap(self))
 
-    @jit.purefunction
+    @jit.elidable
     def _get_or_make_entry(self, f_code, make=True):
         try:
             return self.data[f_code]
@@ -293,7 +293,7 @@ class W_Profiler(Wrappable):
                 return entry
             return None
 
-    @jit.purefunction
+    @jit.elidable
     def _get_or_make_builtin_entry(self, key, make=True):
         try:
             return self.builtin_data[key]
@@ -306,7 +306,7 @@ class W_Profiler(Wrappable):
 
     def _enter_call(self, f_code):
         # we have a superb gc, no point in freelist :)
-        self = jit.hint(self, promote=True)
+        self = jit.promote(self)
         entry = self._get_or_make_entry(f_code)
         self.current_context = ProfilerContext(self, entry)
 
@@ -314,14 +314,14 @@ class W_Profiler(Wrappable):
         context = self.current_context
         if context is None:
             return
-        self = jit.hint(self, promote=True)
+        self = jit.promote(self)
         entry = self._get_or_make_entry(f_code, False)
         if entry is not None:
             context._stop(self, entry)
         self.current_context = context.previous
 
     def _enter_builtin_call(self, key):
-        self = jit.hint(self, promote=True)
+        self = jit.promote(self)
         entry = self._get_or_make_builtin_entry(key)
         self.current_context = ProfilerContext(self, entry)
 
@@ -329,7 +329,7 @@ class W_Profiler(Wrappable):
         context = self.current_context
         if context is None:
             return
-        self = jit.hint(self, promote=True)
+        self = jit.promote(self)
         entry = self._get_or_make_builtin_entry(key, False)
         if entry is not None:
             context._stop(self, entry)

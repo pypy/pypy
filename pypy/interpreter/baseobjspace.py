@@ -311,9 +311,6 @@ class ObjSpace(object):
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and mod.startup_called:
                 mod.shutdown(self)
-        if self.config.objspace.std.withdictmeasurement:
-            from pypy.objspace.std.dictmultiobject import report
-            report()
         if self.config.objspace.logbytecodes:
             self.reportbytecodecounts()
         if self.config.objspace.std.logspaceoptypes:
