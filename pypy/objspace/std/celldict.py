@@ -139,12 +139,24 @@ class ModuleDictStrategy(DictStrategy):
         for k, cell in iterator():
             cell.invalidate()
 
+    def popitem(self, w_dict):
+        # This is O(n) if called repeatadly, you probably shouldn't be on a
+        # Module's dict though
+        for k, cell in self.unerase(w_dict.dstorage).iteritems():
+            if cell.w_value is not None:
+                w_value = cell.w_value
+                cell.invalidate()
+                return self.space.wrap(k), w_value
+        else:
+            raise KeyError
+
     def switch_to_object_strategy(self, w_dict):
         d = self.unerase(w_dict.dstorage)
         strategy = self.space.fromcache(ObjectDictStrategy)
         d_new = strategy.unerase(strategy.get_empty_storage())
         for key, cell in d.iteritems():
-            d_new[self.space.wrap(key)] = cell.w_value
+            if cell.w_value is not None:
+                d_new[self.space.wrap(key)] = cell.w_value
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
 
