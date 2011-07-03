@@ -32,10 +32,6 @@ def test_build_opt_chain():
     chain, _ = build_opt_chain(metainterp_sd, "")
     check(chain, ["OptInlineShortPreamble", "OptSimplify"])
     #
-    chain, _ = build_opt_chain(metainterp_sd, "all")
-    check(chain, ["OptInlineShortPreamble", "OptIntBounds", "OptRewrite",
-                  "OptVirtualize", "OptString", "OptHeap", "OptFfiCall"])
-    #
     chain, _ = build_opt_chain(metainterp_sd, "heap:intbounds")
     check(chain, ["OptInlineShortPreamble", "OptIntBounds", "OptHeap", "OptSimplify"])
     #

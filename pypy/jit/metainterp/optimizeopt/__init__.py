@@ -28,11 +28,7 @@ def build_opt_chain(metainterp_sd, enable_opts,
                     inline_short_preamble=True, retraced=False):
     config = metainterp_sd.config
     optimizations = []
-    if enable_opts == 'all':
-        enable_opts = ALL_OPTS_LIST
-    else:
-        enable_opts = enable_opts.split(':')
-    unroll = 'unroll' in enable_opts
+    unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
     for name, opt in unroll_all_opts:
         if name in enable_opts:
             if opt is not None:
