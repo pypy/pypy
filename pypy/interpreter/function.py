@@ -465,19 +465,23 @@ class Method(Wrappable):
                 space.abstract_isinstance_w(w_firstarg, self.w_class)):
             pass  # ok
         else:
-            myname = self.getname(space,"")
-            clsdescr = self.w_class.getname(space,"")
+            myname = self.getname(space, "")
+            clsdescr = self.w_class.getname(space, "")
             if clsdescr:
-                clsdescr+=" "
+                clsdescr += " instance"
+            else:
+                clsdescr = "instance"
             if w_firstarg is None:
                 instdescr = "nothing"
             else:
-                instname = space.abstract_getclass(w_firstarg).getname(space,"")
+                instname = space.abstract_getclass(w_firstarg).getname(space,
+                                                                       "")
                 if instname:
-                    instname += " "
-                instdescr = "%sinstance" %instname
-            msg = ("unbound method %s() must be called with %s"
-                   "instance as first argument (got %s instead)")
+                    instdescr = instname + " instance"
+                else:
+                    instdescr = "instance"
+            msg = ("unbound method %s() must be called with %s "
+                   "as first argument (got %s instead)")
             raise operationerrfmt(space.w_TypeError, msg,
                                   myname, clsdescr, instdescr)
         return space.call_args(self.w_function, args)
