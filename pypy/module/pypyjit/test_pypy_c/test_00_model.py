@@ -58,6 +58,8 @@ class BaseTestPyPyC(object):
         stdout, stderr = pipe.communicate()
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
+        if stderr.startswith('debug_alloc.h:'):   # lldebug builds
+            stderr = ''
         assert not stderr
         #
         # parse the JIT log

@@ -1107,8 +1107,11 @@ class MiniMarkGC(MovingGCBase):
             return True
         # ^^^ a fast path of write-barrier
         #
-        if (source_hdr.tid & GCFLAG_NO_YOUNG_PTRS == 0 or
-            source_hdr.tid & GCFLAG_CARDS_SET != 0):
+        if source_hdr.tid & GCFLAG_CARDS_SET != 0:
+            # there might be young objects, let ll_arraycopy find them
+            return False
+        #
+        if source_hdr.tid & GCFLAG_NO_YOUNG_PTRS == 0:
             # there might be in source a pointer to a young object
             self.old_objects_pointing_to_young.append(dest_addr)
             dest_hdr.tid &= ~GCFLAG_NO_YOUNG_PTRS

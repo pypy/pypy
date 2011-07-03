@@ -37,7 +37,9 @@ def allocate_ctypes(ctype):
     if far_regions:
         import random
         pieces = far_regions._ll2ctypes_pieces
-        num = random.randrange(len(pieces))
+        num = random.randrange(len(pieces)+1)
+        if num == len(pieces):
+            return ctype()
         i1, stop = pieces[num]
         i2 = i1 + ((ctypes.sizeof(ctype) or 1) + 7) & ~7
         if i2 > stop:

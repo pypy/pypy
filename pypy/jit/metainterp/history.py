@@ -791,6 +791,7 @@ class LoopToken(AbstractDescr):
 
     def dump(self):
         self.compiled_loop_token.cpu.dump_loop_token(self)
+
 class TreeLoop(object):
     inputargs = None
     operations = None
