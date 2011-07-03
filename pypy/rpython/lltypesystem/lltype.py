@@ -1710,7 +1710,8 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         # Keep the parent array alive, we share the same allocation.
         # Don't do it if we are inside a GC object, though -- it's someone
         # else's job to keep the GC object alive
-        if typeOf(top_container(parent))._gckind == 'raw':
+        if (typeOf(top_container(parent))._gckind == 'raw' or
+            hasattr(top_container(parent)._storage, 'contents')):
             self._keepparent = parent
 
     def __str__(self):
