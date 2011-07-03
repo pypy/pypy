@@ -382,6 +382,18 @@ class OptIntBounds(Optimization):
                     v1.intbound.make_gt(IntBound(0, 0))
                     self.propagate_bounds_backward(op.getarg(0))
 
+    def propagate_bounds_INT_IS_ZERO(self, op):
+        r = self.getvalue(op.result)
+        if r.is_constant():
+            if r.box.same_constant(CONST_1):
+                v1 = self.getvalue(op.getarg(0))
+                # Clever hack, we can't use self.make_constant_int yet because
+                # the args aren't in the values dictionary yet so it runs into
+                # an assert, this is a clever way of expressing the same thing.
+                v1.intbound.make_ge(IntBound(0, 0))
+                v1.intbound.make_lt(IntBound(1, 1))
+                self.propagate_bounds_backward(op.getarg(0))
+
     def propagate_bounds_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
