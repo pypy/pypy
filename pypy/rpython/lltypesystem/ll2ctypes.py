@@ -15,12 +15,11 @@ else:
     load_library_kwargs = {}
 
 import os
-from pypy import conftest
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
+from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
