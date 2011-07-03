@@ -43,6 +43,8 @@ class AppTestCellDict(object):
     OPTIONS = {"objspace.std.withcelldict": True}
 
     def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
         strategy = ModuleDictStrategy(cls.space)
         storage = strategy.get_empty_storage()
         cls.w_d = W_DictMultiObject(cls.space, strategy, storage)
