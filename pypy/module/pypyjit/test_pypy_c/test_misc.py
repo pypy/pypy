@@ -232,3 +232,19 @@ class TestMisc(BaseTestPyPyC):
             return total
         #
         self.run_and_check(main, [])
+
+
+    def test_global(self):
+        log = self.run("""
+        i = 0
+        globalinc = 1
+        def main(n):
+            global i
+            while i < n:
+                l = globalinc # ID: globalread
+                i += l
+        """, [1000])
+
+        loop, = log.loops_by_id("globalread", is_entry_bridge=True)
+        op, = loop.ops_by_id("globalread")
+        assert op.name == "guard_not_invalidated"
