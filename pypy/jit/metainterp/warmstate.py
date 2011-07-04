@@ -237,7 +237,7 @@ class WarmEnterState(object):
         d = {}
         if NonConstant(False):
             value = 'blah' # not a constant ''
-        if value is None:
+        if value is None or value == 'all':
             value = ALL_OPTS_NAMES
         for name in value.split(":"):
             if name:

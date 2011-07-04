@@ -479,6 +479,7 @@ class AppTestWithMapDict(object):
         it2 = a.__dict__.popitem()
         assert it2 == ("x", 5)
         assert a.__dict__ == {}
+        raises(KeyError, a.__dict__.popitem)
 
 
 
@@ -621,6 +622,14 @@ class AppTestWithMapDict(object):
         assert a.y == 2
         assert a.__dict__ is d
         assert isinstance(a, B)
+
+    def test_setdict(self):
+        class A(object):
+            pass
+
+        a = A()
+        a.__dict__ = {}
+        a.__dict__ = {}
 
 
 class AppTestWithMapDictAndCounters(object):
