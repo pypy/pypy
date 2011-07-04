@@ -237,7 +237,7 @@ wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
-    http://codespeak.net/pypy/dist/pypy/doc/objspace.html"""
+    http://pypy.readthedocs.org/en/latest/objspace.html"""
 
     full_exceptions = True  # full support for exceptions (normalization & more)
 
