@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
-    FloatWrapper, Call1, Call2, SingleDimSlice, add, mul)
+    FloatWrapper, Call2, SingleDimSlice, add, mul)
 from pypy.module.micronumpy.interp_ufuncs import negative
 from pypy.module.micronumpy.compile import numpy_compile
 
@@ -13,8 +13,6 @@ class TestNumpyJIt(LLJitMixin):
         cls.space = FakeSpace()
 
     def test_add(self):
-        space = self.space
-
         def f(i):
             ar = SingleDimArray(i)
             v = Call2(add, ar, ar, Signature())
@@ -27,8 +25,6 @@ class TestNumpyJIt(LLJitMixin):
         assert result == f(5)
 
     def test_floatadd(self):
-        space = self.space
-
         def f(i):
             ar = SingleDimArray(i)
             v = Call2(add, ar, FloatWrapper(4.5), Signature())
@@ -41,8 +37,6 @@ class TestNumpyJIt(LLJitMixin):
         assert result == f(5)
 
     def test_already_forecd(self):
-        space = self.space
-
         def f(i):
             ar = SingleDimArray(i)
             v1 = Call2(add, ar, FloatWrapper(4.5), Signature())
@@ -95,8 +89,6 @@ class TestNumpyJIt(LLJitMixin):
         self.check_loop_count(3)
 
     def test_slice(self):
-        space = self.space
-
         def f(i):
             step = 3
             ar = SingleDimArray(step*i)
@@ -111,8 +103,6 @@ class TestNumpyJIt(LLJitMixin):
         assert result == f(5)
 
     def test_slice2(self):
-        space = self.space
-
         def f(i):
             step1 = 2
             step2 = 3
