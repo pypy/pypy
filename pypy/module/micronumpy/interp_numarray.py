@@ -70,7 +70,7 @@ class BaseArray(Wrappable):
             res = Call1(
                 function,
                 self,
-                self.signature.transition(signature))
+                new_sig)
             self.invalidates.append(res)
             return space.wrap(res)
         return func_with_new_name(impl, "uniop_%s_impl" % function.__name__)
