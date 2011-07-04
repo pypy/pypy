@@ -40,7 +40,7 @@ def w_array(space, w_cls, typecode, __args__):
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
-                    a.fromstring(w_initializer)
+                    a.fromstring(space.str_w(w_initializer))
                 elif space.type(w_initializer) is space.w_unicode:
                     a.fromsequence(w_initializer)
                 elif space.type(w_initializer) is space.w_list:
@@ -270,12 +270,10 @@ def make_array(mytype):
                 raise
             self.setlen(oldlen + i)
 
-        def fromstring(self, w_s):
-            space = self.space
-            s = space.str_w(w_s)
+        def fromstring(self, s):
             if len(s) % self.itemsize != 0:
                 msg = 'string length not a multiple of item size'
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
             oldlen = self.len
             new = len(s) / mytype.bytes
             self.setlen(oldlen + new)
@@ -527,7 +525,7 @@ def make_array(mytype):
         self.fromlist(w_lst)
 
     def array_fromstring__Array_ANY(space, self, w_s):
-        self.fromstring(w_s)
+        self.fromstring(space.str_w(w_s))
 
     def array_tostring__Array(space, self):
         cbuf = self.charbuf()
