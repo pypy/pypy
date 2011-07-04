@@ -137,31 +137,31 @@ class AppTest_DictObject:
         cls.w_on_pypy = cls.space.wrap("__pypy__" in sys.builtin_module_names)
 
     def test_equality(self):
-        d = {1:2}
-        f = {1:2}
+        d = {1: 2}
+        f = {1: 2}
         assert d == f
-        assert d != {1:3}
+        assert d != {1: 3}
 
     def test_clear(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         d.clear()
         assert len(d) == 0
 
     def test_copy(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         assert d == dd
         assert not d is dd
 
     def test_get(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         assert d.get(1) == 2
-        assert d.get(1,44) == 2
+        assert d.get(1, 44) == 2
         assert d.get(33) == None
-        assert d.get(33,44) == 44
+        assert d.get(33, 44) == 44
 
     def test_pop(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         result = dd.pop(1)
         assert result == 2
@@ -176,18 +176,18 @@ class AppTest_DictObject:
         raises(KeyError, dd.pop, 33)
 
     def test_has_key(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         assert d.has_key(1)
         assert not d.has_key(33)
 
     def test_items(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         its = d.items()
         its.sort()
-        assert its == [(1,2),(3,4)]
+        assert its == [(1, 2), (3, 4)]
 
     def test_iteritems(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         for k, v in d.iteritems():
             assert v == dd[k]
@@ -195,33 +195,33 @@ class AppTest_DictObject:
         assert not dd
 
     def test_iterkeys(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         for k in d.iterkeys():
             del dd[k]
         assert not dd
 
     def test_itervalues(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         values = []
         for k in d.itervalues():
             values.append(k)
         assert values == d.values()
 
     def test_keys(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         kys = d.keys()
         kys.sort()
-        assert kys == [1,3]
+        assert kys == [1, 3]
 
     def test_popitem(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         it = d.popitem()
         assert len(d) == 1
-        assert it==(1,2) or it==(3,4)
+        assert it == (1, 2) or it == (3, 4)
         it1 = d.popitem()
         assert len(d) == 0
-        assert (it!=it1) and (it1==(1,2) or it1==(3,4))
+        assert (it != it1) and (it1 == (1, 2) or it1 == (3, 4))
         raises(KeyError, d.popitem)
 
     def test_popitem_2(self):
@@ -235,16 +235,16 @@ class AppTest_DictObject:
 
     def test_popitem3(self):
         #object
-        d = {"a": 1, 2:2, "c":3}
+        d = {"a": 1, 2: 2, "c": 3}
         l = []
         while True:
             try:
                 l.append(d.popitem())
             except KeyError:
                 break;
-        assert ("a",1) in l
-        assert (2,2) in l
-        assert ("c",3) in l
+        assert ("a", 1) in l
+        assert (2, 2) in l
+        assert ("c", 3) in l
 
         #string
         d = {"a": 1, "b":2, "c":3}
@@ -254,12 +254,12 @@ class AppTest_DictObject:
                 l.append(d.popitem())
             except KeyError:
                 break;
-        assert ("a",1) in l
-        assert ("b",2) in l
-        assert ("c",3) in l
+        assert ("a", 1) in l
+        assert ("b", 2) in l
+        assert ("c", 3) in l
 
     def test_setdefault(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         x = dd.setdefault(1, 99)
         assert d == dd
@@ -292,12 +292,12 @@ class AppTest_DictObject:
             assert k.calls == 1
 
     def test_update(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         d.update({})
         assert d == dd
-        d.update({3:5, 6:7})
-        assert d == {1:2, 3:5, 6:7}
+        d.update({3: 5, 6: 7})
+        assert d == {1: 2, 3: 5, 6: 7}
 
     def test_update_iterable(self):
         d = {}
@@ -322,15 +322,15 @@ class AppTest_DictObject:
         assert d == {'foo': 'bar', 'baz': 1}
 
     def test_values(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         vals = d.values()
         vals.sort()
         assert vals == [2,4]
 
     def test_eq(self):
-        d1 = {1:2, 3:4}
-        d2 = {1:2, 3:4}
-        d3 = {1:2}
+        d1 = {1: 2, 3: 4}
+        d2 = {1: 2, 3: 4}
+        d3 = {1: 2}
         bool = d1 == d2
         assert bool == True
         bool = d1 == d3
@@ -341,10 +341,10 @@ class AppTest_DictObject:
         assert bool == True
 
     def test_lt(self):
-        d1 = {1:2, 3:4}
-        d2 = {1:2, 3:4}
-        d3 = {1:2, 3:5}
-        d4 = {1:2}
+        d1 = {1: 2, 3: 4}
+        d2 = {1: 2, 3: 4}
+        d3 = {1: 2, 3: 5}
+        d4 = {1: 2}
         bool = d1 < d2
         assert bool == False
         bool = d1 < d3
@@ -391,21 +391,17 @@ class AppTest_DictObject:
     def test_new(self):
         d = dict()
         assert d == {}
-        args = [['a',2], [23,45]]
+        args = [['a', 2], [23, 45]]
         d = dict(args)
-        assert d == {'a':2, 23:45}
+        assert d == {'a': 2, 23: 45}
         d = dict(args, a=33, b=44)
-        assert d == {'a':33, 'b':44, 23:45}
+        assert d == {'a': 33, 'b': 44, 23: 45}
         d = dict(a=33, b=44)
-        assert d == {'a':33, 'b':44}
-        d = dict({'a':33, 'b':44})
-        assert d == {'a':33, 'b':44}
-        try: d = dict(23)
-        except (TypeError, ValueError): pass
-        else: self.fail("dict(23) should raise!")
-        try: d = dict([[1,2,3]])
-        except (TypeError, ValueError): pass
-        else: self.fail("dict([[1,2,3]]) should raise!")
+        assert d == {'a': 33, 'b': 44}
+        d = dict({'a': 33, 'b': 44})
+        assert d == {'a': 33, 'b': 44}
+        raises((TypeError, ValueError), dict, 23)
+        raises((TypeError, ValueError), dict, [[1, 2, 3]])
 
     def test_fromkeys(self):
         assert {}.fromkeys([1, 2], 1) == {1: 1, 2: 1}
@@ -734,9 +730,6 @@ class AppTestDictViews:
                 set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
 
-        if option.runappdirect:
-            py.test.skip("__repr__ doesn't work on appdirect")
-
 class AppTestStrategies(object):
     def setup_class(cls):
         if option.runappdirect:
@@ -761,7 +754,12 @@ class AppTestStrategies(object):
         o.a = 1
         assert "StringDictStrategy" in self.get_strategy(d)
 
-
+    def test_empty_to_int(self):
+        import sys
+        d = {}
+        d[1] = "hi"
+        assert "IntDictStrategy" in self.get_strategy(d)
+        assert d[1L] == "hi"
 
 
 class FakeString(str):
@@ -801,6 +799,10 @@ class FakeSpace:
     def str_w(self, string):
         assert isinstance(string, str)
         return string
+
+    def int_w(self, integer):
+        assert isinstance(integer, int)
+        return integer
 
     def wrap(self, obj):
         return obj

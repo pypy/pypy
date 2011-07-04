@@ -20,8 +20,24 @@ def _findall(Class, name_prefix, op_prefix=None):
         if op_prefix and not name.startswith(op_prefix):
             continue
         if hasattr(Class, name_prefix + name):
-            result.append((value, getattr(Class, name_prefix + name)))
+            opclass = resoperation.opclasses[getattr(rop, name)]
+            print value, name, opclass
+            result.append((value, opclass, getattr(Class, name_prefix + name)))
     return unrolling_iterable(result)
+
+def make_dispatcher_method(Class, name_prefix, op_prefix=None, default=None):
+    ops = _findall(Class, name_prefix, op_prefix)
+    def dispatch(self, op, *args):
+        opnum = op.getopnum()
+        for value, cls, func in ops:
+            if opnum == value:
+                assert isinstance(op, cls)
+                return func(self, op, *args)
+        if default:
+            return default(self, op, *args)
+    dispatch.func_name = "dispatch_" + name_prefix
+    return dispatch
+
 
 def partition(array, left, right):
     last_item = array[right]

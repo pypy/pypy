@@ -255,7 +255,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = self.wrap_exception_cls(x)
             if w_result is not None:
                 return w_result
-        from fake import fake_object
+        from pypy.objspace.std.fake import fake_object
         return fake_object(self, x)
 
     def wrap_exception_cls(self, x):

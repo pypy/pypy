@@ -139,6 +139,12 @@ class ModuleDictStrategy(DictStrategy):
         iterator = self.unerase(w_dict.dstorage).clear()
         self.mutated()
 
+    def popitem(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        key, w_value = d.popitem()
+        self.mutated()
+        return self.space.wrap(key), unwrap_cell(w_value)
+
     def switch_to_object_strategy(self, w_dict):
         d = self.unerase(w_dict.dstorage)
         strategy = self.space.fromcache(ObjectDictStrategy)

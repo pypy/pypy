@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeopt.util import _findall, sort_descrs
-from pypy.jit.metainterp.optimizeopt.util import descrlist_dict
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, sort_descrs
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.optimizeopt import optimizer
 from pypy.jit.metainterp.executor import execute
@@ -456,13 +456,8 @@ class OptVirtualize(optimizer.Optimization):
         ###self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
         self.emit_operation(op)
 
-    def propagate_forward(self, op):
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
 
-optimize_ops = _findall(OptVirtualize, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptVirtualize, 'optimize_',
+        default=OptVirtualize.emit_operation)
+
+OptVirtualize.propagate_forward = dispatch_opt

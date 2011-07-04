@@ -360,7 +360,7 @@ class W_PipeConnection(W_BaseConnection):
         conn_type = ["read-only", "write-only", "read-write"][self.flags]
 
         return space.wrap("<%s %s, handle %zd>" % (
-            conn_type, space.type(self).getname(space, '?'), self.do_fileno()))
+            conn_type, space.type(self).getname(space), self.do_fileno()))
 
     def is_valid(self):
         return self.handle != self.INVALID_HANDLE_VALUE

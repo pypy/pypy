@@ -105,3 +105,33 @@ class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictI
     string = "int"
     string2 = "isinstance"
 
+
+class AppTestCellDict(object):
+    OPTIONS = {"objspace.std.withcelldict": True}
+
+    def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
+        strategy = ModuleDictStrategy(cls.space)
+        storage = strategy.get_empty_storage()
+        cls.w_d = W_DictMultiObject(cls.space, strategy, storage)
+
+    def test_popitem(self):
+        import __pypy__
+
+        d = self.d
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+        raises(KeyError, d.popitem)
+        d["a"] = 3
+        x = d.popitem()
+        assert x == ("a", 3)
+
+    def test_degenerate(self):
+        import __pypy__
+
+        d = self.d
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+        d["a"] = 3
+        del d["a"]
+        d[object()] = 5
+        assert d.values() == [5]
