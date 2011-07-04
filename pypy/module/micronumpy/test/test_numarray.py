@@ -199,6 +199,27 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i % 2
 
+    def test_pos(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = +a
+        for i in range(5):
+            assert b[i] == a[i]
+
+    def test_neg(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = -a
+        for i in range(5):
+            assert b[i] == -a[i]
+
+    def test_abs(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = abs(a)
+        for i in range(5):
+            assert b[i] == abs(a[i])
+
     def test_auto_force(self):
         from numpy import array
         a = array(range(5))
