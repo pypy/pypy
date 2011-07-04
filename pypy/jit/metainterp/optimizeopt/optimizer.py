@@ -4,7 +4,7 @@ from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp import jitprof
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.optimizeopt.util import _findall, sort_descrs
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method, sort_descrs
 from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, args_dict
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp import resume, compile
@@ -434,14 +434,7 @@ class Optimizer(Optimization):
 
     def propagate_forward(self, op):
         self.producer[op.result] = op
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.optimize_default(op)
-        #print '\n'.join([str(o) for o in self.newoperations]) + '\n---\n'
+        dispatch_opt(self, op)
 
     def test_emittable(self, op):
         return True
@@ -569,7 +562,8 @@ class Optimizer(Optimization):
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
 
-optimize_ops = _findall(Optimizer, 'optimize_')
+dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
+        default=Optimizer.optimize_default)
 
 
 

@@ -1,5 +1,5 @@
 import os
-from pypy.jit.metainterp.optimizeopt.util import _findall
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.jitexc import JitException
@@ -431,13 +431,7 @@ class OptHeap(Optimization):
         self._seen_guard_not_invalidated = True
         self.emit_operation(op)
 
-    def propagate_forward(self, op):
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
 
-optimize_ops = _findall(OptHeap, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptHeap, 'optimize_',
+        default=OptHeap.emit_operation)
+OptHeap.propagate_forward = dispatch_opt

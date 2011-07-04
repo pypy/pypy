@@ -969,7 +969,10 @@ public class PyPy implements Constants {
         // XXX: this is really a quick hack to make things work.
         // it should disappear, because this function is not
         // supported by ootypesystem.
-        return Double.toString(d); // XXX: we are ignoring "format"
+        DecimalFormat format = new DecimalFormat("0.###");
+        format.setMinimumFractionDigits(precision);
+        format.setMaximumFractionDigits(precision);
+        return format.format(d);
     }
 
     // ----------------------------------------------------------------------
