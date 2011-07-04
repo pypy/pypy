@@ -43,6 +43,9 @@ class ModuleDictStrategy(DictStrategy):
        self.version = VersionTag()
 
     def getdictvalue_no_unwrapping(self, w_dict, key):
+        # NB: it's important to promote self here, so that self.version is a
+        # no-op due to the quasi-immutable field
+        self = jit.promote(self)
         return self._getdictvalue_no_unwrapping_pure(self.version, w_dict, key)
 
     @jit.elidable_promote('0,1,2')
