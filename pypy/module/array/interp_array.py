@@ -1,18 +1,21 @@
 from __future__ import with_statement
 
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import ovfcheck
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
+from pypy.module._file.interp_file import W_File
+from pypy.objspace.std.model import W_Object
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.model import W_Object
-from pypy.module._file.interp_file import W_File
-from pypy.interpreter.buffer import RWBuffer
-from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rpython.lltypesystem import lltype, rffi
+
+
+memcpy = rffi.llexternal("memcpy", [rffi.VOIDP, rffi.VOIDP, rffi.SIZE_T], lltype.Void)
 
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
@@ -73,6 +76,7 @@ array_fromfile = SMM('fromfile', 3)
 
 array_buffer_info = SMM('buffer_info', 1)
 array_reduce = SMM('__reduce__', 1)
+array_copy = SMM('__copy__', 1)
 array_byteswap = SMM('byteswap', 1)
 
 
@@ -96,7 +100,7 @@ W_ArrayBase.typedef = StdTypeDef(
     itemsize = GetSetProperty(descr_itemsize),
     typecode = GetSetProperty(descr_typecode),
     __weakref__ = make_weakref_descr(W_ArrayBase),
-    )
+)
 W_ArrayBase.typedef.registermethods(globals())
 
 
@@ -157,8 +161,6 @@ class ArrayBuffer(RWBuffer):
 
     def setitem(self, index, char):
         self.data[index] = char
-
-
 
 
 def make_array(mytype):
@@ -614,6 +616,16 @@ def make_array(mytype):
         except OperationError:
             dct = space.w_None
         return space.newtuple([space.type(self), space.newtuple(args), dct])
+
+    def array_copy__Array(space, self):
+        w_a = mytype.w_class(self.space)
+        w_a.setlen(self.len)
+        memcpy(
+            rffi.cast(rffi.VOIDP, w_a.buffer),
+            rffi.cast(rffi.VOIDP, self.buffer),
+            self.len * mytype.bytes
+        )
+        return w_a
 
     def array_byteswap__Array(space, self):
         if mytype.bytes not in [1, 2, 4, 8]:
