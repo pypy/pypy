@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
+import math
 
 
 def dummy1(v):
@@ -38,6 +39,10 @@ def mul(v1, v2):
     return v1 * v2
 def div(v1, v2):
     return v1 / v2
+def pow(v1, v2):
+    return math.pow(v1, v2)
+def mod(v1, v2):
+    return math.fmod(v1, v2)
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -80,6 +85,8 @@ class BaseArray(Wrappable):
     descr_sub = _binop_impl(sub)
     descr_mul = _binop_impl(mul)
     descr_div = _binop_impl(div)
+    descr_pow = _binop_impl(pow)
+    descr_mod = _binop_impl(mod)
 
     def get_concrete(self):
         raise NotImplementedError
@@ -355,6 +362,8 @@ BaseArray.typedef = TypeDef(
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
+    __pow__ = interp2app(BaseArray.descr_pow),
+    __mod__ = interp2app(BaseArray.descr_mod),
 
     mean = interp2app(BaseArray.descr_mean),
 )
