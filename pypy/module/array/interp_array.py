@@ -313,6 +313,14 @@ def make_array(mytype):
         def charbuf(self):
             return  rffi.cast(rffi.CCHARP, self.buffer)
 
+        def w_getitem(self, space, idx):
+            item = self.buffer[idx]
+            if mytype.typecode in 'bBhHil':
+                item = rffi.cast(lltype.Signed, item)
+            elif mytype.typecode == 'f':
+                item = float(item)
+            return space.wrap(item)
+
     # Basic get/set/append/extend methods
 
     def len__Array(space, self):
@@ -321,12 +329,7 @@ def make_array(mytype):
     def getitem__Array_ANY(space, self, w_idx):
         idx, stop, step = space.decode_index(w_idx, self.len)
         assert step == 0
-        item = self.buffer[idx]
-        if mytype.typecode in 'bBhHil':
-            item = rffi.cast(lltype.Signed, item)
-        elif mytype.typecode == 'f':
-            item = float(item)
-        return self.space.wrap(item)
+        return self.w_getitem(space, idx)
 
     def getitem__Array_Slice(space, self, w_slice):
         start, stop, step, size = space.decode_index4(w_slice, self.len)
@@ -389,7 +392,7 @@ def make_array(mytype):
     def array_count__Array_ANY(space, self, w_val):
         cnt = 0
         for i in range(self.len):
-            w_item = getitem__Array_ANY(space, self, space.wrap(i))
+            w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):
                 cnt += 1
         return space.wrap(cnt)
@@ -397,7 +400,7 @@ def make_array(mytype):
     def array_index__Array_ANY(space, self, w_val):
         cnt = 0
         for i in range(self.len):
-            w_item = getitem__Array_ANY(space, self, space.wrap(i))
+            w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):
                 return space.wrap(i)
         msg = 'array.index(x): x not in list'
@@ -415,7 +418,7 @@ def make_array(mytype):
         if i < 0 or i >= self.len:
             msg = 'pop index out of range'
             raise OperationError(space.w_IndexError, space.wrap(msg))
-        w_val = getitem__Array_ANY(space, self, space.wrap(i))
+        w_val = self.w_getitem(space, i)
         while i < self.len - 1:
             self.buffer[i] = self.buffer[i + 1]
             i += 1
@@ -517,7 +520,7 @@ def make_array(mytype):
     def array_tolist__Array(space, self):
         w_l = space.newlist([])
         for i in range(self.len):
-            w_l.append(getitem__Array_ANY(space, self, space.wrap(i)))
+            w_l.append(self.w_getitem(space, i))
         return w_l
 
     def array_fromlist__Array_List(space, self, w_lst):
