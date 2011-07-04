@@ -52,7 +52,7 @@ class TestInstance(BaseTestPyPyC):
             i10 = int_add_ovf(i5, i7)
             guard_no_overflow(descr=<Guard5>)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i10, i6, p7, i7, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=<Loop0>)
         """)
 
     def test_getattr_with_dynamic_attribute(self):
@@ -118,7 +118,7 @@ class TestInstance(BaseTestPyPyC):
             i9 = int_lt(i7, i8)
             guard_true(i9, descr=.*)
             guard_not_invalidated(descr=.*)
-            i11 = int_add(i8, 1)
+            i11 = int_add(i7, 1)
             i12 = force_token()
             --TICK--
             p20 = new_with_vtable(ConstClass(W_IntObject))

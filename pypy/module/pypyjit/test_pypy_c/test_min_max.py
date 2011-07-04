@@ -17,6 +17,7 @@ class TestMinMax(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_lt(i4, 300)
             guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
             i9 = int_add_ovf(i5, 3000)
             guard_no_overflow(descr=...)
             i11 = int_add(i4, 1)

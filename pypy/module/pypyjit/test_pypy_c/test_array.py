@@ -39,11 +39,12 @@ class TestArray(BaseTestPyPyC):
         assert log.result == 19507200
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=<Guard3>)
             i13 = int_lt(i7, i9)
-            guard_true(i13, descr=<Guard3>)
+            guard_true(i13, descr=<Guard4>)
             i15 = getarrayitem_raw(i10, i7, descr=<.*ArrayNoLengthDescr>)
             i16 = int_add_ovf(i8, i15)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             i18 = int_add(i7, 1)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i18, i16, p8, i9, i10, descr=<Loop0>)
@@ -69,15 +70,16 @@ class TestArray(BaseTestPyPyC):
         assert loop.match("""
             i13 = int_lt(i8, 307200)
             guard_true(i13, descr=<Guard3>)
+            guard_not_invalidated(descr=<Guard4>)
         # the bound check guard on img has been killed (thanks to the asserts)
             i14 = getarrayitem_raw(i10, i8, descr=<.*ArrayNoLengthDescr>)
             i15 = int_add_ovf(i9, i14)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard5>)
             i17 = int_sub(i8, 640)
         # the bound check guard on intimg has been killed (thanks to the asserts)
             i18 = getarrayitem_raw(i11, i17, descr=<.*ArrayNoLengthDescr>)
             i19 = int_add_ovf(i18, i15)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=<Guard6>)
         # on 64bit, there is a guard checking that i19 actually fits into 32bit
             ...
             setarrayitem_raw(i11, i8, _, descr=<.*ArrayNoLengthDescr>)
