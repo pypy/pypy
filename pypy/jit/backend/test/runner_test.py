@@ -883,15 +883,21 @@ class BaseBackendTest(Runner):
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
                                                          BoxFloat(1.5)],
                                'void', descr=kdescr)
+        #f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
+        #assert f == 1.5
+        #self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, kdescr, 2.5)
         r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
                                    'float', descr=kdescr)
         assert r.getfloat() == 1.5
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
                                                          BoxInt(15)],
                                'void', descr=vdescr)
+        i = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 3, kdescr)
+        assert i == 15
+        self.cpu.bh_setinteriorfield_gc_i(a_box.getref_base(), 3, kdescr, 25)
         r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
                                    'int', descr=vdescr)
-        assert r.getint() == 15
+        assert r.getint() == 25
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
                                                          s_box],
                                'void', descr=pdescr)
