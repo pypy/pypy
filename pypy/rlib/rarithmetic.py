@@ -33,24 +33,53 @@ mark where overflow checking is required.
 
 
 """
-import sys
+import sys, struct
 from pypy.rpython import extregistry
 from pypy.rlib import objectmodel
 
-# set up of machine internals, using sys.maxint only.
-# if sys.maxsize exists and is greater, it is used instead.
-_maxnumber = sys.maxint
-if hasattr(sys, "maxsize"):
-    _maxnumber = max(sys.maxint, sys.maxsize)
-_bits = 1
-_test = _maxnumber
-while _test:
-    _bits += 1
-    _test >>= 1
+"""
+Long-term target:
+We want to make pypy very flexible concerning its data type layout.
+This is a larger task for later.
+
+Short-term target:
+We want to run PyPy on windows 64 bit.
+
+Problem:
+On windows 64 bit, integers are only 32 bit. This is a problem for PyPy
+right now, since it assumes that a c long can hold a pointer.
+We therefore set up the target machine constants to obey this rule.
+Right now this affects 64 bit Python only on windows.
+
+Note: We use the struct module, because the array module doesn's support
+all typecodes.
+"""
+
+def _get_bitsize(typecode):
+    return len(struct.pack(typecode, 1)) * 8
+
+_long_typecode = 'l'
+if _get_bitsize('P') > _get_bitsize('l'):
+    _long_typecode = 'P'
+
+def _get_long_bit():
+    # whatever size a long has, make it big enough for a pointer.
+    return _get_bitsize(_long_typecode)
+
+# exported for now for testing array values. 
+# might go into its own module.
+def get_long_pattern(x):
+    """get the bit pattern for a long, adjusted to pointer size"""
+    return struct.pack(_long_typecode, x)
+
+# used in tests for ctypes:
+is_emulated_long = _long_typecode <> 'l'
     
-LONG_BIT = _bits
+LONG_BIT = _get_long_bit()
 LONG_MASK = (2**LONG_BIT)-1
 LONG_TEST = 2**(LONG_BIT-1)
+
+# XXX this is a good guess, but what if a long long is 128 bit?
 LONGLONG_BIT  = 64
 LONGLONG_MASK = (2**LONGLONG_BIT)-1
 LONGLONG_TEST = 2**(LONGLONG_BIT-1)
@@ -106,8 +135,6 @@ def _should_widen_type(tp):
     return r_class.BITS < LONG_BIT or (
         r_class.BITS == LONG_BIT and r_class.SIGNED)
 _should_widen_type._annspecialcase_ = 'specialize:memo'
-
-del _bits, _test, _maxnumber
 
 def is_valid_int(r):
     return -sys.maxint - 1 <= r <= sys.maxint

@@ -17,6 +17,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rpython.lltypesystem import llmemory
+from pypy.rlib.rarithmetic import LONG_BIT
 import os, sys
 
 class CConstant(Symbolic):
@@ -884,7 +885,7 @@ def sizeof(tp):
         return 4
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
-        return ULONG._type.BITS/8
+        return LONG_BIT/8
     return tp._type.BITS/8
 sizeof._annspecialcase_ = 'specialize:memo'
 

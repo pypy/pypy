@@ -15,7 +15,7 @@ from pypy.tool.udir import udir
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
 
 if False:    # for now, please keep it False by default
     from pypy.rpython.lltypesystem import ll2ctypes
@@ -154,11 +154,6 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED
 
     def test_array_nolength(self):
-        # XXX cannot fix this test when lltype.Signed is faked for win64.
-        # Replacement with rffi.LONG does not work because then I cannot
-        # index an array. So I have to use lltype.Signed . But the rffi.sizeof
-        # at the end has a hard-coded mapping to LONG and ignores the faked
-        # maxint. So what should I do?
         A = lltype.Array(lltype.Signed, hints={'nolength': True})
         a = lltype.malloc(A, 10, flavor='raw')
         a[0] = 100
@@ -399,10 +394,9 @@ class TestLL2Ctypes(object):
 
         b = rffi.cast(lltype.Ptr(B), a)
 
-        checker = array.array('l')
+        expected = ''
         for i in range(10):
-            checker.append(i*i)
-        expected = checker.tostring()
+            expected += get_long_pattern(i*i)
 
         for i in range(len(expected)):
             assert b[i] == expected[i]
@@ -442,10 +436,15 @@ class TestLL2Ctypes(object):
         def dummy(n):
             return n+1
 
-        FUNCTYPE = lltype.FuncType([rffi.LONG], rffi.LONG)
+        FUNCTYPE = lltype.FuncType([lltype.Signed], lltype.Signed)
         cdummy = lltype2ctypes(llhelper(lltype.Ptr(FUNCTYPE), dummy))
-        assert isinstance(cdummy,
-                          ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_long))
+        if not is_emulated_long:
+            assert isinstance(cdummy,
+                              ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_long))
+        else:
+            # XXX maybe we skip this if it breaks on some platforms
+            assert isinstance(cdummy,
+                              ctypes.CFUNCTYPE(ctypes.c_longlong, ctypes.c_longlong))
         res = cdummy(41)
         assert res == 42
         lldummy = ctypes2lltype(lltype.Ptr(FUNCTYPE), cdummy)
@@ -479,13 +478,13 @@ class TestLL2Ctypes(object):
             export_symbols=['get_mul'])
         get_mul = rffi.llexternal(
             'get_mul', [],
-            lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG)),
+            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)),
             compilation_info=eci)
         # This call returns a pointer to a function taking one argument
         funcptr = get_mul()
         # cast it to the "real" function type
-        FUNCTYPE2 = lltype.FuncType([rffi.LONG, rffi.LONG],
-                                    rffi.LONG)
+        FUNCTYPE2 = lltype.FuncType([lltype.Signed, lltype.Signed],
+                                    lltype.Signed)
         cmul = rffi.cast(lltype.Ptr(FUNCTYPE2), funcptr)
         # and it can be called with the expected number of arguments
         res = cmul(41, 42)
@@ -502,12 +501,12 @@ class TestLL2Ctypes(object):
                                 lltype.Void)
 
         lst = [23, 43, 24, 324, 242, 34, 78, 5, 3, 10]
-        A = lltype.Array(rffi.LONG, hints={'nolength': True})
+        A = lltype.Array(lltype.Signed, hints={'nolength': True})
         a = lltype.malloc(A, 10, flavor='raw')
         for i in range(10):
             a[i] = lst[i]
 
-        SIGNEDPTR = lltype.Ptr(lltype.FixedSizeArray(rffi.LONG, 1))
+        SIGNEDPTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
 
         def my_compar(p1, p2):
             p1 = rffi.cast(SIGNEDPTR, p1)
@@ -517,7 +516,7 @@ class TestLL2Ctypes(object):
 
         qsort(rffi.cast(rffi.VOIDP, a),
               rffi.cast(rffi.SIZE_T, 10),
-              rffi.cast(rffi.SIZE_T, llmemory.sizeof(rffi.LONG)),
+              rffi.cast(rffi.SIZE_T, llmemory.sizeof(lltype.Signed)),
               llhelper(lltype.Ptr(CMPFUNC), my_compar))
 
         for i in range(10):
@@ -545,8 +544,9 @@ class TestLL2Ctypes(object):
 
         checkval(uninitialized2ctypes(rffi.CHAR), 'B')
         checkval(uninitialized2ctypes(rffi.SHORT), 'h')
-        checkval(uninitialized2ctypes(rffi.INT), 'i')
-        checkval(uninitialized2ctypes(rffi.UINT), 'I')
+        if not is_emulated_long:
+            checkval(uninitialized2ctypes(rffi.INT), 'i')
+            checkval(uninitialized2ctypes(rffi.UINT), 'I')
         checkval(uninitialized2ctypes(rffi.LONGLONG), 'q')
         checkval(uninitialized2ctypes(rffi.DOUBLE), 'd')
         checkobj(uninitialized2ctypes(rffi.INTP),
@@ -563,7 +563,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_substructures(self):
-        S1  = lltype.Struct('S1', ('x', rffi.LONG))
+        S1  = lltype.Struct('S1', ('x', lltype.Signed))
         BIG = lltype.Struct('BIG', ('s1a', S1), ('s1b', S1))
         s = lltype.malloc(BIG, flavor='raw')
         s.s1a.x = 123
@@ -613,7 +613,7 @@ class TestLL2Ctypes(object):
 
     def test_recursive_struct(self):
         SX = lltype.ForwardReference()
-        S1 = lltype.Struct('S1', ('p', lltype.Ptr(SX)), ('x', rffi.LONG))
+        S1 = lltype.Struct('S1', ('p', lltype.Ptr(SX)), ('x', lltype.Signed))
         SX.become(S1)
         # a chained list
         s1 = lltype.malloc(S1, flavor='raw')
@@ -691,7 +691,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_arrayofstruct(self):
-        S1 = lltype.Struct('S1', ('x', rffi.LONG))
+        S1 = lltype.Struct('S1', ('x', lltype.Signed))
         A = lltype.Array(S1, hints={'nolength': True})
         a = lltype.malloc(A, 5, flavor='raw')
         a[0].x = 100
