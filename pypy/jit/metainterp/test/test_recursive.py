@@ -1,6 +1,6 @@
 import py
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint
-from pypy.rlib.jit import unroll_safe, dont_look_inside
+from pypy.rlib.jit import unroll_safe, dont_look_inside, promote
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -926,7 +926,7 @@ class RecursiveTests:
                 myjitdriver.can_enter_jit(codeno=codeno, frame=frame, n=n, x=x)
                 myjitdriver.jit_merge_point(codeno=codeno, frame=frame, n=n,
                                             x=x)
-                frame.s = hint(frame.s, promote=True)
+                frame.s = promote(frame.s)
                 n -= 1
                 s = frame.s
                 assert s >= 0

@@ -17,7 +17,7 @@ class Signature(object):
         self.varargname = varargname
         self.kwargname = kwargname
 
-    @jit.purefunction
+    @jit.elidable
     def find_argname(self, name):
         try:
             return self.argnames.index(name)

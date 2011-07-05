@@ -237,7 +237,7 @@ wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
-    http://codespeak.net/pypy/dist/pypy/doc/objspace.html"""
+    http://pypy.readthedocs.org/en/latest/objspace.html"""
 
     full_exceptions = True  # full support for exceptions (normalization & more)
 
@@ -311,9 +311,6 @@ class ObjSpace(object):
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and mod.startup_called:
                 mod.shutdown(self)
-        if self.config.objspace.std.withdictmeasurement:
-            from pypy.objspace.std.dictmultiobject import report
-            report()
         if self.config.objspace.logbytecodes:
             self.reportbytecodecounts()
         if self.config.objspace.std.logspaceoptypes:

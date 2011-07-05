@@ -122,7 +122,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
-        return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space, '?')))
+        return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space)))
 
 PyCFunction_Check, PyCFunction_CheckExact = build_type_checkers("CFunction", W_PyCFunctionObject)
 
@@ -151,7 +151,7 @@ class W_PyCWrapperObject(Wrappable):
 
     def descr_method_repr(self):
         return self.space.wrap("<slot wrapper '%s' of '%s' objects>" % (self.method_name,
-            self.w_objclass.getname(self.space, '?')))
+            self.w_objclass.getname(self.space)))
 
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)

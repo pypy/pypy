@@ -450,7 +450,7 @@ def type_attach(space, py_obj, w_type):
             PyObject_Del.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
             PyType_GenericAlloc.api_func.get_wrapper(space))
-    pto.c_tp_name = rffi.str2charp(w_type.getname(space, "?"))
+    pto.c_tp_name = rffi.str2charp(w_type.getname(space))
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
     # uninitialized fields:
