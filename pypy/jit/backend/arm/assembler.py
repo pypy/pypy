@@ -254,7 +254,9 @@ class AssemblerARM(ResOpAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         mc = ARMv7Builder()
         assert self.cpu.supports_floats
-        mc.PUSH([r.lr.value])
+        # We need to push two registers here because we are goin to make a
+        # call an therefore the stack needs to be 8-byte aligned
+        mc.PUSH([r.ip.value, r.lr.value])
         with saved_registers(mc, [], r.all_vfp_regs):
             # At this point we know that the values we need to compute the size
             # are stored in r0 and r1.
@@ -269,7 +271,8 @@ class AssemblerARM(ResOpAssembler):
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.gen_load_int(r.r1.value, nursery_free_adr)
         mc.LDR_ri(r.r1.value, r.r1.value)
-        mc.POP([r.pc.value])
+        # see above
+        mc.POP([r.ip.value, r.pc.value])
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath = rawstart
 
