@@ -139,7 +139,10 @@ class _CData(object):
         return buffer(self._buffer)
 
     def _get_b_base(self):
-        return self._base
+        try:
+            return self._base
+        except AttributeError:
+            return None
     _b_base_ = property(_get_b_base)
     _b_needsfree_ = False
 
@@ -218,5 +221,7 @@ _shape_to_ffi_type.typemap =  {
     'z' : _ffi.types.void_p,
     'O' : _ffi.types.void_p,
     'Z' : _ffi.types.void_p,
+    'X' : _ffi.types.void_p,
+    'v' : _ffi.types.sshort,
     }
 

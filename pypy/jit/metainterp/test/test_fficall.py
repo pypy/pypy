@@ -1,7 +1,7 @@
 
 import py
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
-from pypy.rlib.jit import JitDriver, hint, dont_look_inside
+from pypy.rlib.jit import JitDriver, promote, dont_look_inside
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.libffi import ArgChain, longlong2float, float2longlong
 from pypy.rlib.libffi import IS_32_BIT
@@ -49,8 +49,7 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
             res = init_result
             while n < 10:
                 driver.jit_merge_point(n=n, res=res, func=func)
-                driver.can_enter_jit(n=n, res=res, func=func)
-                func = hint(func, promote=True)
+                promote(func)
                 argchain = ArgChain()
                 # this loop is unrolled
                 for method_name, argval in method_and_args:

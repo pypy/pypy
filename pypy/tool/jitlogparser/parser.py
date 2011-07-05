@@ -121,6 +121,9 @@ class TraceForOpcode(object):
     def getcode(self):
         return self.code
 
+    def has_valid_code(self):
+        return self.code is not None
+
     def getopcode(self):
         return self.code.map[self.bytecode_no]
 
@@ -219,6 +222,12 @@ class Function(object):
             self._compute_linerange()
         return self._lineset
     lineset = property(getlineset)
+
+    def has_valid_code(self):
+        for chunk in self.chunks:
+            if not chunk.has_valid_code():
+                return False
+        return True
 
     def _compute_linerange(self):
         self._lineset = set()

@@ -92,8 +92,8 @@ raise a type error."""
     w_realtype = space.type(w_obj)
     if not space.is_w(w_realtype, w_expectedtype):
         #msg = "expected an object of type '%s'" % (
-        #    w_expectedtype.getname(space, '?'),)
-        #    #w_realtype.getname(space, '?'))
+        #    w_expectedtype.getname(space),)
+        #    #w_realtype.getname(space))
         raise OperationError(space.w_TaintError, space.w_None)
     return w_obj
 app_untaint = gateway.interp2app(untaint)

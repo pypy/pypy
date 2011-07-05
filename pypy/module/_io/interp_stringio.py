@@ -129,7 +129,7 @@ class W_StringIO(W_TextIOBase):
         if not space.isinstance_w(w_obj, space.w_unicode):
             raise operationerrfmt(space.w_TypeError,
                                   "string argument expected, got '%s'",
-                                  space.type(w_obj).getname(space, '?'))
+                                  space.type(w_obj).getname(space))
         self._check_closed(space)
 
         orig_size = space.len_w(w_obj)

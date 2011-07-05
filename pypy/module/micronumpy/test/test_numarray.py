@@ -154,6 +154,72 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i / 5.0
 
+    def test_pow(self):
+        from numpy import array
+        a = array(range(5))
+        b = a ** a
+        for i in range(5):
+            print b[i], i**i
+            assert b[i] == i**i
+
+    def test_pow_other(self):
+        from numpy import array
+        a = array(range(5))
+        b = array([2, 2, 2, 2, 2])
+        c = a ** b
+        for i in range(5):
+            assert c[i] == i ** 2
+
+    def test_pow_constant(self):
+        from numpy import array
+        a = array(range(5))
+        b = a ** 2
+        for i in range(5):
+            assert b[i] == i ** 2
+
+    def test_mod(self):
+        from numpy import array
+        a = array(range(1,6))
+        b = a % a
+        for i in range(5):
+            assert b[i] == 0
+
+    def test_mod_other(self):
+        from numpy import array
+        a = array(range(5))
+        b = array([2, 2, 2, 2, 2])
+        c = a % b
+        for i in range(5):
+            assert c[i] == i % 2
+
+    def test_mod_constant(self):
+        from numpy import array
+        a = array(range(5))
+        b = a % 2
+        for i in range(5):
+            assert b[i] == i % 2
+
+    def test_pos(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = +a
+        for i in range(5):
+            assert b[i] == a[i]
+
+    def test_neg(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = -a
+        for i in range(5):
+            assert b[i] == -a[i]
+
+    def test_abs(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = abs(a)
+        for i in range(5):
+            assert b[i] == abs(a[i])
+
     def test_auto_force(self):
         from numpy import array
         a = array(range(5))

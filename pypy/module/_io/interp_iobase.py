@@ -155,7 +155,7 @@ class W_IOBase(Wrappable):
                     raise operationerrfmt(
                         space.w_IOError,
                         "peek() should have returned a bytes object, "
-                        "not '%s'", space.type(w_readahead).getname(space, '?'))
+                        "not '%s'", space.type(w_readahead).getname(space))
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
@@ -181,7 +181,7 @@ class W_IOBase(Wrappable):
                 raise operationerrfmt(
                     space.w_IOError,
                     "peek() should have returned a bytes object, "
-                    "not '%s'", space.type(w_read).getname(space, '?'))
+                    "not '%s'", space.type(w_read).getname(space))
             read = space.str_w(w_read)
             if not read:
                 break

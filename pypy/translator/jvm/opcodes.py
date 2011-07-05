@@ -98,6 +98,7 @@ opcodes = _proc_dict({
     'jit_marker':               Ignore,
     'jit_force_virtualizable':  Ignore,
     'jit_force_virtual':        DoNothing,
+    'jit_force_quasi_immutable': Ignore,
 
     'debug_assert':              [], # TODO: implement?
     'debug_start_traceback':    Ignore,

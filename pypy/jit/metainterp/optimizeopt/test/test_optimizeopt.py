@@ -5373,7 +5373,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops, preamble=None):
-        from pypy.jit.metainterp.optimizeopt import string
         class FakeCallInfoCollection:
             def callinfo_for_oopspec(self, oopspecindex):
                 calldescrtype = type(LLtypeMixin.strequaldescr)

@@ -5,7 +5,7 @@ import py
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.jit.tl.tlopcode import *
 from pypy.jit.tl import tlopcode
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, elidable
 
 class Obj(object):
 
@@ -71,6 +71,7 @@ class Class(object):
 
     classes = [] # [(descr, cls), ...]
 
+    @elidable
     def get(key):
         for descr, cls in Class.classes:
             if key.attributes == descr.attributes and\
@@ -79,7 +80,6 @@ class Class(object):
         result = Class(key)
         Class.classes.append((key, result))
         return result
-    get._pure_function_ = True
     get = staticmethod(get)
 
     def __init__(self, descr):
