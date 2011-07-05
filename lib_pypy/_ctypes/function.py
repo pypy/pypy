@@ -322,20 +322,18 @@ class CFuncPtr(_CData):
                           RuntimeWarning, stacklevel=2)
 
         if self._com_index:
-            assert False, 'TODO2'
             from ctypes import cast, c_void_p, POINTER
             if not args:
                 raise ValueError(
                     "native COM method call without 'this' parameter"
                     )
-            thisarg = cast(args[0], POINTER(POINTER(c_void_p))).contents
-            argtypes = [c_void_p] + list(argtypes)
-            args = list(args)
-            args[0] = args[0].value
+            thisarg = cast(args[0], POINTER(POINTER(c_void_p)))
+            newargs, argtypes, outargs = self._convert_args(argtypes, args[1:], kwargs)
+            newargs.insert(0, args[0].value)
+            argtypes.insert(0, c_void_p)
         else:
             thisarg = None
-            
-        newargs, argtypes, outargs = self._convert_args(argtypes, args, kwargs)
+            newargs, argtypes, outargs = self._convert_args(argtypes, args, kwargs)
 
         funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
         result = self._call_funcptr(funcptr, *newargs)
@@ -343,6 +341,11 @@ class CFuncPtr(_CData):
 
         if not outargs:
             return result
+
+        simple_cdata = type(c_void_p()).__bases__[0]
+        outargs = [x.value if type(x).__bases__[0] is simple_cdata else x
+                   for x in outargs]
+
         if len(outargs) == 1:
             return outargs[0]
         return tuple(outargs)
@@ -398,10 +401,10 @@ class CFuncPtr(_CData):
             # extract the address from the object's virtual table
             if not thisarg:
                 raise ValueError("COM method call without VTable")
-            ptr = thisarg[self._com_index - 0x1000]
-            argshapes = [arg._ffiargshape for arg in argtypes]
-            resshape = restype._ffiargshape
-            return _rawffi.FuncPtr(ptr, argshapes, resshape, self._flags_)
+            ptr = thisarg[0][self._com_index - 0x1000]
+            ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
+            ffires = restype.get_ffi_argtype()
+            return _ffi.FuncPtr.fromaddr(ptr, '', ffiargs, ffires)
         
         cdll = self.dll._handle
         try:
@@ -468,11 +471,7 @@ class CFuncPtr(_CData):
         newargtypes = []
         total = len(args)
         paramflags = self._paramflags
-
-        if self._com_index:
-            inargs_idx = 1
-        else:
-            inargs_idx = 0
+        inargs_idx = 0
 
         if not paramflags and total < len(argtypes):
             raise TypeError("not enough arguments")
@@ -587,13 +586,7 @@ class CFuncPtr(_CData):
 
         retval = None
 
-        if self._com_index:
-            if resbuffer[0] & 0x80000000:
-                raise get_com_error(resbuffer[0],
-                                    self._com_iid, argsandobjs[0])
-            else:
-                retval = int(resbuffer[0])
-        elif restype is not None:
+        if restype is not None:
             checker = getattr(self.restype, '_check_retval_', None)
             if checker:
                 val = restype(result)
@@ -601,7 +594,13 @@ class CFuncPtr(_CData):
                 # classes defining a new type, and their subclasses
                 if '_type_' in restype.__dict__:
                     val = val.value
-                retval = checker(val)
+                # XXX Raise a COMError when restype is HRESULT and
+                # checker(val) fails.  How to check for restype == HRESULT?
+                if self._com_index:
+                    if result & 0x80000000:
+                        raise get_com_error(result, None, None)
+                else:
+                    retval = checker(val)
             elif not isinstance(restype, _CDataMeta):
                 retval = restype(result)
             else:
