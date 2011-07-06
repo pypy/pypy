@@ -1,96 +1,98 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, IteratorImplementation
+from pypy.objspace.std.dictmultiobject import DictStrategy
 from pypy.objspace.std.typeobject import unwrap_cell
 from pypy.interpreter.error import OperationError
 
+from pypy.rlib import rerased
 
-class W_DictProxyObject(W_DictMultiObject):
-    def __init__(w_self, space, w_type):
-        W_DictMultiObject.__init__(w_self, space)
-        w_self.w_type = w_type
 
-    def impl_getitem(self, w_lookup):
+class DictProxyStrategy(DictStrategy):
+
+    erase, unerase = rerased.new_erasing_pair("dictproxy")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def __init__(w_self, space):
+        DictStrategy.__init__(w_self, space)
+
+    def getitem(self, w_dict, w_key):
         space = self.space
-        w_lookup_type = space.type(w_lookup)
+        w_lookup_type = space.type(w_key)
         if space.is_w(w_lookup_type, space.w_str):
-            return self.impl_getitem_str(space.str_w(w_lookup))
+            return self.getitem_str(w_dict, space.str_w(w_key))
         else:
             return None
 
-    def impl_getitem_str(self, lookup):
-        return self.w_type.getdictvalue(self.space, lookup)
+    def getitem_str(self, w_dict, key):
+        return self.unerase(w_dict.dstorage).getdictvalue(self.space, key)
 
-    def impl_setitem(self, w_key, w_value):
+    def setitem(self, w_dict, w_key, w_value):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
-            self.impl_setitem_str(self.space.str_w(w_key), w_value)
+            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
         else:
             raise OperationError(space.w_TypeError, space.wrap("cannot add non-string keys to dict of a type"))
 
-    def impl_setitem_str(self, name, w_value):
+    def setitem_str(self, w_dict, key, w_value):
+        w_type = self.unerase(w_dict.dstorage)
         try:
-            self.w_type.setdictvalue(self.space, name, w_value)
+            w_type.setdictvalue(self.space, key, w_value)
         except OperationError, e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
-            w_type = self.w_type
             if not w_type.is_cpytype():
                 raise
             # xxx obscure workaround: allow cpyext to write to type->tp_dict.
             # xxx like CPython, we assume that this is only done early after
             # xxx the type is created, and we don't invalidate any cache.
-            w_type.dict_w[name] = w_value
+            w_type.dict_w[key] = w_value
 
-    def impl_setdefault(self, w_key, w_default):
+    def setdefault(self, w_dict, w_key, w_default):
         space = self.space
-        w_result = self.impl_getitem(w_key)
+        w_result = self.getitem(w_dict, w_key)
         if w_result is not None:
             return w_result
-        self.impl_setitem(w_key, w_default)
+        self.setitem(w_dict, w_key, w_default)
         return w_default
 
-    def impl_delitem(self, w_key):
+    def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
-            if not self.w_type.deldictvalue(space, w_key):
+            if not self.unerase(w_dict.dstorage).deldictvalue(space, w_key):
                 raise KeyError
         else:
             raise KeyError
 
-    def impl_length(self):
-        return len(self.w_type.dict_w)
+    def length(self, w_dict):
+        return len(self.unerase(w_dict.dstorage).dict_w)
 
-    def impl_iter(self):
-        return DictProxyIteratorImplementation(self.space, self)
+    def iter(self, w_dict):
+        return DictProxyIteratorImplementation(self.space, self, w_dict)
 
-    def impl_keys(self):
+    def keys(self, w_dict):
         space = self.space
-        return [space.wrap(key) for key in self.w_type.dict_w.iterkeys()]
+        return [space.wrap(key) for key in self.unerase(w_dict.dstorage).dict_w.iterkeys()]
 
-    def impl_values(self):
-        return [unwrap_cell(self.space, w_value) for w_value in self.w_type.dict_w.itervalues()]
+    def values(self, w_dict):
+        return [unwrap_cell(self.space, w_value) for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]
 
-    def impl_items(self):
+    def items(self, w_dict):
         space = self.space
         return [space.newtuple([space.wrap(key), unwrap_cell(self.space, w_value)])
-                    for (key, w_value) in self.w_type.dict_w.iteritems()]
+                    for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
 
-    def impl_clear(self):
-        self.w_type.dict_w.clear()
-        self.w_type.mutated()
-
-    def _as_rdict(self):
-        assert 0, "should be unreachable"
-
-    def _clear_fields(self):
-        assert 0, "should be unreachable"
+    def clear(self, w_dict):
+        self.unerase(w_dict.dstorage).dict_w.clear()
+        self.unerase(w_dict.dstorage).mutated()
 
 class DictProxyIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, dictimplementation):
+    def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        self.iterator = dictimplementation.w_type.dict_w.iteritems()
+        w_type = strategy.unerase(dictimplementation.dstorage)
+        self.iterator = w_type.dict_w.iteritems()
 
     def next_entry(self):
         for key, w_value in self.iterator:

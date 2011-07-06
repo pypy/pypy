@@ -2,7 +2,7 @@ import sys
 
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import libffi
+from pypy.rlib import libffi, clibffi
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array
@@ -10,11 +10,11 @@ from pypy.module._rawffi.array import W_Array
 from pypy.module.cppyy import helper, capi
 
 
-_executors = {}
+NULL = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
 
 class FunctionExecutor(object):
     _immutable_ = True
-    libffitype = libffi.types.NULL
+    libffitype = NULL
 
     def __init__(self, space, name, cpptype):
         self.name = name
@@ -162,6 +162,7 @@ class InstanceExecutor(InstancePtrExecutor):
         return interp_cppyy.W_CPPInstance(space, self.cpptype, ptr_result)
 
 
+_executors = {}
 def get_executor(space, name):
     # Matching of 'name' to an executor factory goes through up to four levels:
     #   1) full, qualified match

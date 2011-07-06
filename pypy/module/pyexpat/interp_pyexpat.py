@@ -31,6 +31,48 @@ eci = rffi_platform.configure_external_library(
 XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference())
 XML_Parser = rffi.COpaquePtr(typedef='XML_Parser')
 
+xml_error_list = [
+    "XML_ERROR_NO_MEMORY",
+    "XML_ERROR_SYNTAX",
+    "XML_ERROR_NO_ELEMENTS",
+    "XML_ERROR_INVALID_TOKEN",
+    "XML_ERROR_UNCLOSED_TOKEN",
+    "XML_ERROR_PARTIAL_CHAR",
+    "XML_ERROR_TAG_MISMATCH",
+    "XML_ERROR_DUPLICATE_ATTRIBUTE",
+    "XML_ERROR_JUNK_AFTER_DOC_ELEMENT",
+    "XML_ERROR_PARAM_ENTITY_REF",
+    "XML_ERROR_UNDEFINED_ENTITY",
+    "XML_ERROR_RECURSIVE_ENTITY_REF",
+    "XML_ERROR_ASYNC_ENTITY",
+    "XML_ERROR_BAD_CHAR_REF",
+    "XML_ERROR_BINARY_ENTITY_REF",
+    "XML_ERROR_ATTRIBUTE_EXTERNAL_ENTITY_REF",
+    "XML_ERROR_MISPLACED_XML_PI",
+    "XML_ERROR_UNKNOWN_ENCODING",
+    "XML_ERROR_INCORRECT_ENCODING",
+    "XML_ERROR_UNCLOSED_CDATA_SECTION",
+    "XML_ERROR_EXTERNAL_ENTITY_HANDLING",
+    "XML_ERROR_NOT_STANDALONE",
+    "XML_ERROR_UNEXPECTED_STATE",
+    "XML_ERROR_ENTITY_DECLARED_IN_PE",
+    "XML_ERROR_FEATURE_REQUIRES_XML_DTD",
+    "XML_ERROR_CANT_CHANGE_FEATURE_ONCE_PARSING",
+    # Added in Expat 1.95.7.
+    "XML_ERROR_UNBOUND_PREFIX",
+    # Added in Expat 1.95.8.
+    "XML_ERROR_UNDECLARING_PREFIX",
+    "XML_ERROR_INCOMPLETE_PE",
+    "XML_ERROR_XML_DECL",
+    "XML_ERROR_TEXT_DECL",
+    "XML_ERROR_PUBLICID",
+    "XML_ERROR_SUSPENDED",
+    "XML_ERROR_NOT_SUSPENDED",
+    "XML_ERROR_ABORTED",
+    "XML_ERROR_FINISHED",
+    "XML_ERROR_SUSPEND_PE",
+    ]
+
 class CConfigure:
     _compilation_info_ = eci
     XML_Content = rffi_platform.Struct('XML_Content', [
@@ -55,6 +97,9 @@ class CConfigure:
     XML_MICRO_VERSION = rffi_platform.ConstantInteger('XML_MICRO_VERSION')
     XML_FALSE = rffi_platform.ConstantInteger('XML_FALSE')
     XML_TRUE = rffi_platform.ConstantInteger('XML_TRUE')
+
+    for name in xml_error_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
 
 for k, v in rffi_platform.configure(CConfigure).items():
     globals()[k] = v
@@ -298,7 +343,8 @@ if XML_COMBINED_VERSION >= 19505:
 XML_GetErrorCode = expat_external(
     'XML_GetErrorCode', [XML_Parser], rffi.INT)
 XML_ErrorString = expat_external(
-    'XML_ErrorString', [rffi.INT], rffi.CCHARP)
+    'XML_ErrorString', [rffi.INT],
+    rffi.CCHARP)
 XML_GetCurrentLineNumber = expat_external(
     'XML_GetCurrentLineNumber', [XML_Parser], rffi.INT)
 XML_GetErrorLineNumber = XML_GetCurrentLineNumber
@@ -691,7 +737,7 @@ Return a new XML parser object."""
     elif space.is_true(space.isinstance(w_encoding, space.w_str)):
         encoding = space.str_w(w_encoding)
     else:
-        type_name = space.type(w_encoding).getname(space, '?')
+        type_name = space.type(w_encoding).getname(space)
         raise OperationError(
             space.w_TypeError,
             space.wrap('ParserCreate() argument 1 must be string or None,'
@@ -711,7 +757,7 @@ Return a new XML parser object."""
                 space.wrap('namespace_separator must be at most one character,'
                            ' omitted, or None'))
     else:
-        type_name = space.type(w_namespace_separator).getname(space, '?')
+        type_name = space.type(w_namespace_separator).getname(space)
         raise OperationError(
             space.w_TypeError,
             space.wrap('ParserCreate() argument 2 must be string or None,'

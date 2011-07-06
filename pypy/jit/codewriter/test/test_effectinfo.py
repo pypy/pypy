@@ -3,7 +3,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze,\
     EffectInfo
-from pypy.translator.backendopt.writeanalyze import top_set
 
 class FakeCPU:
     def fielddescrof(self, T, fieldname):
@@ -106,19 +105,3 @@ def test_filter_out_instance_with_void():
     assert not effectinfo.readonly_descrs_fields
     assert not effectinfo.write_descrs_fields
     assert not effectinfo.write_descrs_arrays
-
-def test_no_effectinfo():
-    effectinfo = effectinfo_from_writeanalyze(top_set, None,
-                                              EffectInfo.EF_CANNOT_RAISE)
-    assert effectinfo.readonly_descrs_fields is None
-    assert effectinfo.write_descrs_fields is None
-    assert effectinfo.write_descrs_arrays is None
-    assert effectinfo.extraeffect == EffectInfo.EF_CANNOT_RAISE
-    #
-    effectinfo2 = effectinfo_from_writeanalyze(top_set, None,
-                                               EffectInfo.EF_CANNOT_RAISE)
-    assert effectinfo2 is effectinfo
-    #
-    effectinfo3 = effectinfo_from_writeanalyze(top_set, None,
-                                               EffectInfo.EF_PURE)
-    assert effectinfo3.extraeffect == EffectInfo.EF_PURE

@@ -4400,7 +4400,10 @@ order (MRO) for bases """
         self.assertTrue(l.__add__ != l.__mul__)
         self.assertTrue(l.__add__.__name__ == '__add__')
         self.assertTrue(l.__add__.__self__ is l)
-        self.assertTrue(l.__add__.__objclass__ is list)
+        if hasattr(l.__add__, '__objclass__'):   # CPython
+            self.assertTrue(l.__add__.__objclass__ is list)
+        else:                                    # PyPy
+            self.assertTrue(l.__add__.im_class is list)
         self.assertEqual(l.__add__.__doc__, list.__add__.__doc__)
         try:
             hash(l.__add__)

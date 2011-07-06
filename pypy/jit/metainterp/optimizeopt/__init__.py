@@ -3,7 +3,7 @@ from pypy.jit.metainterp.optimizeopt.rewrite import OptRewrite
 from pypy.jit.metainterp.optimizeopt.intbounds import OptIntBounds
 from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
-from pypy.jit.metainterp.optimizeopt.string import OptString
+from pypy.jit.metainterp.optimizeopt.vstring import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
 from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
@@ -21,15 +21,14 @@ ALL_OPTS = [('intbounds', OptIntBounds),
 unroll_all_opts = unrolling_iterable(ALL_OPTS)
 
 ALL_OPTS_DICT = dict.fromkeys([name for name, _ in ALL_OPTS])
-
+ALL_OPTS_LIST = [name for name, _ in ALL_OPTS]
 ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
-PARAMETERS['enable_opts'] = ALL_OPTS_NAMES
 
 def build_opt_chain(metainterp_sd, enable_opts,
                     inline_short_preamble=True, retraced=False):
     config = metainterp_sd.config
     optimizations = []
-    unroll = 'unroll' in enable_opts
+    unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
     for name, opt in unroll_all_opts:
         if name in enable_opts:
             if opt is not None:

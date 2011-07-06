@@ -1484,7 +1484,7 @@ def typeByValue(space, w_value, numElements):
     raise OperationError(
         moduledict.w_NotSupportedError,
         space.wrap("Variable_TypeByValue(): unhandled data type %s" %
-                   (space.type(w_value).getname(space, '?'),)))
+                   (space.type(w_value).getname(space),)))
 
 def newByInputTypeHandler(space, cursor, w_inputTypeHandler, w_value, numElements):
     w_var = space.call(w_inputTypeHandler,

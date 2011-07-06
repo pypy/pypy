@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.buffer import Buffer
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_singlefloat
-from pypy.rlib import jit, libffi
+from pypy.rlib import jit, libffi, clibffi
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array
@@ -12,7 +12,7 @@ from pypy.module._rawffi.array import W_Array
 from pypy.module.cppyy import helper, capi
 
 
-_converters = {}
+NULL = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
 
 def get_rawobject(space, w_obj):
     if not space.eq_w(w_obj, space.w_None):
@@ -26,7 +26,7 @@ def get_rawobject(space, w_obj):
 
 class TypeConverter(object):
     _immutable = True
-    libffitype = libffi.types.NULL
+    libffitype = NULL
 
     def __init__(self, space, array_size):
         pass
@@ -383,6 +383,7 @@ class InstanceConverter(InstancePtrConverter):
         pass
 
 
+_converters = {}
 def get_converter(space, name):
     from pypy.module.cppyy import interp_cppyy
     # The matching of the name to a converter should follow:

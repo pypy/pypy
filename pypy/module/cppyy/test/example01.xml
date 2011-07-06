@@ -1,0 +1,11 @@
+<lcgdict>
+
+  <class name="payload" />
+  <class name="example01" />
+
+  <function name="globalAddOneToInt" />
+
+  <namespace name="ns_example01" />
+  <function name="ns_example01::globalAddOneToInt" />
+
+</lcgdict>

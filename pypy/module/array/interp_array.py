@@ -1,18 +1,21 @@
 from __future__ import with_statement
 
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import ovfcheck
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
+from pypy.module._file.interp_file import W_File
+from pypy.objspace.std.model import W_Object
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.model import W_Object
-from pypy.module._file.interp_file import W_File
-from pypy.interpreter.buffer import RWBuffer
-from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rpython.lltypesystem import lltype, rffi
+
+
+memcpy = rffi.llexternal("memcpy", [rffi.VOIDP, rffi.VOIDP, rffi.SIZE_T], lltype.Void)
 
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
@@ -37,7 +40,7 @@ def w_array(space, w_cls, typecode, __args__):
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
-                    a.fromstring(w_initializer)
+                    a.fromstring(space.str_w(w_initializer))
                 elif space.type(w_initializer) is space.w_unicode:
                     a.fromsequence(w_initializer)
                 elif space.type(w_initializer) is space.w_list:
@@ -73,6 +76,7 @@ array_fromfile = SMM('fromfile', 3)
 
 array_buffer_info = SMM('buffer_info', 1)
 array_reduce = SMM('__reduce__', 1)
+array_copy = SMM('__copy__', 1)
 array_byteswap = SMM('byteswap', 1)
 
 
@@ -96,7 +100,7 @@ W_ArrayBase.typedef = StdTypeDef(
     itemsize = GetSetProperty(descr_itemsize),
     typecode = GetSetProperty(descr_typecode),
     __weakref__ = make_weakref_descr(W_ArrayBase),
-    )
+)
 W_ArrayBase.typedef.registermethods(globals())
 
 
@@ -157,8 +161,6 @@ class ArrayBuffer(RWBuffer):
 
     def setitem(self, index, char):
         self.data[index] = char
-
-
 
 
 def make_array(mytype):
@@ -268,12 +270,10 @@ def make_array(mytype):
                 raise
             self.setlen(oldlen + i)
 
-        def fromstring(self, w_s):
-            space = self.space
-            s = space.str_w(w_s)
+        def fromstring(self, s):
             if len(s) % self.itemsize != 0:
                 msg = 'string length not a multiple of item size'
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
             oldlen = self.len
             new = len(s) / mytype.bytes
             self.setlen(oldlen + new)
@@ -311,6 +311,14 @@ def make_array(mytype):
         def charbuf(self):
             return  rffi.cast(rffi.CCHARP, self.buffer)
 
+        def w_getitem(self, space, idx):
+            item = self.buffer[idx]
+            if mytype.typecode in 'bBhHil':
+                item = rffi.cast(lltype.Signed, item)
+            elif mytype.typecode == 'f':
+                item = float(item)
+            return space.wrap(item)
+
     # Basic get/set/append/extend methods
 
     def len__Array(space, self):
@@ -319,12 +327,7 @@ def make_array(mytype):
     def getitem__Array_ANY(space, self, w_idx):
         idx, stop, step = space.decode_index(w_idx, self.len)
         assert step == 0
-        item = self.buffer[idx]
-        if mytype.typecode in 'bBhHil':
-            item = rffi.cast(lltype.Signed, item)
-        elif mytype.typecode == 'f':
-            item = float(item)
-        return self.space.wrap(item)
+        return self.w_getitem(space, idx)
 
     def getitem__Array_Slice(space, self, w_slice):
         start, stop, step, size = space.decode_index4(w_slice, self.len)
@@ -387,7 +390,7 @@ def make_array(mytype):
     def array_count__Array_ANY(space, self, w_val):
         cnt = 0
         for i in range(self.len):
-            w_item = getitem__Array_ANY(space, self, space.wrap(i))
+            w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):
                 cnt += 1
         return space.wrap(cnt)
@@ -395,7 +398,7 @@ def make_array(mytype):
     def array_index__Array_ANY(space, self, w_val):
         cnt = 0
         for i in range(self.len):
-            w_item = getitem__Array_ANY(space, self, space.wrap(i))
+            w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):
                 return space.wrap(i)
         msg = 'array.index(x): x not in list'
@@ -413,7 +416,7 @@ def make_array(mytype):
         if i < 0 or i >= self.len:
             msg = 'pop index out of range'
             raise OperationError(space.w_IndexError, space.wrap(msg))
-        w_val = getitem__Array_ANY(space, self, space.wrap(i))
+        w_val = self.w_getitem(space, i)
         while i < self.len - 1:
             self.buffer[i] = self.buffer[i + 1]
             i += 1
@@ -515,14 +518,14 @@ def make_array(mytype):
     def array_tolist__Array(space, self):
         w_l = space.newlist([])
         for i in range(self.len):
-            w_l.append(getitem__Array_ANY(space, self, space.wrap(i)))
+            w_l.append(self.w_getitem(space, i))
         return w_l
 
     def array_fromlist__Array_List(space, self, w_lst):
         self.fromlist(w_lst)
 
     def array_fromstring__Array_ANY(space, self, w_s):
-        self.fromstring(w_s)
+        self.fromstring(space.str_w(w_s))
 
     def array_tostring__Array(space, self):
         cbuf = self.charbuf()
@@ -614,6 +617,16 @@ def make_array(mytype):
         except OperationError:
             dct = space.w_None
         return space.newtuple([space.type(self), space.newtuple(args), dct])
+
+    def array_copy__Array(space, self):
+        w_a = mytype.w_class(self.space)
+        w_a.setlen(self.len)
+        memcpy(
+            rffi.cast(rffi.VOIDP, w_a.buffer),
+            rffi.cast(rffi.VOIDP, self.buffer),
+            self.len * mytype.bytes
+        )
+        return w_a
 
     def array_byteswap__Array(space, self):
         if mytype.bytes not in [1, 2, 4, 8]:

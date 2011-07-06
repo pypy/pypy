@@ -1233,7 +1233,7 @@ class MIFrame(object):
             effect = effectinfo.extraeffect
             if effect == effectinfo.EF_CANNOT_RAISE:
                 return self.execute_varargs(rop.CALL, allboxes, descr, False)
-            elif effect == effectinfo.EF_PURE:
+            elif effect == effectinfo.EF_ELIDABLE:
                 return self.metainterp.record_result_of_call_pure(
                     self.execute_varargs(rop.CALL, allboxes, descr, False))
             elif effect == effectinfo.EF_LOOPINVARIANT:

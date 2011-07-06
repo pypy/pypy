@@ -40,7 +40,7 @@ class types(object):
         del cls._import
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def getkind(ffi_type):
         """Returns 'v' for void, 'f' for float, 'i' for signed integer,
         and 'u' for unsigned integer.
@@ -73,10 +73,8 @@ class types(object):
         elif types.is_struct(ffi_type): return 'S'
         raise KeyError
 
-    NULL = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
-
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def is_struct(ffi_type):
         return intmask(ffi_type.c_type) == intmask(FFI_TYPE_STRUCT)
 
@@ -226,7 +224,7 @@ class Func(AbstractFuncPtr):
 
     _immutable_fields_ = ['funcsym']
     argtypes = []
-    restype = types.NULL
+    restype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
     funcsym = lltype.nullptr(rffi.VOIDP.TO)
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,
@@ -255,11 +253,10 @@ class Func(AbstractFuncPtr):
         # the optimizer will fail to recognize the pattern and won't turn it
         # into a fast CALL.  Note that "arg = arg.next" is optimized away,
         # assuming that archain is completely virtual.
-        self = jit.hint(self, promote=True)
+        self = jit.promote(self)
         if argchain.numargs != len(self.argtypes):
             raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\
                 (argchain.numargs, len(self.argtypes))
-        self = jit.hint(self, promote=True)
         ll_args = self._prepare()
         i = 0
         arg = argchain.first

@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
+import math
 
 
 def dummy1(v):
@@ -30,6 +31,12 @@ class Signature(object):
         self.transitions[target] = new = Signature()
         return new
 
+def pos(v):
+    return v
+def neg(v):
+    return -v
+def absolute(v):
+    return abs(v)
 def add(v1, v2):
     return v1 + v2
 def sub(v1, v2):
@@ -38,6 +45,10 @@ def mul(v1, v2):
     return v1 * v2
 def div(v1, v2):
     return v1 / v2
+def pow(v1, v2):
+    return math.pow(v1, v2)
+def mod(v1, v2):
+    return math.fmod(v1, v2)
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -51,6 +62,22 @@ class BaseArray(Wrappable):
         for arr in self.invalidates:
             arr.force_if_needed()
         del self.invalidates[:]
+
+    def _unop_impl(function):
+        signature = Signature()
+        def impl(self, space):
+            new_sig = self.signature.transition(signature)
+            res = Call1(
+                function,
+                self,
+                new_sig)
+            self.invalidates.append(res)
+            return space.wrap(res)
+        return func_with_new_name(impl, "uniop_%s_impl" % function.__name__)
+
+    descr_pos = _unop_impl(pos)
+    descr_neg = _unop_impl(neg)
+    descr_abs = _unop_impl(absolute)
 
     def _binop_impl(function):
         signature = Signature()
@@ -80,6 +107,8 @@ class BaseArray(Wrappable):
     descr_sub = _binop_impl(sub)
     descr_mul = _binop_impl(mul)
     descr_div = _binop_impl(div)
+    descr_pow = _binop_impl(pow)
+    descr_mod = _binop_impl(mod)
 
     def get_concrete(self):
         raise NotImplementedError
@@ -351,10 +380,15 @@ BaseArray.typedef = TypeDef(
     __getitem__ = interp2app(BaseArray.descr_getitem),
     __setitem__ = interp2app(BaseArray.descr_setitem),
 
+    __pos__ = interp2app(BaseArray.descr_pos),
+    __neg__ = interp2app(BaseArray.descr_neg),
+    __abs__ = interp2app(BaseArray.descr_abs),
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
+    __pow__ = interp2app(BaseArray.descr_pow),
+    __mod__ = interp2app(BaseArray.descr_mod),
 
     mean = interp2app(BaseArray.descr_mean),
 )

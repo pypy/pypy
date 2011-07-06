@@ -40,6 +40,11 @@ def numpy_compile(bytecode, array_size):
         elif b == '/':
             right = stack.pop()
             stack.append(stack.pop().descr_div(space, right))
+        elif b == '%':
+            right = stack.pop()
+            stack.append(stack.pop().descr_mod(space, right))
+        elif b == '|':
+            stack.append(stack.pop().descr_abs(space))
         else:
             print "Unknown opcode: %s" % b
             raise BogusBytecode()

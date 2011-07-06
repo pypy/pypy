@@ -10,7 +10,7 @@ from pypy.annotation import policy as annpolicy
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.jit import JitDriver, dont_look_inside
-from pypy.rlib.jit import purefunction, unroll_safe
+from pypy.rlib.jit import elidable, unroll_safe
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
 from pypy.config.translationoption import DEFL_GC
@@ -561,7 +561,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
         self.run('compile_framework_external_exception_handling')
 
     def define_compile_framework_bug1(self):
-        @purefunction
+        @elidable
         def nonmoving():
             x = X(1)
             for i in range(7):

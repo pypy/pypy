@@ -9,7 +9,7 @@ class EffectInfo(object):
     _cache = {}
 
     # the 'extraeffect' field is one of the following values:
-    EF_PURE                            = 0 #pure function (and cannot raise)
+    EF_ELIDABLE                        = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
     EF_CAN_RAISE                       = 3 #normal function (can raise)
@@ -92,7 +92,7 @@ class EffectInfo(object):
         result.readonly_descrs_fields = readonly_descrs_fields
         result.readonly_descrs_arrays = readonly_descrs_arrays
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-           extraeffect == EffectInfo.EF_PURE:            
+           extraeffect == EffectInfo.EF_ELIDABLE:
             result.write_descrs_fields = []
             result.write_descrs_arrays = []
         else:
@@ -113,18 +113,13 @@ class EffectInfo(object):
     def has_random_effects(self):
         return self.oopspecindex == self.OS_LIBFFI_CALL
 
-
-def _frozenset_or_none(x):
-    if x is None: return None
-    return frozenset(x)
-
 def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
                                  can_invalidate=False):
     from pypy.translator.backendopt.writeanalyze import top_set
     if effects is top_set:
-        return EffectInfo(None, None, None, extraeffect)
+        return None
     readonly_descrs_fields = []
     readonly_descrs_arrays = []
     write_descrs_fields = []

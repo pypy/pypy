@@ -466,12 +466,11 @@ def hash__Frozenset(space, w_set):
     return space.wrap(hash)
 
 def set_pop__Set(space, w_left):
-    for w_key in w_left.setdata:
-        break
-    else:
+    try:
+        w_key, _ = w_left.setdata.popitem()
+    except KeyError:
         raise OperationError(space.w_KeyError,
                                 space.wrap('pop from an empty set'))
-    del w_left.setdata[w_key]
     return w_key
 
 def and__Set_Set(space, w_left, w_other):

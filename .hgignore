@@ -1,6 +1,7 @@
 syntax: glob
 *.py[co]
 *~
+.*.swp
 
 syntax: regexp
 ^testresult$
@@ -43,6 +44,8 @@ syntax: regexp
 ^pypy/translator/benchmark/shootout_benchmarks$
 ^pypy/translator/goal/pypy-translation-snapshot$
 ^pypy/translator/goal/pypy-c
+^pypy/translator/goal/pypy-jvm
+^pypy/translator/goal/pypy-jvm.jar
 ^pypy/translator/goal/.+\.exe$
 ^pypy/translator/goal/.+\.dll$
 ^pypy/translator/goal/target.+-c$

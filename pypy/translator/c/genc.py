@@ -559,15 +559,16 @@ class CStandaloneBuilder(CBuilder):
             mk.rule(*rule)
 
         if self.config.translation.gcrootfinder == 'asmgcc':
-            trackgcfiles = [cfile[:-2] for cfile in mk.cfiles
-                                       if cfile.endswith('.c')]
-            if 1:    # XXX do that more cleanly
+            trackgcfiles = [cfile[:-2] for cfile in mk.cfiles]
+            if self.translator.platform.name == 'msvc':
                 trackgcfiles = [f for f in trackgcfiles
                                 if f.startswith(('implement', 'testing',
                                                  '../module_cache/module'))]
             sfiles = ['%s.s' % (c,) for c in trackgcfiles]
+            lblsfiles = ['%s.lbl.s' % (c,) for c in trackgcfiles]
             gcmapfiles = ['%s.gcmap' % (c,) for c in trackgcfiles]
             mk.definition('ASMFILES', sfiles)
+            mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
             if sys.platform == 'win32':
                 mk.definition('DEBUGFLAGS', '/Zi')
@@ -585,32 +586,17 @@ class CStandaloneBuilder(CBuilder):
                 python = sys.executable + ' '
 
             if self.translator.platform.name == 'msvc':
-                o_ext = '.obj'
-                lbl_ext = '.lbl.obj'
-            else:
-                o_ext = '.o'
-                lbl_ext = '.lbl.s'
+                lblofiles = []
+                for cfile in mk.cfiles:
+                    f = cfile[:-2]
+                    if f in trackgcfiles:
+                        ofile = '%s.lbl.obj' % (f,)
+                    else:
+                        ofile = '%s.obj' % (f,)
 
-            objectfiles = []
-            nontrackgcexts = set()
-            for cfile in mk.cfiles:
-                f = cfile[:-2]
-                if f in trackgcfiles:
-                    ofile = f + lbl_ext
-                else:
-                    f, ext = os.path.splitext(cfile)
-                    nontrackgcexts.add(ext)
-                    ofile = f + o_ext
-                objectfiles.append(ofile)
-            if self.translator.platform.name == 'msvc':
-                objectfiles.append('gcmaptable.obj')
-            else:
-                objectfiles.append('gcmaptable.s')
-            mk.definition('OBJECTS', objectfiles)
-            nontrackgcexts = list(nontrackgcexts)
-            nontrackgcexts.sort()
-
-            if self.translator.platform.name == 'msvc':
+                    lblofiles.append(ofile)
+                mk.definition('ASMLBLOBJFILES', lblofiles)
+                mk.definition('OBJECTS', 'gcmaptable.obj $(ASMLBLOBJFILES)')
                 # /Oi (enable intrinsics) and /Ob1 (some inlining) are mandatory
                 # even in debug builds
                 mk.definition('ASM_CFLAGS', '$(CFLAGS) $(CFLAGSEXTRA) /Oi /Ob1')
@@ -623,13 +609,9 @@ class CStandaloneBuilder(CBuilder):
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
-                mk.rule('gcmaptable.c', '$(GCMAPFILES)',
-                        'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
-                for ext in nontrackgcexts:
-                    mk.rule(ext + '.obj', '',
-                            '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)')
 
             else:
+                mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
                 mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
                 mk.rule('%.lbl.s %.gcmap', '%.s',
                         [python +
@@ -642,9 +624,6 @@ class CStandaloneBuilder(CBuilder):
                              '$(GCMAPFILES) > $@.tmp',
                          'mv $@.tmp $@'])
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
-                for ext in nontrackgcexts:
-                    mk.rule('%.o', '%' + ext,
-                            '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)')
 
         else:
             if sys.platform == 'win32':

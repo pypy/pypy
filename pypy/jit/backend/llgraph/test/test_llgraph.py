@@ -32,21 +32,6 @@ def test_cast_adr_to_int_and_back():
     assert heaptracker.adr2int(llmemory.NULL) == 0
     assert heaptracker.int2adr(0) == llmemory.NULL
 
-def test_force_cast_ptr_to_other_ptr():
-    from pypy.jit.backend.llgraph import llimpl
-    from pypy.rpython.lltypesystem import rffi, llmemory
-    x = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
-    x[0] = 0.1
-    args = lltype.malloc(rffi.CArray(rffi.VOIDP), 1, flavor='raw', zero=True)
-    assert not args[0]
-    arrayasint = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(args), mode="symbolic")
-    ptrasint = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(x), mode="symbolic")
-    llimpl.do_setarrayitem_raw_int(arrayasint, 0, ptrasint)
-    assert args[0]
-    lltype.free(x, flavor='raw')
-    lltype.free(args, flavor='raw')
-
-
 ## these tests never worked
 ## class TestOOTypeLLGraph(LLGraphTest):
 ##     from pypy.jit.backend.llgraph.runner import OOtypeCPU as cpu_type
