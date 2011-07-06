@@ -11,6 +11,10 @@ nonsense, isn't it?  `more...`_
 Getting into PyPy ... 
 =============================================
 
+* `Getting started`_: how to install and run the PyPy Python interpreter
+
+* `FAQ`_: some frequently asked questions.
+
 * `Release 1.5`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
@@ -25,13 +29,6 @@ Getting into PyPy ...
 
 Documentation for the PyPy Python Interpreter
 ===============================================
-
-`getting started`_ provides hands-on instructions 
-including a two-liner to run the PyPy Python interpreter 
-on your system, examples on advanced features and 
-entry points for using the `RPython toolchain`_.
-
-`FAQ`_ contains some frequently asked questions.
 
 New features of PyPy's Python Interpreter and 
 Translation Framework: 
