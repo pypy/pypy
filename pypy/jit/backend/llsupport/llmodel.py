@@ -305,14 +305,14 @@ class AbstractLLCPU(AbstractCPU):
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
         fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
-        ofs = itemindex * size + ofs
+        fullofs = itemindex * size + ofs
         # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), fullofs)
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
             if fieldsize == itemsize:
                 # XXX signedness
-                items = rffi.cast(rffi.CArrayPtr(STYPE), items)
-                val = items[0]
+                item = rffi.cast(rffi.CArrayPtr(STYPE), items)
+                val = item[0]
                 val = rffi.cast(lltype.Signed, val)
                 # --- end of GC unsafe code ---
                 return val

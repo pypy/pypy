@@ -892,9 +892,9 @@ class BaseBackendTest(Runner):
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
                                                          BoxInt(15)],
                                'void', descr=vdescr)
-        i = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 3, kdescr)
+        i = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 3, vdescr)
         assert i == 15
-        self.cpu.bh_setinteriorfield_gc_i(a_box.getref_base(), 3, kdescr, 25)
+        self.cpu.bh_setinteriorfield_gc_i(a_box.getref_base(), 3, vdescr, 25)
         r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
                                    'int', descr=vdescr)
         assert r.getint() == 25
