@@ -275,9 +275,6 @@ class BinaryOp(object):
         assert len(args) == 2
         self._arg0, self._arg1 = args
 
-    def getarglist(self):
-        return [self._arg0, self._arg1, self._arg2]
-
     def numargs(self):
         return 2
 
