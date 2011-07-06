@@ -611,8 +611,8 @@ objargs_mktuple(va_list va)
 	if (result != NULL && n > 0) {
 		for (i = 0; i < n; ++i) {
 			tmp = (PyObject *)va_arg(va, PyObject *);
-			PyTuple_SET_ITEM(result, i, tmp);
 			Py_INCREF(tmp);
+			PyTuple_SET_ITEM(result, i, tmp);
 		}
 	}
 	return result;

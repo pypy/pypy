@@ -58,13 +58,23 @@ class ExecutionContext(object):
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
-    def leave(self, frame, w_exitvalue):
+    def leave(self, frame, w_exitvalue, got_exception):
         try:
             if self.profilefunc:
                 self._trace(frame, 'leaveframe', w_exitvalue)
         finally:
+            frame_vref = self.topframeref
             self.topframeref = frame.f_backref
-            jit.virtual_ref_finish(frame)
+            if frame.escaped or got_exception:
+                # if this frame escaped to applevel, we must ensure that also
+                # f_back does
+                f_back = frame.f_backref()
+                if f_back:
+                    f_back.mark_as_escaped()
+                # force the frame (from the JIT point of view), so that it can
+                # be accessed also later
+                frame_vref()
+            jit.virtual_ref_finish(frame_vref, frame)
 
         if self.w_tracefunc is not None and not frame.hide():
             self.space.frame_trace_action.fire()
@@ -102,18 +112,16 @@ class ExecutionContext(object):
 
         # the following interface is for pickling and unpickling
         def getstate(self, space):
-            # XXX we could just save the top frame, which brings
-            # the whole frame stack, but right now we get the whole stack
-            items = [space.wrap(f) for f in self.getframestack()]
-            return space.newtuple(items)
+            if self.topframe is None:
+                return space.w_None
+            return self.topframe
 
         def setstate(self, space, w_state):
             from pypy.interpreter.pyframe import PyFrame
-            frames_w = space.unpackiterable(w_state)
-            if len(frames_w) > 0:
-                self.topframe = space.interp_w(PyFrame, frames_w[-1])
-            else:
+            if space.is_w(w_state, space.w_None):
                 self.topframe = None
+            else:
+                self.topframe = space.interp_w(PyFrame, w_state)
 
         def getframestack(self):
             lst = []
@@ -278,7 +286,7 @@ class ExecutionContext(object):
             if operr is not None:
                 w_value = operr.get_w_value(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
-                                     space.wrap(operr.application_traceback)])
+                                     space.wrap(operr.get_traceback())])
 
             frame.fast2locals()
             self.is_tracing += 1

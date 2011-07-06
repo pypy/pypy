@@ -50,6 +50,7 @@ class VRefRepr(Repr):
 
     def rtype_simple_call(self, hop):
         [v] = hop.inputargs(self)
+        hop.exception_is_here()
         v = hop.genop('jit_force_virtual', [v], resulttype = OBJECTPTR)
         return hop.genop('cast_pointer', [v], resulttype = hop.r_result)
 
@@ -65,6 +66,7 @@ class OOVRefRepr(VRefRepr):
     lowleveltype = OBJECT
     def rtype_simple_call(self, hop):
         [v] = hop.inputargs(self)
+        hop.exception_is_here()
         v = hop.genop('jit_force_virtual', [v], resulttype = OBJECT)
         return hop.genop('oodowncast', [v], resulttype = hop.r_result)
     

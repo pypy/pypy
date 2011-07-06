@@ -15,16 +15,23 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, **kwds):
     from pypy.jit.codewriter import support
 
-    class FakeJitCell:
+    class FakeJitCell(object):
         __compiled_merge_points = []
         def get_compiled_merge_points(self):
             return self.__compiled_merge_points[:]
         def set_compiled_merge_points(self, lst):
             self.__compiled_merge_points = lst
 
-    class FakeWarmRunnerState:
+    class FakeWarmRunnerState(object):
         def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
             pass
+
+        def helper_func(self, FUNCPTR, func):
+            from pypy.rpython.annlowlevel import llhelper
+            return llhelper(FUNCPTR, func)
+
+        def get_location_str(self, args):
+            return 'location'
 
         def jit_cell_at_key(self, greenkey):
             assert greenkey == []
@@ -37,6 +44,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     func._jit_unroll_safe_ = True
     rtyper = support.annotate(func, values, type_system=type_system)
     graphs = rtyper.annotator.translator.graphs
+    testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]
 
     class FakeJitDriverSD:
@@ -46,6 +54,8 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         greenfield_info = None
         result_type = result_kind
         portal_runner_ptr = "???"
+        on_compile = lambda *args: None
+        on_compile_bridge = lambda *args: None
 
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, None, False)

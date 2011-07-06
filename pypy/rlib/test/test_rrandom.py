@@ -3,6 +3,12 @@ import _random
 
 # the numbers were created by using CPython's _randommodule.c
 
+def test_init_from_zero():
+    rnd = Random(0)
+    assert rnd.state[:14] == [0, 1, 1812433255, 1900727105, 1208447044,
+            2481403966, 4042607538, 337614300, 3232553940,
+            1018809052, 3202401494, 1775180719, 3192392114, 594215549]
+
 def test_init_from_seed():
     rnd = Random(1000)
     assert rnd.state[:14] == [1000, 4252021385, 1724402292, 571538732,

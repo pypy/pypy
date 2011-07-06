@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.resoperation import opboolinvers, opboolreflex
 from pypy.jit.metainterp.history import ConstInt
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
@@ -21,18 +21,13 @@ class OptRewrite(Optimization):
         if self.find_rewritable_bool(op, args):
             return
 
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
+        dispatch_opt(self, op)
 
     def test_emittable(self, op):
         opnum = op.getopnum()
-        for value, func in optimize_guards:
+        for value, cls, func in optimize_guards:
             if opnum == value:
+                assert isinstance(op, cls)
                 try:
                     func(self, op, dryrun=True)
                     return self.is_emittable(op)
@@ -184,6 +179,32 @@ class OptRewrite(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_FLOAT_MUL(self, op):
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+
+        # Constant fold f0 * 1.0 and turn f0 * -1.0 into a FLOAT_NEG, these
+        # work in all cases, including NaN and inf
+        for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
+            v1 = self.getvalue(lhs)
+            v2 = self.getvalue(rhs)
+
+            if v1.is_constant():
+                if v1.box.getfloat() == 1.0:
+                    self.make_equal_to(op.result, v2)
+                    return
+                elif v1.box.getfloat() == -1.0:
+                    self.emit_operation(ResOperation(
+                        rop.FLOAT_NEG, [rhs], op.result
+                    ))
+                    return
+        self.emit_operation(op)
+
+    def optimize_FLOAT_NEG(self, op):
+        v1 = op.getarg(0)
+        self.emit_operation(op)
+        self.pure(rop.FLOAT_NEG, [op.result], v1)
+
     def optimize_CALL_PURE(self, op):
         arg_consts = []
         for i in range(op.numargs()):
@@ -193,7 +214,7 @@ class OptRewrite(Optimization):
                 break
             arg_consts.append(const)
         else:
-            # all constant arguments: check if we already know the reslut
+            # all constant arguments: check if we already know the result
             try:
                 result = self.optimizer.call_pure_results[arg_consts]
             except KeyError:
@@ -415,14 +436,22 @@ class OptRewrite(Optimization):
         dest_start_box = self.get_constant_box(op.getarg(4))
         length = self.get_constant_box(op.getarg(5))
         if (source_value.is_virtual() and source_start_box and dest_start_box
-            and length and dest_value.is_virtual()):
-            # XXX optimize the case where dest value is not virtual,
-            #     but we still can avoid a mess
+            and length and (dest_value.is_virtual() or length.getint() <= 8)):
+            from pypy.jit.metainterp.optimizeopt.virtualize import VArrayValue
+            assert isinstance(source_value, VArrayValue)
             source_start = source_start_box.getint()
             dest_start = dest_start_box.getint()
             for index in range(length.getint()):
                 val = source_value.getitem(index + source_start)
-                dest_value.setitem(index + dest_start, val)
+                if dest_value.is_virtual():
+                    dest_value.setitem(index + dest_start, val)
+                else:
+                    newop = ResOperation(rop.SETARRAYITEM_GC,
+                                         [op.getarg(2),
+                                          ConstInt(index + dest_start),
+                                          val.force_box()], None,
+                                         descr=source_value.arraydescr)
+                    self.emit_operation(newop)
             return True
         if length and length.getint() == 0:
             return True # 0-length arraycopy
@@ -432,6 +461,9 @@ class OptRewrite(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
 
+        if v2.is_constant() and v2.box.getint() == 1:
+            self.make_equal_to(op.result, v1)
+            return
         if v1.intbound.known_ge(IntBound(0, 0)) and v2.is_constant():
             val = v2.box.getint()
             if val & (val - 1) == 0 and val > 0: # val == 2**shift
@@ -440,5 +472,6 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
 
-optimize_ops = _findall(OptRewrite, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
+        default=OptRewrite.emit_operation)
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')

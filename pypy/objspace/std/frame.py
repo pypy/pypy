@@ -6,7 +6,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter import pyopcode, function
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
+from pypy.module.__builtin__ import Module
 from pypy.objspace.std import intobject, smallintobject
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
@@ -66,41 +66,6 @@ def list_BINARY_SUBSCR(f, oparg, next_instr):
         w_result = f.space.getitem(w_1, w_2)
     f.pushvalue(w_result)
 
-def CALL_LIKELY_BUILTIN(f, oparg, next_instr):
-    w_globals = f.w_globals
-    num = oparg >> 8
-    assert isinstance(w_globals, W_DictMultiObject)
-    w_value = w_globals.get_builtin_indexed(num)
-    if w_value is None:
-        builtins = f.get_builtin()
-        assert isinstance(builtins, Module)
-        w_builtin_dict = builtins.getdict(f.space)
-        assert isinstance(w_builtin_dict, W_DictMultiObject)
-        w_value = w_builtin_dict.get_builtin_indexed(num)
-    if w_value is None:
-        varname = OPTIMIZED_BUILTINS[num]
-        message = "global name '%s' is not defined"
-        raise operationerrfmt(f.space.w_NameError,
-                              message, varname)
-    nargs = oparg & 0xff
-    w_function = w_value
-    try:
-        w_result = call_likely_builtin(f, w_function, nargs)
-    finally:
-        f.dropvalues(nargs)
-    f.pushvalue(w_result)
-
-def call_likely_builtin(f, w_function, nargs):
-    if isinstance(w_function, function.Function):
-        executioncontext = f.space.getexecutioncontext()
-        executioncontext.c_call_trace(f, w_function)
-        res = w_function.funccall_valuestack(nargs, f)
-        executioncontext.c_return_trace(f, w_function)
-        return res
-    args = f.make_arguments(nargs)
-    return f.space.call_args(w_function, args)
-
-
 compare_table = [
     "lt",   # "<"
     "le",   # "<="
@@ -145,8 +110,6 @@ def build_frame(space):
             StdObjSpaceFrame.BINARY_ADD = int_BINARY_ADD
     if space.config.objspace.std.optimized_list_getitem:
         StdObjSpaceFrame.BINARY_SUBSCR = list_BINARY_SUBSCR
-    if space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
-        StdObjSpaceFrame.CALL_LIKELY_BUILTIN = CALL_LIKELY_BUILTIN
     if space.config.objspace.opcodes.CALL_METHOD:
         from pypy.objspace.std.callmethod import LOOKUP_METHOD, CALL_METHOD
         StdObjSpaceFrame.LOOKUP_METHOD = LOOKUP_METHOD

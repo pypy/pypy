@@ -1,7 +1,7 @@
 import sys, weakref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import hlstr, llstr, cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import hlstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
 from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
 from pypy.rlib.rarithmetic import intmask
@@ -208,14 +208,19 @@ class WarmEnterState(object):
             meth = getattr(self, 'set_param_' + name)
             meth(default_value)
 
-    def set_param_threshold(self, threshold):
+    def _compute_threshold(self, threshold):
         if threshold <= 0:
-            self.increment_threshold = 0   # never reach the THRESHOLD_LIMIT
-            return
+            return 0 # never reach the THRESHOLD_LIMIT
         if threshold < 2:
             threshold = 2
-        self.increment_threshold = (self.THRESHOLD_LIMIT // threshold) + 1
+        return (self.THRESHOLD_LIMIT // threshold) + 1
         # the number is at least 1, and at most about half THRESHOLD_LIMIT
+
+    def set_param_threshold(self, threshold):
+        self.increment_threshold = self._compute_threshold(threshold)
+
+    def set_param_function_threshold(self, threshold):
+        self.increment_function_threshold = self._compute_threshold(threshold)
 
     def set_param_trace_eagerness(self, value):
         self.trace_eagerness = value
@@ -232,7 +237,7 @@ class WarmEnterState(object):
         d = {}
         if NonConstant(False):
             value = 'blah' # not a constant ''
-        if value is None:
+        if value is None or value == 'all':
             value = ALL_OPTS_NAMES
         for name in value.split(":"):
             if name:
@@ -291,7 +296,7 @@ class WarmEnterState(object):
         self.make_jitdriver_callbacks()
         confirm_enter_jit = self.confirm_enter_jit
 
-        def maybe_compile_and_run(*args):
+        def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
@@ -307,7 +312,7 @@ class WarmEnterState(object):
 
             if cell.counter >= 0:
                 # update the profiling counter
-                n = cell.counter + self.increment_threshold
+                n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
@@ -497,7 +502,6 @@ class WarmEnterState(object):
         if hasattr(self, 'set_future_values'):
             return self.set_future_values
 
-        warmrunnerdesc = self.warmrunnerdesc
         jitdriver_sd   = self.jitdriver_sd
         cpu = self.cpu
         vinfo = jitdriver_sd.virtualizable_info
@@ -513,7 +517,6 @@ class WarmEnterState(object):
         #
         if vinfo is not None:
             i0 = len(jitdriver_sd._red_args_types)
-            num_green_args = jitdriver_sd.num_green_args
             index_of_virtualizable = jitdriver_sd.index_of_virtualizable
             vable_static_fields = unrolling_iterable(
                 zip(vinfo.static_extra_types, vinfo.static_fields))
@@ -566,6 +569,19 @@ class WarmEnterState(object):
             return can_inline_greenargs(*greenargs)
         self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
+        if hasattr(jd.jitdriver, 'on_compile'):
+            def on_compile(logger, token, operations, type, greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                return jd.jitdriver.on_compile(logger, token, operations, type,
+                                               *greenargs)
+            def on_compile_bridge(logger, orig_token, operations, n):
+                return jd.jitdriver.on_compile_bridge(logger, orig_token,
+                                                      operations, n)
+            jd.on_compile = on_compile
+            jd.on_compile_bridge = on_compile_bridge
+        else:
+            jd.on_compile = lambda *args: None
+            jd.on_compile_bridge = lambda *args: None
 
         def get_assembler_token(greenkey, redboxes):
             # 'redboxes' is only used to know the types of red arguments
@@ -586,12 +602,8 @@ class WarmEnterState(object):
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
             missing = '(no jitdriver.get_printable_location!)'
-            missingll = llstr(missing)
             def get_location_str(greenkey):
-                if we_are_translated():
-                    return missingll
-                else:
-                    return missing
+                return missing
         else:
             rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
@@ -599,10 +611,10 @@ class WarmEnterState(object):
             def get_location_str(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
-                res = fn(*greenargs)
-                if not we_are_translated() and not isinstance(res, str):
-                    res = hlstr(res)
-                return res
+                llres = fn(*greenargs)
+                if not we_are_translated() and isinstance(llres, str):
+                    return llres
+                return hlstr(llres)
         self.get_location_str = get_location_str
         #
         confirm_enter_jit_ptr = self.jitdriver_sd._confirm_enter_jit_ptr

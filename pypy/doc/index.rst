@@ -11,6 +11,10 @@ nonsense, isn't it?  `more...`_
 Getting into PyPy ... 
 =============================================
 
+* `Getting started`_: how to install and run the PyPy Python interpreter
+
+* `FAQ`_: some frequently asked questions.
+
 * `Release 1.5`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
@@ -21,15 +25,10 @@ Getting into PyPy ...
 
 * `speed.pypy.org`_: Daily benchmarks of how fast PyPy is
 
+* `potential project ideas`_: In case you want to get your feet wet...
+
 Documentation for the PyPy Python Interpreter
 ===============================================
-
-`getting started`_ provides hands-on instructions 
-including a two-liner to run the PyPy Python interpreter 
-on your system, examples on advanced features and 
-entry points for using the `RPython toolchain`_.
-
-`FAQ`_ contains some frequently asked questions.
 
 New features of PyPy's Python Interpreter and 
 Translation Framework: 
@@ -59,8 +58,6 @@ Mailing lists, bug tracker, IRC channel
   (if they are not already developed in the FAQ_).
   You can find logs of the channel here_.
 
-.. XXX play1? 
-
 Meeting PyPy developers
 =======================
 
@@ -83,7 +80,7 @@ on the `development mailing list`_.
 .. _`Release 1.5`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
-
+.. _`potential project ideas`: project-ideas.html
 
 Project Documentation
 =====================================

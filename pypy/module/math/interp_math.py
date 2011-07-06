@@ -373,22 +373,6 @@ def fsum(space, w_iterable):
                 hi = v
     return space.wrap(hi)
 
-def factorial(space, w_x):
-    """Find x!."""
-    if space.isinstance_w(w_x, space.w_float):
-        fl = space.float_w(w_x)
-        if math.floor(fl) != fl:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("float arguments must be integral"))
-        w_x = space.long(w_x)
-    x = space.int_w(w_x)
-    if x < 0:
-        raise OperationError(space.w_ValueError, space.wrap("x must be >= 0"))
-    w_res = space.wrap(1)
-    for i in range(1, x + 1):
-        w_res = space.mul(w_res, space.wrap(i))
-    return w_res
-
 def log1p(space, w_x):
     """Find log(x + 1)."""
     return math1(space, rfloat.log1p, w_x)

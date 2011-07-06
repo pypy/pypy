@@ -35,8 +35,8 @@ class JitPolicy(object):
     def _reject_function(self, func):
         if hasattr(func, '_jit_look_inside_'):
             return not func._jit_look_inside_
-        # explicitly pure functions are always opaque
-        if getattr(func, '_pure_function_', False):
+        # explicitly elidable functions are always opaque
+        if getattr(func, '_elidable_function_', False):
             return True
         # pypy.rpython.module.* are opaque helpers
         mod = func.__module__ or '?'
@@ -44,10 +44,6 @@ class JitPolicy(object):
             return True
         if mod.startswith('pypy.translator.'): # XXX wtf?
             return True
-        # string builder interface
-        if mod == 'pypy.rpython.lltypesystem.rbuilder':
-            return True
-        
         return False
 
     def look_inside_graph(self, graph):
@@ -63,12 +59,27 @@ class JitPolicy(object):
             contains_loop = contains_loop and not getattr(
                     func, '_jit_unroll_safe_', False)
 
-        res = see_function and not contains_unsupported_variable_type(graph,
-                                                        self.supports_floats,
-                                                        self.supports_longlong)
+        unsupported = contains_unsupported_variable_type(graph,
+                                                         self.supports_floats,
+                                                         self.supports_longlong)
+        res = see_function and not unsupported
         if res and contains_loop:
             self.unsafe_loopy_graphs.add(graph)
-        return res and not contains_loop
+        res = res and not contains_loop
+        if (see_function and not res and
+            getattr(graph, "access_directly", False)):
+            # This happens when we have a function which has an argument with
+            # the access_directly flag, and the annotator has determined we will
+            # see the function. (See
+            # pypy/annotation/specialize.py:default_specialize) However,
+            # look_inside_graph just decided that we will not see it. (It has a
+            # loop or unsupported variables.) If we return False, the call will
+            # be turned into a residual call, but the graph is access_directly!
+            # If such a function is called and accesses a virtualizable, the JIT
+            # will not notice, and the virtualizable will fall out of sync. So,
+            # we fail loudly now.
+            raise ValueError("access_directly on a function which we don't see %s" % graph)
+        return res
 
 def contains_unsupported_variable_type(graph, supports_floats,
                                        supports_longlong):

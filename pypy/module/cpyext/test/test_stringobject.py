@@ -283,3 +283,7 @@ class TestString(BaseApiTest):
         self.raises(space, api, TypeError, api.PyString_AsEncodedObject,
             space.wrap(2), lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO)
         )
+
+    def test_eq(self, space, api):
+        assert 1 == api._PyString_Eq(space.wrap("hello"), space.wrap("hello"))
+        assert 0 == api._PyString_Eq(space.wrap("hello"), space.wrap("world"))

@@ -371,7 +371,7 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
             raise operationerrfmt(
                 space.w_TypeError,
                 "sequence item %d: expected string, %s "
-                "found", i, space.type(w_s).getname(space, '?'))
+                "found", i, space.type(w_s).getname(space))
 
         if data and i != 0:
             newdata.extend(data)

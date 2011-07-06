@@ -79,3 +79,10 @@ def _PyTuple_Resize(space, ref, newsize):
     Py_DecRef(space, ref[0])
     ref[0] = make_ref(space, py_newtuple)
     return 0
+
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
+def PyTuple_GetSlice(space, w_obj, low, high):
+    """Take a slice of the tuple pointed to by p from low to high and return it
+    as a new tuple.
+    """
+    return space.getslice(w_obj, space.wrap(low), space.wrap(high))

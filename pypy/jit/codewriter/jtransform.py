@@ -209,7 +209,6 @@ class Transformer(object):
     def rewrite_op_cast_int_to_unichar(self, op): pass
     def rewrite_op_cast_int_to_uint(self, op): pass
     def rewrite_op_cast_uint_to_int(self, op): pass
-    def rewrite_op_resume_point(self, op): pass
 
     def _rewrite_symmetric(self, op):
         """Rewrite 'c1+v2' into 'v2+c1' in an attempt to avoid generating
@@ -769,10 +768,10 @@ class Transformer(object):
         from pypy.rpython.lltypesystem.rffi import size_and_sign, sizeof
         from pypy.rlib.rarithmetic import intmask
         assert not self._is_gc(op.args[0])
-        size1, unsigned1 = size_and_sign(op.args[0].concretetype)
         size2, unsigned2 = size_and_sign(op.result.concretetype)
         if size2 >= sizeof(lltype.Signed):
             return     # the target type is LONG or ULONG
+        size1, unsigned1 = size_and_sign(op.args[0].concretetype)
         #
         def bounds(size, unsigned):
             if unsigned:
@@ -848,7 +847,7 @@ class Transformer(object):
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
-                                                EffectInfo.EF_PURE)
+                                                EffectInfo.EF_ELIDABLE)
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
@@ -1329,13 +1328,13 @@ class Transformer(object):
                     otherindex += EffectInfo._OS_offset_uni
                 self._register_extra_helper(otherindex, othername,
                                             argtypes, resulttype,
-                                            EffectInfo.EF_PURE)
+                                            EffectInfo.EF_ELIDABLE)
         #
         return self._handle_oopspec_call(op, args, dict[oopspec_name],
-                                         EffectInfo.EF_PURE)
+                                         EffectInfo.EF_ELIDABLE)
 
     def _handle_str2unicode_call(self, op, oopspec_name, args):
-        # ll_str2unicode is not EF_PURE, because it can raise
+        # ll_str2unicode is not EF_ELIDABLE, because it can raise
         # UnicodeDecodeError...
         return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE)
 
@@ -1381,7 +1380,7 @@ class Transformer(object):
     
     def _handle_math_sqrt_call(self, op, oopspec_name, args):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
-                                         EffectInfo.EF_PURE)
+                                         EffectInfo.EF_ELIDABLE)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):
         v_inst, c_fieldname = op.args
