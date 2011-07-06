@@ -106,7 +106,7 @@ class TestExecutionContext:
             if isinstance(seen[0], Method):
                 found = 'method %s of %s' % (
                     seen[0].w_function.name,
-                    seen[0].w_class.getname(space, '?'))
+                    seen[0].w_class.getname(space))
             else:
                 assert isinstance(seen[0], Function)
                 found = 'builtin %s' % seen[0].name
@@ -232,31 +232,6 @@ class TestExecutionContext:
         assert [i[0] for i in events] == ['c_call', 'c_return', 'return', 'c_call']
         assert events[0][1] == events[1][1]
 
-    def test_tracing_range_builtinshortcut(self):
-        opts = {"objspace.opcodes.CALL_LIKELY_BUILTIN": True}
-        space = gettestobjspace(**opts)
-        source = """def f(profile):
-        import sys
-        sys.setprofile(profile)
-        range(10)
-        sys.setprofile(None)
-        """
-        w_events = space.appexec([space.wrap(source)], """(source):
-        import sys
-        l = []
-        def profile(frame, event, arg):
-            l.append((event, arg))
-        d = {}
-        exec source in d
-        f = d['f']
-        f(profile)
-        import dis
-        print dis.dis(f)
-        return l
-        """)
-        events = space.unwrap(w_events)
-        assert [i[0] for i in events] == ['c_call', 'c_return', 'c_call']
-
     def test_profile_and_exception(self):
         space = self.space
         w_res = space.appexec([], """():
@@ -279,9 +254,6 @@ class TestExecutionContext:
             sys.setprofile(None)
         """)
 
-
-class TestExecutionContextWithCallLikelyBuiltin(TestExecutionContext):
-    keywords = {'objspace.opcodes.CALL_LIKELY_BUILTIN': True}
 
 class TestExecutionContextWithCallMethod(TestExecutionContext):
     keywords = {'objspace.opcodes.CALL_METHOD': True}

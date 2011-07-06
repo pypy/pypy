@@ -51,7 +51,7 @@ Installing PyPy
 ---------------
 
 PyPy is ready to be executed as soon as you unpack the tarball or the zip
-file, with no need install it in any specific location::
+file, with no need to install it in any specific location::
 
     $ tar xf pypy-1.5-linux.tar.bz2
 

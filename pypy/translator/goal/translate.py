@@ -103,6 +103,8 @@ def load_target(targetspec):
     specname = os.path.splitext(os.path.basename(targetspec))[0]
     sys.path.insert(0, os.path.dirname(targetspec))
     mod = __import__(specname)
+    if 'target' not in mod.__dict__:
+        raise Exception("file %r is not a valid targetxxx.py." % (targetspec,))
     return mod.__dict__
 
 def parse_options_and_load_target():
@@ -149,6 +151,9 @@ def parse_options_and_load_target():
             log.ERROR("Could not find target %r" % (arg, ))
             sys.exit(1)
 
+    # apply the platform settings
+    set_platform(config)
+
     targetspec = translateconfig.targetspec
     targetspec_dic = load_target(targetspec)
 
@@ -163,9 +168,6 @@ def parse_options_and_load_target():
                 optiondescr,
                 existing_config=config,
                 translating=True)
-
-    # apply the platform settings
-    set_platform(config)
 
     # apply the optimization level settings
     set_opt_level(config, translateconfig.opt)
@@ -184,7 +186,7 @@ def parse_options_and_load_target():
             print "\n\nTarget specific help:\n\n"
             targetspec_dic['print_help'](config)
         print "\n\nFor detailed descriptions of the command line options see"
-        print "http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html"
+        print "http://pypy.readthedocs.org/en/latest/config/commandline.html"
         sys.exit(0)
     
     return targetspec_dic, translateconfig, config, args

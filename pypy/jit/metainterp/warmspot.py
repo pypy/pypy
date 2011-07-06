@@ -1,6 +1,5 @@
 import sys, py
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
-from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance, hlstr
 from pypy.annotation import model as annmodel
@@ -10,16 +9,12 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.debug import debug_print, fatalerror
-from pypy.rlib.debug import debug_start, debug_stop
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.translator.simplify import get_funcobj, get_functype
+from pypy.rlib.debug import fatalerror
+from pypy.translator.simplify import get_functype
 from pypy.translator.unsimplify import call_final_function
 
 from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
-from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
-from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
+from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
@@ -66,6 +61,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
+                    function_threshold=4,
                     enable_opts=ALL_OPTS_NAMES, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
@@ -77,9 +73,14 @@ def jittify_and_run(interp, graph, args, repeat=1,
         translator.config.translation.list_comprehension_operations = True
     except ConfigError:
         pass
+    try:
+        translator.config.translation.jit_ffi = True
+    except ConfigError:
+        pass
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests
+        jd.warmstate.set_param_function_threshold(function_threshold)
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
@@ -291,9 +292,6 @@ class WarmRunnerDesc(object):
         self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
-            annhelper = self.annhelper
-        else:
-            annhelper = None
         cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
         self.cpu = cpu
@@ -422,7 +420,7 @@ class WarmRunnerDesc(object):
         if self.translator.rtyper.type_system.name == 'lltypesystem':
             def maybe_enter_jit(*args):
                 try:
-                    maybe_compile_and_run(*args)
+                    maybe_compile_and_run(state.increment_threshold, *args)
                 except JitException:
                     raise     # go through
                 except Exception, e:
@@ -430,15 +428,12 @@ class WarmRunnerDesc(object):
             maybe_enter_jit._always_inline_ = True
         else:
             def maybe_enter_jit(*args):
-                maybe_compile_and_run(*args)
+                maybe_compile_and_run(state.increment_threshold, *args)
             maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
 
-        can_inline = state.can_inline_greenargs
-        num_green_args = jd.num_green_args
         def maybe_enter_from_start(*args):
-            if not can_inline(*args[:num_green_args]):
-                maybe_compile_and_run(*args)
+            maybe_compile_and_run(state.increment_function_threshold, *args)
         maybe_enter_from_start._always_inline_ = True
         jd._maybe_enter_from_start_fn = maybe_enter_from_start
 
@@ -549,7 +544,6 @@ class WarmRunnerDesc(object):
             self.rewrite_can_enter_jit(jd, sublist)
 
     def rewrite_can_enter_jit(self, jd, can_enter_jits):
-        FUNC = jd._JIT_ENTER_FUNCTYPE
         FUNCPTR = jd._PTR_JIT_ENTER_FUNCTYPE
         jit_enter_fnptr = self.helper_func(FUNCPTR, jd._maybe_enter_jit_fn)
 

@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
@@ -899,7 +900,7 @@ def _ssl_thread_locking_function(mode, n, filename, line):
 
 def _ssl_thread_id_function():
     from pypy.module.thread import ll_thread
-    return rffi.cast(rffi.INT, ll_thread.get_ident())
+    return rffi.cast(rffi.LONG, ll_thread.get_ident())
 
 def setup_ssl_threads():
     from pypy.module.thread import ll_thread

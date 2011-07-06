@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
-from pypy.rlib.jit import loop_invariant
+from pypy.rlib.jit import loop_invariant, elidable, promote
 from pypy.rlib.jit import jit_debug, assert_green, AssertGreenFailed
 from pypy.rlib.jit import unroll_safe, current_trace_length
 from pypy.jit.metainterp import pyjitpl, history
@@ -304,12 +304,12 @@ class BasicTests:
         assert res == 42
         self.check_operations_history(int_add=1, int_mul=0, call=1, guard_no_exception=0)
 
-    def test_residual_call_pure(self):
+    def test_residual_call_elidable(self):
         def externfn(x, y):
             return x * y
-        externfn._pure_function_ = True
+        externfn._elidable_function_ = True
         def f(n):
-            n = hint(n, promote=True)
+            promote(n)
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
         assert res == 42
@@ -317,10 +317,10 @@ class BasicTests:
         self.check_operations_history(int_add=0, int_mul=0,
                                       call=0, call_pure=0)
 
-    def test_residual_call_pure_1(self):
+    def test_residual_call_elidable_1(self):
+        @elidable
         def externfn(x, y):
             return x * y
-        externfn._pure_function_ = True
         def f(n):
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
@@ -329,11 +329,11 @@ class BasicTests:
         self.check_operations_history(int_add=1, int_mul=0,
                                       call=0, call_pure=1)
 
-    def test_residual_call_pure_2(self):
+    def test_residual_call_elidable_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
+        @elidable
         def externfn(x):
             return x - 1
-        externfn._pure_function_ = True
         def f(n):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n)
@@ -346,11 +346,11 @@ class BasicTests:
         # by optimizeopt.py
         self.check_loops(int_sub=0, call=1, call_pure=0)
 
-    def test_constfold_call_pure(self):
+    def test_constfold_call_elidable(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        @elidable
         def externfn(x):
             return x - 3
-        externfn._pure_function_ = True
         def f(n, m):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, m=m)
@@ -362,11 +362,11 @@ class BasicTests:
         # the CALL_PURE is constant-folded away by optimizeopt.py
         self.check_loops(int_sub=1, call=0, call_pure=0)
 
-    def test_constfold_call_pure_2(self):
+    def test_constfold_call_elidable_2(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        @elidable
         def externfn(x):
             return x - 3
-        externfn._pure_function_ = True
         class V:
             def __init__(self, value):
                 self.value = value
@@ -382,19 +382,19 @@ class BasicTests:
         # the CALL_PURE is constant-folded away by optimizeopt.py
         self.check_loops(int_sub=1, call=0, call_pure=0)
 
-    def test_pure_function_returning_object(self):
+    def test_elidable_function_returning_object(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
         class V:
             def __init__(self, x):
                 self.x = x
         v1 = V(1)
         v2 = V(2)
+        @elidable
         def externfn(x):
             if x:
                 return v1
             else:
                 return v2
-        externfn._pure_function_ = True
         def f(n, m):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, m=m)
@@ -500,7 +500,7 @@ class BasicTests:
                 y -= x
             return y
         #
-        res = self.meta_interp(f, [3, 6], repeat=7)
+        res = self.meta_interp(f, [3, 6], repeat=7, function_threshold=0)
         assert res == 6 - 4 - 5
         self.check_history(call=0)   # because the trace starts in the middle
         #
@@ -1252,7 +1252,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(x=x, l=l)
                 a = l[x]
                 x = a.g(x)
-                hint(a, promote=True)
+                promote(a)
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
@@ -1312,7 +1312,7 @@ class BasicTests:
                     x -= 5
                 else:
                     x -= 7
-                hint(a, promote=True)
+                promote(a)
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
@@ -1343,7 +1343,7 @@ class BasicTests:
                     x -= 5
                 else:
                     x -= 7
-                hint(a, promote=True)
+                promote(a)
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
@@ -1377,7 +1377,7 @@ class BasicTests:
                     x = a.g(x)
                 else:
                     x -= 7
-                hint(a, promote=True)
+                promote(a)
             return x
         res = self.meta_interp(f, [399], listops=True)
         assert res == f(399)
@@ -1496,7 +1496,7 @@ class BasicTests:
                     glob.a = B()
                     const = 2
                 else:
-                    const = hint(const, promote=True)
+                    promote(const)
                     x -= const
                     res += a.x
                     a = None
@@ -1531,7 +1531,7 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x)
                 myjitdriver.jit_merge_point(x=x)
                 a = A()
-                hint(a, promote=True)
+                promote(a)
                 x -= 1
         self.meta_interp(f, [50])
         self.check_loop_count(1)
@@ -1595,9 +1595,9 @@ class BasicTests:
         self.check_loops(jit_debug=2)
 
     def test_assert_green(self):
-        def f(x, promote):
-            if promote:
-                x = hint(x, promote=True)
+        def f(x, promote_flag):
+            if promote_flag:
+                promote(x)
             assert_green(x)
             return x
         res = self.interp_operations(f, [8, 1])
@@ -1676,7 +1676,9 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [6, 14])
         assert res == g(6, 14)
-        self.check_loop_count(9)
+        self.check_loop_count(8)
+        self.check_loops(getarrayitem_gc=7, everywhere=True)
+        py.test.skip("for the following, we need setarrayitem(varindex)")
         self.check_loops(getarrayitem_gc=6, everywhere=True)
 
     def test_multiple_specialied_versions_bridge(self):
@@ -1815,7 +1817,7 @@ class BasicTests:
             while y > 0:
                 myjitdriver.can_enter_jit(y=y, x=x, res=res, const=const)
                 myjitdriver.jit_merge_point(y=y, x=x, res=res, const=const)
-                const = hint(const, promote=True)
+                const = promote(const)
                 res = res.binop(A(const))
                 if y<7:
                     res = x
@@ -2000,7 +2002,7 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if 0 < a < hint(sys.maxint/2, promote=True): pass
+                if 0 < a < promote(sys.maxint/2): pass
                 if 0 < b < 100: pass
                 sa += (((((a << b) << b) << b) >> b) >> b) >> b                
                 n += 1
@@ -2045,7 +2047,7 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if -hint(sys.maxint/2, promote=True) < a < 0: pass
+                if -promote(sys.maxint/2) < a < 0: pass
                 if 0 < b < 100: pass
                 sa += (((((a << b) << b) << b) >> b) >> b) >> b                
                 n += 1
@@ -2080,7 +2082,7 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if 0 < a < hint(sys.maxint/2, promote=True): pass
+                if 0 < a < promote(sys.maxint/2): pass
                 if 0 < b < 100: pass
                 sa += (a << b) >> b
                 n += 1
@@ -2137,7 +2139,7 @@ class BasicTests:
                 if op == 'j':
                     j += 1
                 elif op == 'c':
-                    c = hint(c, promote=True)
+                    promote(c)
                     c = 1 - c
                 elif op == '2':
                     if j < 3:
@@ -2206,7 +2208,8 @@ class BasicTests:
                 self.local_names[0] = 1
 
             def retrieve(self):
-                variables = hint(self.variables, promote=True)
+                variables = self.variables
+                promote(variables)
                 result = self.local_names[0]
                 if result == 0:
                     return -1
@@ -2230,6 +2233,148 @@ class BasicTests:
         self.check_loops(getfield_gc_pure=0)
         self.check_loops(getfield_gc_pure=2, everywhere=True)
         
+    def test_frame_finished_during_retrace(self):
+        class Base(object):
+            pass
+        class A(Base):
+            def __init__(self, a):
+                self.val = a
+                self.num = 1
+            def inc(self):
+                return A(self.val + 1)
+        class B(Base):
+            def __init__(self, a):
+                self.val = a
+                self.num = 1000
+            def inc(self):
+                return B(self.val + 1)
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'a'])
+        def f():
+            myjitdriver.set_param('threshold', 3)
+            myjitdriver.set_param('trace_eagerness', 2)
+            a = A(0)
+            sa = 0
+            while a.val < 8:
+                myjitdriver.jit_merge_point(a=a, sa=sa)
+                a = a.inc()
+                if a.val > 4:
+                    a = B(a.val)
+                sa += a.num
+            return sa
+        res = self.meta_interp(f, [])
+        assert res == f()
+        
+    def test_frame_finished_during_continued_retrace(self):
+        class Base(object):
+            pass
+        class A(Base):
+            def __init__(self, a):
+                self.val = a
+                self.num = 100
+            def inc(self):
+                return A(self.val + 1)
+        class B(Base):
+            def __init__(self, a):
+                self.val = a
+                self.num = 10000
+            def inc(self):
+                return B(self.val + 1)
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'b', 'a'])
+        def f(b):
+            myjitdriver.set_param('threshold', 6)
+            myjitdriver.set_param('trace_eagerness', 4)
+            a = A(0)
+            sa = 0
+            while a.val < 15:
+                myjitdriver.jit_merge_point(a=a, b=b, sa=sa)
+                a = a.inc()
+                if a.val > 8:
+                    a = B(a.val)
+                if b == 1:
+                    b = 2
+                else:
+                    b = 1
+                sa += a.num + b
+            return sa
+        res = self.meta_interp(f, [1])
+        assert res == f(1)
+
+    def test_remove_array_operations(self):
+        myjitdriver = JitDriver(greens = [], reds = ['a'])
+        class W_Int:
+            def __init__(self, intvalue):
+                self.intvalue = intvalue
+        def f(x):
+            a = [W_Int(x)]
+            while a[0].intvalue > 0:
+                myjitdriver.jit_merge_point(a=a)
+                a[0] = W_Int(a[0].intvalue - 3)
+            return a[0].intvalue
+        res = self.meta_interp(f, [100])
+        assert res == -2
+        #self.check_loops(getarrayitem_gc=0, setarrayitem_gc=0) -- xxx?
+
+    def test_retrace_ending_up_retrazing_another_loop(self):
+
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
+        bytecode = "0+sI0+SI"
+        def f(n):
+            myjitdriver.set_param('threshold', 3)
+            myjitdriver.set_param('trace_eagerness', 1)
+            myjitdriver.set_param('retrace_limit', 5)
+            myjitdriver.set_param('function_threshold', -1)
+            pc = sa = i = 0
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)
+                n = hint(n, promote=True)
+                op = bytecode[pc]
+                if op == '0':
+                    i = 0
+                elif op == '+':
+                    i += 1
+                elif op == 's':
+                    sa += i
+                elif op == 'S':
+                    sa += 2
+                elif op == 'I':
+                    if i < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i)
+                        continue
+                pc += 1
+            return sa
+
+        def g(n1, n2):
+            for i in range(10):
+                f(n1)
+            for i in range(10):                
+                f(n2)
+
+        nn = [10, 3]
+        assert self.meta_interp(g, nn) == g(*nn)
+        
+        # The attempts of retracing first loop will end up retracing the
+        # second and thus fail 5 times, saturating the retrace_count. Instead a
+        # bridge back to the preamble of the first loop is produced. A guard in
+        # this bridge is later traced resulting in a retrace of the second loop.
+        # Thus we end up with:
+        #   1 preamble and 1 specialized version of first loop
+        #   1 preamble and 2 specialized version of second loop
+        self.check_tree_loop_count(2 + 3)
+
+        # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
+        
+        def g(n):
+            for i in range(n):
+                for j in range(10):
+                    f(n-i)
+
+        res = self.meta_interp(g, [10])
+        assert res == g(10)
+        # 1 preamble and 6 speciealized versions of each loop
+        self.check_tree_loop_count(2*(1 + 6))
+
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

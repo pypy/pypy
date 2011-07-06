@@ -80,7 +80,7 @@ class WarmspotTests(object):
         self.meta_interp(f, [123, 10])
         assert len(get_stats().locations) >= 4
         for loc in get_stats().locations:
-            assert loc == 'GREEN IS 123.'
+            assert loc == (0, 123)
 
     def test_set_param_enable_opts(self):
         from pypy.rpython.annlowlevel import llstr, hlstr

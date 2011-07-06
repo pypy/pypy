@@ -31,11 +31,12 @@ def parse_future(tree):
     future_lineno = 0
     future_column = 0
     have_docstring = False
+    body = None
     if isinstance(tree, ast.Module):
         body = tree.body
     elif isinstance(tree, ast.Interactive):
         body = tree.body
-    else:
+    if body is None:
         return 0, 0
     for stmt in body:
         if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Str):
@@ -91,7 +92,10 @@ def mangle(name, klass):
         return name
     if len(name) + 2 >= MANGLE_LEN:
         return name
-    if name.endswith('__'):
+    # Don't mangle __id__ or names with dots. The only time a name with a dot
+    # can occur is when we are compiling an import statement that has a package
+    # name.
+    if name.endswith('__') or '.' in name:
         return name
     try:
         i = 0

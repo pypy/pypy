@@ -43,6 +43,12 @@ EXPORT(void) my_qsort(void *base, size_t num, size_t width, int(*compare)(const 
 	qsort(base, num, width, compare);
 }
 
+EXPORT(char) deref_LP_c_char_p(char** argv)
+{
+    char* s = *argv;
+    return s[0];
+}
+
 EXPORT(int *) _testfunc_ai8(int a[8])
 {
 	return a;

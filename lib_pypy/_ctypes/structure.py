@@ -240,6 +240,9 @@ class StructOrUnion(_CData):
     def _get_buffer_value(self):
         return self._buffer.buffer
 
+    def _to_ffi_param(self):
+        return self._buffer
+
 
 class StructureMeta(StructOrUnionMeta):
     _is_union = False

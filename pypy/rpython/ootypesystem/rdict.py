@@ -18,7 +18,7 @@ from pypy.rpython import llinterp
 
 class DictRepr(AbstractDictRepr):
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None):
+                 custom_eq_hash=None, force_non_null=False):
         self.rtyper = rtyper
         self.custom_eq_hash = custom_eq_hash is not None
 

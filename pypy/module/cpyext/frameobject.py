@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, bootstrap_function, PyObjectFields, cpython_struct)
+    cpython_api, bootstrap_function, PyObjectFields, cpython_struct,
+    CANNOT_FAIL)
 from pypy.module.cpyext.pyobject import (
     PyObject, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
@@ -9,6 +10,7 @@ from pypy.module.cpyext.pystate import PyThreadState
 from pypy.module.cpyext.funcobject import PyCodeObject
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.pytraceback import PyTraceback
 
 PyFrameObjectStruct = lltype.ForwardReference()
 PyFrameObject = lltype.Ptr(PyFrameObjectStruct)
@@ -80,3 +82,8 @@ def PyTraceBack_Here(space, w_frame):
     frame = space.interp_w(PyFrame, w_frame)
     record_application_traceback(space, state.operror, frame, 0)
     return 0
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyTraceBack_Check(space, w_obj):
+    obj = space.interpclass_w(w_obj)
+    return obj is not None and isinstance(obj, PyTraceback)

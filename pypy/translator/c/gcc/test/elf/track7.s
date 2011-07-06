@@ -1,5 +1,5 @@
-	.type	main, @function
-main:
+	.type	main1, @function
+main1:
 	;; cmovCOND tests.
 	pushl	%ebx
 	movl	12(%esp), %ebx
@@ -16,4 +16,4 @@ main:
 	popl	%ebx
 	ret
 
-	.size	main, .-main
+	.size	main1, .-main1
