@@ -350,6 +350,9 @@ class InstancePtrConverter(TypeConverter):
     def __init__(self, space, cpptype):
         self.cpptype = cpptype
 
+    # TODO: factor out the direct_ptradd into a smaller function (so that the
+    # JIT can look into the rest of the code)
+    @jit.dont_look_inside
     def convert_argument(self, space, w_obj):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
         w_cppinstance = space.findattr(w_obj, space.wrap("_cppinstance"))
