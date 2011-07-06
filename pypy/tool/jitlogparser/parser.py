@@ -5,6 +5,8 @@ from pypy.jit.tool.oparser import OpParser
 
 class Op(object):
     bridge = None
+    offset = None
+    asm = None
 
     def __init__(self, name, args, res, descr):
         self.name = name
@@ -54,10 +56,53 @@ class SimpleParser(OpParser):
     Op = Op
     use_mock_model = True
 
+    def postprocess(self, loop, backend_dump=None, backend_tp=None,
+                    loop_start=0, dump_start=0):
+        if backend_dump is not None:
+            raw_asm = self._asm_disassemble(backend_dump.decode('hex'),
+                                            backend_tp, dump_start)
+            asm = []
+            start = 0
+            for elem in raw_asm:
+                if len(elem.split("\t")) != 3:
+                    continue
+                adr, _, v = elem.split("\t")
+                if not start:
+                    start = int(adr.strip(":"), 16)
+                ofs = int(adr.strip(":"), 16) - start
+                if ofs >= 0:
+                    asm.append((ofs, v.strip("\n")))
+            asm_index = 0
+            for i, op in enumerate(loop.operations):
+                end = 0
+                j = i + 1
+                while end == 0:
+                    if j == len(loop.operations):
+                        end = loop.last_offset
+                        break
+                    if loop.operations[j].offset is None:
+                        j += 1
+                    else:
+                        end = loop.operations[j].offset
+                if op.offset is not None:
+                    while asm[asm_index][0] < op.offset:
+                        asm_index += 1
+                    end_index = asm_index
+                    while asm[end_index][0] < end:
+                        end_index += 1
+                    op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
+        return loop
+                    
+    def _asm_disassemble(self, d, origin_addr, tp):
+        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
+        return list(machine_code_dump(d, tp, origin_addr))
+
     @classmethod
-    def parse_from_input(cls, input):
-        return cls(input, None, {}, 'lltype', None,
-                   nonstrict=True).parse()
+    def parse_from_input(cls, input, **kwds):
+        parser = cls(input, None, {}, 'lltype', None,
+                     nonstrict=True)
+        loop = parser.parse()
+        return parser.postprocess(loop, **kwds)
 
     def parse_args(self, opname, argspec):
         if not argspec.strip():
