@@ -475,7 +475,7 @@ class W_CPPType(W_CPPScope):
     def construct(self, args_w):
         try:
             overload = self.get_overload(self.name)
-        except Exception, e:
+        except OperationError, e:
             if e.match(self.space, self.space.w_AttributeError):
                 raise OperationError(self.space.w_TypeError,
                                      self.space.wrap("%s is abstract" % self.name))
