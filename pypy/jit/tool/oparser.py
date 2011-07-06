@@ -337,6 +337,11 @@ class OpParser(object):
                 num += 1
         return num, ops, last_offset
 
+    def postprocess(self, loop):
+        """ A hook that can be overloaded to do some postprocessing
+        """
+        return loop
+
     def parse_offset(self, line):
         if line.startswith('+'):
             # it begins with an offset, like: "+10: i1 = int_add(...)"
