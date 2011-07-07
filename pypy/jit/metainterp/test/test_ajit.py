@@ -1040,6 +1040,29 @@ class BasicTests:
         res = self.interp_operations(fn, [1])
         assert not res
 
+    def test_guard_isnull_nullifies(self):
+        class A:
+            pass
+        a = A()
+        a.x = None
+        def fn(n):
+            if n == -7:
+                a.x = ""
+            obj = a.x
+            res = 0
+            if not obj:
+                res += 1
+            if obj:
+                res += 1
+            if obj is None:
+                res += 1
+            if obj is not None:
+                res += 1
+            return res
+        res = self.interp_operations(fn, [0])
+        assert res == 2
+        self.check_operations_history(guard_isnull=1)
+
     def test_assert_isinstance(self):
         class A:
             pass

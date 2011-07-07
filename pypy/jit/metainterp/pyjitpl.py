@@ -317,7 +317,10 @@ class MIFrame(object):
             if box not in self.metainterp.known_class_boxes:
                 self.generate_guard(rop.GUARD_NONNULL, box, resumepc=orgpc)
         else:
-            self.generate_guard(rop.GUARD_ISNULL, box, resumepc=orgpc)
+            if not isinstance(box, Const):
+                self.generate_guard(rop.GUARD_ISNULL, box, resumepc=orgpc)
+                promoted_box = box.constbox()
+                self.metainterp.replace_box(box, promoted_box)
         return value
 
     @arguments("orgpc", "box", "label")
