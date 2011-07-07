@@ -310,26 +310,24 @@ class MIFrame(object):
                 self.opimpl_goto_if_not(condbox, target)
         ''' % (_opimpl, _opimpl.upper())).compile()
 
-    @arguments("orgpc", "box", "label")
-    def opimpl_goto_if_not_ptr_nonzero(self, orgpc, box, target):
+
+    def _establish_nullity(self, box, orgpc):
         value = box.nonnull()
         if value:
-            opnum = rop.GUARD_NONNULL
+            if box not in self.metainterp.known_class_boxes:
+                self.generate_guard(rop.GUARD_NONNULL, box, resumepc=orgpc)
         else:
-            opnum = rop.GUARD_ISNULL
-        self.generate_guard(opnum, box, resumepc=orgpc)
-        if not value:
+            self.generate_guard(rop.GUARD_ISNULL, box, resumepc=orgpc)
+        return value
+
+    @arguments("orgpc", "box", "label")
+    def opimpl_goto_if_not_ptr_nonzero(self, orgpc, box, target):
+        if not self._establish_nullity(box, orgpc):
             self.pc = target
 
     @arguments("orgpc", "box", "label")
     def opimpl_goto_if_not_ptr_iszero(self, orgpc, box, target):
-        value = box.nonnull()
-        if value:
-            opnum = rop.GUARD_NONNULL
-        else:
-            opnum = rop.GUARD_ISNULL
-        self.generate_guard(opnum, box, resumepc=orgpc)
-        if value:
+        if self._establish_nullity(box, orgpc):
             self.pc = target
 
     @arguments("box", "box", "box")
