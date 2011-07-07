@@ -351,7 +351,9 @@ class InstancePtrConverter(TypeConverter):
         self.cpptype = cpptype
 
     # TODO: factor out the direct_ptradd into a smaller function (so that the
-    # JIT can look into the rest of the code)
+    # JIT can look into the rest of the code), or better, let the JIT
+    # see it (either by teaching it direct_ptradd, or by using a
+    # different style like casts between addresses and integers)
     @jit.dont_look_inside
     def convert_argument(self, space, w_obj):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
