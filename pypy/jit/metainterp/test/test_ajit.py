@@ -1021,6 +1021,24 @@ class BasicTests:
         res = self.meta_interp(main, [])
         assert res == 55
 
+
+    def test_dont_record_guard_class(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        def fn(n):
+            if n:
+                obj = A()
+            else:
+                obj = B()
+            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
+        res = self.interp_operations(fn, [0])
+        assert res
+        self.check_operations_history(guard_class=1)
+        res = self.interp_operations(fn, [1])
+        assert not res
+
     def test_assert_isinstance(self):
         class A:
             pass

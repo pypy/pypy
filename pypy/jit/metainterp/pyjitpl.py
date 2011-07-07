@@ -845,7 +845,9 @@ class MIFrame(object):
     @arguments("orgpc", "box")
     def opimpl_guard_class(self, orgpc, box):
         clsbox = self.cls_of_box(box)
-        self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
+        if box not in self.metainterp.known_class_boxes:
+            self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
+            self.metainterp.known_class_boxes[box] = None
         return clsbox
 
     @arguments("int", "orgpc")
@@ -1449,6 +1451,8 @@ class MetaInterp(object):
         self.last_exc_value_box = None
         self.retracing_loop_from = None
         self.call_pure_results = args_dict_box()
+        # contains boxes where the class is already known
+        self.known_class_boxes = {}
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1789,6 +1793,8 @@ class MetaInterp(object):
                 duplicates[box] = None
 
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
+        self.known_class_boxes = {}
+
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
                                           duplicates)
