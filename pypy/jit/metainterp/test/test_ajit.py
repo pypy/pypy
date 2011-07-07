@@ -1026,6 +1026,27 @@ class BasicTests:
             pass
         class B(A):
             pass
+        a = A()
+        b = B()
+        def fn(n):
+            if n == -7:
+                obj = None
+            elif n:
+                obj = a
+            else:
+                obj = b
+            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
+        res = self.interp_operations(fn, [0])
+        assert res == 4
+        self.check_operations_history(guard_class=1, guard_nonnull=1)
+        res = self.interp_operations(fn, [1])
+        assert not res
+
+    def test_dont_record_guard_class_after_new(self):
+        class A:
+            pass
+        class B(A):
+            pass
         def fn(n):
             if n == -7:
                 obj = None
@@ -1036,7 +1057,7 @@ class BasicTests:
             return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
         res = self.interp_operations(fn, [0])
         assert res == 4
-        self.check_operations_history(guard_class=1, guard_nonnull=1)
+        self.check_operations_history(guard_class=0, guard_nonnull=0)
         res = self.interp_operations(fn, [1])
         assert not res
 

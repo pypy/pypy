@@ -365,7 +365,9 @@ class MIFrame(object):
     def opimpl_new_with_vtable(self, sizedescr):
         cpu = self.metainterp.cpu
         cls = heaptracker.descr2vtable(cpu, sizedescr)
-        return self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
+        resbox = self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
+        self.metainterp.known_class_boxes[resbox] = None
+        return resbox
 
 ##    @FixME  #arguments("box")
 ##    def opimpl_runtimenew(self, classbox):
