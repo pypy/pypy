@@ -11,11 +11,10 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rgc import ll_arraycopy
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, rffi
 
-
-memcpy = rffi.llexternal("memcpy", [rffi.VOIDP, rffi.VOIDP, rffi.SIZE_T], lltype.Void)
 
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
@@ -621,10 +620,12 @@ def make_array(mytype):
     def array_copy__Array(space, self):
         w_a = mytype.w_class(self.space)
         w_a.setlen(self.len)
-        memcpy(
-            rffi.cast(rffi.VOIDP, w_a.buffer),
-            rffi.cast(rffi.VOIDP, self.buffer),
-            self.len * mytype.bytes
+        ll_arraycopy(
+            self.buffer,
+            w_a.buffer,
+            0,
+            0,
+            self.len,
         )
         return w_a
 
