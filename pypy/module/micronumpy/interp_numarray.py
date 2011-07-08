@@ -7,7 +7,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 import math
 
-
 def dummy1(v):
     assert isinstance(v, float)
     return v
@@ -82,23 +81,15 @@ class BaseArray(Wrappable):
     def _binop_impl(function):
         signature = Signature()
         def impl(self, space, w_other):
+            w_other = convert_to_array(space, w_other)
             new_sig = self.signature.transition(signature)
-            if isinstance(w_other, BaseArray):
-                res = Call2(
-                    function,
-                    self,
-                    w_other,
-                    new_sig.transition(w_other.signature)
-                )
-                w_other.invalidates.append(res)
-            else:
-                w_other = access_as_array(space, w_other)
-                res = Call2(
-                    function,
-                    self,
-                    w_other,
-                    new_sig.transition(w_other.signature)
-                )
+            res = Call2(
+                function,
+                self,
+                w_other,
+                new_sig.transition(w_other.signature)
+            )
+            w_other.invalidates.append(res)
             self.invalidates.append(res)
             return space.wrap(res)
         return func_with_new_name(impl, "binop_%s_impl" % function.__name__)
@@ -143,14 +134,15 @@ class BaseArray(Wrappable):
             s += concrete.getitem(i)
         return space.wrap(s / size)
 
-def access_as_array (space, w_obj):
-    try:
+def convert_to_array (space, w_obj):
+    if isinstance(w_obj, BaseArray):
+        return w_obj
+    elif space.issequence_w(w_obj):
+        # Convert to array.
+        return new_numarray(space, w_obj)
+    else:
         # If it's a scalar
         return FloatWrapper(space.float_w(w_obj))
-    except OperationError:
-        # Convert to array.
-        # Could we somehow use COW in some cases?
-        return new_numarray(space, w_obj)
 
 class FloatWrapper(BaseArray):
     """

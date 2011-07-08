@@ -1,11 +1,9 @@
 from pypy.conftest import gettestobjspace
 from pypy.module.micronumpy.interp_numarray import SingleDimArray, FloatWrapper
 
-
 class BaseNumpyAppTest(object):
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=('micronumpy',))
-
 
 class TestSignature(object):
     def test_binop_signature(self, space):

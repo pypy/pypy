@@ -925,6 +925,9 @@ class ObjSpace(object):
                 return self.w_True
         return self.w_False
 
+    def issequence_w(self, w_obj):
+        return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
+
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
 

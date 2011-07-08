@@ -6,7 +6,16 @@ from pypy.module.micronumpy.interp_ufuncs import negative
 from pypy.module.micronumpy.compile import numpy_compile
 
 class FakeSpace(object):
-    pass
+    def issequence_w(self, w_obj):
+        # XXX: get_concrete() fails in some tests 
+        # when using `return hasattr(w_obj, "__getitem__")`
+        return True
+
+    def wrap(self, w_obj):
+        return w_obj
+
+    def float_w(self, w_obj):
+        return float(w_obj)
 
 class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
