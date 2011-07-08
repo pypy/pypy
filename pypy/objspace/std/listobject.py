@@ -518,12 +518,13 @@ class AbstractUnwrappedStrategy(object):
     getitems = getitems_copy
 
     def getslice(self, w_list, start, stop, step, length):
-        if step == 1:
+        if step == 1 and 0 <= start <= stop:
             l = self.cast_from_void_star(w_list.lstorage)
             assert start >= 0
             assert stop >= 0
             sublist = l[start:stop]
             storage = self.cast_to_void_star(sublist)
+            #XXX check of empty list?
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
         else:
             subitems_w = [None] * length

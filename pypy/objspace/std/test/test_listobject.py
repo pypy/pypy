@@ -527,6 +527,7 @@ class AppTestW_ListObject(object):
 
         l = [1,2,3,4,5]
         assert l[1:0:None] == []
+        assert l[1:0] == []
 
     def test_delall(self):
         l = l0 = [1,2,3]
