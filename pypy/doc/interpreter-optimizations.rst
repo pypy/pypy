@@ -263,34 +263,6 @@ argument in the call to the *im_func* object from the stack.
 You can enable this feature with the :config:`objspace.opcodes.CALL_METHOD`
 option.
 
-.. _`call likely builtin`:
-
-CALL_LIKELY_BUILTIN
-+++++++++++++++++++
-
-A often heard "tip" for speeding up Python programs is to give an often used
-builtin a local name, since local lookups are faster than lookups of builtins,
-which involve doing two dictionary lookups: one in the globals dictionary and
-one in the the builtins dictionary. PyPy approaches this problem at the
-implementation level, with the introduction of the new ``CALL_LIKELY_BUILTIN``
-bytecode. This bytecode is produced by the compiler for a call whose target is
-the name of a builtin.  Since such a syntactic construct is very often actually
-invoking the expected builtin at run-time, this information can be used to make
-the call to the builtin directly, without going through any dictionary lookup.
-
-However, it can occur that the name is shadowed by a global name from the
-current module.  To catch this case, a special dictionary implementation for
-multidicts is introduced, which is used for the dictionaries of modules. This
-implementation keeps track which builtin name is shadowed by it.  The
-``CALL_LIKELY_BUILTIN`` bytecode asks the dictionary whether it is shadowing the
-builtin that is about to be called and asks the dictionary of ``__builtin__``
-whether the original builtin was changed.  These two checks are cheaper than
-full lookups.  In the common case, neither of these cases is true, so the
-builtin can be directly invoked.
-
-You can enable this feature with the
-:config:`objspace.opcodes.CALL_LIKELY_BUILTIN` option.
-
 .. more here?
 
 Overall Effects
