@@ -1,6 +1,7 @@
 import py
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.conftest import gettestobjspace
 
 
 class AppTestNumArray(BaseNumpyAppTest):
@@ -285,7 +286,21 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_mean(self):
-        from numpy import array, mean
+        from numpy import array
         a = array(range(5))
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
+
+class AppTestSupport(object):
+    def setup_class(cls):
+        import struct
+        cls.space = gettestobjspace(usemodules=('micronumpy',))
+        cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
+    
+    def test_fromstring(self):
+        from numpy import fromstring
+        a = fromstring(self.data)
+        for i in range(4):
+            assert a[i] == i + 1
+        raises(ValueError, fromstring, "abc")
+
