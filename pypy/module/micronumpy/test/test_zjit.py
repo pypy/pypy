@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
-    FloatWrapper, Call1, Call2, SingleDimSlice, add, mul)
+    FloatWrapper, Call2, SingleDimSlice, add, mul, neg, Call1)
 from pypy.module.micronumpy.interp_ufuncs import negative
 from pypy.module.micronumpy.compile import numpy_compile
 
@@ -13,8 +13,6 @@ class TestNumpyJIt(LLJitMixin):
         cls.space = FakeSpace()
 
     def test_add(self):
-        space = self.space
-
         def f(i):
             ar = SingleDimArray(i)
             v = Call2(add, ar, ar, Signature())
@@ -27,8 +25,6 @@ class TestNumpyJIt(LLJitMixin):
         assert result == f(5)
 
     def test_floatadd(self):
-        space = self.space
-
         def f(i):
             ar = SingleDimArray(i)
             v = Call2(add, ar, FloatWrapper(4.5), Signature())
@@ -40,9 +36,22 @@ class TestNumpyJIt(LLJitMixin):
                           "int_lt": 1, "guard_true": 1, "jump": 1})
         assert result == f(5)
 
-    def test_already_forecd(self):
+    def test_neg(self):
         space = self.space
 
+        def f(i):
+            ar = SingleDimArray(i)
+            v = Call1(neg, ar, Signature())
+            return v.get_concrete().storage[3]
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 1, "float_neg": 1,
+                          "setarrayitem_raw": 1, "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+
+        assert result == f(5)
+
+    def test_already_forecd(self):
         def f(i):
             ar = SingleDimArray(i)
             v1 = Call2(add, ar, FloatWrapper(4.5), Signature())
@@ -95,8 +104,6 @@ class TestNumpyJIt(LLJitMixin):
         self.check_loop_count(3)
 
     def test_slice(self):
-        space = self.space
-
         def f(i):
             step = 3
             ar = SingleDimArray(step*i)
@@ -111,8 +118,6 @@ class TestNumpyJIt(LLJitMixin):
         assert result == f(5)
 
     def test_slice2(self):
-        space = self.space
-
         def f(i):
             step1 = 2
             step2 = 3

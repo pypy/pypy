@@ -986,7 +986,7 @@ def next__RopeUnicodeIter(space, w_ropeiter):
 ##        return space.wrap(0)
 ##    return space.wrap(result)
 
-import unicodetype
+from pypy.objspace.std import unicodetype
 register_all(vars(), unicodetype)
 
 # str.strip(unicode) needs to convert self to unicode and call unicode.strip we
@@ -997,7 +997,7 @@ register_all(vars(), unicodetype)
 # methods?
 
 class str_methods:
-    import stringtype
+    from pypy.objspace.std import stringtype
     W_RopeUnicodeObject = W_RopeUnicodeObject
     from pypy.objspace.std.ropeobject import W_RopeObject
     def str_strip__Rope_RopeUnicode(space, w_self, w_chars):

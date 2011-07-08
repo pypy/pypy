@@ -311,26 +311,27 @@ class MIFrame(object):
                 self.opimpl_goto_if_not(condbox, target)
         ''' % (_opimpl, _opimpl.upper())).compile()
 
-    @arguments("orgpc", "box", "label")
-    def opimpl_goto_if_not_ptr_nonzero(self, orgpc, box, target):
+
+    def _establish_nullity(self, box, orgpc):
         value = box.nonnull()
         if value:
-            opnum = rop.GUARD_NONNULL
+            if box not in self.metainterp.known_class_boxes:
+                self.generate_guard(rop.GUARD_NONNULL, box, resumepc=orgpc)
         else:
-            opnum = rop.GUARD_ISNULL
-        self.generate_guard(opnum, box, resumepc=orgpc)
-        if not value:
+            if not isinstance(box, Const):
+                self.generate_guard(rop.GUARD_ISNULL, box, resumepc=orgpc)
+                promoted_box = box.constbox()
+                self.metainterp.replace_box(box, promoted_box)
+        return value
+
+    @arguments("orgpc", "box", "label")
+    def opimpl_goto_if_not_ptr_nonzero(self, orgpc, box, target):
+        if not self._establish_nullity(box, orgpc):
             self.pc = target
 
     @arguments("orgpc", "box", "label")
     def opimpl_goto_if_not_ptr_iszero(self, orgpc, box, target):
-        value = box.nonnull()
-        if value:
-            opnum = rop.GUARD_NONNULL
-        else:
-            opnum = rop.GUARD_ISNULL
-        self.generate_guard(opnum, box, resumepc=orgpc)
-        if value:
+        if self._establish_nullity(box, orgpc):
             self.pc = target
 
     @arguments("box", "box", "box")
@@ -365,7 +366,9 @@ class MIFrame(object):
     def opimpl_new_with_vtable(self, sizedescr):
         cpu = self.metainterp.cpu
         cls = heaptracker.descr2vtable(cpu, sizedescr)
-        return self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
+        resbox = self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
+        self.metainterp.known_class_boxes[resbox] = None
+        return resbox
 
 ##    @FixME  #arguments("box")
 ##    def opimpl_runtimenew(self, classbox):
@@ -863,7 +866,9 @@ class MIFrame(object):
     @arguments("orgpc", "box")
     def opimpl_guard_class(self, orgpc, box):
         clsbox = self.cls_of_box(box)
-        self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
+        if box not in self.metainterp.known_class_boxes:
+            self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
+            self.metainterp.known_class_boxes[box] = None
         return clsbox
 
     @arguments("int", "orgpc")
@@ -1251,7 +1256,7 @@ class MIFrame(object):
             effect = effectinfo.extraeffect
             if effect == effectinfo.EF_CANNOT_RAISE:
                 return self.execute_varargs(rop.CALL, allboxes, descr, False)
-            elif effect == effectinfo.EF_PURE:
+            elif effect == effectinfo.EF_ELIDABLE:
                 return self.metainterp.record_result_of_call_pure(
                     self.execute_varargs(rop.CALL, allboxes, descr, False))
             elif effect == effectinfo.EF_LOOPINVARIANT:
@@ -1467,6 +1472,8 @@ class MetaInterp(object):
         self.last_exc_value_box = None
         self.retracing_loop_from = None
         self.call_pure_results = args_dict_box()
+        # contains boxes where the class is already known
+        self.known_class_boxes = {}
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1807,6 +1814,8 @@ class MetaInterp(object):
                 duplicates[box] = None
 
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
+        self.known_class_boxes = {}
+
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
                                           duplicates)

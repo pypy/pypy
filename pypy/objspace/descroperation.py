@@ -416,7 +416,7 @@ class DescrOperation(object):
             # obscure circumstances.
             return default_identity_hash(space, w_obj)
         if space.is_w(w_hash, space.w_None):
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' objects are unhashable", typename)
         w_result = space.get_and_call_function(w_hash, w_obj)

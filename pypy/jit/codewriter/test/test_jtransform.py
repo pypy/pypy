@@ -123,7 +123,7 @@ class FakeBuiltinCallControl:
             if oopspecindex == EI.OS_STR2UNICODE:
                 assert extraeffect == None    # not pure, can raise!
             else:
-                assert extraeffect == EI.EF_PURE
+                assert extraeffect == EI.EF_ELIDABLE
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False

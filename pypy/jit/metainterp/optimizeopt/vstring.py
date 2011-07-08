@@ -8,7 +8,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeopt import optimizer, virtualize
 from pypy.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from pypy.jit.metainterp.optimizeopt.optimizer import llhelper
-from pypy.jit.metainterp.optimizeopt.util import _findall
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.unroll import unrolling_iterable
@@ -649,16 +649,11 @@ class OptString(optimizer.Optimization):
             self.emit_operation(op)
             return
 
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
+        dispatch_opt(self, op)
 
 
-optimize_ops = _findall(OptString, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
+        default=OptString.emit_operation)
 
 def _findall_call_oopspec():
     prefix = 'opt_call_stroruni_'

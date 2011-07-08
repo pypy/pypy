@@ -49,9 +49,9 @@ static long long pypy__float2longlong(double x) {
 longlong2float = rffi.llexternal(
     "pypy__longlong2float", [rffi.LONGLONG], rffi.DOUBLE,
     _callable=longlong2float_emulator, compilation_info=eci,
-    _nowrapper=True, pure_function=True)
+    _nowrapper=True, elidable_function=True)
 
 float2longlong = rffi.llexternal(
     "pypy__float2longlong", [rffi.DOUBLE], rffi.LONGLONG,
     _callable=float2longlong_emulator, compilation_info=eci,
-    _nowrapper=True, pure_function=True)
+    _nowrapper=True, elidable_function=True)
