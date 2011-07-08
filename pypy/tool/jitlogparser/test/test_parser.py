@@ -1,9 +1,8 @@
-from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import ConstInt, Const
-from pypy.tool.jitlogparser.parser import SimpleParser, TraceForOpcode, Function,\
-     adjust_bridges
+from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
+                                           Function, adjust_bridges,
+                                           import_log)
 from pypy.tool.jitlogparser.storage import LoopStorage
-import py
+import py, sys
 
 def parse(input, **kwds):
     return SimpleParser.parse_from_input(input, **kwds)
@@ -111,6 +110,8 @@ def test_lineno():
     assert res.chunks[1].lineno == 3
 
 def test_linerange():
+    if sys.version_info > (2, 6):
+        py.test.skip("unportable test")
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse('''
     [i0, i1]
@@ -125,6 +126,8 @@ def test_linerange():
     assert res.lineset == set([7, 8, 9])
 
 def test_linerange_notstarts():
+    if sys.version_info > (2, 6):
+        py.test.skip("unportable test")
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse("""
     [p6, p1]
