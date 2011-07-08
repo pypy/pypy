@@ -256,10 +256,6 @@ class MiniMarkGC(MovingGCBase):
         # (may) contain a pointer to a young object.  Populated by
         # the write barrier: when we clear GCFLAG_TRACK_YOUNG_PTRS, we
         # add it to this list.
-        class Cls(self.AddressStack):
-            def append(self2, addr):
-                assert addr not in self2.tolist()
-                self.AddressStack.append(self2, addr)
         self.objects_pointing_to_young = self.AddressStack()
         #
         # Similar to 'objects_pointing_to_young', but lists objects

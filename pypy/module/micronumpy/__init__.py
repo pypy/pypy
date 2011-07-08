@@ -10,6 +10,7 @@ class Module(MixedModule):
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
+        'fromstring': 'interp_support.fromstring',
 
         # ufuncs
         'abs': 'interp_ufuncs.absolute',
