@@ -3,8 +3,9 @@ import py, os
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import rffi, lltype
 
-srcpath = py.path.local(__file__).dirpath().join("src")
-incpath = py.path.local(__file__).dirpath().join("include")
+pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
+srcpath = pkgpath.join("src")
+incpath = pkgpath.join("include")
 
 if os.environ.get("ROOTSYS"):
     rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]

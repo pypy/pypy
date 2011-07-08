@@ -1,5 +1,14 @@
 #include "cppyy.h"
 #include "reflexcwrapper.h"
+
+#include "Reflex/Type.h"
+#include "Reflex/Base.h"
+#include "Reflex/Member.h"
+#include "Reflex/Object.h"
+#include "Reflex/Builder/TypeBuilder.h"
+#include "Reflex/PropertyList.h"
+#include "Reflex/TypeTemplate.h"
+
 #include <iostream>
 #include <string>
 #include <utility>
@@ -77,7 +86,7 @@ void cppyy_deallocate(cppyy_typehandle_t handle, cppyy_object_t instance) {
 
 void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self) {
     Reflex::Type t = type_from_handle(handle);
-    t.Destruct(self, true);
+    t.Destruct((void*)self, true);
 }
 
 
@@ -98,8 +107,7 @@ void cppyy_call_v(cppyy_typehandle_t handle, int method_index,
 long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
                   cppyy_object_t self, int numargs, void* args[],
                   cppyy_typehandle_t rettype) {
-    Reflex::Type rt = type_from_handle(rettype);
-    void* result = rt.Allocate();
+    void* result = cppyy_allocate(rettype);
     std::vector<void*> arguments(args, args+numargs);
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
@@ -214,7 +222,7 @@ size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
         return 0;
     Reflex::Type td = type_from_handle(dh);
     Reflex::Type tb = type_from_handle(bh);
-    return base_offset(td, tb);
+    return (size_t)base_offset(td, tb);
 }
 
 

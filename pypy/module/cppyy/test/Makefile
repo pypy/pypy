@@ -22,6 +22,9 @@ example01Dict.so: example01.cxx example01.h example01.xml
 	$(genreflex) example01.h $(genreflexflags) --selection=example01.xml
 	g++ -o $@ example01_rflx.cpp example01.cxx -shared -lReflex $(cppflags) $(cppflags2)
 
+# rootcint -f example01_cint.cxx -c example01.h
+# g++ -I$ROOTSYS/include example01_cint.cxx example01.cxx -shared -o example01Dict.so -L$ROOTSYS/lib -lCore -lCint
+
 datatypesDict.so: datatypes.cxx datatypes.h
 	$(genreflex) datatypes.h $(genreflexflags)
 	g++ -o $@ datatypes_rflx.cpp datatypes.cxx -shared -lReflex $(cppflags) $(cppflags2)

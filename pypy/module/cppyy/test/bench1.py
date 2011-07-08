@@ -30,9 +30,10 @@ class PyCintexBench1(object):
 
         self.cls   = PyCintex.gbl.example01
         self.inst  = self.cls(0)
-        self.scale = 10
 
     def __call__(self):
+        # note that PyCintex calls don't actually scale linearly, but worse
+        # than linear (leak or wrong filling of a cache??)
         instance = self.inst
         niter = NNN/self.scale
         for i in range(niter):
