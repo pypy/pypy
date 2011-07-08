@@ -204,9 +204,12 @@ def test_parsing_assembler():
     +213: jump(p0, p1, p2, p3, i8, descr=<Loop0>)
     +218: --end of the loop--""", backend_dump=backend_dump,
                  dump_start=dump_start,
-                 backend_tp='x86_64',
-                 loop_start=0x7f3b0b2e645d)
+                 backend_tp='x86_64')
     cmp = loop.operations[1]
     assert 'jge' in cmp.asm
     assert '0x2710' in cmp.asm
     assert 'jmp' in loop.operations[-1].asm
+
+def test_import_log():
+    loops = import_log(str(py.path.local(__file__).join('..', 'logtest.log')))
+    assert 'jge' in loops[0].operations[3].asm
