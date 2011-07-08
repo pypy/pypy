@@ -211,5 +211,6 @@ def test_parsing_assembler():
     assert 'jmp' in loop.operations[-1].asm
 
 def test_import_log():
-    loops = import_log(str(py.path.local(__file__).join('..', 'logtest.log')))
+    _, loops = import_log(str(py.path.local(__file__).join('..',
+                                                           'logtest.log')))
     assert 'jge' in loops[0].operations[3].asm
