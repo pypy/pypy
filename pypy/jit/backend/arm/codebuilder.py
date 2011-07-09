@@ -178,8 +178,27 @@ class AbstractARMv7Builder(object):
             self.write32(target)
         else:
             self.gen_load_int(reg.ip.value, target, cond=c)
-            self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET/2)
+            self.MOV_rr(reg.lr.value, reg.pc.value, cond=c)
             self.MOV_rr(reg.pc.value, reg.ip.value, cond=c)
+
+    def MOVT_ri(self, rd, imm16, c=cond.AL):
+        """Move Top writes an immediate value to the top halfword of the
+        destination register. It does not affect the contents of the bottom
+        halfword."""
+        self.write32(c << 28
+                    | 0x3 << 24
+                    | (1 << 22)
+                    | ((imm16 >> 12) & 0xF) << 16
+                    | (rd & 0xF) << 12
+                    | imm16 & 0xFFF)
+
+    def MOVW_ri(self, rd, imm16, c=cond.AL):
+        """Encoding A2 of MOV, that allow to load a 16 bit constant"""
+        self.write32(c << 28
+                    | 0x3 << 24
+                    | ((imm16 >> 12) & 0xF) << 16
+                    | (rd & 0xF) << 12
+                    | imm16 & 0xFFF)
 
     DIV = binary_helper_call('int_div')
     MOD = binary_helper_call('int_mod')
@@ -209,30 +228,15 @@ class AbstractARMv7Builder(object):
     def currpos(self):
         raise NotImplementedError
 
-    size_of_gen_load_int = 3 * WORD
+    size_of_gen_load_int = 2 * WORD
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
-        from pypy.jit.backend.arm.conditions import AL
-        if cond != AL or 0 <= value <= 0xFFFF:
-            self._load_by_shifting(r, value, cond)
-        else:
-            self.LDR_ri(r, reg.pc.value)
-            self.MOV_rr(reg.pc.value, reg.pc.value)
-            self.write32(value)
-
-    #size_of_gen_load_int = 4 * WORD
-    ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
-    def _load_by_shifting(self, r, value, c=cond.AL):
-        # to be sure it is only called for the correct cases
-        assert c != cond.AL or 0 <= value <= 0xFFFF
-        self.MOV_ri(r, (value & 0xFF), cond=c)
-        for offset, shift in self.ofs_shift:
-            b = (value >> offset) & 0xFF
-            if b == 0:
-                continue
-            t = b | (shift << 8)
-            self.ORR_ri(r, r, imm=t, cond=c)
+        bottom = value & 0xFFFF
+        top = value >> 16
+        self.MOVW_ri(r, bottom, cond)
+        if top:
+            self.MOVT_ri(r, top, cond)
 
 class OverwritingBuilder(AbstractARMv7Builder):
     def __init__(self, cb, start, size):

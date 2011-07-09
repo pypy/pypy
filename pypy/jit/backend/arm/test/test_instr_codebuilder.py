@@ -156,6 +156,14 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.VMRS(conditions.AL)
         self.assert_equal("vmrs APSR_nzcv, fpscr")
 
+    def test_movw(self):
+        self.cb.MOVW_ri(r.r3.value, 0xFFFF, conditions.NE)
+        self.assert_equal("MOVWNE r3, #65535")
+
+    def test_movt(self):
+        self.cb.MOVT_ri(r.r3.value, 0xFFFF, conditions.NE)
+        self.assert_equal("MOVTNE r3, #65535")
+
 class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):
         self.cb = CodeBuilder()
