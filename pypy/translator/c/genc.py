@@ -13,6 +13,7 @@ from pypy.translator.c.support import log, c_string_constant
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.c import gc
 from pypy.rlib import exports
+from pypy.tool.nullpath import NullPyPathLocal
 
 def import_module_from_directory(dir, modname):
     file, pathname, description = imp.find_module(modname, [str(dir)])
@@ -237,7 +238,9 @@ class CBuilder(object):
             self.modulename = uniquemodulename('testing')
         modulename = self.modulename
         targetdir = udir.ensure(modulename, dir=1)
-        
+        if self.config.translation.dont_write_c_files:
+            targetdir = NullPyPathLocal(targetdir)
+
         self.targetdir = targetdir
         defines = defines.copy()
         if self.config.translation.countmallocs:
@@ -944,11 +947,13 @@ def add_extra_files(eci):
     ]
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
+
 def gen_source_standalone(database, modulename, targetdir, eci,
                           entrypointname, defines={}): 
     assert database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
+
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
     incfilename = targetdir.join('common_header.h')
@@ -1002,6 +1007,7 @@ def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
     assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
+
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
     incfilename = targetdir.join('common_header.h')
