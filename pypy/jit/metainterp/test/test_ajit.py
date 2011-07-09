@@ -984,11 +984,14 @@ class BasicTests:
             pass
         class B(A):
             pass
-        def fn(n):
+        @dont_look_inside
+        def extern(n):
             if n:
-                obj = A()
+                return A()
             else:
-                obj = B()
+                return B()
+        def fn(n):
+            obj = extern(n)
             return isinstance(obj, B)
         res = self.interp_operations(fn, [0])
         assert res
