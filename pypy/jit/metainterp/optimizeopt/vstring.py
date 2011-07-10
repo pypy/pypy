@@ -61,7 +61,7 @@ class __extend__(optimizer.OptValue):
         self.ensure_nonnull()
         box = self.force_box()
         lengthbox = BoxInt()
-        optimization.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
+        optimization.optimize_default(ResOperation(mode.STRLEN, [box], lengthbox))
         return lengthbox
 
     @specialize.arg(1)
@@ -72,13 +72,13 @@ class __extend__(optimizer.OptValue):
         else:
             return None
 
-    def string_copy_parts(self, optimization, targetbox, offsetbox, mode):
+    def string_copy_parts(self, optimizer, targetbox, offsetbox, mode):
         # Copies the pointer-to-string 'self' into the target string
         # given by 'targetbox', at the specified offset.  Returns the offset
         # at the end of the copy.
-        lengthbox = self.getstrlen(optimization, mode)
+        lengthbox = self.getstrlen(optimizer, mode)
         srcbox = self.force_box()
-        return copy_str_content(optimization, srcbox, targetbox,
+        return copy_str_content(optimizer, srcbox, targetbox,
                                 CONST_0, offsetbox, lengthbox, mode)
 
 
@@ -335,7 +335,7 @@ def _int_add(optimizer, box1, box2):
     if optimizer is None:
         return None
     resbox = BoxInt()
-    optimizer.emit_operation(ResOperation(rop.INT_ADD, [box1, box2], resbox))
+    optimizer.optimize_default(ResOperation(rop.INT_ADD, [box1, box2], resbox))
     return resbox
 
 def _int_sub(optimizer, box1, box2):
@@ -450,7 +450,7 @@ class OptString(optimizer.Optimization):
 
     def _optimize_STRLEN(self, op, mode):
         value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self, mode)
+        lengthbox = value.getstrlen(self.optimizer, mode)
         self.make_equal_to(op.result, self.getvalue(lengthbox))
 
     def optimize_CALL(self, op):
