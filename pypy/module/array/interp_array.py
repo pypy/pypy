@@ -572,10 +572,7 @@ def make_array(mytype):
             self.fromsequence(w_ustr)
 
         def array_tounicode__Array(space, self):
-            u = u""
-            for i in range(self.len):
-                u += self.buffer[i]
-            return space.wrap(u)
+            return space.wrap(rffi.wcharpsize2unicode(self.buffer, self.len))
     else:
 
         def array_fromunicode__Array_Unicode(space, self, w_ustr):
