@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib import jit
@@ -49,6 +49,14 @@ def pow(v1, v2):
     return math.pow(v1, v2)
 def mod(v1, v2):
     return math.fmod(v1, v2)
+def maximum(v1, v2):
+    return max(v1, v2)
+def minimum(v1, v2):
+    return min(v1, v2)
+def and_bool(v1, v2):
+    return v1 and bool(v2)
+def or_bool(v1, v2):
+    return v1 or bool(v2)
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -109,6 +117,90 @@ class BaseArray(Wrappable):
     descr_div = _binop_impl(div)
     descr_pow = _binop_impl(pow)
     descr_mod = _binop_impl(mod)
+
+    def _reduce_sum_prod_impl(function, init):
+        reduce_driver = jit.JitDriver(greens=['signature'],
+                         reds = ['i', 'size', 'self', 'result'])
+
+        def loop(self, result, size):
+            i = 0
+            while i < size:
+                reduce_driver.jit_merge_point(signature=self.signature,
+                                              self=self, size=size, i=i,
+                                              result=result)
+                result = function(result, self.eval(i))
+                i += 1
+            return result
+
+        def impl(self, space):
+            return space.wrap(loop(self, init, self.find_size()))
+        return func_with_new_name(impl, "reduce_%s_impl" % function.__name__)
+
+    def _reduce_max_min_impl(function):
+        reduce_driver = jit.JitDriver(greens=['signature'],
+                         reds = ['i', 'size', 'self', 'result'])    
+        def loop(self, result, size):
+            i = 1
+            while i < size:
+                reduce_driver.jit_merge_point(signature=self.signature,
+                                              self=self, size=size, i=i,
+                                              result=result)
+                result = function(result, self.eval(i))
+                i += 1
+            return result
+        
+        def impl(self, space):
+            size = self.find_size()
+            if size == 0:
+                raise OperationError(space.w_ValueError,
+                    space.wrap("Can't call %s on zero-size arrays" \
+                            % function.__name__))
+            return space.wrap(loop(self, self.eval(0), size))
+        return func_with_new_name(impl, "reduce_%s_impl" % function.__name__)
+
+    def _reduce_any_all_impl(function, init, cond):
+        reduce_driver = jit.JitDriver(greens=['signature'],
+                         reds = ['i', 'size', 'result', 'self'])
+        def loop(self, result, size):
+            i = 0
+            if cond:
+                while i < size:
+                    reduce_driver.jit_merge_point(signature=self.signature,
+                                                  self=self, size=size, i=i,
+                                                  result=result)
+                    result = function(result, self.eval(i))
+                    if result:
+                        break
+                    i += 1
+            else:
+                while i < size:
+                    reduce_driver.jit_merge_point(signature=self.signature,
+                                                  self=self, size=size, i=i,
+                                                  result=result)
+                    result = function(result, self.eval(i))
+                    if not result:
+                        break
+                    i += 1
+            return result
+
+        def impl(self, space):
+            size = self.find_size()
+            return space.wrap(loop(self, init, size))
+        return func_with_new_name(impl, "reduce_%s_impl" % function.__name__)
+
+    descr_sum = _reduce_sum_prod_impl(add, 0.0)
+    descr_prod = _reduce_sum_prod_impl(mul, 1.0)
+    descr_max = _reduce_max_min_impl(maximum)
+    descr_min = _reduce_max_min_impl(minimum)
+    descr_all = _reduce_any_all_impl(and_bool, True, False)
+    descr_any = _reduce_any_all_impl(or_bool, False, True)
+
+    def descr_dot(self, space, w_other):
+        if isinstance(w_other, BaseArray):
+            return self.descr_mul(space, w_other).descr_sum(space)
+        else:
+            w_other = FloatWrapper(space.float_w(w_other))
+            return self.descr_mul(space, w_other)
 
     def get_concrete(self):
         raise NotImplementedError
@@ -391,4 +483,11 @@ BaseArray.typedef = TypeDef(
     __mod__ = interp2app(BaseArray.descr_mod),
 
     mean = interp2app(BaseArray.descr_mean),
+    sum = interp2app(BaseArray.descr_sum),
+    prod = interp2app(BaseArray.descr_prod),
+    max = interp2app(BaseArray.descr_max),
+    min = interp2app(BaseArray.descr_min),
+    all = interp2app(BaseArray.descr_all),
+    any = interp2app(BaseArray.descr_any),
+    dot = interp2app(BaseArray.descr_dot),
 )
