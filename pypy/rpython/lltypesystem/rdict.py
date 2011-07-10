@@ -874,7 +874,6 @@ def _ll_getnextitem(dic):
         global_popitem_index.nextindex = base + counter
     return i
 
-@jit.dont_look_inside
 def ll_popitem(ELEM, dic):
     i = _ll_getnextitem(dic)
     entry = dic.entries[i]
