@@ -3,7 +3,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 
 class DebugState(object):
     def __init__(self):
-        self.prefixes = os.environ.get('PYPYDEFAULTLOG', 'all').split(':')
+        self.prefixes = os.environ.get('PYPYDEFAULTLOG', 'all').split(',')
         if self.prefixes == ['']:
             self.prefixes = []
         self.categories = []
