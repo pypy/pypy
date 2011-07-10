@@ -345,10 +345,10 @@ def _int_sub(optimizer, box1, box2):
         if isinstance(box1, ConstInt):
             return ConstInt(box1.value - box2.value)
     resbox = BoxInt()
-    optimizer.emit_operation(ResOperation(rop.INT_SUB, [box1, box2], resbox))
+    optimizer.optimize_default(ResOperation(rop.INT_SUB, [box1, box2], resbox))
     return resbox
 
-def _strgetitem(optimization, strbox, indexbox, mode):
+def _strgetitem(optimizer, strbox, indexbox, mode):
     if isinstance(strbox, ConstPtr) and isinstance(indexbox, ConstInt):
         if mode is mode_string:
             s = strbox.getref(lltype.Ptr(rstr.STR))
@@ -357,7 +357,7 @@ def _strgetitem(optimization, strbox, indexbox, mode):
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
             return ConstInt(ord(s.chars[indexbox.getint()]))
     resbox = BoxInt()
-    optimization.emit_operation(ResOperation(mode.STRGETITEM, [strbox, indexbox],
+    optimizer.optimize_default(ResOperation(mode.STRGETITEM, [strbox, indexbox],
                                       resbox))
     return resbox
 
@@ -440,7 +440,7 @@ class OptString(optimizer.Optimization):
             if vindex.is_constant():
                 return value.getitem(vindex.box.getint())
         #
-        resbox = _strgetitem(self, value.force_box(), vindex.force_box(), mode)
+        resbox = _strgetitem(self.optimizer, value.force_box(), vindex.force_box(), mode)
         return self.getvalue(resbox)
 
     def optimize_STRLEN(self, op):
