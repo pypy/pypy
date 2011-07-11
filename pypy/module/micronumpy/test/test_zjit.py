@@ -115,6 +115,23 @@ class TestNumpyJIt(LLJitMixin):
                            "int_lt": 1, "guard_true": 2,
                            "jump": 1})
 
+    def test_argmin(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = float(j)
+                j += 1
+            return ar.descr_add(space, ar).descr_argmin(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                           "float_lt": 1, "int_add": 1,
+                           "int_lt": 1, "guard_true": 2,
+                           "jump": 1})
+
     def test_all(self):
         space = self.space
 

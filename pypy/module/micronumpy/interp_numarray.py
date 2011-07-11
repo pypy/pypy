@@ -179,7 +179,7 @@ class BaseArray(Wrappable):
 
     def _reduce_argmax_argmin_impl(function):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'result', 'cur_best', 'self'])
+                         reds = ['i', 'size', 'result', 'self', 'cur_best'])
         def loop(self, size):
             result = 0
             cur_best = self.eval(0)
