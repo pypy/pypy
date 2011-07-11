@@ -130,6 +130,9 @@ class W_Root(object):
         raise operationerrfmt(space.w_TypeError,
             "cannot create weak reference to '%s' object", typename)
 
+    def delweakref(self):
+        pass
+
     def clear_all_weakrefs(self):
         """Call this at the beginning of interp-level __del__() methods
         in subclasses.  It ensures that weakrefs (if any) are cleared
@@ -143,7 +146,7 @@ class W_Root(object):
             # app-level, e.g. a user-defined __del__(), and this code
             # tries to use weakrefs again, it won't reuse the broken
             # (already-cleared) weakrefs from this lifeline.
-            self.setweakref(lifeline.space, None)
+            self.delweakref()
             lifeline.clear_all_weakrefs()
 
     __already_enqueued_for_destruction = False

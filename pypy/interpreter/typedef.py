@@ -228,6 +228,8 @@ def _builduserclswithfeature(config, supercls, *features):
                 return self._lifeline_
             def setweakref(self, space, weakreflifeline):
                 self._lifeline_ = weakreflifeline
+            def delweakref(self):
+                self._lifeline_ = None
         add(Proto)
 
     if "del" in features:
@@ -661,9 +663,12 @@ def make_weakref_descr(cls):
         return self._lifeline_
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+    def delweakref(self):
+        self._lifeline_ = None
     cls._lifeline_ = None
     cls.getweakref = getweakref
     cls.setweakref = setweakref
+    cls.delweakref = delweakref
     return weakref_descr
 
 

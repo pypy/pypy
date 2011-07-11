@@ -532,6 +532,8 @@ class W_TypeObject(W_Object):
         return self._lifeline_
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+    def delweakref(self):
+        self._lifeline_ = None
 
 # ____________________________________________________________
 # Initialization of type objects

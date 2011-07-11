@@ -10,7 +10,7 @@ import weakref
 
 class WeakrefLifeline(W_Root):
     def __init__(self, space):
-        self.space = space       # this is here for W_Root.clear_all_weakrefs()
+        self.space = space
         self.refs_weak = []
         self.cached_weakref_index = -1
         self.cached_proxy_index = -1

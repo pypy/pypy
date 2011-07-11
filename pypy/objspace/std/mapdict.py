@@ -434,9 +434,11 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
 
     def setweakref(self, space, weakreflifeline):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
-        assert (isinstance(weakreflifeline, WeakrefLifeline) or
-                    weakreflifeline is None)
+        assert isinstance(weakreflifeline, WeakrefLifeline)
         self._get_mapdict_map().write(self, ("weakref", SPECIAL), weakreflifeline)
+
+    def delweakref(self):
+        self._get_mapdict_map().write(self, ("weakref", SPECIAL), None)
 
 class ObjectMixin(object):
     _mixin_ = True
