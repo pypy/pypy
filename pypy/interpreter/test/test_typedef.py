@@ -184,11 +184,12 @@ class TestTypeDef:
     def test_destructor(self):
         space = self.space
         class W_Level1(Wrappable):
-            space = self.space
             def __del__(self):
                 space.call_method(w_seen, 'append', space.wrap(1))
-        class W_Level2(W_Level1):
-            typedef.builtin_destructor(locals(), 'destructormeth', W_Level1)
+        class W_Level2(Wrappable):
+            def __del__(self):
+                self.enqueue_for_destruction(space, W_Level2.destructormeth,
+                                             'FOO ')
             def destructormeth(self):
                 space.call_method(w_seen, 'append', space.wrap(2))
         W_Level1.typedef = typedef.TypeDef(
@@ -201,7 +202,7 @@ class TestTypeDef:
         w_seen = space.newlist([])
         W_Level1()
         gc.collect(); gc.collect()
-        assert space.str_w(space.repr(w_seen)) == "[1]"
+        assert space.unwrap(w_seen) == [1]
         #
         w_seen = space.newlist([])
         W_Level2()
@@ -209,7 +210,7 @@ class TestTypeDef:
         assert space.str_w(space.repr(w_seen)) == "[]"  # not called yet
         ec = space.getexecutioncontext()
         self.space.user_del_action.perform(ec, None)
-        assert space.str_w(space.repr(w_seen)) == "[2, 1]"
+        assert space.unwrap(w_seen) == [2]
         #
         w_seen = space.newlist([])
         self.space.appexec([self.space.gettypeobject(W_Level1.typedef)],
@@ -219,7 +220,7 @@ class TestTypeDef:
             A3()
         """)
         gc.collect(); gc.collect()
-        assert space.str_w(space.repr(w_seen)) == "[1]"
+        assert space.unwrap(w_seen) == [1]
         #
         w_seen = space.newlist([])
         self.space.appexec([self.space.gettypeobject(W_Level1.typedef),
@@ -231,7 +232,7 @@ class TestTypeDef:
             A4()
         """)
         gc.collect(); gc.collect()
-        assert space.str_w(space.repr(w_seen)) == "[4, 1]"
+        assert space.unwrap(w_seen) == [4, 1]
         #
         w_seen = space.newlist([])
         self.space.appexec([self.space.gettypeobject(W_Level2.typedef)],
@@ -241,7 +242,7 @@ class TestTypeDef:
             A5()
         """)
         gc.collect(); gc.collect()
-        assert space.str_w(space.repr(w_seen)) == "[2, 1]"
+        assert space.unwrap(w_seen) == [2]
         #
         w_seen = space.newlist([])
         self.space.appexec([self.space.gettypeobject(W_Level2.typedef),
@@ -253,7 +254,7 @@ class TestTypeDef:
             A6()
         """)
         gc.collect(); gc.collect()
-        assert space.str_w(space.repr(w_seen)) == "[6, 2, 1]"
+        assert space.unwrap(w_seen) == [6, 2]
 
 
 class AppTestTypeDef:
