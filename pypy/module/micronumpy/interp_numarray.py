@@ -199,7 +199,6 @@ class BaseArray(Wrappable):
         if isinstance(w_other, BaseArray):
             return self.descr_mul(space, w_other).descr_sum(space)
         else:
-            w_other = FloatWrapper(space.float_w(w_other))
             return self.descr_mul(space, w_other)
 
     def get_concrete(self):
