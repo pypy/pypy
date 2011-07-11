@@ -62,11 +62,20 @@ class TypeConverter(object):
         lltype.free(arg, flavor='raw')
 
 
-class ArrayTypeConverter(TypeConverter):
+class ArrayCache(object):
+    def __init__(self, space):
+        self.space = space
+    def __getattr__(self, name):
+        if name.startswith('array_'):
+            typecode = name[len('array_'):]
+            arr = self.space.interp_w(W_Array, unpack_simple_shape(self.space, self.space.wrap(typecode)))
+            setattr(self, name, arr)
+            return arr
+        raise AttributeError(name)
+
+class ArrayTypeConverterMixin(object):
+    _mixin_ = True
     _immutable = True
-    _immutable_fields_ = ["size"]
-    typecode = ''
-    typesize = 0         # TODO: get sizeof(type) from system
 
     def __init__(self, space, array_size):
         if array_size <= 0:
@@ -78,18 +87,20 @@ class ArrayTypeConverter(TypeConverter):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.UINT, address_value)
-        arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
+        cache = space.fromcache(ArrayCache)
+        arr = getattr(cache, 'array_' + self.typecode)
         return arr.fromaddress(space, address, self.size)
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
         address = self._get_raw_address(space, w_obj, offset)
-        buf = space.interp_w(Buffer, w_value.getslotvalue(2))
+        buf = space.buffer_w(w_value)
+        # TODO: report if too many items given?
         for i in range(min(self.size*self.typesize, buf.getlength())):
             address[i] = buf.getitem(i)
 
 
-class PtrTypeConverter(ArrayTypeConverter):
+class PtrTypeConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_ = True
 
     def _get_raw_address(self, space, w_obj, offset):
@@ -294,22 +305,22 @@ class CStringConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
 
-class ShortArrayConverter(ArrayTypeConverter):
+class ShortArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_=True
     typecode = 'h'
     typesize = 2
 
-class LongArrayConverter(ArrayTypeConverter):
+class LongArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_=True
     typecode = 'l'
     typesize = 4
 
-class FloatArrayConverter(ArrayTypeConverter):
+class FloatArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_=True
     typecode = 'f'
     typesize = 4
 
-class DoubleArrayConverter(ArrayTypeConverter):
+class DoubleArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_=True
     typecode = 'd'
     typesize = 8
