@@ -411,6 +411,23 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f("abcd", ord("b"))
         assert result == "bcd"
 
+    def test_keepalive_buffers(self, monkeypatch):
+        import gc
+        f = dll.my_strchr
+        f.argtypes = [c_char_p]
+        f.restype = c_char_p
+        #
+        orig__call_funcptr = f._call_funcptr
+        def _call_funcptr(funcptr, *newargs):
+            gc.collect()
+            gc.collect()
+            gc.collect()
+            return orig__call_funcptr(funcptr, *newargs)
+        monkeypatch.setattr(f, '_call_funcptr', _call_funcptr)
+        #
+        result = f("abcd", ord("b"))
+        assert result == "bcd"
+
     def test_caching_bug_1(self):
         # the same test as test_call_some_args, with two extra lines
         # in the middle that trigger caching in f._ptr, which then

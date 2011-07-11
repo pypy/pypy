@@ -328,12 +328,14 @@ class CFuncPtr(_CData):
                     "native COM method call without 'this' parameter"
                     )
             thisarg = cast(args[0], POINTER(POINTER(c_void_p)))
-            newargs, argtypes, outargs = self._convert_args(argtypes, args[1:], kwargs)
+            keepalives, newargs, argtypes, outargs = self._convert_args(argtypes,
+                                                                        args[1:], kwargs)
             newargs.insert(0, args[0].value)
             argtypes.insert(0, c_void_p)
         else:
             thisarg = None
-            newargs, argtypes, outargs = self._convert_args(argtypes, args, kwargs)
+            keepalives, newargs, argtypes, outargs = self._convert_args(argtypes,
+                                                                        args, kwargs)
 
         funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
         result = self._call_funcptr(funcptr, *newargs)
@@ -437,16 +439,15 @@ class CFuncPtr(_CData):
     @classmethod
     def _conv_param(cls, argtype, arg):
         if isinstance(argtype, _CDataMeta):
-            #arg = argtype.from_param(arg)
-            arg = argtype.get_ffi_param(arg)
-            return arg, argtype
+            cobj, ffiparam = argtype.get_ffi_param(arg)
+            return cobj, ffiparam, argtype
         
         if argtype is not None:
             arg = argtype.from_param(arg)
         if hasattr(arg, '_as_parameter_'):
             arg = arg._as_parameter_
         if isinstance(arg, _CData):
-            return arg._to_ffi_param(), type(arg)
+            return arg, arg._to_ffi_param(), type(arg)
         #
         # non-usual case: we do the import here to save a lot of code in the
         # jit trace of the normal case
@@ -463,11 +464,12 @@ class CFuncPtr(_CData):
         else:
             raise TypeError("Don't know how to handle %s" % (arg,))
 
-        return cobj._to_ffi_param(), type(cobj)
+        return cobj, cobj._to_ffi_param(), type(cobj)
 
     def _convert_args(self, argtypes, args, kwargs, marker=object()):
         newargs = []
         outargs = []
+        keepalives = []
         newargtypes = []
         total = len(args)
         paramflags = self._paramflags
@@ -495,7 +497,8 @@ class CFuncPtr(_CData):
                     val = defval
                     if val is marker:
                         val = 0
-                    newarg, newargtype = self._conv_param(argtype, val)
+                    keepalive, newarg, newargtype = self._conv_param(argtype, val)
+                    keepalives.append(keepalive)
                     newargs.append(newarg)
                     newargtypes.append(newargtype)
                 elif flag in (0, PARAMFLAG_FIN):
@@ -511,28 +514,32 @@ class CFuncPtr(_CData):
                         raise TypeError("required argument '%s' missing" % name)
                     else:
                         raise TypeError("not enough arguments")
-                    newarg, newargtype = self._conv_param(argtype, val)
+                    keepalive, newarg, newargtype = self._conv_param(argtype, val)
+                    keepalives.append(keepalive)
                     newargs.append(newarg)
                     newargtypes.append(newargtype)
                 elif flag == PARAMFLAG_FOUT:
                     if defval is not marker:
                         outargs.append(defval)
-                        newarg, newargtype = self._conv_param(argtype, defval)
+                        keepalive, newarg, newargtype = self._conv_param(argtype, defval)
                     else:
                         import ctypes
                         val = argtype._type_()
                         outargs.append(val)
+                        keepalive = None
                         newarg = ctypes.byref(val)
                         newargtype = type(newarg)
+                    keepalives.append(keepalive)
                     newargs.append(newarg)
                     newargtypes.append(newargtype)
                 else:
                     raise ValueError("paramflag %d not yet implemented" % flag)
             else:
                 try:
-                    newarg, newargtype = self._conv_param(argtype, args[i])
+                    keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
                 except (UnicodeError, TypeError, ValueError), e:
                     raise ArgumentError(str(e))
+                keepalives.append(keepalive)
                 newargs.append(newarg)
                 newargtypes.append(newargtype)
                 inargs_idx += 1
@@ -541,12 +548,13 @@ class CFuncPtr(_CData):
             extra = args[len(newargs):]
             for i, arg in enumerate(extra):
                 try:
-                    newarg, newargtype = self._conv_param(None, arg)
+                    keepalive, newarg, newargtype = self._conv_param(None, arg)
                 except (UnicodeError, TypeError, ValueError), e:
                     raise ArgumentError(str(e))
+                keepalives.append(keepalive)
                 newargs.append(newarg)
                 newargtypes.append(newargtype)
-        return newargs, newargtypes, outargs
+        return keepalives, newargs, newargtypes, outargs
 
     
     def _wrap_result(self, restype, result):
