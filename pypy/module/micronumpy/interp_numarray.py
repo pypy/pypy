@@ -45,7 +45,7 @@ def mul(v1, v2):
     return v1 * v2
 def div(v1, v2):
     return v1 / v2
-def pow(v1, v2):
+def power(v1, v2):
     return math.pow(v1, v2)
 def mod(v1, v2):
     return math.fmod(v1, v2)
@@ -115,8 +115,31 @@ class BaseArray(Wrappable):
     descr_sub = _binop_impl(sub)
     descr_mul = _binop_impl(mul)
     descr_div = _binop_impl(div)
-    descr_pow = _binop_impl(pow)
+    descr_pow = _binop_impl(power)
     descr_mod = _binop_impl(mod)
+
+    def _binop_right_impl(function):
+        signature = Signature()
+        def impl(self, space, w_other):
+            new_sig = self.signature.transition(signature)
+            w_other = FloatWrapper(space.float_w(w_other))
+            res = Call2(
+                function,
+                w_other,
+                self,
+                new_sig.transition(w_other.signature)
+            )
+            self.invalidates.append(res)
+            return space.wrap(res)
+        return func_with_new_name(impl, 
+                                  "binop_right_%s_impl" % function.__name__)
+
+    descr_radd = _binop_right_impl(add)
+    descr_rsub = _binop_right_impl(sub)
+    descr_rmul = _binop_right_impl(mul)
+    descr_rdiv = _binop_right_impl(div)
+    descr_rpow = _binop_right_impl(power)
+    descr_rmod = _binop_right_impl(mod)
 
     def _reduce_sum_prod_impl(function, init):
         reduce_driver = jit.JitDriver(greens=['signature'],
@@ -480,6 +503,12 @@ BaseArray.typedef = TypeDef(
     __div__ = interp2app(BaseArray.descr_div),
     __pow__ = interp2app(BaseArray.descr_pow),
     __mod__ = interp2app(BaseArray.descr_mod),
+    __radd__ = interp2app(BaseArray.descr_radd),
+    __rsub__ = interp2app(BaseArray.descr_rsub),
+    __rmul__ = interp2app(BaseArray.descr_rmul),
+    __rdiv__ = interp2app(BaseArray.descr_rdiv),
+    __rpow__ = interp2app(BaseArray.descr_rpow),
+    __rmod__ = interp2app(BaseArray.descr_rmod),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
