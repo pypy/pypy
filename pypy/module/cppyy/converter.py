@@ -86,7 +86,7 @@ class ArrayTypeConverterMixin(object):
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
-        address = rffi.cast(rffi.UINT, address_value)
+        address = rffi.cast(rffi.ULONG, address_value)
         cache = space.fromcache(ArrayCache)
         arr = getattr(cache, 'array_' + self.typecode)
         return arr.fromaddress(space, address, self.size)
@@ -100,13 +100,32 @@ class ArrayTypeConverterMixin(object):
             address[i] = buf.getitem(i)
 
 
-class PtrTypeConverter(ArrayTypeConverterMixin, TypeConverter):
+class PtrTypeConverter(TypeConverter):
     _immutable_ = True
 
-    def _get_raw_address(self, space, w_obj, offset):
-        address = TypeConverter._get_raw_address(self, space, w_obj, offset)
-        ptr2ptr = rffi.cast(rffi.LONGP, address)
-        return rffi.cast(rffi.CCHARP, ptr2ptr[0])
+    def __init__(self, space, array_size):
+        self.size = sys.maxint
+
+    def from_memory(self, space, w_obj, offset):
+        # read access, so no copy needed
+        address_value = self._get_raw_address(space, w_obj, offset)
+        address = rffi.cast(rffi.ULONGP, address_value)
+        cache = space.fromcache(ArrayCache)
+        arr = getattr(cache, 'array_' + self.typecode)
+        return arr.fromaddress(space, address[0], self.size)
+
+    @jit.dont_look_inside
+    def to_memory(self, space, w_obj, w_value, offset):
+        # copy only the pointer value
+        rawobject = get_rawobject(space, w_obj)
+        field_address = lltype.direct_ptradd(rawobject, offset)
+        byteptr = rffi.cast(rffi.CCHARPP, field_address)
+        buf = space.buffer_w(w_value)
+        try:
+            byteptr[0] = buf.get_raw_address()
+        except ValueError:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("raw buffer interface not supported"))
 
 
 class VoidConverter(TypeConverter):
@@ -330,13 +349,6 @@ class ShortPtrConverter(PtrTypeConverter):
     _immutable_=True
     typecode = 'h'
     typesize = 2
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        # copy only the pointer value
-        rawobject = get_rawobject(space, w_obj)
-        byteptr = rffi.cast(rffi.LONGP, rawobject[offset])
-        # TODO: now what ... ?? AFAICS, w_value is a pure python list, not an array?
-#        byteptr[0] = space.unwrap(space.id(w_value.getslotvalue(2)))
 
 class LongPtrConverter(PtrTypeConverter):
     _immutable_=True

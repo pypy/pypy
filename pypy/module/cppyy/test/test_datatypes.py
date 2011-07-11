@@ -5,7 +5,7 @@ from pypy.conftest import gettestobjspace
 currpath = py.path.local(__file__).dirpath()
 shared_lib = str(currpath.join("datatypesDict.so"))
 
-space = gettestobjspace(usemodules=['cppyy'])
+space = gettestobjspace(usemodules=['cppyy', 'array'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -178,11 +178,10 @@ class AppTestDATATYPES:
             for i in range(self.N):
                 assert eval('c.m_%s_array[i]' % names[j]) == b[i]
 
-# TODO: be able to dissect array.array for its pointers
-#            exec 'c.m_%s_array2 = b' % names[j]  # pointer copies
-#            b[i] = 28
-#            for i in range(self.N):
-#                assert eval('c.m_%s_array2[i]' % names[j]) == b[i]
+            exec 'c.m_%s_array2 = b' % names[j]  # pointer copies
+            b[i] = 28
+            for i in range(self.N):
+                assert eval('c.m_%s_array2[i]' % names[j]) == b[i]
 
         c.destruct()
 

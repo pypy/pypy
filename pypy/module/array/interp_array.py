@@ -162,6 +162,9 @@ class ArrayBuffer(RWBuffer):
     def setitem(self, index, char):
         self.data[index] = char
 
+    def get_raw_address(self):
+        return self.data
+
 
 def make_array(mytype):
     class W_Array(W_ArrayBase):

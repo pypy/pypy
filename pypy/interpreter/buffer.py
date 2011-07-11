@@ -43,6 +43,9 @@ class Buffer(Wrappable):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
+    def get_raw_address(self):
+        raise ValueError("no raw buffer")
+
     # __________ app-level support __________
 
     def descr_len(self, space):
