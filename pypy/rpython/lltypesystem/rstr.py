@@ -486,6 +486,11 @@ class LLHelpers(AbstractLLHelpers):
 
         return True
 
+    def ll_startswith_char(s, ch):
+        if not len(s.chars):
+            return False
+        return s.chars[0] == ch
+
     @elidable
     def ll_endswith(s1, s2):
         len1 = len(s1.chars)
@@ -502,6 +507,11 @@ class LLHelpers(AbstractLLHelpers):
             j += 1
 
         return True
+
+    def ll_endswith_char(s, ch):
+        if not len(s.chars):
+            return False
+        return s.chars[len(s.chars) - 1] == ch
 
     @elidable
     def ll_find_char(s, ch, start, end):
