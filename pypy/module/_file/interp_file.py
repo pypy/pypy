@@ -33,6 +33,7 @@ class W_File(W_AbstractStream):
     encoding = None
     errors   = None
     fd       = -1
+    streamerror_upon_closing = None
 
     newlines = 0     # Updated when the stream is closed
 
@@ -46,8 +47,14 @@ class W_File(W_AbstractStream):
         try:
             self.direct_close()
         except StreamErrors, e:
-            operr = wrap_streamerror(self.space, e, self.w_name)
-            operr.write_unraisable(self.space, '__del__ of ', self)
+            self.streamerror_upon_closing = e
+            self.enqueue_for_destruction(self.space, W_File.report_streamerror,
+                                         'close() method of ')
+
+    def report_streamerror(self):
+        operr = wrap_streamerror(self.space, self.streamerror_upon_closing,
+                                 self.w_name)
+        raise operr
 
     def fdopenstream(self, stream, fd, mode, w_name=None):
         self.fd = fd
