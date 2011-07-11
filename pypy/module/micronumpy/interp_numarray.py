@@ -53,10 +53,6 @@ def maximum(v1, v2):
     return max(v1, v2)
 def minimum(v1, v2):
     return min(v1, v2)
-def and_bool(v1, v2):
-    return v1 and bool(v2)
-def or_bool(v1, v2):
-    return v1 or bool(v2)
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -131,7 +127,7 @@ class BaseArray(Wrappable):
             )
             self.invalidates.append(res)
             return space.wrap(res)
-        return func_with_new_name(impl, 
+        return func_with_new_name(impl,
                                   "binop_right_%s_impl" % function.__name__)
 
     descr_radd = _binop_right_impl(add)
@@ -161,7 +157,7 @@ class BaseArray(Wrappable):
 
     def _reduce_max_min_impl(function):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'self', 'result'])    
+                         reds = ['i', 'size', 'self', 'result'])
         def loop(self, result, size):
             i = 1
             while i < size:
@@ -171,7 +167,7 @@ class BaseArray(Wrappable):
                 result = function(result, self.eval(i))
                 i += 1
             return result
-        
+
         def impl(self, space):
             size = self.find_size()
             if size == 0:
@@ -207,45 +203,37 @@ class BaseArray(Wrappable):
             return space.wrap(loop(self, size))
         return func_with_new_name(impl, "reduce_arg%s_impl" % function.__name__)
 
-    def _reduce_all_impl():
-        reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'result', 'self'])
-        def loop(self, result, size):
-            i = 0
-            while i < size:
-                reduce_driver.jit_merge_point(signature=self.signature,
-                                              self=self, size=size, i=i,
-                                              result=result)
-                result = and_bool(result, self.eval(i))
-                if not result:
-                    break
-                i += 1
-            return result
+    all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'result', 'self'])
+    def _all(self):
+        size = self.find_size()
+        signature = self.signature
+        i = 0
+        result = True
+        while i < size:
+            BaseArray.all_driver.jit_merge_point(signature=signature, self=self, size=size, i=i, result=result)
+            result = result and bool(self.eval(i))
+            if not result:
+                break
+            i += 1
+        return result
+    def descr_all(self, space):
+        return space.wrap(self._all())
 
-        def impl(self, space):
-            size = self.find_size()
-            return space.wrap(loop(self, True, size))
-        return func_with_new_name(impl, "reduce_all_impl")
-
-    def _reduce_any_impl():
-        reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'result', 'self'])       
-
-        def loop(self, result, size):
-            i = 0
-            while i < size:
-                reduce_driver.jit_merge_point(signature=self.signature,
-                                              self=self, size=size, i=i,
-                                              result=result)
-                result = or_bool(result, self.eval(i))
-                if result:
-                    break
-                i += 1
-            return result
-        def impl(self, space):
-            size = self.find_size()
-            return space.wrap(loop(self, False, size))
-        return func_with_new_name(impl, "reduce_any_impl")
+    any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'result', 'self'])
+    def _any(self):
+        size = self.find_size()
+        signature = self.signature
+        i = 0
+        result = False
+        while i < size:
+            BaseArray.any_driver.jit_merge_point(signature=signature, self=self, size=size, i=i, result=result)
+            result = result or bool(self.eval(i))
+            if result:
+                break
+            i += 1
+        return result
+    def descr_any(self, space):
+        return space.wrap(self._any())
 
     descr_sum = _reduce_sum_prod_impl(add, 0.0)
     descr_prod = _reduce_sum_prod_impl(mul, 1.0)
@@ -253,8 +241,6 @@ class BaseArray(Wrappable):
     descr_min = _reduce_max_min_impl(minimum)
     descr_argmax = _reduce_argmax_argmin_impl(maximum)
     descr_argmin = _reduce_argmax_argmin_impl(minimum)
-    descr_all = _reduce_all_impl()
-    descr_any = _reduce_any_impl()
 
     def descr_dot(self, space, w_other):
         if isinstance(w_other, BaseArray):
