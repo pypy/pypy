@@ -183,7 +183,7 @@ class BaseArray(Wrappable):
 
     def _reduce_argmax_argmin_impl(function):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'self', 'result'])
+                         reds = ['i', 'size', 'result', 'self'])
         def loop(self, size):
             result = 0
             cur_best = self.eval(0)
@@ -258,7 +258,9 @@ class BaseArray(Wrappable):
 
     def descr_dot(self, space, w_other):
         if isinstance(w_other, BaseArray):
-            return self.descr_mul(space, w_other).descr_sum(space)
+            w_res = self.descr_mul(space, w_other)
+            assert isinstance(w_res, BaseArray)
+            return w_res.descr_sum(space)
         else:
             return self.descr_mul(space, w_other)
 
