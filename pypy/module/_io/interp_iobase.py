@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
-    make_weakref_descr)
+    make_weakref_descr, builtin_destructor)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
@@ -55,8 +55,7 @@ class W_IOBase(Wrappable):
             return True
         return False
 
-    def __del__(self):
-        self.clear_all_weakrefs()
+    def destructor(self):
         space = self.space
         w_closed = space.findattr(self, space.wrap('closed'))
         try:
@@ -69,6 +68,7 @@ class W_IOBase(Wrappable):
             # equally as bad, and potentially more frequent (because of
             # shutdown issues).
             pass
+    builtin_destructor(locals(), 'destructor', Wrappable)
 
     def _CLOSED(self):
         # Use this macro whenever you want to check the internal `closed`

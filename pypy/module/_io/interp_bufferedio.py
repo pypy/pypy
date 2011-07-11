@@ -838,9 +838,9 @@ class W_BufferedRWPair(W_BufferedIOBase):
             self.w_writer = None
             raise
 
-    def __del__(self):
-        self.clear_all_weakrefs()
-        # Don't call the base __del__: do not close the files!
+    def destructor(self):
+        # method overriden to not close the files
+        pass
 
     # forward to reader
     for method in ['read', 'peek', 'read1', 'readinto', 'readable']:
