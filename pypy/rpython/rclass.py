@@ -388,20 +388,25 @@ class AbstractInstanceRepr(Repr):
         # XXX wrong complexity, but good enough because the set of
         # reachable graphs should be small
         callgraph = self.rtyper.annotator.translator.callgraph.values()
-        seen = set([graph])
+        seen = {graph: None}
         while True:
             oldlength = len(seen)
             for caller, callee in callgraph:
-                if caller in seen:
-                    seen.add(callee)
+                if caller in seen and callee not in seen:
+                    if (hasattr(callee, 'func') and
+                        getattr(callee.func, '_dont_reach_me_in_del_',False)):
+                        lst = [str(callee)]
+                        g = caller
+                        while g:
+                            lst.append(str(g))
+                            g = seen.get(g)
+                        lst.append('')
+                        raise TyperError("the RPython-level __del__() method "
+                                         "in %r calls:%s" % (
+                            graph, '\n\t'.join(lst[::-1])))
+                    seen[callee] = caller
             if len(seen) == oldlength:
                 break
-        for reachable_graph in seen:
-            if (hasattr(reachable_graph, 'func') and
-                getattr(reachable_graph.func, '_dont_reach_me_in_del_',False)):
-                raise TyperError("the RPython-level __del__() method in %r "
-                                 "ends up indirectly calling %r" % (
-                    graph, reachable_graph))
 
 # ____________________________________________________________
 

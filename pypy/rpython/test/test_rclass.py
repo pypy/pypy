@@ -1038,7 +1038,8 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
             a.bar()
         t = TranslationContext()
         t.buildannotator().build_types(f, [])
-        py.test.raises(TyperError, t.buildrtyper().specialize)
+        e = py.test.raises(TyperError, t.buildrtyper().specialize)
+        print e.value
 
     def test_instance_repr(self):
         from pypy.rlib.objectmodel import current_object_addr_as_int
