@@ -78,7 +78,7 @@ W_CPPLibrary.typedef = TypeDef(
     'CPPLibrary',
 )
 
-@jit.purefunction
+@jit.elidable_promote()
 def get_methptr_getter(handle, method_index):
     return capi.c_get_methptr_getter(handle, method_index)
 
@@ -125,8 +125,8 @@ class CPPMethod(object):
             raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
         if self.arg_converters is None:
             self._build_converters()
-        funcptr = jit.hint(self.methgetter, promote=True)(cppthis)
-        libffi_func = self._get_libffi_func(jit.hint(funcptr, promote=True))
+        funcptr = jit.promote(self.methgetter)(cppthis)
+        libffi_func = self._get_libffi_func(funcptr)
         if not libffi_func:
             raise FastCallNotPossible
 
@@ -138,7 +138,7 @@ class CPPMethod(object):
             conv.convert_argument_libffi(space, w_arg, argchain)
         return self.executor.execute_libffi(space, libffi_func, argchain)
 
-    @jit.purefunction
+    @jit.elidable_promote()
     def _get_libffi_func(self, funcptr):
         key = rffi.cast(rffi.LONG, funcptr)
         if key in self._libffifunc_cache:
@@ -353,7 +353,7 @@ class W_CPPScope(Wrappable):
     def get_method_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.methods])
 
-    @jit.purefunction
+    @jit.elidable_promote()
     def get_overload(self, name):
         try:
             return self.methods[name]
@@ -365,7 +365,7 @@ class W_CPPScope(Wrappable):
     def get_data_member_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.data_members])
 
-    @jit.purefunction
+    @jit.elidable_promote()
     def get_data_member(self, name):
         try:
             return self.data_members[name]
