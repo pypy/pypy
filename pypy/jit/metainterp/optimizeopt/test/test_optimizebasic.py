@@ -4511,6 +4511,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_strslice_with_other_stuff(self):
+        ops = """
+        [p0, i0]
+        i1 = int_add(i0, 1)
+        p1 = call(0, p0, i0, i1, descr=strslicedescr)
+        escape(p1)
+        jump(p0, i1)
+        """
+        expected = """
+        [p0, i0]
+        i1 = int_add(i0, 1)
+        p1 = newstr(1)
+        i2 = strgetitem(p0, i0)
+        strsetitem(p1, 0, i2)
+        escape(p1)
+        jump(p0, i1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
