@@ -179,7 +179,7 @@ class BaseArray(Wrappable):
 
     def _reduce_argmax_argmin_impl(function):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'result', 'self'])
+                         reds = ['i', 'size', 'result', 'cur_best', 'self'])
         def loop(self, size):
             result = 0
             cur_best = self.eval(0)
@@ -187,7 +187,7 @@ class BaseArray(Wrappable):
             while i < size:
                 reduce_driver.jit_merge_point(signature=self.signature,
                                               self=self, size=size, i=i,
-                                              result=result)
+                                              result=result, cur_best=cur_best)
                 new_best = function(cur_best, self.eval(i))
                 if new_best != cur_best:
                     result = i
