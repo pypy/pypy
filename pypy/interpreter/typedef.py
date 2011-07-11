@@ -232,17 +232,7 @@ def _builduserclswithfeature(config, supercls, *features):
 
     if "del" in features:
         class Proto(object):
-            def __del__(self):
-                self._enqueue_for_destruction(self.space)
-        # if the base class needs its own interp-level __del__,
-        # we override the _call_builtin_destructor() method to invoke it
-        # after the app-level destructor.
-        parent_destructor = getattr(supercls, '__del__', None)
-        if parent_destructor is not None:
-            def _call_builtin_destructor(self):
-                parent_destructor(self)
-            Proto._call_builtin_destructor = _call_builtin_destructor
-
+            builtin_destructor(locals(), None, supercls)
         add(Proto)
 
     if "slots" in features:
@@ -293,6 +283,47 @@ def check_new_dictionary(space, w_dict):
     assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
     return w_dict
 check_new_dictionary._dont_inline_ = True
+
+
+def builtin_destructor(loc, methodname, baseclass):
+    # Destructor logic:
+    #  * if we have none, then the class has no __del__.
+    #  * if we have a "simple" interp-level one, it is just written as a
+    #    __del__.  ("simple" destructors may not do too much, e.g. they must
+    #    never call further Python code; this is checked at translation-time)
+    #  * if we have a "complex" interp-level destructor, then we define it in
+    #    a method foo(), followed by
+    #        ``builtin_destructor(locals(), "foo", W_Base)''.
+    #  * if we have an app-level destructor, then typedef.py will also
+    #    call builtin_destructor().
+    # In the last two cases, the __del__ just calls _enqueue_for_destruction()
+    # and executioncontext.UserDelAction does the real job.
+
+    assert '_builtin_destructor_already_called_' not in loc
+    assert '__del__' not in loc
+    assert '_call_builtin_destructor' not in loc
+
+    if hasattr(baseclass, '_builtin_destructor_already_called_'):
+        # builtin_destructor() was already called on the parent
+        # class, so we don't need to install the __del__ method nor
+        # call the __del__ method from _call_builtin_destructor()
+        # (because the parent _call_builtin_destructor() will do it)
+        parent_del = None
+    else:
+        def __del__(self):
+            self._enqueue_for_destruction(self.space)
+        loc['__del__'] = __del__
+        loc['_builtin_destructor_already_called_'] = True
+        parent_del = getattr(baseclass, '__del__', None)
+
+    if methodname is not None or parent_del is not None:
+        def _call_builtin_destructor(self):
+            if methodname is not None:
+                getattr(self, methodname)()
+            if parent_del is not None:
+                parent_del(self)
+            baseclass._call_builtin_destructor(self)
+        loc['_call_builtin_destructor'] = _call_builtin_destructor
 
 # ____________________________________________________________
 

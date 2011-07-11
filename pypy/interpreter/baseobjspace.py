@@ -165,7 +165,7 @@ class W_Root(object):
             space.user_del_action.register_dying_object(self)
 
     def _call_builtin_destructor(self):
-        pass     # method overridden in typedef.py
+        pass     # method overridden by builtin_destructor() in typedef.py
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
