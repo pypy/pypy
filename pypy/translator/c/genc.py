@@ -688,28 +688,54 @@ class SourceGenerator:
     def getothernodes(self):
         return self.othernodes[:]
 
+    def getbasecfilefornode(self, node, basecname):
+        # For FuncNode instances, use the python source filename (relative to
+        # the top directory):
+        if hasattr(node.obj, 'graph'):
+            g = node.obj.graph
+            # Lookup the filename from the function.
+            # However, not all FunctionGraph objs actually have a "func":
+            if hasattr(g, 'func'):
+                if g.filename.endswith('.py'):
+                    localpath = py.path.local(g.filename)
+                    pypkgpath = localpath.pypkgpath()
+                    if pypkgpath:
+                        relpypath =  localpath.relto(pypkgpath)
+                        return relpypath.replace('.py', '.c')
+        return basecname
+
     def splitnodesimpl(self, basecname, nodes, nextra, nbetween,
                        split_criteria=SPLIT_CRITERIA):
+        # Gather nodes by some criteria:
+        nodes_by_base_cfile = {}
+        for node in nodes:
+            c_filename = self.getbasecfilefornode(node, basecname)
+            if c_filename in nodes_by_base_cfile:
+                nodes_by_base_cfile[c_filename].append(node)
+            else:
+                nodes_by_base_cfile[c_filename] = [node]
+
         # produce a sequence of nodes, grouped into files
         # which have no more than SPLIT_CRITERIA lines
-        iternodes = iter(nodes)
-        done = [False]
-        def subiter():
-            used = nextra
-            for node in iternodes:
-                impl = '\n'.join(list(node.implementation())).split('\n')
-                if not impl:
-                    continue
-                cost = len(impl) + nbetween
-                yield node, impl
-                del impl
-                if used + cost > split_criteria:
-                    # split if criteria met, unless we would produce nothing.
-                    raise StopIteration
-                used += cost
-            done[0] = True
-        while not done[0]:
-            yield self.uniquecname(basecname), subiter()
+        for basecname in nodes_by_base_cfile:
+            iternodes = iter(nodes_by_base_cfile[basecname])
+            done = [False]
+            def subiter():
+                used = nextra
+                for node in iternodes:
+                    impl = '\n'.join(list(node.implementation())).split('\n')
+                    if not impl:
+                        continue
+                    cost = len(impl) + nbetween
+                    yield node, impl
+                    del impl
+                    if used + cost > split_criteria:
+                        # split if criteria met, unless we would produce nothing.
+                        raise StopIteration
+                    used += cost
+                done[0] = True
+            while not done[0]:
+                yield self.uniquecname(basecname), subiter()
 
     def gen_readable_parts_of_source(self, f):
         split_criteria_big = SPLIT_CRITERIA

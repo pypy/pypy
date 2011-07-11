@@ -433,7 +433,9 @@ class AbstractString(BuiltinADTType):
             "ll_streq": Meth([self.SELFTYPE_T], Bool),
             "ll_strcmp": Meth([self.SELFTYPE_T], Signed),
             "ll_startswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_startswith_char": Meth([self.CHAR], Bool),
             "ll_endswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_endswith_char": Meth([self.CHAR], Bool),
             "ll_find": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_rfind": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_count": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
@@ -1429,9 +1431,17 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return self._str.startswith(s._str)
 
+    def ll_startswith_char(self, s):
+        # NOT_RPYTHON
+        return self._str.startswith(s)
+
     def ll_endswith(self, s):
         # NOT_RPYTHON
         return self._str.endswith(s._str)
+
+    def ll_endswith_char(self, s):
+        # NOT_RPYTHON
+        return self._str.endswith(s)
 
     def ll_find(self, s, start, end):
         # NOT_RPYTHON
