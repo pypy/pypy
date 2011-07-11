@@ -717,8 +717,8 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_get_errno(self):
-        if is_emulated_long:
-            py.test.skip("skipped temporarily, no idea yet what the error is!")
+        # win64: works with python 2.7.6, but not with 2.7.2
+        # XXX check what is different with ctypes!
         eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
             underscore_on_windows = '_'
