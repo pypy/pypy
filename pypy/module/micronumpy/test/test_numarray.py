@@ -313,6 +313,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([])
         raises(ValueError, "b.min()")
 
+    def test_argmax(self):
+        from numpy import array
+        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        assert a.argmax() == 2
+        b = array([])
+        raises(ValueError, "b.argmax()")
+
+    def test_argmin(self):
+        from numpy import array
+        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        assert a.argmin() == 3
+        b = array([])
+        raises(ValueError, "b.argmin()")
+
     def test_all(self):
         from numpy import array
         a = array(range(5))
