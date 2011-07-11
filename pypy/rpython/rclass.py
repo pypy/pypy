@@ -393,8 +393,8 @@ class AbstractInstanceRepr(Repr):
             oldlength = len(seen)
             for caller, callee in callgraph:
                 if caller in seen and callee not in seen:
-                    if (hasattr(callee, 'func') and
-                        getattr(callee.func, '_dont_reach_me_in_del_',False)):
+                    func = getattr(callee, 'func', None)
+                    if getattr(func, '_dont_reach_me_in_del_', False):
                         lst = [str(callee)]
                         g = caller
                         while g:
@@ -404,6 +404,9 @@ class AbstractInstanceRepr(Repr):
                         raise TyperError("the RPython-level __del__() method "
                                          "in %r calls:%s" % (
                             graph, '\n\t'.join(lst[::-1])))
+                    if getattr(func, '_cannot_really_call_random_things_',
+                               False):
+                        continue
                     seen[callee] = caller
             if len(seen) == oldlength:
                 break
