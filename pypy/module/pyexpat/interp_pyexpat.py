@@ -737,7 +737,7 @@ Return a new XML parser object."""
     elif space.is_true(space.isinstance(w_encoding, space.w_str)):
         encoding = space.str_w(w_encoding)
     else:
-        type_name = space.type(w_encoding).getname(space, '?')
+        type_name = space.type(w_encoding).getname(space)
         raise OperationError(
             space.w_TypeError,
             space.wrap('ParserCreate() argument 1 must be string or None,'
@@ -757,7 +757,7 @@ Return a new XML parser object."""
                 space.wrap('namespace_separator must be at most one character,'
                            ' omitted, or None'))
     else:
-        type_name = space.type(w_namespace_separator).getname(space, '?')
+        type_name = space.type(w_namespace_separator).getname(space)
         raise OperationError(
             space.w_TypeError,
             space.wrap('ParserCreate() argument 2 must be string or None,'

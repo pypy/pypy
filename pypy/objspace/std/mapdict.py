@@ -670,6 +670,8 @@ class MapDictStrategy(DictStrategy):
 
     def popitem(self, w_dict):
         curr = self.unerase(w_dict.dstorage)._get_mapdict_map().search(DICT)
+        if curr is None:
+            raise KeyError
         key = curr.selector[0]
         w_value = self.getitem_str(w_dict, key)
         w_key = self.space.wrap(key)

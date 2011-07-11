@@ -143,6 +143,7 @@ def _print_jit_help():
     for key, value in items:
         print '  --jit %s=N %slow-level JIT parameter (default %s)' % (
             key, ' '*(18-len(key)), value)
+    print '  --jit off                  turn off the JIT'
 
 def print_version(*args):
     print "Python", sys.version

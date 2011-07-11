@@ -937,7 +937,7 @@ def format__Unicode_ANY(space, w_unicode, w_format_spec):
     return formatter.format_string(space.unicode_w(w_unicode))
 
 
-import unicodetype
+from pypy.objspace.std import unicodetype
 register_all(vars(), unicodetype)
 
 # str.strip(unicode) needs to convert self to unicode and call unicode.strip we
@@ -948,7 +948,7 @@ register_all(vars(), unicodetype)
 # methods?
 
 class str_methods:
-    import stringtype
+    from pypy.objspace.std import stringtype
     W_UnicodeObject = W_UnicodeObject
     from pypy.objspace.std.stringobject import W_StringObject
     from pypy.objspace.std.ropeobject import W_RopeObject

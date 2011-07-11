@@ -294,12 +294,13 @@ PARAMETERS = {'threshold': 1032, # just above 1024
               'function_threshold': 1617, # slightly more than one above 
               'trace_eagerness': 200,
               'trace_limit': 12000,
-              'inlining': 0,
+              'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
-              'enable_opts': None, # patched later by optimizeopt/__init__.py
+              'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
+DEFAULT = object()
 
 # ____________________________________________________________
 
@@ -354,22 +355,33 @@ class JitDriver(object):
     def _set_param(self, name, value):
         # special-cased by ExtRegistryEntry
         # (internal, must receive a constant 'name')
+        # if value is DEFAULT, sets the default value.
         assert name in PARAMETERS
 
     @specialize.arg(0, 1)
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""
-        for name1, _ in unroll_parameters:
-            if name1 == name:
-                self._set_param(name1, value)
-                return
-        raise ValueError("no such parameter")
+        self._set_param(name, value)
+
+    @specialize.arg(0, 1)
+    def set_param_to_default(self, name):
+        """Reset one of the tunable JIT parameters to its default value."""
+        self._set_param(name, DEFAULT)
 
     def set_user_param(self, text):
         """Set the tunable JIT parameters from a user-supplied string
-        following the format 'param=value,param=value'.  For programmatic
-        setting of parameters, use directly JitDriver.set_param().
+        following the format 'param=value,param=value', or 'off' to
+        disable the JIT.  For programmatic setting of parameters, use
+        directly JitDriver.set_param().
         """
+        if text == 'off':
+            self.set_param('threshold', -1)
+            self.set_param('function_threshold', -1)
+            return
+        if text == 'default':
+            for name1, _ in unroll_parameters:
+                self.set_param_to_default(name1)
+            return
         for s in text.split(','):
             s = s.strip(' ')
             parts = s.split('=')
@@ -592,15 +604,17 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if s_name.const == 'enable_opts':
-            assert annmodel.SomeString(can_be_None=True).contains(s_value)
-        else:
-            assert annmodel.SomeInteger().contains(s_value)
+        if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
+            if s_name.const == 'enable_opts':
+                assert annmodel.SomeString(can_be_None=True).contains(s_value)
+            else:
+                assert annmodel.SomeInteger().contains(s_value)
         return annmodel.s_None
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         from pypy.rpython.lltypesystem.rstr import string_repr
+        from pypy.objspace.flow.model import Constant
 
         hop.exception_cannot_occur()
         driver = self.instance.im_self
@@ -609,7 +623,12 @@ class ExtSetParam(ExtRegistryEntry):
             repr = string_repr
         else:
             repr = lltype.Signed
-        v_value = hop.inputarg(repr, arg=1)
+        if (isinstance(hop.args_v[1], Constant) and
+            hop.args_v[1].value is DEFAULT):
+            value = PARAMETERS[name]
+            v_value = hop.inputconst(repr, value)
+        else:
+            v_value = hop.inputarg(repr, arg=1)
         vlist = [hop.inputconst(lltype.Void, "set_param"),
                  hop.inputconst(lltype.Void, driver),
                  hop.inputconst(lltype.Void, name),
