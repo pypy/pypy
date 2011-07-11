@@ -19,7 +19,6 @@ eci = ExternalCompilationInfo(
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-#    libraries=["Core", "Cint"],
     link_extra=["-lCore", "-lCint"],
     use_cpp_linker=True,
 )
@@ -79,11 +78,13 @@ c_base_name = rffi.llexternal(
 c_is_subtype = rffi.llexternal(
     "cppyy_is_subtype",
     [C_TYPEHANDLE, C_TYPEHANDLE], rffi.INT,
-    compilation_info=eci)
+    compilation_info=eci,
+    elidable_function=True)
 c_base_offset = rffi.llexternal(
     "cppyy_base_offset",
     [C_TYPEHANDLE, C_TYPEHANDLE], rffi.SIZE_T,
-    compilation_info=eci)
+    compilation_info=eci,
+    elidable_function=True)
 
 
 c_call_v = rffi.llexternal(
