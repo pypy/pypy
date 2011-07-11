@@ -374,6 +374,35 @@ class AbstractInstanceRepr(Repr):
     def can_ll_be_null(self, s_value):
         return s_value.can_be_none()
 
+    def check_graph_of_del_does_not_call_too_much(self, graph):
+        # RPython-level __del__() methods should not do "too much".
+        # In the PyPy Python interpreter, they usually do simple things
+        # like file.__del__() closing the file descriptor; or if they
+        # want to do more like call an app-level __del__() method, they
+        # enqueue the object instead, and the actual call is done later.
+        #
+        # Here, as a quick way to check "not doing too much", we check
+        # that from no RPython-level __del__() method we can reach a
+        # JitDriver.
+        #
+        # XXX wrong complexity, but good enough because the set of
+        # reachable graphs should be small
+        callgraph = self.rtyper.annotator.translator.callgraph.values()
+        seen = set([graph])
+        while True:
+            oldlength = len(seen)
+            for caller, callee in callgraph:
+                if caller in seen:
+                    seen.add(callee)
+            if len(seen) == oldlength:
+                break
+        for reachable_graph in seen:
+            if (hasattr(reachable_graph, 'func') and
+                getattr(reachable_graph.func, '_dont_reach_me_in_del_',False)):
+                raise TyperError("the RPython-level __del__() method in %r "
+                                 "ends up indirectly calling %r" % (
+                    graph, reachable_graph))
+
 # ____________________________________________________________
 
 def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
