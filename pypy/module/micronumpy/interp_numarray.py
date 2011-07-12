@@ -20,6 +20,8 @@ TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
+all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
+any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 
 class Signature(object):
     def __init__(self):
@@ -203,35 +205,27 @@ class BaseArray(Wrappable):
             return space.wrap(loop(self, size))
         return func_with_new_name(impl, "reduce_arg%s_impl" % function.__name__)
 
-    all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'result', 'self'])
     def _all(self):
         size = self.find_size()
-        signature = self.signature
         i = 0
-        result = True
         while i < size:
-            BaseArray.all_driver.jit_merge_point(signature=signature, self=self, size=size, i=i, result=result)
-            result = result and bool(self.eval(i))
-            if not result:
-                break
+            all_driver.jit_merge_point(signature=self.signature, self=self, size=size, i=i)
+            if not self.eval(i):
+                return False
             i += 1
-        return result
+        return True
     def descr_all(self, space):
         return space.wrap(self._all())
 
-    any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'result', 'self'])
     def _any(self):
         size = self.find_size()
-        signature = self.signature
         i = 0
-        result = False
         while i < size:
-            BaseArray.any_driver.jit_merge_point(signature=signature, self=self, size=size, i=i, result=result)
-            result = result or bool(self.eval(i))
-            if result:
-                break
+            any_driver.jit_merge_point(signature=self.signature, self=self, size=size, i=i)
+            if self.eval(i):
+                return True
             i += 1
-        return result
+        return False
     def descr_any(self, space):
         return space.wrap(self._any())
 
