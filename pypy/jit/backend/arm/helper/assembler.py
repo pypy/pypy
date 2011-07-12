@@ -33,10 +33,10 @@ def gen_emit_op_by_helper_call(opname):
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
         if op.result:
-            regs = r.caller_resp[1:]
+            regs = r.caller_resp[1:] + [r.ip]
         else:
             regs = r.caller_resp
-        with saved_registers(self.mc, regs, r.caller_vfp_resp, regalloc=regalloc):
+        with saved_registers(self.mc, regs, r.caller_vfp_resp):
             helper(self.mc, fcond)
         return fcond
     return f
@@ -83,8 +83,9 @@ def gen_emit_float_cmp_op(cond):
 
 class saved_registers(object):
     def __init__(self, assembler, regs_to_save, vfp_regs_to_save=None, regalloc=None):
+        assert regalloc is None
         self.assembler = assembler
-        self.regalloc = regalloc
+        self.regalloc = None
         if vfp_regs_to_save is None:
             vfp_regs_to_save = []
         if self.regalloc:

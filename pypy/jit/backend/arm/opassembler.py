@@ -463,7 +463,7 @@ class OpAssembler(object):
 
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
-        with saved_registers(self.mc, r.caller_resp, regalloc=regalloc):
+        with saved_registers(self.mc, r.caller_resp):
             remap_frame_layout(self, arglocs, [r.r0, r.r1], r.ip)
             self.mc.BL(descr.get_write_barrier_fn(self.cpu))
 
@@ -845,7 +845,8 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        with saved_registers(self.mc, r.caller_resp[1:], r.caller_vfp_resp, regalloc=regalloc):
+        with saved_registers(self.mc, r.caller_resp[1:]+[r.ip], 
+                                    r.caller_vfp_resp):
             # resbox is allready in r0
             self.mov_loc_loc(arglocs[1], r.r1)
             self.mc.BL(asm_helper_adr)

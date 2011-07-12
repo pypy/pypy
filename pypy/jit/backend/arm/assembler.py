@@ -344,6 +344,7 @@ class AssemblerARM(ResOpAssembler):
                     encode32(mem, j+1, loc.getint())
                     j += 5
                 else:
+                    assert loc.is_stack()
                     mem[j] = self.STACK_LOC
                     encode32(mem, j+1, loc.position)
                     j += 5
@@ -364,13 +365,14 @@ class AssemblerARM(ResOpAssembler):
         return memaddr
 
     def gen_exit_code(self, mc, memaddr, fcond=c.AL, save_exc=False):
-        mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
+        self.mc.gen_load_int(r.ip.value, memaddr)
+        #mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
         if save_exc:
             path = self._leave_jitted_hook_save_exc
         else:
             path = self._leave_jitted_hook
         mc.B(path)
-        mc.write32(memaddr)
+        #mc.write32(memaddr)
 
     def align(self):
         while(self.mc.currpos() % FUNC_ALIGN != 0):
@@ -680,7 +682,7 @@ class AssemblerARM(ResOpAssembler):
         size = (self.mc.size_of_gen_load_int+WORD)
         l = self.mc.currpos()
         for _ in range(size//WORD):
-            self.mc.MOV_rr(r.r0.value, r.r0.value)
+            self.mc.NOP()
         return l
 
     def _patch_sp_offset(self, pos, frame_depth):
@@ -981,13 +983,12 @@ class AssemblerARM(ResOpAssembler):
         # convention of slowpath_addr{1,2} are tweaked a lot to allow
         # the code here to be just two CALLs: slowpath_addr1 gets the
         # size of the object to allocate from (EDX-EAX) and returns the
-        # result in EAX; slowpath_addr2 additionally returns in EDX a
+        # result in EAX; self.malloc_slowpath additionally returns in EDX a
         # copy of heap(nursery_free_adr), so that the final MOV below is
         # a no-op.
         self.mark_gc_roots(self.write_new_force_index(),
                            use_copy_area=True)
-        slowpath_addr2 = self.malloc_slowpath
-        self.mc.BL(slowpath_addr2)
+        self.mc.BL(self.malloc_slowpath)
 
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
