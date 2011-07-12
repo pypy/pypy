@@ -184,9 +184,13 @@ class TestTypeDef:
     def test_destructor(self):
         space = self.space
         class W_Level1(Wrappable):
+            def __init__(self, space1):
+                assert space1 is space
             def __del__(self):
                 space.call_method(w_seen, 'append', space.wrap(1))
         class W_Level2(Wrappable):
+            def __init__(self, space1):
+                assert space1 is space
             def __del__(self):
                 self.enqueue_for_destruction(space, W_Level2.destructormeth,
                                              'FOO ')
@@ -200,12 +204,12 @@ class TestTypeDef:
             __new__ = typedef.generic_new_descr(W_Level2))
         #
         w_seen = space.newlist([])
-        W_Level1()
+        W_Level1(space)
         gc.collect(); gc.collect()
         assert space.unwrap(w_seen) == [1]
         #
         w_seen = space.newlist([])
-        W_Level2()
+        W_Level2(space)
         gc.collect(); gc.collect()
         assert space.str_w(space.repr(w_seen)) == "[]"  # not called yet
         ec = space.getexecutioncontext()
