@@ -234,13 +234,19 @@ def _builduserclswithfeature(config, supercls, *features):
 
     if "del" in features:
         parent_destructor = getattr(supercls, '__del__', None)
+        def call_parent_del(self):
+            assert isinstance(self, subcls)
+            parent_destructor(self)
+        def call_applevel_del(self):
+            assert isinstance(self, subcls)
+            self.space.userdel(self)
         class Proto(object):
             def __del__(self):
                 self.clear_all_weakrefs()
                 self.enqueue_for_destruction(self.space, call_applevel_del,
                                              'method __del__ of ')
                 if parent_destructor is not None:
-                    self.enqueue_for_destruction(self.space, parent_destructor,
+                    self.enqueue_for_destruction(self.space, call_parent_del,
                                                  'internal destructor of ')
         add(Proto)
 
@@ -292,9 +298,6 @@ def check_new_dictionary(space, w_dict):
     assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
     return w_dict
 check_new_dictionary._dont_inline_ = True
-
-def call_applevel_del(self):
-    self.space.userdel(self)
 
 # ____________________________________________________________
 

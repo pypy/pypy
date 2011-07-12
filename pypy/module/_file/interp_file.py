@@ -52,6 +52,7 @@ class W_File(W_AbstractStream):
                                          'close() method of ')
 
     def report_streamerror(self):
+        assert isinstance(self, W_File)
         operr = wrap_streamerror(self.space, self.streamerror_upon_closing,
                                  self.w_name)
         raise operr

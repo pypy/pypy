@@ -156,6 +156,9 @@ class W_Root(object):
         At a later, safe point in time, UserDelAction will call
         callback(self).  If that raises OperationError, prints it
         to stderr with the descrname string.
+
+        Note that 'callback' will usually need to start with:
+            assert isinstance(self, W_SpecificClass)
         """
         # this function always resurect the object, so when
         # running on top of CPython we must manually ensure that

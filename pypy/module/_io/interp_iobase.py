@@ -61,6 +61,7 @@ class W_IOBase(Wrappable):
                                      'internal __del__ of ')
 
     def destructor(self):
+        assert isinstance(self, W_IOBase)
         space = self.space
         w_closed = space.findattr(self, space.wrap('closed'))
         try:

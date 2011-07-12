@@ -120,6 +120,7 @@ class W_WeakrefBase(Wrappable):
         self.w_obj_weak = dead_ref
 
     def activate_callback(w_self):
+        assert isinstance(w_self, W_WeakrefBase)
         w_self.space.call_function(w_self.w_callable, w_self)
 
     def descr__repr__(self, space):
