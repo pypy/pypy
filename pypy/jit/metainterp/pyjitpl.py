@@ -1847,9 +1847,9 @@ class MetaInterp(object):
                 else:
                     self.compile(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
-                #self.staticdata.log('cancelled, tracing more...')
-                self.staticdata.log('cancelled, stopping tracing')
-                raise SwitchToBlackhole(ABORT_BAD_LOOP)
+                self.staticdata.log('cancelled, tracing more...')
+                #self.staticdata.log('cancelled, stopping tracing')
+                #raise SwitchToBlackhole(ABORT_BAD_LOOP)
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)

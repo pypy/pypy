@@ -139,6 +139,22 @@ class UnrollOptimizer(Optimization):
         for op in self.optimizer.loop.operations:
             newop = op.clone()
             self.cloned_operations.append(newop)
+
+    def fix_snapshot(self, loop, jump_args, snapshot):
+        if snapshot is None:
+            return None
+        snapshot_args = snapshot.boxes 
+        new_snapshot_args = []
+        for a in snapshot_args:
+            if not isinstance(a, Const):
+                a = loop.preamble.inputargs[jump_args.index(a)]
+            a = self.inliner.inline_arg(a)
+            a = self.getvalue(a).get_key_box()
+            new_snapshot_args.append(a)
+        prev = self.fix_snapshot(loop, jump_args, snapshot.prev)
+        return Snapshot(prev, new_snapshot_args)
+        #snapshot.boxes = new_snapshot_args
+        #return snapshot
             
     def propagate_all_forward(self):
         loop = self.optimizer.loop
@@ -185,18 +201,8 @@ class UnrollOptimizer(Optimization):
             start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
             self.start_resumedescr = start_resumedescr
             assert isinstance(start_resumedescr, ResumeGuardDescr)
-            snapshot = start_resumedescr.rd_snapshot
-            while snapshot is not None:
-                snapshot_args = snapshot.boxes 
-                new_snapshot_args = []
-                for a in snapshot_args:
-                    if not isinstance(a, Const):
-                        a = loop.preamble.inputargs[jump_args.index(a)]
-                    a = self.inliner.inline_arg(a)
-                    a = self.getvalue(a).get_key_box()
-                    new_snapshot_args.append(a)
-                snapshot.boxes = new_snapshot_args
-                snapshot = snapshot.prev
+            start_resumedescr.rd_snapshot = self.fix_snapshot(loop, jump_args,
+                                                              start_resumedescr.rd_snapshot)
 
             inputargs, short_inputargs, short = self.inline(self.cloned_operations,
                                            loop.inputargs, jump_args,
