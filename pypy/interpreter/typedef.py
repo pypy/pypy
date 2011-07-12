@@ -9,7 +9,7 @@ from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
-from pypy.rlib.jit import hint
+from pypy.rlib.jit import promote
 
 class TypeDef:
     def __init__(self, __name, __base=None, **rawdict):
@@ -206,7 +206,7 @@ def _builduserclswithfeature(config, supercls, *features):
             user_overridden_class = True
 
             def getclass(self, space):
-                return hint(self.w__class__, promote=True)
+                return promote(self.w__class__)
 
             def setclass(self, space, w_subtype):
                 # only used by descr_set___class__
@@ -761,12 +761,15 @@ Function.typedef = TypeDef("function",
     )
 Function.typedef.acceptable_as_base_class = False
 
-Method.typedef = TypeDef("method",
+Method.typedef = TypeDef(
+    "method",
     __new__ = interp2app(Method.descr_method__new__.im_func),
     __call__ = interp2app(Method.descr_method_call),
     __get__ = interp2app(Method.descr_method_get),
     im_func  = interp_attrproperty_w('w_function', cls=Method),
+    __func__ = interp_attrproperty_w('w_function', cls=Method),
     im_self  = interp_attrproperty_w('w_instance', cls=Method),
+    __self__ = interp_attrproperty_w('w_instance', cls=Method),
     im_class = interp_attrproperty_w('w_class', cls=Method),
     __getattribute__ = interp2app(Method.descr_method_getattribute),
     __eq__ = interp2app(Method.descr_method_eq),

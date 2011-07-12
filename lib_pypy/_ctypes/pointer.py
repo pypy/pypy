@@ -1,6 +1,7 @@
 
 import _rawffi
-from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+import _ffi
+from _ctypes.basics import _CData, _CDataMeta, cdata_from_address, ArgumentError
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import sizeof, byref
 from _ctypes.array import Array, array_get_slice_params, array_slice_getitem,\
@@ -19,7 +20,7 @@ class PointerType(_CDataMeta):
             length     = 1,
             _ffiargshape = 'P',
             _ffishape  = 'P',
-            _fficompositesize = None
+            _fficompositesize = None,
         )
         # XXX check if typedict['_type_'] is any sane
         # XXX remember about paramfunc
@@ -66,6 +67,7 @@ class PointerType(_CDataMeta):
         self._ffiarray = ffiarray
         self.__init__ = __init__
         self._type_ = TP
+        self._ffiargtype = _ffi.types.Pointer(TP.get_ffi_argtype())
 
     from_address = cdata_from_address
 
@@ -113,6 +115,17 @@ class _Pointer(_CData):
         return self._buffer[0] != 0
 
     contents = property(getcontents, setcontents)
+
+    def _as_ffi_pointer_(self, ffitype):
+        return as_ffi_pointer(self, ffitype)
+
+def as_ffi_pointer(value, ffitype):
+    my_ffitype = type(value).get_ffi_argtype()
+    # for now, we always allow types.pointer, else a lot of tests
+    # break. We need to rethink how pointers are represented, though
+    if my_ffitype is not ffitype and ffitype is not _ffi.types.void_p:
+        raise ArgumentError, "expected %s instance, got %s" % (type(value), ffitype)
+    return value._get_buffer_value()
 
 def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):

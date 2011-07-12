@@ -1,12 +1,13 @@
+import py
 import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     StrDictImplementation
+     StringDictStrategy, ObjectDictStrategy
 
-from pypy.objspace.std.celldict import ModuleDictImplementation
+from pypy.objspace.std.celldict import ModuleDictStrategy
 from pypy.conftest import gettestobjspace
-
+from pypy.conftest import option
 
 class TestW_DictObject:
 
@@ -17,7 +18,7 @@ class TestW_DictObject:
         space = self.space
         d = self.space.newdict()
         assert not self.space.is_true(d)
-        assert d.r_dict_content is None
+        assert type(d.strategy) is not ObjectDictStrategy
 
     def test_nonempty(self):
         space = self.space
@@ -137,31 +138,31 @@ class AppTest_DictObject:
         cls.w_on_pypy = cls.space.wrap("__pypy__" in sys.builtin_module_names)
 
     def test_equality(self):
-        d = {1:2}
-        f = {1:2}
+        d = {1: 2}
+        f = {1: 2}
         assert d == f
-        assert d != {1:3}
+        assert d != {1: 3}
 
     def test_clear(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         d.clear()
         assert len(d) == 0
 
     def test_copy(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         assert d == dd
         assert not d is dd
 
     def test_get(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         assert d.get(1) == 2
-        assert d.get(1,44) == 2
+        assert d.get(1, 44) == 2
         assert d.get(33) == None
-        assert d.get(33,44) == 44
+        assert d.get(33, 44) == 44
 
     def test_pop(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         result = dd.pop(1)
         assert result == 2
@@ -176,18 +177,18 @@ class AppTest_DictObject:
         raises(KeyError, dd.pop, 33)
 
     def test_has_key(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         assert d.has_key(1)
         assert not d.has_key(33)
 
     def test_items(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         its = d.items()
         its.sort()
-        assert its == [(1,2),(3,4)]
+        assert its == [(1, 2), (3, 4)]
 
     def test_iteritems(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         for k, v in d.iteritems():
             assert v == dd[k]
@@ -195,33 +196,33 @@ class AppTest_DictObject:
         assert not dd
 
     def test_iterkeys(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         for k in d.iterkeys():
             del dd[k]
         assert not dd
 
     def test_itervalues(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         values = []
         for k in d.itervalues():
             values.append(k)
         assert values == d.values()
 
     def test_keys(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         kys = d.keys()
         kys.sort()
-        assert kys == [1,3]
+        assert kys == [1, 3]
 
     def test_popitem(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         it = d.popitem()
         assert len(d) == 1
-        assert it==(1,2) or it==(3,4)
+        assert it == (1, 2) or it == (3, 4)
         it1 = d.popitem()
         assert len(d) == 0
-        assert (it!=it1) and (it1==(1,2) or it1==(3,4))
+        assert (it != it1) and (it1 == (1, 2) or it1 == (3, 4))
         raises(KeyError, d.popitem)
 
     def test_popitem_2(self):
@@ -233,8 +234,33 @@ class AppTest_DictObject:
         assert it1 == ('x', 5)
         raises(KeyError, d.popitem)
 
+    def test_popitem3(self):
+        #object
+        d = {"a": 1, 2: 2, "c": 3}
+        l = []
+        while True:
+            try:
+                l.append(d.popitem())
+            except KeyError:
+                break;
+        assert ("a", 1) in l
+        assert (2, 2) in l
+        assert ("c", 3) in l
+
+        #string
+        d = {"a": 1, "b":2, "c":3}
+        l = []
+        while True:
+            try:
+                l.append(d.popitem())
+            except KeyError:
+                break;
+        assert ("a", 1) in l
+        assert ("b", 2) in l
+        assert ("c", 3) in l
+
     def test_setdefault(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         x = dd.setdefault(1, 99)
         assert d == dd
@@ -267,12 +293,12 @@ class AppTest_DictObject:
             assert k.calls == 1
 
     def test_update(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         dd = d.copy()
         d.update({})
         assert d == dd
-        d.update({3:5, 6:7})
-        assert d == {1:2, 3:5, 6:7}
+        d.update({3: 5, 6: 7})
+        assert d == {1: 2, 3: 5, 6: 7}
 
     def test_update_iterable(self):
         d = {}
@@ -297,15 +323,15 @@ class AppTest_DictObject:
         assert d == {'foo': 'bar', 'baz': 1}
 
     def test_values(self):
-        d = {1:2, 3:4}
+        d = {1: 2, 3: 4}
         vals = d.values()
         vals.sort()
         assert vals == [2,4]
 
     def test_eq(self):
-        d1 = {1:2, 3:4}
-        d2 = {1:2, 3:4}
-        d3 = {1:2}
+        d1 = {1: 2, 3: 4}
+        d2 = {1: 2, 3: 4}
+        d3 = {1: 2}
         bool = d1 == d2
         assert bool == True
         bool = d1 == d3
@@ -316,10 +342,10 @@ class AppTest_DictObject:
         assert bool == True
 
     def test_lt(self):
-        d1 = {1:2, 3:4}
-        d2 = {1:2, 3:4}
-        d3 = {1:2, 3:5}
-        d4 = {1:2}
+        d1 = {1: 2, 3: 4}
+        d2 = {1: 2, 3: 4}
+        d3 = {1: 2, 3: 5}
+        d4 = {1: 2}
         bool = d1 < d2
         assert bool == False
         bool = d1 < d3
@@ -366,21 +392,17 @@ class AppTest_DictObject:
     def test_new(self):
         d = dict()
         assert d == {}
-        args = [['a',2], [23,45]]
+        args = [['a', 2], [23, 45]]
         d = dict(args)
-        assert d == {'a':2, 23:45}
+        assert d == {'a': 2, 23: 45}
         d = dict(args, a=33, b=44)
-        assert d == {'a':33, 'b':44, 23:45}
+        assert d == {'a': 33, 'b': 44, 23: 45}
         d = dict(a=33, b=44)
-        assert d == {'a':33, 'b':44}
-        d = dict({'a':33, 'b':44})
-        assert d == {'a':33, 'b':44}
-        try: d = dict(23)
-        except (TypeError, ValueError): pass
-        else: self.fail("dict(23) should raise!")
-        try: d = dict([[1,2,3]])
-        except (TypeError, ValueError): pass
-        else: self.fail("dict([[1,2,3]]) should raise!")
+        assert d == {'a': 33, 'b': 44}
+        d = dict({'a': 33, 'b': 44})
+        assert d == {'a': 33, 'b': 44}
+        raises((TypeError, ValueError), dict, 23)
+        raises((TypeError, ValueError), dict, [[1, 2, 3]])
 
     def test_fromkeys(self):
         assert {}.fromkeys([1, 2], 1) == {1: 1, 2: 1}
@@ -527,6 +549,12 @@ class AppTest_DictObject:
             __missing__ = SpecialDescr(missing)
         assert X()['hi'] == 42
 
+    def test_empty_dict(self):
+        d = {}
+        raises(KeyError, d.popitem)
+        assert d.items() == []
+        assert d.values() == []
+        assert d.keys() == []
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
@@ -706,10 +734,12 @@ class AppTestDictViews:
 class AppTestModuleDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
 
     def w_impl_used(self, obj):
         import __pypy__
-        assert "ModuleDictImplementation" in __pypy__.internal_repr(obj)
+        assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
         m = type(__builtins__)("abc")
@@ -719,6 +749,64 @@ class AppTestModuleDict(object):
         d = type(__builtins__)("abc").__dict__
         raises(KeyError, "d['def']")
 
+    def test_fallback_evil_key(self):
+        class F(object):
+            def __hash__(self):
+                return hash("s")
+            def __eq__(self, other):
+                return other == "s"
+        d = type(__builtins__)("abc").__dict__
+        d["s"] = 12
+        assert d["s"] == 12
+        assert d[F()] == d["s"]
+
+        d = type(__builtins__)("abc").__dict__
+        x = d.setdefault("s", 12)
+        assert x == 12
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = type(__builtins__)("abc").__dict__
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = type(__builtins__)("abc").__dict__
+        d["s"] = 12
+        del d[F()]
+
+        assert "s" not in d
+        assert F() not in d
+
+class AppTestStrategies(object):
+    def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
+
+    def w_get_strategy(self, obj):
+        import __pypy__
+        r = __pypy__.internal_repr(obj)
+        return r[r.find("(") + 1: r.find(")")]
+
+    def test_empty_to_string(self):
+        d = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        d["a"] = 1
+        assert "StringDictStrategy" in self.get_strategy(d)
+
+        class O(object):
+            pass
+        o = O()
+        d = o.__dict__ = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        o.a = 1
+        assert "StringDictStrategy" in self.get_strategy(d)
+
+    def test_empty_to_int(self):
+        import sys
+        d = {}
+        d[1] = "hi"
+        assert "IntDictStrategy" in self.get_strategy(d)
+        assert d[1L] == "hi"
 
 
 class FakeString(str):
@@ -759,6 +847,10 @@ class FakeSpace:
         assert isinstance(string, str)
         return string
 
+    def int_w(self, integer):
+        assert isinstance(integer, int)
+        return integer
+
     def wrap(self, obj):
         return obj
 
@@ -790,6 +882,10 @@ class FakeSpace:
 
     w_StopIteration = StopIteration
     w_None = None
+    w_NoneType = type(None, None)
+    w_int = int
+    w_bool = bool
+    w_float = float
     StringObjectCls = FakeString
     w_dict = W_DictMultiObject
     iter = iter
@@ -799,12 +895,9 @@ class FakeSpace:
 class Config:
     class objspace:
         class std:
-            withdictmeasurement = False
             withsmalldicts = False
             withcelldict = False
             withmethodcache = False
-        class opcodes:
-            CALL_LIKELY_BUILTIN = False
 
 FakeSpace.config = Config()
 
@@ -834,14 +927,20 @@ class BaseTestRDictImplementation:
         self.impl = self.get_impl()
 
     def get_impl(self):
-        return self.ImplementionClass(self.fakespace)
+        strategy = self.StrategyClass(self.fakespace)
+        storage = strategy.get_empty_storage()
+        w_dict = self.fakespace.allocate_instance(W_DictMultiObject, None)
+        W_DictMultiObject.__init__(w_dict, self.fakespace, strategy, storage)
+        return w_dict
 
     def fill_impl(self):
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
 
     def check_not_devolved(self):
-        assert self.impl.r_dict_content is None
+        #XXX check if strategy changed!?
+        assert type(self.impl.strategy) is self.StrategyClass
+        #assert self.impl.r_dict_content is None
 
     def test_setitem(self):
         self.impl.setitem(self.string, 1000)
@@ -913,7 +1012,7 @@ class BaseTestRDictImplementation:
         for x in xrange(100):
             impl.setitem(self.fakespace.str_w(str(x)), x)
             impl.setitem(x, x)
-        assert impl.r_dict_content is not None
+        assert type(impl.strategy) is ObjectDictStrategy
 
     def test_setdefault_fast(self):
         on_pypy = "__pypy__" in sys.builtin_module_names
@@ -928,8 +1027,38 @@ class BaseTestRDictImplementation:
         if on_pypy:
             assert key.hash_count == 2
 
+    def test_fallback_evil_key(self):
+        class F(object):
+            def __hash__(self):
+                return hash("s")
+            def __eq__(self, other):
+                return other == "s"
+
+        d = self.get_impl()
+        d.setitem("s", 12)
+        assert d.getitem("s") == 12
+        assert d.getitem(F()) == d.getitem("s")
+
+        d = self.get_impl()
+        x = d.setdefault("s", 12)
+        assert x == 12
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = self.get_impl()
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = self.get_impl()
+        d.setitem("s", 12)
+        d.delitem(F())
+
+        assert "s" not in d.keys()
+        assert F() not in d.keys()
+
 class TestStrDictImplementation(BaseTestRDictImplementation):
-    ImplementionClass = StrDictImplementation
+    StrategyClass = StringDictStrategy
+    #ImplementionClass = StrDictImplementation
 
     def test_str_shortcut(self):
         self.fill_impl()
@@ -942,10 +1071,10 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
 ##     DevolvedClass = MeasuringDictImplementation
 
 class TestModuleDictImplementation(BaseTestRDictImplementation):
-    ImplementionClass = ModuleDictImplementation
+    StrategyClass = ModuleDictStrategy
 
 class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
-    ImplementionClass = ModuleDictImplementation
+    StrategyClass = ModuleDictStrategy
 
     string = "int"
     string2 = "isinstance"
@@ -954,19 +1083,19 @@ class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def fill_impl(self):
         BaseTestRDictImplementation.fill_impl(self)
-        self.impl._as_rdict()
+        self.impl.strategy.switch_to_object_strategy(self.impl)
 
     def check_not_devolved(self):
         pass
 
 class TestDevolvedStrDictImplementation(BaseTestDevolvedDictImplementation):
-    ImplementionClass = StrDictImplementation
+    StrategyClass = StringDictStrategy
 
 class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
-    ImplementionClass = ModuleDictImplementation
+    StrategyClass = ModuleDictStrategy
 
 class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictImplementation):
-    ImplementionClass = ModuleDictImplementation
+    StrategyClass = ModuleDictStrategy
 
     string = "int"
     string2 = "isinstance"
@@ -975,5 +1104,4 @@ class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictI
 def test_module_uses_strdict():
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
-    assert isinstance(d, StrDictImplementation)
-
+    assert type(d.strategy) is StringDictStrategy

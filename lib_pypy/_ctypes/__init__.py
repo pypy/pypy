@@ -18,7 +18,16 @@ import os as _os
 if _os.name in ("nt", "ce"):
     from _rawffi import FormatError
     from _rawffi import check_HRESULT as _check_HRESULT
-    CopyComPointer = None # XXX
+
+    def CopyComPointer(src, dst):
+        from ctypes import c_void_p, cast
+        if src:
+            hr = src[0][0].AddRef(src)
+            if hr & 0x80000000:
+                return hr
+        dst[0] = cast(src, c_void_p).value
+        return 0
+
     LoadLibrary = dlopen
 
 from _rawffi import FUNCFLAG_STDCALL, FUNCFLAG_CDECL, FUNCFLAG_PYTHONAPI

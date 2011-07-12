@@ -9,8 +9,8 @@ from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from pypy.rlib.jit import hint, purefunction_promote, we_are_jitted
-from pypy.rlib.jit import purefunction, dont_look_inside, unroll_safe
+from pypy.rlib.jit import promote, elidable_promote, we_are_jitted
+from pypy.rlib.jit import elidable, dont_look_inside, unroll_safe
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 class TypeCell(W_Root):
@@ -177,7 +177,7 @@ class W_TypeObject(W_Object):
         # prebuilt objects cannot get their version_tag changed
         return w_self._pure_version_tag()
 
-    @purefunction_promote()
+    @elidable_promote()
     def _pure_version_tag(w_self):
         return w_self._version_tag
 
@@ -247,7 +247,7 @@ class W_TypeObject(W_Object):
                     return w_value
         return w_value
 
-    @purefunction
+    @elidable
     def _pure_getdictvalue_no_unwrapping(w_self, space, version_tag, attr):
         return w_self._getdictvalue_no_unwrapping(space, attr)
 
@@ -351,16 +351,16 @@ class W_TypeObject(W_Object):
 
     def lookup_where_with_method_cache(w_self, name):
         space = w_self.space
-        w_self = hint(w_self, promote=True)
+        promote(w_self)
         assert space.config.objspace.std.withmethodcache
-        version_tag = hint(w_self.version_tag(), promote=True)
+        version_tag = promote(w_self.version_tag())
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
         w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         return w_class, unwrap_cell(space, w_value)
 
-    @purefunction
+    @elidable
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
         space = w_self.space
         cache = space.fromcache(MethodCache)
@@ -423,10 +423,13 @@ class W_TypeObject(W_Object):
         return False
 
     def getdict(w_self, space): # returning a dict-proxy!
-        from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+        from pypy.objspace.std.dictproxyobject import DictProxyStrategy
+        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
-        return W_DictProxyObject(space, w_self)
+        strategy = space.fromcache(DictProxyStrategy)
+        storage = strategy.erase(w_self)
+        return W_DictMultiObject(space, strategy, storage)
 
     def unwrap(w_self, space):
         if w_self.instancetypedef.fakedcpytype is not None:
@@ -447,8 +450,8 @@ class W_TypeObject(W_Object):
         w_self.flag_abstract = bool(abstract)
 
     def issubtype(w_self, w_type):
-        w_self = hint(w_self, promote=True)
-        w_type = hint(w_type, promote=True)
+        promote(w_self)
+        promote(w_type)
         if w_self.space.config.objspace.std.withtypeversion and we_are_jitted():
             version_tag1 = w_self.version_tag()
             version_tag2 = w_type.version_tag()
@@ -774,7 +777,7 @@ def is_mro_purely_of_types(mro_w):
 # ____________________________________________________________
 
 def call__Type(space, w_type, __args__):
-    w_type = hint(w_type, promote=True)
+    promote(w_type)
     # special case for type(x)
     if space.is_w(w_type, space.w_type):
         try:
@@ -820,7 +823,7 @@ def call__Type(space, w_type, __args__):
 def _issubtype(w_sub, w_type):
     return w_type in w_sub.mro_w
 
-@purefunction_promote()
+@elidable_promote()
 def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
     return _issubtype(w_sub, w_type)
 

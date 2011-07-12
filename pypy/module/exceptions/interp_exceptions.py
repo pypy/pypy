@@ -136,7 +136,7 @@ class W_BaseException(Wrappable):
             args_repr = space.str_w(space.repr(space.newtuple(self.args_w)))
         else:
             args_repr = "()"
-        clsname = self.getclass(space).getname(space, '?')
+        clsname = self.getclass(space).getname(space)
         return space.wrap(clsname + args_repr)
 
     def descr_getargs(self, space):
@@ -546,7 +546,7 @@ class W_SyntaxError(W_StandardError):
             w_tuple = space.newtuple(values_w + [self.w_lastlineno])
             args_w = [self.args_w[0], w_tuple]
             args_repr = space.str_w(space.repr(space.newtuple(args_w)))
-            clsname = self.getclass(space).getname(space, '?')
+            clsname = self.getclass(space).getname(space)
             return space.wrap(clsname + args_repr)
         else:
             return W_StandardError.descr_repr(self, space)

@@ -3483,6 +3483,17 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         raises(Exception, a.build_types, f, [int])
 
+    def test_range_variable_step(self):
+        def g(n):
+            return range(0, 10, n)
+        def f(n):
+            r = g(1)    # constant step, at first
+            s = g(n)    # but it becomes a variable step
+            return r
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.listdef.listitem.range_step == 0
+
 
 def g(n):
     return [0,1,2,n]

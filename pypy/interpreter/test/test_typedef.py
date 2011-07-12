@@ -16,7 +16,7 @@ class AppTestTraceBackAttributes:
 
         def g():
             f()
-        
+
         try:
             g()
         except:
@@ -203,3 +203,27 @@ class AppTestTypeDef:
         lst = seen[:]
         assert lst == [5, 10, 2]
         raises(OSError, os.lseek, fd, 7, 0)
+
+    def test_method_attrs(self):
+        import sys
+        class A(object):
+            def m(self):
+                "aaa"
+            m.x = 3
+        class B(A):
+            pass
+
+        bm = B().m
+        assert bm.__func__ is bm.im_func
+        assert bm.__self__ is bm.im_self
+        assert bm.im_class is B
+        assert bm.__doc__ == "aaa"
+        assert bm.x == 3
+        raises(AttributeError, setattr, bm, 'x', 15)
+        l = []
+        assert l.append.__self__ is l
+        assert l.__add__.__self__ is l
+        # note: 'l.__add__.__objclass__' is not defined in pypy
+        # because it's a regular method, and .__objclass__
+        # differs from .im_class in case the method is
+        # defined in some parent class of l's actual class

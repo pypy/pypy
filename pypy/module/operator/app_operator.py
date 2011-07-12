@@ -4,6 +4,7 @@ Operator interface.
 This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
+from __pypy__ import builtinify
 
 def countOf(a,b): 
     'countOf(a, b) -- Return the number of times b occurs in a.'
@@ -66,50 +67,56 @@ def setslice(a, b, c, d):
     a[b:c] = d 
 __setslice__ = setslice
 
-class attrgetter(object):
 
-    def __init__(self, attr, *attrs):
-        self.attrs = (attr,) + attrs
+def attrgetter(attr, *attrs):
+    if attrs:
+        getters = [single_attr_getter(a) for a in (attr,) + attrs]
+        def getter(obj):
+            return tuple([getter(obj) for getter in getters])
+    else:
+        getter = single_attr_getter(attr)
+    return builtinify(getter)
 
-    def _resolve_attr(self, obj, attr):
-        last = 0
-        while True:
-            try:
-                dot = attr.find(".", last)
-            except AttributeError:
-                raise TypeError
-            if dot > 0:
-                obj = getattr(obj, attr[last:dot])
-                last = dot + 1
-            else:
-                return getattr(obj, attr[last:])
+def single_attr_getter(attr):
+    if not isinstance(attr, str):
+        if not isinstance(attr, unicode):
+            def _raise_typeerror(obj):
+                raise TypeError("argument must be a string, not %r" %
+                                (type(attr).__name__,))
+            return _raise_typeerror
+        attr = attr.encode('ascii')
+    #
+    def make_getter(name, prevfn=None):
+        if prevfn is None:
+            def getter(obj):
+                return getattr(obj, name)
+        else:
+            def getter(obj):
+                return getattr(prevfn(obj), name)
+        return getter
+    #
+    last = 0
+    getter = None
+    while True:
+        dot = attr.find(".", last)
+        if dot < 0: break
+        getter = make_getter(attr[last:dot], getter)
+        last = dot + 1
+    return make_getter(attr[last:], getter)
 
-    def __call__(self, obj):
-        if len(self.attrs) == 1:
-            return self._resolve_attr(obj, self.attrs[0])
-        return tuple(self._resolve_attr(obj, attr) for attr in self.attrs)
 
-class itemgetter(object):
+def itemgetter(item, *items):
+    if items:
+        list_of_indices = [item] + list(items)
+        def getter(obj):
+            return tuple([obj[i] for i in list_of_indices])
+    else:
+        def getter(obj):
+            return obj[item]
+    return builtinify(getter)
 
-    def __init__(self, item, *args):
-        self.items = args
-        self.item = item
 
-    def __call__(self, obj):
-        result = obj[self.item]
-
-        if self.items:
-            list = [result] + [obj[item] for item in self.items]
-            return tuple(list)
-
-        return result
-
-class methodcaller(object):
-
-    def __init__(self, method_name, *args, **kwargs):
-        self.method_name = method_name
-        self.args = args
-        self.kwargs = kwargs
-
-    def __call__(self, obj):
-        return getattr(obj, self.method_name)(*self.args, **self.kwargs)
+def methodcaller(method_name, *args, **kwargs):
+    def call(obj):
+        return getattr(obj, method_name)(*args, **kwargs)
+    return builtinify(call)

@@ -10,8 +10,8 @@ import sys
 # __________ the standard C library __________
 
 if sys.platform == 'win32':
-    import _rawffi
-    standard_c_lib = ctypes.CDLL('msvcrt', handle=_rawffi.get_libc())
+    import _ffi
+    standard_c_lib = ctypes.CDLL('msvcrt', handle=_ffi.get_libc())
 else:
     standard_c_lib = ctypes.CDLL(ctypes.util.find_library('c'))
 

@@ -129,7 +129,7 @@ class W_WeakrefBase(Wrappable):
         if w_obj is None:
             state = '; dead'
         else:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             objname = w_obj.getname(space, '')
             if objname:
                 state = "; to '%s' (%s)" % (typename, objname)

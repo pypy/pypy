@@ -181,8 +181,7 @@ class AppTestCProfile(object):
 
 
 class AppTestWithDifferentBytecodes(AppTestCProfile):
-    keywords = {'objspace.opcodes.CALL_LIKELY_BUILTIN': True,
-                'objspace.opcodes.CALL_METHOD': True}
+    keywords = {'objspace.opcodes.CALL_METHOD': True}
 
 
 expected_output = {}
