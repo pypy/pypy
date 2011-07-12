@@ -111,7 +111,6 @@ class AppTestFfi:
                                types.double)
         assert pow(2, 3) == 8
 
-
     def test_int_args(self):
         """
             DLLEXPORT int sum_xy(int x, int y)
@@ -249,6 +248,9 @@ class AppTestFfi:
                                 types.ulong)
         assert sum_xy(sys.maxint, 12) == sys.maxint+12
         assert sum_xy(sys.maxint+1, 12) == sys.maxint+13
+        #
+        res = sum_xy(sys.maxint*2+3, 0)
+        assert res == 1
 
     def test_unsigned_short_args(self):
         """
