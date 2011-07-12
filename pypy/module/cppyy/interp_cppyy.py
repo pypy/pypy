@@ -227,7 +227,7 @@ class CPPConstructor(CPPMethod):
         except Exception, e:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
-        return W_CPPInstance(self.space, self.cpptype, newthis)
+        return W_CPPInstance(self.space, self.cpptype, newthis, True)
 
 
 class W_CPPOverload(Wrappable):
@@ -521,10 +521,11 @@ W_CPPTemplateType.typedef = TypeDef(
 class W_CPPInstance(Wrappable):
     _immutable_fields_ = ["cppclass"]
 
-    def __init__(self, space, cppclass, rawobject):
+    def __init__(self, space, cppclass, rawobject, python_owns):
         self.space = space
         self.cppclass = cppclass
         self.rawobject = rawobject
+        self.python_owns = python_owns
 
     def _nullcheck(self):
         if not self.rawobject:
@@ -535,8 +536,13 @@ class W_CPPInstance(Wrappable):
         return overload.call(self.rawobject, args_w)
 
     def destruct(self):
-        capi.c_destruct(self.cppclass.handle, self.rawobject)
-        self.rawobject = NULL_VOIDP
+        if self.rawobject:
+            capi.c_destruct(self.cppclass.handle, self.rawobject)
+            self.rawobject = NULL_VOIDP
+
+    def __del__(self):
+        if self.python_owns:
+            self.destruct()
 
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',

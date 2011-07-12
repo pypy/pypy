@@ -111,6 +111,40 @@ class AppTestCPPYY:
         e2.destruct()
         assert t.invoke(t.get_overload("getCount")) == 0
 
+        e2.destruct()
+        assert t.invoke(t.get_overload("getCount")) == 0
+
+    def test_example01memory(self):
+        """Test memory destruction and integrity."""
+
+        import gc
+
+        t = self.example01
+
+        assert t.invoke(t.get_overload("getCount")) == 0
+
+        e1 = t.construct(7)
+        assert t.invoke(t.get_overload("getCount")) == 1
+        res = e1.invoke(t.get_overload("addDataToInt"), 4)
+        assert res == 11
+        res = e1.invoke(t.get_overload("addDataToInt"), -4)
+        assert res == 3
+        e1 = None
+        gc.collect()
+        assert t.invoke(t.get_overload("getCount")) == 0
+
+        e1 = t.construct(7)
+        e2 = t.construct(8)
+        assert t.invoke(t.get_overload("getCount")) == 2
+        e1 = None
+        gc.collect()
+        assert t.invoke(t.get_overload("getCount")) == 1
+	e2.destruct()
+        assert t.invoke(t.get_overload("getCount")) == 0
+        e2 = None
+        gc.collect()
+        assert t.invoke(t.get_overload("getCount")) == 0
+
     def test_example01method_double(self):
         """Test passing of a double and returning of double on a method"""
 

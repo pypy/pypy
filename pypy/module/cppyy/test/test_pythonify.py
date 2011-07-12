@@ -199,3 +199,44 @@ class AppTestPYTHONIFY:
 
         assert cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
         assert cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
+
+    def test09_memory(self):
+        import cppyy, gc
+        example01_class = cppyy.gbl.example01
+        payload_class = cppyy.gbl.payload
+
+        pl = payload_class(3.14)
+        assert payload_class.count == 1
+        assert round(pl.getData()-3.14, 8) == 0
+
+        pl2 = example01_class.staticCopyCyclePayload(pl, 38.)
+        assert payload_class.count == 2
+        assert pl2.getData() == 38.
+        pl2 = None
+        gc.collect()
+        assert payload_class.count == 1
+
+        e = example01_class(14)
+
+        pl2 = e.copyCyclePayload(pl)
+        assert payload_class.count == 2
+        assert round(pl2.getData()-14., 8) == 0
+        pl2 = None
+        gc.collect()
+        assert payload_class.count == 1
+
+        pl = None
+        e = None
+        gc.collect()
+        assert payload_class.count == 0
+        assert example01_class.getCount() == 0
+
+        pl = payload_class(3.14)
+        pl_a = example01_class.staticCyclePayload(pl, 66.)
+        pl_a.getData() == 66.
+        assert payload_class.count == 1
+        pl = None
+        gc.collect()
+        assert payload_class.count == 0
+
+        # TODO: need ReferenceError on touching pl_a
