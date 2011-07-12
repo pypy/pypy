@@ -134,13 +134,12 @@ class TestFunctions(BaseCTypesTestChecker):
 
 
     def test_truncate_python_longs(self):
-        py.test.skip("fixme")
         f = dll._testfunc_i_bhilfd
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
         f.restype = c_int
         x = sys.maxint * 2
-        result = f(0, 0, x, 0, 0, 0)
-        assert result == 2
+        result = f(x, x, x, x, 0, 0)
+        assert result == -8
 
 
     def test_floatresult(self):
