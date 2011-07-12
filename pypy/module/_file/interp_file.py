@@ -33,7 +33,6 @@ class W_File(W_AbstractStream):
     encoding = None
     errors   = None
     fd       = -1
-    streamerror_upon_closing = None
 
     newlines = 0     # Updated when the stream is closed
 
@@ -44,18 +43,17 @@ class W_File(W_AbstractStream):
         # assume that the file and stream objects are only visible in the
         # thread that runs __del__, so no race condition should be possible
         self.clear_all_weakrefs()
+        if self.stream is not None:
+            self.enqueue_for_destruction(self.space, W_File.destructor,
+                                         'close() method of ')
+
+    def destructor(self):
+        assert isinstance(self, W_File)
         try:
             self.direct_close()
         except StreamErrors, e:
-            self.streamerror_upon_closing = e
-            self.enqueue_for_destruction(self.space, W_File.report_streamerror,
-                                         'close() method of ')
-
-    def report_streamerror(self):
-        assert isinstance(self, W_File)
-        operr = wrap_streamerror(self.space, self.streamerror_upon_closing,
-                                 self.w_name)
-        raise operr
+            operr = wrap_streamerror(self.space, e, self.w_name)
+            raise operr
 
     def fdopenstream(self, stream, fd, mode, w_name=None):
         self.fd = fd
