@@ -25,6 +25,7 @@ extern "C" {
     int    cppyy_call_b(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
     char   cppyy_call_c(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
     short  cppyy_call_h(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
+    int    cppyy_call_i(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
     long   cppyy_call_l(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
     double cppyy_call_f(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);
     double cppyy_call_d(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args[]);

@@ -176,12 +176,12 @@ namespace a_ns {
 
 } // namespace a_ns
 
-template class T1<int>;
-template class T2<T1<int> >;
-template class T3<int, double>;
-template class T3<T1<int>, T2<T1<int> > >;
-template class a_ns::T4<int>;
-template class a_ns::T4<a_ns::T4<T3<int, double> > >;
+extern template class T1<int>;
+extern template class T2<T1<int> >;
+extern template class T3<int, double>;
+extern template class T3<T1<int>, T2<T1<int> > >;
+extern template class a_ns::T4<int>;
+extern template class a_ns::T4<a_ns::T4<T3<int, double> > >;
 
 
 //===========================================================================

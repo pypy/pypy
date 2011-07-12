@@ -25,6 +25,15 @@ int a_ns::d_ns::e_class::s_e          = 55;
 int a_ns::d_ns::e_class::f_class::s_f = 66;
 
 
+// for template testing
+template class T1<int>;
+template class T2<T1<int> >;
+template class T3<int, double>;
+template class T3<T1<int>, T2<T1<int> > >;
+template class a_ns::T4<int>;
+template class a_ns::T4<a_ns::T4<T3<int, double> > >;
+
+
 // helpers for checking pass-by-ref
 void set_int_through_ref(int& i, int val)             { i = val; }
 int pass_int_through_const_ref(const int& i)          { return i; }

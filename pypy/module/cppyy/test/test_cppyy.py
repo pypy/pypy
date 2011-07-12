@@ -40,7 +40,7 @@ class AppTestCPPYY:
         """Test passing of an int, returning of an int, and overloading on a
             differening number of arguments."""
 
-        import sys
+        import sys, math
         t = self.example01
 
         res = t.invoke(t.get_overload("staticAddOneToInt"), 1)
@@ -51,14 +51,15 @@ class AppTestCPPYY:
         assert res == 4
         res = t.invoke(t.get_overload("staticAddOneToInt"), -1)
         assert res == 0
-        res = t.invoke(t.get_overload("staticAddOneToInt"), sys.maxint-1)
-        assert res == sys.maxint
-        res = t.invoke(t.get_overload("staticAddOneToInt"), sys.maxint)
-        assert res == -sys.maxint-1
+        maxint32 = int(math.pow(2,31)-1)
+        res = t.invoke(t.get_overload("staticAddOneToInt"), maxint32-1)
+        assert res == maxint32
+        res = t.invoke(t.get_overload("staticAddOneToInt"), maxint32)
+        assert res == -maxint32-1
 
         raises(TypeError, 't.invoke(t.get_overload("staticAddOneToInt"), 1, [])')
         raises(TypeError, 't.invoke(t.get_overload("staticAddOneToInt"), 1.)')
-        raises(OverflowError, 't.invoke(t.get_overload("staticAddOneToInt"), sys.maxint+1)')
+        raises(OverflowError, 't.invoke(t.get_overload("staticAddOneToInt"), maxint32+1)')
 
 
     def test_example01static_double(self):

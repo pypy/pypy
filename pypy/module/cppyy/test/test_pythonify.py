@@ -41,7 +41,7 @@ class AppTestPYTHONIFY:
 
     def test03_calling_static_functions(self):
         """Test calling of static methods."""
-        import cppyy, sys
+        import cppyy, sys, math
         example01_class = cppyy.gbl.example01
         res = example01_class.staticAddOneToInt(1)
         assert res == 2
@@ -52,14 +52,15 @@ class AppTestPYTHONIFY:
         assert res == 4
         res = example01_class.staticAddOneToInt(-1)
         assert res == 0
-        res = example01_class.staticAddOneToInt(sys.maxint-1)
-        assert res == sys.maxint
-        res = example01_class.staticAddOneToInt(sys.maxint)
-        assert res == -sys.maxint-1
+        maxint32 = int(math.pow(2,31)-1)
+        res = example01_class.staticAddOneToInt(maxint32-1)
+        assert res == maxint32
+        res = example01_class.staticAddOneToInt(maxint32)
+        assert res == -maxint32-1
 
         raises(TypeError, 'example01_class.staticAddOneToInt(1, [])')
         raises(TypeError, 'example01_class.staticAddOneToInt(1.)')
-        raises(OverflowError, 'example01_class.staticAddOneToInt(sys.maxint+1)')
+        raises(OverflowError, 'example01_class.staticAddOneToInt(maxint32+1)')
         res = example01_class.staticAddToDouble(0.09)
         assert res == 0.09 + 0.01
 

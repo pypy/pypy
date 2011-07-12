@@ -33,7 +33,7 @@ class PtrTypeExecutor(FunctionExecutor):
 
     def execute(self, space, func, cppthis, num_args, args):
         lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
-        address = rffi.cast(rffi.UINT, lresult)
+        address = rffi.cast(rffi.ULONG, lresult)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
         return arr.fromaddress(space, address, sys.maxint)
 
@@ -72,6 +72,32 @@ class ShortExecutor(FunctionExecutor):
         result = capi.c_call_h(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.wrap(result)
 
+class IntExecutor(FunctionExecutor):
+    _immutable_ = True
+    libffitype = libffi.types.sint
+
+    def _wrap_result(self, space, result):
+        return space.wrap(result)
+
+    def execute(self, space, func, cppthis, num_args, args):
+        result = capi.c_call_i(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        return self._wrap_result(space, result)
+
+# TODO: check whether the following is correct (return type cast):
+#   def execute_libffi(self, space, libffifunc, argchain):
+#       return space.wrap(libffifunc.call(argchain, rffi.INT))
+
+class UnsignedIntExecutor(FunctionExecutor):
+    _immutable_ = True
+    libffitype = libffi.types.uint
+
+    def _wrap_result(self, space, result):
+        return space.wrap(result)
+
+    def execute(self, space, func, cppthis, num_args, args):
+        result = capi.c_call_i(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        return self._wrap_result(space, result)
+
 class LongExecutor(FunctionExecutor):
     _immutable_ = True
     libffitype = libffi.types.slong
@@ -85,6 +111,13 @@ class LongExecutor(FunctionExecutor):
 
     def execute_libffi(self, space, libffifunc, argchain):
         return space.wrap(libffifunc.call(argchain, lltype.Signed))
+
+class ConstIntRefExecutor(LongExecutor):
+    _immutable_ = True
+
+    def _wrap_result(self, space, result):
+        intptr = rffi.cast(rffi.INTP, result)
+        return space.wrap(intptr[0])
 
 class ConstLongRefExecutor(LongExecutor):
     _immutable_ = True
@@ -124,6 +157,14 @@ class CStringExecutor(FunctionExecutor):
 class ShortPtrExecutor(PtrTypeExecutor):
     _immutable_ = True
     typecode = 'h'
+
+class IntPtrExecutor(PtrTypeExecutor):
+    _immutable_ = True
+    typecode = 'i'
+
+class UnsignedIntPtrExecutor(PtrTypeExecutor):
+    _immutable_ = True
+    typecode = 'I'
 
 class LongPtrExecutor(PtrTypeExecutor):
     _immutable_ = True
@@ -226,12 +267,12 @@ _executors["short int"]           = ShortExecutor
 _executors["short int*"]          = ShortPtrExecutor
 _executors["unsigned short int"]  = ShortExecutor
 _executors["unsigned short int*"] = ShortPtrExecutor
-_executors["int"]                 = LongExecutor
-_executors["int*"]                = LongPtrExecutor
-_executors["const int&"]          = ConstLongRefExecutor
-_executors["int&"]                = ConstLongRefExecutor
-_executors["unsigned int"]        = LongExecutor
-_executors["unsigned int*"]       = LongPtrExecutor
+_executors["int"]                 = IntExecutor
+_executors["int*"]                = IntPtrExecutor
+_executors["const int&"]          = ConstIntRefExecutor
+_executors["int&"]                = ConstIntRefExecutor
+_executors["unsigned int"]        = UnsignedIntExecutor
+_executors["unsigned int*"]       = UnsignedIntPtrExecutor
 _executors["long int"]            = LongExecutor
 _executors["long int*"]           = LongPtrExecutor
 _executors["unsigned long int"]   = LongExecutor

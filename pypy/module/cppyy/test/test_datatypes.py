@@ -30,7 +30,7 @@ class AppTestDATATYPES:
         lib2 = cppyy.load_lib(self.shared_lib)
         assert self.datatypes is lib2
 
-    def test1_instance_data_read_access( self ):
+    def test1_instance_data_read_access(self):
         """Test read access to instance public data and verify values"""
 
         import cppyy, sys
