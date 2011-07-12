@@ -355,7 +355,7 @@ class W_CPPScope(Wrappable):
     def get_method_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.methods])
 
-    @jit.elidable_promote()
+    @jit.elidable_promote('0')
     def get_overload(self, name):
         try:
             return self.methods[name]
@@ -367,7 +367,7 @@ class W_CPPScope(Wrappable):
     def get_data_member_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.data_members])
 
-    @jit.elidable_promote()
+    @jit.elidable_promote('0')
     def get_data_member(self, name):
         try:
             return self.data_members[name]
