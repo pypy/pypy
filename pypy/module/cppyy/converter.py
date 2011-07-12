@@ -73,6 +73,9 @@ class ArrayCache(object):
             return arr
         raise AttributeError(name)
 
+    def _freeze_(self):
+        return True
+
 class ArrayTypeConverterMixin(object):
     _mixin_ = True
     _immutable = True
