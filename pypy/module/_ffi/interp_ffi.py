@@ -187,8 +187,7 @@ class W_FuncPtr(Wrappable):
                 # note that we must check for longlong first, because either
                 # is_signed or is_unsigned returns true anyway
                 assert libffi.IS_32_BIT
-                kind = libffi.types.getkind(w_argtype.ffitype) # XXX: remove the kind
-                self.arg_longlong(space, argchain, kind, w_arg)
+                self.arg_longlong(space, argchain, w_arg)
             elif w_argtype.is_signed():
                 argchain.arg(unwrap_truncate_int(rffi.LONG, space, w_arg))
             elif w_argtype.is_pointer():
@@ -226,15 +225,10 @@ class W_FuncPtr(Wrappable):
             return w_arg
 
     @jit.dont_look_inside
-    def arg_longlong(self, space, argchain, kind, w_arg):
+    def arg_longlong(self, space, argchain, w_arg):
         bigarg = space.bigint_w(w_arg)
-        if kind == 'I':
-            llval = bigarg.tolonglong()
-        elif kind == 'U':
-            ullval = bigarg.toulonglong()
-            llval = rffi.cast(rffi.LONGLONG, ullval)
-        else:
-            assert False
+        ullval = bigarg.ulonglongmask()
+        llval = rffi.cast(rffi.LONGLONG, ullval)
         # this is a hack: we store the 64 bits of the long long into the
         # 64 bits of a float (i.e., a C double)
         floatval = libffi.longlong2float(llval)

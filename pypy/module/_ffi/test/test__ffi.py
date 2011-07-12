@@ -379,6 +379,9 @@ class AppTestFfi:
         res = sum_xy(x, y)
         expected = maxint64 + 3
         assert res == expected
+        #
+        res = sum_xy(maxint64*2+3, 0)
+        assert res == 1
 
     def test_byval_argument(self):
         """
