@@ -2758,6 +2758,32 @@ class BasicTests:
         assert res == -2
         #self.check_loops(getarrayitem_gc=0, setarrayitem_gc=0) -- xxx?
 
+    def test_continue_tracing_with_boxes_in_start_snapshot_replaced_by_optimizer(self):
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'n', 'a', 'b'])
+        def f(n):
+            sa = a = 0
+            b = 10
+            while n:
+                myjitdriver.jit_merge_point(sa=sa, n=n, a=a, b=b)
+                sa += b
+                b += 1
+                if b > 7:
+                    pass
+                if a == 0:
+                    a = 1
+                elif a == 1:
+                    a = 2
+                elif a == 2:
+                    a = 0
+                sa += a
+                sa += 0
+                n -= 1
+            return sa
+        res = self.meta_interp(f, [16])
+        assert res == f(16)
+
+
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

@@ -153,8 +153,6 @@ class UnrollOptimizer(Optimization):
             new_snapshot_args.append(a)
         prev = self.fix_snapshot(loop, jump_args, snapshot.prev)
         return Snapshot(prev, new_snapshot_args)
-        #snapshot.boxes = new_snapshot_args
-        #return snapshot
             
     def propagate_all_forward(self):
         loop = self.optimizer.loop
