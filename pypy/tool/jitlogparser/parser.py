@@ -1,7 +1,8 @@
 import re, sys
 
-from pypy.jit.metainterp.resoperation import rop, opname
+from pypy.jit.metainterp.resoperation import opname
 from pypy.jit.tool.oparser import OpParser
+from pypy.tool.logparser import parse_log_file, extract_category
 
 class Op(object):
     bridge = None
@@ -57,7 +58,7 @@ class SimpleParser(OpParser):
     use_mock_model = True
 
     def postprocess(self, loop, backend_dump=None, backend_tp=None,
-                    loop_start=0, dump_start=0):
+                    dump_start=0):
         if backend_dump is not None:
             raw_asm = self._asm_disassemble(backend_dump.decode('hex'),
                                             backend_tp, dump_start)
@@ -329,3 +330,33 @@ def adjust_bridges(loop, bridges):
             res.append(op)
             i += 1
     return res
+
+
+def import_log(logname, ParserCls=SimpleParser):
+    log = parse_log_file(logname)
+    addrs = {}
+    for entry in extract_category(log, 'jit-backend-addr'):
+        m = re.search('bootstrap ([\da-f]+)', entry)
+        name = entry[:entry.find('(') - 1]
+        addrs[int(m.group(1), 16)] = name
+    dumps = {}
+    for entry in extract_category(log, 'jit-backend-dump'):
+        backend, _, dump, _ = entry.split("\n")
+        _, addr, _, data = re.split(" +", dump)
+        backend_name = backend.split(" ")[1]
+        addr = int(addr[1:], 16)
+        if addr in addrs:
+            dumps[addrs[addr]] = (backend_name, addr, data)
+    loops = []
+    for entry in extract_category(log, 'jit-log-opt'):
+        parser = ParserCls(entry, None, {}, 'lltype', None,
+                           nonstrict=True)
+        loop = parser.parse()
+        comm = loop.comment
+        name = comm[2:comm.find(':')-1]
+        if name in dumps:
+            bname, start_ofs, dump = dumps[name]
+            parser.postprocess(loop, backend_tp=bname, backend_dump=dump,
+                               dump_start=start_ofs)
+        loops.append(loop)
+    return log, loops

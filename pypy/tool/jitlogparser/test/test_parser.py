@@ -1,9 +1,8 @@
-from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import ConstInt, Const
-from pypy.tool.jitlogparser.parser import SimpleParser, TraceForOpcode, Function,\
-     adjust_bridges
+from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
+                                           Function, adjust_bridges,
+                                           import_log)
 from pypy.tool.jitlogparser.storage import LoopStorage
-import py
+import py, sys
 
 def parse(input, **kwds):
     return SimpleParser.parse_from_input(input, **kwds)
@@ -111,6 +110,8 @@ def test_lineno():
     assert res.chunks[1].lineno == 3
 
 def test_linerange():
+    if sys.version_info > (2, 6):
+        py.test.skip("unportable test")
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse('''
     [i0, i1]
@@ -125,6 +126,8 @@ def test_linerange():
     assert res.lineset == set([7, 8, 9])
 
 def test_linerange_notstarts():
+    if sys.version_info > (2, 6):
+        py.test.skip("unportable test")
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse("""
     [p6, p1]
@@ -201,9 +204,13 @@ def test_parsing_assembler():
     +213: jump(p0, p1, p2, p3, i8, descr=<Loop0>)
     +218: --end of the loop--""", backend_dump=backend_dump,
                  dump_start=dump_start,
-                 backend_tp='x86_64',
-                 loop_start=0x7f3b0b2e645d)
+                 backend_tp='x86_64')
     cmp = loop.operations[1]
     assert 'jge' in cmp.asm
     assert '0x2710' in cmp.asm
     assert 'jmp' in loop.operations[-1].asm
+
+def test_import_log():
+    _, loops = import_log(str(py.path.local(__file__).join('..',
+                                                           'logtest.log')))
+    assert 'jge' in loops[0].operations[3].asm

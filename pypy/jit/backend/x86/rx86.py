@@ -464,7 +464,7 @@ class AbstractX86CodeBuilder(object):
 
     # ------------------------------ MOV ------------------------------
 
-    MOV_ri = insn(rex_w, register(1), '\xB8', immediate(2, 'q'))
+    MOV_ri = insn(register(1), '\xB8', immediate(2))
     MOV8_ri = insn(rex_fw, byte_register(1), '\xB0', immediate(2, 'b'))
 
     # ------------------------------ Arithmetic ------------------------------
@@ -632,16 +632,20 @@ class X86_64_CodeBuilder(AbstractX86CodeBuilder):
 
     CQO = insn(rex_w, '\x99')
 
-    # MOV_ri from the parent class is not wrong, but here is a better encoding
-    # for the common case where the immediate fits in 32 bits
+    # Three different encodings... following what gcc does.  From the
+    # shortest encoding to the longest one.
+    MOV_riu32 = insn(rex_nw, register(1), '\xB8', immediate(2, 'i'))
     MOV_ri32 = insn(rex_w, '\xC7', register(1), '\xC0', immediate(2, 'i'))
-    MOV_ri64 = AbstractX86CodeBuilder.MOV_ri
+    MOV_ri64 = insn(rex_w, register(1), '\xB8', immediate(2, 'q'))
 
     def MOV_ri(self, reg, immed):
-        if fits_in_32bits(immed):
+        if 0 <= immed <= 4294967295:
+            immed = intmask(rffi.cast(rffi.INT, immed))
+            self.MOV_riu32(reg, immed)
+        elif fits_in_32bits(immed):    # for negative values that fit in 32 bit
             self.MOV_ri32(reg, immed)
         else:
-            AbstractX86CodeBuilder.MOV_ri(self, reg, immed)
+            self.MOV_ri64(reg, immed)
 
 def define_modrm_modes(insnname_template, before_modrm, after_modrm=[], regtype='GPR'):
     def add_insn(code, *modrm):

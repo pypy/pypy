@@ -416,11 +416,13 @@ class Assembler386(object):
         fullsize = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
-        debug_print("Loop #%d (%s) has address %x to %x (bootstrap %x)" % (
+        debug_start("jit-backend-addr")
+        debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
             looptoken.number, loopname,
             rawstart + self.looppos,
             rawstart + directbootstrappos,
             rawstart))
+        debug_stop("jit-backend-addr")
         self._patch_stackadjust(rawstart + stackadjustpos,
                                 frame_depth + param_depth)
         self.patch_pending_failure_recoveries(rawstart)
@@ -479,9 +481,10 @@ class Assembler386(object):
         fullsize = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(original_loop_token)
-
-        debug_print("Bridge out of guard %d has address %x to %x" %
+        debug_start("jit-backend-addr")
+        debug_print("Bridge out of Guard %d has address %x to %x" %
                     (descr_number, rawstart, rawstart + codeendpos))
+        debug_stop("jit-backend-addr")
         self._patch_stackadjust(rawstart + stackadjustpos,
                                 frame_depth + param_depth)
         self.patch_pending_failure_recoveries(rawstart)

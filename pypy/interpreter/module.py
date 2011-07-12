@@ -9,6 +9,8 @@ from pypy.rlib.objectmodel import we_are_translated
 class Module(Wrappable):
     """A module."""
 
+    _immutable_fields_ = ["w_dict?"]
+
     _frozen = False
 
     def __init__(self, space, w_name, w_dict=None, add_package=True):

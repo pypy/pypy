@@ -149,6 +149,12 @@ def unwrap_ffitype(space, w_argtype, allow_void=False):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     return res
 
+def unwrap_truncate_int(TP, space, w_arg):
+    if space.is_true(space.isinstance(w_arg, space.w_int)):
+        return rffi.cast(TP, space.int_w(w_arg))
+    else:
+        return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
+unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 
 # ========================================================================
 
@@ -181,15 +187,14 @@ class W_FuncPtr(Wrappable):
                 # note that we must check for longlong first, because either
                 # is_signed or is_unsigned returns true anyway
                 assert libffi.IS_32_BIT
-                kind = libffi.types.getkind(w_argtype.ffitype) # XXX: remove the kind
-                self.arg_longlong(space, argchain, kind, w_arg)
+                self.arg_longlong(space, argchain, w_arg)
             elif w_argtype.is_signed():
-                argchain.arg(space.int_w(w_arg))
+                argchain.arg(unwrap_truncate_int(rffi.LONG, space, w_arg))
             elif w_argtype.is_pointer():
                 w_arg = self.convert_pointer_arg_maybe(space, w_arg, w_argtype)
                 argchain.arg(intmask(space.uint_w(w_arg)))
             elif w_argtype.is_unsigned():
-                argchain.arg(intmask(space.uint_w(w_arg)))
+                argchain.arg(unwrap_truncate_int(rffi.ULONG, space, w_arg))
             elif w_argtype.is_char():
                 w_arg = space.ord(w_arg)
                 argchain.arg(space.int_w(w_arg))
@@ -220,15 +225,10 @@ class W_FuncPtr(Wrappable):
             return w_arg
 
     @jit.dont_look_inside
-    def arg_longlong(self, space, argchain, kind, w_arg):
+    def arg_longlong(self, space, argchain, w_arg):
         bigarg = space.bigint_w(w_arg)
-        if kind == 'I':
-            llval = bigarg.tolonglong()
-        elif kind == 'U':
-            ullval = bigarg.toulonglong()
-            llval = rffi.cast(rffi.LONGLONG, ullval)
-        else:
-            assert False
+        ullval = bigarg.ulonglongmask()
+        llval = rffi.cast(rffi.LONGLONG, ullval)
         # this is a hack: we store the 64 bits of the long long into the
         # 64 bits of a float (i.e., a C double)
         floatval = libffi.longlong2float(llval)

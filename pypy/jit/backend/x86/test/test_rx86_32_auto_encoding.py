@@ -212,6 +212,17 @@ class TestRx86_32(object):
             for mode, v in zip(argmodes, args):
                 ops.append(assembler_operand[mode](v))
             ops.reverse()
+            #
+            if (instrname.lower() == 'mov' and suffix == 'q' and
+                ops[0].startswith('$') and 0 <= int(ops[0][1:]) <= 4294967295
+                and ops[1].startswith('%r')):
+                # movq $xxx, %rax => movl $xxx, %eax
+                suffix = 'l'
+                if ops[1][2:].isdigit():
+                    ops[1] += 'd'
+                else:
+                    ops[1] = '%e' + ops[1][2:]
+            #
             op = '\t%s%s %s%s' % (instrname.lower(), suffix,
                                   ', '.join(ops), following)
             g.write('%s\n' % op)

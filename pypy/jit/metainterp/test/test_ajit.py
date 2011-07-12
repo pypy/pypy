@@ -984,11 +984,14 @@ class BasicTests:
             pass
         class B(A):
             pass
-        def fn(n):
+        @dont_look_inside
+        def extern(n):
             if n:
-                obj = A()
+                return A()
             else:
-                obj = B()
+                return B()
+        def fn(n):
+            obj = extern(n)
             return isinstance(obj, B)
         res = self.interp_operations(fn, [0])
         assert res
@@ -1020,6 +1023,70 @@ class BasicTests:
 
         res = self.meta_interp(main, [])
         assert res == 55
+
+    def test_dont_record_repeated_guard_class(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        @dont_look_inside
+        def extern(n):
+            if n == -7:
+                return None
+            elif n:
+                return A()
+            else:
+                return B()
+        def fn(n):
+            obj = extern(n)
+            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
+        res = self.interp_operations(fn, [0])
+        assert res == 4
+        self.check_operations_history(guard_class=1, guard_nonnull=1)
+        res = self.interp_operations(fn, [1])
+        assert not res
+
+    def test_dont_record_guard_class_after_new(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        def fn(n):
+            if n == -7:
+                obj = None
+            elif n:
+                obj = A()
+            else:
+                obj = B()
+            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
+        res = self.interp_operations(fn, [0])
+        assert res == 4
+        self.check_operations_history(guard_class=0, guard_nonnull=0)
+        res = self.interp_operations(fn, [1])
+        assert not res
+
+    def test_guard_isnull_nullifies(self):
+        class A:
+            pass
+        a = A()
+        a.x = None
+        def fn(n):
+            if n == -7:
+                a.x = ""
+            obj = a.x
+            res = 0
+            if not obj:
+                res += 1
+            if obj:
+                res += 1
+            if obj is None:
+                res += 1
+            if obj is not None:
+                res += 1
+            return res
+        res = self.interp_operations(fn, [0])
+        assert res == 2
+        self.check_operations_history(guard_isnull=1)
 
     def test_assert_isinstance(self):
         class A:
