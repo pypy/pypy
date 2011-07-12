@@ -524,7 +524,6 @@ class AbstractUnwrappedStrategy(object):
             assert stop >= 0
             sublist = l[start:stop]
             storage = self.cast_to_void_star(sublist)
-            #XXX check of empty list?
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
         else:
             subitems_w = [None] * length
@@ -829,6 +828,10 @@ def getitem__List_Slice(space, w_list, w_slice):
     length = w_list.length()
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
+    if slicelength == 0:
+        strategy = space.fromcache(EmptyListStrategy)
+        storage = strategy.cast_to_void_star(None)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
     return w_list.getslice(start, stop, step, slicelength)
 
 def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):

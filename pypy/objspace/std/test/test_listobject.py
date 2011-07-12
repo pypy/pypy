@@ -813,6 +813,42 @@ class AppTestW_ListObject(object):
         l.__delslice__(0, 2)
         assert l == [3, 4]
 
+class AppTestForRangeLists(AppTestW_ListObject):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withrangelist" :
+                                       True})
+
+    def test_range_simple_backwards(self):
+        x = range(5,1)
+        assert x == []
+
+    def test_range_big_start(self):
+        x = range(1,10)
+        x[22:0:-1] == range(1,10)
+
+    def test_range_list_invalid_slice(self):
+        x = [1,2,3,4]
+        assert x[10:0] == []
+        assert x[10:0:None] == []
+
+        x = range(1,5)
+        assert x[10:0] == []
+        assert x[10:0:None] == []
+
+        assert x[0:22] == [1,2,3,4]
+        assert x[-1:10] == [4]
+
+        assert x[0:22:None] == [1,2,3,4]
+        assert x[-1:10:None] == [4]
+
+    def test_range_backwards(self):
+        x = range(1,10)
+        assert x[22:-10] == []
+        assert x[22:-10:-1] == [9,8,7,6,5,4,3,2,1]
+        assert x[10:3:-1] == [9,8,7,6,5]
+        assert x[10:3:-2] == [9,7,5]
+        assert x[1:5:-1] == []
 
 class AppTestListFastSubscr:
 
