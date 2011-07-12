@@ -21,15 +21,21 @@ class TestAssemble(object):
         if autodetect_main_model() not in ["ppc", "ppc64"]: 
             py.test.skip("can't test all of ppcgen on non-PPC!")
 
+    def test_load_imm(self):
+        a = MyPPCAssembler()
+        a.li(3, 200)
+        a.blr()
+        f = a.assemble()
+        assert f() == 200
+
     def test_add_imm(self):
         a = MyPPCAssembler()
-
         a.li(3, 6)
         a.addi(3, 3, 1)
         a.blr()
-
         f = a.assemble()
         assert f() == 7
+
         
 """
 class TestAssemble(object):
