@@ -800,6 +800,13 @@ class Transformer(object):
             result[-1].result = op.result
         return result
 
+    def rewrite_op_direct_ptradd(self, op):
+        from pypy.rpython.lltypesystem import rffi
+        # xxx otherwise, not implemented:
+        assert op.args[0].concretetype == rffi.CCHARP
+        #
+        return SpaceOperation('int_add', [op.args[0], op.args[1]], op.result)
+
     # ----------
     # Long longs, for 32-bit only.  Supported operations are left unmodified,
     # and unsupported ones are turned into a call to a function from
