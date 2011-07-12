@@ -119,10 +119,12 @@ class AppTestFfi:
                 return x+y;
             }
         """
+        import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy', [types.sint, types.sint], types.sint)
         assert sum_xy(30, 12) == 42
+        assert sum_xy(sys.maxint*2, 0) == -2
 
     def test_void_result(self):
         """

@@ -149,6 +149,11 @@ def unwrap_ffitype(space, w_argtype, allow_void=False):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     return res
 
+def unwrap_truncate_int(space, w_arg):
+    if space.is_true(space.isinstance(w_arg, space.w_int)):
+        return space.int_w(w_arg)
+    else:
+        return rffi.cast(rffi.LONG, space.bigint_w(w_arg).ulonglongmask())
 
 # ========================================================================
 
@@ -184,7 +189,7 @@ class W_FuncPtr(Wrappable):
                 kind = libffi.types.getkind(w_argtype.ffitype) # XXX: remove the kind
                 self.arg_longlong(space, argchain, kind, w_arg)
             elif w_argtype.is_signed():
-                argchain.arg(space.int_w(w_arg))
+                argchain.arg(unwrap_truncate_int(space, w_arg))
             elif w_argtype.is_pointer():
                 w_arg = self.convert_pointer_arg_maybe(space, w_arg, w_argtype)
                 argchain.arg(intmask(space.uint_w(w_arg)))
