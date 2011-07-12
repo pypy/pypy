@@ -125,7 +125,8 @@ class CPPMethod(object):
             raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
         if self.arg_converters is None:
             self._build_converters()
-        funcptr = jit.promote(self.methgetter)(cppthis)
+        jit.promote(self)
+        funcptr = self.methgetter(cppthis)
         libffi_func = self._get_libffi_func(funcptr)
         if not libffi_func:
             raise FastCallNotPossible
@@ -162,6 +163,7 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w):
+        jit.promote(self)
         space = self.space
         if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
             raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
