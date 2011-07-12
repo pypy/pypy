@@ -1,31 +1,35 @@
 import math
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy.interp_numarray import BaseArray, Call1, Call2, Signature
+from pypy.module.micronumpy.interp_numarray import BaseArray, Call1, Call2, Signature, convert_to_array
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
-
 
 def ufunc(func):
     signature = Signature()
     def impl(space, w_obj):
-        if isinstance(w_obj, BaseArray):
-            w_res = Call1(func, w_obj, w_obj.signature.transition(signature))
-            w_obj.invalidates.append(w_res)
+        if space.issequence_w(w_obj):
+            w_obj_arr = convert_to_array(space, w_obj)
+            w_res = Call1(func, w_obj_arr, w_obj_arr.signature.transition(signature))
+            w_obj_arr.invalidates.append(w_res)
             return w_res
-        return space.wrap(func(space.float_w(w_obj)))
+        else:
+            return space.wrap(func(space.float_w(w_obj)))
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 def ufunc2(func):
     signature = Signature()
     def impl(space, w_lhs, w_rhs):
-        if isinstance(w_lhs, BaseArray) and isinstance(w_rhs, BaseArray):
-            new_sig = w_lhs.signature.transition(signature).transition(w_rhs.signature)
-            w_res = Call2(func, w_lhs, w_rhs, new_sig)
-            w_lhs.invalidates.append(w_res)
-            w_rhs.invalidates.append(w_res)
+        if space.issequence_w(w_lhs) or space.issequence_w(w_rhs):
+            w_lhs_arr = convert_to_array(space, w_lhs)
+            w_rhs_arr = convert_to_array(space, w_rhs)
+            new_sig = w_lhs_arr.signature.transition(signature).transition(w_rhs_arr.signature)
+            w_res = Call2(func, w_lhs_arr, w_rhs_arr, new_sig)
+            w_lhs_arr.invalidates.append(w_res)
+            w_rhs_arr.invalidates.append(w_res)
             return w_res
-        return space.wrap(func(space.float_w(w_lhs), space.float_w(w_rhs)))
+        else:
+            return space.wrap(func(space.float_w(w_lhs), space.float_w(w_rhs)))
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 @ufunc
