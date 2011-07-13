@@ -998,6 +998,23 @@ class Regalloc(object):
         self.possibly_free_vars(guard_op.getfailargs())
         return locs
 
+    def prepare_guard_call_release_gil(self, op, guard_op, fcond):
+        # first, close the stack in the sense of the asmgcc GC root tracker
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            self.assembler.call_release_gil(gcrootmap, arglocs)
+        # do the call
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        self.assembler.emit_op_call(op, args, self, fcond, fail_index)
+        # then reopen the stack
+        if gcrootmap:
+            self.call_reacquire_gil(gcrootmap, r.r0)
+        locs = self._prepare_guard(guard_op)
+        self.possibly_free_vars(guard_op.getfailargs())
+        return locs
+
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)

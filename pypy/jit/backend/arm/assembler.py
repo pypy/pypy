@@ -121,10 +121,33 @@ class AssemblerARM(ResOpAssembler):
                                                       ll_new_unicode)
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
+        if gc_ll_descr.gcrootmap:
+            self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._exit_code_addr = self._gen_exit_path()
         self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
+
+    @staticmethod
+    def _release_gil_shadowstack():
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    def _reacquire_gil_shadowstack():
+        after = rffi.aroundstate.after
+        if after:
+            after()
+    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    def _build_release_gil(self, gcrootmap):
+        assert gcrootmap.is_shadow_stack
+        releasegil_func = llhelper(self._NOARG_FUNC,
+                                   self._release_gil_shadowstack)
+        reacqgil_func = llhelper(self._NOARG_FUNC,
+                                 self._reacquire_gil_shadowstack)
+        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
+        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
     def setup_failure_recovery(self):
 
@@ -757,6 +780,8 @@ class AssemblerARM(ResOpAssembler):
         if num == rop.INT_MUL_OVF or num == rop.INT_ADD_OVF or num == rop.INT_SUB_OVF:
             opnum = operations[i + 1].getopnum()
             assert opnum  == rop.GUARD_OVERFLOW or opnum == rop.GUARD_NO_OVERFLOW
+            return True
+        if num == rop.CALL_RELEASE_GIL:
             return True
         return False
 
