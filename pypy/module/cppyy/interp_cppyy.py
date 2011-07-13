@@ -15,7 +15,8 @@ from pypy.module.cppyy import converter, executor, helper
 class FastCallNotPossible(Exception):
     pass
 
-NULL_VOIDP = lltype.nullptr(rffi.VOIDP.TO)
+NULL_CCHARP = lltype.nullptr(rffi.CCHARP.TO)
+NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 
 def load_lib(space, name):
     # TODO: allow open in RTLD_GLOBAL mode
@@ -126,7 +127,7 @@ class CPPMethod(object):
         if self.arg_converters is None:
             self._build_converters()
         jit.promote(self)
-        funcptr = self.methgetter(cppthis)
+        funcptr = self.methgetter(rffi.cast(rffi.VOIDP, cppthis))
         libffi_func = self._get_libffi_func(funcptr)
         if not libffi_func:
             raise FastCallNotPossible
@@ -210,7 +211,7 @@ class CPPFunction(CPPMethod):
         assert not cppthis
         args = self.prepare_arguments(args_w)
         try:
-            return self.executor.execute(self.space, self, NULL_VOIDP,
+            return self.executor.execute(self.space, self, NULL_CCHARP,
                                          len(args_w), args)
         finally:
             self.free_arguments(args, len(args_w))
@@ -222,12 +223,13 @@ class CPPConstructor(CPPMethod):
     def call(self, cppthis, args_w):
         assert not cppthis
         newthis = capi.c_allocate(self.cpptype.handle)
+        ccharp_this = rffi.cast(rffi.CCHARP, newthis)
         try:
-            CPPMethod.call(self, newthis, args_w)
+            CPPMethod.call(self, ccharp_this, args_w)
         except Exception, e:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
-        return W_CPPInstance(self.space, self.cpptype, newthis, True)
+        return W_CPPInstance(self.space, self.cpptype, ccharp_this, True)
 
 
 class W_CPPOverload(Wrappable):
@@ -250,7 +252,7 @@ class W_CPPOverload(Wrappable):
         if cppinstance:
             cppthis = cppinstance.rawobject
         else:
-            cppthis = NULL_VOIDP
+            cppthis = NULL_CCHARP
 
         space = self.space
         errmsg = 'None of the overloads matched:'
@@ -534,6 +536,7 @@ class W_CPPInstance(Wrappable):
     def __init__(self, space, cppclass, rawobject, python_owns):
         self.space = space
         self.cppclass = cppclass
+        assert lltype.typeOf(rawobject) == rffi.CCHARP
         self.rawobject = rawobject
         self.python_owns = python_owns
 
@@ -548,7 +551,7 @@ class W_CPPInstance(Wrappable):
     def destruct(self):
         if self.rawobject:
             capi.c_destruct(self.cppclass.handle, self.rawobject)
-            self.rawobject = NULL_VOIDP
+            self.rawobject = NULL_CCHARP
 
     def __del__(self):
         if self.python_owns:
