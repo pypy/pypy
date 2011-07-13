@@ -1,4 +1,4 @@
-all: example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so
+all: example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so operatorsDict.so
 
 ROOTSYS := ${ROOTSYS}
 
@@ -36,3 +36,8 @@ advancedcppDict.so: advancedcpp.cxx advancedcpp.h advancedcpp.xml
 stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml
 	$(genreflex) stltypes.h --selection=stltypes.xml
 	g++ -o $@ stltypes_rflx.cpp stltypes.cxx -shared -lReflex $(cppflags) $(cppflags2)
+
+operatorsDict.so: operators.cxx operators.h
+	$(genreflex) operators.h
+	g++ -o $@ operators_rflx.cpp operators.cxx -shared -lReflex $(cppflags) $(cppflags2)
+
