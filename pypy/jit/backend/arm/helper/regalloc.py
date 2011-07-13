@@ -14,7 +14,7 @@ def _check_imm_arg(arg, size=0xFF, allow_zero=True):
         return i <= size and lower_bound
     return False
 
-def prepare_op_unary_cmp():
+def prepare_op_unary_cmp(name=None):
     def f(self, op, fcond):
         assert fcond is not None
         a0 = op.getarg(0)
@@ -22,9 +22,11 @@ def prepare_op_unary_cmp():
         res = self.force_allocate_reg(op.result, [box])
         self.possibly_free_vars([a0, box, op.result])
         return [reg, res]
+    if name:
+        f.__name__ = name
     return f
 
-def prepare_op_ri(imm_size=0xFF, commutative=True, allow_zero=True):
+def prepare_op_ri(name=None, imm_size=0xFF, commutative=True, allow_zero=True):
     def f(self, op, fcond):
         assert fcond is not None
         a0 = op.getarg(0)
@@ -49,6 +51,8 @@ def prepare_op_ri(imm_size=0xFF, commutative=True, allow_zero=True):
         res = self.force_allocate_reg(op.result, boxes)
         self.possibly_free_var(op.result)
         return [l0, l1, res]
+    if name:
+        f.__name__ = name
     return f
 
 def prepare_float_op(base=True, float_result=True):
@@ -70,7 +74,7 @@ def prepare_float_op(base=True, float_result=True):
         return locs
     return f
 
-def prepare_op_by_helper_call():
+def prepare_op_by_helper_call(name):
     def f(self, op, fcond):
         assert fcond is not None
         a0 = op.getarg(0)
@@ -86,9 +90,10 @@ def prepare_op_by_helper_call():
         self.possibly_free_var(a1)
         self.possibly_free_var(op.result)
         return []
+    f.__name__ = name
     return f
 
-def prepare_cmp_op(inverse=False):
+def prepare_cmp_op(name=None, inverse=False):
     def f(self, op, fcond):
         assert fcond is not None
         boxes = list(op.getarglist())
@@ -111,4 +116,6 @@ def prepare_cmp_op(inverse=False):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [l0, l1, res]
+    if name:
+        f.__name__ = name
     return f

@@ -400,29 +400,29 @@ class Regalloc(object):
         self.possibly_free_vars(guard.getfailargs())
         return locs
 
-    prepare_op_int_floordiv = prepare_op_by_helper_call()
-    prepare_op_int_mod = prepare_op_by_helper_call()
-    prepare_op_uint_floordiv = prepare_op_by_helper_call()
+    prepare_op_int_floordiv = prepare_op_by_helper_call('int_floordiv')
+    prepare_op_int_mod = prepare_op_by_helper_call('int_mod')
+    prepare_op_uint_floordiv = prepare_op_by_helper_call('unit_floordiv')
 
-    prepare_op_int_and = prepare_op_ri()
-    prepare_op_int_or = prepare_op_ri()
-    prepare_op_int_xor = prepare_op_ri()
-    prepare_op_int_lshift = prepare_op_ri(imm_size=0x1F, allow_zero=False, commutative=False)
-    prepare_op_int_rshift = prepare_op_ri(imm_size=0x1F, allow_zero=False, commutative=False)
-    prepare_op_uint_rshift = prepare_op_ri(imm_size=0x1F, allow_zero=False, commutative=False)
+    prepare_op_int_and = prepare_op_ri('int_and')
+    prepare_op_int_or = prepare_op_ri('int_or')
+    prepare_op_int_xor = prepare_op_ri('int_xor')
+    prepare_op_int_lshift = prepare_op_ri('int_lshift', imm_size=0x1F, allow_zero=False, commutative=False)
+    prepare_op_int_rshift = prepare_op_ri('int_rshift', imm_size=0x1F, allow_zero=False, commutative=False)
+    prepare_op_uint_rshift = prepare_op_ri('uint_rshift', imm_size=0x1F, allow_zero=False, commutative=False)
 
-    prepare_op_int_lt = prepare_cmp_op()
-    prepare_op_int_le = prepare_cmp_op()
-    prepare_op_int_eq = prepare_cmp_op()
-    prepare_op_int_ne = prepare_cmp_op()
-    prepare_op_int_gt = prepare_cmp_op()
-    prepare_op_int_ge = prepare_cmp_op()
+    prepare_op_int_lt = prepare_cmp_op('int_lt')
+    prepare_op_int_le = prepare_cmp_op('int_le')
+    prepare_op_int_eq = prepare_cmp_op('int_eq')
+    prepare_op_int_ne = prepare_cmp_op('int_ne')
+    prepare_op_int_gt = prepare_cmp_op('int_gt')
+    prepare_op_int_ge = prepare_cmp_op('int_ge')
 
-    prepare_op_uint_le = prepare_cmp_op()
-    prepare_op_uint_gt = prepare_cmp_op()
+    prepare_op_uint_le = prepare_cmp_op('uint_le')
+    prepare_op_uint_gt = prepare_cmp_op('uint_gt')
 
-    prepare_op_uint_lt = prepare_cmp_op(inverse=True)
-    prepare_op_uint_ge = prepare_cmp_op(inverse=True)
+    prepare_op_uint_lt = prepare_cmp_op('uint_lt', inverse=True)
+    prepare_op_uint_ge = prepare_cmp_op('uint_ge', inverse=True)
 
     prepare_op_int_add_ovf = prepare_op_int_add
     prepare_op_int_sub_ovf = prepare_op_int_sub
@@ -430,8 +430,8 @@ class Regalloc(object):
     prepare_op_ptr_eq = prepare_op_int_eq
     prepare_op_ptr_ne = prepare_op_int_ne
 
-    prepare_op_int_is_true = prepare_op_unary_cmp()
-    prepare_op_int_is_zero = prepare_op_unary_cmp()
+    prepare_op_int_is_true = prepare_op_unary_cmp('int_is_true')
+    prepare_op_int_is_zero = prepare_op_unary_cmp('int_is_zero')
 
     def prepare_op_int_neg(self, op, fcond):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
