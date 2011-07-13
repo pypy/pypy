@@ -10,7 +10,7 @@ import weakref
 
 class WeakrefLifeline(W_Root):
     def __init__(self, space):
-        self.space = space       # this is here for W_Root.clear_all_weakrefs()
+        self.space = space
         self.refs_weak = []
         self.cached_weakref_index = -1
         self.cached_proxy_index = -1
@@ -23,8 +23,10 @@ class WeakrefLifeline(W_Root):
         """
         for i in range(len(self.refs_weak) - 1, -1, -1):
             w_ref = self.refs_weak[i]()
-            if w_ref is not None:
-                self.space.user_del_action.register_weakref_callback(w_ref)
+            if w_ref is not None and w_ref.w_callable is not None:
+                w_ref.enqueue_for_destruction(self.space,
+                                              W_WeakrefBase.activate_callback,
+                                              'weakref callback of ')
 
     def clear_all_weakrefs(self):
         """Clear all weakrefs.  This is called when an app-level object has
@@ -118,11 +120,8 @@ class W_WeakrefBase(Wrappable):
         self.w_obj_weak = dead_ref
 
     def activate_callback(w_self):
-        if not w_self.w_callable is None:
-            try:
-                w_self.space.call_function(w_self.w_callable, w_self)
-            except OperationError, e:
-                e.write_unraisable(w_self.space, 'weakref callback ', w_self.w_callable)
+        assert isinstance(w_self, W_WeakrefBase)
+        w_self.space.call_function(w_self.w_callable, w_self)
 
     def descr__repr__(self, space):
         w_obj = self.dereference()

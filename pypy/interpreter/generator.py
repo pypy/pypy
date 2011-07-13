@@ -114,6 +114,7 @@ return next yielded value or raise StopIteration."""
  
     def descr_close(self):
         """x.close(arg) -> raise GeneratorExit inside generator."""
+        assert isinstance(self, GeneratorIterator)
         space = self.space
         try:
             w_retval = self.throw(space.w_GeneratorExit, space.w_None,
@@ -141,22 +142,16 @@ return next yielded value or raise StopIteration."""
         code_name = self.pycode.co_name
         return space.wrap(code_name)
 
-    def descr__del__(self):        
-        """
-        applevel __del__, which is called at a safe point after the
-        interp-level __del__ enqueued the object for destruction
-        """
-        self.descr_close()
-
     def __del__(self):
         # Only bother enqueuing self to raise an exception if the frame is
         # still not finished and finally or except blocks are present.
-        must_call_close = False
         if self.frame is not None:
             block = self.frame.lastblock
             while block is not None:
                 if not isinstance(block, LoopBlock):
-                    must_call_close = True
+                    self.clear_all_weakrefs()
+                    self.enqueue_for_destruction(self.space,
+                                                 GeneratorIterator.descr_close,
+                                                 "interrupting generator of ")
                     break
                 block = block.previous
-        self._enqueue_for_destruction(self.space, must_call_close)

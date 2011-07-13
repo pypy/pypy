@@ -482,6 +482,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                                    key[2:])
             cache[key] = s_value
 
+        # add the attribute _dont_reach_me_in_del_ (see pypy.rpython.rclass)
+        try:
+            graph = self.bookkeeper.position_key[0]
+            graph.func._dont_reach_me_in_del_ = True
+        except (TypeError, AttributeError):
+            pass
+
         return annmodel.s_None
 
     def annotate_hooks(self, **kwds_s):
