@@ -2325,10 +2325,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p1, i2, i4, p4]
         guard_true(i4) [p1, p4]
+        i5 = int_neg(i2)
         p2 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p4, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
-        jump(p1, i2, 1, p4)
+        jump(p1, i2, i5, p4)
         """
         self.optimize_loop(ops, expected, preamble)
 
