@@ -854,6 +854,14 @@ class TestFlatten:
             int_return %i0
         """, transform=True)
 
+    def test_force_cast_float(self):
+        from pypy.rpython.lltypesystem import rffi
+        def f(n):
+            return rffi.cast(lltype.Float, n)
+        self.encoding_test(f, [12.456], """
+            float_return %f0
+        """, transform=True)
+
     def test_direct_ptradd(self):
         from pypy.rpython.lltypesystem import rffi
         def f(p, n):
