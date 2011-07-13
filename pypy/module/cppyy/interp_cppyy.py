@@ -2,7 +2,7 @@ import pypy.module.cppyy.capi as capi
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, interp2app
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.baseobjspace import Wrappable
 
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -497,6 +497,7 @@ class W_CPPType(W_CPPScope):
 
 W_CPPType.typedef = TypeDef(
     'CPPType',
+    type_name = interp_attrproperty('name', W_CPPType),
     get_base_names = interp2app(W_CPPType.get_base_names, unwrap_spec=['self']),
     get_method_names = interp2app(W_CPPType.get_method_names, unwrap_spec=['self']),
     get_overload = interp2app(W_CPPType.get_overload, unwrap_spec=['self', str]),
@@ -555,6 +556,7 @@ class W_CPPInstance(Wrappable):
 
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
+    cppclass = interp_attrproperty('cppclass', W_CPPInstance),
     invoke = interp2app(W_CPPInstance.invoke, unwrap_spec=['self', W_CPPOverload, 'args_w']),
     destruct = interp2app(W_CPPInstance.destruct, unwrap_spec=['self']),
 )

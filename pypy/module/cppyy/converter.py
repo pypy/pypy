@@ -511,7 +511,7 @@ class InstanceConverter(InstancePtrConverter):
         address = self._get_raw_address(space, w_obj, offset)
         obj_address = rffi.cast(rffi.VOIDP, address)
         from pypy.module.cppyy import interp_cppyy
-        return interp_cppyy.W_CPPInstance(space, self.cpptype, obj_address)
+        return interp_cppyy.W_CPPInstance(space, self.cpptype, obj_address, False)
 
     def free_argument(self, arg):
         pass
