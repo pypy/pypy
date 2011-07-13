@@ -61,7 +61,7 @@ class BoolExecutor(FunctionExecutor):
 
     def execute_libffi(self, space, libffifunc, argchain):
         result = libffifunc.call(argchain, rffi.CHAR)
-        return space.wrap(result)
+        return space.wrap(bool(ord(result)))
 
 class CharExecutor(FunctionExecutor):
     _immutable_ = True
