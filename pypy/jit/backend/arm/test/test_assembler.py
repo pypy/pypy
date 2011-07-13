@@ -26,6 +26,7 @@ class TestRunningAssembler(object):
         self.a.setup_once()
         token = LoopToken()
         clt = CompiledLoopToken(cpu, 0)
+        clt.allgcrefs = []
         token.compiled_loop_token = clt
         self.a.setup(token, [])
 
