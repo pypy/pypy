@@ -250,6 +250,12 @@ class BaseArray(Wrappable):
     def descr_get_ndim(self, space):
         return self.get_concrete().descr_get_ndim(space)
 
+    def descr_repr(self, space):
+        return self.get_concrete().descr_repr(space)
+
+    def descr_str(self, space):
+        return self.get_concrete().descr_str(space)
+
     def descr_getitem(self, space, w_idx):
         # TODO: indexing by tuples
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
@@ -269,11 +275,7 @@ class BaseArray(Wrappable):
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
 
-    def descr_repr(self, space):
-        concrete = self.get_concrete()
-        return space.wrap("array([" + 
-                " ".join([str(concrete.getitem(index)) for index in range(concrete.find_size())]) +
-                "])")
+
 
 def convert_to_array (space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -487,6 +489,24 @@ class SingleDimArray(BaseArray):
     def getitem(self, item):
         return self.storage[item]
 
+    def _getnums(self, comma):
+        if self.find_size() > 1000:
+            nums = [str(self.getitem(index)) for index \
+                in range(3)]
+            nums.append("..." + "," * comma)
+            nums.extend([str(self.getitem(index)) for index \
+                in range(self.find_size() - 3, self.find_size())])
+        else:
+            nums = [str(self.getitem(index)) for index \
+                in range(self.find_size())]
+        return nums
+
+    def descr_repr(self, space):
+        return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
+
+    def descr_str(self,space):
+        return space.wrap("[" + " ".join(self._getnums(True)) + "]")
+
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
         item = self.getindex(space, item)
@@ -547,6 +567,7 @@ BaseArray.typedef = TypeDef(
     __rpow__ = interp2app(BaseArray.descr_rpow),
     __rmod__ = interp2app(BaseArray.descr_rmod),
     __repr__ = interp2app(BaseArray.descr_repr),
+    __str__ = interp2app(BaseArray.descr_str),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
