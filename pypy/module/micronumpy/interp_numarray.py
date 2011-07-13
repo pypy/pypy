@@ -244,6 +244,12 @@ class BaseArray(Wrappable):
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
 
+    def descr_get_size(self, space):
+        return self.get_concrete().descr_get_size(space)
+
+    def descr_get_ndim(self, space):
+        return self.get_concrete().descr_get_ndim(space)
+
     def descr_getitem(self, space, w_idx):
         # TODO: indexing by tuples
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
@@ -467,6 +473,11 @@ class SingleDimArray(BaseArray):
     def descr_len(self, space):
         return space.wrap(self.size)
 
+    descr_get_size = descr_len
+
+    def descr_get_ndim(self, space):
+        return space.wrap(1)
+
     def getitem(self, item):
         return self.storage[item]
 
@@ -507,6 +518,8 @@ BaseArray.typedef = TypeDef(
     __new__ = interp2app(descr_new_numarray),
 
     shape = GetSetProperty(BaseArray.descr_get_shape),
+    size = GetSetProperty(BaseArray.descr_get_size),
+    ndim = GetSetProperty(BaseArray.descr_get_ndim),
 
     __len__ = interp2app(BaseArray.descr_len),
     __getitem__ = interp2app(BaseArray.descr_getitem),
