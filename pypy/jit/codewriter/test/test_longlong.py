@@ -206,6 +206,15 @@ class TestLongLong:
                     expected = EffectInfo.OS_LLONG_FROM_UINT
                 self.do_check('cast_primitive', expected, [T2], T1)
                 self.do_check('force_cast', expected, [T2], T1)
+        #
+        for T1 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+            for T2 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+                vlist = [varoftype(T1)]
+                v_result = varoftype(T2)
+                op = SpaceOperation('force_cast', vlist, v_result)
+                tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+                op1 = tr.rewrite_operation(op)
+                assert op1 is None
 
     def test_constants(self):
         for TYPE in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
