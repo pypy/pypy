@@ -49,7 +49,7 @@ def test_cmp_16():
 def test_relocation():
     from pypy.rpython.lltypesystem import lltype, rffi
     from pypy.jit.backend.x86 import codebuf
-    for target in [0x01020304, 0x0102030405060708]:
+    for target in [0x01020304, -0x05060708, 0x0102030405060708]:
         if target > sys.maxint:
             continue
         mc = codebuf.MachineCodeBlockWrapper()
@@ -63,10 +63,15 @@ def test_relocation():
             expected = "\xE8" + struct.pack('<i', target - (rawstart + 5))
         elif IS_X86_64:
             assert mc.relocations == []
-            if target <= 0x7fffffff:
+            if 0 <= target <= 0xffffffff:
+                assert length == 9
+                expected = (
+                    "\x41\xBB\x04\x03\x02\x01"      # MOV %r11, target
+                    "\x41\xFF\xD3")                 # CALL *%r11
+            elif -0x80000000 <= target < 0:
                 assert length == 10
                 expected = (
-                    "\x49\xC7\xC3\x04\x03\x02\x01"  # MOV %r11, target
+                    "\x49\xC7\xC3\xF8\xF8\xF9\xFA"  # MOV %r11, target
                     "\x41\xFF\xD3")                 # CALL *%r11
             else:
                 assert length == 13
