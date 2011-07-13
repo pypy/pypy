@@ -1,12 +1,11 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
-from pypy.interpreter.error import operationerrfmt, OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 import math
-
 
 def dummy1(v):
     assert isinstance(v, float)
@@ -88,23 +87,15 @@ class BaseArray(Wrappable):
     def _binop_impl(function):
         signature = Signature()
         def impl(self, space, w_other):
+            w_other = convert_to_array(space, w_other)
             new_sig = self.signature.transition(signature)
-            if isinstance(w_other, BaseArray):
-                res = Call2(
-                    function,
-                    self,
-                    w_other,
-                    new_sig.transition(w_other.signature)
-                )
-                w_other.invalidates.append(res)
-            else:
-                w_other = FloatWrapper(space.float_w(w_other))
-                res = Call2(
-                    function,
-                    self,
-                    w_other,
-                    new_sig.transition(w_other.signature)
-                )
+            res = Call2(
+                function,
+                self,
+                w_other,
+                new_sig.transition(w_other.signature)
+            )
+            w_other.invalidates.append(res)
             self.invalidates.append(res)
             return space.wrap(res)
         return func_with_new_name(impl, "binop_%s_impl" % function.__name__)
@@ -271,6 +262,16 @@ class BaseArray(Wrappable):
 
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
+
+def convert_to_array (space, w_obj):
+    if isinstance(w_obj, BaseArray):
+        return w_obj
+    elif space.issequence_w(w_obj):
+        # Convert to array.
+        return new_numarray(space, w_obj)
+    else:
+        # If it's a scalar
+        return FloatWrapper(space.float_w(w_obj))
 
 class FloatWrapper(BaseArray):
     """
@@ -478,14 +479,17 @@ class SingleDimArray(BaseArray):
     def __del__(self):
         lltype.free(self.storage, flavor='raw')
 
-def descr_new_numarray(space, w_type, w_size_or_iterable):
+def new_numarray(space, w_size_or_iterable):
     l = space.listview(w_size_or_iterable)
     arr = SingleDimArray(len(l))
     i = 0
     for w_elem in l:
         arr.storage[i] = space.float_w(space.float(w_elem))
         i += 1
-    return space.wrap(arr)
+    return arr
+
+def descr_new_numarray(space, w_type, w_size_or_iterable):
+    return space.wrap(new_numarray(space, w_size_or_iterable))
 
 @unwrap_spec(size=int)
 def zeros(space, size):

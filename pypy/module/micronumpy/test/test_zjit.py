@@ -8,9 +8,16 @@ from pypy.rlib.objectmodel import specialize
 
 class FakeSpace(object):
     w_ValueError = None
+
+    def issequence_w(self, w_obj):
+        return True
+
     @specialize.argtype(1)
-    def wrap(self, v):
-        return v
+    def wrap(self, w_obj):
+        return w_obj
+
+    def float_w(self, w_obj):
+        return float(w_obj)
 
 class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
