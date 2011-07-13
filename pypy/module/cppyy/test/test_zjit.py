@@ -1,6 +1,6 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib import rarithmetic
+from pypy.rlib import rarithmetic, jit
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy
@@ -108,15 +108,20 @@ class FakeSpace(object):
 class TestFastPathJIT(LLJitMixin):
     def test_simple(self):
         space = FakeSpace()
+        drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
         def f():
             lib = interp_cppyy.load_lib(space, "./example01Dict.so")
             cls  = interp_cppyy.type_byname(space, "example01")
             inst = cls.construct([FakeInt(0)])
             addDataToInt = cls.get_overload("addDataToInt")
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
-            inst.invoke(addDataToInt, [FakeInt(41)])
+            i = 10
+            while i > 0:
+                drv.jit_merge_point(inst=inst, addDataToInt=addDataToInt, i=i)
+                inst.invoke(addDataToInt, [FakeInt(i)])
+                i -= 1
             return 7
         f()
         space = FakeSpace()
-        result = self.interp_operations(f, [], listops=True, backendopt=True, listcomp=True)
-
+        result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
+        self.check_loops(call=0, call_release_gil=1)
