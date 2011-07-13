@@ -30,11 +30,7 @@ from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
 
 # XXX Move to llsupport
-from pypy.jit.backend.x86.support import values_array
-
-memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
-                                       rffi.SIZE_T], lltype.Void,
-                            sandboxsafe=True, _nowrapper=True)
+from pypy.jit.backend.x86.support import values_array, memcpy_fn
 
 class AssemblerARM(ResOpAssembler):
     """

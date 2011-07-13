@@ -972,7 +972,7 @@ class Regalloc(object):
         arglocs = []
         argboxes = []
         for i in range(N):
-            loc, box = self._ensure_value_is_boxed(op.getarg(i), arglocs)
+            loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
             arglocs.append(loc)
             argboxes.append(box)
         self.rm.possibly_free_vars(argboxes)
@@ -1002,7 +1002,14 @@ class Regalloc(object):
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
+            arglocs = []
+            argboxes = []
+            for i in range(op.numargs()):
+                loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+                arglocs.append(loc)
+                argboxes.append(box)
             self.assembler.call_release_gil(gcrootmap, arglocs)
+            self.possibly_free_vars(argboxes)
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
