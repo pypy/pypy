@@ -357,7 +357,8 @@ class FloatConverter(TypeConverter):
         return rffi.cast(rffi.VOIDP, x)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
-        argchain.arg_singlefloat(self._unwrap_object(space, w_obj))
+        # it's required to sent an rffi.DOUBLE not r_singlefloat
+        argchain.arg_singlefloat(space.float_w(w_obj))
 
     def from_memory(self, space, w_obj, offset):
         address = self._get_raw_address(space, w_obj, offset)
