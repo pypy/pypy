@@ -83,6 +83,9 @@ class BaseTestJIT(BaseRtypingTest):
 
         t, rtyper, fngraph = self.gengraph(fn, [int])
 
+        # added by compute_result_annotation()
+        assert fn._dont_reach_me_in_del_ == True
+
         def getargs(func):
             for graph in t.graphs:
                 if getattr(graph, 'func', None) is func:

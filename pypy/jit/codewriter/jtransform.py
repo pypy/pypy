@@ -809,8 +809,15 @@ class Transformer(object):
             return self.force_cast_without_longlong(op.args[0], op.result)
 
     def force_cast_without_longlong(self, v_arg, v_result):
-        from pypy.rpython.lltypesystem.rffi import size_and_sign, sizeof
+        from pypy.rpython.lltypesystem.rffi import size_and_sign, sizeof, FLOAT
         from pypy.rlib.rarithmetic import intmask
+        #
+        if (v_result.concretetype in (FLOAT, lltype.Float) or
+            v_arg.concretetype in (FLOAT, lltype.Float)):
+            assert (v_result.concretetype == lltype.Float and
+                    v_arg.concretetype == lltype.Float), "xxx unsupported cast"
+            return
+        #
         size2, unsigned2 = size_and_sign(v_result.concretetype)
         assert size2 <= sizeof(lltype.Signed)
         if size2 == sizeof(lltype.Signed):
