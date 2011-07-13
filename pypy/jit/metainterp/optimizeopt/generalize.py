@@ -14,5 +14,4 @@ class KillHugeIntBounds(GeneralizationStrategy):
                 v.intbound.lower = MININT
             if v.intbound.upper > MAXINT/2:
                 v.intbound.upper = MAXINT
-        import pdb; pdb.set_trace()
           

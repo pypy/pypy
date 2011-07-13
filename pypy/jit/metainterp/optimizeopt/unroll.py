@@ -275,6 +275,17 @@ class UnrollOptimizer(Optimization):
         short_jumpargs = inputargs[:]
         short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
 
+        short = []
+        short_seen = {}
+        for box, const in self.constant_inputargs.items():
+            short_seen[box] = True
+        
+        for result, op in self.short_boxes.items():
+            if op is not None:
+                assert result is op.result
+                for guard in self.getvalue(result).make_guards(result):
+                    self.add_op_to_short(guard, short, short_seen, False)
+
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
         jumpop = None
@@ -297,18 +308,13 @@ class UnrollOptimizer(Optimization):
         jmp_to_short_args = virtual_state.make_inputargs(values, keyboxes=True)
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         
-        short = []
-        short_seen = {}
         for box, const in self.constant_inputargs.items():
-            short_seen[box] = True
             self.short_inliner.argmap[box] = const
-        
-        for result, op in self.short_boxes.items():
-            if op is not None:
-                assert result is op.result
-                if len(self.getvalue(result).make_guards(result)) > 0:
-                    self.add_op_to_short(op, short, short_seen)
 
+        for op in short:
+            newop = self.short_inliner.inline_op(op)
+            self.optimizer.send_extra_operation(newop)
+        
         self.optimizer.flush()
                     
 
@@ -356,35 +362,35 @@ class UnrollOptimizer(Optimization):
         
         return inputargs, short_inputargs, short
 
-    def add_op_to_short(self, op, short, short_seen):
+    def add_op_to_short(self, op, short, short_seen, emit=True):
         if op is None:
-            return
+            return None
         if op.result is not None and op.result in short_seen:
-            return self.short_inliner.inline_arg(op.result)
+            if emit:
+                return self.short_inliner.inline_arg(op.result)
+            else:
+                return None
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in short_seen:
-                self.add_op_to_short(self.short_boxes[a], short, short_seen)
+                self.add_op_to_short(self.short_boxes[a], short, short_seen, emit)
         if op.is_guard():
             descr = self.start_resumedescr.clone_if_mutable()
             op.setdescr(descr)
 
-        value_guards = []
-        if op.result in self.short_boxes:
-            value_guards = self.getvalue(op.result).make_guards(op.result)
-
         short.append(op)
         short_seen[op.result] = True
-        newop = self.short_inliner.inline_op(op)
-        self.optimizer.send_extra_operation(newop)
+        if emit:
+            newop = self.short_inliner.inline_op(op)
+            self.optimizer.send_extra_operation(newop)
 
         if op.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-            self.add_op_to_short(guard, short, short_seen)
-        for guard in value_guards:
-            self.add_op_to_short(guard, short, short_seen)
+            self.add_op_to_short(guard, short, short_seen, emit)
 
-        return newop.result
+        if emit:
+            return newop.result
+        return None
         
     def import_box(self, box, inputargs, short, short_jumpargs,
                    jumpargs, short_seen):
