@@ -5485,16 +5485,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i5)
         i4 = int_sub(i2, i1)
         setfield_gc(p2, i4, descr=valuedescr)
-        jump(p1, i1, i2, p2)
+        jump(p1, i1, i2, p2, i4)
         """
         expected = """
         [p1, i1, i2, p2, i5]
         escape(i5)
-        setfield_gc(p2, i5, descr=valuedescr)
-        jump(p1, i1, i2, p2, i5)
+        i6 = int_sub(i2, i1)
+        setfield_gc(p2, i6, descr=valuedescr)
+        jump(p1, i1, i2, p2, i6)
         """
-        #self.optimize_strunicode_loop(ops, expected, preamble)
-        self.optimize_loop(ops, preamble)
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_str_slice_1(self):
         ops = """
