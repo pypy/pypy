@@ -58,9 +58,6 @@ class TestARM(LLtypeBackendTest):
         expected = [3, 7, 11, 15, 19, 23, 27, 3, 7, 11, 15, 19, 23, 27]
         assert output == expected
 
-    def test_cond_call_gc_wb(self, *args):
-        py.test.skip('needs gc support')
-
     def test_redirect_call_assember(self):
         called = []
         def assembler_helper(failindex, virtualizable):
