@@ -269,6 +269,12 @@ class BaseArray(Wrappable):
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
 
+    def descr_repr(self, space):
+        concrete = self.get_concrete()
+        return space.wrap("array([" + 
+                " ".join([str(concrete.getitem(index)) for index in range(concrete.find_size())]) +
+                "])")
+
 def convert_to_array (space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -540,6 +546,7 @@ BaseArray.typedef = TypeDef(
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
     __rpow__ = interp2app(BaseArray.descr_rpow),
     __rmod__ = interp2app(BaseArray.descr_rmod),
+    __repr__ = interp2app(BaseArray.descr_repr),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
