@@ -168,7 +168,7 @@ del x
 
 # Pickling machinery
 
-class Pickler:
+class Pickler(object):
 
     def __init__(self, file, protocol=None):
         """This takes a file-like object for writing a pickle data stream.
@@ -873,7 +873,7 @@ def whichmodule(func, funcname):
 
 # Unpickling machinery
 
-class Unpickler:
+class Unpickler(object):
 
     def __init__(self, file):
         """This takes a file-like object for reading a pickle data stream.

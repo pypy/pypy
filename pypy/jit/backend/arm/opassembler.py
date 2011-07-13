@@ -446,6 +446,17 @@ class OpAssembler(object):
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
+
+        opnum = op.getopnum()
+        if opnum == rop.COND_CALL_GC_WB:
+            N = 2
+            addr = descr.get_write_barrier_fn(self.cpu)
+        elif opnum == rop.COND_CALL_GC_WB_ARRAY:
+            N = 3
+            addr = descr.get_write_barrier_from_array_fn(self.cpu)
+            assert addr != 0
+        else:
+            raise AssertionError(opnum)
         loc_base = arglocs[0]
         self.mc.LDR_ri(r.ip.value, loc_base.value)
         # calculate the shift value to rotate the ofs according to the ARM
@@ -463,9 +474,17 @@ class OpAssembler(object):
 
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
-        with saved_registers(self.mc, r.caller_resp):
-            remap_frame_layout(self, arglocs, [r.r0, r.r1], r.ip)
-            self.mc.BL(descr.get_write_barrier_fn(self.cpu))
+        with saved_registers(self.mc, r.caller_resp, regalloc=regalloc):
+            if N == 2:
+                callargs = [r.r0, r.r1]
+            else:
+                callargs = [r.r0, r.r1, r.r2]
+            remap_frame_layout(self, arglocs, callargs, r.ip)
+            func = self.cpu.cast_adr_to_int(addr)
+            #
+            # misaligned stack in the call, but it's ok because the write barrier
+            # is not going to call anything more.  
+            self.mc.BL(func)
 
         # patch the JZ above
         offset = self.mc.currpos() - jz_location
@@ -473,6 +492,7 @@ class OpAssembler(object):
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
         return fcond
 
+    emit_op_cond_call_gc_wb_array = emit_op_cond_call_gc_wb
 
 class FieldOpAssembler(object):
 

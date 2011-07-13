@@ -191,6 +191,21 @@ class CanMoveEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_can_move', hop.args_v, resulttype=hop.r_result)
 
+def _make_sure_does_not_move(p):
+    """'p' is a non-null GC object.  This (tries to) make sure that the
+    object does not move any more, by forcing collections if needed.
+    Warning: should ideally only be used with the minimark GC, and only
+    on objects that are already a bit old, so have a chance to be
+    already non-movable."""
+    if not we_are_translated():
+        return
+    i = 0
+    while can_move(p):
+        if i > 6:
+            raise NotImplementedError("can't make object non-movable!")
+        collect(i)
+        i += 1
+
 def _heap_stats():
     raise NotImplementedError # can't be run directly
 
@@ -257,7 +272,9 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
         # perform a write barrier that copies necessary flags from
         # source to dest
-        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest):
+        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
+                                                source_start, dest_start,
+                                                length):
             # if the write barrier is not supported, copy by hand
             for i in range(length):
                 dest[i + dest_start] = source[i + source_start]

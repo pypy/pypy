@@ -55,6 +55,13 @@ class TestStandalone(StandaloneTests):
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
+        # Verify that the generated C files have sane names:
+        gen_c_files = [str(f) for f in cbuilder.extrafiles]
+        for expfile in ('rlib_rposix.c', 
+                        'rpython_lltypesystem_rstr.c',
+                        'translator_c_test_test_standalone.c'):
+            assert cbuilder.targetdir.join(expfile) in gen_c_files
+
     def test_print(self):
         def entry_point(argv):
             print "hello simpler world"
@@ -595,6 +602,42 @@ class TestStandalone(StandaloneTests):
         assert re.match(r'  File "\w+.c", line \d+, in g', l2)
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
+
+    def test_int_lshift_too_large(self):
+        from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
+        def entry_point(argv):
+            a = int(argv[1])
+            b = int(argv[2])
+            print a << b
+            return 0
+
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out = cbuilder.cmdexec("10 2", expect_crash=False)
+        assert out.strip() == str(10 << 2)
+        cases = [-4, LONG_BIT, LONGLONG_BIT]
+        for x in cases:
+            out, err = cbuilder.cmdexec("%s %s" % (1, x), expect_crash=True)
+            lines = err.strip()
+            assert 'The shift count is outside of the supported range' in lines
+
+    def test_llong_rshift_too_large(self):
+        from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
+        def entry_point(argv):
+            a = r_longlong(int(argv[1]))
+            b = r_longlong(int(argv[2]))
+            print a >> b
+            return 0
+
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out = cbuilder.cmdexec("10 2", expect_crash=False)
+        assert out.strip() == str(10 >> 2)
+        out = cbuilder.cmdexec("%s %s" % (-42, LONGLONG_BIT - 1), expect_crash=False)
+        assert out.strip() == '-1'
+        cases = [-4, LONGLONG_BIT]
+        for x in cases:
+            out, err = cbuilder.cmdexec("%s %s" % (1, x), expect_crash=True)
+            lines = err.strip()
+            assert 'The shift count is outside of the supported range' in lines
 
     def test_ll_assert_error_debug(self):
         def entry_point(argv):

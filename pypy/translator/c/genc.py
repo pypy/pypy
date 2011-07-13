@@ -570,7 +570,10 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('ASMFILES', sfiles)
             mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
-            mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+            if sys.platform == 'win32':
+                mk.definition('DEBUGFLAGS', '/Zi')
+            else:
+                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -602,7 +605,7 @@ class CStandaloneBuilder(CBuilder):
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
                 mk.rule('.c.gcmap', '',
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -m$(PYPY_MAIN_FUNCTION) -t $*.s > $@']
+                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
@@ -613,7 +616,7 @@ class CStandaloneBuilder(CBuilder):
                 mk.rule('%.lbl.s %.gcmap', '%.s',
                         [python +
                              '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
-                             '-m$(PYPY_MAIN_FUNCTION) -t $< > $*.gctmp',
+                             '-t $< > $*.gctmp',
                          'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                         [python +
@@ -623,7 +626,10 @@ class CStandaloneBuilder(CBuilder):
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
 
         else:
-            mk.definition('DEBUGFLAGS', '-O1 -g')
+            if sys.platform == 'win32':
+                mk.definition('DEBUGFLAGS', '/Zi')
+            else:
+                mk.definition('DEBUGFLAGS', '-O1 -g')
         mk.write()
         #self.translator.platform,
         #                           ,
@@ -682,28 +688,54 @@ class SourceGenerator:
     def getothernodes(self):
         return self.othernodes[:]
 
+    def getbasecfilefornode(self, node, basecname):
+        # For FuncNode instances, use the python source filename (relative to
+        # the top directory):
+        if hasattr(node.obj, 'graph'):
+            g = node.obj.graph
+            # Lookup the filename from the function.
+            # However, not all FunctionGraph objs actually have a "func":
+            if hasattr(g, 'func'):
+                if g.filename.endswith('.py'):
+                    localpath = py.path.local(g.filename)
+                    pypkgpath = localpath.pypkgpath()
+                    if pypkgpath:
+                        relpypath =  localpath.relto(pypkgpath)
+                        return relpypath.replace('.py', '.c')
+        return basecname
+
     def splitnodesimpl(self, basecname, nodes, nextra, nbetween,
                        split_criteria=SPLIT_CRITERIA):
+        # Gather nodes by some criteria:
+        nodes_by_base_cfile = {}
+        for node in nodes:
+            c_filename = self.getbasecfilefornode(node, basecname)
+            if c_filename in nodes_by_base_cfile:
+                nodes_by_base_cfile[c_filename].append(node)
+            else:
+                nodes_by_base_cfile[c_filename] = [node]
+
         # produce a sequence of nodes, grouped into files
         # which have no more than SPLIT_CRITERIA lines
-        iternodes = iter(nodes)
-        done = [False]
-        def subiter():
-            used = nextra
-            for node in iternodes:
-                impl = '\n'.join(list(node.implementation())).split('\n')
-                if not impl:
-                    continue
-                cost = len(impl) + nbetween
-                yield node, impl
-                del impl
-                if used + cost > split_criteria:
-                    # split if criteria met, unless we would produce nothing.
-                    raise StopIteration
-                used += cost
-            done[0] = True
-        while not done[0]:
-            yield self.uniquecname(basecname), subiter()
+        for basecname in nodes_by_base_cfile:
+            iternodes = iter(nodes_by_base_cfile[basecname])
+            done = [False]
+            def subiter():
+                used = nextra
+                for node in iternodes:
+                    impl = '\n'.join(list(node.implementation())).split('\n')
+                    if not impl:
+                        continue
+                    cost = len(impl) + nbetween
+                    yield node, impl
+                    del impl
+                    if used + cost > split_criteria:
+                        # split if criteria met, unless we would produce nothing.
+                        raise StopIteration
+                    used += cost
+                done[0] = True
+            while not done[0]:
+                yield self.uniquecname(basecname), subiter()
 
     def gen_readable_parts_of_source(self, f):
         split_criteria_big = SPLIT_CRITERIA
@@ -900,8 +932,9 @@ def gen_startupcode(f, database):
     print >> f, '}'
 
 def commondefs(defines):
-    from pypy.rlib.rarithmetic import LONG_BIT
+    from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
     defines['PYPY_LONG_BIT'] = LONG_BIT
+    defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
 def add_extra_files(eci):
     srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')

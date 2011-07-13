@@ -1,7 +1,12 @@
 import autopath
 import py
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, pycode
 from pypy.interpreter.error import OperationError
+
+try:
+    from _pytest.assertion.newinterpret import interpret
+except ImportError:
+    from _pytest.assertion.oldinterpret import interpret
 
 # ____________________________________________________________
 
@@ -51,13 +56,11 @@ class AppFrame(py.code.Frame):
         space = self.space
         for key, w_value in vars.items():
             space.setitem(self.w_locals, space.wrap(key), w_value)
-        return space.eval(code, self.w_globals, self.w_locals)
-
-    def exec_(self, code, **vars):
-        space = self.space
-        for key, w_value in vars.items():
-            space.setitem(self.w_locals, space.wrap(key), w_value)
-        space.exec_(code, self.w_globals, self.w_locals)
+        if isinstance(code, str):
+            return space.eval(code, self.w_globals, self.w_locals)
+        pyc = pycode.PyCode._from_code(space, code)
+        return pyc.exec_host_bytecode(self.w_globals, self.w_locals)
+    exec_ = eval
 
     def repr(self, w_value):
         return self.space.unwrap(self.space.repr(w_value))
@@ -80,7 +83,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
     def __init__(self, space, operr):
         self.space = space
         self.operr = operr
-        self.typename = operr.w_type.getname(space, "?")
+        self.typename = operr.w_type.getname(space)
         self.traceback = AppTraceback(space, self.operr.get_traceback())
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:
@@ -163,8 +166,8 @@ def build_pytest_assertion(space):
             except py.error.ENOENT: 
                 source = None
             from pypy import conftest
-            if source and not py.test.config.option.nomagic:
-                msg = py.code._reinterpret_old(source, runner, should_fail=True)
+            if source and py.test.config._assertstate.mode != "off":
+                msg = interpret(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),
                             space.newtuple([space.wrap(msg)]))
                 w_msg = space.wrap(msg)

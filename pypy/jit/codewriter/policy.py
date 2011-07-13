@@ -35,8 +35,8 @@ class JitPolicy(object):
     def _reject_function(self, func):
         if hasattr(func, '_jit_look_inside_'):
             return not func._jit_look_inside_
-        # explicitly pure functions are always opaque
-        if getattr(func, '_pure_function_', False):
+        # explicitly elidable functions are always opaque
+        if getattr(func, '_elidable_function_', False):
             return True
         # pypy.rpython.module.* are opaque helpers
         mod = func.__module__ or '?'
@@ -44,10 +44,6 @@ class JitPolicy(object):
             return True
         if mod.startswith('pypy.translator.'): # XXX wtf?
             return True
-        # string builder interface
-        if mod == 'pypy.rpython.lltypesystem.rbuilder':
-            return True
-        
         return False
 
     def look_inside_graph(self, graph):

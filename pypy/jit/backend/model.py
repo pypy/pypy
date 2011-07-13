@@ -58,7 +58,7 @@ class AbstractCPU(object):
         """Called once by the front-end when the program stops."""
         pass
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True):
+    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """Assemble the given loop.
         Should create and attach a fresh CompiledLoopToken to
         looptoken.compiled_loop_token and stick extra attributes

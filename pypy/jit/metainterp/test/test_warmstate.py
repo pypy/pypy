@@ -181,6 +181,7 @@ def test_make_jitdriver_callbacks_1():
         cpu = None
         memory_manager = None
     class FakeJitDriverSD:
+        jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None
@@ -207,6 +208,7 @@ def test_make_jitdriver_callbacks_3():
         cpu = None
         memory_manager = None
     class FakeJitDriverSD:
+        jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
         _confirm_enter_jit_ptr = None
@@ -230,6 +232,7 @@ def test_make_jitdriver_callbacks_4():
         cpu = None
         memory_manager = None
     class FakeJitDriverSD:
+        jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
@@ -253,6 +256,7 @@ def test_make_jitdriver_callbacks_5():
         cpu = None
         memory_manager = None
     class FakeJitDriverSD:
+        jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None

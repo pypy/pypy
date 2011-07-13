@@ -3,6 +3,14 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module.imp.importing import get_pyc_magic
 
+
+class BuildersModule(MixedModule):
+    appleveldefs = {}
+
+    interpleveldefs = {
+        "UnicodeBuilder": "interp_builders.W_UnicodeBuilder",
+    }
+
 class Module(MixedModule):
     appleveldefs = {
     }
@@ -17,6 +25,10 @@ class Module(MixedModule):
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'builtinify'                : 'interp_magic.builtinify',
         'lookup_special'            : 'interp_magic.lookup_special',
+    }
+
+    submodules = {
+        "builders": BuildersModule,
     }
 
     def setup_after_space_initialization(self):

@@ -38,6 +38,11 @@ class FrameManager(object):
         self.frame_depth += size
         return newloc
 
+    def reserve_location_in_frame(self, size):
+        frame_depth = self.frame_depth
+        self.frame_depth += size
+        return frame_depth
+
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
     def frame_pos(loc, type):

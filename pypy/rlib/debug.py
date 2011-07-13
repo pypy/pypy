@@ -262,6 +262,28 @@ class Entry(ExtRegistryEntry):
         return hop.inputarg(hop.args_r[0], arg=0)
 
 
+def mark_dict_non_null(d):
+    """ Mark dictionary as having non-null keys and values. A warning would
+    be emitted (not an error!) in case annotation disagrees.
+    """
+    assert isinstance(d, dict)
+    return d
+
+
+class DictMarkEntry(ExtRegistryEntry):
+    _about_ = mark_dict_non_null
+    
+    def compute_result_annotation(self, s_dict):
+        from pypy.annotation.model import SomeDict, s_None
+
+        assert isinstance(s_dict, SomeDict)
+        s_dict.dictdef.force_non_null = True
+        return s_dict
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
 class IntegerCanBeNegative(Exception):
     pass
 

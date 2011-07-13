@@ -84,9 +84,10 @@ class AssemblerARM(ResOpAssembler):
         self.datablockwrapper = None
 
     def setup(self, looptoken, operations):
-        self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, operations)
-        assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.current_clt = looptoken.compiled_loop_token
+        self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, 
+                        operations, self.current_clt.allgcrefs)
+        assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.mc = ARMv7Builder()
         self.pending_guards = []
         assert self.datablockwrapper is None
@@ -558,6 +559,7 @@ class AssemblerARM(ResOpAssembler):
     def assemble_loop(self, inputargs, operations, looptoken, log):
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
+        clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
 
         self.setup(looptoken, operations)

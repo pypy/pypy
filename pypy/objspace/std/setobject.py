@@ -112,7 +112,7 @@ def next__SetIterObject(space, w_setiter):
 # some helper functions
 
 def newset(space):
-    return r_dict(space.eq_w, space.hash_w)
+    return r_dict(space.eq_w, space.hash_w, force_non_null=True)
 
 def make_setdata_from_w_iterable(space, w_iterable=None):
     """Return a new r_dict with the content of w_iterable."""
@@ -466,12 +466,11 @@ def hash__Frozenset(space, w_set):
     return space.wrap(hash)
 
 def set_pop__Set(space, w_left):
-    for w_key in w_left.setdata:
-        break
-    else:
+    try:
+        w_key, _ = w_left.setdata.popitem()
+    except KeyError:
         raise OperationError(space.w_KeyError,
                                 space.wrap('pop from an empty set'))
-    del w_left.setdata[w_key]
     return w_key
 
 def and__Set_Set(space, w_left, w_other):

@@ -30,25 +30,18 @@ def float2longlong_emulator(floatval):
     return llval
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-eci = ExternalCompilationInfo(post_include_bits=["""
+eci = ExternalCompilationInfo(includes=['string.h', 'assert.h'],
+                              post_include_bits=["""
 static double pypy__longlong2float(long long x) {
-    int i;
     double dd;
-    char *p = (char*)&x;
-    char *d = (char*)&dd;
-    for(i = 0; i < 8; i++) {
-        d[i] = p[i];
-    }
+    assert(sizeof(double) == 8 && sizeof(long long) == 8);
+    memcpy(&dd, &x, 8);
     return dd;
 }
 static long long pypy__float2longlong(double x) {
-    int i;
     long long ll;
-    char *p = (char*)&x;
-    char *l = (char*)&ll;
-    for(i = 0; i < 8; i++) {
-        l[i] = p[i];
-    }
+    assert(sizeof(double) == 8 && sizeof(long long) == 8);
+    memcpy(&ll, &x, 8);
     return ll;
 }
 """])
@@ -56,9 +49,9 @@ static long long pypy__float2longlong(double x) {
 longlong2float = rffi.llexternal(
     "pypy__longlong2float", [rffi.LONGLONG], rffi.DOUBLE,
     _callable=longlong2float_emulator, compilation_info=eci,
-    _nowrapper=True, pure_function=True)
+    _nowrapper=True, elidable_function=True)
 
 float2longlong = rffi.llexternal(
     "pypy__float2longlong", [rffi.DOUBLE], rffi.LONGLONG,
     _callable=float2longlong_emulator, compilation_info=eci,
-    _nowrapper=True, pure_function=True)
+    _nowrapper=True, elidable_function=True)

@@ -34,7 +34,7 @@ arm_int_div = rffi.llexternal(
     "pypy__arm_int_div", [lltype.Signed, lltype.Signed], lltype.Signed,
                         _callable=arm_int_div_emulator,
                         compilation_info=eci,
-                        _nowrapper=True, pure_function=True)
+                        _nowrapper=True, elidable_function=True)
 
 arm_uint_div_sign = lltype.Ptr(lltype.FuncType([lltype.Unsigned, lltype.Unsigned], lltype.Unsigned))
 def arm_uint_div_emulator(a, b):
@@ -43,7 +43,7 @@ arm_uint_div = rffi.llexternal(
     "pypy__arm_uint_div", [lltype.Unsigned, lltype.Unsigned], lltype.Unsigned,
                         _callable=arm_uint_div_emulator,
                         compilation_info=eci,
-                        _nowrapper=True, pure_function=True)
+                        _nowrapper=True, elidable_function=True)
 
 
 arm_int_mod_sign = arm_int_div_sign
@@ -60,5 +60,5 @@ arm_int_mod = rffi.llexternal(
     "pypy__arm_int_mod", [lltype.Signed, lltype.Signed], lltype.Signed,
                         _callable=arm_int_mod_emulator,
                         compilation_info=eci,
-                        _nowrapper=True, pure_function=True)
+                        _nowrapper=True, elidable_function=True)
 

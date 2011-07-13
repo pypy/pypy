@@ -16,6 +16,7 @@ if sys.platform == 'win32':
 
 from ctypes_support import standard_c_lib as libc
 from ctypes import Structure, POINTER, c_int, c_char_p, c_long
+from _structseq import structseqtype, structseqfield
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -68,7 +69,7 @@ else:
             yield self.pw_dir
             yield self.pw_shell
 
-class struct_passwd(tuple):
+class struct_passwd:
     """
     pwd.struct_passwd: Results from getpw*() routines.
 
@@ -76,15 +77,15 @@ class struct_passwd(tuple):
       (pw_name,pw_passwd,pw_uid,pw_gid,pw_gecos,pw_dir,pw_shell)
     or via the object attributes as named in the above tuple.
     """
-    def __init__(self, passwd):
-        self.pw_name = passwd.pw_name
-        self.pw_passwd = passwd.pw_passwd
-        self.pw_uid = passwd.pw_uid
-        self.pw_gid = passwd.pw_gid
-        self.pw_gecos = passwd.pw_gecos
-        self.pw_dir = passwd.pw_dir
-        self.pw_shell = passwd.pw_shell
-        tuple.__init__(self, passwd)
+    __metaclass__ = structseqtype
+    name = "pwd.struct_passwd"
+    pw_name = structseqfield(0)
+    pw_passwd = structseqfield(1)
+    pw_uid = structseqfield(2)
+    pw_gid = structseqfield(3)
+    pw_gecos = structseqfield(4)
+    pw_dir = structseqfield(5)
+    pw_shell = structseqfield(6)
 
 passwd_p = POINTER(passwd)
 

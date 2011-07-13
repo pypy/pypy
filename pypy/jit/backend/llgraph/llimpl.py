@@ -136,6 +136,7 @@ TYPES = {
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_assembler'  : (('varargs',), 'intorptr'),
     'cond_call_gc_wb' : (('ptr', 'ptr'), None),
+    'cond_call_gc_wb_array': (('ptr', 'int', 'ptr'), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
@@ -600,15 +601,15 @@ class Frame(object):
         #
         return _op_default_implementation
 
-    def op_debug_merge_point(self, _, value, recdepth):
+    def op_debug_merge_point(self, _, *args):
         from pypy.jit.metainterp.warmspot import get_stats
-        loc = ConstPtr(value)._get_str()
         try:
             stats = get_stats()
         except AttributeError:
             pass
         else:
-            stats.add_merge_point_location(loc)
+            stats.add_merge_point_location(args[1:])
+        pass
 
     def op_guard_true(self, _, value):
         if not value:
@@ -820,6 +821,12 @@ class Frame(object):
             raise NotImplementedError
 
     def op_call(self, calldescr, func, *args):
+        return self._do_call(calldescr, func, args, call_with_llptr=False)
+
+    def op_call_release_gil(self, calldescr, func, *args):
+        return self._do_call(calldescr, func, args, call_with_llptr=True)
+
+    def _do_call(self, calldescr, func, args, call_with_llptr):
         global _last_exception
         assert _last_exception is None, "exception left behind"
         assert _call_args_i == _call_args_r == _call_args_f == []
@@ -838,7 +845,8 @@ class Frame(object):
             else:
                 raise TypeError(x)
         try:
-            return _do_call_common(func, args_in_order, calldescr)
+            return _do_call_common(func, args_in_order, calldescr,
+                                   call_with_llptr)
         except LLException, lle:
             _last_exception = lle
             d = {'v': None,
@@ -849,6 +857,9 @@ class Frame(object):
 
     def op_cond_call_gc_wb(self, descr, a, b):
         py.test.skip("cond_call_gc_wb not supported")
+
+    def op_cond_call_gc_wb_array(self, descr, a, b, c):
+        py.test.skip("cond_call_gc_wb_array not supported")
 
     def op_oosend(self, descr, obj, *args):
         raise NotImplementedError("oosend for lltype backend??")
@@ -1480,17 +1491,20 @@ kind2TYPE = {
     'v': lltype.Void,
     }
 
-def _do_call_common(f, args_in_order=None, calldescr=None):
+def _do_call_common(f, args_in_order=None, calldescr=None,
+                    call_with_llptr=False):
     ptr = llmemory.cast_int_to_adr(f).ptr
     PTR = lltype.typeOf(ptr)
     if PTR == rffi.VOIDP:
         # it's a pointer to a C function, so we don't have a precise
         # signature: create one from the descr
+        assert call_with_llptr is True
         ARGS = map(kind2TYPE.get, calldescr.arg_types)
         RESULT = kind2TYPE[calldescr.typeinfo]
         FUNC = lltype.FuncType(ARGS, RESULT)
         func_to_call = rffi.cast(lltype.Ptr(FUNC), ptr)
     else:
+        assert call_with_llptr is False
         FUNC = PTR.TO
         ARGS = FUNC.ARGS
         func_to_call = ptr._obj._callable

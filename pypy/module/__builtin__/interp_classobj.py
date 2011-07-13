@@ -12,7 +12,7 @@ from pypy.rlib import jit
 
 
 def raise_type_err(space, argument, expected, w_obj):
-    type_name = space.type(w_obj).getname(space, '?')
+    type_name = space.type(w_obj).getname(space)
     raise operationerrfmt(space.w_TypeError,
                           "argument %s must be %s, not %s",
                           argument, expected, type_name)

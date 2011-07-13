@@ -6,20 +6,25 @@ from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.nonconst import NonConstant
 
-def purefunction(func):
-    """ Decorate a function as pure. Pure means precisely that:
+def elidable(func):
+    """ Decorate a function as "trace-elidable". This means precisely that:
 
     (1) the result of the call should not change if the arguments are
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
     according to rule 1
 
-    Most importantly it doesn't mean that pure function has no observable
-    side effect, but those side effects can be ommited (ie caching).
+    Most importantly it doesn't mean that an elidable function has no observable
+    side effect, but those side effects are idempotent (ie caching).
     For now, such a function should never raise an exception.
     """
-    func._pure_function_ = True
+    func._elidable_function_ = True
     return func
+
+def purefunction(*args, **kwargs):
+    import warnings
+    warnings.warn("purefunction is deprecated, use elidable instead", DeprecationWarning)
+    return elidable(*args, **kwargs)
 
 def hint(x, **kwds):
     """ Hint for the JIT
@@ -35,6 +40,10 @@ def hint(x, **kwds):
                             access_directly=True
     """
     return x
+
+@specialize.argtype(0)
+def promote(x):
+    return hint(x, promote=True)
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
@@ -60,13 +69,13 @@ def loop_invariant(func):
     func._jit_loop_invariant_ = True
     return func
 
-def purefunction_promote(promote_args='all'):
+def elidable_promote(promote_args='all'):
     """ A decorator that promotes all arguments and then calls the supplied
     function
     """
     def decorator(func):
         import inspect
-        purefunction(func)
+        elidable(func)
         args, varargs, varkw, defaults = inspect.getargspec(func)
         args = ["v%s" % (i, ) for i in range(len(args))]
         assert varargs is None and varkw is None
@@ -84,6 +93,12 @@ def purefunction_promote(promote_args='all'):
         result.func_name = func.func_name + "_promote"
         return result
     return decorator
+
+def purefunction_promote(*args, **kwargs):
+    import warnings
+    warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
+    return elidable_promote(*args, **kwargs)
+
 
 def oopspec(spec):
     def decorator(func):
@@ -273,15 +288,17 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-PARAMETERS = {'threshold': 1000,
+PARAMETERS = {'threshold': 1032, # just above 1024
+              'function_threshold': 1617, # slightly more than one above 
               'trace_eagerness': 200,
               'trace_limit': 12000,
-              'inlining': 0,
+              'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
-              'enable_opts': None, # patched later by optimizeopt/__init__.py
+              'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
+DEFAULT = object()
 
 # ____________________________________________________________
 
@@ -336,22 +353,33 @@ class JitDriver(object):
     def _set_param(self, name, value):
         # special-cased by ExtRegistryEntry
         # (internal, must receive a constant 'name')
+        # if value is DEFAULT, sets the default value.
         assert name in PARAMETERS
 
     @specialize.arg(0, 1)
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""
-        for name1, _ in unroll_parameters:
-            if name1 == name:
-                self._set_param(name1, value)
-                return
-        raise ValueError("no such parameter")
+        self._set_param(name, value)
+
+    @specialize.arg(0, 1)
+    def set_param_to_default(self, name):
+        """Reset one of the tunable JIT parameters to its default value."""
+        self._set_param(name, DEFAULT)
 
     def set_user_param(self, text):
         """Set the tunable JIT parameters from a user-supplied string
-        following the format 'param=value,param=value'.  For programmatic
-        setting of parameters, use directly JitDriver.set_param().
+        following the format 'param=value,param=value', or 'off' to
+        disable the JIT.  For programmatic setting of parameters, use
+        directly JitDriver.set_param().
         """
+        if text == 'off':
+            self.set_param('threshold', -1)
+            self.set_param('function_threshold', -1)
+            return
+        if text == 'default':
+            for name1, _ in unroll_parameters:
+                self.set_param_to_default(name1)
+            return
         for s in text.split(','):
             s = s.strip(' ')
             parts = s.split('=')
@@ -574,15 +602,17 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if s_name.const == 'enable_opts':
-            assert annmodel.SomeString(can_be_None=True).contains(s_value)
-        else:
-            assert annmodel.SomeInteger().contains(s_value)
+        if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
+            if s_name.const == 'enable_opts':
+                assert annmodel.SomeString(can_be_None=True).contains(s_value)
+            else:
+                assert annmodel.SomeInteger().contains(s_value)
         return annmodel.s_None
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         from pypy.rpython.lltypesystem.rstr import string_repr
+        from pypy.objspace.flow.model import Constant
 
         hop.exception_cannot_occur()
         driver = self.instance.im_self
@@ -591,7 +621,12 @@ class ExtSetParam(ExtRegistryEntry):
             repr = string_repr
         else:
             repr = lltype.Signed
-        v_value = hop.inputarg(repr, arg=1)
+        if (isinstance(hop.args_v[1], Constant) and
+            hop.args_v[1].value is DEFAULT):
+            value = PARAMETERS[name]
+            v_value = hop.inputconst(repr, value)
+        else:
+            v_value = hop.inputarg(repr, arg=1)
         vlist = [hop.inputconst(lltype.Void, "set_param"),
                  hop.inputconst(lltype.Void, driver),
                  hop.inputconst(lltype.Void, name),

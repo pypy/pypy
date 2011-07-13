@@ -38,6 +38,7 @@ class Platform(object):
     c_environ = None
 
     relevant_environ = ()
+    log_errors = True
 
     so_prefixes = ('',)
 
@@ -120,11 +121,12 @@ class Platform(object):
         if returncode != 0:
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, 'wb')
-            stderrlines = stderr.splitlines()
-            for line in stderrlines:
-                log.Error(line)
-            # ^^^ don't use ERROR, because it might actually be fine.
-            # Also, ERROR confuses lib-python/conftest.py.
+            if self.log_errors:
+                stderrlines = stderr.splitlines()
+                for line in stderrlines:
+                    log.Error(line)
+                # ^^^ don't use ERROR, because it might actually be fine.
+                # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
             for line in stderr.splitlines():

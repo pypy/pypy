@@ -250,12 +250,11 @@ def ll_append_noresize(l, newitem):
     length = l.length
     l.length = length + 1
     l.ll_setitem_fast(length, newitem)
-ll_append_noresize.oopspec = 'list.append(l, newitem)'
 
 
 def ll_both_none(lst1, lst2):
     return not lst1 and not lst2
-        
+
 
 # ____________________________________________________________
 #

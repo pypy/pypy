@@ -813,6 +813,15 @@ class TestFlatten:
             int_return %i0
         """, transform=True)
 
+    def test_direct_ptradd(self):
+        from pypy.rpython.lltypesystem import rffi
+        def f(p, n):
+            return lltype.direct_ptradd(p, n)
+        self.encoding_test(f, [lltype.nullptr(rffi.CCHARP.TO), 123], """
+            int_add %i0, %i1 -> %i2
+            int_return %i2
+        """, transform=True)
+
 
 def check_force_cast(FROM, TO, operations, value):
     """Check that the test is correctly written..."""

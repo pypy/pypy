@@ -40,7 +40,7 @@ class _AppThunk(AbstractThunk):
             raise operationerrfmt(
                 space.w_TypeError, 
                 "'%s' object is not callable",
-                space.type(w_obj).getname(space, '?'))
+                space.type(w_obj).getname(space))
         self.w_func = w_obj
         self.args = args
 

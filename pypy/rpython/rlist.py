@@ -667,7 +667,6 @@ def ll_pop(func, l, index):
     res = l.ll_getitem_fast(index)
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
-ll_pop.oopspec = 'list.pop(l, index)'
 
 def ll_reverse(l):
     length = l.ll_length()

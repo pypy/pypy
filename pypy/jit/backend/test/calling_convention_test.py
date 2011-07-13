@@ -57,146 +57,146 @@ class TestCallingConv(Runner):
         return ConstInt(heaptracker.adr2int(addr))
 
     def test_call_aligned_with_spilled_values(self):
-            from pypy.rlib.libffi import types
-            cpu = self.cpu
-            if not cpu.supports_floats:
-                py.test.skip('requires floats')
+        from pypy.rlib.libffi import types
+        cpu = self.cpu
+        if not cpu.supports_floats:
+            py.test.skip('requires floats')
 
 
-            def func(*args):
-                return float(sum(args))
+        def func(*args):
+            return float(sum(args))
 
-            F = lltype.Float
-            I = lltype.Signed
-            floats = [0.7, 5.8, 0.1, 0.3, 0.9, -2.34, -3.45, -4.56]
-            ints = [7, 11, 23, 13, -42, 1111, 95, 1]
-            for case in range(256):
-                local_floats = list(floats)
-                local_ints = list(ints)
-                args = []
-                spills = []
-                funcargs = []
-                float_count = 0
-                int_count = 0
-                for i in range(8):
-                    if case & (1<<i):
-                        args.append('f%d' % float_count)
-                        spills.append('force_spill(f%d)' % float_count)
-                        float_count += 1
-                        funcargs.append(F)
-                    else:
-                        args.append('i%d' % int_count)
-                        spills.append('force_spill(i%d)' % int_count)
-                        int_count += 1
-                        funcargs.append(I)
+        F = lltype.Float
+        I = lltype.Signed
+        floats = [0.7, 5.8, 0.1, 0.3, 0.9, -2.34, -3.45, -4.56]
+        ints = [7, 11, 23, 13, -42, 1111, 95, 1]
+        for case in range(256):
+            local_floats = list(floats)
+            local_ints = list(ints)
+            args = []
+            spills = []
+            funcargs = []
+            float_count = 0
+            int_count = 0
+            for i in range(8):
+                if case & (1<<i):
+                    args.append('f%d' % float_count)
+                    spills.append('force_spill(f%d)' % float_count)
+                    float_count += 1
+                    funcargs.append(F)
+                else:
+                    args.append('i%d' % int_count)
+                    spills.append('force_spill(i%d)' % int_count)
+                    int_count += 1
+                    funcargs.append(I)
 
-                arguments = ', '.join(args)
-                spill_ops = '\n'.join(spills)
+            arguments = ', '.join(args)
+            spill_ops = '\n'.join(spills)
 
-                FUNC = self.FuncType(funcargs, F)
-                FPTR = self.Ptr(FUNC)
-                func_ptr = llhelper(FPTR, func)
-                calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
-                funcbox = self.get_funcbox(cpu, func_ptr)
+            FUNC = self.FuncType(funcargs, F)
+            FPTR = self.Ptr(FUNC)
+            func_ptr = llhelper(FPTR, func)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
 
-                ops = '[%s]\n' % arguments
-                ops += '%s\n' % spill_ops
-                ops += 'f99 = call(ConstClass(func_ptr), %s, descr=calldescr)\n' % arguments
-                ops += 'finish(f99, %s)\n' % arguments
+            ops = '[%s]\n' % arguments
+            ops += '%s\n' % spill_ops
+            ops += 'f99 = call(ConstClass(func_ptr), %s, descr=calldescr)\n' % arguments
+            ops += 'finish(f99, %s)\n' % arguments
 
-                loop = parse(ops, namespace=locals())
-                looptoken = LoopToken()
-                done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
-                self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-                expected_result = self._prepare_args(args, floats, ints)
+            loop = parse(ops, namespace=locals())
+            looptoken = LoopToken()
+            done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            expected_result = self._prepare_args(args, floats, ints)
 
-                res = self.cpu.execute_token(looptoken)
-                x = longlong.getrealfloat(cpu.get_latest_value_float(0))
-                assert abs(x - expected_result) < 0.0001
+            res = self.cpu.execute_token(looptoken)
+            x = longlong.getrealfloat(cpu.get_latest_value_float(0))
+            assert abs(x - expected_result) < 0.0001
 
     def test_call_aligned_with_imm_values(self):
-            from pypy.rlib.libffi import types
-            cpu = self.cpu
-            if not cpu.supports_floats:
-                py.test.skip('requires floats')
+        from pypy.rlib.libffi import types
+        cpu = self.cpu
+        if not cpu.supports_floats:
+            py.test.skip('requires floats')
 
 
-            def func(*args):
-                return float(sum(args))
+        def func(*args):
+            return float(sum(args))
 
-            F = lltype.Float
-            I = lltype.Signed
-            floats = [0.7, 5.8, 0.1, 0.3, 0.9, -2.34, -3.45, -4.56]
-            ints = [7, 11, 23, 13, -42, 1111, 95, 1]
-            for case in range(256):
-                result = 0.0
-                args = []
-                argslist = []
-                local_floats = list(floats)
-                local_ints = list(ints)
-                for i in range(8):
-                    if case & (1<<i):
-                        args.append(F)
-                        arg = local_floats.pop()
-                        result += arg
-                        argslist.append(constfloat(arg))
-                    else:
-                        args.append(I)
-                        arg = local_ints.pop()
-                        result += arg
-                        argslist.append(ConstInt(arg))
-                FUNC = self.FuncType(args, F)
-                FPTR = self.Ptr(FUNC)
-                func_ptr = llhelper(FPTR, func)
-                calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
-                funcbox = self.get_funcbox(cpu, func_ptr)
+        F = lltype.Float
+        I = lltype.Signed
+        floats = [0.7, 5.8, 0.1, 0.3, 0.9, -2.34, -3.45, -4.56]
+        ints = [7, 11, 23, 13, -42, 1111, 95, 1]
+        for case in range(256):
+            result = 0.0
+            args = []
+            argslist = []
+            local_floats = list(floats)
+            local_ints = list(ints)
+            for i in range(8):
+                if case & (1<<i):
+                    args.append(F)
+                    arg = local_floats.pop()
+                    result += arg
+                    argslist.append(constfloat(arg))
+                else:
+                    args.append(I)
+                    arg = local_ints.pop()
+                    result += arg
+                    argslist.append(ConstInt(arg))
+            FUNC = self.FuncType(args, F)
+            FPTR = self.Ptr(FUNC)
+            func_ptr = llhelper(FPTR, func)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
 
-                res = self.execute_operation(rop.CALL,
-                                             [funcbox] + argslist,
-                                             'float', descr=calldescr)
-                assert abs(res.getfloat() - result) < 0.0001
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox] + argslist,
+                                         'float', descr=calldescr)
+            assert abs(res.getfloat() - result) < 0.0001
 
     def test_call_aligned_with_args_on_the_stack(self):
-            from pypy.rlib.libffi import types
-            cpu = self.cpu
-            if not cpu.supports_floats:
-                py.test.skip('requires floats')
+        from pypy.rlib.libffi import types
+        cpu = self.cpu
+        if not cpu.supports_floats:
+            py.test.skip('requires floats')
 
 
-            def func(*args):
-                return float(sum(args))
+        def func(*args):
+            return float(sum(args))
 
-            F = lltype.Float
-            I = lltype.Signed
-            floats = [0.7, 5.8, 0.1, 0.3, 0.9, -2.34, -3.45, -4.56]
-            ints = [7, 11, 23, 13, -42, 1111, 95, 1]
-            for case in range(256):
-                result = 0.0
-                args = []
-                argslist = []
-                local_floats = list(floats)
-                local_ints = list(ints)
-                for i in range(8):
-                    if case & (1<<i):
-                        args.append(F)
-                        arg = local_floats.pop()
-                        result += arg
-                        argslist.append(boxfloat(arg))
-                    else:
-                        args.append(I)
-                        arg = local_ints.pop()
-                        result += arg
-                        argslist.append(BoxInt(arg))
-                FUNC = self.FuncType(args, F)
-                FPTR = self.Ptr(FUNC)
-                func_ptr = llhelper(FPTR, func)
-                calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
-                funcbox = self.get_funcbox(cpu, func_ptr)
+        F = lltype.Float
+        I = lltype.Signed
+        floats = [0.7, 5.8, 0.1, 0.3, 0.9, -2.34, -3.45, -4.56]
+        ints = [7, 11, 23, 13, -42, 1111, 95, 1]
+        for case in range(256):
+            result = 0.0
+            args = []
+            argslist = []
+            local_floats = list(floats)
+            local_ints = list(ints)
+            for i in range(8):
+                if case & (1<<i):
+                    args.append(F)
+                    arg = local_floats.pop()
+                    result += arg
+                    argslist.append(boxfloat(arg))
+                else:
+                    args.append(I)
+                    arg = local_ints.pop()
+                    result += arg
+                    argslist.append(BoxInt(arg))
+            FUNC = self.FuncType(args, F)
+            FPTR = self.Ptr(FUNC)
+            func_ptr = llhelper(FPTR, func)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
 
-                res = self.execute_operation(rop.CALL,
-                                             [funcbox] + argslist,
-                                             'float', descr=calldescr)
-                assert abs(res.getfloat() - result) < 0.0001
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox] + argslist,
+                                         'float', descr=calldescr)
+            assert abs(res.getfloat() - result) < 0.0001
 
     def test_call_alignment_call_assembler(self):
         from pypy.rlib.libffi import types
