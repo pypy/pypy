@@ -67,13 +67,13 @@ class AppTestPYTHONIFY:
         res = example01_class.staticAtoi("1")
         assert res == 1
 
-        res = example01_class.staticStrcpy("aap")
+        res = example01_class.staticStrcpy("aap")     # TODO: this leaks
         assert res == "aap"
 
-        res = example01_class.staticStrcpy(u"aap")
+        res = example01_class.staticStrcpy(u"aap")    # TODO: this leaks
         assert res == "aap"
 
-        raises(TypeError, 'example01_class.staticStrcpy(1.)')
+        raises(TypeError, 'example01_class.staticStrcpy(1.)')   # TODO: this leaks
 
     def test04_constructing_and_calling(self):
         """Test object and method calls."""
@@ -115,9 +115,9 @@ class AppTestPYTHONIFY:
         res = instance.addDataToAtoi("13")
         assert res == 55
 
-        res = instance.addToStringValue("12")
+        res = instance.addToStringValue("12")    # TODO: this leaks
         assert res == "54"
-        res = instance.addToStringValue("-12")
+        res = instance.addToStringValue("-12")   # TODO: this leaks
         assert res == "30"
 
         res = instance.staticAddOneToInt(1L)

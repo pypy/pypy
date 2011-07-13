@@ -78,12 +78,12 @@ class AppTestCPPYY:
 
         res = t.invoke(t.get_overload("staticAtoi"), "1")
         assert res == 1
-        res = t.invoke(t.get_overload("staticStrcpy"), "aap")
+        res = t.invoke(t.get_overload("staticStrcpy"), "aap")   # TODO: this leaks
         assert res == "aap"
-        res = t.invoke(t.get_overload("staticStrcpy"), u"aap")
+        res = t.invoke(t.get_overload("staticStrcpy"), u"aap")  # TODO: this leaks
         assert res == "aap"
 
-        raises(TypeError, 't.invoke(t.get_overload("staticStrcpy"), 1.)')
+        raises(TypeError, 't.invoke(t.get_overload("staticStrcpy"), 1.)') # TODO: this leaks
 
     def test_example01method_int(self):
         """Test passing of a int, returning of a int, and memory cleanup, on
@@ -170,9 +170,9 @@ class AppTestCPPYY:
         e = t.construct(42)
         res = e.invoke(t.get_overload("addDataToAtoi"), "13")
         assert res == 55
-        res = e.invoke(t.get_overload("addToStringValue"), "12")
+        res = e.invoke(t.get_overload("addToStringValue"), "12")     # TODO: this leaks
         assert res == "54"
-        res = e.invoke(t.get_overload("addToStringValue"), "-12")
+        res = e.invoke(t.get_overload("addToStringValue"), "-12")    # TODO: this leaks
         assert res == "30"
         e.destruct()
         assert t.invoke(t.get_overload("getCount")) == 0

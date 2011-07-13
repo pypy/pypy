@@ -198,7 +198,7 @@ class CStringExecutor(FunctionExecutor):
     def execute(self, space, func, cppthis, num_args, args):
         lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         ccpresult = rffi.cast(rffi.CCHARP, lresult)
-        result = capi.charp2str_free(ccpresult)
+        result = rffi.charp2str(ccpresult)  # TODO: make it a choice to free
         return space.wrap(result)
 
 
