@@ -52,7 +52,7 @@ class AppTestPYTHONIFY:
         assert res == 4
         res = example01_class.staticAddOneToInt(-1)
         assert res == 0
-        maxint32 = int(math.pow(2,31)-1)
+        maxint32 = int(2 ** 31 - 1)
         res = example01_class.staticAddOneToInt(maxint32-1)
         assert res == maxint32
         res = example01_class.staticAddOneToInt(maxint32)

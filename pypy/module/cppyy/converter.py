@@ -87,6 +87,8 @@ class ArrayTypeConverterMixin(object):
             self.size = array_size
 
     def from_memory(self, space, w_obj, offset):
+        if hasattr(space, "fake"):
+            raise NotImplementedError
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONG, address_value)

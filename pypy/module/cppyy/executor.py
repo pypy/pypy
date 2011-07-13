@@ -32,6 +32,8 @@ class PtrTypeExecutor(FunctionExecutor):
     typecode = 'P'
 
     def execute(self, space, func, cppthis, num_args, args):
+        if hasattr(space, "fake"):
+            raise NotImplementedError
         lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         address = rffi.cast(rffi.ULONG, lresult)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
@@ -246,6 +248,7 @@ class InstancePtrExecutor(FunctionExecutor):
         return interp_cppyy.W_CPPInstance(space, self.cpptype, ptr_result, False)
 
     def execute_libffi(self, space, libffifunc, argchain):
+        from pypy.module.cppyy import interp_cppyy
         result = libffifunc.call(argchain, rffi.VOIDP)
         return interp_cppyy.W_CPPInstance(space, self.cpptype, result, False)
 

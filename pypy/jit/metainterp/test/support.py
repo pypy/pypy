@@ -42,7 +42,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         enable_opts = ALL_OPTS_DICT
 
     func._jit_unroll_safe_ = True
-    rtyper = support.annotate(func, values, type_system=type_system)
+    rtyper = support.annotate(func, values, type_system=type_system, listcomp=kwds.get("listcomp", False))
     graphs = rtyper.annotator.translator.graphs
     testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]

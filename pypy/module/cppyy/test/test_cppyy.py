@@ -51,7 +51,7 @@ class AppTestCPPYY:
         assert res == 4
         res = t.invoke(t.get_overload("staticAddOneToInt"), -1)
         assert res == 0
-        maxint32 = int(math.pow(2,31)-1)
+        maxint32 = int(2 ** 31 - 1)
         res = t.invoke(t.get_overload("staticAddOneToInt"), maxint32-1)
         assert res == maxint32
         res = t.invoke(t.get_overload("staticAddOneToInt"), maxint32)

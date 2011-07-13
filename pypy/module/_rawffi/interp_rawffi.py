@@ -92,7 +92,7 @@ def letter2tp(space, key):
 
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
-    if space.is_true(space.isinstance(w_shape, space.w_str)):
+    if space.isinstance_w(w_shape, space.w_str):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:

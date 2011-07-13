@@ -37,9 +37,9 @@ def _annotation(a, x):
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
-             type_system="lltype"):
+             type_system="lltype", listcomp=False):
     # build the normal ll graphs for ll_function
-    t = TranslationContext()
+    t = TranslationContext(list_comprehension_operations=listcomp)
     annpolicy = AnnotatorPolicy()
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
