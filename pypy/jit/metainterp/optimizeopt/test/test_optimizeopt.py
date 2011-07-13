@@ -850,18 +850,23 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
-        jump(i1, p2)
+        jump(i1, p2, p2sub)
         """
         expected = """
-        [i1, p2]
-        p2sub = getfield_gc(p2, descr=nextdescr)
+        [i1, p2, p2sub]
         i3 = getfield_gc(p2sub, descr=valuedescr)
         escape(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         p3sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
-        jump(i1, p1)
+        # XXX: We get two extra operations here because the setfield
+        #      above is the result of forcing p1 and thus not 
+        #      registered with the heap optimizer. I've makred tests
+        #      below with VIRTUALHEAP if they suffer from this issue
+        p3sub2 = getfield_gc(p1, descr=nextdescr) 
+        guard_nonnull_class(p3sub2, ConstClass(node_vtable2)) []
+        jump(i1, p1, p3sub2)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -883,17 +888,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2b = int_is_true(i2)
         guard_true(i2b) []
         setfield_gc(p2, i2, descr=nextdescr)
-        jump(p2)
+        jump(p2, i2)
         """
         expected = """
-        [p2]
-        i1 = getfield_gc(p2, descr=nextdescr)
+        [p2, i1]
         i2 = int_sub(i1, 1)
         i2b = int_is_true(i2)
         guard_true(i2b) []
         p3 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3, i2, descr=nextdescr)
-        jump(p3)
+        # XXX: VIRTUALHEAP (see above)
+        i3 = getfield_gc(p3, descr=nextdescr)
+        i7 = int_is_true(i3)
+        guard_true(i7) []
+        jump(p3, i3)
         """
         self.optimize_loop(ops, expected, preamble)
 

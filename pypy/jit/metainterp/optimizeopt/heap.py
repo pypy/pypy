@@ -126,12 +126,10 @@ class CachedField(object):
             if op and structvalue in self._cached_fields:
                 if op.getopnum() == rop.SETFIELD_GC:
                     result = op.getarg(1)
-                    if result in potential_ops:
-                        # XXX dissable for now
-                        continue
+                    if result in potential_ops and potential_ops[result] is None:
                         newresult = result.clonebox()
                         optimizer.make_equal_to(newresult, optimizer.getvalue(result))
-                        newresult = result
+                        result = newresult
                         # XXX this will not allow for chains of operations
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())
