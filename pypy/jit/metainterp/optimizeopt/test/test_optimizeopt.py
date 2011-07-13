@@ -2015,8 +2015,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i2, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         guard_true(i4) []
+        i5 = int_neg(i2)
         setfield_gc(p1, i2, descr=valuedescr)
-        jump(p1, i1, i2, 1)
+        jump(p1, i1, i2, i5)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -2044,9 +2045,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p1, i2, i4]
         guard_true(i4) [p1]
+        i5 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
         escape()
-        jump(p1, i2, 1)
+        jump(p1, i2, i5)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -2073,9 +2075,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p1, i2, i4]
         guard_true(i4) [i2, p1]
+        i5 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
         escape()
-        jump(p1, i2, 1)
+        jump(p1, i2, i5)
         """
         self.optimize_loop(ops, expected)
 
@@ -2097,8 +2100,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i1, descr=valuedescr)
         i5 = int_eq(i4, 5)
         guard_true(i5) []
+        i7 = int_neg(i2)
         setfield_gc(p1, i2, descr=valuedescr)
-        jump(p1, i1, i2, 5)
+        jump(p1, i1, i2, i7)
         """
         self.optimize_loop(ops, expected, preamble)
 
