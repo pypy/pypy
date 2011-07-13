@@ -175,9 +175,9 @@ class AppTestADVANCEDCPP:
 
         #-----
         t2 = gbl.T2(gbl.T1(int))(gbl.T1(int)(32))
-#        t2.m_t2.m_t1 = 32
-#        assert t2.m_t2.value() == 32
-#        assert t2.m_t2.m_t1    == 32
+        t2.m_t2.m_t1 = 32
+        assert t2.m_t2.value() == 32
+        assert t2.m_t2.m_t1    == 32
         t2.destruct()
 
     def test05_abstract_classes(self):

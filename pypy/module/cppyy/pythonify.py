@@ -82,6 +82,16 @@ def make_method(meth_name, cppol):
     return method
 
 
+def make_datamember(cppdm):
+    import cppyy
+    def binder(obj, owner=None):
+        value = cppdm.__get__(obj, owner)
+        if isinstance(value, cppyy.CPPInstance):
+             cppclass = get_cppclass(value.cppclass.type_name)
+             return bind_object(value, cppclass)
+        return value
+    return property(binder, cppdm.__set__)
+
 def make_cppnamespace(namespace_name, cppns):
     d = {"_cpp_proxy" : cppns}
 
@@ -97,8 +107,9 @@ def make_cppnamespace(namespace_name, cppns):
     # static ones also to the meta class (needed for property setters)
     for dm in cppns.get_data_member_names():
         cppdm = cppns.get_data_member(dm)
-        d[dm] = cppdm
-        setattr(metans, dm, cppdm)
+        pydm = make_datamember(cppdm)
+        d[dm] = pydm
+        setattr(metans, dm, pydm)
 
     # create the python-side C++ namespace representation
     pycppns = metans(namespace_name, (object,), d)
@@ -147,10 +158,11 @@ def make_cppclass(class_name, cpptype):
     # static ones also to the meta class (needed for property setters)
     for dm_name in cpptype.get_data_member_names():
         cppdm = cpptype.get_data_member(dm_name)
+        pydm = make_datamember(cppdm)
 
-        setattr(pycpptype, dm_name, cppdm)
+        setattr(pycpptype, dm_name, pydm)
         if cppdm.is_static():
-            setattr(metacpp, dm_name, cppdm)
+            setattr(metacpp, dm_name, pydm)
 
     _pythonize(pycpptype)
     return pycpptype
