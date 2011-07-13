@@ -2195,21 +2195,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
         
-    def test_duplicate_getarrayitem_3(self):
-        ops = """
-        [p1, i0, i10]
-        i2 = getarrayitem_gc(p1, i10, descr=arraydescr2)
-        i4 = getarrayitem_gc(p1, i10, descr=arraydescr2)
-        i7 = int_add(i0, i4)
-        jump(p1, i7, i10)
-        """
-        expected = """
-        [p1, i0, i10, i6]
-        i7 = int_add(i0, i6)
-        jump(p1, i7, i10, i6)
-        """
-        self.optimize_loop(ops, expected)
-
     def test_duplicate_getarrayitem_after_setarrayitem_1(self):
         ops = """
         [p1, p2]
