@@ -40,6 +40,7 @@ class PtrTypeExecutor(FunctionExecutor):
 
 class VoidExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = libffi.types.void
 
     def execute(self, space, func, cppthis, num_args, args):
         capi.c_call_v(func.cpptype.handle, func.method_index, cppthis, num_args, args)
@@ -52,16 +53,26 @@ class VoidExecutor(FunctionExecutor):
 
 class BoolExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = libffi.types.schar
 
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_b(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return space.wrap(result)
 
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.CHAR)
+        return space.wrap(result)
+
 class CharExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = libffi.types.schar
 
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_c(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        return space.wrap(result)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.CHAR)
         return space.wrap(result)
 
 class ShortExecutor(FunctionExecutor):
@@ -70,6 +81,10 @@ class ShortExecutor(FunctionExecutor):
 
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_h(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        return space.wrap(result)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.SHORT)
         return space.wrap(result)
 
 class IntExecutor(FunctionExecutor):
@@ -83,9 +98,9 @@ class IntExecutor(FunctionExecutor):
         result = capi.c_call_i(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return self._wrap_result(space, result)
 
-# TODO: check whether the following is correct (return type cast):
-#   def execute_libffi(self, space, libffifunc, argchain):
-#       return space.wrap(libffifunc.call(argchain, rffi.INT))
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.INT)
+        return space.wrap(result)
 
 class UnsignedIntExecutor(FunctionExecutor):
     _immutable_ = True
@@ -97,6 +112,10 @@ class UnsignedIntExecutor(FunctionExecutor):
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         return self._wrap_result(space, result)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.UINT)
+        return space.wrap(result)
 
 class LongExecutor(FunctionExecutor):
     _immutable_ = True
@@ -110,7 +129,8 @@ class LongExecutor(FunctionExecutor):
         return self._wrap_result(space, result)
 
     def execute_libffi(self, space, libffifunc, argchain):
-        return space.wrap(libffifunc.call(argchain, lltype.Signed))
+        result = libffifunc.call(argchain, rffi.LONG)
+        return space.wrap(result)
 
 class UnsignedLongExecutor(LongExecutor):
     _immutable_ = True
@@ -119,25 +139,44 @@ class UnsignedLongExecutor(LongExecutor):
     def _wrap_result(self, space, result):
         return space.wrap(rffi.cast(rffi.ULONG, result))
 
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.ULONG)
+        return space.wrap(result)
+
 class ConstIntRefExecutor(LongExecutor):
     _immutable_ = True
+    libffitype = libffi.types.pointer
 
     def _wrap_result(self, space, result):
         intptr = rffi.cast(rffi.INTP, result)
         return space.wrap(intptr[0])
 
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.INTP)
+        return space.wrap(result[0])
+
 class ConstLongRefExecutor(LongExecutor):
     _immutable_ = True
+    libffitype = libffi.types.pointer
 
     def _wrap_result(self, space, result):
         longptr = rffi.cast(rffi.LONGP, result)
         return space.wrap(longptr[0])
 
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.LONGP)
+        return space.wrap(result[0])
+
 class FloatExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = libffi.types.float
 
     def execute(self, space, func, cppthis, num_args, args):
         result = capi.c_call_f(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        return space.wrap(result)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.FLOAT)
         return space.wrap(result)
 
 class DoubleExecutor(FunctionExecutor):
@@ -149,11 +188,13 @@ class DoubleExecutor(FunctionExecutor):
         return space.wrap(result)
 
     def execute_libffi(self, space, libffifunc, argchain):
-        return space.wrap(libffifunc.call(argchain, rffi.DOUBLE))
+        result = libffifunc.call(argchain, rffi.DOUBLE)
+        return space.wrap(result)
 
 
 class CStringExecutor(FunctionExecutor):
     _immutable_ = True
+
     def execute(self, space, func, cppthis, num_args, args):
         lresult = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         ccpresult = rffi.cast(rffi.CCHARP, lresult)
@@ -192,6 +233,8 @@ class DoublePtrExecutor(PtrTypeExecutor):
 
 class InstancePtrExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = libffi.types.pointer
+
     def __init__(self, space, name, cpptype):
         FunctionExecutor.__init__(self, space, name, cpptype)
         self.cpptype = cpptype
@@ -201,6 +244,11 @@ class InstancePtrExecutor(FunctionExecutor):
         long_result = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
         ptr_result = rffi.cast(rffi.VOIDP, long_result)
         return interp_cppyy.W_CPPInstance(space, self.cpptype, ptr_result, False)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.VOIDP)
+        return interp_cppyy.W_CPPInstance(space, self.cpptype, result, False)
+
 
 class InstanceExecutor(InstancePtrExecutor):
     _immutable_ = True
