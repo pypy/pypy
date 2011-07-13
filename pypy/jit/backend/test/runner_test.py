@@ -2737,7 +2737,7 @@ class LLtypeBackendTest(BaseBackendTest):
             assert False, 'should not be called'
         from pypy.jit.codewriter.effectinfo import EffectInfo
 
-        effectinfo = EffectInfo([], [], [], EffectInfo.EF_CAN_RAISE, EffectInfo.OS_MATH_SQRT)
+        effectinfo = EffectInfo([], [], [], [], EffectInfo.EF_CAN_RAISE, EffectInfo.OS_MATH_SQRT)
         FPTR = self.Ptr(self.FuncType([lltype.Float], lltype.Float))
         func_ptr = llhelper(FPTR, math_sqrt)
         FUNC = deref(FPTR)
