@@ -231,7 +231,7 @@ class AbstractTestRstr(BaseRtypingTest):
         const = self.const
         def fn(i):
             s = [const(''), const('one'), const('two'), const('o'), const('on'), const('ne'), const('e'), const('twos'), const('foobar'), const('fortytwo')]
-            return s[i].startswith('o')
+            return s[i].startswith(const('o'))
         for i in range(10):
             res = self.interpret(fn, [i])
             assert res == fn(i)
@@ -251,7 +251,7 @@ class AbstractTestRstr(BaseRtypingTest):
         const = self.const
         def fn(i):
             s = [const(''), const('one'), const('two'), const('o'), const('on'), const('ne'), const('e'), const('twos'), const('foobar'), const('fortytwo')]
-            return s[i].endswith('e')
+            return s[i].endswith(const('e'))
         for i in range(10):
             res = self.interpret(fn, [i])
             assert res == fn(i)
