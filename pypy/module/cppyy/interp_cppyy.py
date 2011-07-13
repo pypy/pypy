@@ -246,13 +246,22 @@ class W_CPPOverload(Wrappable):
         return self.space.wrap(self.functions[0].executor.name)
 
     @jit.unroll_safe
-    def call(self, cppthis, args_w):
+    def call(self, cppinstance, args_w):
+        if cppinstance:
+            cppthis = cppinstance.rawobject
+        else:
+            cppthis = NULL_VOIDP
+
         space = self.space
         errmsg = 'None of the overloads matched:'
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call(cppthis, args_w)
+                cppresult = cppyyfunc.call(cppthis, args_w)
+                if cppinstance and isinstance(cppresult, W_CPPInstance):
+                    if cppresult.rawobject == cppinstance.rawobject:
+                        return cppinstance  # recycle object to preserve identity
+                return cppresult
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -377,7 +386,7 @@ class W_CPPScope(Wrappable):
                 self.space.wrap(str("class %s has no attribute %s" % (self.name, name))))
 
     def invoke(self, overload, args_w):
-        return overload.call(NULL_VOIDP, args_w)
+        return overload.call(None, args_w)
 
 W_CPPScope.typedef = TypeDef(
     'CPPScope',
@@ -484,7 +493,7 @@ class W_CPPType(W_CPPScope):
                                      self.space.wrap("%s is abstract" % self.name))
             raise
 
-        return overload.call(NULL_VOIDP, args_w)
+        return overload.call(None, args_w)
 
 W_CPPType.typedef = TypeDef(
     'CPPType',
@@ -533,7 +542,7 @@ class W_CPPInstance(Wrappable):
 
     def invoke(self, overload, args_w):
         self._nullcheck()
-        return overload.call(self.rawobject, args_w)
+        return overload.call(self, args_w)
 
     def destruct(self):
         if self.rawobject:

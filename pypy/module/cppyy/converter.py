@@ -288,7 +288,7 @@ class UnsignedLongConverter(TypeConverter):
     libffitype = libffi.types.ulong
 
     def _unwrap_object(self, space, w_obj):
-        return space.c_uint_w(w_obj)
+        return space.uint_w(w_obj)
 
     def convert_argument(self, space, w_obj):
         arg = self._unwrap_object(space, w_obj)
@@ -375,6 +375,11 @@ class CStringConverter(TypeConverter):
         arg = space.str_w(w_obj)
         x = rffi.str2charp(arg)
         return rffi.cast(rffi.VOIDP, x)
+
+    def from_memory(self, space, w_obj, offset):
+        address = self._get_raw_address(space, w_obj, offset)
+        charpptr = rffi.cast(rffi.CCHARPP, address)
+        return space.wrap(rffi.charp2str(charpptr[0]))
 
 
 class ShortArrayConverter(ArrayTypeConverterMixin, TypeConverter):
@@ -566,3 +571,4 @@ _converters["double"]                   = DoubleConverter
 _converters["double*"]                  = DoublePtrConverter
 _converters["double[]"]                 = DoubleArrayConverter
 _converters["const char*"]              = CStringConverter
+_converters["char*"]                    = CStringConverter
