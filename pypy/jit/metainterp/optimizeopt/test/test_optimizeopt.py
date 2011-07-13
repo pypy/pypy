@@ -2865,8 +2865,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p8, p11, p26)
         """
         expected = """
-        [p8, p11, i24, i19, p16, i21, i34]
-        i39 = getfield_gc(p8, descr=nextdescr)
+        [p8, p11, i24, i39, i19, p16, i21, i34]
         i40 = int_ge(i39, i19)
         guard_false(i40) []
         i41 = getfield_gc(p16, descr=nextdescr)
@@ -2876,7 +2875,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p8, i44, descr=nextdescr)
         i45 = int_add_ovf(i34, i43)
         guard_no_overflow() []
-        jump(p8, p11, i43, i19, p16, i21, i34)
+        jump(p8, p11, i43, i44, i19, p16, i21, i34)
         """
         self.optimize_loop(ops, expected)
 

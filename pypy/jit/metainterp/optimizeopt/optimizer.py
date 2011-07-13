@@ -87,10 +87,6 @@ class OptValue(object):
         return self.box
 
     def force_at_end_of_preamble(self, already_forced):
-        if self.intbound.lower < MININT/2:
-            self.intbound.lower = MININT
-        if self.intbound.upper > MAXINT/2:
-            self.intbound.upper = MAXINT
         return self
 
     def get_cloned(self, optimizer, valuemap, force_if_needed=True):

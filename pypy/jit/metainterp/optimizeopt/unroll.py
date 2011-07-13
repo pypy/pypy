@@ -9,6 +9,7 @@ from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.history import make_hashable_int
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 
 # Assumptions
 # ===========
@@ -171,6 +172,8 @@ class UnrollOptimizer(Optimization):
             jumpop.initarglist([])
             self.optimizer.flush()
 
+            KillHugeIntBounds(self.optimizer).apply()
+
             loop.preamble.operations = self.optimizer.newoperations
 
             modifier = VirtualStateAdder(self.optimizer)
@@ -192,7 +195,7 @@ class UnrollOptimizer(Optimization):
                 self.optimizer.quasi_immutable_deps)
             self.optimizer = self.optimizer.reconstruct_for_next_iteration(sb, jump_args)
             loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
-        
+
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
 
@@ -307,6 +310,7 @@ class UnrollOptimizer(Optimization):
                     self.add_op_to_short(op, short, short_seen)
 
         self.optimizer.flush()
+                    
 
         i = j = 0
         while i < len(self.optimizer.newoperations):
