@@ -1363,12 +1363,19 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i]
         i1 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
-        jump(i1)
-        """
-        preamble = ops
-        expected = """
-        [i]
+        call(i1, descr=nonwritedescr)
         jump(i)
+        """
+        preamble = """
+        [i]
+        i1 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
+        call(i1, descr=nonwritedescr)
+        jump(i, i1)
+        """
+        expected = """
+        [i, i1]
+        call(i1, descr=nonwritedescr)
+        jump(i, i1)
         """
         self.optimize_loop(ops, expected, preamble)
 

@@ -110,7 +110,7 @@ class CachedField(object):
         assert self._lazy_setfield is None
         cf = CachedField()
         for structvalue, fieldvalue in self._cached_fields.iteritems():
-            op = self._cached_fields_getfield_op.get(structvalue, None)
+            op = self._cached_fields_getfield_op.get(structvalue, None)            
             if op and op.result in short_boxes and short_boxes[op.result] is op:
                 structvalue2 = structvalue.get_cloned(optimizer, valuemap)
                 fieldvalue2  = fieldvalue .get_cloned(optimizer, valuemap)
@@ -138,6 +138,7 @@ class CachedField(object):
                     self._cached_fields[structvalue] = optimizer.getvalue(result)
                 elif op.result is not None:
                     potential_ops[op.result] = op
+
 
 
 class BogusPureField(JitException):
