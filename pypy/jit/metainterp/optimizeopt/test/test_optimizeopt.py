@@ -5628,7 +5628,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i0]
         jump(p0, i0)
         """
-        self.optimize_loop(ops, expected, expected)
+        self.optimize_loop(ops, expected)
 
     def test_strlen_positive(self):
         ops = """
