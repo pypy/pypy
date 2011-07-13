@@ -7,11 +7,27 @@
 #include "example01.h"
 
 //===========================================================================
-payload::payload(double d) : m_data(d) {}
-payload::payload(const payload& p) : m_data(p.m_data) {}
+payload::payload(double d) : m_data(d) {
+    count++;
+}
+payload::payload(const payload& p) : m_data(p.m_data) {
+    count++;
+}
+payload& payload::operator=(const payload& p) {
+    if (this != &p) {
+        m_data = p.m_data;
+    }
+    return *this;
+}
+payload::~payload() {
+    count--;
+}
 
 double payload::getData() { return m_data; }
 void payload::setData(double d) { m_data = d; }
+
+// class-level data
+int payload::count = 0;
 
 
 //===========================================================================

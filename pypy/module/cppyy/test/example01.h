@@ -2,9 +2,14 @@ class payload {
 public:
     payload(double d);
     payload(const payload& p);
+    payload& operator=(const payload& e);
+    ~payload();
 
     double getData();
     void setData(double d);
+
+public:        // class-level data
+    static int count;
 
 private:
     double m_data;

@@ -128,6 +128,12 @@ short cppyy_call_h(cppyy_typehandle_t handle, int method_index,
     return (short)G__int(result);
 }
 
+int cppyy_call_i(cppyy_typehandle_t handle, int method_index,
+                  cppyy_object_t self, int numargs, void* args[]) {
+    G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
+    return (int)G__int(result);
+}
+
 long cppyy_call_l(cppyy_typehandle_t handle, int method_index,
                   cppyy_object_t self, int numargs, void* args[]) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
