@@ -245,7 +245,7 @@ class BaseArray(Wrappable):
         return self.get_concrete().descr_len(space)
 
     def descr_get_size(self, space):
-        return self.get_concrete().descr_len(space)
+        return self.get_concrete().descr_get_size(space)
 
     def descr_get_ndim(self, space):
         return self.get_concrete().descr_get_ndim(space)
@@ -472,6 +472,8 @@ class SingleDimArray(BaseArray):
 
     def descr_len(self, space):
         return space.wrap(self.size)
+
+    descr_get_size = descr_len
 
     def descr_get_ndim(self, space):
         return space.wrap(1)
