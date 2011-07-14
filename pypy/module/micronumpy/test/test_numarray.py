@@ -66,18 +66,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert len(a) == 5
         assert len(a + a) == 5
 
-    def test_ndim(self):
-        from numpy import array
-        a = array(range(4))
-        assert a.ndim == 1
-        assert (a + a).ndim == 1
-
-    def test_size(self):
-        from numpy import array
-        a = array(range(4))
-        assert a.size == 4
-        assert (a + a).size == 4
-
     def test_shape(self):
         from numpy import array
         a = array(range(5))
