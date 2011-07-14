@@ -1,5 +1,5 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, instantiate
 from pypy.rlib import rarithmetic, jit
 from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
@@ -105,6 +105,10 @@ class FakeSpace(object):
     def findattr(self, w_obj, w_name):
         return None
 
+    def allocate_instance(self, cls, w_type):
+        assert w_type == "stuff"
+        return instantiate(cls)
+
     def _freeze_(self):
         return True
 
@@ -115,13 +119,13 @@ class TestFastPathJIT(LLJitMixin):
         def f():
             lib = interp_cppyy.load_lib(space, "./example01Dict.so")
             cls  = interp_cppyy.type_byname(space, "example01")
-            inst = cls.construct([FakeInt(0)])
+            inst = cls.get_overload("example01").call(None, "stuff", [FakeInt(0)])
             addDataToInt = cls.get_overload("addDataToInt")
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
             while i > 0:
                 drv.jit_merge_point(inst=inst, addDataToInt=addDataToInt, i=i)
-                inst.invoke(addDataToInt, [FakeInt(i)])
+                addDataToInt.call(inst, None, [FakeInt(i)])
                 i -= 1
             return 7
         f()

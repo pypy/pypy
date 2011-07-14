@@ -44,8 +44,13 @@ class CppyyObject(object):
     __metaclass__ = CppyyClass
 
     def __init__(self, *args):
-        self._cppinstance = self._cpp_proxy.construct(*args)
-        
+        try:
+            cppol = self._cpp_proxy.get_overload(self._cpp_proxy.type_name)
+        except AttributeError:
+            raise TypeError("cannot instantiate abstract class '%s'" %
+                    self._cpp_proxy.type_name)
+        self._cppinstance = cppol.call(None, cppyy.CPPInstance, *args)
+
     def destruct(self):
         self._cppinstance.destruct()
 
@@ -61,11 +66,11 @@ def make_static_function(cpptype, func_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
         def function(*args):
-            return cpptype.invoke(cppol, *args)
+            return cppol.call(None, cppyy.CPPInstance, *args)
     else:                                        # return instance
         cppclass = get_cppclass(rettype)
         def function(*args):
-            return bind_object(cpptype.invoke(cppol, *args), cppclass)
+            return bind_object(cppol.call(None, cppyy.CPPInstance, *args), cppclass)
     function.__name__ = func_name
     return staticmethod(function)
 
@@ -73,11 +78,11 @@ def make_method(meth_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
         def method(self, *args):
-            return self._cppinstance.invoke(cppol, *args)
+            return cppol.call(self._cppinstance, cppyy.CPPInstance, *args)
     else:                                        # return instance
         cppclass = get_cppclass(rettype)
         def method(self, *args):
-            return bind_object(self._cppinstance.invoke(cppol, *args), cppclass)
+            return bind_object(cppol.call(self._cppinstance, cppyy.CPPInstance, *args), cppclass)
     method.__name__ = meth_name
     return method
 
