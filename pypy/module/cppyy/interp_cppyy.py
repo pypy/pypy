@@ -264,6 +264,7 @@ class W_CPPOverload(Wrappable):
 
         space = self.space
         errmsg = 'None of the overloads matched:'
+        jit.promote(self)
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:

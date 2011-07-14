@@ -128,3 +128,4 @@ class TestFastPathJIT(LLJitMixin):
         space = FakeSpace()
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
         self.check_loops(call=0, call_release_gil=1)
+        self.check_loops(getarrayitem_gc_pure=0, everywhere=True)
