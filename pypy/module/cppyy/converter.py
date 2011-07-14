@@ -369,6 +369,8 @@ class DoubleConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(rffi.DOUBLEP, address)
         x[0] = self._unwrap_object(space, w_obj)
+        typecode = _direct_ptradd(address, capi.c_function_arg_typeoffset())
+        typecode[0] = 'd'
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))

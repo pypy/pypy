@@ -13,6 +13,7 @@
 #include "TMethod.h"
 #include "TMethodArg.h"
 
+#include <assert.h>
 #include <string.h>
 #include <iostream>
 #include <map>
@@ -81,73 +82,85 @@ void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self) {
 
 /* method/function dispatching -------------------------------------------- */
 long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[],
+                  cppyy_object_t self, int numargs, void* args,
                   cppyy_typehandle_t rettype) {
-    void* result = cppyy_allocate(rettype);
-    /* TODO: perform call ... */
-    return (long)result;
-}
-
-static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
-        int method_index, cppyy_object_t self, int numargs, void* args[]) {
     TClassRef cr = type_from_handle(handle);
     TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
 
     G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
-    G__param libp;
-    for (int i = 0; i < numargs; ++i ) {
-       G__letint(&libp.para[i], 'u', *(long*)args[i]); // TODO: use actual type code
-    }
+    G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
+    assert(libp->paran == numargs);
+
+    long obj = (long)cppyy_allocate(rettype);
+    G__setgvp(obj);
 
     G__value result;
-    meth(&result, 0, &libp, 0);
+    G__setnull(&result);
+    meth(&result, 0, libp, 0);
+
+    // G__pop_tempobject_nodel();      # TODO: not sure ...
+    return obj;
+}
+
+static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
+        int method_index, cppyy_object_t self, int numargs, void* args) {
+    TClassRef cr = type_from_handle(handle);
+    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
+
+    G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
+    G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
+    assert(libp->paran == numargs);
+
+    G__value result;
+    G__setnull(&result);
+    meth(&result, 0, libp, 0);
     
     return result;
 }
 
 void cppyy_call_v(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[]) {
+                  cppyy_object_t self, int numargs, void* args) {
    cppyy_call_T(handle, method_index, self, numargs, args);
 }
 
 int cppyy_call_b(cppyy_typehandle_t handle, int method_index,
-                 cppyy_object_t self, int numargs, void* args[]) {
+                 cppyy_object_t self, int numargs, void* args) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
     return (bool)G__int(result);
 }
 
 char cppyy_call_c(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[]) {
+                  cppyy_object_t self, int numargs, void* args) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
     return (char)G__int(result);
 }
 
 short cppyy_call_h(cppyy_typehandle_t handle, int method_index,
-                   cppyy_object_t self, int numargs, void* args[]) {
+                   cppyy_object_t self, int numargs, void* args) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
     return (short)G__int(result);
 }
 
 int cppyy_call_i(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[]) {
+                  cppyy_object_t self, int numargs, void* args) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
     return (int)G__int(result);
 }
 
 long cppyy_call_l(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[]) {
+                  cppyy_object_t self, int numargs, void* args) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
     return G__int(result);
 }
 
 double cppyy_call_f(cppyy_typehandle_t handle, int method_index,
-                    cppyy_object_t self, int numargs, void* args[]) {
+                    cppyy_object_t self, int numargs, void* args) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
     return G__double(result);
 }
 
 double cppyy_call_d(cppyy_typehandle_t handle, int method_index,
-                    cppyy_object_t self, int numargs, void* args[]) {
+                    cppyy_object_t self, int numargs, void* args) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
     return G__double(result);
 }   
@@ -155,6 +168,30 @@ double cppyy_call_d(cppyy_typehandle_t handle, int method_index,
 
 cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t /*handle*/, int /*method_index*/) {
     return (cppyy_methptrgetter_t)NULL;
+}
+
+
+/* handling of function argument buffer ----------------------------------- */
+void* cppyy_allocate_function_args(size_t nargs) {
+    assert(sizeof(CPPYY_G__value) == sizeof(G__value));
+    G__param* libp = (G__param*)malloc(
+        offsetof(G__param, para) + nargs*sizeof(CPPYY_G__value));
+    libp->paran = (int)nargs;
+    for (int i = 0; i < nargs; ++i)
+        libp->para[i].type = 'l';
+    return (void*)libp->para;
+}
+
+void cppyy_deallocate_function_args(void* args) {
+    free((char*)args - offsetof(G__param, para));
+}
+
+size_t cppyy_function_arg_sizeof() {
+    return sizeof(CPPYY_G__value);
+}
+
+size_t cppyy_function_arg_typeoffset() {
+    return offsetof(CPPYY_G__value, type);
 }
 
 
@@ -195,7 +232,7 @@ int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
         return 1;
     TClassRef crd = type_from_handle(dh);
     TClassRef crb = type_from_handle(bh);
-    return (int)crd->GetBaseClass(crb);
+    return crd->GetBaseClass(crb) != 0;
 }
 
 size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {

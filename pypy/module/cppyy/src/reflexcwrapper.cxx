@@ -34,7 +34,7 @@ static inline std::vector<void*> build_args(int numargs, void* args) {
     std::vector<void*> arguments;
     arguments.reserve(numargs);
     for (int i=0; i < numargs; ++i) {
-        if (((CPPYY_G__value*)args)[i].type == 'l')
+        if (((CPPYY_G__value*)args)[i].type != 'a')
             arguments.push_back(&((CPPYY_G__value*)args)[i]);
         else
             arguments.push_back((void*)(*(long*)&((CPPYY_G__value*)args)[i]));
@@ -200,7 +200,7 @@ cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int me
 }
 
 
-/* handling of function argument buffer */
+/* handling of function argument buffer ----------------------------------- */
 void* cppyy_allocate_function_args(size_t nargs) {
     CPPYY_G__param* libp = (CPPYY_G__param*)malloc(
         sizeof(int/*CPPYY_G__param.paran*/) + nargs*sizeof(CPPYY_G__value));

@@ -231,6 +231,8 @@ class CPPConstructor(CPPMethod):
         newthis = capi.c_allocate(self.cpptype.handle)
         assert lltype.typeOf(newthis) == rffi.VOIDP
         try:
+            # TODO: this does not work for CINT, as it calls a temp object
+            # by value returning method, not placement on newthis ...
             CPPMethod.call(self, newthis, None, args_w)
         except Exception, e:
             capi.c_deallocate(self.cpptype.handle, newthis)
