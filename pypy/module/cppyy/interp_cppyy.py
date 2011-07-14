@@ -15,7 +15,6 @@ from pypy.module.cppyy import converter, executor, helper
 class FastCallNotPossible(Exception):
     pass
 
-NULL_CCHARP = lltype.nullptr(rffi.CCHARP.TO)
 NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 
 def load_lib(space, name):
@@ -103,8 +102,10 @@ class CPPMethod(object):
         self._libffifunc_cache = {}
 
     def call(self, cppthis, args_w):
+        assert lltype.typeOf(cppthis) == rffi.VOIDP
         if self.executor is None:
-            raise OperationError(self.space.w_TypeError, self.space.wrap("return type not handled"))
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap("return type not handled"))
 
         if self.methgetter and cppthis: # only for methods
             try:
@@ -205,13 +206,15 @@ class CPPFunction(CPPMethod):
     _immutable_ = True
 
     def call(self, cppthis, args_w):
+        assert lltype.typeOf(cppthis) == rffi.VOIDP
         if self.executor is None:
-            raise OperationError(self.space.w_TypeError, self.space.wrap("return type not handled"))
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap("return type not handled"))
 
         assert not cppthis
         args = self.prepare_arguments(args_w)
         try:
-            return self.executor.execute(self.space, self, NULL_CCHARP,
+            return self.executor.execute(self.space, self, NULL_VOIDP,
                                          len(args_w), args)
         finally:
             self.free_arguments(args, len(args_w))
@@ -223,13 +226,13 @@ class CPPConstructor(CPPMethod):
     def call(self, cppthis, args_w):
         assert not cppthis
         newthis = capi.c_allocate(self.cpptype.handle)
-        ccharp_this = rffi.cast(rffi.CCHARP, newthis)
+        assert lltype.typeOf(newthis) == rffi.VOIDP
         try:
-            CPPMethod.call(self, ccharp_this, args_w)
+            CPPMethod.call(self, newthis, args_w)
         except Exception, e:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
-        return W_CPPInstance(self.space, self.cpptype, ccharp_this, True)
+        return W_CPPInstance(self.space, self.cpptype, newthis, True)
 
 
 class W_CPPOverload(Wrappable):
@@ -252,7 +255,8 @@ class W_CPPOverload(Wrappable):
         if cppinstance:
             cppthis = cppinstance.rawobject
         else:
-            cppthis = NULL_CCHARP
+            cppthis = NULL_VOIDP
+        assert lltype.typeOf(cppthis) == rffi.VOIDP
 
         space = self.space
         errmsg = 'None of the overloads matched:'
@@ -536,13 +540,14 @@ class W_CPPInstance(Wrappable):
     def __init__(self, space, cppclass, rawobject, python_owns):
         self.space = space
         self.cppclass = cppclass
-        assert lltype.typeOf(rawobject) == rffi.CCHARP
+        assert lltype.typeOf(rawobject) == rffi.VOIDP
         self.rawobject = rawobject
         self.python_owns = python_owns
 
     def _nullcheck(self):
         if not self.rawobject:
-            raise OperationError(self.space.w_ReferenceError, self.space.wrap("trying to access a NULL pointer"))
+            raise OperationError(self.space.w_ReferenceError,
+                                 self.space.wrap("trying to access a NULL pointer"))
 
     def invoke(self, overload, args_w):
         self._nullcheck()
@@ -551,7 +556,7 @@ class W_CPPInstance(Wrappable):
     def destruct(self):
         if self.rawobject:
             capi.c_destruct(self.cppclass.handle, self.rawobject)
-            self.rawobject = NULL_CCHARP
+            self.rawobject = NULL_VOIDP
 
     def __del__(self):
         if self.python_owns:
