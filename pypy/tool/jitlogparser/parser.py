@@ -341,8 +341,11 @@ def import_log(logname, ParserCls=SimpleParser):
             # a bridge
             m = re.search('has address ([\da-f]+)', entry)
             addr = int(m.group(1), 16)
+            entry = entry.lower()
+            m = re.search('guard \d+', entry)
+            addrs[addr] = m.group(0)
         else:
-            name = entry[:entry.find('(') - 1]
+            name = entry[:entry.find('(') - 1].lower()
             addrs[int(m.group(1), 16)] = name
     dumps = {}
     for entry in extract_category(log, 'jit-backend-dump'):
@@ -358,12 +361,15 @@ def import_log(logname, ParserCls=SimpleParser):
                            nonstrict=True)
         loop = parser.parse()
         comm = loop.comment
-        name = comm[2:comm.find(':')-1]
+        comm = comm.lower()
+        if comm.startswith('# bridge'):
+            m = re.search('guard \d+', comm)
+            name = m.group(0)
+        else:
+            name = comm[2:comm.find(':')-1]
         if name in dumps:
             bname, start_ofs, dump = dumps[name]
             parser.postprocess(loop, backend_tp=bname, backend_dump=dump,
                                dump_start=start_ofs)
-        else:
-            xxx
         loops.append(loop)
     return log, loops

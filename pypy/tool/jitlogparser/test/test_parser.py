@@ -218,4 +218,6 @@ def test_import_log():
 def test_import_log_2():
     _, loops = import_log(str(py.path.local(__file__).join('..',
                                                            'logtest2.log')))
-    xxx
+    assert 'cmp' in loops[1].operations[1].asm
+    # bridge
+    assert 'cmp' in loops[3].operations[1].asm
