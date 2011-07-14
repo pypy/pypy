@@ -43,6 +43,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         assert a[3] == 3
 
+    def test_repr(self):
+        from numpy import array, zeros
+        a = array(range(5))
+        assert repr(a) == "array([0.0, 1.0, 2.0, 3.0, 4.0])"
+        a = zeros(1001)
+        assert repr(a) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
+
+    def test_str(self):
+        from numpy import array, zeros
+        a = array(range(5))
+        assert str(a) == "[0.0 1.0 2.0 3.0 4.0]"
+        a = zeros(1001)
+        assert str(a) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]" 
+
     def test_getitem(self):
         from numpy import array
         a = array(range(5))
