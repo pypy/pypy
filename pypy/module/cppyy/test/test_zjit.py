@@ -1,6 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib import rarithmetic, jit
+from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy
@@ -57,6 +58,8 @@ class FakeSpace(object):
             return FakeFloat(obj)
         if isinstance(obj, str):
             return FakeString(obj)
+        if isinstance(obj, rffi.r_int):
+            return FakeInt(int(obj))
         assert 0
 
     def float_w(self, w_obj):

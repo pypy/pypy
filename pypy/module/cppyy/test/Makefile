@@ -10,6 +10,11 @@ else
   cppflags=-I$(ROOTSYS)/include -L$(ROOTSYS)/lib
 endif
 
+PLATFORM := $(shell uname -s)
+ifeq ($(PLATFORM),Darwin)
+  cppflags+=-dynamiclib -single_module -arch x86_64
+endif
+
 ifeq ($(shell $(genreflex) --help | grep -- --with-methptrgetter),)
   genreflexflags=
   cppflags2=-O3
@@ -17,6 +22,7 @@ else
   genreflexflags=--with-methptrgetter
   cppflags2=-Wno-pmf-conversions -O3
 endif
+
 
 example01Dict.so: example01.cxx example01.h example01.xml
 	$(genreflex) example01.h $(genreflexflags) --selection=example01.xml
@@ -40,4 +46,3 @@ stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml
 operatorsDict.so: operators.cxx operators.h
 	$(genreflex) operators.h
 	g++ -o $@ operators_rflx.cpp operators.cxx -shared -lReflex $(cppflags) $(cppflags2)
-
