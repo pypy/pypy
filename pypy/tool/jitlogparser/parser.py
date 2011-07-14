@@ -337,8 +337,13 @@ def import_log(logname, ParserCls=SimpleParser):
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
         m = re.search('bootstrap ([\da-f]+)', entry)
-        name = entry[:entry.find('(') - 1]
-        addrs[int(m.group(1), 16)] = name
+        if not m:
+            # a bridge
+            m = re.search('has address ([\da-f]+)', entry)
+            addr = int(m.group(1), 16)
+        else:
+            name = entry[:entry.find('(') - 1]
+            addrs[int(m.group(1), 16)] = name
     dumps = {}
     for entry in extract_category(log, 'jit-backend-dump'):
         backend, _, dump, _ = entry.split("\n")
@@ -358,5 +363,7 @@ def import_log(logname, ParserCls=SimpleParser):
             bname, start_ofs, dump = dumps[name]
             parser.postprocess(loop, backend_tp=bname, backend_dump=dump,
                                dump_start=start_ofs)
+        else:
+            xxx
         loops.append(loop)
     return log, loops

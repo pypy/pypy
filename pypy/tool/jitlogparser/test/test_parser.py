@@ -214,3 +214,8 @@ def test_import_log():
     _, loops = import_log(str(py.path.local(__file__).join('..',
                                                            'logtest.log')))
     assert 'jge' in loops[0].operations[3].asm
+
+def test_import_log_2():
+    _, loops = import_log(str(py.path.local(__file__).join('..',
+                                                           'logtest2.log')))
+    xxx
