@@ -27,9 +27,10 @@ def syntax_warning(space, msg, fn, lineno, offset):
     _emit_syntax_warning(space, w_msg, w_filename, w_lineno, w_offset)
 
 
-def parse_future(tree):
+def parse_future(tree, feature_flags):
     future_lineno = 0
     future_column = 0
+    flags = 0
     have_docstring = False
     body = None
     if isinstance(tree, ast.Module):
@@ -37,7 +38,7 @@ def parse_future(tree):
     elif isinstance(tree, ast.Interactive):
         body = tree.body
     if body is None:
-        return 0, 0
+        return 0, 0, 0
     for stmt in body:
         if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Str):
             if have_docstring:
@@ -48,11 +49,15 @@ def parse_future(tree):
             if stmt.module == "__future__":
                 future_lineno = stmt.lineno
                 future_column = stmt.col_offset
+                for name in stmt.names:
+                    # If this is an invalid flag, it will be caught later in
+                    # codegen.py.
+                    flags |= feature_flags.get(name.name, 0)
             else:
                 break
         else:
             break
-    return future_lineno, future_column
+    return flags, future_lineno, future_column
 
 
 class ForbiddenNameAssignment(Exception):
