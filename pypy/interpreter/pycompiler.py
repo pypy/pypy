@@ -119,6 +119,7 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(self.space.w_TypeError, self.space.wrap(
                 "invalid node type"))
 
+        flags |= self.future_flags.mandatory_flags
         fut = misc.parse_future(node, self.future_flags.compiler_features)
         f_flags, f_lineno, f_col = fut
         future_pos = f_lineno, f_col
@@ -137,6 +138,7 @@ class PythonAstCompiler(PyCodeCompiler):
         return code
 
     def compile_to_ast(self, source, filename, mode, flags):
+        flags |= self.future_flags.mandatory_flags
         info = pyparse.CompileInfo(filename, mode, flags)
         return self._compile_to_ast(source, info)
 
@@ -154,6 +156,7 @@ class PythonAstCompiler(PyCodeCompiler):
         return mod
 
     def compile(self, source, filename, mode, flags, hidden_applevel=False):
+        flags |= self.future_flags.mandatory_flags
         info = pyparse.CompileInfo(filename, mode, flags,
                                    hidden_applevel=hidden_applevel)
         mod = self._compile_to_ast(source, info)
