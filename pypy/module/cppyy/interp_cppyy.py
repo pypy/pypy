@@ -495,17 +495,6 @@ class W_CPPType(W_CPPScope):
             bases.append(self.space.wrap(base_name))
         return self.space.newlist(bases)
 
-    def construct(self, w_type, args_w):
-        # XXX make pure python
-        try:
-            overload = self.get_overload(self.name)
-        except OperationError, e:
-            if e.match(self.space, self.space.w_AttributeError):
-                raise OperationError(self.space.w_TypeError,
-                                     self.space.wrap("%s is abstract" % self.name))
-            raise
-        return overload.call(self.space.w_None, w_type, args_w)
-
 W_CPPType.typedef = TypeDef(
     'CPPType',
     type_name = interp_attrproperty('name', W_CPPType),
@@ -515,7 +504,6 @@ W_CPPType.typedef = TypeDef(
     get_data_member_names = interp2app(W_CPPType.get_data_member_names, unwrap_spec=['self']),
     get_data_member = interp2app(W_CPPType.get_data_member, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPType.is_namespace, unwrap_spec=['self']),
-    construct = interp2app(W_CPPType.construct, unwrap_spec=['self', W_Root, 'args_w']),
 )
 
 

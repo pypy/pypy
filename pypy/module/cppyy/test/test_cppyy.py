@@ -93,7 +93,7 @@ class AppTestCPPYY:
 
         assert t.get_overload("getCount").call(None, None) == 0
 
-        e1 = t.construct(cppyy.CPPInstance, 7)
+        e1 = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, 7)
         assert t.get_overload("getCount").call(None, None) == 1
         res = t.get_overload("addDataToInt").call(e1, None, 4)
         assert res == 11
@@ -103,8 +103,8 @@ class AppTestCPPYY:
         assert t.get_overload("getCount").call(None, None) == 0
         raises(ReferenceError, 't.get_overload("addDataToInt").call(e1, None, 4)')
 
-        e1 = t.construct(cppyy.CPPInstance, 7)
-        e2 = t.construct(cppyy.CPPInstance, 8)
+        e1 = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, 7)
+        e2 = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, 8)
         assert t.get_overload("getCount").call(None, None) == 2
         e1.destruct()
         assert t.get_overload("getCount").call(None, None) == 1
@@ -124,7 +124,7 @@ class AppTestCPPYY:
 
         assert t.get_overload("getCount").call(None, None) == 0
 
-        e1 = t.construct(cppyy.CPPInstance, 7)
+        e1 = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, 7)
         assert t.get_overload("getCount").call(None, None) == 1
         res = t.get_overload("addDataToInt").call(e1, None, 4)
         assert res == 11
@@ -134,8 +134,8 @@ class AppTestCPPYY:
         gc.collect()
         assert t.get_overload("getCount").call(None, None) == 0
 
-        e1 = t.construct(cppyy.CPPInstance, 7)
-        e2 = t.construct(cppyy.CPPInstance, 8)
+        e1 = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, 7)
+        e2 = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, 8)
         assert t.get_overload("getCount").call(None, None) == 2
         e1 = None
         gc.collect()
@@ -152,12 +152,12 @@ class AppTestCPPYY:
 
         t = self.example01
 
-        e = t.construct(cppyy.CPPInstance, 13)
+        e = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, 13)
         res = t.get_overload("addDataToDouble").call(e, None, 16)
         assert round(res-29, 8) == 0.
         e.destruct()
 
-        e = t.construct(cppyy.CPPInstance, -13)
+        e = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, -13)
         res = t.get_overload("addDataToDouble").call(e, None, 16)
         assert round(res-3, 8) == 0.
         e.destruct()
@@ -170,7 +170,7 @@ class AppTestCPPYY:
 
         t = self.example01
 
-        e = t.construct(cppyy.CPPInstance, 42)
+        e = t.get_overload(t.type_name).call(None, cppyy.CPPInstance, 42)
         res = t.get_overload("addDataToAtoi").call(e, None, "13")
         assert res == 55
         res = t.get_overload("addToStringValue").call(e, None, "12")     # TODO: this leaks
@@ -187,12 +187,12 @@ class AppTestCPPYY:
         t1 = self.example01
         t2 = self.payload
 
-        pl = t2.construct(cppyy.CPPInstance, 3.14)
+        pl = t2.get_overload(t2.type_name).call(None, cppyy.CPPInstance, 3.14)
         assert round(t2.get_overload("getData").call(pl, None)-3.14, 8) == 0
         t1.get_overload("staticSetPayload").call(None, None, pl, 41.)  # now pl is a CPPInstance
         assert t2.get_overload("getData").call(pl, None) == 41.
 
-        e = t1.construct(cppyy.CPPInstance, 50)
+        e = t1.get_overload(t1.type_name).call(None, cppyy.CPPInstance, 50)
         t1.get_overload("setPayload").call(e, None, pl);
         assert round(t2.get_overload("getData").call(pl, None)-50., 8) == 0
 
@@ -207,12 +207,12 @@ class AppTestCPPYY:
         t1 = self.example01
         t2 = self.payload
 
-        pl1 = t2.construct(cppyy.CPPInstance, 3.14)
+        pl1 = t2.get_overload(t2.type_name).call(None, cppyy.CPPInstance, 3.14)
         assert round(t2.get_overload("getData").call(pl1, None)-3.14, 8) == 0
         pl2 = t1.get_overload("staticCyclePayload").call(None, cppyy.CPPInstance, pl1, 38.)
         assert t2.get_overload("getData").call(pl2, None) == 38.
 
-        e = t1.construct(cppyy.CPPInstance, 50)
+        e = t1.get_overload(t1.type_name).call(None, cppyy.CPPInstance, 50)
         pl2 = t1.get_overload("cyclePayload").call(e, cppyy.CPPInstance, pl1);
         assert round(t2.get_overload("getData").call(pl2, None)-50., 8) == 0
 
