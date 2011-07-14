@@ -38,6 +38,8 @@ Environment variables can be used to fine-tune the following parameters:
                         'PYPY_GC_LOSTCARD * length' writes to the same array,
                         then give up card marking and use the fast write
                         barrier instead.  Defaults to 0.3333 for now.
+                        Avoid values lower than 0.125: it is the growth
+                        factor of list.append().
 
  PYPY_GC_DEBUG          Enable extra checks around collections that are
                         too slow for normal use.  Values are 0 (off),
@@ -1023,6 +1025,8 @@ class MiniMarkGC(MovingGCBase):
                     self.prebuilt_root_objects.append(addr_array)
                 return
             #
+            self.set_cards_flag(addr_array)
+            #
             # 'addr_array' is a raw_malloc'ed array with card markers
             # in front.  Compute the index of the bit to set:
             bitindex = index >> self.card_page_shift
@@ -1040,8 +1044,6 @@ class MiniMarkGC(MovingGCBase):
             # it seems more important that remember_young_pointer_from_array2()
             # does not take 3 arguments).
             addr_byte.char[0] = chr(byte | bitmask)
-            #
-            self.set_cards_flag(addr_array)
 
         remember_young_pointer_from_array2._dont_inline_ = True
         assert self.card_page_indices > 0
@@ -1070,6 +1072,8 @@ class MiniMarkGC(MovingGCBase):
                 if not self.appears_to_be_young(newvalue):
                     return
                 #
+                self.set_cards_flag(addr_array)
+                #
                 # 'addr_array' is a raw_malloc'ed array with card markers
                 # in front.  Compute the index of the bit to set:
                 bitindex = index >> self.card_page_shift
@@ -1082,8 +1086,6 @@ class MiniMarkGC(MovingGCBase):
                 if byte & bitmask:
                     return
                 addr_byte.char[0] = chr(byte | bitmask)
-                #
-                self.set_cards_flag(addr_array)
                 return
             #
             # Logic for the no-cards case, put here to minimize the number
