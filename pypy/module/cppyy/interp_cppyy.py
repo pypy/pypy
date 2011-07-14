@@ -171,28 +171,32 @@ class CPPMethod(object):
             raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
         if self.arg_converters is None:
             self._build_converters()
-        args = lltype.malloc(rffi.CArray(rffi.VOIDP), len(args_w), flavor='raw')
+        args = capi.c_allocate_function_args(len(args_w))
+        stride = capi.c_function_arg_sizeof()
         for i in range(len(args_w)):
             conv = self.arg_converters[i]
             w_arg = args_w[i]
             try:
-                arg = conv.convert_argument(space, w_arg)
+                arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
+                conv.convert_argument(space, w_arg, rffi.cast(rffi.VOIDP, arg_i))
             except:
                 # fun :-(
                 for j in range(i):
                     conv = self.arg_converters[j]
-                    conv.free_argument(args[j])
-                lltype.free(args, flavor='raw')
+                    arg_j = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), j*stride)
+                    conv.free_argument(rffi.cast(rffi.VOIDP, arg_j))
+                capi.c_deallocate_function_args(args)
                 raise
-            args[i] = arg
         return args
 
     @jit.unroll_safe
     def free_arguments(self, args, nargs):
+        stride = capi.c_function_arg_sizeof()
         for i in range(nargs):
             conv = self.arg_converters[i]
-            conv.free_argument(args[i])
-        lltype.free(args, flavor='raw')
+            arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
+            conv.free_argument(rffi.cast(rffi.VOIDP, arg_i))
+        capi.c_deallocate_function_args(args)
 
     def __repr__(self):
         return "CPPFunction(%s, %s, %r, %s)" % (

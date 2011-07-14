@@ -47,7 +47,7 @@ class TypeConverter(object):
         raise NotImplementedError(
             "abstract base class" ) # more detailed part is not rpython: (actual: %s)" % type(self).__name__)
 
-    def convert_argument(self, space, w_obj):
+    def convert_argument(self, space, w_obj, address):
         self._is_abstract()
 
     def convert_argument_libffi(self, space, w_obj, argchain):
@@ -61,7 +61,7 @@ class TypeConverter(object):
         self._is_abstract()
 
     def free_argument(self, arg):
-        lltype.free(arg, flavor='raw')
+        pass
 
 
 class ArrayCache(object):
@@ -141,7 +141,7 @@ class VoidConverter(TypeConverter):
     def __init__(self, space, name):
         self.name = name
 
-    def convert_argument(self, space, w_obj):
+    def convert_argument(self, space, w_obj, address):
         raise OperationError(space.w_TypeError,
                              space.wrap('no converter available for type "%s"' % self.name))
 
@@ -157,11 +157,9 @@ class BoolConverter(TypeConverter):
                                  space.wrap("boolean value should be bool, or integer 1 or 0"))
         return arg
 
-    def convert_argument(self, space, w_obj):
-        arg = self._unwrap_object(space, w_obj)
-        x = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
-        x[0] = arg
-        return rffi.cast(rffi.VOIDP, x)
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.LONGP, address)
+        x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -201,10 +199,9 @@ class CharConverter(TypeConverter):
                                  space.wrap("char expected, got string of size %d" % len(value)))
         return value[0] # turn it into a "char" to the annotator
 
-    def convert_argument(self, space, w_obj):
-        arg = self._unwrap_object(space, w_obj)
-        x = rffi.str2charp(arg)
-        return rffi.cast(rffi.VOIDP, x)
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.CCHARP, address)
+        x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain): 
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -224,11 +221,9 @@ class IntConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(rffi.INT, space.c_int_w(w_obj))
 
-    def convert_argument(self, space, w_obj):
-        arg = self._unwrap_object(space, w_obj)
-        x = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-        x[0] = arg
-        return rffi.cast(rffi.VOIDP, x)
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.INTP, address)
+        x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -250,11 +245,9 @@ class UnsignedIntConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(rffi.UINT, space.uint_w(w_obj))
 
-    def convert_argument(self, space, w_obj):
-        arg = self._unwrap_object(space, w_obj)
-        x = lltype.malloc(rffi.UINTP.TO, 1, flavor='raw')
-        x[0] = arg
-        return rffi.cast(rffi.VOIDP, x)
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.UINTP, address)
+        x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -276,11 +269,9 @@ class LongConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return space.int_w(w_obj)
 
-    def convert_argument(self, space, w_obj):
-        arg = self._unwrap_object(space, w_obj)
-        x = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
-        x[0] = arg
-        return rffi.cast(rffi.VOIDP, x)
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.LONGP, address)
+        x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -302,11 +293,9 @@ class UnsignedLongConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return space.uint_w(w_obj)
 
-    def convert_argument(self, space, w_obj):
-        arg = self._unwrap_object(space, w_obj)
-        x = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw')
-        x[0] = arg
-        return rffi.cast(rffi.VOIDP, x)
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.ULONGP, address)
+        x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -328,11 +317,9 @@ class ShortConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(rffi.SHORT, space.int_w(w_obj))
 
-    def convert_argument(self, space, w_obj):
-        arg = self._unwrap_object(space, w_obj)
-        x = lltype.malloc(rffi.SHORTP.TO, 1, flavor='raw')
-        x[0] = arg
-        return rffi.cast(rffi.VOIDP, x)
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.SHORTP, address)
+        x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -354,10 +341,9 @@ class FloatConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return r_singlefloat(space.float_w(w_obj))
 
-    def convert_argument(self, space, w_obj):
-        x = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw')
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.FLOATP, address)
         x[0] = self._unwrap_object(space, w_obj)
-        return rffi.cast(rffi.VOIDP, x)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         # it's required to sent an rffi.DOUBLE not r_singlefloat
@@ -380,10 +366,9 @@ class DoubleConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return space.float_w(w_obj)
 
-    def convert_argument(self, space, w_obj):
-        x = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.DOUBLEP, address)
         x[0] = self._unwrap_object(space, w_obj)
-        return rffi.cast(rffi.VOIDP, x)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -402,15 +387,20 @@ class DoubleConverter(TypeConverter):
 class CStringConverter(TypeConverter):
     _immutable = True
 
-    def convert_argument(self, space, w_obj):
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.LONGP, address)
         arg = space.str_w(w_obj)
-        x = rffi.str2charp(arg)
-        return rffi.cast(rffi.VOIDP, x)
+        x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
+        typecode = _direct_ptradd(address, capi.c_function_arg_typeoffset())
+        typecode[0] = 'a'
 
     def from_memory(self, space, w_obj, offset):
         address = self._get_raw_address(space, w_obj, offset)
         charpptr = rffi.cast(rffi.CCHARPP, address)
         return space.wrap(rffi.charp2str(charpptr[0]))
+
+    def free_argument(self, arg):
+        lltype.free(rffi.cast(rffi.CCHARPP, arg)[0], flavor='raw')
 
 
 class ShortArrayConverter(ArrayTypeConverterMixin, TypeConverter):
@@ -498,14 +488,15 @@ class InstancePtrConverter(TypeConverter):
                                  space.type(w_obj).getname(space, "?"),
                                  self.cpptype.name)))
 
-    def convert_argument(self, space, w_obj):
-        return self._unwrap_object(space, w_obj)
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.VOIDPP, address)
+        x[0] = self._unwrap_object(space, w_obj)
+        typecode = _direct_ptradd(address, capi.c_function_arg_typeoffset())
+        typecode[0] = 'a'
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def free_argument(self, arg):
-        pass
 
 class InstanceConverter(InstancePtrConverter):
     _immutable_ = True
@@ -514,9 +505,6 @@ class InstanceConverter(InstancePtrConverter):
         address = rffi.cast(rffi.VOIDP, self._get_raw_address(space, w_obj, offset))
         from pypy.module.cppyy import interp_cppyy
         return interp_cppyy.W_CPPInstance(space, self.cpptype, address, False)
-
-    def free_argument(self, arg):
-        pass
 
 
 _converters = {}

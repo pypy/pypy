@@ -30,6 +30,18 @@ static inline Reflex::Type type_from_handle(cppyy_typehandle_t handle) {
     return Reflex::Scope((Reflex::ScopeName*)handle);
 }
 
+static inline std::vector<void*> build_args(int numargs, void* args) {
+    std::vector<void*> arguments;
+    arguments.reserve(numargs);
+    for (int i=0; i < numargs; ++i) {
+        if (((CPPYY_G__value*)args)[i].type == 'l')
+            arguments.push_back(&((CPPYY_G__value*)args)[i]);
+        else
+            arguments.push_back((void*)(*(long*)&((CPPYY_G__value*)args)[i]));
+    }
+    return arguments;
+}
+
 static inline size_t base_offset(const Reflex::Type& td, const Reflex::Type& tb) {
     // when dealing with virtual inheritance the only (reasonably) well-defined info is
     // in a Reflex internal base table, that contains all offsets within the hierarchy
@@ -92,8 +104,8 @@ void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self) {
 
 /* method/function dispatching -------------------------------------------- */
 void cppyy_call_v(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[]) {
-    std::vector<void*> arguments(args, args+numargs);
+                  cppyy_object_t self, int numargs, void* args) {
+    std::vector<void*> arguments = build_args(numargs, args);
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     if (self) {
@@ -105,10 +117,10 @@ void cppyy_call_v(cppyy_typehandle_t handle, int method_index,
 }
 
 long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[],
+                  cppyy_object_t self, int numargs, void* args,
                   cppyy_typehandle_t rettype) {
     void* result = cppyy_allocate(rettype);
-    std::vector<void*> arguments(args, args+numargs);
+    std::vector<void*> arguments = build_args(numargs, args);
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     if (self) {
@@ -122,9 +134,9 @@ long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
 
 template<typename T>
 static inline T cppyy_call_T(cppyy_typehandle_t handle, int method_index,
-                             cppyy_object_t self, int numargs, void* args[]) {
+                             cppyy_object_t self, int numargs, void* args) {
     T result;
-    std::vector<void*> arguments(args, args+numargs);
+    std::vector<void*> arguments = build_args(numargs, args);
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     if (self) {
@@ -137,37 +149,37 @@ static inline T cppyy_call_T(cppyy_typehandle_t handle, int method_index,
 }
 
 int cppyy_call_b(cppyy_typehandle_t handle, int method_index,
-                 cppyy_object_t self, int numargs, void* args[]) {
+                 cppyy_object_t self, int numargs, void* args) {
     return (int)cppyy_call_T<bool>(handle, method_index, self, numargs, args);
 }
 
 char cppyy_call_c(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[]) {
+                  cppyy_object_t self, int numargs, void* args) {
     return cppyy_call_T<char>(handle, method_index, self, numargs, args);
 }
 
 short cppyy_call_h(cppyy_typehandle_t handle, int method_index,
-                   cppyy_object_t self, int numargs, void* args[]) {
+                   cppyy_object_t self, int numargs, void* args) {
     return cppyy_call_T<short>(handle, method_index, self, numargs, args);
 }
 
 int cppyy_call_i(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[]) {
+                  cppyy_object_t self, int numargs, void* args) {
     return cppyy_call_T<int>(handle, method_index, self, numargs, args);
 }
 
 long cppyy_call_l(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args[]) {
+                  cppyy_object_t self, int numargs, void* args) {
     return cppyy_call_T<long>(handle, method_index, self, numargs, args);
 }
 
 double cppyy_call_f(cppyy_typehandle_t handle, int method_index,
-                    cppyy_object_t self, int numargs, void* args[]) {
+                    cppyy_object_t self, int numargs, void* args) {
     return cppyy_call_T<float>(handle, method_index, self, numargs, args);
 }
 
 double cppyy_call_d(cppyy_typehandle_t handle, int method_index,
-                    cppyy_object_t self, int numargs, void* args[]) {
+                    cppyy_object_t self, int numargs, void* args) {
     return cppyy_call_T<double>(handle, method_index, self, numargs, args);
 }   
 
@@ -185,6 +197,29 @@ cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int me
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return get_methptr_getter(m);
+}
+
+
+/* handling of function argument buffer */
+void* cppyy_allocate_function_args(size_t nargs) {
+    CPPYY_G__param* libp = (CPPYY_G__param*)malloc(
+        sizeof(int/*CPPYY_G__param.paran*/) + nargs*sizeof(CPPYY_G__value));
+    libp->paran = (int)nargs;
+    for (int i = 0; i < nargs; ++i)
+        ((CPPYY_G__value*)&libp->para)[i].type = 'l';
+    return (void*)&libp->para;
+}
+
+void cppyy_deallocate_function_args(void* args) {
+    free((char*)args - offsetof(CPPYY_G__param, para));
+}
+
+size_t cppyy_function_arg_sizeof() {
+    return sizeof(CPPYY_G__value);
+}
+
+size_t cppyy_function_arg_typeoffset() {
+    return offsetof(CPPYY_G__value, type);
 }
 
 

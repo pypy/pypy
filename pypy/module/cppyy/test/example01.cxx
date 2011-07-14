@@ -83,7 +83,6 @@ payload example01::staticCopyCyclePayload(payload* p, double d) {
 }
 
 int example01::getCount() {
-    std::cout << "getcount called" << std::endl;
     return count;
 }
 
