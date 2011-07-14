@@ -96,6 +96,7 @@ class RegAllocator(object):
 
     def _try_coalesce(self, v, w):
         if isinstance(v, Variable) and getkind(v.concretetype) == self.kind:
+            assert getkind(w.concretetype) == self.kind
             dg = self._depgraph
             uf = self._unionfind
             v0 = uf.find_rep(v)
