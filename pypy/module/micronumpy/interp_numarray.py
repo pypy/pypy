@@ -267,10 +267,15 @@ class BaseArray(Wrappable):
             res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
             return space.wrap(res)
 
-    @unwrap_spec(item=int, value=float)
-    def descr_setitem(self, space, item, value):
+    def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
-        return self.get_concrete().descr_setitem(space, item, value)
+        start, stop, step, slice_length = space.decode_index4(w_idx,
+                                                              self.find_size())
+        if step == 0:
+            # Single index
+            self.get_concrete().descr_setitem(space, start, space.float_w(w_value))
+        else:
+            self.get_concrete().descr_setslice(space, start, stop, step, slice_length, w_value)
 
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
@@ -422,6 +427,7 @@ class ViewArray(BaseArray):
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
+        # need to change this so that it can deal with slices
         return self.parent.descr_setitem(space, self.calc_index(item), value)
 
     def descr_len(self, space):
@@ -507,11 +513,53 @@ class SingleDimArray(BaseArray):
     def descr_str(self,space):
         return space.wrap("[" + " ".join(self._getnums(True)) + "]")
 
-    @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
         item = self.getindex(space, item)
         self.invalidated()
         self.storage[item] = value
+
+    def descr_setslice(self, space, start, stop, step, slice_length, w_value):
+        i = start
+        if step > 0:
+            stop = min(stop, self.find_size())
+        else:
+            stop = max(stop, 0)
+        if isinstance(w_value, BaseArray):
+            j = 0
+            if step > 0:
+                while i < stop:
+                    self.storage[i] = w_value.get_concrete().getitem(j)
+                    i += step
+                    j += 1
+            else:
+                while i > stop:
+                    self.storage[i] = w_value.get_concrete().getitem(j)
+                    i += step
+                    j += 1
+        elif space.issequence_w(w_value):
+            l = space.listview(w_value)
+            if step > 0:
+                for w_elem in l:
+                    self.storage[i] = space.float_w(space.float(w_elem))
+                    i += step
+                    if i >= stop:
+                        break
+            else:
+                for w_elem in l:
+                    self.storage[i] = space.float_w(space.float(w_elem))
+                    i += step
+                    if i <= stop:
+                        break
+        else:
+            value = space.float_w(space.float(w_value))
+            if step > 0:
+                while i < stop:
+                    self.storage[i] = value
+                    i += step
+            else:
+                while i > stop:
+                    self.storage[i] = value
+                    i += step
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw')
