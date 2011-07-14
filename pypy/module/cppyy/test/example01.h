@@ -1,6 +1,6 @@
 class payload {
 public:
-    payload(double d);
+    payload(double d = 0.);
     payload(const payload& p);
     payload& operator=(const payload& e);
     ~payload();
