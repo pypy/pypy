@@ -3,7 +3,7 @@ import pypy.module.cppyy.capi as capi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
 from pypy.rpython.lltypesystem import rffi, lltype
 
@@ -101,7 +101,7 @@ class CPPMethod(object):
         self.methgetter = methgetter
         self._libffifunc_cache = {}
 
-    def call(self, cppthis, args_w):
+    def call(self, cppthis, w_type, args_w):
         assert lltype.typeOf(cppthis) == rffi.VOIDP
         if self.executor is None:
             raise OperationError(self.space.w_TypeError,
@@ -209,7 +209,7 @@ class CPPMethod(object):
 class CPPFunction(CPPMethod):
     _immutable_ = True
 
-    def call(self, cppthis, args_w):
+    def call(self, cppthis, w_type, args_w):
         assert lltype.typeOf(cppthis) == rffi.VOIDP
         if self.executor is None:
             raise OperationError(self.space.w_TypeError,
@@ -227,16 +227,18 @@ class CPPFunction(CPPMethod):
 class CPPConstructor(CPPMethod):
     _immutable_=True
 
-    def call(self, cppthis, args_w):
-        assert not cppthis
+    def call(self, cppthis, w_type, args_w):
         newthis = capi.c_allocate(self.cpptype.handle)
         assert lltype.typeOf(newthis) == rffi.VOIDP
         try:
-            CPPMethod.call(self, newthis, args_w)
+            CPPMethod.call(self, newthis, None, args_w)
         except Exception, e:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
-        return W_CPPInstance(self.space, self.cpptype, newthis, True)
+        w_instance = self.space.allocate_instance(W_CPPInstance, w_type)
+        instance = self.space.interp_w(W_CPPInstance, w_instance)
+        W_CPPInstance.__init__(instance, self.space, self.cpptype, newthis, True)
+        return w_instance
 
 
 class W_CPPOverload(Wrappable):
@@ -255,8 +257,10 @@ class W_CPPOverload(Wrappable):
         return self.space.wrap(self.functions[0].executor.name)
 
     @jit.unroll_safe
-    def call(self, cppinstance, args_w):
-        if cppinstance:
+    def call(self, w_cppinstance, w_type, args_w):
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        if cppinstance is not None:
+            cppinstance._nullcheck()
             cppthis = cppinstance.rawobject
         else:
             cppthis = NULL_VOIDP
@@ -268,7 +272,7 @@ class W_CPPOverload(Wrappable):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                cppresult = cppyyfunc.call(cppthis, args_w)
+                cppresult = cppyyfunc.call(cppthis, w_type, args_w)
                 if cppinstance and isinstance(cppresult, W_CPPInstance):
                     if cppresult.rawobject == cppinstance.rawobject:
                         return cppinstance  # recycle object to preserve identity
@@ -289,6 +293,7 @@ W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
     is_static = interp2app(W_CPPOverload.is_static, unwrap_spec=['self']),
     get_returntype = interp2app(W_CPPOverload.get_returntype, unwrap_spec=['self']),
+    call = interp2app(W_CPPOverload.call, unwrap_spec=['self', W_Root, W_Root, 'args_w']),
 )
 
 
@@ -396,16 +401,12 @@ class W_CPPScope(Wrappable):
                 self.space.w_AttributeError,
                 self.space.wrap(str("class %s has no attribute %s" % (self.name, name))))
 
-    def invoke(self, overload, args_w):
-        return overload.call(None, args_w)
-
 W_CPPScope.typedef = TypeDef(
     'CPPScope',
     get_method_names = interp2app(W_CPPScope.get_method_names, unwrap_spec=['self']),
     get_overload = interp2app(W_CPPScope.get_overload, unwrap_spec=['self', str]),
     get_data_member_names = interp2app(W_CPPScope.get_data_member_names, unwrap_spec=['self']),
     get_data_member = interp2app(W_CPPScope.get_data_member, unwrap_spec=['self', str]),
-    invoke = interp2app(W_CPPScope.invoke, unwrap_spec=['self', W_CPPOverload, 'args_w']),
 )
 
 
@@ -450,7 +451,6 @@ W_CPPNamespace.typedef = TypeDef(
     get_data_member_names = interp2app(W_CPPNamespace.get_data_member_names, unwrap_spec=['self']),
     get_data_member = interp2app(W_CPPNamespace.get_data_member, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPNamespace.is_namespace, unwrap_spec=['self']),
-    invoke = interp2app(W_CPPNamespace.invoke, unwrap_spec=['self', W_CPPOverload, 'args_w']),
 )
 
 
@@ -495,7 +495,8 @@ class W_CPPType(W_CPPScope):
             bases.append(self.space.wrap(base_name))
         return self.space.newlist(bases)
 
-    def construct(self, args_w):
+    def construct(self, w_type, args_w):
+        # XXX make pure python
         try:
             overload = self.get_overload(self.name)
         except OperationError, e:
@@ -503,8 +504,7 @@ class W_CPPType(W_CPPScope):
                 raise OperationError(self.space.w_TypeError,
                                      self.space.wrap("%s is abstract" % self.name))
             raise
-
-        return overload.call(None, args_w)
+        return overload.call(self.space.w_None, w_type, args_w)
 
 W_CPPType.typedef = TypeDef(
     'CPPType',
@@ -515,8 +515,7 @@ W_CPPType.typedef = TypeDef(
     get_data_member_names = interp2app(W_CPPType.get_data_member_names, unwrap_spec=['self']),
     get_data_member = interp2app(W_CPPType.get_data_member, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPType.is_namespace, unwrap_spec=['self']),
-    invoke = interp2app(W_CPPType.invoke, unwrap_spec=['self', W_CPPOverload, 'args_w']),
-    construct = interp2app(W_CPPType.construct, unwrap_spec=['self', 'args_w']),
+    construct = interp2app(W_CPPType.construct, unwrap_spec=['self', W_Root, 'args_w']),
 )
 
 
@@ -549,14 +548,11 @@ class W_CPPInstance(Wrappable):
         self.rawobject = rawobject
         self.python_owns = python_owns
 
+
     def _nullcheck(self):
         if not self.rawobject:
             raise OperationError(self.space.w_ReferenceError,
                                  self.space.wrap("trying to access a NULL pointer"))
-
-    def invoke(self, overload, args_w):
-        self._nullcheck()
-        return overload.call(self, args_w)
 
     def destruct(self):
         if self.rawobject:
@@ -567,9 +563,9 @@ class W_CPPInstance(Wrappable):
         if self.python_owns:
             self.destruct()
 
+
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
     cppclass = interp_attrproperty('cppclass', W_CPPInstance),
-    invoke = interp2app(W_CPPInstance.invoke, unwrap_spec=['self', W_CPPOverload, 'args_w']),
     destruct = interp2app(W_CPPInstance.destruct, unwrap_spec=['self']),
 )
