@@ -1008,7 +1008,7 @@ class Regalloc(object):
                 loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
                 arglocs.append(loc)
                 argboxes.append(box)
-            self.assembler.call_release_gil(gcrootmap, arglocs)
+            self.assembler.call_release_gil(gcrootmap, arglocs, fcond)
             self.possibly_free_vars(argboxes)
         # do the call
         faildescr = guard_op.getdescr()
@@ -1017,7 +1017,7 @@ class Regalloc(object):
         self.assembler.emit_op_call(op, args, self, fcond, fail_index)
         # then reopen the stack
         if gcrootmap:
-            self.call_reacquire_gil(gcrootmap, r.r0)
+            self.assembler.call_reacquire_gil(gcrootmap, r.r0, fcond)
         locs = self._prepare_guard(guard_op)
         self.possibly_free_vars(guard_op.getfailargs())
         return locs

@@ -100,10 +100,11 @@ class ArmCPU(AbstractLLCPU):
                 LLInterpreter.current_interpreter = prev_interpreter
         return res
 
-    @staticmethod
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return ArmCPU.cast_adr_to_int(adr)
+    cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
+    cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
     def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)

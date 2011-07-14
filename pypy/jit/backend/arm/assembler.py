@@ -135,6 +135,7 @@ class AssemblerARM(ResOpAssembler):
         after = rffi.aroundstate.after
         if after:
             after()
+
     _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
     def _build_release_gil(self, gcrootmap):
         assert gcrootmap.is_shadow_stack
@@ -142,8 +143,8 @@ class AssemblerARM(ResOpAssembler):
                                    self._release_gil_shadowstack)
         reacqgil_func = llhelper(self._NOARG_FUNC,
                                  self._reacquire_gil_shadowstack)
-        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
-        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
+        self.releasegil_addr  = rffi.cast(lltype.Signed, releasegil_func)
+        self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
 
     def setup_failure_recovery(self):
 

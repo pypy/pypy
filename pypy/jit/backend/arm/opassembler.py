@@ -480,7 +480,7 @@ class OpAssembler(object):
             else:
                 callargs = [r.r0, r.r1, r.r2]
             remap_frame_layout(self, arglocs, callargs, r.ip)
-            func = self.cpu.cast_adr_to_int(addr)
+            func = rffi.cast(lltype.Signed, addr)
             #
             # misaligned stack in the call, but it's ok because the write barrier
             # is not going to call anything more.  
@@ -952,32 +952,31 @@ class ForceOpAssembler(object):
 
     emit_guard_call_release_gil = emit_guard_call_may_force
 
-    def call_release_gil(self, gcrootmap, save_registers):
+    def call_release_gil(self, gcrootmap, save_registers, fcond):
         # First, we need to save away the registers listed in
         # 'save_registers' that are not callee-save.  XXX We assume that
         # the floating point registers won't be modified.
-        import pdb; pdb.set_trace()
         regs_to_save = []
         for reg in self._regalloc.rm.save_around_call_regs:
             if reg in save_registers:
                 regs_to_save.append(reg)
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save):
-            self._emit_call(-1, self.releasegil_addr, [], regalloc, fcond)
+            self._emit_call(-1, self.releasegil_addr, [], self._regalloc, fcond)
 
-    def call_reacquire_gil(self, gcrootmap, save_loc):
+    def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
         # save the previous result into the stack temporarily.
         # XXX like with call_release_gil(), we assume that we don't need
         # to save vfp regs in this case.
         regs_to_save = []
-        if isinstance(save_loc, RegLoc) and not save_loc.is_vfp_reg():
+        if save_loc.is_reg():
             regs_to_save.append(save_loc)
         # call the reopenstack() function (also reacquiring the GIL)
         if len(regs_to_save) == 1:
             regs_to_save.append(r.ip) # for alingment
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save):
-            self._emit_call(-1, self.reacqgil_addr, [], regalloc, fcond)
+            self._emit_call(-1, self.reacqgil_addr, [], self._regalloc, fcond)
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and
