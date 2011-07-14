@@ -49,10 +49,11 @@ def parse_future(tree, feature_flags):
             if stmt.module == "__future__":
                 future_lineno = stmt.lineno
                 future_column = stmt.col_offset
-                for name in stmt.names:
+                for alias in stmt.names:
+                    assert isinstance(alias, ast.alias)
                     # If this is an invalid flag, it will be caught later in
                     # codegen.py.
-                    flags |= feature_flags.get(name.name, 0)
+                    flags |= feature_flags.get(alias.name, 0)
             else:
                 break
         else:
