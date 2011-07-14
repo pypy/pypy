@@ -279,12 +279,12 @@ class UnrollOptimizer(Optimization):
         short_seen = {}
         for box, const in self.constant_inputargs.items():
             short_seen[box] = True
-        
+
         for result, op in self.short_boxes.items():
             if op is not None:
                 assert result is op.result
-                for guard in self.getvalue(result).make_guards(result):
-                    self.add_op_to_short(guard, short, short_seen, False)
+                if len(self.getvalue(result).make_guards(result)) > 0:
+                    self.add_op_to_short(op, short, short_seen, False, True)
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -362,7 +362,7 @@ class UnrollOptimizer(Optimization):
         
         return inputargs, short_inputargs, short
 
-    def add_op_to_short(self, op, short, short_seen, emit=True):
+    def add_op_to_short(self, op, short, short_seen, emit=True, guards_needed=False):
         if op is None:
             return None
         if op.result is not None and op.result in short_seen:
@@ -372,10 +372,16 @@ class UnrollOptimizer(Optimization):
                 return None
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in short_seen:
-                self.add_op_to_short(self.short_boxes[a], short, short_seen, emit)
+                self.add_op_to_short(self.short_boxes[a], short, short_seen,
+                                     emit, guards_needed)
         if op.is_guard():
             descr = self.start_resumedescr.clone_if_mutable()
             op.setdescr(descr)
+
+        if guards_needed and op.result in self.short_boxes:
+            value_guards = self.getvalue(op.result).make_guards(op.result)
+        else:
+            value_guards = []            
 
         short.append(op)
         short_seen[op.result] = True
@@ -388,7 +394,9 @@ class UnrollOptimizer(Optimization):
         if op.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-            self.add_op_to_short(guard, short, short_seen, emit)
+            self.add_op_to_short(guard, short, short_seen, emit, guards_needed)
+        for guard in value_guards:
+            self.add_op_to_short(guard, short, short_seen, emit, guards_needed)
 
         if newop:
             return newop.result
