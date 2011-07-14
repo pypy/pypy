@@ -382,13 +382,15 @@ class UnrollOptimizer(Optimization):
         if emit:
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
+        else:
+            newop = None
 
         if op.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             self.add_op_to_short(guard, short, short_seen, emit)
 
-        if emit:
+        if newop:
             return newop.result
         return None
         
