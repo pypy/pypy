@@ -6201,7 +6201,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_constant_getfield1(self):
         ops = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc(p187, i184, descr=<GcPtrArrayDescr>)
+        p188 = getarrayitem_gc(p187, 42, descr=<GcPtrArrayDescr>)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
         jump(p25, p187, i184)
