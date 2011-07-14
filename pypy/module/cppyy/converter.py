@@ -21,7 +21,7 @@ def get_rawobject(space, w_obj):
         cpp_instance = space.interp_w(W_CPPInstance, w_cpp_instance, can_be_None=True)
         if cpp_instance:
             return cpp_instance.rawobject
-    return lltype.nullptr(rffi.VOIDP.TO)
+    return lltype.nullptr(rffi.CCHARP.TO)
 
 
 class TypeConverter(object):
@@ -35,6 +35,7 @@ class TypeConverter(object):
     def _get_raw_address(self, space, w_obj, offset):
         rawobject = get_rawobject(space, w_obj)
         if rawobject:
+            assert lltype.typeOf(rawobject) == rffi.CCHARP
             field_address = lltype.direct_ptradd(rawobject, offset)
             fieldptr = rffi.cast(rffi.CCHARP, field_address)
         else:
@@ -123,6 +124,7 @@ class PtrTypeConverterMixin(object):
     def to_memory(self, space, w_obj, w_value, offset):
         # copy only the pointer value
         rawobject = get_rawobject(space, w_obj)
+        assert lltype.typeOf(rawobject) == rffi.CCHARP
         field_address = lltype.direct_ptradd(rawobject, offset)
         byteptr = rffi.cast(rffi.CCHARPP, field_address)
         buf = space.buffer_w(w_value)
@@ -490,6 +492,7 @@ class InstancePtrConverter(TypeConverter):
         if isinstance(obj, W_CPPInstance):
             if capi.c_is_subtype(obj.cppclass.handle, self.cpptype.handle):
                 offset = capi.c_base_offset(obj.cppclass.handle, self.cpptype.handle)
+                assert lltype.typeOf(obj.rawobject) == rffi.CCHARP
                 obj_address = lltype.direct_ptradd(obj.rawobject, offset)
                 objptr = rffi.cast(rffi.VOIDP, obj_address)
                 return objptr
@@ -512,9 +515,8 @@ class InstanceConverter(InstancePtrConverter):
 
     def from_memory(self, space, w_obj, offset):
         address = self._get_raw_address(space, w_obj, offset)
-        obj_address = rffi.cast(rffi.VOIDP, address)
         from pypy.module.cppyy import interp_cppyy
-        return interp_cppyy.W_CPPInstance(space, self.cpptype, obj_address, False)
+        return interp_cppyy.W_CPPInstance(space, self.cpptype, address, False)
 
     def free_argument(self, arg):
         pass

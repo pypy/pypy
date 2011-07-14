@@ -244,7 +244,7 @@ class InstancePtrExecutor(FunctionExecutor):
     def execute(self, space, func, cppthis, num_args, args):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_l(func.cpptype.handle, func.method_index, cppthis, num_args, args)
-        ptr_result = rffi.cast(rffi.VOIDP, long_result)
+        ptr_result = rffi.cast(rffi.CCHARP, long_result)
         return interp_cppyy.W_CPPInstance(space, self.cpptype, ptr_result, False)
 
     def execute_libffi(self, space, libffifunc, argchain):
@@ -260,7 +260,7 @@ class InstanceExecutor(InstancePtrExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_o(
             func.cpptype.handle, func.method_index, cppthis, num_args, args, self.cpptype.handle)
-        ptr_result = rffi.cast(rffi.VOIDP, long_result)
+        ptr_result = rffi.cast(rffi.CCHARP, long_result)
         return interp_cppyy.W_CPPInstance(space, self.cpptype, ptr_result, True)
 
 
