@@ -21,6 +21,8 @@ numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
+slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'self', 'arr'])
+slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'self', 'arr'])
 
 class Signature(object):
     def __init__(self):
@@ -257,7 +259,7 @@ class BaseArray(Wrappable):
         return self.get_concrete().descr_str(space)
 
     def descr_getitem(self, space, w_idx):
-        # TODO: indexing by tuples
+        # TODO: indexing by tuples and lists
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
         if step == 0:
             # Single index
@@ -268,6 +270,7 @@ class BaseArray(Wrappable):
             return space.wrap(res)
 
     def descr_setitem(self, space, w_idx, w_value):
+        # TODO: indexing by tuples and lists
         self.invalidated()
         start, stop, step, slice_length = space.decode_index4(w_idx,
                                                               self.find_size())
@@ -513,53 +516,50 @@ class SingleDimArray(BaseArray):
     def descr_str(self,space):
         return space.wrap("[" + " ".join(self._getnums(True)) + "]")
 
+    @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
         item = self.getindex(space, item)
         self.invalidated()
         self.storage[item] = value
 
-    def descr_setslice(self, space, start, stop, step, slice_length, w_value):
+    def _setslice1(self, start, stop, step, arr):
+        signature = Signature()
+        new_sig = self.signature.transition(signature)
         i = start
+        j = 0
+        while i < stop:
+            slice_driver1.jit_merge_point(signature=signature, self=self,
+                    step=step, stop=stop, i=i, j=j, arr=arr)
+            self.storage[i] = arr.eval(j)
+            j += 1
+            i += step
+
+    def _setslice2(self, start, stop, step, arr):
+        signature = Signature()
+        new_sig = self.signature.transition(signature)
+        i = start
+        j = 0
+        while i > stop:
+            slice_driver2.jit_merge_point(signature=signature, self=self,
+                    step=step, stop=stop, i=i, j=j, arr=arr)
+            self.storage[i] = arr.eval(j)
+            j += 1
+            i += step
+
+    def descr_setslice(self, space, start, stop, step, slice_length, arr):
+        i = start
+        if stop < 0:
+            stop += self.find_size()
         if step > 0:
             stop = min(stop, self.find_size())
         else:
             stop = max(stop, 0)
-        if isinstance(w_value, BaseArray):
-            j = 0
-            if step > 0:
-                while i < stop:
-                    self.storage[i] = w_value.get_concrete().getitem(j)
-                    i += step
-                    j += 1
-            else:
-                while i > stop:
-                    self.storage[i] = w_value.get_concrete().getitem(j)
-                    i += step
-                    j += 1
-        elif space.issequence_w(w_value):
-            l = space.listview(w_value)
-            if step > 0:
-                for w_elem in l:
-                    self.storage[i] = space.float_w(space.float(w_elem))
-                    i += step
-                    if i >= stop:
-                        break
-            else:
-                for w_elem in l:
-                    self.storage[i] = space.float_w(space.float(w_elem))
-                    i += step
-                    if i <= stop:
-                        break
+        if not isinstance(arr, BaseArray):
+            arr = convert_to_array(space, arr)
+        if step > 0:
+            self._setslice1(start, stop, step, arr)
         else:
-            value = space.float_w(space.float(w_value))
-            if step > 0:
-                while i < stop:
-                    self.storage[i] = value
-                    i += step
-            else:
-                while i > stop:
-                    self.storage[i] = value
-                    i += step
+            self._setslice2(start, stop, step, arr)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw')
