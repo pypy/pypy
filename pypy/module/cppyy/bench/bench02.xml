@@ -1,0 +1,42 @@
+<lcgdict>
+
+  <!-- base classes -->
+  <class name="TROOT" />
+  <class name="TApplication" />
+
+  <class name="TObject" />
+  <class name="TNamed" />
+
+  <class name="TQObject" />
+  <class name="TAttPad" />
+  <class name="TAttFill" />
+  <class name="TAttLine" />
+  <class name="TAttMarker" />
+  <class name="TVirtualPad" />
+  <class name="TPad" />
+
+  <class name="TDirectory" />
+  <class name="TDirectoryFile" />
+
+  <class name="TH1" />
+  <class name="TH2" />
+  <class name="TH1D" />
+
+  <class name="TArray" />
+  <class name="TArrayD" />
+  <class name="TArrayF" />
+
+  <class name="TTree" /> -->
+
+  <!-- desired classes -->
+  <class name="TCanvas" />
+  <class name="TFile" />
+  <class name="TProfile" />
+  <class name="TNtuple" />
+  <class name="TH1F" />
+  <class name="TH2F" />
+
+  <!-- helper -->
+  <class name="CloserHack" />
+
+</lcgdict>
