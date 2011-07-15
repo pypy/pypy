@@ -202,16 +202,14 @@ cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int me
 
 /* handling of function argument buffer ----------------------------------- */
 void* cppyy_allocate_function_args(size_t nargs) {
-    CPPYY_G__param* libp = (CPPYY_G__param*)malloc(
-        sizeof(int/*CPPYY_G__param.paran*/) + nargs*sizeof(CPPYY_G__value));
-    libp->paran = (int)nargs;
+    CPPYY_G__value* args = (CPPYY_G__value*)malloc(nargs*sizeof(CPPYY_G__value));
     for (int i = 0; i < nargs; ++i)
-        ((CPPYY_G__value*)&libp->para)[i].type = 'l';
-    return (void*)&libp->para;
+        args[i].type = 'l';
+    return (void*)args;
 }
 
 void cppyy_deallocate_function_args(void* args) {
-    free((char*)args - offsetof(CPPYY_G__param, para));
+    free(args);
 }
 
 size_t cppyy_function_arg_sizeof() {

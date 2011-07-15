@@ -1,8 +1,6 @@
 #ifndef CPPYY_CPPYY
 #define CPPYY_CPPYY
 
-#define CPPYY_G__MAXFUNCPARA   40
-
 #ifdef __cplusplus
 struct CPPYY_G__DUMMY_FOR_CINT7 {
 #else
@@ -61,21 +59,6 @@ typedef struct {
 };
 #else
 } CPPYY_G__value;
-#endif
-
-
-#ifdef __cplusplus
-struct CPPYY_G__param {
-#else
-typedef struct
-#endif
-  int paran;
-  long para;  /* place-holder */
-  /* dropped parameter as it appears unused in stub functions */
-#ifdef __cplusplus
-};
-#else
-} CPPYY_G__param;
 #endif
 
 #endif // CPPYY_CPPYY
