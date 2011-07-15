@@ -68,7 +68,7 @@ template_byname.unwrap_spec = [ObjSpace, str]
 
 
 class W_CPPLibrary(Wrappable):
-    _immutable_ = True
+    _immutable_fields_ = ["cdll"]
 
     def __init__(self, space, cdll):
         self.cdll = cdll
@@ -77,6 +77,7 @@ class W_CPPLibrary(Wrappable):
 W_CPPLibrary.typedef = TypeDef(
     'CPPLibrary',
 )
+W_CPPLibrary.typedef.acceptable_as_base_class = True
 
 @jit.elidable_promote()
 def get_methptr_getter(handle, method_index):
@@ -106,6 +107,8 @@ class CPPMethod(object):
         if self.executor is None:
             raise OperationError(self.space.w_TypeError,
                                  self.space.wrap("return type not handled"))
+        if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
+            raise OperationError(self.space.w_TypeError, self.space.wrap("wrong number of args"))
 
         if self.methgetter and cppthis: # only for methods
             try:
@@ -122,9 +125,6 @@ class CPPMethod(object):
     @jit.unroll_safe
     def do_fast_call(self, cppthis, w_type, args_w):
         space = self.space
-        # XXX factor out
-        if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
-            raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
         if self.arg_converters is None:
             self._build_converters()
         jit.promote(self)
@@ -167,8 +167,6 @@ class CPPMethod(object):
     def prepare_arguments(self, args_w):
         jit.promote(self)
         space = self.space
-        if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
-            raise OperationError(space.w_TypeError, space.wrap("wrong number of args"))
         if self.arg_converters is None:
             self._build_converters()
         args = capi.c_allocate_function_args(len(args_w))
@@ -209,23 +207,9 @@ class CPPMethod(object):
 class CPPFunction(CPPMethod):
     _immutable_ = True
 
-    def call(self, cppthis, w_type, args_w):
-        assert lltype.typeOf(cppthis) == rffi.VOIDP
-        if self.executor is None:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap("return type not handled"))
-
-        assert not cppthis
-        args = self.prepare_arguments(args_w)
-        try:
-            return self.executor.execute(self.space, w_type, self, NULL_VOIDP,
-                                         len(args_w), args)
-        finally:
-            self.free_arguments(args, len(args_w))
- 
 
 class CPPConstructor(CPPMethod):
-    _immutable_=True
+    _immutable_ = True
 
     def call(self, cppthis, w_type, args_w):
         newthis = capi.c_allocate(self.cpptype.handle)
@@ -241,7 +225,6 @@ class CPPConstructor(CPPMethod):
 
 
 class W_CPPOverload(Wrappable):
-    _immutable_ = True
     _immutable_fields_ = ["func_name", "functions[*]"]
 
     def __init__(self, space, func_name, functions):
@@ -297,8 +280,7 @@ W_CPPOverload.typedef = TypeDef(
 
 
 class W_CPPDataMember(Wrappable):
-    _immutable_=True
-    _immutable_fields_ = ["converter", "offset"]
+    _immutable_fields_ = ["converter", "offset", "_is_static"]
 
     def __init__(self, space, type_name, offset, is_static):
         self.space = space
