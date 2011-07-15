@@ -343,6 +343,15 @@ class TestW_ListObject(object):
 
 
 class AppTestW_ListObject(object):
+
+    def test_getstrategyfromlist_w(self):
+        l0 = ["a", "2", "a", True]
+
+        # this raised TypeError on ListStrategies
+        l1 = ["a", "2", True, "a"]
+        l2 = [1, "2", "a", "a"]
+        assert sorted(l1) == sorted(l2)
+
     def test_call_list(self):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']

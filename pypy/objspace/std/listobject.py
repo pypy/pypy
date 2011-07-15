@@ -27,17 +27,23 @@ def get_strategy_from_list_objects(space, list_w):
         return space.fromcache(EmptyListStrategy)
 
     # check for ints
-    for e in list_w:
-        if not is_W_IntObject(e):
-            break
-        if e is list_w[-1]:
+    it = iter(list_w)
+    while(True):
+        try:
+            e = it.next()
+            if not is_W_IntObject(e):
+                break
+        except StopIteration:
             return space.fromcache(IntegerListStrategy)
 
-    # check for ints
-    for e in list_w:
-        if not is_W_StringObject(e):
-            break
-        if e is list_w[-1]:
+    # check for strings
+    it = iter(list_w)
+    while(True):
+        try:
+            e = it.next()
+            if not is_W_StringObject(e):
+                break
+        except StopIteration:
             return space.fromcache(StringListStrategy)
 
     return space.fromcache(ObjectListStrategy)
@@ -1177,6 +1183,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
             sorterclass = CustomKeySort
         else:
             sorterclass = SimpleSort
+    #XXX optimize this, getitems is bad
     sorter = sorterclass(w_list.getitems(), w_list.length())
     sorter.space = space
     sorter.w_cmp = w_cmp
