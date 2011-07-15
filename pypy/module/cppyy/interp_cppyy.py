@@ -326,6 +326,7 @@ W_CPPDataMember.typedef = TypeDef(
     get = interp2app(W_CPPDataMember.get, unwrap_spec=['self', W_Root, W_Root]),
     set = interp2app(W_CPPDataMember.set, unwrap_spec=['self', W_Root, W_Root]),
 )
+W_CPPDataMember.typedef.acceptable_as_base_class = False
 
 
 class W_CPPScope(Wrappable):
@@ -385,13 +386,6 @@ class W_CPPScope(Wrappable):
             self.space.w_AttributeError,
             self.space.wrap("%s '%s' has no attribute %s" % (self.kind, self.name, name)))
 
-W_CPPScope.typedef = TypeDef(
-    'CPPScope',
-    get_method_names = interp2app(W_CPPScope.get_method_names, unwrap_spec=['self']),
-    get_overload = interp2app(W_CPPScope.get_overload, unwrap_spec=['self', str]),
-    get_data_member_names = interp2app(W_CPPScope.get_data_member_names, unwrap_spec=['self']),
-    get_data_member = interp2app(W_CPPScope.get_data_member, unwrap_spec=['self', str]),
-)
 
 
 # For now, keep namespaces and classes separate as namespaces are extensible
@@ -438,6 +432,7 @@ W_CPPNamespace.typedef = TypeDef(
     get_data_member = interp2app(W_CPPNamespace.get_data_member, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPNamespace.is_namespace, unwrap_spec=['self']),
 )
+W_CPPNamespace.typedef.acceptable_as_base_class = False
 
 
 class W_CPPType(W_CPPScope):
@@ -490,6 +485,7 @@ W_CPPType.typedef = TypeDef(
     get_data_member = interp2app(W_CPPType.get_data_member, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPType.is_namespace, unwrap_spec=['self']),
 )
+W_CPPType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPTemplateType(Wrappable):
@@ -509,6 +505,7 @@ W_CPPTemplateType.typedef = TypeDef(
     'CPPTemplateType',
     __call__ = interp2app(W_CPPTemplateType.__call__, unwrap_spec=['self', 'args_w']),
 )
+W_CPPTemplateType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPInstance(Wrappable):
