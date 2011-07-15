@@ -8,7 +8,8 @@ from pypy.tool.uid import uid
 
 class Cell(Wrappable):
     "A simple container for a wrapped value."
-    
+    _immutable_fields_ = ["w_value?"]
+
     def __init__(self, w_value=None):
         self.w_value = w_value
 
