@@ -117,7 +117,7 @@ class AssemblerARM(ResOpAssembler):
                                                       ll_new_unicode)
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
-        if gc_ll_descr.gcrootmap and gc_ll_descr.is_shadow_stack:
+        if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
             self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._exit_code_addr = self._gen_exit_path()
