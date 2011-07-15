@@ -1,6 +1,6 @@
 Index: cint/reflex/python/genreflex/gendict.py
 ===================================================================
---- cint/reflex/python/genreflex/gendict.py	(revision 34339)
+--- cint/reflex/python/genreflex/gendict.py	(revision 40173)
 +++ cint/reflex/python/genreflex/gendict.py	(working copy)
 @@ -52,6 +52,7 @@
      self.typedefs_for_usr = []
@@ -10,7 +10,7 @@ Index: cint/reflex/python/genreflex/gendict.py
      # The next is to avoid a known problem with gccxml that it generates a
      # references to id equal '_0' which is not defined anywhere
      self.xref['_0'] = {'elem':'Unknown', 'attrs':{'id':'_0','name':''}, 'subelems':[]}
-@@ -1939,8 +1940,15 @@
+@@ -1956,8 +1957,15 @@
      else    : params  = '0'
      s = '  .AddFunctionMember(%s, Reflex::Literal("%s"), %s%s, 0, %s, %s)' % (self.genTypeID(id), name, type, id, params, mod)
      s += self.genCommentProperty(attrs)
@@ -26,7 +26,7 @@ Index: cint/reflex/python/genreflex/gendict.py
    def genMCODef(self, type, name, attrs, args):
      id       = attrs['id']
      cl       = self.genTypeName(attrs['context'],colon=True)
-@@ -2007,8 +2015,36 @@
+@@ -2024,8 +2032,44 @@
            if returns == 'void' : body += '  }\n'
            else :                 body += '  }\n'
      body += '}\n'
@@ -48,15 +48,23 @@ Index: cint/reflex/python/genreflex/gendict.py
 +    cl = self.genTypeName(attrs['context'],colon=True)
 +    rettype = self.genTypeName(attrs['returns'],enum=True, const=True, colon=True)
 +    arg_type_list = [self.genTypeName(arg['type'], colon=True) for arg in args]
++    constness = attrs.get('const', 0) and 'const' or ''
 +    lines = []
 +    a = lines.append
 +    a('static void* %s(void* o)' % (funcname,))
 +    a('{')
-+    # declare a variable "meth" which is a member pointer
-+    a('  %s (%s::*meth)(%s);' % (rettype, cl, ', '.join(arg_type_list)))
-+    a('  meth = &%s::%s;' % (cl, name))
-+    a('  %s* obj = (%s*)o;' % (cl, cl))
-+    a('  return (void*)(obj->*meth);')
++    if name == 'EmitVA':
++      # TODO: this is for ROOT TQObject, the problem being that ellipses is not
++      # exposed in the arguments and that makes the generated code fail if the named
++      # method is overloaded as is with TQObject::EmitVA
++      a('  return (void*)0;')
++    else:
++      # declare a variable "meth" which is a member pointer
++      a('  %s (%s::*meth)(%s)%s;' % (rettype, cl, ', '.join(arg_type_list), constness))
++      a('  meth = (%s (%s::*)(%s)%s)&%s::%s;' % \
++         (rettype, cl, ', '.join(arg_type_list), constness, cl, name))
++      a('  %s* obj = (%s*)o;' % (cl, cl))
++      a('  return (void*)(obj->*meth);')
 +    a('}')
 +    return '\n'.join(lines)
 +
@@ -66,7 +74,7 @@ Index: cint/reflex/python/genreflex/gendict.py
      for a in args :
 Index: cint/reflex/python/genreflex/genreflex.py
 ===================================================================
---- cint/reflex/python/genreflex/genreflex.py	(revision 34339)
+--- cint/reflex/python/genreflex/genreflex.py	(revision 40173)
 +++ cint/reflex/python/genreflex/genreflex.py	(working copy)
 @@ -108,6 +108,10 @@
           Print extra debug information while processing. Keep intermediate files\n
