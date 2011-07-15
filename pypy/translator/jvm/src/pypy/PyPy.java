@@ -791,6 +791,20 @@ public class PyPy implements Constants {
         return str.substring(start,start+cnt);
     }
 
+    public static boolean ll_startswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(0) == c;
+    }
+
+    public static boolean ll_endswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(str.length() - 1) == c;
+    }
+
     // ----------------------------------------------------------------------
     // StringBuffer
 

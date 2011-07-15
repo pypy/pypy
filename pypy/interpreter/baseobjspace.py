@@ -130,6 +130,9 @@ class W_Root(object):
         raise operationerrfmt(space.w_TypeError,
             "cannot create weak reference to '%s' object", typename)
 
+    def delweakref(self):
+        pass
+
     def clear_all_weakrefs(self):
         """Call this at the beginning of interp-level __del__() methods
         in subclasses.  It ensures that weakrefs (if any) are cleared
@@ -143,29 +146,28 @@ class W_Root(object):
             # app-level, e.g. a user-defined __del__(), and this code
             # tries to use weakrefs again, it won't reuse the broken
             # (already-cleared) weakrefs from this lifeline.
-            self.setweakref(lifeline.space, None)
+            self.delweakref()
             lifeline.clear_all_weakrefs()
 
-    __already_enqueued_for_destruction = False
+    __already_enqueued_for_destruction = ()
 
-    def _enqueue_for_destruction(self, space, call_user_del=True):
+    def enqueue_for_destruction(self, space, callback, descrname):
         """Put the object in the destructor queue of the space.
-        At a later, safe point in time, UserDelAction will use
-        space.userdel() to call the object's app-level __del__ method.
+        At a later, safe point in time, UserDelAction will call
+        callback(self).  If that raises OperationError, prints it
+        to stderr with the descrname string.
+
+        Note that 'callback' will usually need to start with:
+            assert isinstance(self, W_SpecificClass)
         """
         # this function always resurect the object, so when
         # running on top of CPython we must manually ensure that
         # we enqueue it only once
         if not we_are_translated():
-            if self.__already_enqueued_for_destruction:
+            if callback in self.__already_enqueued_for_destruction:
                 return
-            self.__already_enqueued_for_destruction = True
-        self.clear_all_weakrefs()
-        if call_user_del:
-            space.user_del_action.register_dying_object(self)
-
-    def _call_builtin_destructor(self):
-        pass     # method overridden in typedef.py
+            self.__already_enqueued_for_destruction += (callback,)
+        space.user_del_action.register_callback(self, callback, descrname)
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
