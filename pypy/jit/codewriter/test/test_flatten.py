@@ -3,6 +3,7 @@ from pypy.jit.codewriter import support
 from pypy.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
 from pypy.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
 from pypy.jit.codewriter.format import assert_format
+from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import AbstractDescr
 from pypy.rpython.lltypesystem import lltype, rclass, rstr
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
@@ -30,6 +31,9 @@ def fake_regallocs():
             'float': FakeRegAlloc()}
 
 class FakeDescr(AbstractDescr):
+    _for_tests_only = True
+    def __init__(self, oopspecindex=None):
+        self.oopspecindex = oopspecindex
     def __repr__(self):
         return '<Descr>'
     def as_vtable_size_descr(self):
@@ -55,19 +59,24 @@ class FakeCPU:
     def arraydescrof(self, ARRAY):
         return FakeDescr()
 
+class FakeCallInfoCollection:
+    def add(self, *args):
+        pass
+
 class FakeCallControl:
     _descr_cannot_raise = FakeDescr()
+    callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
         return 'residual'
-    def getcalldescr(self, op):
+    def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
         try:
             if 'cannot_raise' in op.args[0].value._obj.graph.name:
                 return self._descr_cannot_raise
         except AttributeError:
             pass
-        return FakeDescr()
+        return FakeDescr(oopspecindex)
     def calldescr_canraise(self, calldescr):
-        return calldescr is not self._descr_cannot_raise
+        return calldescr is not self._descr_cannot_raise and calldescr.oopspecindex is None
     def get_vinfo(self, VTYPEPTR):
         return None
 
@@ -734,7 +743,9 @@ class TestFlatten:
 
     def test_force_cast(self):
         from pypy.rpython.lltypesystem import rffi
-
+        # NB: we don't need to test for INT here, the logic in jtransform is
+        # general enough so that if we have the below cases it should
+        # generalize also to INT
         for FROM, TO, expected in [
             (rffi.SIGNEDCHAR, rffi.SIGNEDCHAR, ""),
             (rffi.SIGNEDCHAR, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
@@ -797,13 +808,43 @@ class TestFlatten:
             expected = [s.strip() for s in expected.splitlines()]
             check_force_cast(FROM, TO, expected, 42)
             check_force_cast(FROM, TO, expected, -42)
-            expected.append('int_return %i' + str(len(expected)))
-            expected = '\n'.join(expected)
+            returnvar = "%i" + str(len(expected))
+            expected.append('int_return ' + returnvar)
+            expectedstr = '\n'.join(expected)
             #
             def f(n):
                 return rffi.cast(TO, n)
-            self.encoding_test(f, [rffi.cast(FROM, 42)], expected,
+            self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                transform=True)
+
+            if not longlong.is_64_bit:
+                if FROM in (rffi.LONG, rffi.ULONG):
+                    if FROM == rffi.LONG:
+                        FROM = rffi.LONGLONG
+                    else:
+                        FROM = rffi.ULONGLONG
+                    expected.insert(0,
+                        "residual_call_irf_i $<* fn llong_to_int>, <Descr>, I[], R[], F[%f0] -> %i0")
+                    expectedstr = '\n'.join(expected)
+                    self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
+                                       transform=True)
+                elif TO in (rffi.LONG, rffi.ULONG):
+                    if TO == rffi.LONG:
+                        TO = rffi.LONGLONG
+                    else:
+                        TO = rffi.ULONGLONG
+                    if rffi.cast(FROM, -1) < 0:
+                        fnname = "llong_from_int"
+                    else:
+                        fnname = "llong_from_uint"
+                    expected.pop()   # remove int_return
+                    expected.append(
+                        "residual_call_irf_f $<* fn %s>, <Descr>, I[%s], R[], F[] -> %%f0"
+                        % (fnname, returnvar))
+                    expected.append("float_return %f0")
+                    expectedstr = '\n'.join(expected)
+                    self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
+                                       transform=True)
 
     def test_force_cast_pointer(self):
         from pypy.rpython.lltypesystem import rffi
@@ -811,6 +852,14 @@ class TestFlatten:
             return rffi.cast(rffi.VOIDP, p)
         self.encoding_test(h, [lltype.nullptr(rffi.CCHARP.TO)], """
             int_return %i0
+        """, transform=True)
+
+    def test_force_cast_float(self):
+        from pypy.rpython.lltypesystem import rffi
+        def f(n):
+            return rffi.cast(lltype.Float, n)
+        self.encoding_test(f, [12.456], """
+            float_return %f0
         """, transform=True)
 
     def test_direct_ptradd(self):

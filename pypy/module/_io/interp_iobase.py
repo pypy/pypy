@@ -57,6 +57,11 @@ class W_IOBase(Wrappable):
 
     def __del__(self):
         self.clear_all_weakrefs()
+        self.enqueue_for_destruction(self.space, W_IOBase.destructor,
+                                     'internal __del__ of ')
+
+    def destructor(self):
+        assert isinstance(self, W_IOBase)
         space = self.space
         w_closed = space.findattr(self, space.wrap('closed'))
         try:
