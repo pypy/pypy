@@ -114,6 +114,9 @@ class AppTestCPPYY:
         e2.destruct()
         assert t.get_overload("getCount").call(None, None) == 0
 
+
+        raises(TypeError, t.get_overload("addDataToInt").call, 41, None, 4)
+
     def test_example01memory(self):
         """Test memory destruction and integrity."""
 
