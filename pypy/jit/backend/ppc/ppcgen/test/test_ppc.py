@@ -7,6 +7,8 @@ from pypy.jit.backend.ppc.ppcgen.regname import *
 from pypy.jit.backend.ppc.ppcgen import form, pystructs
 from pypy.jit.backend.detect_cpu import autodetect_main_model
 
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.annlowlevel import llhelper
 
 class TestDisassemble(object):
     def test_match(self):
@@ -36,7 +38,55 @@ class TestAssemble(object):
         f = a.assemble()
         assert f() == 7
 
-        
+    def test_load_word(self):
+        a = MyPPCAssembler()
+        word = 12341234
+        a.load_word(10, word)
+        a.mtctr(10)
+        a.mfctr(11)
+        a.mr(3, 11)
+        a.blr()
+        f = a.assemble()
+        assert f() == word
+
+    def test_call_function(self):
+        functype =  lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+        call_addr = rffi.cast(lltype.Signed, llhelper(functype, func))
+        a = MyPPCAssembler()
+
+        # NOW EXPLICITLY:
+        # 
+        # - Load the address of the function to call into a register x
+        # - Move the content of this register x into CTR
+        # - Set the LR manually (or with bctrl)
+        # - Do jump
+        # - hopefully no segfault =)
+
+        a.li(3, 50)
+        a.load_word(10, call_addr)
+        a.mtctr(10)
+        a.bctr()
+        a.blr()
+
+        f = a.assemble()
+        assert f() == 65
+
+class AsmCode(object):
+    def __init__(self, size):
+        self.code = MachineCodeBlockWrapper()
+
+    def emit(self, insn):
+        bytes = struct.pack("i", insn)
+        for byte in bytes:
+            self.code.writechar(byte)
+
+    def get_function(self):
+        i = self.code.materialize(AsmMemoryManager(), [])
+        t = lltype.FuncType([], lltype.Signed)
+        return rffi.cast(lltype.Ptr(t), i)
+
+def func(arg):
+    return arg + 15
 """
 class TestAssemble(object):
         

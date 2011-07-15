@@ -1,7 +1,12 @@
+import os
+import struct
 from pypy.jit.backend.ppc.ppcgen.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppcgen.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
+from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
+from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+from pypy.rpython.lltypesystem import lltype, rffi
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -458,7 +463,7 @@ class BasicPPCAssembler(Assembler):
     xor = XS(31, XO1=316, Rc=0)
     xorx = XS(31, XO1=316, Rc=1)
 
-class PPCAssembler(BasicPPCAssembler):
+class PPCAssembler(BasicPPCAssembler, BlockBuilderMixin):
     BA = BasicPPCAssembler
 
     # awkward mnemonics:
@@ -774,6 +779,11 @@ class PPCAssembler(BasicPPCAssembler):
 
     mtcr = BA.mtcrf(CRM=0xFF)
 
+    def emit(self, insn):
+        bytes = struct.pack("i", insn)
+        for byte in bytes:
+            self.writechar(byte)
+
 def hi(w):
     return w >> 16
 
@@ -793,12 +803,67 @@ def la(w):
     return v
 
 class MyPPCAssembler(PPCAssembler):
+    def __init__(self):
+        PPCAssembler.__init__(self)
+        self.init_block_builder()
+        self.patch_list = []
+
     def load_word(self, rD, word):
         self.addis(rD, 0, hi(word))
         self.ori(rD, rD, lo(word))
+
     def load_from(self, rD, addr):
         self.addis(rD, 0, ha(addr))
         self.lwz(rD, rD, la(addr))
+
+    def nop(self):
+        self.ori(0, 0, 0)
+
+    #def bl(self, addr):
+    #    offset = 4 * len(self.insts)
+    #    self.nop()
+    #    self.patch_list.append((offset, addr))
+
+    #def assemble(self, dump=os.environ.has_key('PYPY_DEBUG')):
+    #    insns = self.assemble0(dump)
+    #    for i in insns:
+    #        self.emit(i)
+    #    i = self.materialize(AsmMemoryManager(), [])
+    #    t = lltype.FuncType([], lltype.Signed)
+    #    self.patch_jumps(i)
+    #    return rffi.cast(lltype.Ptr(t), i)
+    #   
+    #def patch_jumps(self, rawstart):
+    #    #import pdb; pdb.set_trace()
+
+    #    for offset, addr in self.patch_list:
+    #        #delta = (rawstart + offset) - addr
+    #        delta = addr - (rawstart + offset)
+    #        delta >>= 2
+    #        print "delta =", delta
+    #        #assert (delta >> 24) == -1
+
+    #        updater = BranchUpdater()
+    #        #updater.bl(delta)
+    #        self.load_word(reg, h)
+
+
+    #        updater.bctrl()
+    #        updater.write_to_mem(rawstart + offset)
+
+class BranchUpdater(PPCAssembler):
+    def __init__(self):
+        PPCAssembler.__init__(self)
+        self.init_block_builder()
+
+    def write_to_mem(self, addr):
+        self.assemble()
+        self.copy_to_raw_memory(addr)
+        
+    def assemble(self, dump=os.environ.has_key('PYPY_DEBUG')):
+        insns = self.assemble0(dump)
+        for i in insns:
+            self.emit(i)
 
 def b(n):
     r = []
@@ -843,3 +908,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
