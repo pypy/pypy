@@ -384,7 +384,7 @@ class PyFrame(eval.Frame):
         # XXX hack
         from pypy.interpreter.function import Function
         outer_func = Function(space, None, closure=closure,
-                             forcename="")
+                             forcename="fake")
         PyFrame.__init__(self, space, pycode, w_globals, outer_func)
         f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
         new_frame.f_backref = jit.non_virtual_ref(f_back)
