@@ -13,6 +13,9 @@ class CloserHack {
 public:
    CloserHack();
    ~CloserHack();
+
+   void report();
+   void close();
 };
 
 /*
