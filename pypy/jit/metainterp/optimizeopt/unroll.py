@@ -147,9 +147,6 @@ class UnrollOptimizer(Optimization):
         snapshot_args = snapshot.boxes 
         new_snapshot_args = []
         for a in snapshot_args:
-            if not isinstance(a, Const):
-                a = loop.preamble.inputargs[jump_args.index(a)]
-            a = self.inliner.inline_arg(a)
             a = self.getvalue(a).get_key_box()
             new_snapshot_args.append(a)
         prev = self.fix_snapshot(loop, jump_args, snapshot.prev)
@@ -173,13 +170,21 @@ class UnrollOptimizer(Optimization):
             self.optimizer.flush()
 
             KillHugeIntBounds(self.optimizer).apply()
-
+            
             loop.preamble.operations = self.optimizer.newoperations
+            jump_args = [self.getvalue(a).get_key_box() for a in jump_args]
+
+            start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
+            self.start_resumedescr = start_resumedescr
+            assert isinstance(start_resumedescr, ResumeGuardDescr)
+            start_resumedescr.rd_snapshot = self.fix_snapshot(loop, jump_args,
+                                                              start_resumedescr.rd_snapshot)
 
             modifier = VirtualStateAdder(self.optimizer)
             virtual_state = modifier.get_virtual_state(jump_args)
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
+            short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)            
 
             self.constant_inputargs = {}
             for box in jump_args: 
@@ -193,21 +198,44 @@ class UnrollOptimizer(Optimization):
             preamble_optimizer = self.optimizer
             loop.preamble.quasi_immutable_deps = (
                 self.optimizer.quasi_immutable_deps)
-            self.optimizer = self.optimizer.reconstruct_for_next_iteration(sb, jump_args)
+            self.optimizer = self.optimizer.new()
             loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
 
+            # Force virtuals amoung the jump_args of the preamble to get the
+            # operations needed to setup the proper state of those virtuals
+            # in the peeled loop
+            inputarg_setup_ops = []
+            preamble_optimizer.newoperations = []
+            for box in short_inputargs:
+                value = preamble_optimizer.getvalue(box)
+                if value.is_virtual():
+                    value.force_box()
+                else:
+                    inputarg_setup_ops.extend(value.make_guards(box))
+            preamble_optimizer.flush()
+            inputarg_setup_ops += preamble_optimizer.newoperations
+
+            # Setup the state of the new optimizer by emiting the
+            # short preamble operations and discarding the result
+            self.optimizer.emitting_dissabled = True
+            for op in inputarg_setup_ops:
+                self.optimizer.send_extra_operation(op)
+            seen = {}
+            for op in self.short_boxes.values():
+                self.ensure_short_op_emitted(op, self.optimizer, seen)
+                if op and op.result:
+                    value = preamble_optimizer.getvalue(op.result)
+                    for guard in value.make_guards(op.result):
+                        self.optimizer.send_extra_operation(guard)
+            self.optimizer.flush()
+            self.optimizer.emitting_dissabled = False
+            
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
 
-            start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
-            self.start_resumedescr = start_resumedescr
-            assert isinstance(start_resumedescr, ResumeGuardDescr)
-            start_resumedescr.rd_snapshot = self.fix_snapshot(loop, jump_args,
-                                                              start_resumedescr.rd_snapshot)
-
-            inputargs, short_inputargs, short = self.inline(self.cloned_operations,
-                                           loop.inputargs, jump_args,
-                                           virtual_state)
+            short = self.inline(inputargs, self.cloned_operations,
+                                loop.inputargs, short_inputargs,
+                                virtual_state)
             
             #except KeyError:
             #    debug_print("Unrolling failed.")
@@ -267,13 +295,10 @@ class UnrollOptimizer(Optimization):
                     if op.result:
                         op.result.forget_value()
                 
-    def inline(self, loop_operations, loop_args, jump_args, virtual_state):
+    def inline(self, inputargs, loop_operations, loop_args, short_inputargs, virtual_state):
         inliner = self.inliner
 
-        values = [self.getvalue(arg) for arg in jump_args]
-        inputargs = virtual_state.make_inputargs(values)
         short_jumpargs = inputargs[:]
-        short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
 
         short = []
         short_seen = {}
@@ -360,8 +385,22 @@ class UnrollOptimizer(Optimization):
             raise InvalidLoop
         debug_stop('jit-log-virtualstate')
         
-        return inputargs, short_inputargs, short
+        return short
 
+    def ensure_short_op_emitted(self, op, optimizer, seen):
+        if op is None:
+            return
+        if op.result is not None and op.result in seen:
+            return
+        for a in op.getarglist():
+            if not isinstance(a, Const) and a not in seen:
+                self.ensure_short_op_emitted(self.short_boxes[a], optimizer, seen)
+        optimizer.send_extra_operation(op)
+        seen[op.result] = True
+        if op.is_ovf():
+            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+            optimizer.send_extra_operation(guard)
+        
     def add_op_to_short(self, op, short, short_seen, emit=True, guards_needed=False):
         if op is None:
             return None
@@ -656,7 +695,10 @@ class BoxMap(object):
 class OptInlineShortPreamble(Optimization):
     def __init__(self, retraced):
         self.retraced = retraced
-    
+
+    def new(self):
+        return OptInlineShortPreamble(self.retraced)
+        
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         return OptInlineShortPreamble(self.retraced)

@@ -86,6 +86,9 @@ class OptFfiCall(Optimization):
         debug_stop('jit-log-ffiopt')
         Optimization.propagate_end_forward(self)
 
+    def new(self):
+        return OptFfiCall()
+    
     def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         return OptFfiCall()

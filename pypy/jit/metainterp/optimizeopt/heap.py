@@ -163,6 +163,9 @@ class OptHeap(Optimization):
 
     def flush(self):
         self.force_all_lazy_setfields_and_arrayitems()
+
+    def new(self):
+        return OptHeap()
         
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
@@ -170,7 +173,7 @@ class OptHeap(Optimization):
 
         for descr, d in self.cached_fields.items():
             new.cached_fields[descr] = d.get_cloned(optimizer, valuemap, short_boxes)
-
+        
         for descr, submap in self.cached_arrayitems.items():
             newdict = {}
             for index, d in submap.items():

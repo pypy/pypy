@@ -5092,32 +5092,38 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
     def test_invariant_ovf(self):
         ops = """
-        [i0, i1, i10, i11, i12]
+        [i0, i1, i10, i11, i20, i21]
         i2 = int_add_ovf(i0, i1)
         guard_no_overflow() []
         i3 = int_sub_ovf(i0, i1)
         guard_no_overflow() []
         i4 = int_mul_ovf(i0, i1)
         guard_no_overflow() []
+        escape(i2)
+        escape(i3)
+        escape(i4)
         i24 = int_mul_ovf(i10, i11)
         guard_no_overflow() []
         i23 = int_sub_ovf(i10, i11)
         guard_no_overflow() []
         i22 = int_add_ovf(i10, i11)
         guard_no_overflow() []
-        jump(i0, i1, i2, i3, i4)
+        jump(i0, i1, i20, i21, i20, i21)
         """
         expected = """
-        [i0, i1, i10, i11, i12]
+        [i0, i1, i10, i11, i2, i3, i4]
+        escape(i2)
+        escape(i3)
+        escape(i4)        
         i24 = int_mul_ovf(i10, i11)
         guard_no_overflow() []
         i23 = int_sub_ovf(i10, i11)
         guard_no_overflow() []
         i22 = int_add_ovf(i10, i11)
         guard_no_overflow() []
-        jump(i0, i1, i10, i11, i12)
+        jump(i0, i1, i10, i11, i2, i3, i4) 
         """
-        self.optimize_loop(ops, expected, ops)
+        self.optimize_loop(ops, expected)
 
     def test_value_proven_to_be_constant_after_two_iterations(self):
         class FakeDescr(AbstractDescr):
@@ -6212,6 +6218,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, ops)
         # FIXME: check jumparg 0 == getfield_gc()
+
+    def test_constant_getfield1bis(self):
+        ops = """
+        [p1, p187, i184]
+        p188 = getarrayitem_gc(p187, 42, descr=<GcPtrArrayDescr>)
+        guard_value(p188, ConstPtr(myptr)) []
+        p25 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        p26 = call(p25, descr=nonwritedescr)
+        jump(p26, p187, i184)
+        """
+        expected = """
+        [p24, p187, i184, p25]
+        p26 = call(p25, descr=nonwritedescr)
+        jump(p26, p187, i184, p25)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_constant_getfield2(self):
         ops = """

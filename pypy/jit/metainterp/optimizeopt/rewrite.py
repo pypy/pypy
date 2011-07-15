@@ -14,8 +14,11 @@ class OptRewrite(Optimization):
     """
     def __init__(self):
         self.loop_invariant_results = {}
-        self.loop_invariant_producer = {}        
+        self.loop_invariant_producer = {}
 
+    def new(self):
+        return OptRewrite()
+        
     def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         new = OptRewrite()
@@ -24,7 +27,7 @@ class OptRewrite(Optimization):
                                  value.get_cloned(new, valuemap)
         return new
 
-    def produce_potential_short_preamble_ops(self, potential_ops):        
+    def produce_potential_short_preamble_ops(self, potential_ops):
         for op in self.loop_invariant_producer.values():
             potential_ops[op.result] = op
 

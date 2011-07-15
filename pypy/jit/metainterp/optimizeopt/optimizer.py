@@ -303,6 +303,9 @@ class Optimization(object):
         pass
 
     # It is too late to force stuff here, it must be done in force_at_end_of_preamble
+    def new(self):
+        raise NotImplementedError
+
     def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
                                        optimizer=None, valuemap=None):
         raise NotImplementedError
@@ -335,6 +338,7 @@ class Optimizer(Optimization):
         self.exception_might_have_happened = False
         self.quasi_immutable_deps = None
         self.newoperations = []
+        self.emitting_dissabled = False
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
 
@@ -363,7 +367,15 @@ class Optimizer(Optimization):
         for o in self.optimizations:
             o.flush()
         assert self.posponedop is None
-            
+
+    def new(self):
+        assert self.posponedop is None
+        new = Optimizer(self.metainterp_sd, self.loop)
+        optimizations = [o.new() for o in self.optimizations]
+        new.set_optimizations(optimizations)
+        new.quasi_immutable_deps = self.quasi_immutable_deps
+        return new
+        
     def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
                                        optimizer=None, valuemap=None):
         assert optimizer is None
@@ -575,10 +587,11 @@ class Optimizer(Optimization):
         return True
 
     def emit_operation(self, op):
-        ###self.heap_op_optimizer.emitting_operation(op)
-        self._emit_operation(op)
-
-    def _emit_operation(self, op):
+        if op.returns_bool_result():
+            self.bool_boxes[self.getvalue(op.result)] = None
+        if self.emitting_dissabled:
+            return
+        
         for i in range(op.numargs()):
             arg = op.getarg(i)
             if arg in self.values:
@@ -590,8 +603,6 @@ class Optimizer(Optimization):
             op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        elif op.returns_bool_result():
-            self.bool_boxes[self.getvalue(op.result)] = None
         self.newoperations.append(op)
 
     def store_final_boxes_in_guard(self, op):
