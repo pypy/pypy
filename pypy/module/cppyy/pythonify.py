@@ -20,6 +20,9 @@ class CppyyNamespaceMeta(CppyyScopeMeta):
 class CppyyClass(CppyyScopeMeta):
     pass
 
+class CPPObject(cppyy.CPPInstance):
+    __metaclass__ = CppyyClass
+
 
 class CppyyTemplateType(object):
     def __init__(self, scope, name):
@@ -40,62 +43,48 @@ class CppyyTemplateType(object):
             fullname += '>'
         return getattr(self._scope, fullname)
 
-class CppyyObject(object):
-    __metaclass__ = CppyyClass
-
-    def __init__(self, *args):
-        try:
-            cppol = self._cpp_proxy.get_overload(self._cpp_proxy.type_name)
-        except AttributeError:
-            raise TypeError("cannot instantiate abstract class '%s'" %
-                    self._cpp_proxy.type_name)
-        self._cppinstance = cppol.call(None, cppyy.CPPInstance, *args)
-
-    def destruct(self):
-        self._cppinstance.destruct()
 
 
-def bind_object(cppobj, cppclass):
-    if cppobj is None:
-        return None
-    bound_obj = object.__new__(cppclass)
-    bound_obj._cppinstance = cppobj
-    return bound_obj
 
 def make_static_function(cpptype, func_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
-        def function(*args):
-            return cppol.call(None, cppyy.CPPInstance, *args)
+        cppclass = None
     else:                                        # return instance
         cppclass = get_cppclass(rettype)
-        def function(*args):
-            return bind_object(cppol.call(None, cppyy.CPPInstance, *args), cppclass)
+    def function(*args):
+        return cppol.call(None, cppclass, *args)
     function.__name__ = func_name
     return staticmethod(function)
 
 def make_method(meth_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
-        def method(self, *args):
-            return cppol.call(self._cppinstance, cppyy.CPPInstance, *args)
+        cppclass = None
     else:                                        # return instance
         cppclass = get_cppclass(rettype)
-        def method(self, *args):
-            return bind_object(cppol.call(self._cppinstance, cppyy.CPPInstance, *args), cppclass)
+    def method(self, *args):
+        return cppol.call(self, cppclass, *args)
     method.__name__ = meth_name
     return method
 
 
 def make_datamember(cppdm):
-    import cppyy
-    def binder(obj, owner=None):
-        value = cppdm.__get__(obj, owner)
-        if isinstance(value, cppyy.CPPInstance):
-             cppclass = get_cppclass(value.cppclass.type_name)
-             return bind_object(value, cppclass)
-        return value
-    return property(binder, cppdm.__set__)
+    rettype = cppdm.get_returntype()
+    if not rettype:                              # return builtin type
+        cppclass = None
+    else:                                        # return instance
+        cppclass = get_cppclass(rettype)
+    if cppdm.is_static():
+        def binder(obj):
+            return cppdm.get(None, cppclass)
+        def setter(obj, value):
+            return cppdm.set(None, value)
+    else:
+        def binder(obj):
+            return cppdm.get(obj, cppclass)
+        setter = cppdm.set
+    return property(binder, setter)
 
 def make_cppnamespace(namespace_name, cppns):
     d = {"_cpp_proxy" : cppns}
@@ -133,19 +122,34 @@ def _drop_cycles(bases):
                 break
     return tuple(bases)
 
+def make_new(class_name, cpptype):
+    try:
+        constructor_overload = cpptype.get_overload(cpptype.type_name)
+    except AttributeError:
+        msg = "cannot instantiate abstract class '%s'" % class_name
+        def __new__(cls, *args):
+            raise TypeError(msg)
+    else:
+        def __new__(cls, *args):
+            return constructor_overload.call(None, cls, *args)
+    return __new__
+
 def make_cppclass(class_name, cpptype):
 
     # get a list of base classes for class creation
     bases = [get_cppclass(base) for base in cpptype.get_base_names()]
     if not bases:
-        bases = [CppyyObject,]
+        bases = [CPPObject,]
 
     # create a meta class to allow properties (for static data write access)
     metabases = [type(base) for base in bases]
     metacpp = type(CppyyClass)(class_name+'_meta', _drop_cycles(metabases), {})
 
+
     # create the python-side C++ class representation
-    d = {"_cpp_proxy" : cpptype}
+    d = {"_cpp_proxy" : cpptype,
+         "__new__"    : make_new(class_name, cpptype),
+         }
     pycpptype = metacpp(class_name, _drop_cycles(bases), d)
  
     # cache result early so that the class methods can find the class itself

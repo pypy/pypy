@@ -109,18 +109,18 @@ class CPPMethod(object):
 
         if self.methgetter and cppthis: # only for methods
             try:
-                return self.do_fast_call(cppthis, args_w)
+                return self.do_fast_call(cppthis, w_type, args_w)
             except FastCallNotPossible:
                 pass
 
         args = self.prepare_arguments(args_w)
         try:
-            return self.executor.execute(self.space, self, cppthis, len(args_w), args)
+            return self.executor.execute(self.space, w_type, self, cppthis, len(args_w), args)
         finally:
             self.free_arguments(args, len(args_w))
 
     @jit.unroll_safe
-    def do_fast_call(self, cppthis, args_w):
+    def do_fast_call(self, cppthis, w_type, args_w):
         space = self.space
         # XXX factor out
         if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
@@ -139,7 +139,7 @@ class CPPMethod(object):
             conv = self.arg_converters[i]
             w_arg = args_w[i]
             conv.convert_argument_libffi(space, w_arg, argchain)
-        return self.executor.execute_libffi(space, libffi_func, argchain)
+        return self.executor.execute_libffi(space, w_type, libffi_func, argchain)
 
     @jit.elidable_promote()
     def _get_libffi_func(self, funcptr):
@@ -218,7 +218,7 @@ class CPPFunction(CPPMethod):
         assert not cppthis
         args = self.prepare_arguments(args_w)
         try:
-            return self.executor.execute(self.space, self, NULL_VOIDP,
+            return self.executor.execute(self.space, w_type, self, NULL_VOIDP,
                                          len(args_w), args)
         finally:
             self.free_arguments(args, len(args_w))
@@ -237,10 +237,7 @@ class CPPConstructor(CPPMethod):
         except Exception, e:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
-        w_instance = self.space.allocate_instance(W_CPPInstance, w_type)
-        instance = self.space.interp_w(W_CPPInstance, w_instance)
-        W_CPPInstance.__init__(instance, self.space, self.cpptype, newthis, True)
-        return w_instance
+        return new_instance(self.space, w_type, self.cpptype, newthis, True)
 
 
 class W_CPPOverload(Wrappable):
@@ -303,47 +300,31 @@ class W_CPPDataMember(Wrappable):
     _immutable_=True
     _immutable_fields_ = ["converter", "offset"]
 
-    def __init__(self, space, type_name, offset):
+    def __init__(self, space, type_name, offset, is_static):
         self.space = space
         self.converter = converter.get_converter(self.space, type_name)
         self.offset = offset
+        self._is_static = is_static
+
+    def get_returntype(self):
+        return self.space.wrap(self.converter.name)
 
     def is_static(self):
-        return self.space.w_False
+        return self.space.newbool(self._is_static)
 
-    def __get__(self, args_w):
-        return self.converter.from_memory(self.space, args_w[0], self.offset)
+    def get(self, w_cppinstance, w_type):
+        return self.converter.from_memory(self.space, w_cppinstance, w_type, self.offset)
 
-    def __set__(self, args_w):
-        self.converter.to_memory(self.space, args_w[0], args_w[1], self.offset)
+    def set(self, w_cppinstance, w_value):
+        self.converter.to_memory(self.space, w_cppinstance, w_value, self.offset)
         return self.space.w_None
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',
     is_static = interp2app(W_CPPDataMember.is_static, unwrap_spec=['self']),
-    __get__ = interp2app(W_CPPDataMember.__get__, unwrap_spec=['self', 'args_w']),
-    __set__ = interp2app(W_CPPDataMember.__set__, unwrap_spec=['self', 'args_w']),
-)
-
-
-class W_CPPStaticDataMember(W_CPPDataMember):
-    _immutable_=True
-
-    def is_static(self):
-        return self.space.w_True
-
-    def __get__(self, args_w):
-        return self.converter.from_memory(self.space, self.space.w_None, self.offset)
-
-    def __set__(self, args_w):
-        self.converter.to_memory(self.space, self.space.w_None, args_w[1], self.offset)
-        return self.space.w_None
-
-W_CPPStaticDataMember.typedef = TypeDef(
-    'CPPStaticDataMember',
-    is_static = interp2app(W_CPPStaticDataMember.is_static, unwrap_spec=['self']),
-    __get__ = interp2app(W_CPPStaticDataMember.__get__, unwrap_spec=['self', 'args_w']),
-    __set__ = interp2app(W_CPPStaticDataMember.__set__, unwrap_spec=['self', 'args_w']),
+    get_returntype = interp2app(W_CPPDataMember.get_returntype, unwrap_spec=['self']),
+    get = interp2app(W_CPPDataMember.get, unwrap_spec=['self', W_Root, W_Root]),
+    set = interp2app(W_CPPDataMember.set, unwrap_spec=['self', W_Root, W_Root]),
 )
 
 
@@ -387,9 +368,7 @@ class W_CPPScope(Wrappable):
         try:
             return self.methods[name]
         except KeyError:
-            raise OperationError(
-                self.space.w_AttributeError,
-                self.space.wrap(str("class %s has no attribute %s" % (self.name, name))))
+            raise self.missing_attribute_error(name)
 
     def get_data_member_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.data_members])
@@ -399,9 +378,12 @@ class W_CPPScope(Wrappable):
         try:
             return self.data_members[name]
         except KeyError:
-            raise OperationError(
-                self.space.w_AttributeError,
-                self.space.wrap(str("class %s has no attribute %s" % (self.name, name))))
+            raise self.missing_attribute_error(name)
+
+    def missing_attribute_error(self, name):
+        return OperationError(
+            self.space.w_AttributeError,
+            self.space.wrap("%s '%s' has no attribute %s" % (self.kind, self.name, name)))
 
 W_CPPScope.typedef = TypeDef(
     'CPPScope',
@@ -417,6 +399,7 @@ W_CPPScope.typedef = TypeDef(
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
 class W_CPPNamespace(W_CPPScope):
+    kind = "namespace"
 
     def _make_cppfunction(self, method_index):
         result_type = capi.charp2str_free(capi.c_method_result_type(self.handle, method_index))
@@ -435,7 +418,7 @@ class W_CPPNamespace(W_CPPScope):
             if not data_member_name in self.data_members:
                 type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
                 offset = capi.c_data_member_offset(self.handle, i)
-                data_member = W_CPPStaticDataMember(self.space, type_name, offset)
+                data_member = W_CPPDataMember(self.space, type_name, offset, True)
                 self.data_members[data_member_name] = data_member
 
     def update(self):
@@ -444,6 +427,7 @@ class W_CPPNamespace(W_CPPScope):
 
     def is_namespace(self):
         return self.space.w_True
+
 
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
@@ -457,6 +441,7 @@ W_CPPNamespace.typedef = TypeDef(
 
 
 class W_CPPType(W_CPPScope):
+    kind = "class"
 
     def _make_cppfunction(self, method_index):
         result_type = capi.charp2str_free(capi.c_method_result_type(self.handle, method_index))
@@ -480,10 +465,8 @@ class W_CPPType(W_CPPScope):
             data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
             type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
             offset = capi.c_data_member_offset(self.handle, i)
-            if capi.c_is_staticdata(self.handle, i):
-                data_member = W_CPPStaticDataMember(self.space, type_name, offset)
-            else:
-                data_member = W_CPPDataMember(self.space, type_name, offset)
+            is_static = bool(capi.c_is_staticdata(self.handle, i))
+            data_member = W_CPPDataMember(self.space, type_name, offset, is_static)
             self.data_members[data_member_name] = data_member
 
     def is_namespace(self):
@@ -559,3 +542,9 @@ W_CPPInstance.typedef = TypeDef(
     cppclass = interp_attrproperty('cppclass', W_CPPInstance),
     destruct = interp2app(W_CPPInstance.destruct, unwrap_spec=['self']),
 )
+
+def new_instance(space, w_type, cpptype, rawptr, owns):
+    w_instance = space.allocate_instance(W_CPPInstance, w_type)
+    instance = space.interp_w(W_CPPInstance, w_instance)
+    W_CPPInstance.__init__(instance, space, cpptype, rawptr, owns)
+    return w_instance

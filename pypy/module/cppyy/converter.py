@@ -15,11 +15,12 @@ from pypy.module.cppyy import helper, capi
 def get_rawobject(space, w_obj):
     if not space.eq_w(w_obj, space.w_None):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
-        w_cpp_instance = space.findattr(w_obj, space.wrap("_cppinstance"))
-        cpp_instance = space.interp_w(W_CPPInstance, w_cpp_instance, can_be_None=True)
+        cpp_instance = space.interp_w(W_CPPInstance, w_obj)
         if cpp_instance:
             assert lltype.typeOf(cpp_instance.rawobject) == rffi.VOIDP
             return cpp_instance.rawobject
+        else:
+            xxx
     return lltype.nullptr(rffi.VOIDP.TO)
 
 def _direct_ptradd(ptr, offset):
@@ -30,6 +31,8 @@ def _direct_ptradd(ptr, offset):
 class TypeConverter(object):
     _immutable = True
     libffitype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+
+    name = ""
 
     def __init__(self, space, array_size):
         pass
@@ -54,7 +57,7 @@ class TypeConverter(object):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         self._is_abstract()
 
     def to_memory(self, space, w_obj, w_value, offset):
@@ -88,7 +91,7 @@ class ArrayTypeConverterMixin(object):
         else:
             self.size = array_size
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         if hasattr(space, "fake"):
             raise NotImplementedError
         # read access, so no copy needed
@@ -114,7 +117,7 @@ class PtrTypeConverterMixin(object):
     def __init__(self, space, array_size):
         self.size = sys.maxint
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONGP, address_value)
@@ -164,7 +167,7 @@ class BoolConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         if address[0] == '\x01':
             return space.w_True
@@ -206,7 +209,7 @@ class CharConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain): 
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         return space.wrap(address[0])
 
@@ -228,7 +231,7 @@ class IntConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         intptr = rffi.cast(rffi.INTP, address)
         return space.wrap(intptr[0])
@@ -252,7 +255,7 @@ class UnsignedIntConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         ulongptr = rffi.cast(rffi.UINTP, address)
         return space.wrap(ulongptr[0])
@@ -276,7 +279,7 @@ class LongConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         longptr = rffi.cast(rffi.LONGP, address)
         return space.wrap(longptr[0])
@@ -300,7 +303,7 @@ class UnsignedLongConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         ulongptr = rffi.cast(rffi.ULONGP, address)
         return space.wrap(ulongptr[0])
@@ -324,7 +327,7 @@ class ShortConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         shortptr = rffi.cast(rffi.SHORTP, address)
         return space.wrap(shortptr[0])
@@ -349,7 +352,7 @@ class FloatConverter(TypeConverter):
         # it's required to sent an rffi.DOUBLE not r_singlefloat
         argchain.arg_singlefloat(space.float_w(w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         floatptr = rffi.cast(rffi.FLOATP, address)
         return space.wrap(float(floatptr[0]))
@@ -375,7 +378,7 @@ class DoubleConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         doubleptr = rffi.cast(rffi.DOUBLEP, address)
         return space.wrap(doubleptr[0])
@@ -396,7 +399,7 @@ class CStringConverter(TypeConverter):
         typecode = _direct_ptradd(address, capi.c_function_arg_typeoffset())
         typecode[0] = 'a'
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
         charpptr = rffi.cast(rffi.CCHARPP, address)
         return space.wrap(rffi.charp2str(charpptr[0]))
@@ -471,8 +474,9 @@ class InstancePtrConverter(TypeConverter):
     _immutable_ = True
     _immutable_fields_ = ["cpptype"]
 
-    def __init__(self, space, cpptype):
+    def __init__(self, space, cpptype, name):
         self.cpptype = cpptype
+        self.name = name
 
     def _unwrap_object(self, space, w_obj):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
@@ -503,10 +507,10 @@ class InstancePtrConverter(TypeConverter):
 class InstanceConverter(InstancePtrConverter):
     _immutable_ = True
 
-    def from_memory(self, space, w_obj, offset):
+    def from_memory(self, space, w_obj, w_type, offset):
         address = rffi.cast(rffi.VOIDP, self._get_raw_address(space, w_obj, offset))
         from pypy.module.cppyy import interp_cppyy
-        return interp_cppyy.W_CPPInstance(space, self.cpptype, address, False)
+        return interp_cppyy.new_instance(space, w_type, self.cpptype, address, False)
 
 
 _converters = {}
@@ -552,9 +556,9 @@ def get_converter(space, name):
         from pypy.module.cppyy.interp_cppyy import W_CPPType
         cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
         if compound == "*" or compound == "&":
-            return InstancePtrConverter(space, cpptype)
+            return InstancePtrConverter(space, cpptype, clean_name)
         elif compound == "":
-            return InstanceConverter(space, cpptype)
+            return InstanceConverter(space, cpptype, clean_name)
     
     #   6) void converter, which fails on use
     #
