@@ -90,6 +90,18 @@ class BaseArray(Wrappable):
         signature = Signature()
         def impl(self, space, w_other):
             w_other = convert_to_array(space, w_other)
+            try:
+                w_other_size = w_other.find_size()
+                self_size = self.find_size()
+            except ValueError:
+                # this will be raised if one of the arrays is a scalar.
+                pass
+            else:
+                # Need a better dimension check here for N-dim arrays
+                if w_other_size != self_size:
+                    raise OperationError(space.w_ValueError,
+                        space.wrap("Cannot %s arrays of unequal dimensions" \
+                        % function.__name__))
             new_sig = self.signature.transition(signature)
             res = Call2(
                 function,
@@ -113,7 +125,7 @@ class BaseArray(Wrappable):
         signature = Signature()
         def impl(self, space, w_other):
             new_sig = self.signature.transition(signature)
-            w_other = FloatWrapper(space.float_w(w_other))
+            w_other = convert_to_array(space, w_other)
             res = Call2(
                 function,
                 w_other,
