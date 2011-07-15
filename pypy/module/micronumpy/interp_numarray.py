@@ -537,9 +537,11 @@ class SingleDimArray(BaseArray):
         return nums
 
     def descr_repr(self, space):
+        # Simple implementation so that we can see the array. Needs work.
         return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
 
     def descr_str(self,space):
+        # Simple implementation so that we can see the array. Needs work.
         return space.wrap("[" + " ".join(self._getnums(True)) + "]")
 
     @unwrap_spec(item=int, value=float)
