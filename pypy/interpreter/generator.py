@@ -145,11 +145,11 @@ return next yielded value or raise StopIteration."""
     def __del__(self):
         # Only bother enqueuing self to raise an exception if the frame is
         # still not finished and finally or except blocks are present.
+        self.clear_all_weakrefs()
         if self.frame is not None:
             block = self.frame.lastblock
             while block is not None:
                 if not isinstance(block, LoopBlock):
-                    self.clear_all_weakrefs()
                     self.enqueue_for_destruction(self.space,
                                                  GeneratorIterator.descr_close,
                                                  "interrupting generator of ")
