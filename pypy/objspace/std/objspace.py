@@ -130,12 +130,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ec._py_repr = None
         return ec
 
-    def createframe(self, code, w_globals, closure=None):
+    def createframe(self, code, w_globals, outer_func=None):
         from pypy.objspace.std.fake import CPythonFakeCode, CPythonFakeFrame
         if not we_are_translated() and isinstance(code, CPythonFakeCode):
             return CPythonFakeFrame(self, code, w_globals)
         else:
-            return ObjSpace.createframe(self, code, w_globals, closure)
+            return ObjSpace.createframe(self, code, w_globals, outer_func)
 
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)

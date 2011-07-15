@@ -30,7 +30,7 @@ class Function(Wrappable):
     can_change_code = True
     _immutable_fields_ = ['code?',
                           'w_func_globals?',
-                          'closure?',
+                          'closure?[*]',
                           'defs_w?[*]']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
@@ -95,7 +95,7 @@ class Function(Wrappable):
             assert isinstance(code, PyCode)
             if nargs < 5:
                 new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
                 for i in funccallunrolling:
                     if i < nargs:
                         new_frame.locals_stack_w[i] = args_w[i]
@@ -155,7 +155,7 @@ class Function(Wrappable):
     def _flat_pycall(self, code, nargs, frame):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.locals_stack_w[i] = w_arg
@@ -166,7 +166,7 @@ class Function(Wrappable):
     def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.locals_stack_w[i] = w_arg

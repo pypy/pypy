@@ -51,7 +51,7 @@ class PyFrame(eval.Frame):
     is_being_profiled        = False
     escaped                  = False  # see mark_as_escaped()
 
-    def __init__(self, space, code, w_globals, closure):
+    def __init__(self, space, code, w_globals, outer_func):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.pycode = code
@@ -67,7 +67,7 @@ class PyFrame(eval.Frame):
             self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
-        self.initialize_frame_scopes(closure, code)
+        self.initialize_frame_scopes(outer_func, code)
         self.f_lineno = code.co_firstlineno
 
     def mark_as_escaped(self):
@@ -113,8 +113,8 @@ class PyFrame(eval.Frame):
             return self.builtin
         else:
             return self.space.builtin
-        
-    def initialize_frame_scopes(self, closure, code): 
+
+    def initialize_frame_scopes(self, outer_func, code):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         # CO_NEWLOCALS: make a locals dict unless optimized is also set
@@ -381,7 +381,11 @@ class PyFrame(eval.Frame):
         
         # do not use the instance's __init__ but the base's, because we set
         # everything like cells from here
-        PyFrame.__init__(self, space, pycode, w_globals, closure)
+        # XXX hack
+        from pypy.interpreter.function import Function
+        outer_func = Function(space, None, closure=closure,
+                             forcename="")
+        PyFrame.__init__(self, space, pycode, w_globals, outer_func)
         f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
         new_frame.f_backref = jit.non_virtual_ref(f_back)
 

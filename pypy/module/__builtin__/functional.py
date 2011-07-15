@@ -293,7 +293,7 @@ def map_single_user_function(code, w_func, w_iter):
                 raise
             break
         new_frame = space.createframe(code, w_func.w_func_globals,
-                                      w_func.closure)
+                                      w_func)
         new_frame.locals_stack_w[0] = w_item
         w_res = new_frame.run()
         result_w.append(w_res)

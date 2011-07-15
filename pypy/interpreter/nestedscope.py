@@ -93,29 +93,31 @@ class __extend__(pyframe.PyFrame):
     cells = None
 
     @jit.unroll_safe
-    def initialize_frame_scopes(self, closure, code):
-        super_initialize_frame_scopes(self, closure, code)
+    def initialize_frame_scopes(self, outer_func, code):
+        super_initialize_frame_scopes(self, outer_func, code)
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
         if not nfreevars:
             if not ncellvars:
                 return            # no self.cells needed - fast path
-            if closure is None:
-                closure = []
-        elif closure is None:
+        elif outer_func is None:
             space = self.space
             raise OperationError(space.w_TypeError,
                                  space.wrap("directly executed code object "
                                             "may not contain free variables"))
-        if len(closure) != nfreevars:
+        if outer_func and outer_func.closure:
+            closure_size = len(outer_func.closure)
+        else:
+            closure_size = 0
+        if closure_size != nfreevars:
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
         self.cells = [None] * (ncellvars + nfreevars)
         for i in range(ncellvars):
             self.cells[i] = Cell()
         for i in range(nfreevars):
-            self.cells[i + ncellvars] = closure[i]
-    
+            self.cells[i + ncellvars] = outer_func.closure[i]
+
     def _getcells(self):
         return self.cells
 
