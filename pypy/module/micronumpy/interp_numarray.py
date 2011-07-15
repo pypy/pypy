@@ -7,6 +7,8 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 import math
 
+INSERT_SORT_THRESH = 15
+
 def dummy1(v):
     assert isinstance(v, float)
     return v
@@ -248,6 +250,80 @@ class BaseArray(Wrappable):
             return w_res.descr_sum(space)
         else:
             return self.descr_mul(space, w_other)
+
+    def _insertion_sort(self, storage, left, right):
+        i = left + 1
+        while i <= right:
+            temp = storage[i]
+            j = i - 1
+            while j >= left and storage[j] > temp:
+                storage[j + 1] = storage[j]
+                j -= 1
+            storage[j + 1] = temp
+            i += 1
+
+    def descr_sort(self, space):
+        storage = self.get_concrete().storage
+        # can replace these with integer/bool numpy arrays when we add dtypes
+        lefts = [0]
+        rights = [self.find_size() - 1]
+        checkpivots = [False]
+        while lefts:
+            left = lefts.pop()
+            right = rights.pop()
+            checkpivot = checkpivots.pop()
+            # just use middle element for now. will change to med of 3 soon
+            mid = left + (right - left) / 2
+            pivot = storage[mid]
+            if checkpivot and pivot == storage[left - 1]:
+                storage[mid], storage[left] = storage[left], storage[mid]
+                i = left + 1
+                j = right
+                while 1:
+                    while storage[j] != pivot:
+                        j -= 1
+                    while storage[i] == pivot:
+                        if i >= j: break
+                        i += 1
+                    if i >= j: break
+                    storage[i], storage[j] = storage[j], storage[i]
+                storage[j] = pivot
+                if right > j + 1:
+                    if right - j + 1 < INSERT_SORT_THRESH:
+                        self._insertion_sort(storage, j + 1, right)
+                    else:
+                        lefts.append(j + 1)
+                        rights.append(right)
+                        checkpivots.append(False)
+            else:
+                storage[mid], storage[right] = storage[right], storage[mid]
+                i = left
+                j = right - 1
+                while 1:
+                    while storage[i] < pivot:
+                        i += 1
+                    while storage[j] >= pivot:
+                        if i >= j: break
+                        j -= 1
+                    if i >= j: break
+                    storage[i], storage[j] = storage[j], storage[i]
+                storage[right] = storage[i]
+                storage[i] = pivot
+                # we can have the smaller subarray sorted first
+                if left < i - 1:
+                    if i - 1 - left < INSERT_SORT_THRESH:
+                        self._insertion_sort(storage, left, i - 1)
+                    else:
+                        lefts.append(left)
+                        rights.append(i - 1)
+                        checkpivots.append(checkpivot)
+                if right > i + 1:
+                    if right - i - 1 < INSERT_SORT_THRESH:
+                        self._insertion_sort(storage, i + 1, right)
+                    else:
+                        lefts.append(i + 1)
+                        rights.append(right)
+                        checkpivots.append(True)
 
     def get_concrete(self):
         raise NotImplementedError
@@ -667,4 +743,5 @@ BaseArray.typedef = TypeDef(
     all = interp2app(BaseArray.descr_all),
     any = interp2app(BaseArray.descr_any),
     dot = interp2app(BaseArray.descr_dot),
+    sort = interp2app(BaseArray.descr_sort),
 )

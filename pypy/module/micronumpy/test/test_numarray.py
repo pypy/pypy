@@ -443,6 +443,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in xrange(5):
             assert b[i] == 2.5*a[i]
 
+    def test_sort(self):
+        from numpy import array
+        a = array(range(19,-1,-1))
+        b = array(range(20))
+        a.sort()
+        for i in xrange(20):
+            assert a[i] == b[i]
+
 
 class AppTestSupport(object):
     def setup_class(cls):
