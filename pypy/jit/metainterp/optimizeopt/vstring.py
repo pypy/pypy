@@ -47,7 +47,7 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 class __extend__(optimizer.OptValue):
     """New methods added to the base class OptValue for this file."""
 
-    def getstrlen(self, optimization, mode):
+    def getstrlen(self, optimization, mode, lengthbox=None):
         if mode is mode_string:
             s = self.get_constant_string_spec(mode_string)
             if s is not None:
@@ -60,7 +60,8 @@ class __extend__(optimizer.OptValue):
             return None
         self.ensure_nonnull()
         box = self.force_box()
-        lengthbox = BoxInt()
+        if not lengthbox:
+            lengthbox = BoxInt()
         optimization.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
         return lengthbox
 
@@ -124,7 +125,7 @@ class VStringPlainValue(VAbstractStringValue):
         assert 0 <= start <= stop <= len(longerlist)
         self._chars = longerlist[start:stop]
 
-    def getstrlen(self, _, mode):
+    def getstrlen(self, _, mode, lengthbox=None):
         if self._lengthbox is None:
             self._lengthbox = ConstInt(len(self._chars))
         return self._lengthbox
@@ -185,7 +186,7 @@ class VStringConcatValue(VAbstractStringValue):
         self.left = left
         self.right = right
 
-    def getstrlen(self, optimizer, mode):
+    def getstrlen(self, optimizer, mode, lengthbox=None):
         if self.lengthbox is None:
             len1box = self.left.getstrlen(optimizer, mode)
             if len1box is None:
@@ -249,7 +250,7 @@ class VStringSliceValue(VAbstractStringValue):
         self.vstart = vstart
         self.vlength = vlength
 
-    def getstrlen(self, _, mode):
+    def getstrlen(self, _, mode, lengthbox=None):
         return self.vlength.force_box()
 
     @specialize.arg(1)
@@ -453,8 +454,9 @@ class OptString(optimizer.Optimization):
 
     def _optimize_STRLEN(self, op, mode):
         value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self, mode)
-        self.make_equal_to(op.result, self.getvalue(lengthbox))
+        lengthbox = value.getstrlen(self, mode, op.result)
+        if lengthbox is not op.result:
+            self.make_equal_to(op.result, self.getvalue(lengthbox))
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles

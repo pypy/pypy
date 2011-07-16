@@ -6453,6 +6453,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
         
+    def test_loopinvariant_strlen(self):
+        ops = """
+        [p9]
+        i843 = strlen(p9)
+        call(i843, descr=nonwritedescr)
+        jump(p9)
+        """
+        expected = """
+        [p9, i2]
+        call(i2, descr=nonwritedescr)
+        jump(p9, i2)
+        """
+        self.optimize_loop(ops, expected)
+        
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

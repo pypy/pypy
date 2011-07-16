@@ -184,7 +184,7 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(jump_args)
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
-            short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)            
+            short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
 
             self.constant_inputargs = {}
             for box in jump_args: 
@@ -200,6 +200,20 @@ class UnrollOptimizer(Optimization):
                 self.optimizer.quasi_immutable_deps)
             self.optimizer = self.optimizer.new()
             loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
+
+            logops = self.optimizer.loop.logops
+            if logops:
+                args = ", ".join([logops.repr_of_arg(arg) for arg in inputargs])
+                debug_print('inputargs: ' + args)
+                args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
+                debug_print('short inputargs: ' + args)
+                debug_start('jit-short-boxes')
+                for box, op in self.short_boxes.items():
+                    if op:
+                        debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
+                    else:
+                        debug_print(logops.repr_of_arg(box) + ': None')
+                debug_stop('jit-short-boxes')
 
             # Force virtuals amoung the jump_args of the preamble to get the
             # operations needed to setup the proper state of those virtuals
@@ -229,7 +243,7 @@ class UnrollOptimizer(Optimization):
                         self.optimizer.send_extra_operation(guard)
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
-            
+
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
 
@@ -351,8 +365,12 @@ class UnrollOptimizer(Optimization):
             args = op.getarglist()
             if op.is_guard():
                 args = args + op.getfailargs()
-            
+
+            if self.optimizer.loop.logops:
+                debug_print('OP: ' + self.optimizer.loop.logops.repr_of_resop(op))
             for a in args:
+                if self.optimizer.loop.logops:
+                    debug_print('A:  ' + self.optimizer.loop.logops.repr_of_arg(a))
                 self.import_box(a, inputargs, short, short_jumpargs,
                                 jumpargs, short_seen)
             i += 1
