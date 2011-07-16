@@ -14,7 +14,7 @@ from pypy.tool.pairtype import extendabletype
 # Constants and exposed functions
 
 from pypy.rlib.rsre import rsre_core
-from pypy.rlib.rsre.rsre_char import CODESIZE, getlower, set_unicode_db
+from pypy.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
 
 @unwrap_spec(char_ord=int, flags=int)
 def w_getlower(space, char_ord, flags):

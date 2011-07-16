@@ -1,5 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
     generic_new_descr)
