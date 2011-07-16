@@ -485,10 +485,8 @@ class MIFrame(object):
     @arguments("box", "descr", "descr", "box")
     def _opimpl_getlistitem_gc_any(self, listbox, itemsdescr, arraydescr,
                                    indexbox):
-        arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                      itemsdescr, listbox)
-        return self.execute_with_descr(rop.GETARRAYITEM_GC,
-                                       arraydescr, arraybox, indexbox)
+        arraybox = self._opimpl_getfield_gc_any(listbox, itemsdescr)
+        return self._opimpl_getarrayitem_gc_any(arraybox, arraydescr, indexbox)
 
     opimpl_getlistitem_gc_i = _opimpl_getlistitem_gc_any
     opimpl_getlistitem_gc_r = _opimpl_getlistitem_gc_any
@@ -497,10 +495,9 @@ class MIFrame(object):
     @arguments("box", "descr", "descr", "box", "box")
     def _opimpl_setlistitem_gc_any(self, listbox, itemsdescr, arraydescr,
                                    indexbox, valuebox):
-        arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                      itemsdescr, listbox)
-        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
-                                indexbox, valuebox)
+        arraybox = self._opimpl_getfield_gc_any(listbox, itemsdescr)
+        self._opimpl_setarrayitem_gc_any(arraybox, arraydescr, indexbox,
+                                         valuebox)
 
     opimpl_setlistitem_gc_i = _opimpl_setlistitem_gc_any
     opimpl_setlistitem_gc_r = _opimpl_setlistitem_gc_any
