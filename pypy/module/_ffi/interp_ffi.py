@@ -1,9 +1,8 @@
-import sys
-from pypy.interpreter.baseobjspace import Wrappable, Arguments
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, wrap_oserror, \
     operationerrfmt
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 #
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -16,7 +15,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 class W_FFIType(Wrappable):
 
     _immutable_fields_ = ['name', 'ffitype', 'w_datashape', 'w_pointer_to']
-    
+
     def __init__(self, name, ffitype, w_datashape=None, w_pointer_to=None):
         self.name = name
         self.ffitype = ffitype
@@ -83,7 +82,6 @@ W_FFIType.typedef = TypeDef(
 
 
 def build_ffi_types():
-    from pypy.rlib.clibffi import FFI_TYPE_P
     types = [
         # note: most of the type name directly come from the C equivalent,
         # with the exception of bytes: in C, ubyte and char are equivalent,
@@ -161,7 +159,7 @@ unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 class W_FuncPtr(Wrappable):
 
     _immutable_fields_ = ['func', 'argtypes_w[*]', 'w_restype']
-    
+
     def __init__(self, func, argtypes_w, w_restype):
         self.func = func
         self.argtypes_w = argtypes_w
@@ -207,7 +205,7 @@ class W_FuncPtr(Wrappable):
                 argchain.arg_singlefloat(space.float_w(w_arg))
             elif w_argtype.is_struct():
                 # arg_raw directly takes value to put inside ll_args
-                w_arg = space.interp_w(W_StructureInstance, w_arg)                
+                w_arg = space.interp_w(W_StructureInstance, w_arg)
                 ptrval = w_arg.ll_buffer
                 argchain.arg_raw(ptrval)
             else:
@@ -404,7 +402,7 @@ class W_CDLL(Wrappable):
         except KeyError:
             raise operationerrfmt(space.w_AttributeError,
                                   "No symbol %s found in library %s", name, self.name)
-            
+
         return W_FuncPtr(func, argtypes_w, w_restype)
 
     @unwrap_spec(name=str)
