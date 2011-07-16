@@ -1648,7 +1648,8 @@ class MetaInterp(object):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)
-        if opnum != rop.SETFIELD_GC and self.heap_cache:
+        if (self.heap_cache and opnum != rop.SETFIELD_GC and
+                opnum != rop.SETARRAYITEM_GC):
             if not (rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST):
                 self.heap_cache = {}
         op = self.history.record(opnum, argboxes, resbox, descr)

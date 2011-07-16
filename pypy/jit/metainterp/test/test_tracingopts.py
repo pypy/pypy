@@ -113,6 +113,7 @@ class TestLLtype(LLJitMixin):
         @jit.dont_look_inside
         def f(a):
             a.x = 5
+        l = [1]
         def fn(n):
             if n > 0:
                 a = a1
@@ -121,9 +122,11 @@ class TestLLtype(LLJitMixin):
             a.x = n
             x1 = a.x
             f(a)
-            return a.x + x1
+            x2 = a.x
+            l[0] = x2
+            return a.x + x1 + x2
         res = self.interp_operations(fn, [7])
-        assert res == 5 + 7
+        assert res == 5 * 2 + 7
         self.check_operations_history(getfield_gc=1)
 
     def test_heap_caching_dont_store_same(self):
