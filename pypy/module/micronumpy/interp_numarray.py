@@ -7,8 +7,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 import math
 
-INSERT_SORT_THRESH = 15
-
 def dummy1(v):
     assert isinstance(v, float)
     return v
@@ -23,8 +21,6 @@ numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
-slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'self', 'arr'])
-slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'self', 'arr'])
 
 class Signature(object):
     def __init__(self):
@@ -92,18 +88,6 @@ class BaseArray(Wrappable):
         signature = Signature()
         def impl(self, space, w_other):
             w_other = convert_to_array(space, w_other)
-            try:
-                w_other_size = w_other.find_size()
-                self_size = self.find_size()
-            except ValueError:
-                # this will be raised if one of the arrays is a scalar.
-                pass
-            else:
-                # Need a better dimension check here for N-dim arrays
-                if w_other_size != self_size:
-                    raise OperationError(space.w_ValueError,
-                        space.wrap("Cannot %s arrays of unequal dimensions" \
-                        % function.__name__))
             new_sig = self.signature.transition(signature)
             res = Call2(
                 function,
@@ -127,7 +111,7 @@ class BaseArray(Wrappable):
         signature = Signature()
         def impl(self, space, w_other):
             new_sig = self.signature.transition(signature)
-            w_other = convert_to_array(space, w_other)
+            w_other = FloatWrapper(space.float_w(w_other))
             res = Call2(
                 function,
                 w_other,
@@ -251,80 +235,6 @@ class BaseArray(Wrappable):
         else:
             return self.descr_mul(space, w_other)
 
-    def _insertion_sort(self, storage, left, right):
-        i = left + 1
-        while i <= right:
-            temp = storage[i]
-            j = i - 1
-            while j >= left and storage[j] > temp:
-                storage[j + 1] = storage[j]
-                j -= 1
-            storage[j + 1] = temp
-            i += 1
-
-    def descr_sort(self, space):
-        storage = self.get_concrete().storage
-        # can replace these with integer/bool numpy arrays when we add dtypes
-        lefts = [0]
-        rights = [self.find_size() - 1]
-        checkpivots = [False]
-        while lefts:
-            left = lefts.pop()
-            right = rights.pop()
-            checkpivot = checkpivots.pop()
-            # just use middle element for now. will change to med of 3 soon
-            mid = left + (right - left) / 2
-            pivot = storage[mid]
-            if checkpivot and pivot == storage[left - 1]:
-                storage[mid], storage[left] = storage[left], storage[mid]
-                i = left + 1
-                j = right
-                while 1:
-                    while storage[j] != pivot:
-                        j -= 1
-                    while storage[i] == pivot:
-                        if i >= j: break
-                        i += 1
-                    if i >= j: break
-                    storage[i], storage[j] = storage[j], storage[i]
-                storage[j] = pivot
-                if right > j + 1:
-                    if right - j + 1 < INSERT_SORT_THRESH:
-                        self._insertion_sort(storage, j + 1, right)
-                    else:
-                        lefts.append(j + 1)
-                        rights.append(right)
-                        checkpivots.append(False)
-            else:
-                storage[mid], storage[right] = storage[right], storage[mid]
-                i = left
-                j = right - 1
-                while 1:
-                    while storage[i] < pivot:
-                        i += 1
-                    while storage[j] >= pivot:
-                        if i >= j: break
-                        j -= 1
-                    if i >= j: break
-                    storage[i], storage[j] = storage[j], storage[i]
-                storage[right] = storage[i]
-                storage[i] = pivot
-                # we can have the smaller subarray sorted first
-                if left < i - 1:
-                    if i - 1 - left < INSERT_SORT_THRESH:
-                        self._insertion_sort(storage, left, i - 1)
-                    else:
-                        lefts.append(left)
-                        rights.append(i - 1)
-                        checkpivots.append(checkpivot)
-                if right > i + 1:
-                    if right - i - 1 < INSERT_SORT_THRESH:
-                        self._insertion_sort(storage, i + 1, right)
-                    else:
-                        lefts.append(i + 1)
-                        rights.append(right)
-                        checkpivots.append(True)
-
     def get_concrete(self):
         raise NotImplementedError
 
@@ -334,20 +244,8 @@ class BaseArray(Wrappable):
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
 
-    def descr_get_size(self, space):
-        return space.wrap(self.find_size())
-
-    def descr_get_ndim(self, space):
-        return space.wrap(self.find_ndim())
-
-    def descr_repr(self, space):
-        return self.get_concrete().descr_repr(space)
-
-    def descr_str(self, space):
-        return self.get_concrete().descr_str(space)
-
     def descr_getitem(self, space, w_idx):
-        # TODO: indexing by tuples and lists
+        # TODO: indexing by tuples
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
         if step == 0:
             # Single index
@@ -357,16 +255,10 @@ class BaseArray(Wrappable):
             res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
             return space.wrap(res)
 
-    def descr_setitem(self, space, w_idx, w_value):
-        # TODO: indexing by tuples and lists
+    @unwrap_spec(item=int, value=float)
+    def descr_setitem(self, space, item, value):
         self.invalidated()
-        start, stop, step, slice_length = space.decode_index4(w_idx,
-                                                              self.find_size())
-        if step == 0:
-            # Single index
-            self.get_concrete().descr_setitem(space, start, space.float_w(w_value))
-        else:
-            self.get_concrete().descr_setslice(space, start, stop, step, slice_length, w_value)
+        return self.get_concrete().descr_setitem(space, item, value)
 
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
@@ -393,9 +285,6 @@ class FloatWrapper(BaseArray):
         self.float_value = float_value
 
     def find_size(self):
-        raise ValueError
-
-    def find_ndim(self):
         raise ValueError
 
     def eval(self, i):
@@ -447,12 +336,6 @@ class VirtualArray(BaseArray):
             return self.forced_result.find_size()
         return self._find_size()
 
-    def find_ndim(self):
-        if self.forced_result is not None:
-            # The result has been computed and sources may be unavailable
-            return self.forced_result.find_ndim()
-        return self._find_ndim()
-
 
 class Call1(VirtualArray):
     _immutable_fields_ = ["function", "values"]
@@ -467,9 +350,6 @@ class Call1(VirtualArray):
 
     def _find_size(self):
         return self.values.find_size()
-
-    def _find_ndim(self):
-        return self.values.find_ndim()
 
     def _eval(self, i):
         return self.function(self.values.eval(i))
@@ -496,13 +376,6 @@ class Call2(VirtualArray):
         except ValueError:
             pass
         return self.right.find_size()
-
-    def _find_ndim(self):
-        try:
-            return self.left.find_ndim()
-        except ValueError:
-            pass
-        return self.right.find_ndim()
 
     def _eval(self, i):
         lhs, rhs = self.left.eval(i), self.right.eval(i)
@@ -535,12 +408,9 @@ class ViewArray(BaseArray):
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
-        # need to change this so that it can deal with slices
         return self.parent.descr_setitem(space, self.calc_index(item), value)
 
     def descr_len(self, space):
-        # This will need to change for multidimensional arrays.
-        # For them, len returns the size of the first dimension
         return space.wrap(self.find_size())
 
     def calc_index(self, item):
@@ -556,13 +426,9 @@ class SingleDimSlice(ViewArray):
         self.stop = stop
         self.step = step
         self.size = slice_length
-        self.ndim = 1
 
     def find_size(self):
         return self.size
-
-    def find_ndim(self):
-        return self.ndim
 
     def calc_index(self, item):
         return (self.start + item * self.step)
@@ -574,21 +440,15 @@ class SingleDimArray(BaseArray):
     def __init__(self, size):
         BaseArray.__init__(self)
         self.size = size
-        self.ndim = 1
         self.storage = lltype.malloc(TP, size, zero=True,
                                      flavor='raw', track_allocation=False)
         # XXX find out why test_zjit explodes with trackign of allocations
-    # we could probably put get_concrete, find_size, and find_dim all in 
-    # a new class called ConcreteArray or some such because they will
-    # be the same for multi-dimensional arrays.
+
     def get_concrete(self):
         return self
 
     def find_size(self):
         return self.size
-
-    def find_ndim(self):
-        return self.ndim
 
     def eval(self, i):
         return self.storage[i]
@@ -610,71 +470,11 @@ class SingleDimArray(BaseArray):
     def getitem(self, item):
         return self.storage[item]
 
-    def _getnums(self, comma):
-        # XXX this should be improved in the future
-        if self.find_size() > 1000:
-            nums = [str(self.getitem(index)) for index \
-                in range(3)]
-            nums.append("..." + "," * comma)
-            nums.extend([str(self.getitem(index)) for index \
-                in range(self.find_size() - 3, self.find_size())])
-        else:
-            nums = [str(self.getitem(index)) for index \
-                in range(self.find_size())]
-        return nums
-
-    def descr_repr(self, space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
-
-    def descr_str(self,space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("[" + " ".join(self._getnums(True)) + "]")
-
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
         item = self.getindex(space, item)
         self.invalidated()
         self.storage[item] = value
-
-    def _setslice1(self, start, stop, step, arr):
-        signature = Signature()
-        new_sig = self.signature.transition(signature)
-        i = start
-        j = 0
-        while i < stop:
-            slice_driver1.jit_merge_point(signature=signature, self=self,
-                    step=step, stop=stop, i=i, j=j, arr=arr)
-            self.storage[i] = arr.eval(j)
-            j += 1
-            i += step
-
-    def _setslice2(self, start, stop, step, arr):
-        signature = Signature()
-        new_sig = self.signature.transition(signature)
-        i = start
-        j = 0
-        while i > stop:
-            slice_driver2.jit_merge_point(signature=signature, self=self,
-                    step=step, stop=stop, i=i, j=j, arr=arr)
-            self.storage[i] = arr.eval(j)
-            j += 1
-            i += step
-
-    def descr_setslice(self, space, start, stop, step, slice_length, arr):
-        i = start
-        if stop < 0:
-            stop += self.find_size()
-        if step > 0:
-            stop = min(stop, self.find_size())
-        else:
-            stop = max(stop, 0)
-        if not isinstance(arr, BaseArray):
-            arr = convert_to_array(space, arr)
-        if step > 0:
-            self._setslice1(start, stop, step, arr)
-        else:
-            self._setslice2(start, stop, step, arr)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw')
@@ -738,5 +538,4 @@ BaseArray.typedef = TypeDef(
     all = interp2app(BaseArray.descr_all),
     any = interp2app(BaseArray.descr_any),
     dot = interp2app(BaseArray.descr_dot),
-    sort = interp2app(BaseArray.descr_sort),
 )

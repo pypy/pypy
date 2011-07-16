@@ -4,7 +4,6 @@ It should not be imported by the module itself
 """
 
 from pypy.module.micronumpy.interp_numarray import FloatWrapper, SingleDimArray
-from pypy.rlib.objectmodel import specialize
 
 class BogusBytecode(Exception):
     pass
@@ -16,12 +15,8 @@ def create_array(size):
     return a
 
 class TrivialSpace(object):
-    w_ValueError = None
-
-    @specialize.argtype(1)
-    def wrap(self, w_obj):
-        return w_obj
-
+    def wrap(self, x):
+        return x
 
 def numpy_compile(bytecode, array_size):
     space = TrivialSpace()

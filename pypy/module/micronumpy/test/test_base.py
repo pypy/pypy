@@ -18,8 +18,8 @@ class TestSignature(object):
 
     def test_slice_signature(self, space):
         ar = SingleDimArray(10)
-        v1 = ar.descr_getitem(space, space.wrap(slice(0, 10, 1)))
-        v2 = ar.descr_getitem(space, space.wrap(slice(9, None, -1)))
+        v1 = ar.descr_getitem(space, space.wrap(slice(1, 5, 1)))
+        v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
         assert v1.signature is v2.signature
 
         v3 = ar.descr_add(space, v1)
