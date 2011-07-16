@@ -399,6 +399,10 @@ class MIFrame(object):
                 return tobox
         resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
                                          arraydescr, arraybox, indexbox)
+        if index >= 0:
+            if not cache:
+                cache = self.metainterp.heap_array_cache[arraydescr] = {}
+            cache[index] = arraybox, resbox
         return resbox
 
 
