@@ -3,7 +3,7 @@ from pypy.rlib import streamio
 from pypy.rlib.streamio import StreamErrors
 
 from pypy.interpreter.error import OperationError, wrap_oserror2
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 
