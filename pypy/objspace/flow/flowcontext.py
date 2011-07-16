@@ -184,7 +184,7 @@ class ConcreteNoOp(Recorder):
 
 class FlowExecutionContext(ExecutionContext):
 
-    def __init__(self, space, code, globals, constargs={}, closure=None,
+    def __init__(self, space, code, globals, constargs={}, outer_func=None,
                  name=None):
         ExecutionContext.__init__(self, space)
         self.code = code
@@ -193,11 +193,11 @@ class FlowExecutionContext(ExecutionContext):
 
         self.crnt_offset = -1
         self.crnt_frame = None
-        if closure is None:
-            self.closure = None
-        else:
+        if outer_func and outer_func.closure:
             self.closure = [nestedscope.Cell(Constant(value))
-                            for value in closure]
+                            for value in outer_func.closure]
+        else:
+            self.closure = None
         frame = self.create_frame()
         formalargcount = code.getformalargcount()
         arg_list = [Variable() for i in range(formalargcount)]
@@ -216,7 +216,7 @@ class FlowExecutionContext(ExecutionContext):
         # while ignoring any operation like the creation of the locals dict
         self.recorder = []
         frame = FlowSpaceFrame(self.space, self.code,
-                               self.w_globals, self.closure)
+                               self.w_globals, self)
         frame.last_instr = 0
         return frame
 
