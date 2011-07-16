@@ -89,7 +89,7 @@ class SimpleParser(OpParser):
                     while asm[asm_index][0] < op.offset:
                         asm_index += 1
                     end_index = asm_index
-                    while asm[end_index][0] < end:
+                    while asm[end_index][0] < end and end_index < len(asm) - 1:
                         end_index += 1
                     op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
         return loop
@@ -343,18 +343,20 @@ def import_log(logname, ParserCls=SimpleParser):
             addr = int(m.group(1), 16)
             entry = entry.lower()
             m = re.search('guard \d+', entry)
-            addrs[addr] = m.group(0)
+            name = m.group(0)
         else:
             name = entry[:entry.find('(') - 1].lower()
-            addrs[int(m.group(1), 16)] = name
+            addr = int(m.group(1), 16)
+        addrs.setdefault(addr, []).append(name)
     dumps = {}
     for entry in extract_category(log, 'jit-backend-dump'):
         backend, _, dump, _ = entry.split("\n")
         _, addr, _, data = re.split(" +", dump)
         backend_name = backend.split(" ")[1]
         addr = int(addr[1:], 16)
-        if addr in addrs:
-            dumps[addrs[addr]] = (backend_name, addr, data)
+        if addr in addrs and addrs[addr]:
+            name = addrs[addr].pop(0) # they should come in order
+            dumps[name] = (backend_name, addr, data)
     loops = []
     for entry in extract_category(log, 'jit-log-opt'):
         parser = ParserCls(entry, None, {}, 'lltype', None,
@@ -369,7 +371,10 @@ def import_log(logname, ParserCls=SimpleParser):
             name = comm[2:comm.find(':')-1]
         if name in dumps:
             bname, start_ofs, dump = dumps[name]
-            parser.postprocess(loop, backend_tp=bname, backend_dump=dump,
-                               dump_start=start_ofs)
+            loop.force_asm = (lambda dump=dump, start_ofs=start_ofs,
+                              bname=bname, loop=loop:
+                              parser.postprocess(loop, backend_tp=bname,
+                                                 backend_dump=dump,
+                                                 dump_start=start_ofs))
         loops.append(loop)
     return log, loops

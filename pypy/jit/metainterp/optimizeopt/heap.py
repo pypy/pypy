@@ -73,7 +73,7 @@ class CachedField(object):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
 
-    def force_lazy_setfield(self, optheap):
+    def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
         if op is not None:
             # This is the way _lazy_setfield is usually reset to None.
@@ -83,6 +83,8 @@ class CachedField(object):
             self._cached_fields.clear()
             self._lazy_setfield = None
             optheap.next_optimization.propagate_forward(op)
+            if not can_cache:
+                return
             # Once it is done, we can put at least one piece of information
             # back in the cache: the value of this particular structure's
             # field.
@@ -245,13 +247,13 @@ class OptHeap(Optimization):
             return
         cf.force_lazy_setfield(self)
 
-    def force_lazy_setarrayitem(self, arraydescr):
+    def force_lazy_setarrayitem(self, arraydescr, can_cache=True):
         try:
             submap = self.cached_arrayitems[arraydescr]
         except KeyError:
             return
         for cf in submap.values():
-            cf.force_lazy_setfield(self)
+            cf.force_lazy_setfield(self, can_cache)
 
     def fixup_guard_situation(self):
         # hackish: reverse the order of the last two operations if it makes
@@ -387,7 +389,7 @@ class OptHeap(Optimization):
             cf.do_setfield(self, op)
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr())
+            self.force_lazy_setarrayitem(op.getdescr(), can_cache=False)
             # and then emit the operation
             self.emit_operation(op)
 
