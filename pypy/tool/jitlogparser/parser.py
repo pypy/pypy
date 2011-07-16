@@ -89,7 +89,7 @@ class SimpleParser(OpParser):
                     while asm[asm_index][0] < op.offset:
                         asm_index += 1
                     end_index = asm_index
-                    while asm[end_index][0] < end:
+                    while asm[end_index][0] < end and end_index < len(asm) - 1:
                         end_index += 1
                     op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
         return loop
