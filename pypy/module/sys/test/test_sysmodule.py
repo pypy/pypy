@@ -476,7 +476,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[0], int)
         assert isinstance(vi[1], int)
         assert isinstance(vi[2], int)
-        assert vi[3] in ("alpha", "beta", "candidate", "final")
+        assert vi[3] in ("alpha", "beta", "candidate", "dev", "final")
         assert isinstance(vi[4], int)
 
     def test_allattributes(self):

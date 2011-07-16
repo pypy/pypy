@@ -1,11 +1,10 @@
-
 from pypy.interpreter.error import OperationError
 
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rstruct.error import StructError
 from pypy.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
-from pypy.rlib.rstruct.formatiterator import (FormatIterator,
-                                              CalcSizeFormatIterator)
+from pypy.rlib.rstruct.formatiterator import FormatIterator
+
 
 class PackFormatIterator(FormatIterator):
 

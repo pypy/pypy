@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
-from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.objectmodel import we_are_translated
 
 class CodecState(object):

@@ -10,7 +10,7 @@ from pypy.interpreter import gateway
 CPYTHON_VERSION            = (2, 7, 1, "final", 42)   #XXX # sync patchlevel.h
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (1, 5, 0, "alpha", 0)    #XXX # sync patchlevel.h
+PYPY_VERSION               = (1, 6, 0, "dev", 1)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)

@@ -15,7 +15,6 @@ from pypy.interpreter.pyopcode import ExitFrame
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from opcode import opmap
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.nonconst import NonConstant
 from pypy.jit.metainterp.resoperation import rop
 from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
@@ -67,7 +66,7 @@ class PyPyJitDriver(JitDriver):
     def on_compile(self, logger, looptoken, operations, type, next_instr,
                    is_being_profiled, ll_pycode):
         from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-        
+
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
@@ -171,7 +170,7 @@ class __extend__(PyCode):
 
 # ____________________________________________________________
 #
-# Public interface    
+# Public interface
 
 def set_param(space, __args__):
     '''Configure the tunable JIT parameters.
@@ -213,7 +212,7 @@ def residual_call(space, w_callable, __args__):
 
 class Cache(object):
     in_recursion = False
-    
+
     def __init__(self, space):
         self.w_compile_hook = space.w_None
 

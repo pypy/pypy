@@ -431,12 +431,17 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
             return None
         assert isinstance(lifeline, WeakrefLifeline)
         return lifeline
+    getweakref._cannot_really_call_random_things_ = True
 
     def setweakref(self, space, weakreflifeline):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
-        assert (isinstance(weakreflifeline, WeakrefLifeline) or
-                    weakreflifeline is None)
+        assert isinstance(weakreflifeline, WeakrefLifeline)
         self._get_mapdict_map().write(self, ("weakref", SPECIAL), weakreflifeline)
+    setweakref._cannot_really_call_random_things_ = True
+
+    def delweakref(self):
+        self._get_mapdict_map().write(self, ("weakref", SPECIAL), None)
+    delweakref._cannot_really_call_random_things_ = True
 
 class ObjectMixin(object):
     _mixin_ = True

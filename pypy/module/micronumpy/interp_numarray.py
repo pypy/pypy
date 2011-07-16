@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty

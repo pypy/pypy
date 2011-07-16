@@ -1,7 +1,6 @@
-import sys
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 from pypy.rlib.clibffi import *
@@ -15,7 +14,7 @@ if _MS_WINDOWS:
     from pypy.rlib import rwin32
 
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.tracker import tracker
 
 TYPEMAP = {

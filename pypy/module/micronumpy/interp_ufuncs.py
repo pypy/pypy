@@ -1,7 +1,7 @@
 import math
 
-from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy.interp_numarray import BaseArray, Call1, Call2, Signature, convert_to_array
+from pypy.module.micronumpy.interp_numarray import (Call1, Call2, Signature,
+    convert_to_array)
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
 

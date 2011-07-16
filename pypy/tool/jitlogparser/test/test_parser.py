@@ -213,4 +213,15 @@ def test_parsing_assembler():
 def test_import_log():
     _, loops = import_log(str(py.path.local(__file__).join('..',
                                                            'logtest.log')))
+    for loop in loops:
+        loop.force_asm()
     assert 'jge' in loops[0].operations[3].asm
+
+def test_import_log_2():
+    _, loops = import_log(str(py.path.local(__file__).join('..',
+                                                           'logtest2.log')))
+    for loop in loops:
+        loop.force_asm()
+    assert 'cmp' in loops[1].operations[1].asm
+    # bridge
+    assert 'jo' in loops[3].operations[3].asm
