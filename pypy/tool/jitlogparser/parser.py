@@ -89,7 +89,7 @@ class SimpleParser(OpParser):
                     while asm[asm_index][0] < op.offset:
                         asm_index += 1
                     end_index = asm_index
-                    while asm[end_index][0] < end:
+                    while asm[end_index][0] < end and end_index < len(asm) - 1:
                         end_index += 1
                     op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
         return loop
@@ -369,7 +369,11 @@ def import_log(logname, ParserCls=SimpleParser):
             name = comm[2:comm.find(':')-1]
         if name in dumps:
             bname, start_ofs, dump = dumps[name]
-            parser.postprocess(loop, backend_tp=bname, backend_dump=dump,
-                               dump_start=start_ofs)
+            try:
+                parser.postprocess(loop, backend_tp=bname, backend_dump=dump,
+                                   dump_start=start_ofs)
+            except:
+                import pdb, sys
+                pdb.post_mortem(sys.exc_info()[2])
         loops.append(loop)
     return log, loops

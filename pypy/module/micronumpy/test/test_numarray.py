@@ -60,6 +60,29 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
 
+    def test_setslice_array(self):
+        from numpy import array
+        a = array(range(5))
+        b = array(range(2))
+        a[1:4:2] = b
+        assert a[1] == 0.
+        assert a[3] == 1.
+
+    def test_setslice_list(self):
+        from numpy import array
+        a = array(range(5))
+        b = [0., 1.]
+        a[1:4:2] = b
+        assert a[1] == 0.
+        assert a[3] == 1.
+
+    def test_setslice_constant(self):
+        from numpy import array
+        a = array(range(5))
+        a[1:4:2] = 0.
+        assert a[1] == 0.
+        assert a[3] == 0.
+
     def test_len(self):
         from numpy import array
         a = array(range(5))
@@ -96,6 +119,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a + 5
         for i in range(5):
             assert b[i] == i + 5
+        b = 5 + a
+        for i in range(5):
+            assert b[i] == 5 + i
 
     def test_add_list(self):
         from numpy import array
@@ -105,6 +131,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert isinstance(c, array)
         for i in range(5):
             assert c[i] == 4
+        c = b + a
+        assert isinstance(c, array)
+        for i in range(5):
+            assert c[i] == 4
+
+    def test_add_unequal_size(self):
+        from numpy import array
+        a = array(range(5))
+        b = array(range(3))
+        raises(ValueError, "a + b")
 
     def test_subtract(self):
         from numpy import array
@@ -127,6 +163,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a - 5
         for i in range(5):
             assert b[i] == i - 5
+        b = 5 - a
+        for i in range(5):
+            assert b[i] == 5 - i
 
     def test_mul(self):
         from numpy import array
@@ -141,6 +180,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a * 5
         for i in range(5):
             assert b[i] == i * 5
+        b = 5 * a
+        for i in range(5):
+            assert b[i] == 5 * i
 
     def test_div(self):
         from numpy import array
@@ -159,10 +201,13 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_div_constant(self):
         from numpy import array
-        a = array(range(5))
+        a = array(range(1,6))
         b = a / 5.0
         for i in range(5):
-            assert b[i] == i / 5.0
+            assert b[i] == (i+1) / 5.0
+        b = 5.0 / a
+        for i in range(5):
+            assert b[i] == 5.0 / (i+1)
 
     def test_pow(self):
         from numpy import array
@@ -186,6 +231,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a ** 2
         for i in range(5):
             assert b[i] == i ** 2
+        b = 2 ** a
+        for i in range(5):
+            assert b[i] == 2 ** i
 
     def test_mod(self):
         from numpy import array
@@ -204,10 +252,13 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_mod_constant(self):
         from numpy import array
-        a = array(range(5))
+        a = array(range(1,6))
         b = a % 2
         for i in range(5):
-            assert b[i] == i % 2
+            assert b[i] == (i+1) % 2
+        b = 2 % a
+        for i in range(5):
+            assert b[i] == 2 % (i+1)
 
     def test_pos(self):
         from numpy import array
@@ -365,6 +416,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.dot(2.5)
         for i in xrange(5):
             assert b[i] == 2.5*a[i]
+
+    def test_sort(self):
+        from numpy import array
+        a = array(range(19,-1,-1))
+        b = array(range(20))
+        a.sort()
+        for i in xrange(20):
+            assert a[i] == b[i]
 
 
 class AppTestSupport(object):

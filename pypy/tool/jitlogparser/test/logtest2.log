@@ -1,0 +1,301 @@
+[1f5e7f69779] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b000 +0  4157415641554154415341524151415057565554535251504889E349C7C340BC920041FFD34889DF4883E4F049C7C350BC920041FFD3488D65D8415F415E415D415C5B5DC3
+[1f5e7f7fe75] jit-backend-dump}
+[1f5e7f84fc4] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b045 +0  4157415641554154415341524151415057565554535251504889E349C7C3F0BB920041FFD34889DF4883E4F049C7C350BC920041FFD3488D65D8415F415E415D415C5B5DC3
+[1f5e7f87ac1] jit-backend-dump}
+[1f5e7f8a0b4] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b08a +0  4157415641554154415341524151415057565554535251504889E34881EC80000000F20F110424F20F114C2408F20F11542410F20F115C2418F20F11642420F20F116C2428F20F11742430F20F117C2438F2440F11442440F2440F114C2448F2440F11542450F2440F115C2458F2440F11642460F2440F116C2468F2440F11742470F2440F117C247849C7C340BC920041FFD34889DF4883E4F049C7C350BC920041FFD3488D65D8415F415E415D415C5B5DC3
+[1f5e7f8da6b] jit-backend-dump}
+[1f5e7f8f4f6] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b13d +0  4157415641554154415341524151415057565554535251504889E34881EC80000000F20F110424F20F114C2408F20F11542410F20F115C2418F20F11642420F20F116C2428F20F11742430F20F117C2438F2440F11442440F2440F114C2448F2440F11542450F2440F115C2458F2440F11642460F2440F116C2468F2440F11742470F2440F117C247849C7C3F0BB920041FFD34889DF4883E4F049C7C350BC920041FFD3488D65D8415F415E415D415C5B5DC3
+[1f5e7f92b83] jit-backend-dump}
+[1f5e7f95b99] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b210 +0  F20F11442410F20F114C2418F20F11542420F20F115C2428F20F11642430F20F116C2438F20F11742440F20F117C2448F2440F11442450F2440F114C2458F2440F11542460F2440F115C2468F2440F11642470F2440F116C2478F2440F11B42480000000F2440F11BC24880000004829C24889D749C7C350A8920041FFE3
+[1f5e7f988d0] jit-backend-dump}
+[1f5e7fa16fb] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b28e +0  F20F10442410F20F104C2418F20F10542420F20F105C2428F20F10642430F20F106C2438F20F10742440F20F107C2448F2440F10442450F2440F104C2458F2440F10542460F2440F105C2468F2440F10642470F2440F106C2478F2440F10B42480000000F2440F10BC2488000000488B1425704F3D01C3
+[1f5e7fa47ac] jit-backend-dump}
+[1f5e7fab3a4] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b305 +0  57565251415041514883EC40F20F110424F20F114C2408F20F11542410F20F115C2418F20F11642420F20F116C2428F20F11742430F20F117C2438488D7D1049C7C340BA520041FFD3488B042550546B024885C0753CF20F107C2438F20F10742430F20F106C2428F20F10642420F20F105C2418F20F10542410F20F104C2408F20F1004244883C44041594158595A5E5FC3488B042558546B0248C7042550546B020000000048C7042558546B02000000004889042590C2540149C7C340BC920041FFD348C7C0020000004883C478C3
+[1f5e7faf1ca] jit-backend-dump}
+[1f5e7fb0813] {jit-backend-counts
+[1f5e7fb0f61] jit-backend-counts}
+[1f5fd38be3e] {jit-backend
+[1f5fe729336] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b3d5 +0  554889E5534154415541564157488DA500000000488B042590C2540148C7042590C254010000000048898570FFFFFF488B042598C2540148C7042598C254010000000048898568FFFFFF488B0425A0C2540148C70425A0C254010000000048898560FFFFFF488B0425A8C2540148C70425A8C254010000000048898558FFFFFF4C8B3C25D04D5B0149BB30B00C0A897F00004D8B334983C60149BB30B00C0A897F00004D89334981FF102700000F8D000000004D89FE4983E7024983FF000F85000000004983C6034C8B3C25A0536B024983EF014C893C25A0536B024983FF000F8C000000004D89F7E99AFFFFFF488B0425A8536B024829E0483B042580DC3C01760D49BB05B3A007897F000041FFD3554889E5534154415541564157488DA550FFFFFF4889BD70FFFFFF4889B568FFFFFF48899560FFFFFF48898D58FFFFFF4D89C7E940FFFFFF49BB00B0A007897F000041FFD34440484C3D030300000049BB00B0A007897F000041FFD34440484C3D39030400000049BB00B0A007897F000041FFD34440484C3907070305000000
+[1f5fe73276a] jit-backend-dump}
+[1f5fe73438f] {jit-backend-addr
+Loop 0 (<code object f, file 'x.py', line 2> #9 LOAD_FAST) has address 7f8907a0b45d to 7f8907a0b4c3 (bootstrap 7f8907a0b3d5)
+[1f5fe7369af] jit-backend-addr}
+[1f5fe737940] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b3e5 +0  50FFFFFF
+[1f5fe74b40e] jit-backend-dump}
+[1f5fe74c63d] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b484 +0  95000000
+[1f5fe74da6a] jit-backend-dump}
+[1f5fe74e438] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b495 +0  9B000000
+[1f5fe74f513] jit-backend-dump}
+[1f5fe74fd2e] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b4b7 +0  91000000
+[1f5fe750d8c] jit-backend-dump}
+[1f5fe75373f] jit-backend}
+[1f5fe755abc] {jit-log-opt-loop
+# Loop 0 : loop with 26 ops
+[p0, p1, p2, p3, i4]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #9 LOAD_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #12 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
++166: i6 = int_lt(i4, 10000)
+guard_true(i6, descr=<Guard3>) [p1, p0, p2, p3, i4]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #18 POP_JUMP_IF_FALSE')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #21 LOAD_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #24 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #27 BINARY_AND')
++179: i8 = int_and(i4, 2)
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #28 POP_JUMP_IF_FALSE')
++186: i9 = int_is_true(i8)
+guard_false(i9, descr=<Guard4>) [p1, p0, p2, p3, i8, i4]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #44 LOAD_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #47 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #50 INPLACE_ADD')
++196: i11 = int_add(i4, 3)
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #51 STORE_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #54 JUMP_ABSOLUTE')
++200: i13 = getfield_raw(40588192, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
++208: i15 = int_sub(i13, 1)
++212: setfield_raw(40588192, i15, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
++220: i17 = int_lt(i15, 0)
+guard_false(i17, descr=<Guard5>) [p1, p0, p2, p3, i11, None, None]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #9 LOAD_FAST')
++230: jump(p0, p1, p2, p3, i11, descr=<Loop0>)
++238: --end of the loop--
+[1f5fe92b8af] jit-log-opt-loop}
+[1f5fe944ae5] {jit-backend
+[1f5fee20651] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b565 +0  554889E5534154415541564157488DA5000000004C8B3C2590C2540148C7042590C25401000000004C8B342598C2540148C7042598C25401000000004C8B2C25A0C2540148C70425A0C25401000000004C8B2425A8C2540148C70425A8C25401000000004C8B1425D04D5B014C8B0C25B8C2540148C70425B8C25401000000004C8B0425E04D5B01488B3C25E84D5B01488B3425D0C2540148C70425D0C2540100000000488B1C25D8C2540148C70425D8C2540100000000488B1425E0C2540148C70425E0C254010000000049BB38B00C0A897F0000498B0B4883C10149BB38B00C0A897F000049890B4983F8010F85000000004883FE017206813E980700000F85000000004983FA000F850000000049BBA8F0B407897F00004D39DC0F8500000000488B56084881FA102700000F8D000000004989D44883E2024883FA000F85000000004983C403488B1425A0536B024883EA0148891425A0536B024883FA000F8C000000004C89BD70FFFFFF4C89B568FFFFFF4C89AD60FFFFFF4C898D58FFFFFF4D89E749BB5DB4A007897F000041FFE3488B0425A8536B024829E0483B042580DC3C01760D49BB05B3A007897F000041FFD3554889E5534154415541564157488DA550FFFFFF4989FF4989F64989D54989CC4D89C24C8B5D104D89D84C8B5D184C89DF4C8B5D204C89DE4C8B5D284C89DB4C8B5D304C89DAE9CCFEFFFF49BB00B0A007897F000041FFD321383C343029241D180C08030600000049BB00B0A007897F000041FFD3383C18343029240C08030700000049BB00B0A007897F000041FFD329383C3430241808030800000049BB00B0A007897F000041FFD3383C3034241808030900000049BB00B0A007897F000041FFD3383C183424030A00000049BB00B0A007897F000041FFD3383C34241809030B00000049BB00B0A007897F000041FFD3383C34243107030C000000
+[1f5fee2e673] jit-backend-dump}
+[1f5fee2f38d] {jit-backend-addr
+Loop 1 (<code object f, file 'x.py', line 2> #9 LOAD_FAST) has address 7f8907a0b631 to 7f8907a0b6f8 (bootstrap 7f8907a0b565)
+[1f5fee312e3] jit-backend-addr}
+[1f5fee320ed] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b575 +0  50FFFFFF
+[1f5fee3e903] jit-backend-dump}
+[1f5fee3fbff] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b655 +0  0C010000
+[1f5fee41579] jit-backend-dump}
+[1f5fee421af] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b667 +0  17010000
+[1f5fee43835] jit-backend-dump}
+[1f5fee44261] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b671 +0  28010000
+[1f5fee457c1] jit-backend-dump}
+[1f5fee461a5] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b684 +0  2F010000
+[1f5fee475d3] jit-backend-dump}
+[1f5fee47f57] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b695 +0  37010000
+[1f5fee4933d] jit-backend-dump}
+[1f5fee49cd9] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b6a6 +0  3D010000
+[1f5fee4b0ad] jit-backend-dump}
+[1f5fee4ba4f] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b6c8 +0  33010000
+[1f5fee4cf61] jit-backend-dump}
+[1f5fee4dc45] jit-backend}
+[1f5fee4f3a9] {jit-log-opt-loop
+# Loop 1 : entry bridge with 31 ops
+[p0, p1, p2, p3, i4, p5, i6, i7, p8, p9, p10]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #9 LOAD_FAST')
++234: guard_value(i6, 1, descr=<Guard6>) [i6, p1, p0, p2, p3, i4, p5, i7, p8, p9, p10]
++244: guard_nonnull_class(p8, ConstClass(W_IntObject), descr=<Guard7>) [p1, p0, p8, p2, p3, i4, p5, p9, p10]
++262: guard_value(i4, 0, descr=<Guard8>) [i4, p1, p0, p2, p3, p5, p8, p10]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #12 LOAD_CONST')
++272: guard_value(p3, ConstPtr(ptr14), descr=<Guard9>) [p1, p0, p3, p2, p5, p8, p10]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
++291: i15 = getfield_gc_pure(p8, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
++295: i17 = int_lt(i15, 10000)
+guard_true(i17, descr=<Guard10>) [p1, p0, p8, p2, p5]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #18 POP_JUMP_IF_FALSE')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #21 LOAD_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #24 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #27 BINARY_AND')
++308: i19 = int_and(i15, 2)
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #28 POP_JUMP_IF_FALSE')
++315: i20 = int_is_true(i19)
+guard_false(i20, descr=<Guard11>) [p1, p0, p2, p5, p8, i19]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #44 LOAD_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #47 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #50 INPLACE_ADD')
++325: i22 = int_add(i15, 3)
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #51 STORE_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #54 JUMP_ABSOLUTE')
++329: i24 = getfield_raw(40588192, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
++337: i26 = int_sub(i24, 1)
++341: setfield_raw(40588192, i26, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
++349: i28 = int_lt(i26, 0)
+guard_false(i28, descr=<Guard12>) [p1, p0, p2, p5, i22, None]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #9 LOAD_FAST')
++359: jump(p0, p1, p2, p5, i22, descr=<Loop0>)
++403: --end of the loop--
+[1f60036d952] jit-log-opt-loop}
+[1f600719a74] {jit-backend
+[1f600759dac] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b817 +0  554889E5534154415541564157488DA500000000488B042590C2540148C7042590C254010000000048898570FFFFFF488B042598C2540148C7042598C254010000000048898568FFFFFF488B0425A0C2540148C70425A0C254010000000048898560FFFFFF488B0425A8C2540148C70425A8C254010000000048898558FFFFFF4C8B3C25D04D5B0149BB40B00C0A897F00004D8B334983C60149BB40B00C0A897F00004D89334981FF102700000F8D000000004D89FE4983E7024983FF000F85000000004983C6034C8B3C25A0536B024983EF024C893C25A0536B024983FF000F8C000000004D89F7E99AFFFFFF488B0425A8536B024829E0483B042580DC3C01760D49BB05B3A007897F000041FFD3554889E5534154415541564157488DA550FFFFFF4889BD70FFFFFF4889B568FFFFFF48899560FFFFFF48898D58FFFFFF4D89C7E940FFFFFF49BB00B0A007897F000041FFD34440484C3D030D00000049BB00B0A007897F000041FFD34440484C3D39030E00000049BB00B0A007897F000041FFD34440484C390707030F000000
+[1f60076fd90] jit-backend-dump}
+[1f600770f30] {jit-backend-addr
+Loop 2 (<code object f, file 'x.py', line 2> #9 LOAD_FAST) has address 7f8907a0b89f to 7f8907a0b905 (bootstrap 7f8907a0b817)
+[1f6007730fc] jit-backend-addr}
+[1f600773fde] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b827 +0  50FFFFFF
+[1f600775c76] jit-backend-dump}
+[1f600776a38] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b8c6 +0  95000000
+[1f600778112] jit-backend-dump}
+[1f600778b8c] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b8d7 +0  9B000000
+[1f60077a04a] jit-backend-dump}
+[1f60077aa6a] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b8f9 +0  91000000
+[1f60077bf10] jit-backend-dump}
+[1f60077cc24] jit-backend}
+[1f60077e094] {jit-log-opt-loop
+# Loop 2 : loop with 25 ops
+[p0, p1, p2, p3, i4]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #12 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
++166: i6 = int_lt(i4, 10000)
+guard_true(i6, descr=<Guard13>) [p1, p0, p2, p3, i4]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #18 POP_JUMP_IF_FALSE')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #21 LOAD_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #24 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #27 BINARY_AND')
++179: i8 = int_and(i4, 2)
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #28 POP_JUMP_IF_FALSE')
++186: i9 = int_is_true(i8)
+guard_false(i9, descr=<Guard14>) [p1, p0, p2, p3, i8, i4]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #44 LOAD_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #47 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #50 INPLACE_ADD')
++196: i11 = int_add(i4, 3)
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #51 STORE_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #54 JUMP_ABSOLUTE')
++200: i13 = getfield_raw(40588192, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
++208: i15 = int_sub(i13, 2)
++212: setfield_raw(40588192, i15, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
++220: i17 = int_lt(i15, 0)
+guard_false(i17, descr=<Guard15>) [p1, p0, p2, p3, i11, None, None]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #9 LOAD_FAST')
++230: jump(p0, p1, p2, p3, i11, descr=<Loop2>)
++238: --end of the loop--
+[1f6007a567c] jit-log-opt-loop}
+[1f600802cd6] {jit-backend
+[1f600862dd8] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b9b7 +0  488DA50000000049BB48B00C0A897F00004D8B3B4983C70149BB48B00C0A897F00004D893B4D89F74983C6010F80000000004C8B3C25A0536B024983EF014C893C25A0536B024983FF000F8C00000000488B0425704F3D01488D5010483B1425784F3D01761A49BB10B2A007897F000041FFD349BB8EB2A007897F000041FFD348C7009807000048891425704F3D014C89700848898550FFFFFF4C8BBD70FFFFFF4C8BB568FFFFFF4C8BAD60FFFFFF49BBA8F0B407897F00004D89DC49C7C2000000004C8B8D58FFFFFF49C7C00100000048C7C709000000488BB550FFFFFF48C7C30000000048C7C20000000049BB31B6A007897F000041FFE349BB00B0A007897F000041FFD3444039484C3D031000000049BB00B0A007897F000041FFD34440484C39070311000000
+[1f60086ba5a] jit-backend-dump}
+[1f60086d36e] {jit-backend-addr
+Bridge out of guard 4 has address 7f8907a0b9b7 to 7f8907a0bab1
+[1f60086ffd2] jit-backend-addr}
+[1f600870dca] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b9ba +0  C0FEFFFF
+[1f60087281c] jit-backend-dump}
+[1f600873506] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b9e5 +0  C8000000
+[1f600874b44] jit-backend-dump}
+[1f6008754d4] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0ba03 +0  C2000000
+[1f600876956] jit-backend-dump}
+[1f600877b1a] {jit-backend-dump
+BACKEND x86_64
+SYS_EXECUTABLE python
+CODE_DUMP @7f8907a0b495 +0  1E050000
+[1f600878f4e] jit-backend-dump}
+[1f600884c12] jit-backend}
+[1f60088780a] {jit-log-opt-bridge
+# bridge out of Guard 4 with 16 ops
+[p0, p1, p2, p3, i4, i5]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #31 LOAD_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #34 LOAD_CONST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #37 INPLACE_ADD')
++37: i7 = int_add_ovf(i5, 1)
+guard_no_overflow(, descr=<Guard16>) [p0, p1, i7, p2, p3, i5]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #38 STORE_FAST')
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #41 JUMP_ABSOLUTE')
++50: i9 = getfield_raw(40588192, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
++58: i11 = int_sub(i9, 1)
++62: setfield_raw(40588192, i11, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
++70: i13 = int_lt(i11, 0)
+guard_false(i13, descr=<Guard17>) [p0, p1, p2, p3, i7, None]
+debug_merge_point(0, '<code object f. file 'x.py'. line 2> #9 LOAD_FAST')
++80: p16 = new_with_vtable(ConstClass(W_IntObject))
++143: setfield_gc(p16, i7, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
++147: jump(p1, p0, p2, ConstPtr(ptr17), 0, p3, 1, 9, p16, ConstPtr(ptr21), ConstPtr(ptr22), descr=<Loop1>)
++250: --end of the loop--
+[1f6008aa976] jit-log-opt-bridge}
+[1f600912c98] {jit-backend-counts
+0:1982
+1:1985
+2:0
+3:1782
+[1f600916544] jit-backend-counts}

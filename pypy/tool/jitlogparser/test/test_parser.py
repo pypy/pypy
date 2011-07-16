@@ -220,4 +220,4 @@ def test_import_log_2():
                                                            'logtest2.log')))
     assert 'cmp' in loops[1].operations[1].asm
     # bridge
-    assert 'cmp' in loops[3].operations[1].asm
+    assert 'jo' in loops[3].operations[3].asm
