@@ -244,6 +244,12 @@ class BaseArray(Wrappable):
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
 
+    def descr_repr(self, space):
+        return self.get_concrete()._repr(space)
+
+    def descr_str(self, space):
+        return self.get_concrete()._str(space)
+
     def descr_getitem(self, space, w_idx):
         # TODO: indexing by tuples
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
@@ -433,6 +439,26 @@ class SingleDimSlice(ViewArray):
     def calc_index(self, item):
         return (self.start + item * self.step)
 
+    def _getnums(self, comma):
+        if self.find_size() > 1000:
+            nums = [str(self.getitem(index)) for index \
+                in range(3)]
+            nums.append("..." + "," * comma)
+            nums.extend([str(self.getitem(index)) for index \
+                in range(self.find_size() - 3, self.find_size())])
+        else:
+            nums = [str(self.getitem(index)) for index \
+                in range(self.find_size())]
+        return nums
+
+    def _repr(self, space):
+        # Simple implementation so that we can see the array. Needs work.
+        return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
+
+    def _str(self,space):
+        # Simple implementation so that we can see the array. Needs work.
+        return space.wrap("[" + " ".join(self._getnums(True)) + "]")
+
 
 class SingleDimArray(BaseArray):
     signature = Signature()
@@ -469,6 +495,26 @@ class SingleDimArray(BaseArray):
 
     def getitem(self, item):
         return self.storage[item]
+
+    def _getnums(self, comma):
+        if self.find_size() > 1000:
+            nums = [str(self.getitem(index)) for index \
+                in range(3)]
+            nums.append("..." + "," * comma)
+            nums.extend([str(self.getitem(index)) for index \
+                in range(self.find_size() - 3, self.find_size())])
+        else:
+            nums = [str(self.getitem(index)) for index \
+                in range(self.find_size())]
+        return nums
+
+    def _repr(self, space):
+        # Simple implementation so that we can see the array. Needs work.
+        return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
+
+    def _str(self,space):
+        # Simple implementation so that we can see the array. Needs work.
+        return space.wrap("[" + " ".join(self._getnums(True)) + "]")
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
@@ -527,6 +573,8 @@ BaseArray.typedef = TypeDef(
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
     __rpow__ = interp2app(BaseArray.descr_rpow),
     __rmod__ = interp2app(BaseArray.descr_rmod),
+    __repr__ = interp2app(BaseArray.descr_repr),
+    __str__ = interp2app(BaseArray.descr_str),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
