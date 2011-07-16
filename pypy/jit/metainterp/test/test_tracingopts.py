@@ -232,3 +232,27 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(setarrayitem_gc=2, setfield_gc=3,
                                       getarrayitem_gc=0, getfield_gc=1)
 
+    def test_promote_changes_heap_cache(self):
+        class A: pass
+        a1 = A()
+        a2 = A()
+        a1.l = a2.l = [0, 0]
+        a1.x = a2.x = 0
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+                a.l = [0, 0]
+            jit.promote(a.x)
+            a.l[a.x] = n
+            a.x += 1
+            a.l[a.x] = n + 1
+            x1 = a.l[a.x]
+            a.x -= 1
+            x2 = a.l[a.x]
+            return x1 + x2
+        res = self.interp_operations(fn, [7])
+        assert res == 7 * 2 + 1
+        self.check_operations_history(setarrayitem_gc=2, setfield_gc=2,
+                                      getarrayitem_gc=0, getfield_gc=2)

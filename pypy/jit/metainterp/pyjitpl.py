@@ -2354,6 +2354,16 @@ class MetaInterp(object):
             for i in range(len(boxes)):
                 if boxes[i] is oldbox:
                     boxes[i] = newbox
+        for descr, (frombox, tobox) in self.heap_cache.iteritems():
+            change = False
+            if frombox is oldbox:
+                change = True
+                frombox = newbox
+            if tobox is oldbox:
+                change = True
+                tobox = newbox
+            if change:
+                self.heap_cache[descr] = frombox, tobox
 
     def find_biggest_function(self):
         start_stack = []
