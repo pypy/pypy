@@ -4,6 +4,7 @@ from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from pypy.jit.metainterp.history import ConstInt, BoxInt, Box
 from pypy.jit.metainterp.history import ConstInt
 
+# XXX create a version that does not need a ConstInt
 def _check_imm_arg(arg, size=0xFF, allow_zero=True):
     if isinstance(arg, ConstInt):
         i = arg.getint()

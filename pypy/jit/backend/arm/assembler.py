@@ -988,9 +988,13 @@ class AssemblerARM(ResOpAssembler):
         self.mc.gen_load_int(r.r0.value, nursery_free_adr)
         self.mc.LDR_ri(r.r0.value, r.r0.value)
 
-        self.mc.ADD_ri(r.r1.value, r.r0.value, size)
+        if _check_imm_arg(ConstInt(size)):
+            self.mc.ADD_ri(r.r1.value, r.r0.value, size)
+        else:
+            self.mc.gen_load_int(r.r1.value, size)
+            self.mc.ADD_rr(r.r1.value, r.r0.value, r.r1.value)
 
-        # XXX maybe use an offset from the valeu nursery_free_addr
+        # XXX maybe use an offset from the value nursery_free_addr
         self.mc.gen_load_int(r.ip.value, nursery_top_adr)
         self.mc.LDR_ri(r.ip.value, r.ip.value)
 
