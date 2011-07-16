@@ -1,0 +1,147 @@
+import py
+import sys
+from pypy.rlib import jit
+from pypy.jit.metainterp.test.support import LLJitMixin
+
+
+class TestLLtype(LLJitMixin):
+    def test_dont_record_repeated_guard_class(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        @jit.dont_look_inside
+        def extern(n):
+            if n == -7:
+                return None
+            elif n:
+                return A()
+            else:
+                return B()
+        def fn(n):
+            obj = extern(n)
+            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
+        res = self.interp_operations(fn, [0])
+        assert res == 4
+        self.check_operations_history(guard_class=1, guard_nonnull=1)
+        res = self.interp_operations(fn, [1])
+        assert not res
+
+    def test_dont_record_guard_class_after_new(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        def fn(n):
+            if n == -7:
+                obj = None
+            elif n:
+                obj = A()
+            else:
+                obj = B()
+            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
+        res = self.interp_operations(fn, [0])
+        assert res == 4
+        self.check_operations_history(guard_class=0, guard_nonnull=0)
+        res = self.interp_operations(fn, [1])
+        assert not res
+
+    def test_guard_isnull_nullifies(self):
+        class A:
+            pass
+        a = A()
+        a.x = None
+        def fn(n):
+            if n == -7:
+                a.x = ""
+            obj = a.x
+            res = 0
+            if not obj:
+                res += 1
+            if obj:
+                res += 1
+            if obj is None:
+                res += 1
+            if obj is not None:
+                res += 1
+            return res
+        res = self.interp_operations(fn, [0])
+        assert res == 2
+        self.check_operations_history(guard_isnull=1)
+
+    def test_heap_caching_while_tracing(self):
+        class A:
+            pass
+        a1 = A()
+        a2 = A()
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            a.x = n
+            return a.x
+        res = self.interp_operations(fn, [7])
+        assert res == 7
+        self.check_operations_history(getfield_gc=0)
+        res = self.interp_operations(fn, [-7])
+        assert res == -7
+        self.check_operations_history(getfield_gc=0)
+
+        def fn(n, ca, cb):
+            a1.x = n
+            a2.x = n
+            a = a1
+            if ca:
+                a = a2
+            b = a1
+            if cb:
+                b = a
+            return a.x + b.x
+        res = self.interp_operations(fn, [7, 0, 1])
+        assert res == 7 * 2
+        self.check_operations_history(getfield_gc=1)
+        res = self.interp_operations(fn, [-7, 1, 1])
+        assert res == -7 * 2
+        self.check_operations_history(getfield_gc=1)
+
+    def test_heap_caching_while_tracing_invalidation(self):
+        class A:
+            pass
+        a1 = A()
+        a2 = A()
+        @jit.dont_look_inside
+        def f(a):
+            a.x = 5
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            a.x = n
+            x1 = a.x
+            f(a)
+            return a.x + x1
+        res = self.interp_operations(fn, [7])
+        assert res == 5 + 7
+        self.check_operations_history(getfield_gc=1)
+
+    def test_heap_caching_dont_store_same(self):
+        class A:
+            pass
+        a1 = A()
+        a2 = A()
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            a.x = n
+            a.x = n
+            return a.x
+        res = self.interp_operations(fn, [7])
+        assert res == 7
+        self.check_operations_history(getfield_gc=0, setfield_gc=1)
+        res = self.interp_operations(fn, [-7])
+        assert res == -7
+        self.check_operations_history(getfield_gc=0)

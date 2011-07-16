@@ -502,7 +502,12 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def _opimpl_getfield_gc_any(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_GC, fielddescr, box)
+        frombox, tobox = self.metainterp.heap_cache.get(fielddescr, (None, None))
+        if frombox is box:
+            return tobox
+        resbox = self.execute_with_descr(rop.GETFIELD_GC, fielddescr, box)
+        self.metainterp.heap_cache[fielddescr] = (box, resbox)
+        return resbox
     opimpl_getfield_gc_i = _opimpl_getfield_gc_any
     opimpl_getfield_gc_r = _opimpl_getfield_gc_any
     opimpl_getfield_gc_f = _opimpl_getfield_gc_any
@@ -532,7 +537,11 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_setfield_gc_any(self, box, fielddescr, valuebox):
+        frombox, tobox = self.metainterp.heap_cache.get(fielddescr, (None, None))
+        if frombox is box and tobox is valuebox:
+            return
         self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        self.metainterp.heap_cache[fielddescr] = (box, valuebox)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
     opimpl_setfield_gc_f = _opimpl_setfield_gc_any
@@ -617,7 +626,7 @@ class MIFrame(object):
     @arguments("orgpc", "box", "descr")
     def _opimpl_getfield_vable(self, pc, box, fielddescr):
         if self._nonstandard_virtualizable(pc, box):
-            return self.execute_with_descr(rop.GETFIELD_GC, fielddescr, box)
+            return self._opimpl_getfield_gc_any(box, fielddescr)
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_virtualizable_field_index(fielddescr)
         return self.metainterp.virtualizable_boxes[index]
@@ -629,8 +638,7 @@ class MIFrame(object):
     @arguments("orgpc", "box", "descr", "box")
     def _opimpl_setfield_vable(self, pc, box, fielddescr, valuebox):
         if self._nonstandard_virtualizable(pc, box):
-            self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
-            return
+            return self._opimpl_setfield_gc_any(box, fielddescr, valuebox)
         index = self._get_virtualizable_field_index(fielddescr)
         self.metainterp.virtualizable_boxes[index] = valuebox
         self.metainterp.synchronize_virtualizable()
@@ -1462,6 +1470,9 @@ class MetaInterp(object):
         self.known_class_boxes = {}
         # contains frame boxes that are not virtualizables
         self.nonstandard_virtualizables = {}
+        # heap cache
+        # maps descrs to (from_box, to_box) tuples
+        self.heap_cache = {}
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1637,6 +1648,9 @@ class MetaInterp(object):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)
+        if opnum != rop.SETFIELD_GC and self.heap_cache:
+            if not (rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST):
+                self.heap_cache = {}
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
         return resbox
@@ -1804,6 +1818,7 @@ class MetaInterp(object):
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
         self.known_class_boxes = {}
         self.nonstandard_virtualizables = {} # XXX maybe not needed?
+        self.heap_cache = {}
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
