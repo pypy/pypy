@@ -2381,7 +2381,7 @@ class BasicTests:
         assert res == -2
         #self.check_loops(getarrayitem_gc=0, setarrayitem_gc=0) -- xxx?
 
-    def test_retrace_ending_up_retrazing_another_loop(self):
+    def test_retrace_ending_up_retracing_another_loop(self):
 
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
         bytecode = "0+sI0+SI"
