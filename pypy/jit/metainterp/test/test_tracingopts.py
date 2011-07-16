@@ -315,3 +315,45 @@ class TestLLtype(LLJitMixin):
         assert res == 7 + 7 + 1
         self.check_operations_history(setarrayitem_gc=2,
                 setfield_gc=2)
+
+    def test_virtualizable_with_array_heap_cache(self):
+        myjitdriver = jit.JitDriver(greens = [], reds = ['n', 'x', 'i', 'frame'],
+                                    virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = ['l[*]', 's']
+
+            def __init__(self, a, s):
+                self = jit.hint(self, access_directly=True, fresh_virtualizable=True)
+                self.l = [0] * 4
+                self.s = s
+
+        def f(n, a, i):
+            frame = Frame(a, 0)
+            frame.l[0] = a
+            frame.l[1] = a + 1
+            frame.l[2] = a + 2
+            frame.l[3] = a + 3
+            if not i:
+                return frame.l[0]
+            x = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(frame=frame, n=n, x=x, i=i)
+                myjitdriver.jit_merge_point(frame=frame, n=n, x=x, i=i)
+                frame.s = jit.promote(frame.s)
+                n -= 1
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
+                frame.s += 1
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
+                x += len(frame.l)
+                x += f(n, n, 0)
+                frame.s -= 1
+            return x
+
+        res = self.meta_interp(f, [10, 1, 1], listops=True)
+        assert res == f(10, 1, 1)
+        self.check_history(getarrayitem_gc=0, getfield_gc=0)

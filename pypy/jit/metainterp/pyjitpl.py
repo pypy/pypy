@@ -683,10 +683,8 @@ class MIFrame(object):
     @arguments("orgpc", "box", "descr", "descr", "box")
     def _opimpl_getarrayitem_vable(self, pc, box, fdescr, adescr, indexbox):
         if self._nonstandard_virtualizable(pc, box):
-            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          fdescr, box)
-            return self.execute_with_descr(rop.GETARRAYITEM_GC, adescr,
-                                           arraybox, indexbox)
+            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
+            return self._opimpl_getarrayitem_gc_any(arraybox, adescr, indexbox)
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_arrayitem_vable_index(pc, fdescr, indexbox)
         return self.metainterp.virtualizable_boxes[index]
@@ -699,10 +697,9 @@ class MIFrame(object):
     def _opimpl_setarrayitem_vable(self, pc, box, fdescr, adescr, indexbox,
                                   valuebox):
         if self._nonstandard_virtualizable(pc, box):
-            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          fdescr, box)
-            self.execute_with_descr(rop.SETARRAYITEM_GC, adescr,
-                                    arraybox, indexbox, valuebox)
+            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
+            self._opimpl_setarrayitem_gc_any(arraybox, adescr,
+                                             indexbox, valuebox)
             return
         index = self._get_arrayitem_vable_index(pc, fdescr, indexbox)
         self.metainterp.virtualizable_boxes[index] = valuebox
