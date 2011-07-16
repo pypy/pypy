@@ -474,12 +474,10 @@ class MIFrame(object):
     def opimpl_newlist(self, structdescr, lengthdescr, itemsdescr, arraydescr,
                        sizebox):
         sbox = self.metainterp.execute_and_record(rop.NEW, structdescr)
-        self.metainterp.execute_and_record(rop.SETFIELD_GC, lengthdescr,
-                                           sbox, sizebox)
+        self._opimpl_setfield_gc_any(sbox, lengthdescr, sizebox)
         abox = self.metainterp.execute_and_record(rop.NEW_ARRAY, arraydescr,
                                                   sizebox)
-        self.metainterp.execute_and_record(rop.SETFIELD_GC, itemsdescr,
-                                           sbox, abox)
+        self._opimpl_setfield_gc_any(sbox, itemsdescr, abox)
         return sbox
 
     @arguments("box", "descr", "descr", "box")
