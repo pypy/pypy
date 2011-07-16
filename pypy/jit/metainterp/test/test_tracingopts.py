@@ -184,3 +184,27 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == -7 * 2
         self.check_operations_history(getarrayitem_gc=1)
+
+    def test_array_caching_while_tracing_invalidation(self):
+        a1 = [0, 0]
+        a2 = [0, 0]
+        @jit.dont_look_inside
+        def f(a):
+            a[0] = 5
+        class A: pass
+        l = A()
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            a[0] = n
+            x1 = a[0]
+            f(a)
+            x2 = a[0]
+            l.x = x2
+            return a[0] + x1 + x2
+        res = self.interp_operations(fn, [7])
+        assert res == 5 * 2 + 7
+        self.check_operations_history(getarrayitem_gc=1)
+

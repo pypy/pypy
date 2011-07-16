@@ -391,7 +391,6 @@ class MIFrame(object):
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
         cache = self.metainterp.heap_array_cache.get(arraydescr, None)
-        index = -1
         if cache and isinstance(indexbox, ConstInt):
             index = indexbox.getint()
             frombox, tobox = cache.get(index, (None, None))
@@ -399,9 +398,10 @@ class MIFrame(object):
                 return tobox
         resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
                                          arraydescr, arraybox, indexbox)
-        if index >= 0:
+        if isinstance(indexbox, ConstInt):
             if not cache:
                 cache = self.metainterp.heap_array_cache[arraydescr] = {}
+            index = indexbox.getint()
             cache[index] = arraybox, resbox
         return resbox
 
@@ -1671,10 +1671,13 @@ class MetaInterp(object):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)
-        if (self.heap_cache and opnum != rop.SETFIELD_GC and
+        if (opnum != rop.SETFIELD_GC and
                 opnum != rop.SETARRAYITEM_GC):
             if not (rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST):
-                self.heap_cache = {}
+                if self.heap_cache:
+                    self.heap_cache.clear()
+                if self.heap_array_cache:
+                    self.heap_array_cache.clear()
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
         return resbox
