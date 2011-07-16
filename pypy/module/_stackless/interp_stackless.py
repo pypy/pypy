@@ -1,9 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import GetSetProperty, TypeDef
-from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
+from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask
 import os
 
 

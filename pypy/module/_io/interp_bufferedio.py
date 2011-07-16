@@ -4,7 +4,6 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
-from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.rarithmetic import r_longlong, intmask
 from pypy.tool.sourcetools import func_renamer

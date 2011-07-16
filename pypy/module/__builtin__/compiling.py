@@ -5,7 +5,7 @@ Implementation of the interpreter-level compile/eval builtins.
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
-from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 
 @unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):

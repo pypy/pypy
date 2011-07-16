@@ -6,7 +6,6 @@ from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped, Arguments
-from pypy.rlib.objectmodel import free_non_gc_object
 
 # Here are the steps performed to start a new thread:
 #
@@ -167,14 +166,14 @@ function returns; the return value is ignored.  The thread will also exit
 when the function raises an unhandled exception; a stack trace will be
 printed unless the exception is SystemExit."""
     setup_threads(space)
-    if not space.is_true(space.isinstance(w_args, space.w_tuple)): 
-        raise OperationError(space.w_TypeError, 
-                space.wrap("2nd arg must be a tuple")) 
-    if w_kwargs is not None and not space.is_true(space.isinstance(w_kwargs, space.w_dict)): 
-        raise OperationError(space.w_TypeError, 
-                space.wrap("optional 3rd arg must be a dictionary")) 
+    if not space.is_true(space.isinstance(w_args, space.w_tuple)):
+        raise OperationError(space.w_TypeError,
+                space.wrap("2nd arg must be a tuple"))
+    if w_kwargs is not None and not space.is_true(space.isinstance(w_kwargs, space.w_dict)):
+        raise OperationError(space.w_TypeError,
+                space.wrap("optional 3rd arg must be a dictionary"))
     if not space.is_true(space.callable(w_callable)):
-        raise OperationError(space.w_TypeError, 
+        raise OperationError(space.w_TypeError,
                 space.wrap("first arg must be callable"))
 
     args = Arguments.frompacked(space, w_args, w_kwargs)

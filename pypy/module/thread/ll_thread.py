@@ -1,9 +1,7 @@
 
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
-from pypy.rpython.tool import rffi_platform as platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-import py, os
-from pypy.rpython.extregistry import ExtRegistryEntry
+import py
 from pypy.rlib import jit
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated

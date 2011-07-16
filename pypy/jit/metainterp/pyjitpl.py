@@ -596,12 +596,16 @@ class MIFrame(object):
         standard_box = self.metainterp.virtualizable_boxes[-1]
         if standard_box is box:
             return False
+        if box in self.metainterp.nonstandard_virtualizables:
+            return True
         eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,
                                                    box, standard_box)
         eqbox = self.implement_guard_value(pc, eqbox)
         isstandard = eqbox.getint()
         if isstandard:
             self.metainterp.replace_box(box, standard_box)
+        else:
+            self.metainterp.nonstandard_virtualizables[box] = None
         return not isstandard
 
     def _get_virtualizable_field_index(self, fielddescr):
@@ -1456,6 +1460,8 @@ class MetaInterp(object):
         self.call_pure_results = args_dict_box()
         # contains boxes where the class is already known
         self.known_class_boxes = {}
+        # contains frame boxes that are not virtualizables
+        self.nonstandard_virtualizables = {}
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1797,6 +1803,7 @@ class MetaInterp(object):
 
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
         self.known_class_boxes = {}
+        self.nonstandard_virtualizables = {} # XXX maybe not needed?
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
