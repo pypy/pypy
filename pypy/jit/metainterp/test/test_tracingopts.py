@@ -148,3 +148,39 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [-7])
         assert res == -7
         self.check_operations_history(getfield_gc=0)
+
+    def test_array_caching(self):
+        a1 = [0, 0]
+        a2 = [0, 0]
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            a[0] = n
+            x1 = a[0]
+            a[n - n] = n + 1
+            return a[0] + x1
+        res = self.interp_operations(fn, [7])
+        assert res == 7 + 7 + 1
+        self.check_operations_history(getarrayitem_gc=1)
+        res = self.interp_operations(fn, [-7])
+        assert res == -7 - 7 + 1
+        self.check_operations_history(getarrayitem_gc=1)
+
+        def fn(n, ca, cb):
+            a1[0] = n
+            a2[0] = n
+            a = a1
+            if ca:
+                a = a2
+            b = a1
+            if cb:
+                b = a
+            return a[0] + b[0]
+        res = self.interp_operations(fn, [7, 0, 1])
+        assert res == 7 * 2
+        self.check_operations_history(getarrayitem_gc=1)
+        res = self.interp_operations(fn, [-7, 1, 1])
+        assert res == -7 * 2
+        self.check_operations_history(getarrayitem_gc=1)

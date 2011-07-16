@@ -390,8 +390,17 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
-        return self.execute_with_descr(rop.GETARRAYITEM_GC,
-                                       arraydescr, arraybox, indexbox)
+        cache = self.metainterp.heap_array_cache.get(arraydescr, None)
+        index = -1
+        if cache and isinstance(indexbox, ConstInt):
+            index = indexbox.getint()
+            frombox, tobox = cache.get(index, (None, None))
+            if frombox is arraybox:
+                return tobox
+        resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
+                                         arraydescr, arraybox, indexbox)
+        return resbox
+
 
     opimpl_getarrayitem_gc_i = _opimpl_getarrayitem_gc_any
     opimpl_getarrayitem_gc_r = _opimpl_getarrayitem_gc_any
@@ -419,6 +428,13 @@ class MIFrame(object):
                                     indexbox, itembox):
         self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
                                 indexbox, itembox)
+        if isinstance(indexbox, ConstInt):
+            cache = self.metainterp.heap_array_cache.setdefault(arraydescr, {})
+            cache[indexbox.getint()] = arraybox, itembox
+        else:
+            cache = self.metainterp.heap_array_cache.get(arraydescr, None)
+            if cache:
+                cache.clear()
 
     opimpl_setarrayitem_gc_i = _opimpl_setarrayitem_gc_any
     opimpl_setarrayitem_gc_r = _opimpl_setarrayitem_gc_any
@@ -1473,6 +1489,9 @@ class MetaInterp(object):
         # heap cache
         # maps descrs to (from_box, to_box) tuples
         self.heap_cache = {}
+        # heap array cache
+        # maps descrs to {index: (from_box, to_box)} dicts
+        self.heap_array_cache = {}
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1820,6 +1839,7 @@ class MetaInterp(object):
         self.known_class_boxes = {}
         self.nonstandard_virtualizables = {} # XXX maybe not needed?
         self.heap_cache = {}
+        self.heap_array_cache = {}
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
