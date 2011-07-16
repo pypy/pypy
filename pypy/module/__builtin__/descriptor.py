@@ -1,12 +1,9 @@
-
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.objspace.descroperation import object_getattribute, object_setattr
-from pypy.interpreter.function import StaticMethod, ClassMethod
-from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, \
-     descr_set_dict, interp_attrproperty_w, generic_new_descr
+from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
+    generic_new_descr)
+from pypy.objspace.descroperation import object_getattribute
 
 class W_Super(Wrappable):
     def __init__(self, space, w_starttype, w_objtype, w_self):

@@ -1,9 +1,8 @@
 import py
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.interpreter.typedef import GetSetProperty, TypeDef
+from pypy.interpreter.typedef import TypeDef
 from pypy.rlib import jit
 import weakref
 

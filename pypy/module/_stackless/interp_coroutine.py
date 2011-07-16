@@ -15,13 +15,10 @@ allow them to be parents of each other. Needs a bit more
 experience to decide where to set the limits.
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
-from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.function import StaticMethod
 
 from pypy.module._stackless.stackless_flags import StacklessFlags
 from pypy.module._stackless.rcoroutine import Coroutine, BaseCoState, AbstractThunk, CoroutineExit
@@ -38,7 +35,7 @@ class _AppThunk(AbstractThunk):
         self.costate = costate
         if not space.is_true(space.callable(w_obj)):
             raise operationerrfmt(
-                space.w_TypeError, 
+                space.w_TypeError,
                 "'%s' object is not callable",
                 space.type(w_obj).getname(space))
         self.w_func = w_obj
@@ -65,7 +62,7 @@ W_CoroutineExit = _new_exception('CoroutineExit', W_SystemExit,
 
 # Should be moved to interp_stackless.py if it's ever implemented... Currently
 # used by pypy/lib/stackless.py.
-W_TaskletExit = _new_exception('TaskletExit', W_SystemExit, 
+W_TaskletExit = _new_exception('TaskletExit', W_SystemExit,
             """Tasklet killed manually.""")
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
@@ -90,7 +87,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
     def _get_state(space):
         return space.fromcache(AppCoState)
     _get_state = staticmethod(_get_state)
- 
+
     def w_bind(self, w_func, __args__):
         space = self.space
         if self.frame is not None:
@@ -127,7 +124,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             w_excvalue = operror.get_w_value(space)
             w_exctraceback = operror.get_traceback()
             w_excinfo = space.newtuple([w_exctype, w_excvalue, w_exctraceback])
-            
+
             if w_exctype is self.costate.w_CoroutineExit:
                 self.coroutine_exit = True
         else:
@@ -146,22 +143,22 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
     def w_kill(self):
         self.kill()
-            
+
     def w_throw(self, w_type, w_value=None, w_traceback=None):
         space = self.space
 
         operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
-        
+
         if not space.is_w(w_traceback, space.w_None):
             from pypy.interpreter import pytraceback
             tb = space.interpclass_w(w_traceback)
-            if tb is None or not space.is_true(space.isinstance(tb, 
+            if tb is None or not space.is_true(space.isinstance(tb,
                 space.gettypeobject(pytraceback.PyTraceback.typedef))):
                 raise OperationError(space.w_TypeError,
                       space.wrap("throw: arg 3 must be a traceback or None"))
             operror.set_traceback(tb)
-        
+
         self._kill(operror)
 
     def _userdel(self):
@@ -280,7 +277,7 @@ def makeStaticMethod(module, classname, funcname):
     assert isinstance(w_klass, W_TypeObject)
     old_flag = w_klass.flag_heaptype
     w_klass.flag_heaptype = True
-    
+
     space.appexec([w_klass, space.wrap(funcname)], """
         (klass, funcname):
             func = getattr(klass, funcname)
@@ -332,23 +329,23 @@ class AppCoState(BaseCoState):
         # Exporting new exception to space
         self.w_CoroutineExit = space.gettypefor(W_CoroutineExit)
         space.setitem(
-                      space.exceptions_module.w_dict, 
-                      space.new_interned_str('CoroutineExit'), 
-                      self.w_CoroutineExit) 
-        space.setitem(space.builtin.w_dict, 
-                      space.new_interned_str('CoroutineExit'), 
+                      space.exceptions_module.w_dict,
+                      space.new_interned_str('CoroutineExit'),
                       self.w_CoroutineExit)
-        
+        space.setitem(space.builtin.w_dict,
+                      space.new_interned_str('CoroutineExit'),
+                      self.w_CoroutineExit)
+
         # Should be moved to interp_stackless.py if it's ever implemented...
         self.w_TaskletExit = space.gettypefor(W_TaskletExit)
         space.setitem(
-                      space.exceptions_module.w_dict, 
-                      space.new_interned_str('TaskletExit'), 
-                      self.w_TaskletExit) 
-        space.setitem(space.builtin.w_dict, 
-                      space.new_interned_str('TaskletExit'), 
-                      self.w_TaskletExit)  
-        
+                      space.exceptions_module.w_dict,
+                      space.new_interned_str('TaskletExit'),
+                      self.w_TaskletExit)
+        space.setitem(space.builtin.w_dict,
+                      space.new_interned_str('TaskletExit'),
+                      self.w_TaskletExit)
+
     def post_install(self):
         self.current = self.main = AppCoroutine(self.space, state=self)
         self.main.subctx.clear_framestack()      # wack
@@ -378,7 +375,7 @@ def resume_frame(space, w_frame):
         instr = frame.last_instr
         opcode = ord(code[instr])
         map = pythonopcode.opmap
-        call_ops = [map['CALL_FUNCTION'], map['CALL_FUNCTION_KW'], map['CALL_FUNCTION_VAR'], 
+        call_ops = [map['CALL_FUNCTION'], map['CALL_FUNCTION_KW'], map['CALL_FUNCTION_VAR'],
                     map['CALL_FUNCTION_VAR_KW'], map['CALL_METHOD']]
         assert opcode in call_ops
         instr += 1

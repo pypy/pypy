@@ -3,9 +3,9 @@ from pypy.module._file.interp_file import W_File
 from pypy.rlib import streamio
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
-from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
-import struct
+
 
 def get_suffixes(space):
     w = space.wrap
