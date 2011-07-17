@@ -2782,6 +2782,24 @@ class BasicTests:
         res = self.meta_interp(f, [16])
         assert res == f(16)
 
+    def test_loopinvariant_array_shrinking(self):
+        myjitdriver = JitDriver(greens = [], reds = ['sa', 'n', 'i', 'a'])
+        def f(n):
+            sa = i = 0
+            a = [0, 1, 2, 3, 4]
+            while i < n:
+                myjitdriver.jit_merge_point(sa=sa, n=n, a=a, i=i)
+                if i < n/2:
+                    sa += a[4]
+                elif i == n/2:
+                    a.pop()
+                i += 1
+        res = self.meta_interp(f, [32])
+        assert res == f(32)
+        self.check_loops(arraylen_gc=1)
+
+        
+
 
 
 class TestOOtype(BasicTests, OOJitMixin):
