@@ -303,7 +303,6 @@ class TestLLtype(LLJitMixin):
 
     def test_list_caching_negative(self):
         def fn(n):
-            jit.promote(n)
             a = [0] * n
             if n > 1000:
                 a.append(0)
@@ -357,3 +356,25 @@ class TestLLtype(LLJitMixin):
         res = self.meta_interp(f, [10, 1, 1], listops=True)
         assert res == f(10, 1, 1)
         self.check_history(getarrayitem_gc=0, getfield_gc=0)
+
+    def test_heap_caching_pure(self):
+        class A(object):
+            pass
+        p1 = A()
+        p2 = A()
+        def fn(n):
+            if n >= 0:
+                a = (n, n + 1)
+                p = p1
+            else:
+                a = (n + 1, n)
+                p = p2
+            p.x = a
+
+            return p.x[0] + p.x[1]
+        res = self.interp_operations(fn, [7])
+        assert res == 7 + 7 + 1
+        self.check_operations_history(getfield_gc=0, getfield_gc_pure=0)
+        res = self.interp_operations(fn, [-7])
+        assert res == -7 - 7 + 1
+        self.check_operations_history(getfield_gc=0, getfield_gc_pure=0)

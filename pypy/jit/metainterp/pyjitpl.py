@@ -517,22 +517,28 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def _opimpl_getfield_gc_any(self, box, fielddescr):
-        frombox, tobox = self.metainterp.heap_cache.get(fielddescr, (None, None))
-        if frombox is box:
-            return tobox
-        resbox = self.execute_with_descr(rop.GETFIELD_GC, fielddescr, box)
-        self.metainterp.heap_cache[fielddescr] = (box, resbox)
-        return resbox
+        return self._opimpl_getfield_gc_any_pureornot(
+                rop.GETFIELD_GC, box, fielddescr)
     opimpl_getfield_gc_i = _opimpl_getfield_gc_any
     opimpl_getfield_gc_r = _opimpl_getfield_gc_any
     opimpl_getfield_gc_f = _opimpl_getfield_gc_any
 
     @arguments("box", "descr")
     def _opimpl_getfield_gc_pure_any(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_GC_PURE, fielddescr, box)
+        return self._opimpl_getfield_gc_any_pureornot(
+                rop.GETFIELD_GC_PURE, box, fielddescr)
     opimpl_getfield_gc_i_pure = _opimpl_getfield_gc_pure_any
     opimpl_getfield_gc_r_pure = _opimpl_getfield_gc_pure_any
     opimpl_getfield_gc_f_pure = _opimpl_getfield_gc_pure_any
+
+    @specialize.arg(1)
+    def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr):
+        frombox, tobox = self.metainterp.heap_cache.get(fielddescr, (None, None))
+        if frombox is box:
+            return tobox
+        resbox = self.execute_with_descr(opnum, fielddescr, box)
+        self.metainterp.heap_cache[fielddescr] = (box, resbox)
+        return resbox
 
     @arguments("orgpc", "box", "descr")
     def _opimpl_getfield_gc_greenfield_any(self, pc, box, fielddescr):
