@@ -454,7 +454,7 @@ class OptString(optimizer.Optimization):
 
     def _optimize_STRLEN(self, op, mode):
         value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self, mode, op.result)
+        lengthbox = value.getstrlen(self, mode, lengthbox=op.result)
         if lengthbox is not op.result:
             self.make_equal_to(op.result, self.getvalue(lengthbox))
 
