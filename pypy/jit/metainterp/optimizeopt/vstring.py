@@ -349,7 +349,7 @@ def _int_sub(optimizer, box1, box2):
     optimizer.emit_operation(ResOperation(rop.INT_SUB, [box1, box2], resbox))
     return resbox
 
-def _strgetitem(optimization, strbox, indexbox, mode):
+def _strgetitem(optimization, strbox, indexbox, mode, resbox=None):
     if isinstance(strbox, ConstPtr) and isinstance(indexbox, ConstInt):
         if mode is mode_string:
             s = strbox.getref(lltype.Ptr(rstr.STR))
@@ -357,7 +357,8 @@ def _strgetitem(optimization, strbox, indexbox, mode):
         else:
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
             return ConstInt(ord(s.chars[indexbox.getint()]))
-    resbox = BoxInt()
+    if not resbox:
+        resbox = BoxInt()
     optimization.emit_operation(ResOperation(mode.STRGETITEM, [strbox, indexbox],
                                       resbox))
     return resbox
@@ -427,10 +428,11 @@ class OptString(optimizer.Optimization):
     def _optimize_STRGETITEM(self, op, mode):
         value = self.getvalue(op.getarg(0))
         vindex = self.getvalue(op.getarg(1))
-        vresult = self.strgetitem(value, vindex, mode)
-        self.make_equal_to(op.result, vresult)
+        vresult = self.strgetitem(value, vindex, mode, op.result)
+        if op.result not in self.optimizer.values:
+            self.make_equal_to(op.result, vresult)
 
-    def strgetitem(self, value, vindex, mode):
+    def strgetitem(self, value, vindex, mode, result=None):
         value.ensure_nonnull()
         #
         if value.is_virtual() and isinstance(value, VStringSliceValue):
@@ -444,7 +446,7 @@ class OptString(optimizer.Optimization):
             if vindex.is_constant():
                 return value.getitem(vindex.box.getint())
         #
-        resbox = _strgetitem(self, value.force_box(), vindex.force_box(), mode)
+        resbox = _strgetitem(self, value.force_box(), vindex.force_box(), mode, result)
         return self.getvalue(resbox)
 
     def optimize_STRLEN(self, op):

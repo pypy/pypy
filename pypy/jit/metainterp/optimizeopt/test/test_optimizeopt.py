@@ -6467,6 +6467,62 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_loopinvariant_strgetitem(self):
+        ops = """
+        [p9, i1]
+        i843 = strgetitem(p9, i1)
+        call(i843, descr=nonwritedescr)
+        jump(p9, i1)
+        """
+        expected = """
+        [p9, i1, i2]
+        call(i2, descr=nonwritedescr)
+        jump(p9, i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_loopinvariant_unicodelen(self):
+        ops = """
+        [p9]
+        i843 = unicodelen(p9)
+        call(i843, descr=nonwritedescr)
+        jump(p9)
+        """
+        expected = """
+        [p9, i2]
+        call(i2, descr=nonwritedescr)
+        jump(p9, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_loopinvariant_unicodegetitem(self):
+        ops = """
+        [p9, i1]
+        i843 = unicodegetitem(p9, i1)
+        call(i843, descr=nonwritedescr)
+        jump(p9, i1)
+        """
+        expected = """
+        [p9, i1, i2]
+        call(i2, descr=nonwritedescr)
+        jump(p9, i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_loopinvariant_arraylen(self):
+        ops = """
+        [p9]
+        i843 = arraylen_gc(p9)
+        call(i843, descr=nonwritedescr)
+        jump(p9)
+        """
+        expected = """
+        [p9, i2]
+        call(i2, descr=nonwritedescr)
+        jump(p9, i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicated_virtual(self):
         ops = """
         [p1, p2]
