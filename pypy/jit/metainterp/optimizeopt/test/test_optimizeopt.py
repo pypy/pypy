@@ -6466,6 +6466,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p9, i2)
         """
         self.optimize_loop(ops, expected)
+
+    def test_duplicated_virtual(self):
+        ops = """
+        [p1, p2]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        jump(p3, p3)
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
         
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):

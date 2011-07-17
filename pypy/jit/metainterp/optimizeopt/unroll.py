@@ -84,7 +84,10 @@ class Inliner(object):
         assert len(inputargs) == len(jump_args)
         self.argmap = {}
         for i in range(len(inputargs)):
-           self.argmap[inputargs[i]] = jump_args[i]
+            if inputargs[i] in self.argmap:
+                assert self.argmap[inputargs[i]] == jump_args[i]
+            else:
+                self.argmap[inputargs[i]] = jump_args[i]
         self.snapshot_map = {None: None}
 
     def inline_op(self, newop, ignore_result=False, clone=True,
@@ -220,7 +223,11 @@ class UnrollOptimizer(Optimization):
             # in the peeled loop
             inputarg_setup_ops = []
             preamble_optimizer.newoperations = []
+            seen = {}
             for box in short_inputargs:
+                if box in seen:
+                    continue
+                seen[box] = True
                 value = preamble_optimizer.getvalue(box)
                 if value.is_virtual():
                     value.force_box()
@@ -283,8 +290,16 @@ class UnrollOptimizer(Optimization):
                 short_loop.inputargs = short_inputargs
                 short_loop.operations = short
 
-                # Clone ops and boxes to get private versions and 
-                newargs = [a.clonebox() for a in short_loop.inputargs]
+                # Clone ops and boxes to get private versions and
+                boxmap = {}
+                newargs = [None] * len(short_loop.inputargs)
+                for i in range(len(short_loop.inputargs)):
+                    a = short_loop.inputargs[i]
+                    if a in boxmap:
+                        newargs[i] = boxmap[a]
+                    else:
+                        newargs[i] = a.clonebox()
+                        boxmap[a] = newargs[i]
                 inliner = Inliner(short_loop.inputargs, newargs)
                 for box, const in self.constant_inputargs.items():
                     inliner.argmap[box] = const
