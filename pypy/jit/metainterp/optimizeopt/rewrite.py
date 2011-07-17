@@ -199,6 +199,7 @@ class OptRewrite(Optimization):
                     ))
                     return
         self.emit_operation(op)
+        self.pure(rop.FLOAT_MUL, [arg2, arg1], op.result)
 
     def optimize_FLOAT_NEG(self, op):
         v1 = op.getarg(0)

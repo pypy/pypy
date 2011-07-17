@@ -4572,6 +4572,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_float_mul_reversed(self):
+        ops = """
+        [f0, f1]
+        f2 = float_mul(f0, f1)
+        f3 = float_mul(f1, f0)
+        jump(f2, f3)
+        """
+        expected = """
+        [f0, f1]
+        f2 = float_mul(f0, f1)
+        jump(f2, f2)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
