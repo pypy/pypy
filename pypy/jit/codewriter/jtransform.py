@@ -1118,6 +1118,9 @@ class Transformer(object):
         return meth(op, args, *descrs)
 
     def _get_list_nonneg_canraise_flags(self, op):
+        # XXX as far as I can see, this function will always return True
+        # because functions that are neither nonneg nor fast don't have an
+        # oopspec any more
         # xxx break of abstraction:
         func = get_funcobj(op.args[0].value)._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
