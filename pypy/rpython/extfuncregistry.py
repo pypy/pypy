@@ -1,6 +1,6 @@
 # this registry uses the new interface for external functions
 
-from extfunc import register_external
+from pypy.rpython.extfunc import register_external
 
 # ___________________________
 # math functions
