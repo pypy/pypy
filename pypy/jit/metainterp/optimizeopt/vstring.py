@@ -47,7 +47,7 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 class __extend__(optimizer.OptValue):
     """New methods added to the base class OptValue for this file."""
 
-    def getstrlen(self, optimization, mode, lengthbox=None):
+    def getstrlen(self, optimizer, mode, lengthbox=None):
         if mode is mode_string:
             s = self.get_constant_string_spec(mode_string)
             if s is not None:
@@ -56,13 +56,13 @@ class __extend__(optimizer.OptValue):
             s = self.get_constant_string_spec(mode_unicode)
             if s is not None:
                 return ConstInt(len(s))
-        if optimization is None:
+        if optimizer is None:
             return None
         self.ensure_nonnull()
         box = self.force_box()
         if not lengthbox:
             lengthbox = BoxInt()
-        optimization.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
+        optimizer.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
         return lengthbox
 
     @specialize.arg(1)
@@ -125,7 +125,7 @@ class VStringPlainValue(VAbstractStringValue):
         assert 0 <= start <= stop <= len(longerlist)
         self._chars = longerlist[start:stop]
 
-    def getstrlen(self, _, mode, lengthbox=None):
+    def getstrlen(self, optimizer, mode, lengthbox=None):
         if self._lengthbox is None:
             self._lengthbox = ConstInt(len(self._chars))
         return self._lengthbox
@@ -250,7 +250,7 @@ class VStringSliceValue(VAbstractStringValue):
         self.vstart = vstart
         self.vlength = vlength
 
-    def getstrlen(self, _, mode, lengthbox=None):
+    def getstrlen(self, optimizer, mode, lengthbox=None):
         return self.vlength.force_box()
 
     @specialize.arg(1)
