@@ -4553,7 +4553,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_strslice_with_other_stuff(self):
+    def test_strslice_subtraction_folds(self):
         ops = """
         [p0, i0]
         i1 = int_add(i0, 1)
