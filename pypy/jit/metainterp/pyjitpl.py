@@ -713,8 +713,7 @@ class MIFrame(object):
     @arguments("orgpc", "box", "descr", "descr")
     def opimpl_arraylen_vable(self, pc, box, fdescr, adescr):
         if self._nonstandard_virtualizable(pc, box):
-            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          fdescr, box)
+            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
             return self.execute_with_descr(rop.ARRAYLEN_GC, adescr, arraybox)
         vinfo = self.metainterp.jitdriver_sd.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]

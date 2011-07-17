@@ -325,7 +325,7 @@ class TestLLtype(LLJitMixin):
 
             def __init__(self, a, s):
                 self = jit.hint(self, access_directly=True, fresh_virtualizable=True)
-                self.l = [0] * 4
+                self.l = [0] * (4 + a)
                 self.s = s
 
         def f(n, a, i):
@@ -335,7 +335,7 @@ class TestLLtype(LLJitMixin):
             frame.l[2] = a + 2
             frame.l[3] = a + 3
             if not i:
-                return frame.l[0]
+                return frame.l[0] + len(frame.l)
             x = 0
             while n > 0:
                 myjitdriver.can_enter_jit(frame=frame, n=n, x=x, i=i)
