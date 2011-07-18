@@ -77,6 +77,8 @@ opcodes = _proc_dict({
     'oosend':                   [JvmCallMethod, StoreResult],
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast, StoreResult],
+    'oobox_int':                jvm.PYPYBOXINT,
+    'oounbox_int':              jvm.PYPYUNBOXINT,
     'cast_to_object':           DoNothing,
     'cast_from_object':         [DownCast, StoreResult],
     'instanceof':               [CastTo, StoreResult],
