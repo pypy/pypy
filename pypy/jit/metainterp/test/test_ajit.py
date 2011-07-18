@@ -2798,7 +2798,7 @@ class BasicTests:
         assert res == f(32)
         self.check_loops(arraylen_gc=1)
 
-        
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

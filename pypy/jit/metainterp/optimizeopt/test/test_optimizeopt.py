@@ -6523,6 +6523,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_loopinvariant_getarrayitem(self):
+        ops = """
+        [p1]
+        p2 = getarrayitem_gc(p1, 7, descr=<GcPtrArrayDescr>)
+        call(p2, descr=nonwritedescr)
+        jump(p1)
+        """
+        short = """
+        [p1]
+        i1 = arraylen_gc(p1)
+        p2 = getarrayitem_gc(p1, 7, descr=<GcPtrArrayDescr>)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2]
+        call(p2, descr=nonwritedescr)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+
     def test_duplicated_virtual(self):
         ops = """
         [p1, p2]
