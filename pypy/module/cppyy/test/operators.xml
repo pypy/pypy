@@ -1,0 +1,6 @@
+<lcgdict>
+
+  <class name="number" />
+  <class pattern="operator_*" />
+
+</lcgdict>

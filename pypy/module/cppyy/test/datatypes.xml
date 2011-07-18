@@ -1,0 +1,9 @@
+<lcgdict>
+
+  <class pattern="cppyy_test_*" />
+
+  <function pattern="get_*" />
+
+  <variable name="N" />
+
+</lcgdict>

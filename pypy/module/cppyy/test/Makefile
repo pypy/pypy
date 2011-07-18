@@ -1,4 +1,5 @@
-all: example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so operatorsDict.so
+dicts = example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so operatorsDict.so
+all : $(dicts)
 
 ROOTSYS := ${ROOTSYS}
 
@@ -23,26 +24,24 @@ else
   cppflags2=-Wno-pmf-conversions -O3
 endif
 
+%Dict.so: %_rflx.cpp %.cxx
+	g++ -o $@ $^ -shared -lReflex $(cppflags) $(cppflags2)
 
-example01Dict.so: example01.cxx example01.h example01.xml
-	$(genreflex) example01.h $(genreflexflags) --selection=example01.xml
-	g++ -o $@ example01_rflx.cpp example01.cxx -shared -lReflex $(cppflags) $(cppflags2)
+%_rflx.cpp: %.h %.xml
+	$(genreflex) $< $(genreflexflags) --selection=$*.xml
 
 # rootcint -f example01_cint.cxx -c example01.h example01_LinkDef.h
 # g++ -I$ROOTSYS/include example01_cint.cxx example01.cxx -shared -o example01Dict.so -L$ROOTSYS/lib -lCore -lCint
 
-datatypesDict.so: datatypes.cxx datatypes.h
-	$(genreflex) datatypes.h $(genreflexflags)
-	g++ -o $@ datatypes_rflx.cpp datatypes.cxx -shared -lReflex $(cppflags) $(cppflags2)
-
-advancedcppDict.so: advancedcpp.cxx advancedcpp.h advancedcpp.xml
-	$(genreflex) advancedcpp.h $(genreflexflags) --selection=advancedcpp.xml
-	g++ -o $@ advancedcpp_rflx.cpp advancedcpp.cxx -shared -lReflex $(cppflags) $(cppflags2)
-
+# TODO: methptrgetter causes these tests to crash, so don't use it for now
 stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml
 	$(genreflex) stltypes.h --selection=stltypes.xml
 	g++ -o $@ stltypes_rflx.cpp stltypes.cxx -shared -lReflex $(cppflags) $(cppflags2)
 
-operatorsDict.so: operators.cxx operators.h
-	$(genreflex) operators.h
+operatorsDict.so: operators.cxx operators.h operators.xml
+	$(genreflex) operators.h --selection=operators.xml
 	g++ -o $@ operators_rflx.cpp operators.cxx -shared -lReflex $(cppflags) $(cppflags2)
+
+.PHONY: clean
+clean:
+	-rm -f $(dicts)

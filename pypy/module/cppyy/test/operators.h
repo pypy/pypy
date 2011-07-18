@@ -3,8 +3,6 @@ public:
    number() { m_int = 0; }
    number(int i) { m_int = i; }
 
-   int AsInt() { return m_int; }
-
    number operator+(const number& n) const { return number(m_int + n.m_int); }
    number operator+(int n) const { return number(m_int + n); }
    number operator-(const number& n) const { return number(m_int - n.m_int); }
