@@ -1668,16 +1668,26 @@ class MetaInterp(object):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)
-        if (opnum != rop.SETFIELD_GC and
-                opnum != rop.SETARRAYITEM_GC):
-            if not (rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST):
-                if self.heap_cache:
-                    self.heap_cache.clear()
-                if self.heap_array_cache:
-                    self.heap_array_cache.clear()
+        self._invalidate_caches(opnum, descr)
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
         return resbox
+
+    def _invalidate_caches(self, opnum, descr):
+        if opnum == rop.SETFIELD_GC:
+            return
+        if opnum == rop.SETARRAYITEM_GC:
+            return
+        if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
+            return
+        if opnum == rop.CALL:
+            effectinfo = descr.get_extra_info()
+            if effectinfo.extraeffect == effectinfo.EF_ELIDABLE:
+                return
+        if self.heap_cache:
+            self.heap_cache.clear()
+        if self.heap_array_cache:
+            self.heap_array_cache.clear()
 
     def attach_debug_info(self, op):
         if (not we_are_translated() and op is not None

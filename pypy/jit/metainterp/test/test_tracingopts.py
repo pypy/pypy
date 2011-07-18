@@ -378,3 +378,30 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [-7])
         assert res == -7 - 7 + 1
         self.check_operations_history(getfield_gc=0, getfield_gc_pure=0)
+
+    def test_heap_caching_and_elidable_function(self):
+        class A:
+            pass
+        class B: pass
+        a1 = A()
+        a1.y = 6
+        a2 = A()
+        a2.y = 13
+        @jit.elidable
+        def f(b):
+            return b + 1
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = A()
+            a.x = n
+            z = f(6)
+            return z + a.x
+        res = self.interp_operations(fn, [7])
+        assert res == 7 + 7
+        self.check_operations_history(getfield_gc=0)
+        res = self.interp_operations(fn, [-7])
+        assert res == -7 + 7
+        self.check_operations_history(getfield_gc=0)
+        return
