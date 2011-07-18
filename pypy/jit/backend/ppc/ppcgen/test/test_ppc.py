@@ -18,6 +18,7 @@ class TestDisassemble(object):
         inst = a.insts[-1]
         assert A.add.match(inst.assemble())
 
+# Testing simple assembler instructions
 class TestAssemble(object):
     def setup_class(cls):
         if autodetect_main_model() not in ["ppc", "ppc64"]: 
@@ -41,13 +42,65 @@ class TestAssemble(object):
     def test_load_word(self):
         a = MyPPCAssembler()
         word = 12341234
+
         a.load_word(10, word)
         a.mtctr(10)
         a.mfctr(11)
         a.mr(3, 11)
         a.blr()
+
         f = a.assemble()
         assert f() == word
+
+    def test_add_reg(self):
+        a = MyPPCAssembler()
+        word1 = 11111111
+        word2 = 22222222
+
+        a.load_word(10, word1)
+        a.load_word(11, word2)
+        a.add(12, 10, 11)
+        a.mr(3, 12)
+        a.blr()
+
+        f = a.assemble()
+        assert f() == word1 + word2
+
+    def test_add_pos_and_neg(self):
+        a = MyPPCAssembler()
+        word1 = 2000
+        word2 = -3000
+
+        a.load_word(10, word1)
+        a.load_word(11, word2)
+        a.add(3, 10, 11)
+        a.blr()
+
+        f = a.assemble()
+        assert f() == -1000
+
+    def test_sub_imm(self):
+        a = MyPPCAssembler()
+        
+        a.li(3, 10)
+        a.subi(3, 3, 3)
+        a.blr()
+
+        f = a.assemble()
+        assert f() == 7
+
+    def test_sub_reg(self):
+        a = MyPPCAssembler()
+        word1 = 123435
+        word2 = 76457
+
+        a.load_word(5, word1)
+        a.load_word(6, word2)
+        a.sub(3, 5, 6)
+        a.blr()
+
+        f = a.assemble()
+        assert f() == word1 - word2
 
     def test_call_function(self):
         functype =  lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
