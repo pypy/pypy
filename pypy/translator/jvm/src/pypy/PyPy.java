@@ -307,6 +307,14 @@ public class PyPy implements Constants {
         return result;
     }
 
+    public static Object box_integer(int x) {
+        return new Integer(x);
+    }
+
+    public static int unbox_integer(Object o) {
+        Integer x = (Integer)o;
+        return x.intValue();
+    }
     // Used in testing the JVM backend:
     //
     //    A series of methods which serve a similar purpose to repr() in Python:
