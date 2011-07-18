@@ -37,8 +37,16 @@ def absolute(value):
     return abs(value)
 
 @ufunc2
+def add(lvalue, rvalue):
+    return lvalue + rvalue
+
+@ufunc2
 def copysign(lvalue, rvalue):
     return rfloat.copysign(lvalue, rvalue)
+
+@ufunc2
+def divide(lvalue, rvalue):
+    return lvalue / rvalue
 
 @ufunc
 def exp(value):
@@ -47,6 +55,10 @@ def exp(value):
     except OverflowError:
         return rfloat.INFINITY
 
+@ufunc
+def fabs(value):
+    return math.fabs(value)
+
 @ufunc2
 def maximum(lvalue, rvalue):
     return max(lvalue, rvalue)
@@ -54,6 +66,10 @@ def maximum(lvalue, rvalue):
 @ufunc2
 def minimum(lvalue, rvalue):
     return min(lvalue, rvalue)
+
+@ufunc2
+def multiply(lvalue, rvalue):
+    return lvalue * rvalue
 
 @ufunc
 def negative(value):
@@ -64,6 +80,10 @@ def reciprocal(value):
     if value == 0.0:
         return rfloat.copysign(rfloat.INFINITY, value)
     return 1.0 / value
+
+@ufunc2
+def subtract(lvalue, rvalue):
+    return lvalue - rvalue
 
 @ufunc
 def floor(value):
