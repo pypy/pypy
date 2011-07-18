@@ -402,6 +402,7 @@ class ViewArray(BaseArray):
         BaseArray.__init__(self)
         self.signature = signature
         self.parent = parent
+        self.storage = parent.storage
         self.invalidates = parent.invalidates
 
     def get_concrete(self):
@@ -432,9 +433,14 @@ class SingleDimSlice(ViewArray):
 
     def __init__(self, start, stop, step, slice_length, parent, signature):
         ViewArray.__init__(self, parent, signature)
-        self.start = start
-        self.stop = stop
-        self.step = step
+        if isinstance(parent, SingleDimSlice):
+            self.start = parent.calc_index(start)
+            self.stop = parent.calc_index(stop)
+            self.step = parent.step * self.step
+        else:
+            self.start = start
+            self.stop = stop
+            self.step = step
         self.size = slice_length
 
     def find_size(self):
@@ -448,7 +454,7 @@ class SingleDimSlice(ViewArray):
         while i < stop:
             slice_driver1.jit_merge_point(signature=signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
-            self.parent.setitem(i, arr.eval(j))
+            self.storage[i] = arr.eval(j)
             j += 1
             i += step
 
@@ -460,21 +466,15 @@ class SingleDimSlice(ViewArray):
         while i > stop:
             slice_driver2.jit_merge_point(signature=signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
-            self.parent.setitem(i, arr.eval(j))
+            self.storage[i] = arr.eval(j)
             j += 1
             i += step
 
     def setslice(self, space, start, stop, step, slice_length, arr):
-        # can't set a slice of a slice yet
-        if stop < 0:
-            stop += self.find_size()
-        if step > 0:
-            stop = min(stop, self.find_size())
-        else:
-            stop = max(stop, 0)
         arr = convert_to_array(space, arr)
         start = self.calc_index(start)
-        stop = self.calc_index(stop)
+        if stop != -1:
+            stop = self.calc_index(stop)
         step = self.step * step
         if step > 0:
             self._sliceloop1(start, stop, step, arr)
@@ -553,12 +553,12 @@ class SingleDimArray(BaseArray):
 
     def setslice(self, space, start, stop, step, slice_length, arr):
         i = start
-        if stop < 0:
-            stop += self.find_size()
-        if step > 0:
-            stop = min(stop, self.find_size())
-        else:
-            stop = max(stop, 0)
+        #if stop < 0:
+        #    stop += self.find_size()
+        #if step > 0:
+        #    stop = min(stop, self.find_size())
+        #else:
+        #    stop = max(stop, 0)
         if not isinstance(arr, BaseArray):
             arr = convert_to_array(space, arr)
         if step > 0:
