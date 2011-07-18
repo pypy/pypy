@@ -36,7 +36,7 @@ class AppTestCPPYY:
             cppyy.load_lib(%r)
             return cppyy._type_byname('example01'), cppyy._type_byname('payload')""" % (shared_lib, )))
 
-    def test_example01static_int(self):
+    def test01_static_int(self):
         """Test passing of an int, returning of an int, and overloading on a
             differening number of arguments."""
 
@@ -61,7 +61,7 @@ class AppTestCPPYY:
         raises(TypeError, 't.get_overload("staticAddOneToInt").call(None, None, 1.)')
         raises(OverflowError, 't.get_overload("staticAddOneToInt").call(None, None, maxint32+1)')
 
-    def test_example01static_double(self):
+    def test02_static_double(self):
         """Test passing of a double and returning of a double on a static function."""
 
         t = self.example01
@@ -69,7 +69,7 @@ class AppTestCPPYY:
         res = t.get_overload("staticAddToDouble").call(None, None, 0.09)
         assert res == 0.09 + 0.01
 
-    def test_example01static_constcharp(self):
+    def test03_static_constcharp(self):
         """Test passing of a C string and returning of a C string on a static
             function."""
 
@@ -84,7 +84,7 @@ class AppTestCPPYY:
 
         raises(TypeError, 't.get_overload("staticStrcpy").call(None, None, 1.)') # TODO: this leaks
 
-    def test_example01method_int(self):
+    def test04_method_int(self):
         """Test passing of a int, returning of a int, and memory cleanup, on
             a method."""
         import cppyy
@@ -117,7 +117,7 @@ class AppTestCPPYY:
 
         raises(TypeError, t.get_overload("addDataToInt").call, 41, None, 4)
 
-    def test_example01memory(self):
+    def test05_memory(self):
         """Test memory destruction and integrity."""
 
         import gc
@@ -149,7 +149,7 @@ class AppTestCPPYY:
         gc.collect()
         assert t.get_overload("getCount").call(None, None) == 0
 
-    def test_example01method_double(self):
+    def test06_method_double(self):
         """Test passing of a double and returning of double on a method"""
         import cppyy
 
@@ -166,7 +166,7 @@ class AppTestCPPYY:
         e.destruct()
         assert t.get_overload("getCount").call(None, None) == 0
 
-    def test_example01method_constcharp(self):
+    def test07_method_constcharp(self):
         """Test passing of a C string and returning of a C string on a
             method."""
         import cppyy
@@ -183,7 +183,7 @@ class AppTestCPPYY:
         e.destruct()
         assert t.get_overload("getCount").call(None, None) == 0
 
-    def testPassingOfAnObjectByPointer(self):
+    def test08_pass_object_by_pointer(self):
         """Test passing of an instance as an argument."""
         import cppyy
 
@@ -203,7 +203,7 @@ class AppTestCPPYY:
         pl.destruct() 
         assert t1.get_overload("getCount").call(None, None) == 0
 
-    def testReturningOfAnObjectByPointer(self):
+    def test09_return_object_by_pointer(self):
         """Test returning of an instance as an argument."""
         import cppyy
 
