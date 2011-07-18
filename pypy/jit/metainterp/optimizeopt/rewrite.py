@@ -27,10 +27,9 @@ class OptRewrite(Optimization):
                                  value.get_cloned(new, valuemap)
         return new
 
-    def produce_potential_short_preamble_ops(self, potential_ops):
+    def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
-            potential_ops[op.result] = op
-
+            sb.add_potential(op)
 
     def propagate_forward(self, op):
         args = self.optimizer.make_args_key(op)

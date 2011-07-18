@@ -317,9 +317,6 @@ class Optimization(object):
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
-class BoxNotProducable(Exception):
-    pass
-
 class Optimizer(Optimization):
 
     def __init__(self, metainterp_sd, loop, optimizations=None):
@@ -429,41 +426,11 @@ class Optimizer(Optimization):
 
         return new
 
-    def produce_potential_short_preamble_ops(self, potential_ops):
+    def produce_potential_short_preamble_ops(self, sb):
         for op in self.emitted_pure_operations:
-            potential_ops[op.result] = op
+            sb.add_potential(op)
         for opt in self.optimizations:
-            opt.produce_potential_short_preamble_ops(potential_ops)
-
-    def produce_short_preamble_ops(self, surviving_boxes):
-        potential_ops = {}
-        self.produce_potential_short_preamble_ops(potential_ops)
-            
-        short_boxes = {}
-        for box in surviving_boxes:
-            short_boxes[box] = None
-
-        for box in potential_ops.keys():
-            try:
-                self.produce_short_preamble_box(box, short_boxes,
-                                                potential_ops)
-            except BoxNotProducable:
-                pass
-        return short_boxes
-
-    def produce_short_preamble_box(self, box, short_boxes, potential_ops):
-        if box in short_boxes:
-            return 
-        if isinstance(box, Const):
-            return 
-        if box in potential_ops:
-            op = potential_ops[box]
-            for arg in op.getarglist():
-                self.produce_short_preamble_box(arg, short_boxes,
-                                                potential_ops)
-            short_boxes[box] = op
-        else:
-            raise BoxNotProducable
+            opt.produce_potential_short_preamble_ops(sb)
 
     def turned_constant(self, value):
         for o in self.optimizations:

@@ -1,5 +1,5 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
-from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder
+from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
@@ -195,8 +195,7 @@ class UnrollOptimizer(Optimization):
                 if const:
                     self.constant_inputargs[box] = const
 
-            sb = self.optimizer.produce_short_preamble_ops(inputargs +
-                                                 self.constant_inputargs.keys())
+            sb = ShortBoxes(self.optimizer, inputargs + self.constant_inputargs.keys())
             self.short_boxes = sb
             preamble_optimizer = self.optimizer
             loop.preamble.quasi_immutable_deps = (
@@ -210,13 +209,7 @@ class UnrollOptimizer(Optimization):
                 debug_print('inputargs: ' + args)
                 args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
                 debug_print('short inputargs: ' + args)
-                debug_start('jit-short-boxes')
-                for box, op in self.short_boxes.items():
-                    if op:
-                        debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
-                    else:
-                        debug_print(logops.repr_of_arg(box) + ': None')
-                debug_stop('jit-short-boxes')
+                self.short_boxes.debug_print(logops)
 
             # Force virtuals amoung the jump_args of the preamble to get the
             # operations needed to setup the proper state of those virtuals
@@ -242,7 +235,7 @@ class UnrollOptimizer(Optimization):
             for op in inputarg_setup_ops:
                 self.optimizer.send_extra_operation(op)
             seen = {}
-            for op in self.short_boxes.values():
+            for op in self.short_boxes.operations():
                 self.ensure_short_op_emitted(op, self.optimizer, seen)
                 if op and op.result:
                     value = preamble_optimizer.getvalue(op.result)
@@ -334,10 +327,9 @@ class UnrollOptimizer(Optimization):
         for box, const in self.constant_inputargs.items():
             short_seen[box] = True
 
-        for result, op in self.short_boxes.items():
+        for op in self.short_boxes.operations():
             if op is not None:
-                assert result is op.result
-                if len(self.getvalue(result).make_guards(result)) > 0:
+                if len(self.getvalue(op.result).make_guards(op.result)) > 0:
                     self.add_op_to_short(op, short, short_seen, False, True)
 
         # This loop is equivalent to the main optimization loop in
@@ -427,7 +419,7 @@ class UnrollOptimizer(Optimization):
             return
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in seen:
-                self.ensure_short_op_emitted(self.short_boxes[a], optimizer, seen)
+                self.ensure_short_op_emitted(self.short_boxes.producer(a), optimizer, seen)
         optimizer.send_extra_operation(op)
         seen[op.result] = True
         if op.is_ovf():
@@ -444,13 +436,13 @@ class UnrollOptimizer(Optimization):
                 return None
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in short_seen:
-                self.add_op_to_short(self.short_boxes[a], short, short_seen,
+                self.add_op_to_short(self.short_boxes.producer(a), short, short_seen,
                                      emit, guards_needed)
         if op.is_guard():
             descr = self.start_resumedescr.clone_if_mutable()
             op.setdescr(descr)
 
-        if guards_needed and op.result in self.short_boxes:
+        if guards_needed and self.short_boxes.has_producer(op.result):
             value_guards = self.getvalue(op.result).make_guards(op.result)
         else:
             value_guards = []            
@@ -482,7 +474,7 @@ class UnrollOptimizer(Optimization):
         if box in self.boxes_created_this_iteration:
             return
 
-        short_op = self.short_boxes[box]
+        short_op = self.short_boxes.producer(box)
         newresult = self.add_op_to_short(short_op, short, short_seen)
         
         short_jumpargs.append(short_op.result)

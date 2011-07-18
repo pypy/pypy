@@ -117,8 +117,7 @@ class CachedField(object):
                 cf._cached_fields[structvalue2] = fieldvalue2
         return cf
 
-    def produce_potential_short_preamble_ops(self, optimizer,
-                                             potential_ops, descr):
+    def produce_potential_short_preamble_ops(self, optimizer, shortboxes, descr):
         if self._lazy_setfield is not None:
             return
         for structvalue in self._cached_fields_getfield_op.keys():
@@ -126,20 +125,19 @@ class CachedField(object):
             if op and structvalue in self._cached_fields:
                 if op.getopnum() == rop.SETFIELD_GC:
                     result = op.getarg(1)
-                    if result in potential_ops and potential_ops[result] is None:
+                    if result in shortboxes.potential_ops and \
+                           shortboxes.potential_ops[result] is None:
                         newresult = result.clonebox()
                         optimizer.make_equal_to(newresult, optimizer.getvalue(result))
                         result = newresult
                         # XXX this will not allow for chains of operations
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())
-                    potential_ops[result] = getop
+                    shortboxes.add_potential(getop)
                     self._cached_fields_getfield_op[structvalue] = getop
                     self._cached_fields[structvalue] = optimizer.getvalue(result)
                 elif op.result is not None:
-                    potential_ops[op.result] = op
-
-
+                    shortboxes.add_potential(op)
 
 class BogusPureField(JitException):
     pass
@@ -182,15 +180,13 @@ class OptHeap(Optimization):
 
         return new
 
-    def produce_potential_short_preamble_ops(self, potential_ops):
+    def produce_potential_short_preamble_ops(self, sb):
         for descr, d in self.cached_fields.items():
-            d.produce_potential_short_preamble_ops(self.optimizer,
-                                                   potential_ops, descr)
+            d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
 
         for descr, submap in self.cached_arrayitems.items():
             for index, d in submap.items():
-                d.produce_potential_short_preamble_ops(self.optimizer,
-                                                       potential_ops, descr)
+                d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
 
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]

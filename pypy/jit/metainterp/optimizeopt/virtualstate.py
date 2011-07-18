@@ -431,3 +431,55 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def make_varray(self, arraydescr):
         return VArrayStateInfo(arraydescr)
 
+class BoxNotProducable(Exception):
+    pass
+
+class ShortBoxes(object):
+    def __init__(self, optimizer, surviving_boxes):
+        self.potential_ops = {}
+        optimizer.produce_potential_short_preamble_ops(self)
+            
+        self.short_boxes = {}
+        for box in surviving_boxes:
+            self.short_boxes[box] = None
+
+        for box in self.potential_ops.keys():
+            try:
+                self.produce_short_preamble_box(box)
+            except BoxNotProducable:
+                pass
+
+    def produce_short_preamble_box(self, box):
+        if box in self.short_boxes:
+            return 
+        if isinstance(box, Const):
+            return 
+        if box in self.potential_ops:
+            op = self.potential_ops[box]
+            for arg in op.getarglist():
+                self.produce_short_preamble_box(arg)
+            self.short_boxes[box] = op
+        else:
+            raise BoxNotProducable
+
+    def add_potential(self, op):
+        self.potential_ops[op.result] = op
+
+    def debug_print(self, logops):
+        debug_start('jit-short-boxes')
+        for box, op in self.short_boxes.items():
+            if op:
+                debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
+            else:
+                debug_print(logops.repr_of_arg(box) + ': None')
+        debug_stop('jit-short-boxes')
+        
+    def operations(self):
+        return self.short_boxes.values()
+
+    def producer(self, box):
+        return self.short_boxes[box]
+
+    def has_producer(self, box):
+        return box in self.short_boxes
+    
