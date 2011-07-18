@@ -2061,7 +2061,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if 0 < a <= 5: pass
                 if 0 < b <= 5: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
 
@@ -2071,10 +2071,10 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if 0 < a < promote(sys.maxint/2): pass
                 if 0 < b < 100: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
-        
+
         assert self.meta_interp(f1, [5, 5]) == 50
         self.check_loops(int_rshift=0, everywhere=True)
 
@@ -2106,7 +2106,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if -5 <= a < 0: pass
                 if 0 < b <= 5: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
 
@@ -2116,10 +2116,10 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if -promote(sys.maxint/2) < a < 0: pass
                 if 0 < b < 100: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
-        
+
         assert self.meta_interp(f1, [-5, 5]) == -50
         self.check_loops(int_rshift=0, everywhere=True)
 
@@ -2190,7 +2190,7 @@ class BasicTests:
 
         def get_printable_location(i):
             return str(i)
-        
+
         myjitdriver = JitDriver(greens = ['i'], reds = ['j', 'c', 'a'],
                                 get_printable_location=get_printable_location)
         bytecode = "0j10jc20a3"
@@ -2299,7 +2299,7 @@ class BasicTests:
         assert self.meta_interp(build, []) == 7
         self.check_loops(getfield_gc_pure=0)
         self.check_loops(getfield_gc_pure=2, everywhere=True)
-        
+
     def test_frame_finished_during_retrace(self):
         class Base(object):
             pass
@@ -2330,7 +2330,7 @@ class BasicTests:
             return sa
         res = self.meta_interp(f, [])
         assert res == f()
-        
+
     def test_frame_finished_during_continued_retrace(self):
         class Base(object):
             pass
@@ -2414,12 +2414,12 @@ class BasicTests:
         def g(n1, n2):
             for i in range(10):
                 f(n1)
-            for i in range(10):                
+            for i in range(10):
                 f(n2)
 
         nn = [10, 3]
         assert self.meta_interp(g, nn) == g(*nn)
-        
+
         # The attempts of retracing first loop will end up retracing the
         # second and thus fail 5 times, saturating the retrace_count. Instead a
         # bridge back to the preamble of the first loop is produced. A guard in
@@ -2430,7 +2430,7 @@ class BasicTests:
         self.check_tree_loop_count(2 + 3)
 
         # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
-        
+
         def g(n):
             for i in range(n):
                 for j in range(10):
@@ -2618,6 +2618,41 @@ class BaseLLtypeTests(BasicTests):
         self.check_loops(new_with_vtable=0)
         self.meta_interp(f, [], enable_opts='')
         self.check_loops(new_with_vtable=1)
+
+    def test_release_gil_flush_heap_cache(self):
+        from pypy.rpython.lltypesystem import rffi
+
+        T = rffi.CArrayPtr(rffi.TIME_T)
+
+        external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+        # Not a real lock, has all the same properties with respect to GIL
+        # release though, so good for this test.
+        class Lock(object):
+            @dont_look_inside
+            def acquire(self):
+                external(lltype.nullptr(T.TO))
+            @dont_look_inside
+            def release(self):
+                external(lltype.nullptr(T.TO))
+        @dont_look_inside
+        def get_lst():
+            return [0]
+        myjitdriver = JitDriver(greens=[], reds=["n", "l", "lock"])
+        def f(n):
+            lock = Lock()
+            l = 0
+            while n > 0:
+                myjitdriver.jit_merge_point(lock=lock, l=l, n=n)
+                x = get_lst()
+                l += len(x)
+                lock.acquire()
+                # This must not reuse the previous one.
+                n -= len(x)
+                lock.release()
+            return n
+        res = self.meta_interp(f, [10])
+        self.check_loops(arraylen_gc=2)
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass
