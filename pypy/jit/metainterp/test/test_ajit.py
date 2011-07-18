@@ -1185,7 +1185,7 @@ class BasicTests:
             return tup[1]
         res = self.interp_operations(f, [3, 5])
         assert res == 5
-        self.check_operations_history(setfield_gc=2, getfield_gc_pure=1)
+        self.check_operations_history(setfield_gc=2, getfield_gc_pure=0)
 
     def test_oosend_look_inside_only_one(self):
         class A:

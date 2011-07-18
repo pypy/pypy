@@ -377,7 +377,7 @@ class ExplicitVirtualizableTests:
         expected = f(20)
         res = self.meta_interp(f, [20], enable_opts='')
         assert res == expected
-        self.check_loops(getfield_gc=3, setfield_gc=0,
+        self.check_loops(getfield_gc=1, setfield_gc=0,
                          arraylen_gc=1, getarrayitem_gc=1, setarrayitem_gc=1)
 
     # ------------------------------
