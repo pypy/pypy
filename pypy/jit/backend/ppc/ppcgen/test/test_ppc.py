@@ -49,6 +49,9 @@ def bits_to_signed_int(bits):
     bits = bits[1:].replace("0", "$").replace("1", "0").replace("$", "1")
     return sign * (int(bits, 2) + 1)
 
+def hex_to_signed_int(hx):
+    return bits_to_signed_int(bin(int(hx, 16))[2:])
+
 # Testing simple assembler instructions
 class TestAssemble(object):
     def setup_class(cls):
@@ -187,6 +190,82 @@ class TestAssemble(object):
 
         f = a.assemble()
         assert f() == 65
+
+    @asmtest(expected=0)
+    def test_and(self, a):
+        a.load_word(10, 8)
+        a.load_word(11, 7)
+        a.and_(3, 10, 11)
+        a.blr()
+
+    @asmtest(expected=15)
+    def test_or(self, a):
+        a.load_word(10, 8)
+        a.load_word(11, 7)
+        a.or_(3, 10, 11)
+        a.blr()
+
+    @asmtest(expected=15)
+    def test_nand(self, a):
+        a.load_word(10, 8)
+        a.load_word(11, 7)
+        a.nand(3, 10, 11)
+        a.load_word(12, 0x0000000F) # zero out first 28 bits
+        a.and_(3, 3, 12)            # 
+        a.blr()
+
+    @asmtest(expected=1)
+    def test_nor(self, a):
+        a.load_word(10, 10)
+        a.load_word(11, 6)
+        a.nor(3, 10, 11)
+        a.load_word(12, 0x0000000F) # zero out first 28 bits
+        a.and_(3, 3, 12)            # 
+        a.blr()
+
+    @asmtest(expected=5)
+    def test_xor(self, a):
+        a.load_word(10, 15)
+        a.load_word(11, 10)
+        a.xor(3, 10, 11)
+        a.blr()
+
+    @asmtest(expected=0x120)
+    def test_slw(self, a):
+        a.load_word(10, 9)
+        a.load_word(11, 5)
+        a.slw(3, 10, 11)
+        a.blr()
+
+    @asmtest(expected=9)
+    def test_srw(self, a):
+        a.load_word(10, 0x120)
+        a.load_word(11, 5)
+        a.srw(3, 10, 11)
+        a.blr()
+
+    def test_neg(self):
+        a = MyPPCAssembler()
+        a.load_word(10, 0x0000F0F0)
+        a.neg(3, 10)
+        a.blr()
+        f = a.assemble()
+        assert f() == hex_to_signed_int("FFFF0F10")
+
+    def test_load_and_store(self):
+        a = MyPPCAssembler()
+        word1 = 1000
+        word2 = 2000
+        a.load_word(10, word1)
+        a.load_word(11, word2)
+        a.stw(10, 8, 0)
+        a.stw(11, 9, 0)
+        a.lwz(4, 8, 0)
+        a.lwz(5, 9, 0)
+        a.add(3, 4, 5)
+        a.blr()
+        f = a.assemble()
+        assert f() == word1 + word2
 
 class AsmCode(object):
     def __init__(self, size):
