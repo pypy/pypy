@@ -18,89 +18,154 @@ class TestDisassemble(object):
         inst = a.insts[-1]
         assert A.add.match(inst.assemble())
 
+
+"""
+Creates the boilerplate code for the tests.
+- Make an MyPPCAssembler object
+- Let the given test create the machine code
+- Create a function and call it
+- Compare the return value with the expected result
+"""
+def asmtest(expected=-1):
+    def testmaker(test):
+        def newtest(self):
+            a = MyPPCAssembler()
+            test(self, a)
+            f = a.assemble()
+            assert f() == expected
+        return newtest
+    return testmaker
+
+
+"""
+Treats the given bitstring as binary representation
+of an integer in two's complement.
+"""
+def bits_to_signed_int(bits):
+    assert len(bits) > 0
+    sign = 1
+    if bits[0] == "1":
+        sign = -1
+    bits = bits[1:].replace("0", "$").replace("1", "0").replace("$", "1")
+    return sign * (int(bits, 2) + 1)
+
 # Testing simple assembler instructions
 class TestAssemble(object):
     def setup_class(cls):
         if autodetect_main_model() not in ["ppc", "ppc64"]: 
             py.test.skip("can't test all of ppcgen on non-PPC!")
 
-    def test_load_imm(self):
-        a = MyPPCAssembler()
+    """
+    Tests are build like this:
+
+        @asmtest(expected=<EXPECTED RESULT>)
+        def testX(self, assembler):
+            <Assembler Code>
+
+
+    This is equivalent to:
+
+
+        def testX(self):
+            assembler = MyPPCAssembler()
+
+            <Assembler Code>
+
+            f = assembler.assemble()
+            assert f() == <EXPECTED RESULT>
+    """
+
+    @asmtest(expected=200)
+    def test_load_imm(self, a):
         a.li(3, 200)
         a.blr()
-        f = a.assemble()
-        assert f() == 200
 
-    def test_add_imm(self):
-        a = MyPPCAssembler()
+    @asmtest(expected=7)
+    def test_add_imm(self, a):
         a.li(3, 6)
         a.addi(3, 3, 1)
         a.blr()
-        f = a.assemble()
-        assert f() == 7
 
-    def test_load_word(self):
-        a = MyPPCAssembler()
-        word = 12341234
-
-        a.load_word(10, word)
+    @asmtest(expected=12341234)
+    def test_load_word(self, a):
+        a.load_word(10, 12341234)
         a.mtctr(10)
         a.mfctr(11)
         a.mr(3, 11)
         a.blr()
 
-        f = a.assemble()
-        assert f() == word
-
-    def test_add_reg(self):
-        a = MyPPCAssembler()
-        word1 = 11111111
-        word2 = 22222222
-
-        a.load_word(10, word1)
-        a.load_word(11, word2)
+    @asmtest(expected=33333333)
+    def test_add_reg(self, a):
+        a.load_word(10, 11111111)
+        a.load_word(11, 22222222)
         a.add(12, 10, 11)
         a.mr(3, 12)
         a.blr()
 
-        f = a.assemble()
-        assert f() == word1 + word2
-
-    def test_add_pos_and_neg(self):
-        a = MyPPCAssembler()
-        word1 = 2000
-        word2 = -3000
-
-        a.load_word(10, word1)
-        a.load_word(11, word2)
+    @asmtest(expected=-1000)
+    def test_add_pos_and_neg(self, a):
+        a.load_word(10, 2000)
+        a.load_word(11, -3000)
         a.add(3, 10, 11)
         a.blr()
 
-        f = a.assemble()
-        assert f() == -1000
-
-    def test_sub_imm(self):
-        a = MyPPCAssembler()
-        
+    @asmtest(expected=7)
+    def test_sub_imm(self, a):
         a.li(3, 10)
         a.subi(3, 3, 3)
         a.blr()
 
-        f = a.assemble()
-        assert f() == 7
-
-    def test_sub_reg(self):
-        a = MyPPCAssembler()
-        word1 = 123435
-        word2 = 76457
-
-        a.load_word(5, word1)
-        a.load_word(6, word2)
+    @asmtest(expected=(123435 - 76457))
+    def test_sub_reg(self, a):
+        a.load_word(5, 123435)
+        a.load_word(6, 76457)
         a.sub(3, 5, 6)
         a.blr()
 
-        f = a.assemble()
-        assert f() == word1 - word2
+    @asmtest(expected=(10000 * 5000))
+    def test_mul_imm(self, a):
+        a.load_word(3, 10000)
+        a.mulli(3, 3, 5000)
+        a.blr()
+
+    # 1000000 * 1000000 = 0b1110100011010100101001010001000000000000
+    # expect: r3        =   -HWORD-|11010100101001010001000000000000
+    @asmtest(expected=bits_to_signed_int('11010100101001010001000000000000'))
+    def test_mullw(self, a):
+        word = 1000000
+        a.load_word(5, word)
+        a.load_word(6, word)
+        a.mullw(3, 5, 6)
+        a.blr()
+
+    # 1000000 * 1000000 = 0b1110100011010100101001010001000000000000
+    # expect: r3        =   11101000|------------LWORD--------------
+    @asmtest(expected=int('11101000', 2))
+    def test_mulhw(self, a):
+        word = 1000000
+        a.load_word(5, word)
+        a.load_word(6, word)
+        a.mulhw(3, 5, 6)
+        a.blr()
+
+    # 1000000 * 1000000 = 0b1110100011010100101001010001000000000000
+    # expect: r3        =   11101000|------------LWORD--------------
+    @asmtest(expected=int('11101000', 2))
+    def test_mulhwu(self, a):
+        word = 1000000
+        a.load_word(5, word)
+        a.load_word(6, word)
+        a.mulhwu(3, 5, 6)
+        a.blr()
+
+    @asmtest(expected=10000)
+    def test_divw(self, a):
+        divident = 1000000
+        divisor = 100
+        a.load_word(10, divident)
+        a.load_word(11, divisor)
+        a.divw(3, 10, 11)
+        a.blr()
 
     def test_call_function(self):
         functype =  lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
@@ -113,7 +178,6 @@ class TestAssemble(object):
         # - Move the content of this register x into CTR
         # - Set the LR manually (or with bctrl)
         # - Do jump
-        # - hopefully no segfault =)
 
         a.li(3, 50)
         a.load_word(10, call_addr)
@@ -137,6 +201,8 @@ class AsmCode(object):
         i = self.code.materialize(AsmMemoryManager(), [])
         t = lltype.FuncType([], lltype.Signed)
         return rffi.cast(lltype.Ptr(t), i)
+
+
 
 def func(arg):
     return arg + 15
