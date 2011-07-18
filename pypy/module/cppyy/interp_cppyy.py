@@ -429,6 +429,7 @@ class W_CPPType(W_CPPScope):
             argtype = capi.charp2str_free(capi.c_method_arg_type(self.handle, method_index, i))
             argtypes.append(argtype)
         if capi.c_is_constructor(self.handle, method_index):
+            result_type = "void"       # b/c otherwise CINT v.s. Reflex difference
             cls = CPPConstructor
         elif capi.c_is_staticmethod(self.handle, method_index):
             cls = CPPFunction

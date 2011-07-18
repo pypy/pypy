@@ -21,6 +21,9 @@
 #include <utility>
 
 
+/*  CINT internal (won't work on Windwos) -------------------------------- */
+extern long G__store_struct_offset;
+
 /* data for life time management ------------------------------------------ */
 typedef std::vector<TClassRef> ClassRefs_t;
 static ClassRefs_t g_classrefs(1);
@@ -91,15 +94,19 @@ long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == numargs);
 
-    long obj = (long)cppyy_allocate(rettype);
-    G__setgvp(obj);
+    // TODO: access to store_struct_offset won't work on Windows
+    G__setgvp((long)self);
+    long store_struct_offset = G__store_struct_offset;
+    G__store_struct_offset = (long)self;
 
     G__value result;
     G__setnull(&result);
     meth(&result, 0, libp, 0);
 
+    G__store_struct_offset = store_struct_offset;
+
     // G__pop_tempobject_nodel();      # TODO: not sure ...
-    return obj;
+    return G__int(result);
 }
 
 static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
@@ -111,10 +118,17 @@ static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == numargs);
 
+    // TODO: access to store_struct_offset won't work on Windows
+    G__setgvp((long)self);
+    long store_struct_offset = G__store_struct_offset;
+    G__store_struct_offset = (long)self;
+
     G__value result;
     G__setnull(&result);
     meth(&result, 0, libp, 0);
-    
+
+    G__store_struct_offset = store_struct_offset;
+
     return result;
 }
 
@@ -261,8 +275,7 @@ char* cppyy_method_name(cppyy_typehandle_t handle, int method_index) {
 char* cppyy_method_result_type(cppyy_typehandle_t handle, int method_index) {
     TClassRef cr = type_from_handle(handle);
     TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
-    std::string name = TClassEdit::CleanType(m->GetReturnTypeName(), 1);
-    return type_cppstring_to_cstring(name);
+    return type_cppstring_to_cstring(m->GetReturnTypeName());
 }
 
 int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index) {
