@@ -76,6 +76,10 @@ class MethodCache(object):
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
 
+# possible values of compares_by_identity_status 
+UNKNOWN = 0
+COMPARES_BY_IDENTITY = 1
+OVERRIDES_EQ_CMP_OR_HASH = 2
 
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
@@ -103,8 +107,7 @@ class W_TypeObject(W_Object):
     uses_object_getattribute = False
 
     # for config.objspace.std.trackcomparebyidentity
-    # (True is a conservative default, fixed during real usage)
-    overrides_hash_eq_or_cmp = True
+    compares_by_identity_status = UNKNOWN
 
     # used to cache the type __new__ function if it comes from a builtin type
     # != 'type', in that case call__Type will also assumes the result
@@ -169,13 +172,13 @@ class W_TypeObject(W_Object):
             # ^^^ conservative default, fixed during real usage
 
         if space.config.objspace.std.trackcomparebyidentity:
-            did_compare_by_identity = not w_self.overrides_hash_eq_or_cmp
-            if did_compare_by_identity and (key is None or
-                                            key == '__eq__' or
-                                            key == '__cmp__' or
-                                            key == '__hash__'):
-                w_self.overrides_hash_eq_or_cmp = True
-                w_self.space.bump_compares_by_identity_version()
+            did_compare_by_identity = (
+                w_self.compares_by_identity_status == COMPARES_BY_IDENTITY)
+            if (key is None or key == '__eq__' or
+                key == '__cmp__' or key == '__hash__'):
+                w_self.compares_by_identity_status = UNKNOWN
+                if did_compare_by_identity:
+                    w_self.space.bump_compares_by_identity_version()
                 
         if space.config.objspace.std.newshortcut:
             w_self.w_bltin_new = None
@@ -232,16 +235,19 @@ class W_TypeObject(W_Object):
         if not track:
             return False # conservative
         #
-        if not w_self.overrides_hash_eq_or_cmp:
-            return True # fast path
+        if w_self.compares_by_identity_status != UNKNOWN:
+            # fast path
+            return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
         #
-        # XXX: if the class *does* overrides, we always hit the slow path. Do
-        # we care?
         default_hash = object_hash(w_self.space)
-        w_self.overrides_hash_eq_or_cmp = (w_self.lookup('__eq__') or
-                                           w_self.lookup('__cmp__') or
-                                           w_self.lookup('__hash__') is not default_hash)
-        return not w_self.overrides_hash_eq_or_cmp
+        overrides_eq_cmp_or_hash = (w_self.lookup('__eq__') or
+                                    w_self.lookup('__cmp__') or
+                                    w_self.lookup('__hash__') is not default_hash)
+        if overrides_eq_cmp_or_hash:
+            w_self.compares_by_identity_status = OVERRIDES_EQ_CMP_OR_HASH
+        else:
+            w_self.compares_by_identity_status = COMPARES_BY_IDENTITY
+        return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
 
     def ready(w_self):
         for w_base in w_self.bases_w:
