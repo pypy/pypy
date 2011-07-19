@@ -875,27 +875,30 @@ class BufferingOutputStream(Stream):
         if bufsize == -1:     # Get default from the class
             bufsize = self.bufsize
         self.bufsize = bufsize  # buffer size (hint only)
-        self.buf = ""
+        self.buf = []
+        self.buflen = 0
 
     def flush_buffers(self):
         if self.buf:
-            self.do_write(self.buf)
-            self.buf = ""
+            self.do_write(''.join(self.buf))
+            self.buf = []
 
     def tell(self):
         return self.do_tell() + len(self.buf)
 
     def write(self, data):
-        buflen = len(self.buf)
+        buflen = self.buflen
         datalen = len(data)
         if datalen + buflen < self.bufsize:
-            self.buf += data
+            self.buf.append(data)
+            self.buflen += datalen
         elif buflen:
             slice = self.bufsize - buflen
             assert slice >= 0
-            self.buf += data[:slice]
-            self.do_write(self.buf)
-            self.buf = ""
+            self.buf.append(data[:slice])
+            self.do_write(''.join(self.buf))
+            self.buf = []
+            self.buflen = 0
             self.write(data[slice:])
         else:
             self.do_write(data)
@@ -922,11 +925,29 @@ class LineBufferingOutputStream(BufferingOutputStream):
     """
 
     def write(self, data):
-        BufferingOutputStream.write(self, data)
-        p = self.buf.rfind('\n') + 1
+        p = data.rfind('\n') + 1
+        L = len(data)
         if p >= 0:
-            self.do_write(self.buf[:p])
-            self.buf = self.buf[p:]
+            if self.buf:
+                self.do_write(''.join(self.buf))
+                self.buf = []
+                self.buflen = 0
+            if L - p > self.bufsize:
+                self.do_write(data)
+            else:
+                self.do_write(data[:p])
+                if p != L:
+                    self.buf.append(data[p:])
+                    self.buflen = L - p
+        else:
+            if L + self.buflen > self.bufsize:
+                self.do_write(''.join(self.buf))
+                self.do_write(data)
+                self.buf = []
+                self.buflen = 0
+            else:
+                self.buf.append(data)
+                self.buflen += L
 
 
 # ____________________________________________________________
