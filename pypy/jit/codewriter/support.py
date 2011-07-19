@@ -395,7 +395,7 @@ inline_calls_to = [
     ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_abs',              [lltype.Signed],                lltype.Signed),
     ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
-    ]
+]
 
 
 class LLtypeHelpers:
