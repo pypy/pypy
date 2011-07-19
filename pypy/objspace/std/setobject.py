@@ -48,19 +48,6 @@ class W_BaseSetObject(W_Object):
         obj.sstorage = storage
         return obj
 
-    def _newobj(w_self, space, w_iterable):
-        """Make a new set or frozenset by taking ownership of 'rdict_w'."""
-        #return space.call(space.type(w_self),W_SetIterObject(rdict_w))
-        objtype = type(w_self)
-        if objtype is W_SetObject:
-            obj = W_SetObject(space, w_iterable)
-        elif objtype is W_FrozensetObject:
-            obj = W_FrozensetObject(space, w_iterable)
-        else:
-            obj = space.call_function(space.type(w_self), w_iterable)
-            assert isinstance(obj, W_BaseSetObject)
-        return obj
-
     _lifeline_ = None
     def getweakref(self):
         return self._lifeline_
