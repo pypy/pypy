@@ -325,10 +325,10 @@ class AbstractUnwrappedSetStrategy(object):
             w_set.add(w_key)
 
     def delitem(self, w_set, w_item):
-        from pypy.objspace.std.dictmultiobject import _is_sane_hash
+        from pypy.objspace.std.dictmultiobject import _never_equal_to_string
         d = self.cast_from_void_star(w_set.sstorage)
         if not self.is_correct_type(w_item):
-            if _is_sane_hash(self.space, self.space.type(w_item)):
+            if _never_equal_to_string(self.space, self.space.type(w_item)):
                 return False
             w_set.switch_to_object_strategy(self.space)
             return w_set.delitem(w_item)
@@ -358,9 +358,9 @@ class AbstractUnwrappedSetStrategy(object):
         return keys_w
 
     def has_key(self, w_set, w_key):
-        from pypy.objspace.std.dictmultiobject import _is_sane_hash
+        from pypy.objspace.std.dictmultiobject import _never_equal_to_string
         if not self.is_correct_type(w_key):
-            if not _is_sane_hash(self.space, self.space.type(w_key)):
+            if not _never_equal_to_string(self.space, self.space.type(w_key)):
                 w_set.switch_to_object_strategy(self.space)
                 return w_set.has_key(w_key)
             return False
