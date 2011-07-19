@@ -7,7 +7,7 @@ Try:
 import os, sys, py
 
 def objdump(input):
-    os.system('objdump -D --architecture=powerpc:common64 --target=binary %s' % input)
+    os.system('objdump -D --architecture=arm --target=binary %s' % input)
 
 
 def get_tmp_file():
