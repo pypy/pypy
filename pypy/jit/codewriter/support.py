@@ -185,7 +185,7 @@ def _ll_2_int_floordiv_ovf_zer(x, y):
     return llop.int_floordiv(lltype.Signed, x, y)
 
 def _ll_2_int_floordiv_ovf(x, y):
-    if x == -sys.maxint - 1 and y == -1:        
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
@@ -222,7 +222,7 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
-        
+
 # math support
 # ------------
 
