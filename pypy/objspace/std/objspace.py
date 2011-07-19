@@ -310,7 +310,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def newset(self):
         from pypy.objspace.std.setobject import newset
-        return W_SetObject(self, newset(self))
+        return W_SetObject(self, None)
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
