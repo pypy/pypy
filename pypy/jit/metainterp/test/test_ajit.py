@@ -11,7 +11,7 @@ from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -1616,8 +1616,6 @@ class BasicTests:
         assert res == 1
 
     def test_raw_malloc_and_access(self):
-        from pypy.rpython.lltypesystem import rffi
-
         TP = rffi.CArray(lltype.Signed)
 
         def f(n):
@@ -1631,8 +1629,6 @@ class BasicTests:
         assert res == 10
 
     def test_raw_malloc_and_access_float(self):
-        from pypy.rpython.lltypesystem import rffi
-
         TP = rffi.CArray(lltype.Float)
 
         def f(n, f):
@@ -2620,8 +2616,6 @@ class BaseLLtypeTests(BasicTests):
         self.check_loops(new_with_vtable=1)
 
     def test_release_gil_flush_heap_cache(self):
-        from pypy.rpython.lltypesystem import rffi
-
         T = rffi.CArrayPtr(rffi.TIME_T)
 
         external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)

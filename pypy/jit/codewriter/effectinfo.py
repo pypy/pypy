@@ -79,13 +79,15 @@ class EffectInfo(object):
                 write_descrs_fields, write_descrs_arrays,
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
-                can_invalidate=False):
+                can_invalidate=False, can_release_gil=False):
         key = (frozenset(readonly_descrs_fields),
                frozenset(readonly_descrs_arrays),
                frozenset(write_descrs_fields),
                frozenset(write_descrs_arrays),
                extraeffect,
-               oopspecindex)
+               oopspecindex,
+               can_invalidate,
+               can_release_gil)
         if key in cls._cache:
             return cls._cache[key]
         result = object.__new__(cls)
@@ -100,6 +102,7 @@ class EffectInfo(object):
             result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
+        result.can_release_gil = can_release_gil
         result.oopspecindex = oopspecindex
         cls._cache[key] = result
         return result
@@ -111,12 +114,13 @@ class EffectInfo(object):
         return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
 
     def has_random_effects(self):
-        return self.oopspecindex == self.OS_LIBFFI_CALL
+        return self.oopspecindex == self.OS_LIBFFI_CALL or self.can_release_gil
 
 def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
-                                 can_invalidate=False):
+                                 can_invalidate=False,
+                                 can_release_gil=False):
     from pypy.translator.backendopt.writeanalyze import top_set
     if effects is top_set:
         return None
@@ -158,7 +162,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       write_descrs_arrays,
                       extraeffect,
                       oopspecindex,
-                      can_invalidate)
+                      can_invalidate,
+                      can_release_gil)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
@@ -193,6 +198,16 @@ class VirtualizableAnalyzer(BoolGraphAnalyzer):
 class QuasiImmutAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         return op.opname == 'jit_force_quasi_immutable'
+
+class CanReleaseGILAnalyzer(BoolGraphAnalyzer):
+    def analyze_direct_call(self, graph, seen=None):
+        releases_gil = False
+        if hasattr(graph.func, "_ptr"):
+            releases_gil = graph.func._ptr._obj.releases_gil
+        return releases_gil or super(CanReleaseGILAnalyzer, self).analyze_direct_call(graph, seen)
+
+    def analyze_simple_operation(self, op, graphinfo):
+        return False
 
 # ____________________________________________________________
 
