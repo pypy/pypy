@@ -1228,8 +1228,20 @@ class AppTestTrackCompareByIdentity:
             def __hash__(self):
                 return 0
 
-
         assert self.compares_by_identity(Plain)
         assert not self.compares_by_identity(CustomEq)
         assert not self.compares_by_identity(CustomCmp)
         assert not self.compares_by_identity(CustomHash)
+
+    def test_modify_class(self):
+        def foo(self, *args):
+            pass
+
+        class X(object):
+            pass
+
+        assert self.compares_by_identity(X)
+        X.__eq__ = foo
+        assert not self.compares_by_identity(X)
+        del X.__eq__
+        assert self.compares_by_identity(X)

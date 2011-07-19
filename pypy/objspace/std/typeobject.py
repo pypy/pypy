@@ -155,11 +155,16 @@ class W_TypeObject(W_Object):
         assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
+            not space.config.objspace.std.trackcomparebyidentity and
             not space.config.objspace.std.newshortcut):
             return
 
         if space.config.objspace.std.getattributeshortcut:
             w_self.uses_object_getattribute = False
+            # ^^^ conservative default, fixed during real usage
+
+        if space.config.objspace.std.trackcomparebyidentity:
+            w_self.overrides_hash_eq_or_cmp = True
             # ^^^ conservative default, fixed during real usage
 
         if space.config.objspace.std.newshortcut:
