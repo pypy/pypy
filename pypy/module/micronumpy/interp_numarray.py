@@ -402,7 +402,6 @@ class ViewArray(BaseArray):
         BaseArray.__init__(self)
         self.signature = signature
         self.parent = parent
-        self.storage = parent.storage
         self.invalidates = parent.invalidates
 
     def get_concrete(self):
@@ -436,17 +435,20 @@ class SingleDimSlice(ViewArray):
         if isinstance(parent, SingleDimSlice):
             self.start = parent.calc_index(start)
             self.stop = parent.calc_index(stop)
-            self.step = parent.step * self.step
+            self.step = parent.step * step
+            self.parent = parent.parent
         else:
             self.start = start
             self.stop = stop
             self.step = step
+            self.parent = parent
         self.size = slice_length
 
     def find_size(self):
         return self.size
 
     def _sliceloop1(self, start, stop, step, arr):
+        storage = self.parent.storage
         signature = Signature()
         new_sig = self.signature.transition(signature)
         i = start
@@ -454,11 +456,12 @@ class SingleDimSlice(ViewArray):
         while i < stop:
             slice_driver1.jit_merge_point(signature=signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
-            self.storage[i] = arr.eval(j)
+            storage[i] = arr.eval(j)
             j += 1
             i += step
 
     def _sliceloop2(self, start, stop, step, arr):
+        storage = self.parent.storage
         signature = Signature()
         new_sig = self.signature.transition(signature)
         i = start
@@ -466,7 +469,7 @@ class SingleDimSlice(ViewArray):
         while i > stop:
             slice_driver2.jit_merge_point(signature=signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
-            self.storage[i] = arr.eval(j)
+            storage[i] = arr.eval(j)
             j += 1
             i += step
 
@@ -553,12 +556,6 @@ class SingleDimArray(BaseArray):
 
     def setslice(self, space, start, stop, step, slice_length, arr):
         i = start
-        #if stop < 0:
-        #    stop += self.find_size()
-        #if step > 0:
-        #    stop = min(stop, self.find_size())
-        #else:
-        #    stop = max(stop, 0)
         if not isinstance(arr, BaseArray):
             arr = convert_to_array(space, arr)
         if step > 0:
