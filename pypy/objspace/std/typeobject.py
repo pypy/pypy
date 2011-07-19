@@ -225,6 +225,8 @@ class W_TypeObject(W_Object):
         if not w_self.overrides_hash_eq_or_cmp:
             return True # fast path
         #
+        # XXX: if the class *does* overrides, we always hit the slow path. Do
+        # we care?
         default_hash = object_hash(w_self.space)
         w_self.overrides_hash_eq_or_cmp = (w_self.lookup('__eq__') or
                                            w_self.lookup('__cmp__') or
