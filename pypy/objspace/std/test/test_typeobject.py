@@ -1209,8 +1209,13 @@ class AppTestTrackCompareByIdentity:
 
         def compares_by_identity(space, w_cls):
             return space.wrap(w_cls.compares_by_identity())
-
         cls.w_compares_by_identity = cls.space.wrap(interp2app(compares_by_identity))
+
+        versions = {}
+        def get_version(space):
+            v = versions.setdefault(space.compares_by_identity_version, len(versions))
+            return space.wrap(v)
+        cls.w_get_version = cls.space.wrap(interp2app(get_version))
 
     def test_compares_by_identity(self):
         class Plain(object):
@@ -1234,14 +1239,43 @@ class AppTestTrackCompareByIdentity:
         assert not self.compares_by_identity(CustomHash)
 
     def test_modify_class(self):
-        def foo(self, *args):
-            pass
-
         class X(object):
             pass
 
         assert self.compares_by_identity(X)
-        X.__eq__ = foo
+        X.__eq__ = lambda x: None
         assert not self.compares_by_identity(X)
         del X.__eq__
         assert self.compares_by_identity(X)
+
+    def test_versioning(self):
+        class X(object):
+            pass
+
+        class Y(object):
+            def __eq__(self, other):
+                pass
+
+        assert self.get_version() == 0
+        X.__eq__ = lambda x: None
+        # modifying a class for which we never checked the
+        # compares_by_identity() status does not increase the version
+        assert self.get_version() == 0
+
+        del X.__eq__
+        assert self.compares_by_identity(X) # now we check it
+        X.__add__ = lambda x: None
+        assert self.get_version() == 0 # innocent change
+        #
+        X.__eq__ = lambda x: None
+        assert self.get_version() == 1 # BUMP!
+
+        del X.__eq__
+        assert self.compares_by_identity(X)
+        X.__bases__ = (object,)
+        assert self.get_version() == 2 # BUMP!
+
+        # modifying a class which is already "bad" does not increase the
+        # version
+        Y.__eq__ = lambda x: None
+        assert self.get_version() == 2

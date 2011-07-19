@@ -150,7 +150,12 @@ class W_TypeObject(W_Object):
             else:
                 w_self.terminator = NoDictTerminator(space, w_self)
 
-    def mutated(w_self):
+    def mutated(w_self, key):
+        """
+        The type is being mutated. key is either the string containing the
+        specific attribute which is being deleted/set or None to indicate a
+        generic mutation.
+        """
         space = w_self.space
         assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
         if (not space.config.objspace.std.withtypeversion and
@@ -164,9 +169,14 @@ class W_TypeObject(W_Object):
             # ^^^ conservative default, fixed during real usage
 
         if space.config.objspace.std.trackcomparebyidentity:
-            w_self.overrides_hash_eq_or_cmp = True
-            # ^^^ conservative default, fixed during real usage
-
+            did_compare_by_identity = not w_self.overrides_hash_eq_or_cmp
+            if did_compare_by_identity and (key is None or
+                                            key == '__eq__' or
+                                            key == '__cmp__' or
+                                            key == '__hash__'):
+                w_self.overrides_hash_eq_or_cmp = True
+                w_self.space.compares_by_identity_version = VersionTag()
+                
         if space.config.objspace.std.newshortcut:
             w_self.w_bltin_new = None
 
@@ -177,7 +187,7 @@ class W_TypeObject(W_Object):
         subclasses_w = w_self.get_subclasses()
         for w_subclass in subclasses_w:
             assert isinstance(w_subclass, W_TypeObject)
-            w_subclass.mutated()
+            w_subclass.mutated(key)
 
     def version_tag(w_self):
         if (not we_are_jitted() or w_self.is_heaptype() or
@@ -295,7 +305,7 @@ class W_TypeObject(W_Object):
                         w_curr.w_value = w_value
                         return True
                     w_value = TypeCell(w_value)
-        w_self.mutated()
+        w_self.mutated(name)
         w_self.dict_w[name] = w_value
         return True
 
@@ -312,7 +322,7 @@ class W_TypeObject(W_Object):
         except KeyError:
             return False
         else:
-            w_self.mutated()
+            w_self.mutated(key)
             return True
 
     def lookup(w_self, name):
