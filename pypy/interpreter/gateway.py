@@ -396,11 +396,14 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
             fastfunc = func
         else:
             # try to avoid excessive bloat
-            if func.__module__ == 'pypy.interpreter.astcompiler.ast':
+            mod = func.__module__
+            if mod is None:
+                mod = ""
+            if mod == 'pypy.interpreter.astcompiler.ast':
                 raise FastFuncNotSupported
-            if (not func.__module__.startswith('pypy.module.__builtin__') and
-                not func.__module__.startswith('pypy.module.sys') and
-                not func.__module__.startswith('pypy.module.math')):
+            if (not mod.startswith('pypy.module.__builtin__') and
+                not mod.startswith('pypy.module.sys') and
+                not mod.startswith('pypy.module.math')):
                 if not func.__name__.startswith('descr'):
                     raise FastFuncNotSupported
             d = {}

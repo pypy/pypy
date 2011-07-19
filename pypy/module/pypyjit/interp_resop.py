@@ -1,9 +1,9 @@
 
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.interpreter.baseobjspace import Wrappable, ObjSpace, W_Root
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.lltypesystem.rclass import OBJECT
 

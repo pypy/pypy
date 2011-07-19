@@ -484,44 +484,31 @@ class UserDelAction(AsyncAction):
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
-        self.dying_objects_w = []
-        self.weakrefs_w = []
+        self.dying_objects = []
         self.finalizers_lock_count = 0
 
-    def register_dying_object(self, w_obj):
-        self.dying_objects_w.append(w_obj)
-        self.fire()
-
-    def register_weakref_callback(self, w_ref):
-        self.weakrefs_w.append(w_ref)
+    def register_callback(self, w_obj, callback, descrname):
+        self.dying_objects.append((w_obj, callback, descrname))
         self.fire()
 
     def perform(self, executioncontext, frame):
         if self.finalizers_lock_count > 0:
             return
-        # Each call to perform() first grabs the self.dying_objects_w
+        # Each call to perform() first grabs the self.dying_objects
         # and replaces it with an empty list.  We do this to try to
         # avoid too deep recursions of the kind of __del__ being called
         # while in the middle of another __del__ call.
-        pending_w = self.dying_objects_w
-        self.dying_objects_w = []
+        pending = self.dying_objects
+        self.dying_objects = []
         space = self.space
-        for i in range(len(pending_w)):
-            w_obj = pending_w[i]
-            pending_w[i] = None
+        for i in range(len(pending)):
+            w_obj, callback, descrname = pending[i]
+            pending[i] = (None, None, None)
             try:
-                space.userdel(w_obj)
+                callback(w_obj)
             except OperationError, e:
-                e.write_unraisable(space, 'method __del__ of ', w_obj)
+                e.write_unraisable(space, descrname, w_obj)
                 e.clear(space)   # break up reference cycles
-            # finally, this calls the interp-level destructor for the
-            # cases where there is both an app-level and a built-in __del__.
-            w_obj._call_builtin_destructor()
-        pending_w = self.weakrefs_w
-        self.weakrefs_w = []
-        for i in range(len(pending_w)):
-            w_ref = pending_w[i]
-            w_ref.activate_callback()
 
 class FrameTraceAction(AsyncAction):
     """An action that calls the local trace functions (w_f_trace)."""

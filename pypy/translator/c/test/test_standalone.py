@@ -55,6 +55,13 @@ class TestStandalone(StandaloneTests):
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
+        # Verify that the generated C files have sane names:
+        gen_c_files = [str(f) for f in cbuilder.extrafiles]
+        for expfile in ('rlib_rposix.c', 
+                        'rpython_lltypesystem_rstr.c',
+                        'translator_c_test_test_standalone.c'):
+            assert cbuilder.targetdir.join(expfile) in gen_c_files
+
     def test_print(self):
         def entry_point(argv):
             print "hello simpler world"
