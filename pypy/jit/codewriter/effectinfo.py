@@ -202,7 +202,7 @@ class QuasiImmutAnalyzer(BoolGraphAnalyzer):
 class CanReleaseGILAnalyzer(BoolGraphAnalyzer):
     def analyze_direct_call(self, graph, seen=None):
         releases_gil = False
-        if hasattr(graph.func, "_ptr"):
+        if hasattr(graph, "func") and hasattr(graph.func, "_ptr"):
             releases_gil = graph.func._ptr._obj.releases_gil
         return releases_gil or super(CanReleaseGILAnalyzer, self).analyze_direct_call(graph, seen)
 
