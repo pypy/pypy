@@ -2628,24 +2628,27 @@ class BaseLLtypeTests(BasicTests):
             @dont_look_inside
             def release(self):
                 external(lltype.nullptr(T.TO))
+        class X(object):
+            def __init__(self, idx):
+                self.field = idx
         @dont_look_inside
-        def get_lst():
-            return [0]
-        myjitdriver = JitDriver(greens=[], reds=["n", "l", "lock"])
-        def f(n):
+        def get_obj(z):
+            return X(z)
+        myjitdriver = JitDriver(greens=[], reds=["n", "l", "z", "lock"])
+        def f(n, z):
             lock = Lock()
             l = 0
             while n > 0:
-                myjitdriver.jit_merge_point(lock=lock, l=l, n=n)
-                x = get_lst()
-                l += len(x)
+                myjitdriver.jit_merge_point(lock=lock, l=l, n=n, z=z)
+                x = get_obj(z)
+                l += x.field
                 lock.acquire()
                 # This must not reuse the previous one.
-                n -= len(x)
+                n -= x.field
                 lock.release()
             return n
-        res = self.meta_interp(f, [10])
-        self.check_loops(arraylen_gc=2)
+        res = self.meta_interp(f, [10, 1])
+        self.check_loops(getfield_gc=2)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
