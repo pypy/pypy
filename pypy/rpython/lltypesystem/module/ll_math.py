@@ -69,8 +69,6 @@ math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
-math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
-math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
 
 @jit.elidable
 def sqrt_nonneg(x):
@@ -220,10 +218,6 @@ def ll_math_modf(x):
     finally:
         lltype.free(intpart_p, flavor='raw')
     return (fracpart, intpart)
-
-
-def ll_math_copysign(x, y):
-    return math_copysign(x, y)     # no error checking needed
 
 
 def ll_math_fmod(x, y):

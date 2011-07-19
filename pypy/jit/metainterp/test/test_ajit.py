@@ -11,7 +11,7 @@ from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -1616,8 +1616,6 @@ class BasicTests:
         assert res == 1
 
     def test_raw_malloc_and_access(self):
-        from pypy.rpython.lltypesystem import rffi
-
         TP = rffi.CArray(lltype.Signed)
 
         def f(n):
@@ -1631,8 +1629,6 @@ class BasicTests:
         assert res == 10
 
     def test_raw_malloc_and_access_float(self):
-        from pypy.rpython.lltypesystem import rffi
-
         TP = rffi.CArray(lltype.Float)
 
         def f(n, f):
@@ -2061,7 +2057,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if 0 < a <= 5: pass
                 if 0 < b <= 5: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
 
@@ -2071,10 +2067,10 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if 0 < a < promote(sys.maxint/2): pass
                 if 0 < b < 100: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
-        
+
         assert self.meta_interp(f1, [5, 5]) == 50
         self.check_loops(int_rshift=0, everywhere=True)
 
@@ -2106,7 +2102,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if -5 <= a < 0: pass
                 if 0 < b <= 5: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
 
@@ -2116,10 +2112,10 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if -promote(sys.maxint/2) < a < 0: pass
                 if 0 < b < 100: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
-        
+
         assert self.meta_interp(f1, [-5, 5]) == -50
         self.check_loops(int_rshift=0, everywhere=True)
 
@@ -2190,7 +2186,7 @@ class BasicTests:
 
         def get_printable_location(i):
             return str(i)
-        
+
         myjitdriver = JitDriver(greens = ['i'], reds = ['j', 'c', 'a'],
                                 get_printable_location=get_printable_location)
         bytecode = "0j10jc20a3"
@@ -2299,7 +2295,7 @@ class BasicTests:
         assert self.meta_interp(build, []) == 7
         self.check_loops(getfield_gc_pure=0)
         self.check_loops(getfield_gc_pure=2, everywhere=True)
-        
+
     def test_frame_finished_during_retrace(self):
         class Base(object):
             pass
@@ -2330,7 +2326,7 @@ class BasicTests:
             return sa
         res = self.meta_interp(f, [])
         assert res == f()
-        
+
     def test_frame_finished_during_continued_retrace(self):
         class Base(object):
             pass
@@ -2414,12 +2410,12 @@ class BasicTests:
         def g(n1, n2):
             for i in range(10):
                 f(n1)
-            for i in range(10):                
+            for i in range(10):
                 f(n2)
 
         nn = [10, 3]
         assert self.meta_interp(g, nn) == g(*nn)
-        
+
         # The attempts of retracing first loop will end up retracing the
         # second and thus fail 5 times, saturating the retrace_count. Instead a
         # bridge back to the preamble of the first loop is produced. A guard in
@@ -2430,7 +2426,7 @@ class BasicTests:
         self.check_tree_loop_count(2 + 3)
 
         # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
-        
+
         def g(n):
             for i in range(n):
                 for j in range(10):
@@ -2618,6 +2614,42 @@ class BaseLLtypeTests(BasicTests):
         self.check_loops(new_with_vtable=0)
         self.meta_interp(f, [], enable_opts='')
         self.check_loops(new_with_vtable=1)
+
+    def test_release_gil_flush_heap_cache(self):
+        T = rffi.CArrayPtr(rffi.TIME_T)
+
+        external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+        # Not a real lock, has all the same properties with respect to GIL
+        # release though, so good for this test.
+        class Lock(object):
+            @dont_look_inside
+            def acquire(self):
+                external(lltype.nullptr(T.TO))
+            @dont_look_inside
+            def release(self):
+                external(lltype.nullptr(T.TO))
+        class X(object):
+            def __init__(self, idx):
+                self.field = idx
+        @dont_look_inside
+        def get_obj(z):
+            return X(z)
+        myjitdriver = JitDriver(greens=[], reds=["n", "l", "z", "lock"])
+        def f(n, z):
+            lock = Lock()
+            l = 0
+            while n > 0:
+                myjitdriver.jit_merge_point(lock=lock, l=l, n=n, z=z)
+                x = get_obj(z)
+                l += x.field
+                lock.acquire()
+                # This must not reuse the previous one.
+                n -= x.field
+                lock.release()
+            return n
+        res = self.meta_interp(f, [10, 1])
+        self.check_loops(getfield_gc=2)
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass
