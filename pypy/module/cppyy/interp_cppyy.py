@@ -18,8 +18,8 @@ class FastCallNotPossible(Exception):
 NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 
 def load_lib(space, name):
-    # TODO: allow open in RTLD_GLOBAL mode
-    cdll = libffi.CDLL(name) #, 0x100 | 0x02)
+    # TODO: the following uses a hacked CDLL that won't work on Windows
+    cdll = libffi.CDLL(name, 0x100 | 0x02)
     return W_CPPLibrary(space, cdll)
 load_lib.unwrap_spec = [ObjSpace, str]
 
