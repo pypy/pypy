@@ -43,6 +43,9 @@ def descr_set___class__(space, w_obj, w_newcls):
     assert isinstance(w_oldcls, W_TypeObject)
     if w_oldcls.get_full_instance_layout() == w_newcls.get_full_instance_layout():
         w_obj.setclass(space, w_newcls)
+        if space.config.objspace.std.trackcomparebyidentity:
+            if not w_oldcls.overrides_hash_eq_or_cmp and not w_newcls.compares_by_identity():
+                space.bump_compares_by_identity_version()
     else:
         raise operationerrfmt(space.w_TypeError,
                               "__class__ assignment: '%s' object layout differs from '%s'",

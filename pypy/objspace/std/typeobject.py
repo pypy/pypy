@@ -175,7 +175,7 @@ class W_TypeObject(W_Object):
                                             key == '__cmp__' or
                                             key == '__hash__'):
                 w_self.overrides_hash_eq_or_cmp = True
-                w_self.space.compares_by_identity_version = VersionTag()
+                w_self.space.bump_compares_by_identity_version()
                 
         if space.config.objspace.std.newshortcut:
             w_self.w_bltin_new = None

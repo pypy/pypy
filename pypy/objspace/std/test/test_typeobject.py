@@ -1279,3 +1279,22 @@ class AppTestTrackCompareByIdentity:
         # version
         Y.__eq__ = lambda x: None
         assert self.get_version() == 2
+
+    def test_change___class__(self):
+        class X(object):
+            pass
+
+        class Y(object):
+            pass
+
+        class Z(object):
+            def __eq__(self, other):
+                pass
+
+        x = X()
+        assert self.compares_by_identity(X)
+        assert self.get_version() == 0
+        x.__class__ = Y
+        assert self.get_version() == 0
+        x.__class__ = Z
+        assert self.get_version() == 1
