@@ -13,6 +13,7 @@ from pypy.translator.c.support import log, c_string_constant
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.c import gc
 from pypy.rlib import exports
+from pypy.tool.nullpath import NullPyPathLocal
 
 def import_module_from_directory(dir, modname):
     file, pathname, description = imp.find_module(modname, [str(dir)])
@@ -237,7 +238,9 @@ class CBuilder(object):
             self.modulename = uniquemodulename('testing')
         modulename = self.modulename
         targetdir = udir.ensure(modulename, dir=1)
-        
+        if self.config.translation.dont_write_c_files:
+            targetdir = NullPyPathLocal(targetdir)
+
         self.targetdir = targetdir
         defines = defines.copy()
         if self.config.translation.countmallocs:
@@ -688,28 +691,54 @@ class SourceGenerator:
     def getothernodes(self):
         return self.othernodes[:]
 
+    def getbasecfilefornode(self, node, basecname):
+        # For FuncNode instances, use the python source filename (relative to
+        # the top directory):
+        if hasattr(node.obj, 'graph'):
+            g = node.obj.graph
+            # Lookup the filename from the function.
+            # However, not all FunctionGraph objs actually have a "func":
+            if hasattr(g, 'func'):
+                if g.filename.endswith('.py'):
+                    localpath = py.path.local(g.filename)
+                    pypkgpath = localpath.pypkgpath()
+                    if pypkgpath:
+                        relpypath =  localpath.relto(pypkgpath)
+                        return relpypath.replace('.py', '.c')
+        return basecname
+
     def splitnodesimpl(self, basecname, nodes, nextra, nbetween,
                        split_criteria=SPLIT_CRITERIA):
+        # Gather nodes by some criteria:
+        nodes_by_base_cfile = {}
+        for node in nodes:
+            c_filename = self.getbasecfilefornode(node, basecname)
+            if c_filename in nodes_by_base_cfile:
+                nodes_by_base_cfile[c_filename].append(node)
+            else:
+                nodes_by_base_cfile[c_filename] = [node]
+
         # produce a sequence of nodes, grouped into files
         # which have no more than SPLIT_CRITERIA lines
-        iternodes = iter(nodes)
-        done = [False]
-        def subiter():
-            used = nextra
-            for node in iternodes:
-                impl = '\n'.join(list(node.implementation())).split('\n')
-                if not impl:
-                    continue
-                cost = len(impl) + nbetween
-                yield node, impl
-                del impl
-                if used + cost > split_criteria:
-                    # split if criteria met, unless we would produce nothing.
-                    raise StopIteration
-                used += cost
-            done[0] = True
-        while not done[0]:
-            yield self.uniquecname(basecname), subiter()
+        for basecname in nodes_by_base_cfile:
+            iternodes = iter(nodes_by_base_cfile[basecname])
+            done = [False]
+            def subiter():
+                used = nextra
+                for node in iternodes:
+                    impl = '\n'.join(list(node.implementation())).split('\n')
+                    if not impl:
+                        continue
+                    cost = len(impl) + nbetween
+                    yield node, impl
+                    del impl
+                    if used + cost > split_criteria:
+                        # split if criteria met, unless we would produce nothing.
+                        raise StopIteration
+                    used += cost
+                done[0] = True
+            while not done[0]:
+                yield self.uniquecname(basecname), subiter()
 
     def gen_readable_parts_of_source(self, f):
         split_criteria_big = SPLIT_CRITERIA
@@ -918,11 +947,13 @@ def add_extra_files(eci):
     ]
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
+
 def gen_source_standalone(database, modulename, targetdir, eci,
                           entrypointname, defines={}): 
     assert database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
+
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
     incfilename = targetdir.join('common_header.h')
@@ -976,6 +1007,7 @@ def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
     assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
+
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
     incfilename = targetdir.join('common_header.h')

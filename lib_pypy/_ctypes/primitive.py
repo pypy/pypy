@@ -216,10 +216,15 @@ class SimpleType(_CDataMeta):
             result.value = property(_getvalue, _setvalue)
 
         elif tp == 'X':
-            from ctypes import windll
-            SysAllocStringLen = windll.oleaut32.SysAllocStringLen
-            SysStringLen = windll.oleaut32.SysStringLen
-            SysFreeString = windll.oleaut32.SysFreeString
+            from ctypes import WinDLL
+            # Use WinDLL("oleaut32") instead of windll.oleaut32
+            # because the latter is a shared (cached) object; and
+            # other code may set their own restypes. We need out own
+            # restype here.
+            oleaut32 = WinDLL("oleaut32")
+            SysAllocStringLen = oleaut32.SysAllocStringLen
+            SysStringLen = oleaut32.SysStringLen
+            SysFreeString = oleaut32.SysFreeString
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:

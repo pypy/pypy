@@ -171,7 +171,7 @@ def test_special():
     obj = c.instantiate()
     assert obj.getweakref() is None
     obj.setweakref(space, lifeline1)
-    obj.setweakref(space, None)
+    obj.delweakref()
 
 
 

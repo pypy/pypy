@@ -111,7 +111,6 @@ class AppTestFfi:
                                types.double)
         assert pow(2, 3) == 8
 
-
     def test_int_args(self):
         """
             DLLEXPORT int sum_xy(int x, int y)
@@ -119,10 +118,12 @@ class AppTestFfi:
                 return x+y;
             }
         """
+        import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy', [types.sint, types.sint], types.sint)
         assert sum_xy(30, 12) == 42
+        assert sum_xy(sys.maxint*2, 0) == -2
 
     def test_void_result(self):
         """
@@ -247,6 +248,9 @@ class AppTestFfi:
                                 types.ulong)
         assert sum_xy(sys.maxint, 12) == sys.maxint+12
         assert sum_xy(sys.maxint+1, 12) == sys.maxint+13
+        #
+        res = sum_xy(sys.maxint*2+3, 0)
+        assert res == 1
 
     def test_unsigned_short_args(self):
         """
@@ -375,6 +379,9 @@ class AppTestFfi:
         res = sum_xy(x, y)
         expected = maxint64 + 3
         assert res == expected
+        #
+        res = sum_xy(maxint64*2+3, 0)
+        assert res == 1
 
     def test_byval_argument(self):
         """

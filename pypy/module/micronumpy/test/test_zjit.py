@@ -4,9 +4,20 @@ from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
     FloatWrapper, Call2, SingleDimSlice, add, mul, neg, Call1)
 from pypy.module.micronumpy.interp_ufuncs import negative
 from pypy.module.micronumpy.compile import numpy_compile
+from pypy.rlib.objectmodel import specialize
 
 class FakeSpace(object):
-    pass
+    w_ValueError = None
+
+    def issequence_w(self, w_obj):
+        return True
+
+    @specialize.argtype(1)
+    def wrap(self, w_obj):
+        return w_obj
+
+    def float_w(self, w_obj):
+        return float(w_obj)
 
 class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
@@ -50,6 +61,110 @@ class TestNumpyJIt(LLJitMixin):
                           "int_lt": 1, "guard_true": 1, "jump": 1})
 
         assert result == f(5)
+
+    def test_sum(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            return ar.descr_add(space, ar).descr_sum(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 2,
+                          "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+        assert result == f(5)
+
+    def test_prod(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            return ar.descr_add(space, ar).descr_prod(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "float_mul": 1, "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+        assert result == f(5)
+
+    def test_max(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = float(j)
+                j += 1
+            return ar.descr_add(space, ar).descr_max(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "float_gt": 1, "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, 
+                          "guard_false": 1, "jump": 1})
+
+    def test_min(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = float(j)
+                j += 1
+            return ar.descr_add(space, ar).descr_min(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                           "float_lt": 1, "int_add": 1,
+                           "int_lt": 1, "guard_true": 2,
+                           "jump": 1})
+
+    def test_argmin(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = float(j)
+                j += 1
+            return ar.descr_add(space, ar).descr_argmin(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                           "float_lt": 1, "int_add": 1,
+                           "int_lt": 1, "guard_true": 2,
+                           "jump": 1})
+
+    def test_all(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = 1.0
+                j += 1
+            return ar.descr_add(space, ar).descr_all(space)
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "int_add": 1, "float_ne": 1,
+                          "int_lt": 1, "guard_true": 2, "jump": 1})
+
+    def test_any(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            return ar.descr_add(space, ar).descr_any(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "int_add": 1, "float_ne": 1, "guard_false": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
 
     def test_already_forecd(self):
         def f(i):

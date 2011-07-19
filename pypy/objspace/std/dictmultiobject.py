@@ -736,6 +736,8 @@ VALUESITER = 2
 class W_DictMultiIterObject(W_Object):
     from pypy.objspace.std.dicttype import dictiter_typedef as typedef
 
+    _immutable_fields_ = ["iteratorimplementation", "itertype"]
+
     def __init__(w_self, space, iteratorimplementation, itertype):
         w_self.space = space
         w_self.iteratorimplementation = iteratorimplementation

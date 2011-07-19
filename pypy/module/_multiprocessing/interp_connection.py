@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
-from pypy.rpython.lltypesystem import rffi, lltype, llmemory
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rpoll
 import sys

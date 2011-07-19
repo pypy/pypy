@@ -2,7 +2,6 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib.rarithmetic import ovfcheck
 
 class W_Count(Wrappable):
 
@@ -87,7 +86,7 @@ class W_Repeat(Wrappable):
     def __init__(self, space, w_obj, w_times):
         self.space = space
         self.w_obj = w_obj
-        
+
         if space.is_w(w_times, space.w_None):
             self.counting = False
             self.count = 0
@@ -181,7 +180,7 @@ W_TakeWhile.typedef = TypeDef(
     long as the predicate is true.
 
     Equivalent to :
-    
+
     def takewhile(predicate, iterable):
         for x in iterable:
             if predicate(x):
@@ -316,7 +315,7 @@ W_IFilterFalse.typedef = TypeDef(
     None, return the items that are false.
 
     Equivalent to :
-    
+
     def ifilterfalse(predicate, iterable):
         if predicate is None:
             predicate = bool
@@ -570,7 +569,7 @@ W_IMap.typedef = TypeDef(
                 yield tuple(args)
             else:
                 yield function(*args)
-    
+
     """)
 
 
@@ -728,9 +727,9 @@ W_Cycle.typedef = TypeDef(
         __doc__  = """Make an iterator returning elements from the iterable and
     saving a copy of each. When the iterable is exhausted, return
     elements from the saved copy. Repeats indefinitely.
-    
+
     Equivalent to :
-    
+
     def cycle(iterable):
         saved = []
         for element in iterable:
@@ -738,7 +737,7 @@ W_Cycle.typedef = TypeDef(
             saved.append(element)
         while saved:
             for element in saved:
-                yield element    
+                yield element
     """)
 
 class W_StarMap(Wrappable):
@@ -778,7 +777,7 @@ W_StarMap.typedef = TypeDef(
     def starmap(function, iterable):
         iterable = iter(iterable)
         while True:
-            yield function(*iterable.next())    
+            yield function(*iterable.next())
     """)
 
 
@@ -788,15 +787,15 @@ def tee(space, w_iterable, n=2):
     Note : once tee() has made a split, the original iterable
     should not be used anywhere else; otherwise, the iterable could get
     advanced without the tee objects being informed.
-    
+
     Note : this member of the toolkit may require significant auxiliary
     storage (depending on how much temporary data needs to be stored).
     In general, if one iterator is going to use most or all of the
     data before the other iterator, it is faster to use list() instead
     of tee()
-    
+
     Equivalent to :
-    
+
     def tee(iterable, n=2):
         def gen(next, data={}, cnt=[0]):
             for i in count():
@@ -888,7 +887,7 @@ class W_GroupBy(Wrappable):
         self.exhausted = False
         self.started = False
         # new_group - new group not started yet, next should not skip any items
-        self.new_group = True 
+        self.new_group = True
         self.w_lookahead = self.space.w_None
         self.w_key = self.space.w_None
 
