@@ -327,6 +327,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("mutable_builtintypes",
                    "Allow the changing of builtin types", default=False,
                    requires=[("objspace.std.builtinshortcut", True)]),
+        BoolOption("trackcomparebyidentity",
+                   "track types that override __hash__, __eq__ or __cmp__",
+                   default=True),
      ]),
 ])
 

@@ -28,6 +28,13 @@ def object_delattr(space):
     return w_delattr
 object_delattr._annspecialcase_ = 'specialize:memo'
 
+def object_hash(space):
+    "Utility that returns the app-level descriptor object.__hash__."
+    w_src, w_hash = space.lookup_in_type_where(space.w_object,
+                                                  '__hash__')
+    return w_hash
+object_hash._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space)

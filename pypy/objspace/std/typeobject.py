@@ -102,6 +102,10 @@ class W_TypeObject(W_Object):
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
 
+    # for config.objspace.std.trackcomparebyidentity
+    # (True is a conservative default, fixed during real usage)
+    overrides_hash_eq_or_cmp = True
+
     # used to cache the type __new__ function if it comes from a builtin type
     # != 'type', in that case call__Type will also assumes the result
     # of the __new__ is an instance of the type
@@ -206,6 +210,21 @@ class W_TypeObject(W_Object):
 
     def has_object_getattribute(w_self):
         return w_self.getattribute_if_not_from_object() is None
+
+    def compares_by_identity(w_self):
+        from pypy.objspace.descroperation import object_hash
+        track = w_self.space.config.objspace.std.trackcomparebyidentity
+        if not track:
+            return False # conservative
+        #
+        if not w_self.overrides_hash_eq_or_cmp:
+            return True # fast path
+        #
+        default_hash = object_hash(w_self.space)
+        w_self.overrides_hash_eq_or_cmp = (w_self.lookup('__eq__') or
+                                           w_self.lookup('__cmp__') or
+                                           w_self.lookup('__hash__') is not default_hash)
+        return not w_self.overrides_hash_eq_or_cmp
 
     def ready(w_self):
         for w_base in w_self.bases_w:
