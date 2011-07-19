@@ -1,3 +1,4 @@
+# coding: iso-8859-15
 import random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
@@ -821,6 +822,20 @@ class AppTestW_ListObject(object):
         l = [1,2,3,4]
         l.__delslice__(0, 2)
         assert l == [3, 4]
+
+    def test_unicode(self):
+        s = u"הצü"
+        assert s.encode("ascii", "replace") == "???"
+        assert s.encode("ascii", "ignore") == ""
+
+        l1 = [s.encode("ascii", "replace")]
+        assert l1[0] == "???"
+
+        l2 = [s.encode("ascii", "ignore")]
+        assert l2[0] == ""
+
+        l3 = [s]
+        assert l1[0].encode("ascii", "replace") == "???"
 
 class AppTestForRangeLists(AppTestW_ListObject):
 

@@ -37,6 +37,7 @@ def get_strategy_from_list_objects(space, list_w):
             return space.fromcache(IntegerListStrategy)
 
     # check for strings
+    #if all(is_W_StringObject(e) for e in list_w)
     it = iter(list_w)
     while(True):
         try:

@@ -338,3 +338,11 @@ class TestW_ListStrategies(TestW_ListObject):
         from pypy.objspace.std.listobject import add__List_List
         l3 = add__List_List(self.space, l1, l2)
         assert self.space.eq_w(l3, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(4), self.space.wrap(5)]))
+
+    def test_unicode(self):
+        l1 = W_ListObject(self.space, [self.space.wrap("eins"), self.space.wrap("zwei")])
+        assert isinstance(l1.strategy, StringListStrategy)
+        l2 = W_ListObject(self.space, [self.space.wrap(u"eins"), self.space.wrap(u"zwei")])
+        assert isinstance(l2.strategy, ObjectListStrategy)
+        l3 = W_ListObject(self.space, [self.space.wrap("eins"), self.space.wrap(u"zwei")])
+        assert isinstance(l3.strategy, ObjectListStrategy)
