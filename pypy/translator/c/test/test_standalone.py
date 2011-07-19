@@ -3,8 +3,8 @@ import sys, os, re
 
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.debug import ll_assert, have_debug_prints
-from pypy.rlib.debug import debug_print, debug_start, debug_stop
+from pypy.rlib.debug import ll_assert, have_debug_prints, debug_flush
+from pypy.rlib.debug import debug_print, debug_start, debug_stop, debug_offset
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt import all
 from pypy.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
@@ -54,6 +54,13 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
+
+        # Verify that the generated C files have sane names:
+        gen_c_files = [str(f) for f in cbuilder.extrafiles]
+        for expfile in ('rlib_rposix.c', 
+                        'rpython_lltypesystem_rstr.c',
+                        'translator_c_test_test_standalone.c'):
+            assert cbuilder.targetdir.join(expfile) in gen_c_files
 
     def test_print(self):
         def entry_point(argv):
@@ -110,6 +117,7 @@ class TestStandalone(StandaloneTests):
         assert counters == (0,3,2)
 
     def test_prof_inline(self):
+        py.test.skip("broken by 5b0e029514d4, but we don't use it any more")
         if sys.platform == 'win32':
             py.test.skip("instrumentation support is unix only for now")
         def add(a,b):
@@ -163,13 +171,13 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="")
+        t = Translation(entry_point, backend='c', standalone=True, profopt="100")
         # no counters
         t.backendopt()
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
-        t = Translation(entry_point, backend='c', standalone=True, profopt="",
+        t = Translation(entry_point, backend='c', standalone=True, profopt="100",
                         noprofopt=True)
         # no counters
         t.backendopt()
@@ -283,12 +291,13 @@ class TestStandalone(StandaloneTests):
             debug_stop   ("mycat")
             if have_debug_prints(): x += "a"
             debug_print("toplevel")
-            os.write(1, x + '.\n')
+            debug_flush()
+            os.write(1, x + "." + str(debug_offset()) + '.\n')
             return 0
         t, cbuilder = self.compile(entry_point)
         # check with PYPYLOG undefined
         out, err = cbuilder.cmdexec("", err=True, env={})
-        assert out.strip() == 'got:a.'
+        assert out.strip() == 'got:a.-1.'
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -297,7 +306,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG defined to an empty string (same as undefined)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ''})
-        assert out.strip() == 'got:a.'
+        assert out.strip() == 'got:a.-1.'
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -306,7 +315,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.'
+        assert out.strip() == 'got:bcda.-1.'
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -319,7 +328,8 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': ':%s' % path})
-        assert out.strip() == 'got:bcda.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:bcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -334,7 +344,8 @@ class TestStandalone(StandaloneTests):
         # check with PYPYLOG=somefilename
         path = udir.join('test_debug_xxx_prof.log')
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
-        assert out.strip() == 'got:a.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:a.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -350,7 +361,8 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx_myc.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc:%s' % path})
-        assert out.strip() == 'got:bda.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:bda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -365,7 +377,8 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx_cat.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'cat:%s' % path})
-        assert out.strip() == 'got:ca.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:ca.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -379,7 +392,8 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_xxx_myc_cat2.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc,cat2:%s' % path})
-        assert out.strip() == 'got:bcda.'
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:bcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -400,7 +414,7 @@ class TestStandalone(StandaloneTests):
         path = udir.join('test_debug_does_not_show_up.log')
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': ':%s' % path})
-        assert out.strip() == 'got:.'
+        assert out.strip() == 'got:.-1.'
         assert not err
         assert path.check(file=0)
 
@@ -589,6 +603,42 @@ class TestStandalone(StandaloneTests):
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
 
+    def test_int_lshift_too_large(self):
+        from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
+        def entry_point(argv):
+            a = int(argv[1])
+            b = int(argv[2])
+            print a << b
+            return 0
+
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out = cbuilder.cmdexec("10 2", expect_crash=False)
+        assert out.strip() == str(10 << 2)
+        cases = [-4, LONG_BIT, LONGLONG_BIT]
+        for x in cases:
+            out, err = cbuilder.cmdexec("%s %s" % (1, x), expect_crash=True)
+            lines = err.strip()
+            assert 'The shift count is outside of the supported range' in lines
+
+    def test_llong_rshift_too_large(self):
+        from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
+        def entry_point(argv):
+            a = r_longlong(int(argv[1]))
+            b = r_longlong(int(argv[2]))
+            print a >> b
+            return 0
+
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out = cbuilder.cmdexec("10 2", expect_crash=False)
+        assert out.strip() == str(10 >> 2)
+        out = cbuilder.cmdexec("%s %s" % (-42, LONGLONG_BIT - 1), expect_crash=False)
+        assert out.strip() == '-1'
+        cases = [-4, LONGLONG_BIT]
+        for x in cases:
+            out, err = cbuilder.cmdexec("%s %s" % (1, x), expect_crash=True)
+            lines = err.strip()
+            assert 'The shift count is outside of the supported range' in lines
+
     def test_ll_assert_error_debug(self):
         def entry_point(argv):
             ll_assert(len(argv) != 1, "foobar")
@@ -681,6 +731,78 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point, stackcheck=True)
         out = cbuilder.cmdexec("")
         assert out.strip() == "hi!"
+
+    def test_set_length_fraction(self):
+        # check for pypy.rlib.rstack._stack_set_length_fraction()
+        from pypy.rlib.rstack import _stack_set_length_fraction
+        from pypy.rlib.rstackovf import StackOverflow
+        class A:
+            n = 0
+        glob = A()
+        def f(n):
+            glob.n += 1
+            if n <= 0:
+                return 42
+            return f(n+1)
+        def entry_point(argv):
+            _stack_set_length_fraction(0.1)
+            try:
+                return f(1)
+            except StackOverflow:
+                glob.n = 0
+            _stack_set_length_fraction(float(argv[1]))
+            try:
+                return f(1)
+            except StackOverflow:
+                print glob.n
+                return 0
+        t, cbuilder = self.compile(entry_point, stackcheck=True)
+        counts = {}
+        for fraction in [0.1, 0.4, 1.0]:
+            out = cbuilder.cmdexec(str(fraction))
+            print 'counts[%s]: %r' % (fraction, out)
+            counts[fraction] = int(out.strip())
+        #
+        assert counts[1.0] >= 1000
+        # ^^^ should actually be much more than 1000 for this small test
+        assert counts[0.1] < counts[0.4] / 3
+        assert counts[0.4] < counts[1.0] / 2
+        assert counts[0.1] > counts[0.4] / 7
+        assert counts[0.4] > counts[1.0] / 4
+
+    def test_stack_criticalcode(self):
+        # check for pypy.rlib.rstack._stack_criticalcode_start/stop()
+        from pypy.rlib.rstack import _stack_criticalcode_start
+        from pypy.rlib.rstack import _stack_criticalcode_stop
+        from pypy.rlib.rstackovf import StackOverflow
+        class A:
+            pass
+        glob = A()
+        def f(n):
+            if n <= 0:
+                return 42
+            try:
+                return f(n+1)
+            except StackOverflow:
+                if glob.caught:
+                    print 'Oups! already caught!'
+                glob.caught = True
+                _stack_criticalcode_start()
+                critical(100)   # recurse another 100 times here
+                _stack_criticalcode_stop()
+                return 789
+        def critical(n):
+            if n > 0:
+                n = critical(n - 1)
+            return n - 42
+        def entry_point(argv):
+            glob.caught = False
+            print f(1)
+            return 0
+        t, cbuilder = self.compile(entry_point, stackcheck=True)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == '789'
+
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):

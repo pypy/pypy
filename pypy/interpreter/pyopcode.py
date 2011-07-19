@@ -11,7 +11,7 @@ from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit, rstackovf, rstack
+from pypy.rlib import jit, rstackovf
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import check_nonneg
@@ -83,16 +83,12 @@ class __extend__(pyframe.PyFrame):
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-                rstack.resume_point("dispatch", self, co_code, ec,
-                                    returns=next_instr)
         except ExitFrame:
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
-            rstack.resume_point("handle_bytecode", self, co_code, ec,
-                                returns=next_instr)
         except OperationError, operr:
             next_instr = self.handle_operation_error(ec, operr)
         except Reraise:
@@ -248,9 +244,6 @@ class __extend__(pyframe.PyFrame):
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)
                         res = meth(oparg, next_instr)
-                        if opdesc.index == self.opcodedesc.CALL_FUNCTION.index:
-                            rstack.resume_point("dispatch_call", self, co_code,
-                                                next_instr, ec)
                         # !! warning, for the annotator the next line is not
                         # comparing an int and None - you can't do that.
                         # Instead, it's constant-folded to either True or False
@@ -331,7 +324,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
-        w_value = self.fastlocals_w[varindex]
+        w_value = self.locals_stack_w[varindex]
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
@@ -350,7 +343,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.fastlocals_w[varindex] = w_newvalue
+        self.locals_stack_w[varindex] = w_newvalue
 
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
@@ -573,7 +566,7 @@ class __extend__(pyframe.PyFrame):
         else:
             msg = "raise: arg 3 must be a traceback or None"
             tb = pytraceback.check_traceback(space, w_traceback, msg)
-            operror.application_traceback = tb
+            operror.set_traceback(tb)
             # special 3-arguments raise, no new traceback obj will be attached
             raise RaiseWithExplicitTraceback(operror)
 
@@ -703,12 +696,12 @@ class __extend__(pyframe.PyFrame):
     LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
-        if self.fastlocals_w[varindex] is None:
+        if self.locals_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise operationerrfmt(self.space.w_UnboundLocalError, message,
                                   varname)
-        self.fastlocals_w[varindex] = None
+        self.locals_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
@@ -953,7 +946,7 @@ class __extend__(pyframe.PyFrame):
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
             operr = unroller.operr
-            w_traceback = self.space.wrap(operr.application_traceback)
+            w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
@@ -997,7 +990,6 @@ class __extend__(pyframe.PyFrame):
                                                           args)
         else:
             w_result = self.space.call_args(w_function, args)
-        rstack.resume_point("call_function", self, returns=w_result)
         self.pushvalue(w_result)
 
     def CALL_FUNCTION(self, oparg, next_instr):
@@ -1008,8 +1000,6 @@ class __extend__(pyframe.PyFrame):
             w_function = self.peekvalue(nargs)
             try:
                 w_result = self.space.call_valuestack(w_function, nargs, self)
-                rstack.resume_point("CALL_FUNCTION", self, nargs,
-                                    returns=w_result)
             finally:
                 self.dropvalues(nargs + 1)
             self.pushvalue(w_result)
@@ -1058,29 +1048,17 @@ class __extend__(pyframe.PyFrame):
 
     def SET_ADD(self, oparg, next_instr):
         w_value = self.popvalue()
-        w_set = self.peekvalue(oparg)
+        w_set = self.peekvalue(oparg - 1)
         self.space.call_method(w_set, 'add', w_value)
 
     def MAP_ADD(self, oparg, next_instr):
         w_key = self.popvalue()
         w_value = self.popvalue()
-        w_dict = self.peekvalue(oparg)
+        w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
 
     def SET_LINENO(self, lineno, next_instr):
         pass
-
-    def CALL_LIKELY_BUILTIN(self, oparg, next_instr):
-        # overridden by faster version in the standard object space.
-        from pypy.module.__builtin__ import OPTIMIZED_BUILTINS
-        varname = OPTIMIZED_BUILTINS[oparg >> 8]
-        w_function = self._load_global(varname)
-        nargs = oparg&0xFF
-        try:
-            w_result = self.space.call_valuestack(w_function, nargs, self)
-        finally:
-            self.dropvalues(nargs)
-        self.pushvalue(w_result)
 
     # overridden by faster version in the standard object space.
     LOOKUP_METHOD = LOAD_ATTR
@@ -1099,13 +1077,12 @@ class __extend__(pyframe.PyFrame):
         w_dict = self.space.newdict()
         self.pushvalue(w_dict)
 
+    @jit.unroll_safe
     def BUILD_SET(self, itemcount, next_instr):
-        w_set = self.space.call_function(self.space.w_set)
-        if itemcount:
-            w_add = self.space.getattr(w_set, self.space.wrap("add"))
-            for i in range(itemcount):
-                w_item = self.popvalue()
-                self.space.call_function(w_add, w_item)
+        w_set = self.space.newset()
+        for i in range(itemcount):
+            w_item = self.popvalue()
+            self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
     def STORE_MAP(self, oparg, next_instr):
@@ -1197,6 +1174,7 @@ class SuspendedUnroller(Wrappable):
                 WHY_CONTINUE,   SContinueLoop
                 WHY_YIELD       not needed
     """
+    _immutable_ = True
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
@@ -1207,6 +1185,7 @@ class SuspendedUnroller(Wrappable):
 class SReturnValue(SuspendedUnroller):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
+    _immutable_ = True
     kind = 0x01
     def __init__(self, w_returnvalue):
         self.w_returnvalue = w_returnvalue
@@ -1222,6 +1201,7 @@ class SReturnValue(SuspendedUnroller):
 class SApplicationException(SuspendedUnroller):
     """Signals an application-level exception
     (i.e. an OperationException)."""
+    _immutable_ = True
     kind = 0x02
     def __init__(self, operr):
         self.operr = operr
@@ -1236,6 +1216,7 @@ class SApplicationException(SuspendedUnroller):
 
 class SBreakLoop(SuspendedUnroller):
     """Signals a 'break' statement."""
+    _immutable_ = True
     kind = 0x04
 
     def state_unpack_variables(self, space):
@@ -1249,6 +1230,7 @@ SBreakLoop.singleton = SBreakLoop()
 class SContinueLoop(SuspendedUnroller):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
+    _immutable_ = True
     kind = 0x08
     def __init__(self, jump_to):
         self.jump_to = jump_to
@@ -1261,9 +1243,10 @@ class SContinueLoop(SuspendedUnroller):
 
 
 class FrameBlock(object):
-
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
+
+    _immutable_ = True
 
     def __init__(self, frame, handlerposition):
         self.handlerposition = handlerposition
@@ -1306,6 +1289,7 @@ class FrameBlock(object):
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
+    _immutable_ = True
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
@@ -1325,6 +1309,7 @@ class LoopBlock(FrameBlock):
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
 
+    _immutable_ = True
     _opname = 'SETUP_EXCEPT'
     handling_mask = SApplicationException.kind
 
@@ -1349,6 +1334,7 @@ class ExceptBlock(FrameBlock):
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
 
+    _immutable_ = True
     _opname = 'SETUP_FINALLY'
     handling_mask = -1     # handles every kind of SuspendedUnroller
 
@@ -1375,6 +1361,8 @@ class FinallyBlock(FrameBlock):
 
 
 class WithBlock(FinallyBlock):
+
+    _immutable_ = True
 
     def really_handle(self, frame, unroller):
         if (frame.space.full_exceptions and
@@ -1417,13 +1405,16 @@ app = gateway.applevel(r'''
     def print_item_to(x, stream):
         if file_softspace(stream, False):
            stream.write(" ")
-        if isinstance(x, unicode) and getattr(stream, "encoding", None) is not None:
-            x = x.encode(stream.encoding, getattr(stream, "errors", None) or "strict")
-        stream.write(str(x))
+
+        # give to write() an argument which is either a string or a unicode
+        # (and let it deals itself with unicode handling)
+        if not isinstance(x, unicode):
+            x = str(x)
+        stream.write(x)
 
         # add a softspace unless we just printed a string which ends in a '\t'
         # or '\n' -- or more generally any whitespace character but ' '
-        if isinstance(x, (str, unicode)) and x:
+        if x:
             lastchar = x[-1]
             if lastchar.isspace() and lastchar != ' ':
                 return

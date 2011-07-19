@@ -3,20 +3,13 @@
 in a nicer fashion
 """
 
-from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt,\
-     ConstObj, ConstPtr, Box, BasicFailDescr, BoxFloat, ConstFloat,\
-     LoopToken, get_const_ptr_for_string, get_const_ptr_for_unicode
-from pypy.jit.metainterp.resoperation import rop, ResOperation, ResOpWithDescr, N_aryOp
-from pypy.jit.metainterp.typesystem import llhelper
-from pypy.jit.codewriter.heaptracker import adr2int
-from pypy.jit.codewriter import longlong
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.ootypesystem import ootype
+from pypy.jit.tool.oparser_model import get_model
+
+from pypy.jit.metainterp.resoperation import rop, ResOperation, \
+                                            ResOpWithDescr, N_aryOp, \
+                                            UnaryOp, PlainResOp
 
 class ParseError(Exception):
-    pass
-
-class Boxes(object):
     pass
 
 class ESCAPE_OP(N_aryOp, ResOpWithDescr):
@@ -35,37 +28,32 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
     def clone(self):
         return ESCAPE_OP(self.OPNUM, self.getarglist()[:], self.result, self.getdescr())
 
-class ExtendedTreeLoop(TreeLoop):
+class FORCE_SPILL(UnaryOp, PlainResOp):
 
-    def getboxes(self):
-        def opboxes(operations):
-            for op in operations:
-                yield op.result
-                for box in op.getarglist():
-                    yield box
-        def allboxes():
-            for box in self.inputargs:
-                yield box
-            for box in opboxes(self.operations):
-                yield box
+    OPNUM = -124
 
-        boxes = Boxes()
-        for box in allboxes():
-            if isinstance(box, Box):
-                name = str(box)
-                setattr(boxes, name, box)
-        return boxes
+    def __init__(self, opnum, args, result=None, descr=None):
+        assert result is None
+        assert descr is None
+        assert opnum == self.OPNUM
+        self.result = result
+        self.initarglist(args)
 
-    def setvalues(self, **kwds):
-        boxes = self.getboxes()
-        for name, value in kwds.iteritems():
-            getattr(boxes, name).value = value
+    def getopnum(self):
+        return self.OPNUM
 
-def default_fail_descr(fail_args=None):
-    return BasicFailDescr()
+    def clone(self):
+        return FORCE_SPILL(self.OPNUM, self.getarglist()[:])
+
+
+def default_fail_descr(model, fail_args=None):
+    return model.BasicFailDescr()
 
 
 class OpParser(object):
+
+    use_mock_model = False
+    
     def __init__(self, input, cpu, namespace, type_system, boxkinds,
                  invent_fail_descr=default_fail_descr,
                  nonstrict=False):
@@ -81,7 +69,8 @@ class OpParser(object):
             self._cache = {}
         self.invent_fail_descr = invent_fail_descr
         self.nonstrict = nonstrict
-        self.looptoken = LoopToken()
+        self.model = get_model(self.use_mock_model)
+        self.looptoken = self.model.LoopToken()
 
     def get_const(self, name, typ):
         if self._consts is None:
@@ -89,16 +78,16 @@ class OpParser(object):
         obj = self._consts[name]
         if self.type_system == 'lltype':
             if typ == 'ptr':
-                return ConstPtr(obj)
+                return self.model.ConstPtr(obj)
             else:
                 assert typ == 'class'
-                return ConstInt(adr2int(llmemory.cast_ptr_to_adr(obj)))
+                return self.model.ConstInt(self.model.ptr_to_int(obj))
         else:
             if typ == 'ptr':
-                return ConstObj(obj)
+                return self.model.ConstObj(obj)
             else:
                 assert typ == 'class'
-                return ConstObj(ootype.cast_to_object(obj))
+                return self.model.ConstObj(ootype.cast_to_object(obj))
 
     def get_descr(self, poss_descr):
         if poss_descr.startswith('<'):
@@ -113,16 +102,16 @@ class OpParser(object):
             pass
         if elem.startswith('i'):
             # integer
-            box = BoxInt()
-            _box_counter_more_than(elem[1:])
+            box = self.model.BoxInt()
+            _box_counter_more_than(self.model, elem[1:])
         elif elem.startswith('f'):
-            box = BoxFloat()
-            _box_counter_more_than(elem[1:])
+            box = self.model.BoxFloat()
+            _box_counter_more_than(self.model, elem[1:])
         elif elem.startswith('p'):
             # pointer
-            ts = getattr(self.cpu, 'ts', llhelper)
+            ts = getattr(self.cpu, 'ts', self.model.llhelper)
             box = ts.BoxRef()
-            _box_counter_more_than(elem[1:])
+            _box_counter_more_than(self.model, elem[1:])
         else:
             for prefix, boxclass in self.boxkinds.iteritems():
                 if elem.startswith(prefix):
@@ -156,21 +145,21 @@ class OpParser(object):
 
     def getvar(self, arg):
         if not arg:
-            return ConstInt(0)
+            return self.model.ConstInt(0)
         try:
-            return ConstInt(int(arg))
+            return self.model.ConstInt(int(arg))
         except ValueError:
             if self.is_float(arg):
-                return ConstFloat(longlong.getfloatstorage(float(arg)))
+                return self.model.ConstFloat(self.model.convert_to_floatstorage(arg))
             if (arg.startswith('"') or arg.startswith("'") or
                 arg.startswith('s"')):
                 # XXX ootype
                 info = arg[1:].strip("'\"")
-                return get_const_ptr_for_string(info)
+                return self.model.get_const_ptr_for_string(info)
             if arg.startswith('u"'):
                 # XXX ootype
                 info = arg[1:].strip("'\"")
-                return get_const_ptr_for_unicode(info)
+                return self.model.get_const_ptr_for_unicode(info)
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 return self.get_const(name, 'class')
@@ -178,9 +167,9 @@ class OpParser(object):
                 return None
             elif arg == 'NULL':
                 if self.type_system == 'lltype':
-                    return ConstPtr(ConstPtr.value)
+                    return self.model.ConstPtr(self.model.ConstPtr.value)
                 else:
-                    return ConstObj(ConstObj.value)
+                    return self.model.ConstObj(self.model.ConstObj.value)
             elif arg.startswith('ConstPtr('):
                 name = arg[len('ConstPtr('):-1]
                 return self.get_const(name, 'ptr')
@@ -192,11 +181,8 @@ class OpParser(object):
         args = []
         descr = None
         if argspec.strip():
-            if opname == 'debug_merge_point':
-                allargs = argspec.rsplit(', ', 1)
-            else:
-                allargs = [arg for arg in argspec.split(",")
-                           if arg != '']
+            allargs = [arg for arg in argspec.split(",")
+                       if arg != '']
 
             poss_descr = allargs[-1].strip()
             if poss_descr.startswith('descr='):
@@ -220,6 +206,8 @@ class OpParser(object):
         except AttributeError:
             if opname == 'escape':
                 opnum = ESCAPE_OP.OPNUM
+            elif opname == 'force_spill':
+                opnum = FORCE_SPILL.OPNUM
             else:
                 raise ParseError("unknown op: %s" % opname)
         endnum = line.rfind(')')
@@ -245,14 +233,14 @@ class OpParser(object):
                                 "Unknown var in fail_args: %s" % arg)
                     fail_args.append(fail_arg)
             if descr is None and self.invent_fail_descr:
-                descr = self.invent_fail_descr(fail_args)
+                descr = self.invent_fail_descr(self.model, fail_args)
             if hasattr(descr, '_oparser_uses_descr_of_guard'):
                 descr._oparser_uses_descr_of_guard(self, fail_args)
         else:
             fail_args = None
             if opnum == rop.FINISH:
                 if descr is None and self.invent_fail_descr:
-                    descr = self.invent_fail_descr()
+                    descr = self.invent_fail_descr(self.model)
             elif opnum == rop.JUMP:
                 if descr is None and self.invent_fail_descr:
                     descr = self.looptoken
@@ -261,6 +249,8 @@ class OpParser(object):
     def create_op(self, opnum, args, result, descr):
         if opnum == ESCAPE_OP.OPNUM:
             return ESCAPE_OP(opnum, args, result, descr)
+        if opnum == FORCE_SPILL.OPNUM:
+            return FORCE_SPILL(opnum, args, result, descr)
         else:
             return ResOperation(opnum, args, result, descr)
 
@@ -312,19 +302,21 @@ class OpParser(object):
                 continue  # a comment or empty line
             newlines.append(line)
         base_indent, inpargs, newlines = self.parse_inpargs(newlines)
-        num, ops = self.parse_ops(base_indent, newlines, 0)
+        num, ops, last_offset = self.parse_ops(base_indent, newlines, 0)
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
-        loop = ExtendedTreeLoop("loop")
+        loop = self.model.ExtendedTreeLoop("loop")
         loop.comment = first_comment
         loop.token = self.looptoken
         loop.operations = ops
         loop.inputargs = inpargs
+        loop.last_offset = last_offset
         return loop
 
     def parse_ops(self, indent, lines, start):
         num = start
         ops = []
+        last_offset = None
         while num < len(lines):
             line = lines[num]
             if not line.startswith(" " * indent):
@@ -333,9 +325,30 @@ class OpParser(object):
             elif line.startswith(" "*(indent + 1)):
                 raise ParseError("indentation not valid any more")
             else:
-                ops.append(self.parse_next_op(lines[num].strip()))
+                line = line.strip()
+                offset, line = self.parse_offset(line)
+                if line == '--end of the loop--':
+                    last_offset = offset
+                else:
+                    op = self.parse_next_op(line)
+                    if offset:
+                        op.offset = offset
+                    ops.append(op)
                 num += 1
-        return num, ops
+        return num, ops, last_offset
+
+    def postprocess(self, loop):
+        """ A hook that can be overloaded to do some postprocessing
+        """
+        return loop
+
+    def parse_offset(self, line):
+        if line.startswith('+'):
+            # it begins with an offset, like: "+10: i1 = int_add(...)"
+            offset, _, line = line.partition(':')
+            offset = int(offset)
+            return offset, line.strip()
+        return None, line
 
     def parse_inpargs(self, lines):
         line = lines[0]
@@ -353,7 +366,7 @@ class OpParser(object):
 
 def parse(input, cpu=None, namespace=None, type_system='lltype',
           boxkinds=None, invent_fail_descr=default_fail_descr,
-          no_namespace=False, nonstrict=False):
+          no_namespace=False, nonstrict=False, OpParser=OpParser):
     if namespace is None and not no_namespace:
         namespace = {}
     return OpParser(input, cpu, namespace, type_system, boxkinds,
@@ -364,6 +377,6 @@ def pure_parse(*args, **kwds):
     return parse(*args, **kwds)
 
 
-def _box_counter_more_than(s):
+def _box_counter_more_than(model, s):
     if s.isdigit():
-        Box._counter = max(Box._counter, int(s)+1)
+        model.Box._counter = max(model.Box._counter, int(s)+1)

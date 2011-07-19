@@ -171,7 +171,7 @@ def test_special():
     obj = c.instantiate()
     assert obj.getweakref() is None
     obj.setweakref(space, lifeline1)
-    obj.setweakref(space, None)
+    obj.delweakref()
 
 
 
@@ -250,13 +250,18 @@ def test_materialize_r_dict():
 
     class FakeDict(W_DictMultiObject):
         def __init__(self, d):
-            self.r_dict_content = d
+            self.dstorage = d
+
+        class strategy:
+            def unerase(self, x):
+                return d
+        strategy = strategy()
 
     d = {}
     w_d = FakeDict(d)
     flag = obj.map.write(obj, ("dict", SPECIAL), w_d)
     assert flag
-    materialize_r_dict(space, obj, w_d)
+    materialize_r_dict(space, obj, d)
     assert d == {"a": 5, "b": 6, "c": 7}
     assert obj.storage == [50, 60, 70, w_d]
 
@@ -291,18 +296,18 @@ def get_impl(self):
     w_obj = cls.instantiate(self.fakespace)
     return w_obj.getdict(self.fakespace)
 class TestMapDictImplementation(BaseTestRDictImplementation):
-    ImplementionClass = MapDictImplementation
+    StrategyClass = MapDictStrategy
     get_impl = get_impl
 class TestDevolvedMapDictImplementation(BaseTestDevolvedDictImplementation):
     get_impl = get_impl
-    ImplementionClass = MapDictImplementation
+    StrategyClass = MapDictStrategy
 
 # ___________________________________________________________
 # tests that check the obj interface after the dict has devolved
 
 def devolve_dict(space, obj):
     w_d = obj.getdict(space)
-    w_d._as_rdict()
+    w_d.strategy.switch_to_object_strategy(w_d)
 
 def test_get_setdictvalue_after_devolve():
     cls = Class()
@@ -463,6 +468,20 @@ class AppTestWithMapDict(object):
         d['dd'] = 43
         assert a.dd == 41
 
+    def test_popitem(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 5
+        a.y = 6
+        it1 = a.__dict__.popitem()
+        assert it1 == ("y", 6)
+        it2 = a.__dict__.popitem()
+        assert it2 == ("x", 5)
+        assert a.__dict__ == {}
+        raises(KeyError, a.__dict__.popitem)
+
+
 
     def test_slot_name_conflict(self):
         class A(object):
@@ -603,6 +622,14 @@ class AppTestWithMapDict(object):
         assert a.y == 2
         assert a.__dict__ is d
         assert isinstance(a, B)
+
+    def test_setdict(self):
+        class A(object):
+            pass
+
+        a = A()
+        a.__dict__ = {}
+        a.__dict__ = {}
 
 
 class AppTestWithMapDictAndCounters(object):
@@ -902,7 +929,53 @@ class AppTestWithMapDictAndCounters(object):
             return c.m()
         val = f()
         assert val == 42
-        f() 
+        f()
+
+    def test_bug_lookup_method_devolved_dict_caching(self):
+        class A(object):
+            def method(self):
+                return 42
+        a = A()
+        a.__dict__[1] = 'foo'
+        got = a.method()
+        assert got == 42
+        a.__dict__['method'] = lambda: 43
+        got = a.method()
+        assert got == 43
+
+    def test_bug_method_change(self):
+        class A(object):
+            def method(self):
+                return 42
+        a = A()
+        got = a.method()
+        assert got == 42
+        A.method = lambda self: 43
+        got = a.method()
+        assert got == 43
+        A.method = lambda self: 44
+        got = a.method()
+        assert got == 44
+
+    def test_bug_slot_via_changing_member_descr(self):
+        class A(object):
+            __slots__ = ['a', 'b', 'c', 'd']
+        x = A()
+        x.a = 'a'
+        x.b = 'b'
+        x.c = 'c'
+        x.d = 'd'
+        got = x.a
+        assert got == 'a'
+        A.a = A.b
+        got = x.a
+        assert got == 'b'
+        A.a = A.c
+        got = x.a
+        assert got == 'c'
+        A.a = A.d
+        got = x.a
+        assert got == 'd'
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     def setup_class(cls):

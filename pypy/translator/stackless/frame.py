@@ -104,10 +104,8 @@ decodestate.stackless_explicit = True
 
 class RestartInfo(object):
 
-    """A RestartInfo is created (briefly) for each graph that contains
-    a resume point.
-
-    In addition, a RestartInfo is created for each function that needs
+    """
+    A RestartInfo is created for each function that needs
     to do explicit stackless manipulations
     (e.g. code.yield_current_frame_to_caller)."""
 

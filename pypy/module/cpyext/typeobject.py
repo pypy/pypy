@@ -450,7 +450,7 @@ def type_attach(space, py_obj, w_type):
             PyObject_Del.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
             PyType_GenericAlloc.api_func.get_wrapper(space))
-    pto.c_tp_name = rffi.str2charp(w_type.getname(space, "?"))
+    pto.c_tp_name = rffi.str2charp(w_type.getname(space))
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
     # uninitialized fields:
@@ -617,7 +617,7 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        w_dict = space.newdict(from_strdict_shared=w_obj.dict_w)
+        w_dict = w_obj.getdict(space)
         pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
@@ -650,3 +650,13 @@ def _PyType_Lookup(space, type, w_name):
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
     return borrow_from(w_type, w_obj)
+
+@cpython_api([PyTypeObjectPtr], lltype.Void)
+def PyType_Modified(space, w_obj):
+    """Invalidate the internal lookup cache for the type and all of its
+    subtypes.  This function must be called after any manual
+    modification of the attributes or base classes of the type.
+    """
+    # PyPy already takes care of direct modifications to type.__dict__
+    # (which is a W_DictProxyObject).
+    pass

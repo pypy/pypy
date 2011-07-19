@@ -6,6 +6,7 @@
 from pypy.jit.codewriter import support
 from pypy.jit.codewriter.jitcode import JitCode
 from pypy.jit.codewriter.effectinfo import VirtualizableAnalyzer
+from pypy.jit.codewriter.effectinfo import QuasiImmutAnalyzer
 from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze
 from pypy.jit.codewriter.effectinfo import EffectInfo, CallInfoCollection
 from pypy.translator.simplify import get_funcobj, get_functype
@@ -30,6 +31,7 @@ class CallControl(object):
             self.raise_analyzer = RaiseAnalyzer(translator)
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
+            self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
@@ -206,25 +208,26 @@ class CallControl(object):
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
         assert RESULT == FUNC.RESULT
         # ok
-        # get the 'pure' and 'loopinvariant' flags from the function object
-        pure = False
+        # get the 'elidable' and 'loopinvariant' flags from the function object
+        elidable = False
         loopinvariant = False
         if op.opname == "direct_call":
             func = getattr(get_funcobj(op.args[0].value), '_callable', None)
-            pure = getattr(func, "_pure_function_", False)
+            elidable = getattr(func, "_elidable_function_", False)
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
             if loopinvariant:
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
         # build the extraeffect
+        can_invalidate = self.quasiimmut_analyzer.analyze(op)
         if extraeffect is None:
             if self.virtualizable_analyzer.analyze(op):
                 extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
             elif loopinvariant:
                 extraeffect = EffectInfo.EF_LOOPINVARIANT
-            elif pure:
+            elif elidable:
                 # XXX check what to do about exceptions (also MemoryError?)
-                extraeffect = EffectInfo.EF_PURE
+                extraeffect = EffectInfo.EF_ELIDABLE
             elif self._canraise(op):
                 extraeffect = EffectInfo.EF_CAN_RAISE
             else:
@@ -232,11 +235,16 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex)
+            oopspecindex, can_invalidate)
         #
-        if pure or loopinvariant:
+        if oopspecindex != EffectInfo.OS_NONE:
+            assert effectinfo is not None
+        if elidable or loopinvariant:
             assert effectinfo is not None
             assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            # XXX this should also say assert not can_invalidate, but
+            #     it can't because our analyzer is not good enough for now
+            #     (and getexecutioncontext() can't really invalidate)
         #
         return self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT,
                                     effectinfo)

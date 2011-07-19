@@ -3,7 +3,6 @@ from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
 from pypy.interpreter.argument import ArgErr
-from pypy.interpreter.function import Defaults
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
@@ -251,7 +250,7 @@ class FunctionDesc(Desc):
             for x in defaults:
                 defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
-            inputcells = args.match_signature(signature, Defaults(defs_s))
+            inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
             raise TypeError, "signature mismatch: %s" % e.getmsg(self.name)
         return inputcells
@@ -566,7 +565,7 @@ class ClassDesc(Desc):
         if self.is_exception_class():
             if self.pyobj.__module__ == 'exceptions':
                 return True
-            if self.pyobj is py.code._AssertionError:
+            if issubclass(self.pyobj, AssertionError):
                 return True
         return False
 
@@ -638,16 +637,19 @@ class ClassDesc(Desc):
         return None
 
     def maybe_return_immutable_list(self, attr, s_result):
-        # hack: 'x.lst' where lst is listed in _immutable_fields_ as 'lst[*]'
+        # hack: 'x.lst' where lst is listed in _immutable_fields_ as
+        # either 'lst[*]' or 'lst?[*]'
         # should really return an immutable list as a result.  Implemented
         # by changing the result's annotation (but not, of course, doing an
         # actual copy in the rtyper).  Tested in pypy.rpython.test.test_rlist,
         # test_immutable_list_out_of_instance.
-        search = '%s[*]' % (attr,)
+        search1 = '%s[*]' % (attr,)
+        search2 = '%s?[*]' % (attr,)
         cdesc = self
         while cdesc is not None:
             if '_immutable_fields_' in cdesc.classdict:
-                if search in cdesc.classdict['_immutable_fields_'].value:
+                if (search1 in cdesc.classdict['_immutable_fields_'].value or
+                    search2 in cdesc.classdict['_immutable_fields_'].value):
                     s_result.listdef.never_resize()
                     s_copy = s_result.listdef.offspring()
                     s_copy.listdef.mark_as_immutable()

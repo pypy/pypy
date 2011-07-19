@@ -219,6 +219,7 @@ def compute_identity_hash(x):
     same before and after translation, except for RPython instances on the
     lltypesystem.
     """
+    assert x is not None
     result = object.__hash__(x)
     try:
         x.__dict__['__precomputed_identity_hash'] = result
@@ -267,14 +268,15 @@ def _hash_float(f):
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
     from pypy.rlib.rarithmetic import intmask
-    from pypy.rlib.rfloat import isinf, isnan
-    if isinf(f):
-        if f < 0.0:
-            return -271828
-        else:
-            return 314159
-    elif isnan(f):
-        return 0
+    from pypy.rlib.rfloat import isfinite, isinf
+    if not isfinite(f):
+        if isinf(f):
+            if f < 0.0:
+                return -271828
+            else:
+                return 314159
+        else: #isnan(f):
+            return 0
     v, expo = math.frexp(f)
     v *= TAKE_NEXT
     hipart = int(v)
@@ -446,10 +448,11 @@ class r_dict(object):
     The functions key_eq() and key_hash() are used by the key comparison
     algorithm."""
 
-    def __init__(self, key_eq, key_hash):
+    def __init__(self, key_eq, key_hash, force_non_null=False):
         self._dict = {}
         self.key_eq = key_eq
         self.key_hash = key_hash
+        self.force_non_null = force_non_null
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]

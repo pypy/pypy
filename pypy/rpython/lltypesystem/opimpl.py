@@ -473,12 +473,16 @@ def op_adr_delta(addr1, addr2):
     checkadr(addr2)
     return addr1 - addr2
 
-def op_gc_writebarrier_before_copy(source, dest):
+def op_gc_writebarrier_before_copy(source, dest,
+                                   source_start, dest_start, length):
     A = lltype.typeOf(source)
     assert A == lltype.typeOf(dest)
     assert isinstance(A.TO, lltype.GcArray)
     assert isinstance(A.TO.OF, lltype.Ptr)
     assert A.TO.OF.TO._gckind == 'gc'
+    assert type(source_start) is int
+    assert type(dest_start) is int
+    assert type(length) is int
     return True
 
 def op_getfield(p, name):
@@ -513,6 +517,12 @@ def op_debug_start(category):
 def op_debug_stop(category):
     debug.debug_stop(_normalize(category))
 
+def op_debug_offset():
+    return debug.debug_offset()
+
+def op_debug_flush():
+    pass
+
 def op_have_debug_prints():
     return debug.have_debug_prints()
 
@@ -524,6 +534,9 @@ def op_jit_force_virtualizable(*args):
 
 def op_jit_force_virtual(x):
     return x
+
+def op_jit_force_quasi_immutable(*args):
+    pass
 
 def op_get_group_member(TYPE, grpptr, memberoffset):
     from pypy.rpython.lltypesystem import llgroup

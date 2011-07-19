@@ -2,6 +2,7 @@ import py
 import sys
 import re
 import os.path
+from _pytest.assertion import newinterpret
 from pypy.tool.jitlogparser.parser import SimpleParser, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
@@ -128,13 +129,16 @@ class LoopWithIds(Function):
             if op.name != 'debug_merge_point' or include_debug_merge_points:
                 yield op
 
-    def allops(self, include_debug_merge_points=False, opcode=None):
+    def _allops(self, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         for chunk in self.flatten_chunks():
             opcode = chunk.getopcode()                                                          
             if opcode_name is None or opcode.__class__.__name__ == opcode_name:
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
+
+    def allops(self, *args, **kwds):
+        return list(self._allops(*args, **kwds))
 
     def format_ops(self, id=None, **kwds):
         if id is None:
@@ -146,7 +150,7 @@ class LoopWithIds(Function):
     def print_ops(self, *args, **kwds):
         print self.format_ops(*args, **kwds)
 
-    def ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
+    def _ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         target_opcodes = self.ids[id]
         for chunk in self.flatten_chunks():
@@ -155,6 +159,9 @@ class LoopWithIds(Function):
                                              opcode.__class__.__name__ == opcode_name):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
+
+    def ops_by_id(self, *args, **kwds):
+        return list(self._ops_by_id(*args, **kwds))
 
     def match(self, expected_src, **kwds):
         ops = list(self.allops())
@@ -167,6 +174,7 @@ class LoopWithIds(Function):
         return matcher.match(expected_src)
 
 class InvalidMatch(Exception):
+    opindex = None
 
     def __init__(self, message, frame):
         Exception.__init__(self, message)
@@ -187,7 +195,7 @@ class InvalidMatch(Exception):
             # transform self._assert(x, 'foo') into assert x, 'foo'
             source = source.replace('self._assert(', 'assert ')
             source = source[:-1] # remove the trailing ')'
-            self.msg = py.code._reinterpret(source, f, should_fail=True)
+            self.msg = newinterpret.interpret(source, f, should_fail=True)
         else:
             self.msg = "<could not determine information>"
 
@@ -285,9 +293,10 @@ class OpMatcher(object):
     def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr)):
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
-        self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
-        for arg, exp_arg in zip(op.args, exp_args):
-            self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
+        if exp_args != ['...']:
+            self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
+            for arg, exp_arg in zip(op.args, exp_args):
+                self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
         self.match_descr(op.descr, exp_descr)
 
 
@@ -325,31 +334,39 @@ class OpMatcher(object):
         """
         iter_exp_ops = iter(expected_ops)
         iter_ops = iter(self.ops)
-        for exp_op in iter_exp_ops:
-            if exp_op == '...':
-                # loop until we find an operation which matches
-                try:
-                    exp_op = iter_exp_ops.next()
-                except StopIteration:
-                    # the ... is the last line in the expected_ops, so we just
-                    # return because it matches everything until the end
-                    return
-                op = self.match_until(exp_op, iter_ops)
-            else:
-                while True:
-                    op = self._next_op(iter_ops)
-                    if op.name not in ignore_ops:
-                        break
-            self.match_op(op, exp_op)
+        for opindex, exp_op in enumerate(iter_exp_ops):
+            try:
+                if exp_op == '...':
+                    # loop until we find an operation which matches
+                    try:
+                        exp_op = iter_exp_ops.next()
+                    except StopIteration:
+                        # the ... is the last line in the expected_ops, so we just
+                        # return because it matches everything until the end
+                        return
+                    op = self.match_until(exp_op, iter_ops)
+                else:
+                    while True:
+                        op = self._next_op(iter_ops)
+                        if op.name not in ignore_ops:
+                            break
+                self.match_op(op, exp_op)
+            except InvalidMatch, e:
+                e.opindex = opindex
+                raise
         #
         # make sure we exhausted iter_ops
         self._next_op(iter_ops, assert_raises=True)
 
     def match(self, expected_src, ignore_ops=[]):
-        def format(src):
+        def format(src, opindex=None):
             if src is None:
                 return ''
-            return py.code.Source(src).deindent().indent()
+            text = str(py.code.Source(src).deindent().indent())
+            lines = text.splitlines(True)
+            if opindex is not None and 0 <= opindex < len(lines):
+                lines[opindex] = lines[opindex].rstrip() + '\t<=====\n'
+            return ''.join(lines)
         #
         expected_src = self.preprocess_expected_src(expected_src)
         expected_ops = self.parse_ops(expected_src)
@@ -365,7 +382,7 @@ class OpMatcher(object):
             print
             print "Ignore ops:", ignore_ops
             print "Got:"
-            print format(self.src)
+            print format(self.src, e.opindex)
             print
             print "Expected:"
             print format(expected_src)

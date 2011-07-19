@@ -1,7 +1,7 @@
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
-from pypy.jit.metainterp.optimizeutil import _findall
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 
 class OptSimplify(Optimization):
     def optimize_CALL_PURE(self, op):
@@ -20,13 +20,12 @@ class OptSimplify(Optimization):
         op = ResOperation(rop.SAME_AS, [op.getarg(0)], op.result)
         self.emit_operation(op)
 
-    def propagate_forward(self, op):
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
+    def optimize_QUASIIMMUT_FIELD(self, op):
+        # xxx ideally we could also kill the following GUARD_NOT_INVALIDATED
+        #     but it's a bit hard to implement robustly if heap.py is also run
+        pass
 
-optimize_ops = _findall(OptSimplify, 'optimize_')
+
+dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
+        default=OptSimplify.emit_operation)
+OptSimplify.propagate_forward = dispatch_opt

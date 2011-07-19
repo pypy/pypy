@@ -4,14 +4,16 @@ from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    base_int, normalizedinttype)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
-from pypy.tool.tls import tlsobject
 from pypy.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 from types import NoneType
 from sys import maxint
 import weakref
 
-TLS = tlsobject()
+class State(object):
+    pass
+
+TLS = State()
 
 class WeakValueDictionary(weakref.WeakValueDictionary):
     """A subclass of weakref.WeakValueDictionary
@@ -341,13 +343,14 @@ class Struct(ContainerType):
         return _struct(self, n, initialization='example')
 
     def _immutable_field(self, field):
+        if self._hints.get('immutable'):
+            return True
         if 'immutable_fields' in self._hints:
             try:
-                s = self._hints['immutable_fields'].fields[field]
-                return s or True
+                return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return self._hints.get('immutable', False)
+        return False
 
 class RttiStruct(Struct):
     _runtime_type_info = None
@@ -828,7 +831,7 @@ def cast_primitive(TGT, value):
     raise TypeError, "unsupported cast"
 
 def _cast_whatever(TGT, value):
-    from pypy.rpython.lltypesystem import llmemory
+    from pypy.rpython.lltypesystem import llmemory, rffi
     ORIG = typeOf(value)
     if ORIG == TGT:
         return value
@@ -844,6 +847,8 @@ def _cast_whatever(TGT, value):
                 return cast_pointer(TGT, value)
         elif ORIG == llmemory.Address:
             return llmemory.cast_adr_to_ptr(value, TGT)
+        elif TGT == rffi.VOIDP and ORIG == Unsigned:
+            return rffi.cast(TGT, value)
         elif ORIG == Signed:
             return cast_int_to_ptr(TGT, value)
     elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
@@ -1029,6 +1034,8 @@ def normalizeptr(p, check=True):
         return None   # null pointer
     if type(p._obj0) is int:
         return p      # a pointer obtained by cast_int_to_ptr
+    if getattr(p._obj0, '_carry_around_for_tests', False):
+        return p      # a pointer obtained by cast_instance_to_base_ptr
     container = obj._normalizedcontainer()
     if type(container) is int:
         # this must be an opaque ptr originating from an integer
@@ -1881,8 +1888,8 @@ class _opaque(_parentable):
         if self.__class__ is not other.__class__:
             return NotImplemented
         if hasattr(self, 'container') and hasattr(other, 'container'):
-            obj1 = self.container._normalizedcontainer()
-            obj2 = other.container._normalizedcontainer()
+            obj1 = self._normalizedcontainer()
+            obj2 = other._normalizedcontainer()
             return obj1 == obj2
         else:
             return self is other
@@ -1905,6 +1912,8 @@ class _opaque(_parentable):
         if hasattr(self, 'container'):
             # an integer, cast to a ptr, cast to an opaque    
             if type(self.container) is int:
+                return self.container
+            if getattr(self.container, '_carry_around_for_tests', False):
                 return self.container
             return self.container._normalizedcontainer()
         else:

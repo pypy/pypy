@@ -127,8 +127,6 @@ SQLITE_DROP_VTABLE              = 30
 SQLITE_FUNCTION                 = 31
 
 # SQLite C API
-sqlite.sqlite3_bind_double.argtypes = [c_void_p, c_int, c_double]
-sqlite.sqlite3_bind_int64.argtypes = [c_void_p, c_int, c_int64]
 
 sqlite.sqlite3_value_int.argtypes = [c_void_p]
 sqlite.sqlite3_value_int.restype = c_int
@@ -148,7 +146,19 @@ sqlite.sqlite3_value_double.restype = c_double
 sqlite.sqlite3_value_text.argtypes = [c_void_p]
 sqlite.sqlite3_value_text.restype = c_char_p
 
+sqlite.sqlite3_value_type.argtypes = [c_void_p]
+sqlite.sqlite3_value_type.restype = c_int
+
+sqlite.sqlite3_bind_blob.argtypes = [c_void_p, c_int, c_void_p, c_int,c_void_p]
+sqlite.sqlite3_bind_blob.restype = c_int
+sqlite.sqlite3_bind_double.argtypes = [c_void_p, c_int, c_double]
+sqlite.sqlite3_bind_double.restype = c_int
 sqlite.sqlite3_bind_int.argtypes = [c_void_p, c_int, c_int]
+sqlite.sqlite3_bind_int.restype = c_int
+sqlite.sqlite3_bind_int64.argtypes = [c_void_p, c_int, c_int64]
+sqlite.sqlite3_bind_int64.restype = c_int
+sqlite.sqlite3_bind_null.argtypes = [c_void_p, c_int]
+sqlite.sqlite3_bind_null.restype = c_int
 sqlite.sqlite3_bind_parameter_count.argtypes = [c_void_p]
 sqlite.sqlite3_bind_parameter_count.restype = c_int
 sqlite.sqlite3_bind_parameter_index.argtypes = [c_void_p, c_char_p]
@@ -156,36 +166,69 @@ sqlite.sqlite3_bind_parameter_index.restype = c_int
 sqlite.sqlite3_bind_parameter_name.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_bind_parameter_name.restype = c_char_p
 sqlite.sqlite3_bind_text.argtypes = [c_void_p, c_int, c_char_p, c_int,c_void_p]
-sqlite.sqlite3_bind_blob.argtypes = [c_void_p, c_int, c_void_p, c_int,c_void_p]
-sqlite.sqlite3_bind_blob.restype = c_int
+sqlite.sqlite3_bind_text.restype = c_int
+sqlite.sqlite3_busy_timeout.argtypes = [c_void_p, c_int]
+sqlite.sqlite3_busy_timeout.restype = c_int
 sqlite.sqlite3_changes.argtypes = [c_void_p]
 sqlite.sqlite3_changes.restype = c_int
 sqlite.sqlite3_close.argtypes = [c_void_p]
 sqlite.sqlite3_close.restype = c_int
+sqlite.sqlite3_column_blob.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_blob.restype = c_void_p
+sqlite.sqlite3_column_bytes.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_bytes.restype = c_int
+sqlite.sqlite3_column_count.argtypes = [c_void_p]
+sqlite.sqlite3_column_count.restype = c_int
+sqlite.sqlite3_column_decltype.argtypes = [c_void_p, c_int]
+sqlite.sqlite3_column_decltype.restype = c_char_p
+sqlite.sqlite3_column_double.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_double.restype = c_double
+sqlite.sqlite3_column_int64.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_int64.restype = c_int64
+sqlite.sqlite3_column_name.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_name.restype = c_char_p
+sqlite.sqlite3_column_text.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_text.restype = c_char_p
+sqlite.sqlite3_column_type.argtypes = [c_void_p, c_int]
+sqlite.sqlite3_column_type.restype = c_int
 sqlite.sqlite3_complete.argtypes = [c_char_p]
 sqlite.sqlite3_complete.restype = c_int
 sqlite.sqlite3_errcode.restype = c_int
+sqlite.sqlite3_errmsg.argtypes = [c_void_p]
 sqlite.sqlite3_errmsg.restype = c_char_p
+sqlite.sqlite3_finalize.argtypes = [c_void_p]
+sqlite.sqlite3_finalize.restype = c_int
 sqlite.sqlite3_get_autocommit.argtypes = [c_void_p]
 sqlite.sqlite3_get_autocommit.restype = c_int
+sqlite.sqlite3_last_insert_rowid.argtypes = [c_void_p]
+sqlite.sqlite3_last_insert_rowid.restype = c_int64
+sqlite.sqlite3_libversion.argtypes = []
 sqlite.sqlite3_libversion.restype = c_char_p
 sqlite.sqlite3_open.argtypes = [c_char_p, c_void_p]
+sqlite.sqlite3_open.restype = c_int
+sqlite.sqlite3_prepare.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
+sqlite.sqlite3_prepare.restype = c_int
 sqlite.sqlite3_prepare_v2.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
-sqlite.sqlite3_column_decltype.argtypes = [c_void_p, c_int]
-sqlite.sqlite3_column_decltype.restype = c_char_p
+sqlite.sqlite3_prepare_v2.restype = c_int
+sqlite.sqlite3_step.argtypes = [c_void_p]
+sqlite.sqlite3_step.restype = c_int
+sqlite.sqlite3_reset.argtypes = [c_void_p]
+sqlite.sqlite3_reset.restype = c_int
+sqlite.sqlite3_total_changes.argtypes = [c_void_p]
+sqlite.sqlite3_total_changes.restype = c_int
 
 sqlite.sqlite3_result_blob.argtypes = [c_void_p, c_char_p, c_int, c_void_p]
+sqlite.sqlite3_result_blob.restype = None
 sqlite.sqlite3_result_int64.argtypes = [c_void_p, c_int64]
+sqlite.sqlite3_result_int64.restype = None
 sqlite.sqlite3_result_null.argtypes = [c_void_p]
+sqlite.sqlite3_result_null.restype = None
 sqlite.sqlite3_result_double.argtypes = [c_void_p, c_double]
+sqlite.sqlite3_result_double.restype = None
 sqlite.sqlite3_result_error.argtypes = [c_void_p, c_char_p, c_int]
+sqlite.sqlite3_result_error.restype = None
 sqlite.sqlite3_result_text.argtypes = [c_void_p, c_char_p, c_int, c_void_p]
+sqlite.sqlite3_result_text.restype = None
 
 ##########################################
 # END Wrapped SQLite C API and constants
@@ -232,7 +275,8 @@ def unicode_text_factory(x):
     return unicode(x, 'utf-8')
 
 class Connection(object):
-    def __init__(self, database, isolation_level="", detect_types=0, timeout=None, cached_statements=None, factory=None):
+    def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
+                 check_same_thread=True, factory=None, cached_statements=100):
         self.db = c_void_p()
         if sqlite.sqlite3_open(database, byref(self.db)) != SQLITE_OK:
             raise OperationalError("Could not open database")
@@ -265,7 +309,8 @@ class Connection(object):
         self._aggregates = {}
         self.aggregate_instances = {}
         self._collations = {}
-        self.thread_ident = thread_get_ident()
+        if check_same_thread:
+            self.thread_ident = thread_get_ident()
 
     def _get_exception(self, error_code = None):
         if error_code is None:
@@ -487,7 +532,7 @@ class Connection(object):
                 return callback(text1, text2)
 
             c_collation_callback = COLLATION(collation_callback)
-            self._collations[name] = collation_callback
+            self._collations[name] = c_collation_callback
 
 
         ret = sqlite.sqlite3_create_collation(self.db, name,

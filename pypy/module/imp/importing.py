@@ -11,9 +11,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
-from pypy.rlib import streamio, jit, rposix
+from pypy.rlib import streamio, jit
 from pypy.rlib.streamio import StreamErrors
-from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
 
@@ -120,7 +119,7 @@ def check_sys_modules(space, w_modulename):
 def check_sys_modules_w(space, modulename):
     return space.finditem_str(space.sys.get('modules'), modulename)
 
-@jit.purefunction
+@jit.elidable
 def _get_dot_position(str, n):
     # return the index in str of the '.' such that there are n '.'-separated
     # strings after it
@@ -133,8 +132,8 @@ def _get_dot_position(str, n):
 def _get_relative_name(space, modulename, level, w_globals):
     w = space.wrap
     ctxt_w_package = space.finditem_str(w_globals, '__package__')
-    ctxt_w_package = jit.hint(ctxt_w_package, promote=True)
-    level = jit.hint(level, promote=True)
+    ctxt_w_package = jit.promote(ctxt_w_package)
+    level = jit.promote(level)
 
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
@@ -184,7 +183,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_w_name = space.finditem_str(w_globals, '__name__')
         ctxt_w_path = space.finditem_str(w_globals, '__path__')
 
-        ctxt_w_name = jit.hint(ctxt_w_name, promote=True)
+        ctxt_w_name = jit.promote(ctxt_w_name)
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
@@ -527,7 +526,8 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                     filename = filepart + suffix
                     return FindInfo(modtype, filename, None, suffix, filemode)
             except StreamErrors:
-                pass
+                pass   # XXX! must not eat all exceptions, e.g.
+                       # Out of file descriptors.
 
     # not found
     return None
@@ -621,7 +621,13 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         try:
             if find_info:
                 w_mod = load_module(space, w_modulename, find_info)
-                w_mod = space.getitem(space.sys.get("modules"), w_modulename)
+                try:
+                    w_mod = space.getitem(space.sys.get("modules"),
+                                          w_modulename)
+                except OperationError, oe:
+                    if not oe.match(space, space.w_KeyError):
+                        raise
+                    raise OperationError(space.w_ImportError, w_modulename)
                 if w_parent is not None:
                     space.setattr(w_parent, space.wrap(partname), w_mod)
                 return w_mod
@@ -792,14 +798,13 @@ def getimportlock(space):
 
 """
 
-# XXX picking a magic number is a mess.  So far it works because we
-# have only two extra opcodes, which bump the magic number by +1 and
-# +2 respectively, and CPython leaves a gap of 10 when it increases
+# picking a magic number is a mess.  So far it works because we
+# have only one extra opcode, which bumps the magic number by +2, and CPython
+# leaves a gap of 10 when it increases
 # its own magic number.  To avoid assigning exactly the same numbers
 # as CPython we always add a +2.  We'll have to think again when we
-# get at the fourth new opcode :-(
+# get three more new opcodes
 #
-#  * CALL_LIKELY_BUILTIN    +1
 #  * CALL_METHOD            +2
 #
 # In other words:
@@ -822,8 +827,6 @@ def get_pyc_magic(space):
             return struct.unpack('<i', magic)[0]
 
     result = default_magic
-    if space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
-        result += 1
     if space.config.objspace.opcodes.CALL_METHOD:
         result += 2
     return result
@@ -946,7 +949,8 @@ def check_compiled_module(space, pycfilename, expected_mtime):
     except StreamErrors:
         if stream:
             stream.close()
-        return None
+        return None    # XXX! must not eat all exceptions, e.g.
+                       # Out of file descriptors.
 
 def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """

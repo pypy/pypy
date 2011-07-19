@@ -11,7 +11,7 @@ from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash
-from pypy.rlib.rstring import UnicodeBuilder, string_repeat
+from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.runicode import unicode_encode_unicode_escape
 from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
@@ -278,7 +278,7 @@ def mul__Unicode_ANY(space, w_uni, w_times):
     if len(input) == 1:
         result = input[0] * times
     else:
-        result = string_repeat(input, times)
+        result = input * times
     return W_UnicodeObject(result)
 
 def mul__ANY_Unicode(space, w_times, w_uni):
@@ -937,7 +937,7 @@ def format__Unicode_ANY(space, w_unicode, w_format_spec):
     return formatter.format_string(space.unicode_w(w_unicode))
 
 
-import unicodetype
+from pypy.objspace.std import unicodetype
 register_all(vars(), unicodetype)
 
 # str.strip(unicode) needs to convert self to unicode and call unicode.strip we
@@ -948,7 +948,7 @@ register_all(vars(), unicodetype)
 # methods?
 
 class str_methods:
-    import stringtype
+    from pypy.objspace.std import stringtype
     W_UnicodeObject = W_UnicodeObject
     from pypy.objspace.std.stringobject import W_StringObject
     from pypy.objspace.std.ropeobject import W_RopeObject

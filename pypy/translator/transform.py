@@ -175,41 +175,6 @@ def cutoff_alwaysraising_block(self, block):
     # make sure the bookkeeper knows about AssertionError
     self.bookkeeper.getuniqueclassdef(AssertionError)
 
-def insert_stackcheck(ann):
-    from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles
-    edges = []
-    graphs_to_patch = {}
-    for callposition, (caller, callee) in ann.translator.callgraph.items():
-        if getattr(getattr(callee, 'func', None), 'insert_stack_check_here', False):
-            graphs_to_patch[callee] = True
-            continue
-        edge = Edge(caller, callee)
-        edge.callposition = callposition
-        edges.append(edge)
-
-    for graph in graphs_to_patch:
-        v = Variable()
-        ann.setbinding(v, annmodel.SomeImpossibleValue())
-        unwind_op = SpaceOperation('simple_call', [Constant(stack_check)], v)
-        graph.startblock.operations.insert(0, unwind_op)
-
-    edgedict = make_edge_dict(edges)
-    for edge in break_cycles(edgedict, edgedict):
-        caller = edge.source
-        _, _, call_tag = edge.callposition
-        if call_tag:
-            caller_block, _ = call_tag
-        else:
-            ann.warning("cycle detected but no information on where to insert "
-                        "stack_check()")
-            continue
-        # caller block found, insert stack_check()
-        v = Variable()
-        # push annotation on v
-        ann.setbinding(v, annmodel.SomeImpossibleValue())
-        unwind_op = SpaceOperation('simple_call', [Constant(stack_check)], v)
-        caller_block.operations.insert(0, unwind_op)
-
 def insert_ll_stackcheck(translator):
     from pypy.translator.backendopt.support import find_calls_from
     from pypy.rlib.rstack import stack_check

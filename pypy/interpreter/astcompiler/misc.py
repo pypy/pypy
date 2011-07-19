@@ -27,16 +27,18 @@ def syntax_warning(space, msg, fn, lineno, offset):
     _emit_syntax_warning(space, w_msg, w_filename, w_lineno, w_offset)
 
 
-def parse_future(tree):
+def parse_future(tree, feature_flags):
     future_lineno = 0
     future_column = 0
+    flags = 0
     have_docstring = False
+    body = None
     if isinstance(tree, ast.Module):
         body = tree.body
     elif isinstance(tree, ast.Interactive):
         body = tree.body
-    else:
-        return 0, 0
+    if body is None:
+        return 0, 0, 0
     for stmt in body:
         if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Str):
             if have_docstring:
@@ -47,11 +49,16 @@ def parse_future(tree):
             if stmt.module == "__future__":
                 future_lineno = stmt.lineno
                 future_column = stmt.col_offset
+                for alias in stmt.names:
+                    assert isinstance(alias, ast.alias)
+                    # If this is an invalid flag, it will be caught later in
+                    # codegen.py.
+                    flags |= feature_flags.get(alias.name, 0)
             else:
                 break
         else:
             break
-    return future_lineno, future_column
+    return flags, future_lineno, future_column
 
 
 class ForbiddenNameAssignment(Exception):
@@ -91,7 +98,10 @@ def mangle(name, klass):
         return name
     if len(name) + 2 >= MANGLE_LEN:
         return name
-    if name.endswith('__'):
+    # Don't mangle __id__ or names with dots. The only time a name with a dot
+    # can occur is when we are compiling an import statement that has a package
+    # name.
+    if name.endswith('__') or '.' in name:
         return name
     try:
         i = 0

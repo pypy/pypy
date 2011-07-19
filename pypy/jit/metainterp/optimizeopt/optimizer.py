@@ -4,9 +4,9 @@ from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp import jitprof
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
-from pypy.jit.metainterp.optimizeutil import descrlist_dict
-from pypy.jit.metainterp.optimizeutil import InvalidLoop, args_dict
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method, sort_descrs
+from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, args_dict
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp import resume, compile
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rpython.lltypesystem import lltype
@@ -141,6 +141,9 @@ class OptValue(object):
         # meaning it has been forced.
         return self.box is None
 
+    def is_forced_virtual(self):
+        return False
+
     def getfield(self, ofs, default):
         raise NotImplementedError
 
@@ -174,6 +177,14 @@ class Optimization(object):
 
     def __init__(self):
         pass # make rpython happy
+
+    def propagate_begin_forward(self):
+        if self.next_optimization:
+            self.next_optimization.propagate_begin_forward()
+
+    def propagate_end_forward(self):
+        if self.next_optimization:
+            self.next_optimization.propagate_end_forward()
 
     def propagate_forward(self, op):
         raise NotImplementedError
@@ -220,7 +231,7 @@ class Optimization(object):
         self.optimizer.pure_operations[self.optimizer.make_args_key(op)] = op
 
     def has_pure_result(self, opnum, args, descr):
-        op = ResOperation(opnum, args, None)
+        op = ResOperation(opnum, args, None, descr)
         key = self.optimizer.make_args_key(op)
         op = self.optimizer.pure_operations.get(key, None)
         if op is None:
@@ -257,6 +268,7 @@ class Optimizer(Optimization):
         self.pendingfields = []
         self.posponedop = None
         self.exception_might_have_happened = False
+        self.quasi_immutable_deps = None
         self.newoperations = []
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
@@ -309,6 +321,7 @@ class Optimizer(Optimization):
         new.pure_operations = self.pure_operations
         new.producer = self.producer
         assert self.posponedop is None
+        new.quasi_immutable_deps = self.quasi_immutable_deps
 
         return new
 
@@ -404,12 +417,15 @@ class Optimizer(Optimization):
         # ^^^ at least at the start of bridges.  For loops, we could set
         # it to False, but we probably don't care
         self.newoperations = []
+        self.first_optimization.propagate_begin_forward()
         self.i = 0
         while self.i < len(self.loop.operations):
             op = self.loop.operations[self.i]
             self.first_optimization.propagate_forward(op)
             self.i += 1
+        self.first_optimization.propagate_end_forward()
         self.loop.operations = self.newoperations
+        self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
 
@@ -418,14 +434,7 @@ class Optimizer(Optimization):
 
     def propagate_forward(self, op):
         self.producer[op.result] = op
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.optimize_default(op)
-        #print '\n'.join([str(o) for o in self.newoperations]) + '\n---\n'
+        dispatch_opt(self, op)
 
     def test_emittable(self, op):
         return True
@@ -482,7 +491,7 @@ class Optimizer(Optimization):
 
     def make_args_key(self, op):
         n = op.numargs()
-        args = [None] * (n + 1)
+        args = [None] * (n + 2)
         for i in range(n):
             arg = op.getarg(i)
             try:
@@ -493,6 +502,7 @@ class Optimizer(Optimization):
                 arg = value.get_key_box()
             args[i] = arg
         args[n] = ConstInt(op.getopnum())
+        args[n+1] = op.getdescr()
         return args
 
     def optimize_default(self, op):
@@ -552,7 +562,8 @@ class Optimizer(Optimization):
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
 
-optimize_ops = _findall(Optimizer, 'optimize_')
+dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
+        default=Optimizer.optimize_default)
 
 
 

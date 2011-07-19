@@ -33,13 +33,17 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
-     "_collections"]
+     "_collections", "_multibytecodec", "micronumpy", "_ffi"]
 ))
 
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "_md5", "cStringIO", "array"]))
+     "struct", "_md5", "cStringIO", "array", "_ffi",
+     # the following are needed for pyrepl (and hence for the
+     # interactive prompt/pdb)
+     "termios", "_minimal_curses",
+     ]))
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
@@ -80,6 +84,7 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
+    "_ffi":    [("translation.jit_ffi", True)],
 }
 
 module_import_dependencies = {
@@ -124,9 +129,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                  cmdline='--objspace -o'),
 
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
-        BoolOption("CALL_LIKELY_BUILTIN", "emit a special bytecode for likely calls to builtin functions",
-                   default=False,
-                   requires=[("translation.stackless", False)]),
         BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
                    default=False),
         ]),
@@ -242,6 +244,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "(the empty string and potentially single-char strings)",
                    default=False),
 
+        BoolOption("withsmalltuple",
+                   "use small tuples",
+                   default=False),
+
         BoolOption("withrope", "use ropes as the string implementation",
                    default=False,
                    requires=[("objspace.std.withstrslice", False),
@@ -257,19 +263,13 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withcelldict",
                    "use dictionaries that are optimized for being used as module dicts",
                    default=False,
-                   requires=[("objspace.opcodes.CALL_LIKELY_BUILTIN", False),
-                             ("objspace.honor__builtins__", False)]),
-
-        BoolOption("withdictmeasurement",
-                   "create huge files with masses of information "
-                   "about dictionaries",
-                   default=False),
+                   requires=[("objspace.honor__builtins__", False)]),
 
         BoolOption("withmapdict",
                    "make instances really small but slow without the JIT",
                    default=False,
                    requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withtypeversion", True),
+                             ("objspace.std.withmethodcache", True),
                        ]),
 
         BoolOption("withrangelist",
@@ -346,8 +346,6 @@ def set_pypy_opt_level(config, level):
     backend = config.translation.backend
 
     # all the good optimizations for PyPy should be listed here
-    if level in ['2', '3']:
-        config.objspace.opcodes.suggest(CALL_LIKELY_BUILTIN=True)
     if level in ['2', '3', 'jit']:
         config.objspace.opcodes.suggest(CALL_METHOD=True)
         config.objspace.std.suggest(withrangelist=True)

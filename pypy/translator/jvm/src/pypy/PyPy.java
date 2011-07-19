@@ -791,6 +791,20 @@ public class PyPy implements Constants {
         return str.substring(start,start+cnt);
     }
 
+    public static boolean ll_startswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(0) == c;
+    }
+
+    public static boolean ll_endswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(str.length() - 1) == c;
+    }
+
     // ----------------------------------------------------------------------
     // StringBuffer
 
@@ -964,12 +978,15 @@ public class PyPy implements Constants {
         return a + File.separator + b;
     }
 
-    public String ll_strtod_formatd(String format, double d)
+    public String ll_strtod_formatd(double d, char code, int precision, int flags)
     {
         // XXX: this is really a quick hack to make things work.
         // it should disappear, because this function is not
         // supported by ootypesystem.
-        return Double.toString(d); // XXX: we are ignoring "format"
+        DecimalFormat format = new DecimalFormat("0.###");
+        format.setMinimumFractionDigits(precision);
+        format.setMaximumFractionDigits(precision);
+        return format.format(d);
     }
 
     // ----------------------------------------------------------------------
@@ -1196,6 +1213,10 @@ public class PyPy implements Constants {
 
     public boolean ll_math_isinf(double x) {
         return Double.isInfinite(x);
+    }
+
+    public boolean ll_math_isfinite(double x) {
+        return !Double.isNaN(x) && !Double.isInfinite(x);
     }
 
     private double check(double v) {

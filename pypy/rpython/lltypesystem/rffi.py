@@ -15,6 +15,7 @@ from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rpython.lltypesystem import llmemory
 import os, sys
 
@@ -54,7 +55,8 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, pure_function=False):
+               oo_primitive=None, elidable_function=False,
+               macro=None):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -78,9 +80,15 @@ def llexternal(name, args, result, _callable=None,
         assert callable(_callable)
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
-        _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
-    if pure_function:
-        _callable._pure_function_ = True
+        if macro is not None:
+            if macro is True:
+                macro = name
+            _callable = generate_macro_wrapper(
+                name, macro, ext_type, compilation_info)
+        else:
+            _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+    if elidable_function:
+        _callable._elidable_function_ = True
     kwds = {}
     if oo_primitive:
         kwds['oo_primitive'] = oo_primitive
@@ -131,10 +139,10 @@ def llexternal(name, args, result, _callable=None,
         source = py.code.Source("""
             def call_external_function(%(argnames)s):
                 before = aroundstate.before
-                after = aroundstate.after
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
                 res = funcptr(%(argnames)s)
+                after = aroundstate.after
                 if after: after()
                 return res
         """ % locals())
@@ -236,7 +244,7 @@ class CallbackHolder:
     def __init__(self):
         self.callbacks = {}
 
-def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
+def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
@@ -245,21 +253,18 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
     if hasattr(callable, '_errorcode_'):
         errorcode = callable._errorcode_
     else:
-        errorcode = TP.TO.RESULT._example()
+        errorcode = TP.TO.RESULT._defl()
     callable_name = getattr(callable, '__name__', '?')
-    callbackholder.callbacks[callable] = True
+    if callbackholder is not None:
+        callbackholder.callbacks[callable] = True
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
-                before = aroundstate.before
                 after = aroundstate.after
-            else:
-                before = None
-                after = None
-            if after:
-                after()
+                if after:
+                    after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
@@ -273,8 +278,10 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
                     traceback.print_exc()
                 result = errorcode
             stackcounter.stacks_counter -= 1
-            if before:
-                before()
+            if aroundstate is not None:
+                before = aroundstate.before
+                if before:
+                    before()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
@@ -313,6 +320,41 @@ def llexternal_use_eci(compilation_info):
     return llexternal('PYPY_NO_OP', [], lltype.Void,
                       compilation_info=eci, sandboxsafe=True, _nowrapper=True,
                       _callable=lambda: None)
+
+def generate_macro_wrapper(name, macro, functype, eci):
+    """Wraps a function-like macro inside a real function, and expose
+    it with llexternal."""
+
+    # Generate the function call
+    from pypy.translator.c.database import LowLevelDatabase
+    from pypy.translator.c.support import cdecl
+    wrapper_name = 'pypy_macro_wrapper_%s' % (name,)
+    argnames = ['arg%d' % (i,) for i in range(len(functype.ARGS))]
+    db = LowLevelDatabase()
+    implementationtypename = db.gettype(functype, argnames=argnames)
+    if functype.RESULT is lltype.Void:
+        pattern = '%s { %s(%s); }'
+    else:
+        pattern = '%s { return %s(%s); }'
+    source = pattern % (
+        cdecl(implementationtypename, wrapper_name),
+        macro, ', '.join(argnames))
+
+    # Now stuff this source into a "companion" eci that will be used
+    # by ll2ctypes.  We replace eci._with_ctypes, so that only one
+    # shared library is actually compiled (when ll2ctypes calls the
+    # first function)
+    ctypes_eci = eci.merge(ExternalCompilationInfo(
+            separate_module_sources=[source],
+            export_symbols=[wrapper_name],
+            ))
+    if hasattr(eci, '_with_ctypes'):
+        ctypes_eci = eci._with_ctypes.merge(ctypes_eci)
+    eci._with_ctypes = ctypes_eci
+    func = llexternal(wrapper_name, functype.ARGS, functype.RESULT,
+                      compilation_info=eci, _nowrapper=True)
+    # _nowrapper=True returns a pointer which is not hashable
+    return lambda *args: func(*args)
 
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
@@ -496,7 +538,7 @@ def COpaque(name=None, ptr_typedef=None, hints=None, compilation_info=None):
             val = rffi_platform.sizeof(name, compilation_info)
             cache[name] = val
             return val
-    
+
     hints['getsize'] = lazy_getsize
     return lltype.OpaqueType(name, hints)
 
@@ -594,24 +636,24 @@ FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 # conversions between str and char*
 # conversions between unicode and wchar_t*
 def make_string_mappings(strtype):
-    
+
     if strtype is str:
         from pypy.rpython.lltypesystem.rstr import STR as STRTYPE
         from pypy.rpython.annlowlevel import llstr as llstrtype
         from pypy.rpython.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
-        emptystr = ''
         lastchar = '\x00'
+        builder_class = StringBuilder
     else:
         from pypy.rpython.lltypesystem.rstr import UNICODE as STRTYPE
         from pypy.rpython.annlowlevel import llunicode as llstrtype
         from pypy.rpython.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
-        emptystr = u''
         lastchar = u'\x00'
-        
+        builder_class = UnicodeBuilder
+
     # str -> char*
     def str2charp(s):
         """ str -> char*
@@ -632,12 +674,12 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
-        l = []
+        b = builder_class()
         i = 0
         while cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return b.build()
 
     # str -> char*
     def get_nonmovingbuffer(data):
@@ -735,17 +777,19 @@ def make_string_mappings(strtype):
 
     # char* -> str, with an upper bound on the length in case there is no \x00
     def charp2strn(cp, maxlen):
-        l = []
+        b = builder_class(maxlen)
         i = 0
         while i < maxlen and cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return b.build()
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
-        l = [cp[i] for i in range(size)]
-        return emptystr.join(l)
+        b = builder_class(size)
+        for i in xrange(size):
+            b.append(cp[i])
+        return b.build()
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,

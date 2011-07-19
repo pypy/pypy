@@ -1,19 +1,19 @@
 import py
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace
+from pypy.interpreter.typedef import TypeDef
+from pypy.rlib import jit
 import weakref
 
 
 class WeakrefLifeline(W_Root):
     def __init__(self, space):
-        self.space = space       # this is here for W_Root.clear_all_weakrefs()
+        self.space = space
         self.refs_weak = []
         self.cached_weakref_index = -1
         self.cached_proxy_index = -1
-        
+
     def __del__(self):
         """This runs when the interp-level object goes away, and allows
         its lifeline to go away.  The purpose of this is to activate the
@@ -22,8 +22,10 @@ class WeakrefLifeline(W_Root):
         """
         for i in range(len(self.refs_weak) - 1, -1, -1):
             w_ref = self.refs_weak[i]()
-            if w_ref is not None:
-                self.space.user_del_action.register_weakref_callback(w_ref)
+            if w_ref is not None and w_ref.w_callable is not None:
+                w_ref.enqueue_for_destruction(self.space,
+                                              W_WeakrefBase.activate_callback,
+                                              'weakref callback of ')
 
     def clear_all_weakrefs(self):
         """Clear all weakrefs.  This is called when an app-level object has
@@ -37,6 +39,7 @@ class WeakrefLifeline(W_Root):
         # weakref callbacks are not invoked eagerly here.  They are
         # invoked by self.__del__() anyway.
 
+    @jit.dont_look_inside
     def get_or_make_weakref(self, space, w_subtype, w_obj, w_callable):
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
         is_weakreftype = space.is_w(w_weakreftype, w_subtype)
@@ -55,6 +58,7 @@ class WeakrefLifeline(W_Root):
             self.cached_weakref_index = index
         return w_ref
 
+    @jit.dont_look_inside
     def get_or_make_proxy(self, space, w_obj, w_callable):
         can_reuse = space.is_w(w_callable, space.w_None)
         if can_reuse and self.cached_proxy_index >= 0:
@@ -81,7 +85,7 @@ class WeakrefLifeline(W_Root):
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
         for i in range(len(self.refs_weak)):
             w_ref = self.refs_weak[i]()
-            if (w_ref is not None and 
+            if (w_ref is not None and
                 space.is_true(space.isinstance(w_ref, w_weakreftype))):
                 return w_ref
         return space.w_None
@@ -106,6 +110,7 @@ class W_WeakrefBase(Wrappable):
         w_self.w_obj_weak = weakref.ref(w_obj)
         w_self.w_callable = w_callable
 
+    @jit.dont_look_inside
     def dereference(self):
         w_obj = self.w_obj_weak()
         return w_obj
@@ -114,18 +119,15 @@ class W_WeakrefBase(Wrappable):
         self.w_obj_weak = dead_ref
 
     def activate_callback(w_self):
-        if not w_self.w_callable is None:
-            try:
-                w_self.space.call_function(w_self.w_callable, w_self)
-            except OperationError, e:
-                e.write_unraisable(w_self.space, 'weakref callback ', w_self.w_callable)
+        assert isinstance(w_self, W_WeakrefBase)
+        w_self.space.call_function(w_self.w_callable, w_self)
 
     def descr__repr__(self, space):
         w_obj = self.dereference()
         if w_obj is None:
             state = '; dead'
         else:
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             objname = w_obj.getname(space, '')
             if objname:
                 state = "; to '%s' (%s)" % (typename, objname)
@@ -244,7 +246,7 @@ is about to be finalized."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
         lifeline = WeakrefLifeline(space)
-        w_obj.setweakref(space, lifeline) 
+        w_obj.setweakref(space, lifeline)
     return lifeline.get_or_make_proxy(space, w_obj, w_callable)
 
 def descr__new__proxy(space, w_subtype, w_obj, w_callable=None):

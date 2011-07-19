@@ -48,6 +48,7 @@ class BaseConnectionTest(object):
         assert rhandle.poll() == False
         assert rhandle.poll(1) == False
         whandle.send(1)
+        import time; time.sleep(0.1)  # give it time to arrive :-)
         assert rhandle.poll() == True
         assert rhandle.poll(None) == True
         assert rhandle.recv() == 1

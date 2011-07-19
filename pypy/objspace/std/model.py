@@ -15,6 +15,7 @@ def registerimplementation(implcls):
     _registered_implementations.add(implcls)
 
 option_to_typename = {
+    "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
@@ -54,7 +55,6 @@ class StdTypeModel:
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef
-            from pypy.objspace.std.dictproxytype import dictproxy_typedef
             from pypy.objspace.std.nonetype import none_typedef
             from pypy.objspace.std.itertype import iter_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
@@ -72,6 +72,7 @@ class StdTypeModel:
         from pypy.objspace.std import smallintobject
         from pypy.objspace.std import smalllongobject
         from pypy.objspace.std import tupleobject
+        from pypy.objspace.std import smalltupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import stringobject
@@ -123,7 +124,6 @@ class StdTypeModel:
             iterobject.W_FastTupleIterObject: [],
             iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
-            dictproxyobject.W_DictProxyObject: [],
             dictmultiobject.W_DictViewKeysObject: [],
             dictmultiobject.W_DictViewItemsObject: [],
             dictmultiobject.W_DictViewValuesObject: [],
@@ -255,6 +255,9 @@ class StdTypeModel:
                 (listobject.W_ListObject,
                                        rangeobject.delegate_range2list),
                 ]
+        if config.objspace.std.withsmalltuple:
+            self.typeorder[smalltupleobject.W_SmallTupleObject] += [
+                (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []

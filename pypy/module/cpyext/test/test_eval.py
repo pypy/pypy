@@ -166,6 +166,15 @@ class TestEval(BaseApiTest):
 
         lltype.free(pi, flavor='raw')
 
+    def test_atexit(self, space, api):
+        lst = []
+        def func():
+            lst.append(42)
+        api.Py_AtExit(func)
+        cpyext = space.getbuiltinmodule('cpyext')
+        cpyext.shutdown(space) # simulate shutdown
+        assert lst == [42]
+
 class AppTestCall(AppTestCpythonExtensionBase):
     def test_CallFunction(self):
         module = self.import_extension('foo', [
@@ -184,3 +193,32 @@ class AppTestCall(AppTestCpythonExtensionBase):
             return args
         assert module.call_func(f) == ("text", 42, None)
         assert module.call_method("text") == 2
+
+    def test_CallFunctionObjArgs(self):
+        module = self.import_extension('foo', [
+            ("call_func", "METH_VARARGS",
+             """
+                PyObject *t = PyString_FromString("t");
+                PyObject *res = PyObject_CallFunctionObjArgs(
+                   PyTuple_GetItem(args, 0),
+                   Py_None, NULL);
+                Py_DECREF(t);
+                return res;
+             """),
+            ("call_method", "METH_VARARGS",
+             """
+                PyObject *t = PyString_FromString("t");
+                PyObject *count = PyString_FromString("count");
+                PyObject *res = PyObject_CallMethodObjArgs(
+                   PyTuple_GetItem(args, 0),
+                   count, t, NULL);
+                Py_DECREF(t);
+                Py_DECREF(count);
+                return res;
+             """),
+            ])
+        def f(*args):
+            return args
+        assert module.call_func(f) == (None,)
+        assert module.call_method("text") == 2
+        

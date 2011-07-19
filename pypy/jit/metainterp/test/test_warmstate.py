@@ -18,6 +18,7 @@ def constfloat(x):
 
 def test_unwrap():
     S = lltype.GcStruct('S')
+    RS = lltype.Struct('S')
     p = lltype.malloc(S)
     po = lltype.cast_opaque_ptr(llmemory.GCREF, p)
     assert unwrap(lltype.Void, BoxInt(42)) is None
@@ -25,6 +26,7 @@ def test_unwrap():
     assert unwrap(lltype.Char, BoxInt(42)) == chr(42)
     assert unwrap(lltype.Float, boxfloat(42.5)) == 42.5
     assert unwrap(lltype.Ptr(S), BoxPtr(po)) == p
+    assert unwrap(lltype.Ptr(RS), BoxInt(0)) == lltype.nullptr(RS)
 
 def test_wrap():
     def _is(box1, box2):
@@ -179,6 +181,7 @@ def test_make_jitdriver_callbacks_1():
         cpu = None
         memory_manager = None
     class FakeJitDriverSD:
+        jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None
@@ -205,6 +208,7 @@ def test_make_jitdriver_callbacks_3():
         cpu = None
         memory_manager = None
     class FakeJitDriverSD:
+        jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
         _confirm_enter_jit_ptr = None
@@ -228,6 +232,7 @@ def test_make_jitdriver_callbacks_4():
         cpu = None
         memory_manager = None
     class FakeJitDriverSD:
+        jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
@@ -251,6 +256,7 @@ def test_make_jitdriver_callbacks_5():
         cpu = None
         memory_manager = None
     class FakeJitDriverSD:
+        jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None

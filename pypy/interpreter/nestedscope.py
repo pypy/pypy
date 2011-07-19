@@ -127,6 +127,7 @@ class __extend__(pyframe.PyFrame):
         if self.cells is not None:
             self.cells[:ncellvars] = cellvars
 
+    @jit.dont_look_inside
     def fast2locals(self):
         super_fast2locals(self)
         # cellvars are values exported to inner scopes
@@ -145,6 +146,7 @@ class __extend__(pyframe.PyFrame):
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
 
+    @jit.dont_look_inside
     def locals2fast(self):
         super_locals2fast(self)
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
@@ -168,7 +170,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(len(args_to_copy)):
             argnum = args_to_copy[i]
             if argnum >= 0:
-                self.cells[i].set(self.fastlocals_w[argnum])
+                self.cells[i].set(self.locals_stack_w[argnum])
 
     def getfreevarname(self, index):
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars

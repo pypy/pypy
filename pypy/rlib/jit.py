@@ -6,20 +6,25 @@ from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.nonconst import NonConstant
 
-def purefunction(func):
-    """ Decorate a function as pure. Pure means precisely that:
+def elidable(func):
+    """ Decorate a function as "trace-elidable". This means precisely that:
 
     (1) the result of the call should not change if the arguments are
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
     according to rule 1
 
-    Most importantly it doesn't mean that pure function has no observable
-    side effect, but those side effects can be ommited (ie caching).
+    Most importantly it doesn't mean that an elidable function has no observable
+    side effect, but those side effects are idempotent (ie caching).
     For now, such a function should never raise an exception.
     """
-    func._pure_function_ = True
+    func._elidable_function_ = True
     return func
+
+def purefunction(*args, **kwargs):
+    import warnings
+    warnings.warn("purefunction is deprecated, use elidable instead", DeprecationWarning)
+    return elidable(*args, **kwargs)
 
 def hint(x, **kwds):
     """ Hint for the JIT
@@ -35,6 +40,10 @@ def hint(x, **kwds):
                             access_directly=True
     """
     return x
+
+@specialize.argtype(0)
+def promote(x):
+    return hint(x, promote=True)
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
@@ -60,13 +69,13 @@ def loop_invariant(func):
     func._jit_loop_invariant_ = True
     return func
 
-def purefunction_promote(promote_args='all'):
+def elidable_promote(promote_args='all'):
     """ A decorator that promotes all arguments and then calls the supplied
     function
     """
     def decorator(func):
         import inspect
-        purefunction(func)
+        elidable(func)
         args, varargs, varkw, defaults = inspect.getargspec(func)
         args = ["v%s" % (i, ) for i in range(len(args))]
         assert varargs is None and varkw is None
@@ -84,6 +93,12 @@ def purefunction_promote(promote_args='all'):
         result.func_name = func.func_name + "_promote"
         return result
     return decorator
+
+def purefunction_promote(*args, **kwargs):
+    import warnings
+    warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
+    return elidable_promote(*args, **kwargs)
+
 
 def oopspec(spec):
     def decorator(func):
@@ -113,7 +128,7 @@ class Entry(ExtRegistryEntry):
                         flags['fresh_virtualizable'] = True
                     s_x = annmodel.SomeInstance(s_x.classdef,
                                                 s_x.can_be_None,
-                                                flags)        
+                                                flags)
         return s_x
 
     def specialize_call(self, hop, **kwds_i):
@@ -179,29 +194,10 @@ class AssertGreenFailed(Exception):
     pass
 
 
-##def force_virtualizable(virtualizable):
-##    pass
-
-##class Entry(ExtRegistryEntry):
-##    _about_ = force_virtualizable
-
-##    def compute_result_annotation(self):
-##        from pypy.annotation import model as annmodel
-##        return annmodel.s_None
-
-##    def specialize_call(self, hop):
-##        [vinst] = hop.inputargs(hop.args_r[0])
-##        cname = inputconst(lltype.Void, None)
-##        cflags = inputconst(lltype.Void, {})
-##        hop.exception_cannot_occur()
-##        return hop.genop('jit_force_virtualizable', [vinst, cname, cflags],
-##                         resulttype=lltype.Void)
-
 # ____________________________________________________________
 # VRefs
 
 def virtual_ref(x):
-    
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
     is that the object 'x' is supposed to be JITted as a virtual between
@@ -212,10 +208,10 @@ def virtual_ref(x):
     return DirectJitVRef(x)
 virtual_ref.oopspec = 'virtual_ref(x)'
 
-def virtual_ref_finish(x):
-    """See docstring in virtual_ref(x).  Note that virtual_ref_finish
-    takes as argument the real object, not the vref."""
+def virtual_ref_finish(vref, x):
+    """See docstring in virtual_ref(x)"""
     keepalive_until_here(x)   # otherwise the whole function call is removed
+    _virtual_ref_finish(vref, x)
 virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
 
 def non_virtual_ref(x):
@@ -223,18 +219,38 @@ def non_virtual_ref(x):
     Used for None or for frames outside JIT scope."""
     return DirectVRef(x)
 
+class InvalidVirtualRef(Exception):
+    """
+    Raised if we try to call a non-forced virtualref after the call to
+    virtual_ref_finish
+    """
+
 # ---------- implementation-specific ----------
 
 class DirectVRef(object):
     def __init__(self, x):
         self._x = x
+        self._state = 'non-forced'
+
     def __call__(self):
+        if self._state == 'non-forced':
+            self._state = 'forced'
+        elif self._state == 'invalid':
+            raise InvalidVirtualRef
         return self._x
+
+    def _finish(self):
+        if self._state == 'non-forced':
+            self._state = 'invalid'
 
 class DirectJitVRef(DirectVRef):
     def __init__(self, x):
         assert x is not None, "virtual_ref(None) is not allowed"
         DirectVRef.__init__(self, x)
+
+def _virtual_ref_finish(vref, x):
+    assert vref._x is x, "Invalid call to virtual_ref_finish"
+    vref._finish()
 
 class Entry(ExtRegistryEntry):
     _about_ = (non_virtual_ref, DirectJitVRef)
@@ -255,27 +271,38 @@ class Entry(ExtRegistryEntry):
         s_obj = self.bookkeeper.immutablevalue(self.instance())
         return _jit_vref.SomeVRef(s_obj)
 
+class Entry(ExtRegistryEntry):
+    _about_ = _virtual_ref_finish
+
+    def compute_result_annotation(self, s_vref, s_obj):
+        pass
+
+    def specialize_call(self, hop):
+        pass
+    
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
-# User interface for the hotpath JIT policy
+# User interface for the warmspot JIT policy
 
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-PARAMETERS = {'threshold': 1000,
+PARAMETERS = {'threshold': 1032, # just above 1024
+              'function_threshold': 1617, # slightly more than one above 
               'trace_eagerness': 200,
-              'trace_limit': 10000,
-              'inlining': 0,
+              'trace_limit': 12000,
+              'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
-              'enable_opts': None, # patched later by optimizeopt/__init__.py
+              'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
+DEFAULT = object()
 
 # ____________________________________________________________
 
-class JitDriver(object):    
+class JitDriver(object):
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
     will allow us (later) to support a single RPython program with
@@ -326,22 +353,33 @@ class JitDriver(object):
     def _set_param(self, name, value):
         # special-cased by ExtRegistryEntry
         # (internal, must receive a constant 'name')
+        # if value is DEFAULT, sets the default value.
         assert name in PARAMETERS
 
     @specialize.arg(0, 1)
     def set_param(self, name, value):
         """Set one of the tunable JIT parameter."""
-        for name1, _ in unroll_parameters:
-            if name1 == name:
-                self._set_param(name1, value)
-                return
-        raise ValueError("no such parameter")
+        self._set_param(name, value)
+
+    @specialize.arg(0, 1)
+    def set_param_to_default(self, name):
+        """Reset one of the tunable JIT parameters to its default value."""
+        self._set_param(name, DEFAULT)
 
     def set_user_param(self, text):
         """Set the tunable JIT parameters from a user-supplied string
-        following the format 'param=value,param=value'.  For programmatic
-        setting of parameters, use directly JitDriver.set_param().
+        following the format 'param=value,param=value', or 'off' to
+        disable the JIT.  For programmatic setting of parameters, use
+        directly JitDriver.set_param().
         """
+        if text == 'off':
+            self.set_param('threshold', -1)
+            self.set_param('function_threshold', -1)
+            return
+        if text == 'default':
+            for name1, _ in unroll_parameters:
+                self.set_param_to_default(name1)
+            return
         for s in text.split(','):
             s = s.strip(' ')
             parts = s.split('=')
@@ -359,6 +397,24 @@ class JitDriver(object):
                         except ValueError:
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
+
+    
+    def on_compile(self, logger, looptoken, operations, type, *greenargs):
+        """ A hook called when loop is compiled. Overwrite
+        for your own jitdriver if you want to do something special, like
+        call applevel code
+        """
+
+    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
+        """ A hook called when a bridge is compiled. Overwrite
+        for your own jitdriver if you want to do something special
+        """
+
+    # note: if you overwrite this functions with the above signature it'll
+    #       work, but the *greenargs is different for each jitdriver, so we
+    #       can't share the same methods
+    del on_compile
+    del on_compile_bridge
 
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions
@@ -426,6 +482,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                                    key[2:])
             cache[key] = s_value
 
+        # add the attribute _dont_reach_me_in_del_ (see pypy.rpython.rclass)
+        try:
+            graph = self.bookkeeper.position_key[0]
+            graph.func._dont_reach_me_in_del_ = True
+        except (TypeError, AttributeError):
+            pass
+
         return annmodel.s_None
 
     def annotate_hooks(self, **kwds_s):
@@ -477,8 +540,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 r_green = hop.args_r[i]
                 v_green = hop.inputarg(r_green, arg=i)
             else:
-                #if hop.rtyper.type_system.name == 'ootypesystem':
-                    #py.test.skip("lltype only")
                 objname, fieldname = name.split('.')   # see test_green_field
                 assert objname in driver.reds
                 i = kwds_i['i_' + objname]
@@ -548,16 +609,18 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if s_name.const == 'enable_opts':
-            assert annmodel.SomeString(can_be_None=True).contains(s_value)
-        else:
-            assert annmodel.SomeInteger().contains(s_value)
+        if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
+            if s_name.const == 'enable_opts':
+                assert annmodel.SomeString(can_be_None=True).contains(s_value)
+            else:
+                assert annmodel.SomeInteger().contains(s_value)
         return annmodel.s_None
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         from pypy.rpython.lltypesystem.rstr import string_repr
-        
+        from pypy.objspace.flow.model import Constant
+
         hop.exception_cannot_occur()
         driver = self.instance.im_self
         name = hop.args_s[0].const
@@ -565,7 +628,12 @@ class ExtSetParam(ExtRegistryEntry):
             repr = string_repr
         else:
             repr = lltype.Signed
-        v_value = hop.inputarg(repr, arg=1)
+        if (isinstance(hop.args_v[1], Constant) and
+            hop.args_v[1].value is DEFAULT):
+            value = PARAMETERS[name]
+            v_value = hop.inputconst(repr, value)
+        else:
+            v_value = hop.inputarg(repr, arg=1)
         vlist = [hop.inputconst(lltype.Void, "set_param"),
                  hop.inputconst(lltype.Void, driver),
                  hop.inputconst(lltype.Void, name),

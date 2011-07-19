@@ -105,6 +105,10 @@ class PyPyTarget(object):
         return parser
 
     def handle_config(self, config, translateconfig):
+        if (not translateconfig.help and
+            translateconfig._cfgimpl_value_owners['opt'] == 'default'):
+            raise Exception("You have to specify the --opt level.\n"
+                    "Try --opt=2 or --opt=jit, or equivalently -O2 or -Ojit .")
         self.translateconfig = translateconfig
         # set up the objspace optimizations based on the --opt argument
         from pypy.config.pypyoption import set_pypy_opt_level

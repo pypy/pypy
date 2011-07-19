@@ -8,22 +8,30 @@ from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.jit.codewriter import longlong
+from pypy.jit.codewriter import codewriter, longlong
+from pypy.rlib.rfloat import isnan
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, **kwds):
-    from pypy.jit.codewriter import support, codewriter
+    from pypy.jit.codewriter import support
 
-    class FakeJitCell:
+    class FakeJitCell(object):
         __compiled_merge_points = []
         def get_compiled_merge_points(self):
             return self.__compiled_merge_points[:]
         def set_compiled_merge_points(self, lst):
             self.__compiled_merge_points = lst
 
-    class FakeWarmRunnerState:
+    class FakeWarmRunnerState(object):
         def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
             pass
+
+        def helper_func(self, FUNCPTR, func):
+            from pypy.rpython.annlowlevel import llhelper
+            return llhelper(FUNCPTR, func)
+
+        def get_location_str(self, args):
+            return 'location'
 
         def jit_cell_at_key(self, greenkey):
             assert greenkey == []
@@ -36,6 +44,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     func._jit_unroll_safe_ = True
     rtyper = support.annotate(func, values, type_system=type_system)
     graphs = rtyper.annotator.translator.graphs
+    testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]
 
     class FakeJitDriverSD:
@@ -45,12 +54,16 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         greenfield_info = None
         result_type = result_kind
         portal_runner_ptr = "???"
+        on_compile = lambda *args: None
+        on_compile_bridge = lambda *args: None
 
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, None, False)
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
+    cw.debug = True
     testself.cw = cw
     policy = JitPolicy()
+    policy.set_supports_floats(True)
     policy.set_supports_longlong(supports_longlong)
     cw.find_all_graphs(policy)
     #
@@ -171,7 +184,12 @@ class JitMixin:
         kwds['type_system'] = self.type_system
         if "backendopt" not in kwds:
             kwds["backendopt"] = False
-        return ll_meta_interp(*args, **kwds)
+        old = codewriter.CodeWriter.debug
+        try:
+            codewriter.CodeWriter.debug = True
+            return ll_meta_interp(*args, **kwds)
+        finally:
+            codewriter.CodeWriter.debug = old
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
@@ -180,10 +198,10 @@ class JitMixin:
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
         result2 = _run_with_pyjitpl(self, args)
-        assert result1 == result2
+        assert result1 == result2 or isnan(result1) and isnan(result2)
         # try to run it by running the code compiled just before
         result3 = _run_with_machine_code(self, args)
-        assert result1 == result3 or result3 == NotImplemented
+        assert result1 == result3 or result3 == NotImplemented or isnan(result1) and isnan(result3)
         #
         if (longlong.supports_longlong and
             isinstance(result1, longlong.r_float_storage)):

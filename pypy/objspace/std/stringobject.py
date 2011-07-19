@@ -11,7 +11,7 @@ from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rstring import StringBuilder, string_repeat
+from pypy.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import StringBuffer
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
@@ -52,11 +52,15 @@ def _is_generic(space, w_self, fun):
         c = v[0]
         return space.newbool(fun(c))
     else:
-        for idx in range(len(v)):
-            if not fun(v[idx]):
-                return space.w_False
-        return space.w_True
+        return _is_generic_loop(space, v, fun)
 _is_generic._annspecialcase_ = "specialize:arg(2)"
+
+def _is_generic_loop(space, v, fun):
+    for idx in range(len(v)):
+        if not fun(v[idx]):
+            return space.w_False
+    return space.w_True
+_is_generic_loop._annspecialcase_ = "specialize:arg(2)"
 
 def _upper(ch):
     if ch.islower():
@@ -248,15 +252,30 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
 
     res_w = []
     start = 0
-    while maxsplit != 0:
-        next = value.find(by, start)
-        if next < 0:
-            break
-        res_w.append(sliced(space, value, start, next, w_self))
-        start = next + bylen
-        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+    if bylen == 1 and maxsplit < 0:
+        # fast path: uses str.rfind(character) and str.count(character)
+        by = by[0]    # annotator hack: string -> char
+        count = value.count(by)
+        res_w = [None] * (count + 1)
+        end = len(value)
+        while count >= 0:
+            assert end >= 0
+            prev = value.rfind(by, 0, end)
+            start = prev + 1
+            assert start >= 0
+            res_w[count] = sliced(space, value, start, end, w_self)
+            count -= 1
+            end = prev
+    else:
+        while maxsplit != 0:
+            next = value.find(by, start)
+            if next < 0:
+                break
+            res_w.append(sliced(space, value, start, next, w_self))
+            start = next + bylen
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+        res_w.append(sliced(space, value, start, len(value), w_self))
 
-    res_w.append(sliced(space, value, start, len(value), w_self))
     return space.newlist(res_w)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
@@ -856,7 +875,7 @@ def mul_string_times(space, w_str, w_times):
     if len(input) == 1:
         s = input[0] * mul
     else:
-        s = string_repeat(input, mul)
+        s = input * mul
     # xxx support again space.config.objspace.std.withstrjoin?
     return W_StringObject(s)
 
@@ -963,19 +982,20 @@ def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
                 space.wrap("translation table must be 256 characters long"))
 
     string = w_string._value
-    chars = []
     deletechars = space.str_w(w_deletechars)
     if len(deletechars) == 0:
+        buf = StringBuilder(len(string))
         for char in string:
-            chars.append(table[ord(char)])
+            buf.append(table[ord(char)])
     else:
+        buf = StringBuilder()
         deletion_table = [False] * 256
         for c in deletechars:
             deletion_table[ord(c)] = True
         for char in string:
             if not deletion_table[ord(char)]:
-                chars.append(table[ord(char)])
-    return W_StringObject(''.join(chars))
+                buf.append(table[ord(char)])
+    return W_StringObject(buf.build())
 
 def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \

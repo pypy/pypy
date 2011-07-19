@@ -559,6 +559,7 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil.copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
             self.c_entryp = newexename
+        self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
 
     def task_compile_c(self):

@@ -5,7 +5,7 @@ from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
+from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.history import make_hashable_int
 from pypy.jit.codewriter.effectinfo import EffectInfo
@@ -267,6 +267,8 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(jump_args)
 
             loop.preamble.operations = self.optimizer.newoperations
+            loop.preamble.quasi_immutable_deps = (
+                self.optimizer.quasi_immutable_deps)
             self.optimizer = self.optimizer.reconstruct_for_next_iteration()
             inputargs = self.inline(self.cloned_operations,
                                     loop.inputargs, jump_args)
@@ -276,6 +278,7 @@ class UnrollOptimizer(Optimization):
             loop.preamble.operations.append(jmp)
 
             loop.operations = self.optimizer.newoperations
+            loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
 
             start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
             assert isinstance(start_resumedescr, ResumeGuardDescr)
@@ -543,7 +546,7 @@ class ExeState(object):
             effectinfo = descr.get_extra_info()
             if effectinfo is not None:
                 if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-                   effectinfo.extraeffect == EffectInfo.EF_PURE:
+                   effectinfo.extraeffect == EffectInfo.EF_ELIDABLE:
                     return True
         return False
     
@@ -673,24 +676,28 @@ class OptInlineShortPreamble(Optimization):
                             jumpop = self.optimizer.newoperations.pop()
                             assert jumpop.getopnum() == rop.JUMP
                             for guard in extra_guards:
-                                descr = sh.start_resumedescr.clone_if_mutable()
-                                self.inliner.inline_descr_inplace(descr)
-                                guard.setdescr(descr)
+                                d = sh.start_resumedescr.clone_if_mutable()
+                                self.inliner.inline_descr_inplace(d)
+                                guard.setdescr(d)
                                 self.emit_operation(guard)
                             self.optimizer.newoperations.append(jumpop)
                         return
-                retraced_count = len(short)
-                if descr.failed_states:
-                    retraced_count += len(descr.failed_states)
+                retraced_count = descr.retraced_count
+                descr.retraced_count += 1
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
                 if not self.retraced and retraced_count<limit:
                     if not descr.failed_states:
+                        debug_print("Retracing (%d of %d)" % (retraced_count,
+                                                              limit))
                         raise RetraceLoop
                     for failed in descr.failed_states:
                         if failed.generalization_of(virtual_state):
                             # Retracing once more will most likely fail again
                             break
                     else:
+                        debug_print("Retracing (%d of %d)" % (retraced_count,
+                                                              limit))
+                                                              
                         raise RetraceLoop
                 else:
                     if not descr.failed_states:

@@ -322,7 +322,8 @@ class FrameworkGCTransformer(GCTransformer):
         if hasattr(GCClass, 'writebarrier_before_copy'):
             self.wb_before_copy_ptr = \
                     getfn(GCClass.writebarrier_before_copy.im_func,
-                    [s_gc] + [annmodel.SomeAddress()] * 2, annmodel.SomeBool())
+                    [s_gc] + [annmodel.SomeAddress()] * 2 +
+                    [annmodel.SomeInteger()] * 3, annmodel.SomeBool())
         elif GCClass.needs_write_barrier:
             raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_copy functionality")
 
@@ -463,7 +464,7 @@ class FrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
                                            inline=True)
-                func = getattr(gcdata.gc, 'remember_young_pointer_from_array',
+                func = getattr(gcdata.gc, 'remember_young_pointer_from_array3',
                                None)
                 if func is not None:
                     # func should not be a bound method, but a real function
@@ -471,7 +472,8 @@ class FrameworkGCTransformer(GCTransformer):
                     self.write_barrier_from_array_failing_case_ptr = \
                                              getfn(func,
                                                    [annmodel.SomeAddress(),
-                                                    annmodel.SomeInteger()],
+                                                    annmodel.SomeInteger(),
+                                                    annmodel.SomeAddress()],
                                                    annmodel.s_None)
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
                                     [s_gc, annmodel.SomeInteger()],
@@ -714,8 +716,7 @@ class FrameworkGCTransformer(GCTransformer):
                     malloc_ptr = self.malloc_varsize_clear_ptr
                 args = [self.c_const_gc, c_type_id, v_length, c_size,
                         c_varitemsize, c_ofstolength, c_can_collect]
-        keep_current_args = flags.get('keep_current_args', False)
-        livevars = self.push_roots(hop, keep_current_args=keep_current_args)
+        livevars = self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
         self.pop_roots(hop, livevars)
@@ -861,9 +862,9 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_get_write_barrier_from_array_failing_case(self, hop):
         op = hop.spaceop
-        hop.genop("same_as",
-                  [self.write_barrier_from_array_failing_case_ptr],
-                  resultvar=op.result)
+        v = getattr(self, 'write_barrier_from_array_failing_case_ptr',
+                    lltype.nullptr(op.result.concretetype.TO))
+        hop.genop("same_as", [v], resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):
         if not self.malloc_zero_filled:
@@ -884,7 +885,7 @@ class FrameworkGCTransformer(GCTransformer):
         dest_addr = hop.genop('cast_ptr_to_adr', [op.args[1]],
                                 resulttype=llmemory.Address)
         hop.genop('direct_call', [self.wb_before_copy_ptr, self.c_const_gc,
-                                  source_addr, dest_addr],
+                                  source_addr, dest_addr] + op.args[2:],
                   resultvar=op.result)
 
     def gct_weakref_create(self, hop):

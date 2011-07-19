@@ -1,3 +1,4 @@
+import gc
 from pypy.interpreter import typedef
 from pypy.tool.udir import udir
 from pypy.interpreter.baseobjspace import Wrappable
@@ -16,7 +17,7 @@ class AppTestTraceBackAttributes:
 
         def g():
             f()
-        
+
         try:
             g()
         except:
@@ -180,6 +181,85 @@ class TestTypeDef:
             assert err.value.message == "'some_type' objects are unhashable"
             """)
 
+    def test_destructor(self):
+        space = self.space
+        class W_Level1(Wrappable):
+            def __init__(self, space1):
+                assert space1 is space
+            def __del__(self):
+                space.call_method(w_seen, 'append', space.wrap(1))
+        class W_Level2(Wrappable):
+            def __init__(self, space1):
+                assert space1 is space
+            def __del__(self):
+                self.enqueue_for_destruction(space, W_Level2.destructormeth,
+                                             'FOO ')
+            def destructormeth(self):
+                space.call_method(w_seen, 'append', space.wrap(2))
+        W_Level1.typedef = typedef.TypeDef(
+            'level1',
+            __new__ = typedef.generic_new_descr(W_Level1))
+        W_Level2.typedef = typedef.TypeDef(
+            'level2',
+            __new__ = typedef.generic_new_descr(W_Level2))
+        #
+        w_seen = space.newlist([])
+        W_Level1(space)
+        gc.collect(); gc.collect()
+        assert space.unwrap(w_seen) == [1]
+        #
+        w_seen = space.newlist([])
+        W_Level2(space)
+        gc.collect(); gc.collect()
+        assert space.str_w(space.repr(w_seen)) == "[]"  # not called yet
+        ec = space.getexecutioncontext()
+        self.space.user_del_action.perform(ec, None)
+        assert space.unwrap(w_seen) == [2]
+        #
+        w_seen = space.newlist([])
+        self.space.appexec([self.space.gettypeobject(W_Level1.typedef)],
+        """(level1):
+            class A3(level1):
+                pass
+            A3()
+        """)
+        gc.collect(); gc.collect()
+        assert space.unwrap(w_seen) == [1]
+        #
+        w_seen = space.newlist([])
+        self.space.appexec([self.space.gettypeobject(W_Level1.typedef),
+                            w_seen],
+        """(level1, seen):
+            class A4(level1):
+                def __del__(self):
+                    seen.append(4)
+            A4()
+        """)
+        gc.collect(); gc.collect()
+        assert space.unwrap(w_seen) == [4, 1]
+        #
+        w_seen = space.newlist([])
+        self.space.appexec([self.space.gettypeobject(W_Level2.typedef)],
+        """(level2):
+            class A5(level2):
+                pass
+            A5()
+        """)
+        gc.collect(); gc.collect()
+        assert space.unwrap(w_seen) == [2]
+        #
+        w_seen = space.newlist([])
+        self.space.appexec([self.space.gettypeobject(W_Level2.typedef),
+                            w_seen],
+        """(level2, seen):
+            class A6(level2):
+                def __del__(self):
+                    seen.append(6)
+            A6()
+        """)
+        gc.collect(); gc.collect()
+        assert space.unwrap(w_seen) == [6, 2]
+
 
 class AppTestTypeDef:
 
@@ -203,3 +283,27 @@ class AppTestTypeDef:
         lst = seen[:]
         assert lst == [5, 10, 2]
         raises(OSError, os.lseek, fd, 7, 0)
+
+    def test_method_attrs(self):
+        import sys
+        class A(object):
+            def m(self):
+                "aaa"
+            m.x = 3
+        class B(A):
+            pass
+
+        bm = B().m
+        assert bm.__func__ is bm.im_func
+        assert bm.__self__ is bm.im_self
+        assert bm.im_class is B
+        assert bm.__doc__ == "aaa"
+        assert bm.x == 3
+        raises(AttributeError, setattr, bm, 'x', 15)
+        l = []
+        assert l.append.__self__ is l
+        assert l.__add__.__self__ is l
+        # note: 'l.__add__.__objclass__' is not defined in pypy
+        # because it's a regular method, and .__objclass__
+        # differs from .im_class in case the method is
+        # defined in some parent class of l's actual class

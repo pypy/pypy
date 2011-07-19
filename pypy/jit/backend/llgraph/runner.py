@@ -134,7 +134,7 @@ class BaseCPU(model.AbstractCPU):
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True):
+    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
@@ -209,7 +209,7 @@ class BaseCPU(model.AbstractCPU):
                         llimpl.compile_add_fail_arg(c, var2index[box])
                     else:
                         llimpl.compile_add_fail_arg(c, -1)
-                        
+
             x = op.result
             if x is not None:
                 if isinstance(x, history.BoxInt):
@@ -285,6 +285,10 @@ class BaseCPU(model.AbstractCPU):
         if we_are_translated():
             raise ValueError("CALL_ASSEMBLER not supported")
         llimpl.redirect_call_assembler(self, oldlooptoken, newlooptoken)
+
+    def invalidate_loop(self, looptoken):
+        for loop in looptoken.compiled_loop_token.loop_and_bridges:
+            loop._obj.externalobj.invalid = True
 
     # ----------
 

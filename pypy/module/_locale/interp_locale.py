@@ -1,4 +1,3 @@
-from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
 from pypy.rlib.rarithmetic import intmask
 
@@ -221,6 +220,10 @@ if rlocale.HAVE_LIBINTL:
             msg_c = rffi.str2charp(msg)
             try:
                 result = _dgettext(domain, msg_c)
+                # note that 'result' may be the same pointer as 'msg_c',
+                # so it must be converted to an RPython string *before*
+                # we free msg_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(msg_c)
         else:
@@ -229,11 +232,15 @@ if rlocale.HAVE_LIBINTL:
             msg_c = rffi.str2charp(msg)
             try:
                 result = _dgettext(domain_c, msg_c)
+                # note that 'result' may be the same pointer as 'msg_c',
+                # so it must be converted to an RPython string *before*
+                # we free msg_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(domain_c)
                 rffi.free_charp(msg_c)
 
-        return space.wrap(rffi.charp2str(result))
+        return space.wrap(result)
 
     _dcgettext = rlocale.external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT],
                                                                 rffi.CCHARP)
@@ -248,6 +255,10 @@ if rlocale.HAVE_LIBINTL:
             msg_c = rffi.str2charp(msg)
             try:
                 result = _dcgettext(domain, msg_c, rffi.cast(rffi.INT, category))
+                # note that 'result' may be the same pointer as 'msg_c',
+                # so it must be converted to an RPython string *before*
+                # we free msg_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(msg_c)
         else:
@@ -257,11 +268,15 @@ if rlocale.HAVE_LIBINTL:
             try:
                 result = _dcgettext(domain_c, msg_c,
                                     rffi.cast(rffi.INT, category))
+                # note that 'result' may be the same pointer as 'msg_c',
+                # so it must be converted to an RPython string *before*
+                # we free msg_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(domain_c)
                 rffi.free_charp(msg_c)
 
-        return space.wrap(rffi.charp2str(result))
+        return space.wrap(result)
 
 
     _textdomain = rlocale.external('textdomain', [rffi.CCHARP], rffi.CCHARP)
@@ -273,15 +288,20 @@ if rlocale.HAVE_LIBINTL:
         if space.is_w(w_domain, space.w_None):
             domain = None
             result = _textdomain(domain)
+            result = rffi.charp2str(result)
         else:
             domain = space.str_w(w_domain)
             domain_c = rffi.str2charp(domain)
             try:
                 result = _textdomain(domain_c)
+                # note that 'result' may be the same pointer as 'domain_c'
+                # (maybe?) so it must be converted to an RPython string
+                # *before* we free domain_c.
+                result = rffi.charp2str(result)
             finally:
                 rffi.free_charp(domain_c)
 
-        return space.wrap(rffi.charp2str(result))
+        return space.wrap(result)
 
     _bindtextdomain = rlocale.external('bindtextdomain', [rffi.CCHARP, rffi.CCHARP],
                                                                 rffi.CCHARP)

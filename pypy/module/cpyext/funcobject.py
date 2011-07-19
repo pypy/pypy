@@ -69,6 +69,10 @@ def PyMethod_Class(space, w_method):
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_class)
 
+@cpython_api([PyObject], PyObject)
+def PyClassMethod_New(space, w_function):
+    return space.call_method(space.builtin, "classmethod", w_function)
+
 def unwrap_list_of_strings(space, w_list):
     return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
 

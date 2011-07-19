@@ -140,6 +140,40 @@ class Entry(ExtRegistryEntry):
             return hop.inputconst(lltype.Bool, False)
 
 
+def debug_offset():
+    """ Return an offset in log file
+    """
+    return -1
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_offset
+
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
+        return hop.genop('debug_offset', [], resulttype=lltype.Signed)
+
+
+def debug_flush():
+    """ Flushes the debug file
+    """
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_flush
+
+    def compute_result_annotation(self):
+        return None
+    
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('debug_flush', [])
+
+
 def llinterpcall(RESTYPE, pythonfunction, *args):
     """When running on the llinterp, this causes the llinterp to call to
     the provided Python function with the run-time value of the given args.
@@ -227,6 +261,28 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], arg=0)
 
+
+def mark_dict_non_null(d):
+    """ Mark dictionary as having non-null keys and values. A warning would
+    be emitted (not an error!) in case annotation disagrees.
+    """
+    assert isinstance(d, dict)
+    return d
+
+
+class DictMarkEntry(ExtRegistryEntry):
+    _about_ = mark_dict_non_null
+    
+    def compute_result_annotation(self, s_dict):
+        from pypy.annotation.model import SomeDict, s_None
+
+        assert isinstance(s_dict, SomeDict)
+        s_dict.dictdef.force_non_null = True
+        return s_dict
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
 
 class IntegerCanBeNegative(Exception):
     pass

@@ -58,7 +58,7 @@ class ToyLanguageTests:
             exit:
                 RETURN
         ''')
-        
+
         codes = [code, code2]
         def main(n, inputarg):
             code = codes[n]
@@ -116,7 +116,7 @@ class ToyLanguageTests:
         codes = [code, '']
         def main(num, arg):
             return interp(codes[num], inputarg=arg)
-        
+
         res = self.meta_interp(main, [0, 20], enable_opts='',
                                listops=listops, backendopt=True, policy=policy)
         assert res == 0
@@ -128,7 +128,6 @@ class ToyLanguageTests:
         from pypy.jit.tl.tl import Stack
         methods = [Stack.put,
                    Stack.pick,
-                   Stack.roll,
                    Stack.append,
                    Stack.pop]
         for meth in methods:

@@ -117,7 +117,7 @@ class AppTestCProfile(object):
             assert 0.9 < subentry.totaltime < 2.9
             #assert 0.9 < subentry.inlinetime < 2.9
 
-    def test_cprofile(self):
+    def test_use_cprofile(self):
         import sys, os
         # XXX this is evil trickery to walk around the fact that we don't
         #     have __file__ at app-level here
@@ -181,13 +181,12 @@ class AppTestCProfile(object):
 
 
 class AppTestWithDifferentBytecodes(AppTestCProfile):
-    keywords = {'objspace.opcodes.CALL_LIKELY_BUILTIN': True,
-                'objspace.opcodes.CALL_METHOD': True}
+    keywords = {'objspace.opcodes.CALL_METHOD': True}
 
 
 expected_output = {}
 expected_output['print_stats'] = """\
-         126 function calls (106 primitive calls) in 1.000 CPU seconds
+         126 function calls (106 primitive calls) in 1.000 seconds
 
    Ordered by: standard name
 

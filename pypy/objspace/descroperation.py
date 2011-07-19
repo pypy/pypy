@@ -207,34 +207,51 @@ class DescrOperation(object):
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        w_descr = space.lookup(w_obj, '__nonzero__')
+        method = "__nonzero__"
+        w_descr = space.lookup(w_obj, method)
         if w_descr is None:
-            w_descr = space.lookup(w_obj, '__len__')
+            method = "__len__"
+            w_descr = space.lookup(w_obj, method)
             if w_descr is None:
                 return True
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
-        if w_res is space.w_False:
+        if space.is_w(w_res, space.w_False):
             return False
-        if w_res is space.w_True:
+        if space.is_w(w_res, space.w_True):
             return True
         w_restype = space.type(w_res)
-        if (space.is_w(w_restype, space.w_bool) or
-            space.is_w(w_restype, space.w_int)):
+        # Note there is no check for bool here because the only possible
+        # instances of bool are w_False and w_True, which are checked above.
+        if (space.is_w(w_restype, space.w_int) or
+            space.is_w(w_restype, space.w_long)):
             return space.int_w(w_res) != 0
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap('__nonzero__ should return '
-                                            'bool or int'))
+            msg = "%s should return bool or integer" % (method,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
 
-    def nonzero(self, w_obj):
-        if self.is_true(w_obj):
-            return self.w_True
+    def nonzero(space, w_obj):
+        if space.is_true(w_obj):
+            return space.w_True
         else:
-            return self.w_False
+            return space.w_False
 
-##    def len(self, w_obj):
-##        XXX needs to check that the result is an int (or long?) >= 0
+    def len(space, w_obj):
+        w_descr = space.lookup(w_obj, '__len__')
+        if w_descr is None:
+            name = space.type(w_obj).getname(space)
+            msg = "'%s' has no length" % (name,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        w_res = space.get_and_call_function(w_descr, w_obj)
+        space._check_len_result(w_res)
+        return w_res
+
+    def _check_len_result(space, w_obj):
+        # Will complain if result is too big.
+        result = space.int_w(w_obj)
+        if result < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("__len__() should return >= 0"))
 
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
@@ -376,6 +393,9 @@ class DescrOperation(object):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
             return space.get_and_call_function(w_descr, w_container, w_item)
+        return space._contains(w_container, w_item)
+
+    def _contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
         while 1:
             try:
@@ -396,7 +416,7 @@ class DescrOperation(object):
             # obscure circumstances.
             return default_identity_hash(space, w_obj)
         if space.is_w(w_hash, space.w_None):
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' objects are unhashable", typename)
         w_result = space.get_and_call_function(w_hash, w_obj)

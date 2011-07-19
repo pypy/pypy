@@ -191,9 +191,15 @@ class ResOpWithDescr(AbstractResOp):
         # of the operation.  It must inherit from AbstractDescr.  The
         # backend provides it with cpu.fielddescrof(), cpu.arraydescrof(),
         # cpu.calldescrof(), and cpu.typedescrof().
+        self._check_descr(descr)
+        self._descr = descr
+
+    def _check_descr(self, descr):
+        if not we_are_translated() and getattr(descr, 'I_am_a_descr', False):
+            return # needed for the mock case in oparser_model
         from pypy.jit.metainterp.history import check_descr
         check_descr(descr)
-        self._descr = descr
+
 
 class GuardResOp(ResOpWithDescr):
 
@@ -274,9 +280,6 @@ class BinaryOp(object):
     def initarglist(self, args):
         assert len(args) == 2
         self._arg0, self._arg1 = args
-
-    def getarglist(self):
-        return [self._arg0, self._arg1, self._arg2]
 
     def numargs(self):
         return 2
@@ -380,6 +383,7 @@ _oplist = [
     'GUARD_NO_OVERFLOW/0d',
     'GUARD_OVERFLOW/0d',
     'GUARD_NOT_FORCED/0d',
+    'GUARD_NOT_INVALIDATED/0d',
     '_GUARD_LAST', # ----- end of guard operations -----
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
@@ -470,12 +474,14 @@ _oplist = [
     'STRSETITEM/3',
     'UNICODESETITEM/3',
     #'RUNTIMENEW/1',     # ootype operation
-    'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
-    'DEBUG_MERGE_POINT/2',      # debugging only
+    'COND_CALL_GC_WB/2d', # [objptr, newvalue] (for the write barrier)
+    'COND_CALL_GC_WB_ARRAY/3d', # [objptr, arrayindex, newvalue] (write barr.)
+    'DEBUG_MERGE_POINT/*',      # debugging only
     'JIT_DEBUG/*',              # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
+    'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
@@ -483,6 +489,7 @@ _oplist = [
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',
+    'CALL_RELEASE_GIL/*d',  # release the GIL and "close the stack" for asmgcc
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
@@ -624,3 +631,25 @@ opboolreflex = {
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
     }
+
+
+def get_deep_immutable_oplist(operations):
+    """
+    When not we_are_translated(), turns ``operations`` into a frozenlist and
+    monkey-patch its items to make sure they are not mutated.
+
+    When we_are_translated(), do nothing and just return the old list.
+    """
+    from pypy.tool.frozenlist import frozenlist
+    if we_are_translated():
+        return operations
+    #
+    def setarg(*args):
+        assert False, "operations cannot change at this point"
+    def setdescr(*args):
+        assert False, "operations cannot change at this point"
+    newops = frozenlist(operations)
+    for op in newops:
+        op.setarg = setarg
+        op.setdescr = setdescr
+    return newops

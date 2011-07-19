@@ -30,6 +30,7 @@ else:
     BACKEND = 'c'
 
 config = get_pypy_config(translating=True)
+config.translation.backendopt.inline_threshold = 0.1
 config.translation.gc = 'boehm'
 config.objspace.nofaking = True
 config.translating = True
@@ -42,6 +43,7 @@ config.objspace.usemodules._sre = False
 config.objspace.usemodules._lsprof = True
 #
 config.objspace.usemodules._ffi = True
+config.objspace.usemodules.micronumpy = True
 #
 set_pypy_opt_level(config, level='jit')
 
@@ -115,6 +117,8 @@ def test_run_translation():
     # print a message, and restart
     unixcheckpoint.restartable_point(auto='run')
 
+    from pypy.jit.codewriter.codewriter import CodeWriter
+    CodeWriter.debug = True
     from pypy.jit.tl.pypyjit_child import run_child, run_child_ootype
     if BACKEND == 'c':
         run_child(globals(), locals())

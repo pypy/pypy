@@ -2,15 +2,16 @@ import py
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, lloperation, rclass, llmemory
 from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.codewriter import heaptracker
-from pypy.rlib.jit import JitDriver, hint, dont_look_inside
+from pypy.rlib.jit import JitDriver, hint, dont_look_inside, promote
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
+from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 
 def promote_virtualizable(*args):
     pass
@@ -45,7 +46,7 @@ class ExplicitVirtualizableTests:
         ('inst_node', lltype.Ptr(LLtypeMixin.NODE)),
         hints = {'virtualizable2_accessor': FieldListAccessor()})
     XY._hints['virtualizable2_accessor'].initialize(
-        XY, {'inst_x' : "", 'inst_node' : ""})
+        XY, {'inst_x' : IR_IMMUTABLE, 'inst_node' : IR_IMMUTABLE})
 
     xy_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     heaptracker.set_testing_vtable_for_gcstruct(XY, xy_vtable, 'XY')
@@ -210,7 +211,8 @@ class ExplicitVirtualizableTests:
         ('inst_l2', lltype.Ptr(lltype.GcArray(lltype.Signed))),
         hints = {'virtualizable2_accessor': FieldListAccessor()})
     XY2._hints['virtualizable2_accessor'].initialize(
-        XY2, {'inst_x' : "", 'inst_l1' : "[*]", 'inst_l2' : "[*]"})
+        XY2, {'inst_x' : IR_IMMUTABLE,
+              'inst_l1' : IR_IMMUTABLE_ARRAY, 'inst_l2' : IR_IMMUTABLE_ARRAY})
 
     xy2_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     heaptracker.set_testing_vtable_for_gcstruct(XY2, xy2_vtable, 'XY2')
@@ -478,7 +480,7 @@ class ImplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(frame=frame, n=n, x=x)
                 myjitdriver.jit_merge_point(frame=frame, n=n, x=x)
-                frame.s = hint(frame.s, promote=True)
+                frame.s = promote(frame.s)
                 n -= 1
                 s = frame.s
                 assert s >= 0
@@ -1131,6 +1133,7 @@ class ImplicitVirtualizableTests:
          res = self.meta_interp(f, [10])
          assert res == 55
          self.check_loops(new_with_vtable=0, ptr_eq=1, everywhere=True)
+         self.check_history(ptr_eq=2)
 
     def test_virtual_child_frame_with_arrays(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],

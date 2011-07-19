@@ -6,6 +6,8 @@
 #include <stdio.h>
 #ifndef _WIN32
 #include <unistd.h>
+#include <time.h>
+#include <sys/time.h>
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -65,6 +67,15 @@ static void pypy_debug_open(void)
   debug_ready = 1;
 }
 
+long pypy_debug_offset(void)
+{
+  if (!debug_ready)
+    return -1;
+  // note that we deliberately ignore errno, since -1 is fine
+  // in case this is not a real file
+  return ftell(pypy_debug_file);
+}
+
 void pypy_debug_ensure_opened(void)
 {
   if (!debug_ready)
@@ -74,7 +85,7 @@ void pypy_debug_ensure_opened(void)
 
 #ifndef _WIN32
 
-     static long long pypy_read_timestamp(void)
+     long long pypy_read_timestamp(void)
      {
 #  ifdef CLOCK_THREAD_CPUTIME_ID
        struct timespec tspec;

@@ -1,3 +1,4 @@
+import _ffi
 import _rawffi
 import weakref
 import sys
@@ -8,7 +9,7 @@ from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
      CArgObject
 from _ctypes.builtin import ConvMode
 from _ctypes.array import Array
-from _ctypes.pointer import _Pointer
+from _ctypes.pointer import _Pointer, as_ffi_pointer
 
 class NULL(object):
     pass
@@ -140,6 +141,8 @@ class SimpleType(_CDataMeta):
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
+            result._ffiargtype = _ffi.types.Pointer(_ffi.types.char)
+
         elif tp == 'Z':
             # c_wchar_p
             def _getvalue(self):
@@ -162,6 +165,7 @@ class SimpleType(_CDataMeta):
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
+            result._ffiargtype = _ffi.types.Pointer(_ffi.types.unichar)
 
         elif tp == 'P':
             # c_void_p
@@ -212,10 +216,15 @@ class SimpleType(_CDataMeta):
             result.value = property(_getvalue, _setvalue)
 
         elif tp == 'X':
-            from ctypes import windll
-            SysAllocStringLen = windll.oleaut32.SysAllocStringLen
-            SysStringLen = windll.oleaut32.SysStringLen
-            SysFreeString = windll.oleaut32.SysFreeString
+            from ctypes import WinDLL
+            # Use WinDLL("oleaut32") instead of windll.oleaut32
+            # because the latter is a shared (cached) object; and
+            # other code may set their own restypes. We need out own
+            # restype here.
+            oleaut32 = WinDLL("oleaut32")
+            SysAllocStringLen = oleaut32.SysAllocStringLen
+            SysStringLen = oleaut32.SysStringLen
+            SysFreeString = oleaut32.SysFreeString
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
@@ -248,6 +257,12 @@ class SimpleType(_CDataMeta):
                     self._buffer[0] = 0  # VARIANT_FALSE
             result.value = property(_getvalue, _setvalue)
 
+        # make pointer-types compatible with the _ffi fast path
+        if result._is_pointer_like():
+            def _as_ffi_pointer_(self, ffitype):
+                return as_ffi_pointer(self, ffitype)
+            result._as_ffi_pointer_ = _as_ffi_pointer_
+            
         return result
 
     from_address = cdata_from_address

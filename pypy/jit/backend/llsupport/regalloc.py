@@ -37,6 +37,11 @@ class FrameManager(object):
         self.frame_depth += size
         return newloc
 
+    def reserve_location_in_frame(self, size):
+        frame_depth = self.frame_depth
+        self.frame_depth += size
+        return frame_depth
+
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
     def frame_pos(loc, type):
@@ -212,6 +217,15 @@ class RegisterManager(object):
             self.free_regs.append(prev_loc)
         self.reg_bindings[v] = loc
         return loc
+
+    def force_spill_var(self, var):
+        self._sync_var(var)
+        try:
+            loc = self.reg_bindings[var]
+            del self.reg_bindings[var]
+            self.free_regs.append(loc)
+        except KeyError:
+            pass   # 'var' is already not in a register
 
     def loc(self, box):
         """ Return the location of 'box'.

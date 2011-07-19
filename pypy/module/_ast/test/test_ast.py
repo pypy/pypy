@@ -128,6 +128,9 @@ class AppTestAST:
         assert ns["x"] == ns["lemon"] == 3
         assert ns["apple"] == 4
 
+    def test_empty_module(self):
+        compile(self.ast.Module([]), "<test>", "exec")
+
     def test_ast_types(self):
         ast = self.ast
         expr = ast.Expr()
@@ -183,6 +186,11 @@ from __future__ import generators""")
         mod = self.get_ast("from __future__ import with_statement; import y; " \
                                "from __future__ import nested_scopes")
         raises(SyntaxError, compile, mod, "<test>", "exec")
+        mod = self.get_ast("from __future__ import division\nx = 1/2")
+        co = compile(mod, "<test>", "exec")
+        ns = {}
+        exec co in ns
+        assert ns["x"] == .5
 
     def test_field_attr_writable(self):
         import _ast as ast

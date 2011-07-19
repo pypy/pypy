@@ -318,7 +318,9 @@ class LocationCodeBuilder(object):
             # must be careful not to combine it with location types that
             # might need to use the scratch register themselves.
             if loc2 is X86_64_SCRATCH_REG:
-                assert code1 != 'j'
+                if code1 == 'j':
+                    assert (name.startswith("MOV") and
+                            rx86.fits_in_32bits(loc1.value_j()))
             if loc1 is X86_64_SCRATCH_REG and not name.startswith("MOV"):
                 assert code2 not in ('j', 'i')
 
@@ -508,13 +510,17 @@ class LocationCodeBuilder(object):
     LEA = _binaryop('LEA')
 
     MOVSD = _binaryop('MOVSD')
+    MOVAPD = _binaryop('MOVAPD')
     ADDSD = _binaryop('ADDSD')
+    ADDPD = _binaryop('ADDPD')
     SUBSD = _binaryop('SUBSD')
     MULSD = _binaryop('MULSD')
     DIVSD = _binaryop('DIVSD')
     UCOMISD = _binaryop('UCOMISD')
     CVTSI2SD = _binaryop('CVTSI2SD')
     CVTTSD2SI = _binaryop('CVTTSD2SI')
+    
+    SQRTSD = _binaryop('SQRTSD')
 
     ANDPD = _binaryop('ANDPD')
     XORPD = _binaryop('XORPD')

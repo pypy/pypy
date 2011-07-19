@@ -101,9 +101,9 @@ class PythonAstCompiler(PyCodeCompiler):
     """
     def __init__(self, space, override_version=None):
         PyCodeCompiler.__init__(self, space)
-        self.parser = pyparse.PythonParser(space)
-        self.additional_rules = {}
         self.future_flags = future.futureFlags_2_7
+        self.parser = pyparse.PythonParser(space, self.future_flags)
+        self.additional_rules = {}
         self.compiler_flags = self.future_flags.allowed_flags
 
     def compile_ast(self, node, filename, mode, flags):
@@ -119,7 +119,10 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(self.space.w_TypeError, self.space.wrap(
                 "invalid node type"))
 
-        future_pos = misc.parse_future(node)
+        fut = misc.parse_future(node, self.future_flags.compiler_features)
+        f_flags, f_lineno, f_col = fut
+        future_pos = f_lineno, f_col
+        flags |= f_flags
         info = pyparse.CompileInfo(filename, mode, flags, future_pos)
         return self._compile_ast(node, info)
 
@@ -140,9 +143,6 @@ class PythonAstCompiler(PyCodeCompiler):
     def _compile_to_ast(self, source, info):
         space = self.space
         try:
-            f_flags, future_info = future.get_futures(self.future_flags, source)
-            info.last_future_import = future_info
-            info.flags |= f_flags
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info)
         except parseerror.IndentationError, e:

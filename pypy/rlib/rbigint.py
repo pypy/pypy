@@ -1,7 +1,7 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
-from pypy.rlib.rfloat import isinf, isnan
+from pypy.rlib.rfloat import isfinite
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
@@ -124,7 +124,7 @@ class rbigint(object):
         return len(self._digits)
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def fromint(intval):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
@@ -156,7 +156,7 @@ class rbigint(object):
         return v
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def frombool(b):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
@@ -173,9 +173,15 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         # This function is not marked as pure because it can raise
-        sign = 1
-        if isinf(dval) or isnan(dval):
+        if isfinite(dval):
+            return rbigint._fromfloat_finite(dval)
+        else:
             raise OverflowError
+
+    @staticmethod
+    @jit.elidable
+    def _fromfloat_finite(dval):
+        sign = 1
         if dval < 0.0:
             sign = -1
             dval = -dval
@@ -195,7 +201,7 @@ class rbigint(object):
         return v
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     @specialize.argtype(0)
     def fromrarith_int(i):
         # This function is marked as pure, so you must not call it and
@@ -203,7 +209,7 @@ class rbigint(object):
         return rbigint(*args_from_rarith_int(i))
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def fromdecimalstr(s):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
@@ -1339,6 +1345,7 @@ def _AsScaledDouble(v):
 # XXX make sure that we don't ignore this!
 # YYY no, we decided to do ignore this!
 
+@jit.dont_look_inside
 def _AsDouble(n):
     """ Get a C double from a bigint object. """
     # This is a "correctly-rounded" version from Python 2.7.

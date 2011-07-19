@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, hint, purefunction
+from pypy.rlib.jit import JitDriver, promote, elidable
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
@@ -204,7 +204,6 @@ class SendTests(object):
         # InvalidLoop condition, and was then unrolled, giving two copies
         # of the body in a single bigger loop with no failing guard except
         # the final one.
-        py.test.skip('dissabled "try to trace some more when compile fails"')
         self.check_loop_count(1)
         self.check_loops(guard_class=0,
                                 int_add=2, int_sub=2)
@@ -231,6 +230,7 @@ class SendTests(object):
                 return self.y
         w1 = W1(10)
         w2 = W2(20)
+
         def f(x, y):
             if x & 1:
                 w = w1
@@ -246,7 +246,6 @@ class SendTests(object):
         assert res == f(3, 28)
         res = self.meta_interp(f, [4, 28])
         assert res == f(4, 28)
-        py.test.skip('dissabled "try to trace some more when compile fails"')
         self.check_loop_count(1)
         self.check_loops(guard_class=0,
                                 int_add=2, int_sub=2)
@@ -605,7 +604,7 @@ class SendTests(object):
     def test_constfold_pure_oosend(self):
         myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])
         class A:
-            @purefunction
+            @elidable
             def foo(self):
                 return 42
         def fn(n, i):
@@ -614,7 +613,7 @@ class SendTests(object):
             while i > 0:
                 myjitdriver.can_enter_jit(i=i, obj=obj)
                 myjitdriver.jit_merge_point(i=i, obj=obj)
-                obj = hint(obj, promote=True)
+                promote(obj)
                 res = obj.foo()
                 i-=1
             return res

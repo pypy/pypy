@@ -100,6 +100,9 @@ class JitCode(AbstractDescr):
     def __repr__(self):
         return '<JitCode %r>' % self.name
 
+    def _clone_if_mutable(self):
+        raise NotImplementedError
+    
 class MissingLiveness(Exception):
     pass
 
@@ -110,6 +113,9 @@ class SwitchDictDescr(AbstractDescr):
     def __repr__(self):
         dict = getattr(self, 'dict', '?')
         return '<SwitchDictDescr %s>' % (dict,)
+
+    def _clone_if_mutable(self):
+        raise NotImplementedError
 
 
 class LiveVarsInfo(object):

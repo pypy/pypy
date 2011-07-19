@@ -1,3 +1,4 @@
+from pypy.config.pypyoption import get_pypy_config
 from pypy.jit.metainterp.history import LoopToken, ConstInt, History, Stats
 from pypy.jit.metainterp.history import BoxInt, INT
 from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
@@ -5,7 +6,7 @@ from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
 from pypy.jit.metainterp import jitprof, typesystem, compile
-from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
+from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
@@ -30,12 +31,15 @@ class FakeCPU(object):
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
-    def compile_loop(self, inputargs, operations, token):
+    def compile_loop(self, inputargs, operations, token, name=''):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
-    def log_loop(self, inputargs, operations, number=0, type=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
         pass
+
+    def repr_of_resop(self, op):
+        return repr(op)
 
 class FakeState(object):
     enable_opts = ALL_OPTS_DICT.copy()
@@ -44,6 +48,9 @@ class FakeState(object):
     def attach_unoptimized_bridge_from_interp(*args):
         pass
 
+    def get_location_str(self, args):
+        return 'location'
+
 class FakeGlobalData(object):
     loopnumbering = 0
 
@@ -51,11 +58,11 @@ class FakeMetaInterpStaticData(object):
     
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
+    config = get_pypy_config(translating=True)
 
     stats = Stats()
     profiler = jitprof.EmptyProfiler()
     warmrunnerdesc = None
-    jit_ffi = False
     def log(self, msg, event_kind=None):
         pass
 
@@ -63,6 +70,8 @@ class FakeMetaInterp:
     call_pure_results = {}
     class jitdriver_sd:
         warmstate = FakeState()
+        on_compile = staticmethod(lambda *args: None)
+        on_compile_bridge = staticmethod(lambda *args: None)
 
 def test_compile_new_loop():
     cpu = FakeCPU()

@@ -268,13 +268,14 @@ class Instance(OOType):
         return self._superclass._get_fields_with_default() + self._fields_with_default
 
     def _immutable_field(self, field):
+        if self._hints.get('immutable'):
+            return True
         if 'immutable_fields' in self._hints:
             try:
-                s = self._hints['immutable_fields'].fields[field]
-                return s or True
+                return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return self._hints.get('immutable', False)
+        return False
 
 
 class SpecializableType(OOType):
@@ -432,7 +433,9 @@ class AbstractString(BuiltinADTType):
             "ll_streq": Meth([self.SELFTYPE_T], Bool),
             "ll_strcmp": Meth([self.SELFTYPE_T], Signed),
             "ll_startswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_startswith_char": Meth([self.CHAR], Bool),
             "ll_endswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_endswith_char": Meth([self.CHAR], Bool),
             "ll_find": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_rfind": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_count": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
@@ -1428,9 +1431,17 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return self._str.startswith(s._str)
 
+    def ll_startswith_char(self, s):
+        # NOT_RPYTHON
+        return self._str.startswith(s)
+
     def ll_endswith(self, s):
         # NOT_RPYTHON
         return self._str.endswith(s._str)
+
+    def ll_endswith_char(self, s):
+        # NOT_RPYTHON
+        return self._str.endswith(s)
 
     def ll_find(self, s, start, end):
         # NOT_RPYTHON

@@ -1,7 +1,6 @@
 from pypy.module._stackless.interp_coroutine import AbstractThunk, Coroutine
 from pypy.rlib.rgc import gc_swap_pool, gc_clone
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.interpreter.error import OperationError
 
 
 class InterpClonableMixin:
@@ -76,7 +75,7 @@ def fork():
     if not isinstance(current, InterpClonableCoroutine):
         raise RuntimeError("fork() in a non-clonable coroutine")
     thunk = ForkThunk(current)
-    coro_fork = InterpClonableCoroutine() 
+    coro_fork = InterpClonableCoroutine()
     coro_fork.bind(thunk)
     coro_fork.switch()
     # we resume here twice.  The following would need explanations about

@@ -1,9 +1,7 @@
 
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
-from pypy.rpython.tool import rffi_platform as platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-import py, os
-from pypy.rpython.extregistry import ExtRegistryEntry
+import py
 from pypy.rlib import jit
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
@@ -20,7 +18,9 @@ eci = ExternalCompilationInfo(
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadReleaseLock',
                       'RPyThreadYield',
-                      'RPyThreadGetStackSize', 'RPyThreadSetStackSize']
+                      'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
+                      'RPyOpaqueDealloc_ThreadLock',
+                      'RPyThreadAfterFork']
 )
 
 def llexternal(name, args, result, **kwds):
@@ -49,7 +49,11 @@ c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.LONG,
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
 
-c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT)
+c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT,
+                                threadsafe=False)   # may add in a global list
+c_thread_lock_dealloc = llexternal('RPyOpaqueDealloc_ThreadLock', [TLOCKP],
+                                  lltype.Void,
+                                  threadsafe=True)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   threadsafe=True)    # release the GIL
@@ -112,11 +116,13 @@ class Lock(object):
             c_thread_releaselock(self._lock)
 
     def __del__(self):
+        if free_ll_lock is None:  # happens when tests are shutting down
+            return
         free_ll_lock(self._lock)
 
     def __enter__(self):
         self.acquire(True)
-        
+
     def __exit__(self, *args):
         self.release()
 
@@ -127,6 +133,12 @@ class Lock(object):
 get_stacksize = llexternal('RPyThreadGetStackSize', [], lltype.Signed)
 set_stacksize = llexternal('RPyThreadSetStackSize', [lltype.Signed],
                            lltype.Signed)
+
+# ____________________________________________________________
+#
+# Hack
+
+thread_after_fork = llexternal('RPyThreadAfterFork', [], lltype.Void)
 
 # ____________________________________________________________
 #
@@ -146,6 +158,9 @@ def allocate_ll_lock():
     return ll_lock
 
 def free_ll_lock(ll_lock):
+    c_thread_acquirelock(ll_lock, 0)
+    c_thread_releaselock(ll_lock)
+    c_thread_lock_dealloc(ll_lock)
     lltype.free(ll_lock, flavor='raw', track_allocation=False)
 
 def acquire_NOAUTO(ll_lock, flag):

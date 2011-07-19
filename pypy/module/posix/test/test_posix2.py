@@ -1,6 +1,7 @@
 
 # -*- coding: utf-8 -*-
 
+from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
@@ -507,7 +508,8 @@ class AppTestPosix:
     if hasattr(os, 'setuid'):
         def test_os_setuid_error(self):
             os = self.posix
-            raises((OSError, ValueError, OverflowError), os.setuid, -100000)
+            raises(OverflowError, os.setuid, -2**31-1)
+            raises(OverflowError, os.setuid, 2**32)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -528,13 +530,14 @@ class AppTestPosix:
     if hasattr(os, 'setgid'):
         def test_os_setgid_error(self):
             os = self.posix
-            raises((OSError, ValueError, OverflowError), os.setgid, -100000)
+            raises(OverflowError, os.setgid, -2**31-1)
+            raises(OverflowError, os.setgid, 2**32)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):
             os = self.posix
             assert os.getsid(0) == self.getsid0
-            raises((OSError, ValueError, OverflowError), os.getsid, -100000)
+            raises(OSError, os.getsid, -100000)
 
     if hasattr(os, 'sysconf'):
         def test_os_sysconf(self):
@@ -843,6 +846,21 @@ class AppTestPosix:
                     assert os.path.dirname(s2) == dir
                 assert os.path.basename(s1).startswith(prefix or 'tmp')
                 assert os.path.basename(s2).startswith(prefix or 'tmp')
+
+    def test_tmpnam_warning(self):
+        import warnings, os
+        #
+        def f_tmpnam_warning(): os.tmpnam()    # a single line
+        #
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            f_tmpnam_warning()
+            assert len(w) == 1
+            assert issubclass(w[-1].category, RuntimeWarning)
+            assert "potential security risk" in str(w[-1].message)
+            # check that the warning points to the call to os.tmpnam(),
+            # not to some code inside app_posix.py
+            assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
 
 
 class AppTestEnvironment(object):

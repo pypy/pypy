@@ -13,6 +13,7 @@ from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.interactive import Translation
 from pypy.rlib.entrypoint import entrypoint
+from pypy.tool.nullpath import NullPyPathLocal
 
 def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
@@ -62,6 +63,22 @@ def test_simple():
     assert builder.get_malloc_counters()() == (0, 0)
 
     py.test.raises(Exception, f1, "world")  # check that it's really typed
+
+
+def test_dont_write_source_files():
+    def f(x):
+        return x*2
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+
+    t.config.translation.countmallocs = True
+    t.config.translation.dont_write_c_files = True
+    builder = genc.CExtModuleBuilder(t, f, config=t.config)
+    builder.generate_source()
+    assert isinstance(builder.targetdir, NullPyPathLocal)
+    assert builder.targetdir.listdir() == []
+
 
 def test_simple_lambda():
     f = lambda x: x*2
@@ -273,7 +290,7 @@ def test_infinite_float():
     assert res == 1.5
 
 def test_nan_and_special_values():
-    from pypy.rlib.rfloat import isnan, isinf, copysign
+    from pypy.rlib.rfloat import isnan, isinf, isfinite, copysign
     inf = 1e300 * 1e300
     assert isinf(inf)
     nan = inf/inf
@@ -283,6 +300,7 @@ def test_nan_and_special_values():
             (inf,   lambda x: isinf(x) and x > 0.0),
             (-inf,  lambda x: isinf(x) and x < 0.0),
             (nan,   isnan),
+            (42.0,  isfinite),
             (0.0,   lambda x: not x and copysign(1., x) == 1.),
             (-0.0,  lambda x: not x and copysign(1., x) == -1.),
             ]:

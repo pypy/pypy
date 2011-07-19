@@ -2,10 +2,10 @@
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.module._rawffi.array import get_elem, push_elem
+from pypy.module._rawffi.array import push_elem
 from pypy.module._rawffi.structure import W_Structure
-from pypy.module._rawffi.interp_rawffi import W_DataInstance, letter2tp, \
-     wrap_value, unwrap_value, unwrap_truncate_int, unpack_argshapes
+from pypy.module._rawffi.interp_rawffi import (W_DataInstance, letter2tp,
+     unwrap_value, unpack_argshapes)
 from pypy.rlib.clibffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
 from pypy.rlib.clibffi import ffi_type_void
 from pypy.rlib import rweakref
@@ -43,7 +43,7 @@ def callback(ll_args, ll_res, ll_userdata):
             unwrap_value(space, push_elem, ll_res, 0,
                          callback_ptr.result, w_res)
     except OperationError, e:
-        tbprint(space, space.wrap(e.application_traceback),
+        tbprint(space, space.wrap(e.get_traceback()),
                 space.wrap(e.errorstr(space)))
         # force the result to be zero
         if callback_ptr.result is not None:

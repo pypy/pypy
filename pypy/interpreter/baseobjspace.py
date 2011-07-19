@@ -82,7 +82,7 @@ class W_Root(object):
             raise
 
     def getaddrstring(self, space):
-        # XXX slowish
+        # slowish
         w_id = space.id(self)
         w_4 = space.wrap(4)
         w_0x0F = space.wrap(0x0F)
@@ -130,6 +130,9 @@ class W_Root(object):
         raise operationerrfmt(space.w_TypeError,
             "cannot create weak reference to '%s' object", typename)
 
+    def delweakref(self):
+        pass
+
     def clear_all_weakrefs(self):
         """Call this at the beginning of interp-level __del__() methods
         in subclasses.  It ensures that weakrefs (if any) are cleared
@@ -143,29 +146,28 @@ class W_Root(object):
             # app-level, e.g. a user-defined __del__(), and this code
             # tries to use weakrefs again, it won't reuse the broken
             # (already-cleared) weakrefs from this lifeline.
-            self.setweakref(lifeline.space, None)
+            self.delweakref()
             lifeline.clear_all_weakrefs()
 
-    __already_enqueued_for_destruction = False
+    __already_enqueued_for_destruction = ()
 
-    def _enqueue_for_destruction(self, space, call_user_del=True):
+    def enqueue_for_destruction(self, space, callback, descrname):
         """Put the object in the destructor queue of the space.
-        At a later, safe point in time, UserDelAction will use
-        space.userdel() to call the object's app-level __del__ method.
+        At a later, safe point in time, UserDelAction will call
+        callback(self).  If that raises OperationError, prints it
+        to stderr with the descrname string.
+
+        Note that 'callback' will usually need to start with:
+            assert isinstance(self, W_SpecificClass)
         """
         # this function always resurect the object, so when
         # running on top of CPython we must manually ensure that
         # we enqueue it only once
         if not we_are_translated():
-            if self.__already_enqueued_for_destruction:
+            if callback in self.__already_enqueued_for_destruction:
                 return
-            self.__already_enqueued_for_destruction = True
-        self.clear_all_weakrefs()
-        if call_user_del:
-            space.user_del_action.register_dying_object(self)
-
-    def _call_builtin_destructor(self):
-        pass     # method overridden in typedef.py
+            self.__already_enqueued_for_destruction += (callback,)
+        space.user_del_action.register_callback(self, callback, descrname)
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
@@ -237,7 +239,7 @@ wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
-    http://codespeak.net/pypy/dist/pypy/doc/objspace.html"""
+    http://pypy.readthedocs.org/en/latest/objspace.html"""
 
     full_exceptions = True  # full support for exceptions (normalization & more)
 
@@ -311,9 +313,6 @@ class ObjSpace(object):
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and mod.startup_called:
                 mod.shutdown(self)
-        if self.config.objspace.std.withdictmeasurement:
-            from pypy.objspace.std.dictmultiobject import report
-            report()
         if self.config.objspace.logbytecodes:
             self.reportbytecodecounts()
         if self.config.objspace.std.logspaceoptypes:
@@ -616,7 +615,6 @@ class ObjSpace(object):
 
     def createcompiler(self):
         "Factory function creating a compiler object."
-        # XXX simple selection logic for now
         try:
             return self.default_compiler
         except AttributeError:
@@ -821,11 +819,11 @@ class ObjSpace(object):
 
     def call_obj_args(self, w_callable, w_obj, args):
         if not self.config.objspace.disable_call_speedhacks:
-            # XXX start of hack for performance
+            # start of hack for performance
             from pypy.interpreter.function import Function
             if isinstance(w_callable, Function):
                 return w_callable.call_obj_args(w_obj, args)
-            # XXX end of hack for performance
+            # end of hack for performance
         return self.call_args(w_callable, args.prepend(w_obj))
 
     def call(self, w_callable, w_args, w_kwds=None):
@@ -835,7 +833,7 @@ class ObjSpace(object):
     def call_function(self, w_func, *args_w):
         nargs = len(args_w) # used for pruning funccall versions
         if not self.config.objspace.disable_call_speedhacks and nargs < 5:
-            # XXX start of hack for performance
+            # start of hack for performance
             from pypy.interpreter.function import Function, Method
             if isinstance(w_func, Method):
                 w_inst = w_func.w_instance
@@ -850,7 +848,7 @@ class ObjSpace(object):
 
             if isinstance(w_func, Function):
                 return w_func.funccall(*args_w)
-            # XXX end of hack for performance
+            # end of hack for performance
 
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
@@ -864,7 +862,7 @@ class ObjSpace(object):
             return self.call_args_and_c_profile(frame, w_func, args)
 
         if not self.config.objspace.disable_call_speedhacks:
-            # XXX start of hack for performance
+            # start of hack for performance
             if isinstance(w_func, Method):
                 w_inst = w_func.w_instance
                 if w_inst is not None:
@@ -879,7 +877,7 @@ class ObjSpace(object):
 
             if isinstance(w_func, Function):
                 return w_func.funccall_valuestack(nargs, frame)
-            # XXX end of hack for performance
+            # end of hack for performance
 
         args = frame.make_arguments(nargs)
         return self.call_args(w_func, args)
@@ -890,8 +888,7 @@ class ObjSpace(object):
         try:
             w_res = self.call_args(w_func, args)
         except OperationError, e:
-            w_value = e.get_w_value(self)
-            ec.c_exception_trace(frame, w_value)
+            ec.c_exception_trace(frame, w_func)
             raise
         ec.c_return_trace(frame, w_func, args)
         return w_res
@@ -929,6 +926,9 @@ class ObjSpace(object):
             else:
                 return self.w_True
         return self.w_False
+
+    def issequence_w(self, w_obj):
+        return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
@@ -991,10 +991,7 @@ class ObjSpace(object):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
                                          hidden_applevel=hidden_applevel)
-        if isinstance(expression, types.CodeType):
-            # XXX only used by appsupport
-            expression = PyCode._from_code(self, expression)
-        if not isinstance(expression, PyCode):
+        else:
             raise TypeError, 'space.eval(): expected a string, code or PyCode object'
         return expression.exec_code(self, w_globals, w_locals)
 
@@ -1009,9 +1006,6 @@ class ObjSpace(object):
             compiler = self.createcompiler()
             statement = compiler.compile(statement, filename, 'exec', 0,
                                          hidden_applevel=hidden_applevel)
-        if isinstance(statement, types.CodeType):
-            # XXX only used by appsupport
-            statement = PyCode._from_code(self, statement)
         if not isinstance(statement, PyCode):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
         w_key = self.wrap('__builtins__')
@@ -1339,7 +1333,7 @@ class AppExecCache(SpaceCache):
         source = source.lstrip()
         assert source.startswith('('), "incorrect header in:\n%s" % (source,)
         source = py.code.Source("def anonymous%s\n" % source)
-        w_glob = space.newdict()
+        w_glob = space.newdict(module=True)
         space.exec_(str(source), w_glob, w_glob)
         return space.getitem(w_glob, space.wrap('anonymous'))
 
