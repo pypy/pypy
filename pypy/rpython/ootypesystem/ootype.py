@@ -1945,11 +1945,9 @@ class Box(_object):
 
 def oobox_int(i):
     return Box(i)
-oobox_int.need_result_type = True
 
 def oounbox_int(x):
     return x.i
-oounbox_int.need_result_type = True
 
 def oostring(obj, base):
     """

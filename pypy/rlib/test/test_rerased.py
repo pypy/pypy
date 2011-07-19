@@ -283,6 +283,8 @@ class TestLLtype(BaseTestRErased, LLRtypeMixin):
     def castable(self, TO, var):
         return lltype.castable(TO, lltype.typeOf(var)) > 0
 
+from pypy.rpython.ootypesystem.ootype import Object
+
 class TestOOtype(BaseTestRErased, OORtypeMixin):
     ERASED_TYPE = Object
     UNERASED_TYPE = OBJECT
