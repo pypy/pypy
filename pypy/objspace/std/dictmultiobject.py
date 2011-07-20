@@ -3,6 +3,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.settype import set_typedef as settypedef
+from pypy.objspace.std import identitydict
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -423,9 +424,9 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     semantics.
     """
 
-    erase, unerase = rerased.new_erasing_pair("identitydict")
-    erase = staticmethod(erase)
-    unerase = staticmethod(unerase)
+    _erase_tuple, _unerase_tuple = rerased.new_erasing_pair("identitydict")
+    _erase_tuple = staticmethod(_erase_tuple)
+    _unerase_tuple = staticmethod(_unerase_tuple)
 
     def wrap(self, unwrapped):
         return unwrapped
@@ -433,12 +434,24 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     def unwrap(self, wrapped):
         return wrapped
 
-    def is_correct_type(self, w_obj):
-        w_type = self.space.type(w_obj)
-        return w_type.compares_by_identity()
+    def erase(self, d):
+        current_version = identitydict.get_global_version(self.space)
+        return self._erase_tuple((current_version, d))
+
+    def unerase(self, dstorage):
+        version, d = self._unerase_tuple(dstorage)
+        return d
+
+    def get_current_version(self, dstorage):
+        version, d = self._unerase_tuple(dstorage)
+        return version
 
     def get_empty_storage(self):
         return self.erase({})
+
+    def is_correct_type(self, w_obj):
+        w_type = self.space.type(w_obj)
+        return w_type.compares_by_identity()
 
     def _never_equal_to(self, w_lookup_type):
         return False
