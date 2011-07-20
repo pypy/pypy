@@ -6467,6 +6467,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_loopinvariant_strlen_with_bound(self):
+        ops = """
+        [p9]
+        i843 = strlen(p9)
+        i1 = int_gt(i843, 7)
+        guard_true(i1) []
+        call(i843, descr=nonwritedescr)
+        jump(p9)
+        """
+        expected = """
+        [p9, i2]
+        call(i2, descr=nonwritedescr)
+        jump(p9, i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_loopinvariant_strgetitem(self):
         ops = """
         [p9, i1]
@@ -6474,12 +6490,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
-        expected = """
-        [p9, i1, i2]
-        call(i2, descr=nonwritedescr)
-        jump(p9, i1, i2)
-        """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, ops)
 
     def test_loopinvariant_unicodelen(self):
         ops = """
@@ -6502,12 +6513,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
-        expected = """
-        [p9, i1, i2]
-        call(i2, descr=nonwritedescr)
-        jump(p9, i1, i2)
-        """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, ops)
 
     def test_loopinvariant_arraylen(self):
         ops = """
@@ -6525,21 +6531,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
     def test_loopinvariant_getarrayitem(self):
         ops = """
-        [p1]
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
         p2 = getarrayitem_gc(p1, 7, descr=<GcPtrArrayDescr>)
         call(p2, descr=nonwritedescr)
-        jump(p1)
+        jump(p0)
         """
         short = """
-        [p1]
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
         i1 = arraylen_gc(p1)
+        i2 = int_ge(i1, 8)
+        guard_true(i2) []
         p2 = getarrayitem_gc(p1, 7, descr=<GcPtrArrayDescr>)
-        jump(p1, p2)
+        jump(p0, p2)
         """
         expected = """
-        [p1, p2]
+        [p0, p2]
         call(p2, descr=nonwritedescr)
-        jump(p1, p2)
+        jump(p0, p2)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
@@ -6554,6 +6565,115 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump()
         """
         self.optimize_loop(ops, expected)
+        
+    def test_arraylen_bound(self):
+        ops = """
+        [p1, i]
+        p2 = getarrayitem_gc(p1, 7, descr=<GcPtrArrayDescr>)
+        i1 = arraylen_gc(p1)
+        i2 = int_ge(i1, 8)
+        guard_true(i2) []
+        jump(p2, i2)
+        """
+        expected = """
+        [p1]        
+        p2 = getarrayitem_gc(p1, 7, descr=<GcPtrArrayDescr>)
+        i1 = arraylen_gc(p1)
+        jump(p2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_loopinvariant_getarrayitem_gc_pure(self):
+        ops = """
+        [p9, i1]
+        i843 = getarrayitem_gc_pure(p9, i1)
+        call(i843, descr=nonwritedescr)
+        jump(p9, i1)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_loopinvariant_constant_getarrayitem_pure(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        p2 = getarrayitem_gc_pure(p1, 7, descr=<GcPtrArrayDescr>)
+        call(p2, descr=nonwritedescr)
+        jump(p0)
+        """
+        short = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        i1 = arraylen_gc(p1)
+        i2 = int_ge(i1, 8)
+        guard_true(i2) []
+        p2 = getarrayitem_gc_pure(p1, 7, descr=<GcPtrArrayDescr>)
+        jump(p0, p2)
+        """
+        expected = """
+        [p0, p2]
+        call(p2, descr=nonwritedescr)
+        jump(p0, p2)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+        
+        
+    def test_loopinvariant_constant_strgetitem(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        p2 = strgetitem(p1, 7)
+        call(p2, descr=nonwritedescr)
+        jump(p0)
+        """
+        short = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        i1 = strlen(p1)
+        i2 = int_ge(i1, 8)
+        guard_true(i2) []
+        p2 = strgetitem(p1, 7, descr=<GcPtrArrayDescr>)
+        i8 = int_ge(p2, 0)
+        guard_true(i8) []
+        i9 = int_le(p2, 255)
+        guard_true(i9) []
+        jump(p0, p2)
+        """
+        expected = """
+        [p0, p2]
+        call(p2, descr=nonwritedescr)
+        jump(p0, p2)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+
+    def test_loopinvariant_constant_unicodegetitem(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        p2 = unicodegetitem(p1, 7)
+        call(p2, descr=nonwritedescr)
+        jump(p0)
+        """
+        short = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        i1 = unicodelen(p1)
+        i2 = int_ge(i1, 8)
+        guard_true(i2) []
+        p2 = unicodegetitem(p1, 7, descr=<GcPtrArrayDescr>)
+        i8 = int_ge(p2, 0)
+        guard_true(i8) []
+        jump(p0, p2)
+        """
+        expected = """
+        [p0, p2]
+        call(p2, descr=nonwritedescr)
+        jump(p0, p2)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+        
         
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):

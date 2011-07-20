@@ -247,6 +247,7 @@ class UnrollOptimizer(Optimization):
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
 
+
             short = self.inline(inputargs, self.cloned_operations,
                                 loop.inputargs, short_inputargs,
                                 virtual_state)

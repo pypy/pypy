@@ -1,4 +1,5 @@
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0, \
+                                                  MODE_ARRAY, MODE_STR, MODE_UNICODE
 from pypy.jit.metainterp.optimizeopt.util import _findall
 from pypy.jit.metainterp.optimizeopt.intutils import (IntBound, IntUnbounded,
     IntLowerBound, IntUpperBound)
@@ -285,10 +286,24 @@ class OptIntBounds(Optimization):
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
-        v1 = self.getvalue(op.result)
-        v1.intbound.make_ge(IntLowerBound(0))
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
+        result.intbound = array.lenbound[2]
 
-    optimize_STRLEN = optimize_UNICODELEN = optimize_ARRAYLEN_GC
+    def optimize_STRLEN(self, op):
+        self.emit_operation(op)
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_STR, op.getdescr(), -1)
+        result.intbound = array.lenbound[2]
+
+    def optimize_UNICODELEN(self, op):
+        self.emit_operation(op)
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_UNICODE, op.getdescr(), -1)
+        result.intbound = array.lenbound[2]
 
     def optimize_STRGETITEM(self, op):
         self.emit_operation(op)

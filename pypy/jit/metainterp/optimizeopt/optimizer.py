@@ -12,26 +12,29 @@ from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
-                                                     ImmutableIntUnbounded
+                                                     ImmutableIntUnbounded, \
+                                                     IntLowerBound, MININT, MAXINT
 from pypy.tool.pairtype import extendabletype
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
 LEVEL_UNKNOWN    = '\x00'
 LEVEL_NONNULL    = '\x01'
 LEVEL_KNOWNCLASS = '\x02'     # might also mean KNOWNARRAYDESCR, for arrays
 LEVEL_CONSTANT   = '\x03'
 
-import sys
-MAXINT = sys.maxint
-MININT = -sys.maxint - 1
+MODE_ARRAY   = '\x00'
+MODE_STR     = '\x01'
+MODE_UNICODE = '\x02'
 
 class OptValue(object):
     __metaclass__ = extendabletype
-    _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound')
+    _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound', 'lenbound')
     last_guard_index = -1
 
     level = LEVEL_UNKNOWN
     known_class = None
     intbound = ImmutableIntUnbounded()
+    lenbound = None
 
     def __init__(self, box, level=None, known_class=None, intbound=None):
         self.box = box
@@ -50,6 +53,14 @@ class OptValue(object):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
 
+    def make_len_gt(self, mode, descr, val):
+        if self.lenbound:
+            assert self.lenbound[0] == mode
+            assert self.lenbound[1] == descr
+            self.lenbound[2].make_gt(IntBound(val, val))
+        else:
+            self.lenbound = (mode, descr, IntLowerBound(val + 1))
+
     def make_guards(self, box):
         guards = []
         if self.level == LEVEL_CONSTANT:
@@ -64,20 +75,21 @@ class OptValue(object):
             if self.level == LEVEL_NONNULL:
                 op = ResOperation(rop.GUARD_NONNULL, [box], None)
                 guards.append(op)
-            if self.intbound.has_lower and self.intbound.lower > MININT:
-                bound = self.intbound.lower
-                res = BoxInt()
-                op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
+            self.intbound.make_guards(box, guards)
+            if self.lenbound:
+                lenbox = BoxInt()
+                if self.lenbound[0] == MODE_ARRAY:
+                    op = ResOperation(rop.ARRAYLEN_GC, [box], lenbox, self.lenbound[1])
+                elif self.lenbound[0] == MODE_STR:
+                    op = ResOperation(rop.STRLEN, [box], lenbox, self.lenbound[1])
+                elif self.lenbound[0] == MODE_UNICODE:
+                    op = ResOperation(rop.UNICODELEN, [box], lenbox, self.lenbound[1])
+                else:
+                    debug_print("Unknown lenbound mode")
+                    assert False
                 guards.append(op)
-                op = ResOperation(rop.GUARD_TRUE, [res], None)
-                guards.append(op)
-            if self.intbound.has_upper and self.intbound.upper < MAXINT:
-                bound = self.intbound.upper
-                res = BoxInt()
-                op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
-                guards.append(op)
-                op = ResOperation(rop.GUARD_TRUE, [res], None)
-                guards.append(op)
+                self.lenbound[2].make_guards(lenbox, guards)
+
         return guards
 
     def force_box(self):
@@ -428,6 +440,11 @@ class Optimizer(Optimization):
 
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.emitted_pure_operations:
+            if op.getopnum() == rop.GETARRAYITEM_GC_PURE or \
+               op.getopnum() == rop.STRGETITEM or \
+               op.getopnum() == rop.UNICODEGETITEM:
+                if not self.getvalue(op.getarg(1)).is_constant():
+                    continue
             sb.add_potential(op)
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(sb)
@@ -675,6 +692,30 @@ class Optimizer(Optimization):
 
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
+
+    def optimize_GETARRAYITEM_GC_PURE(self, op):
+        indexvalue = self.getvalue(op.getarg(1))
+        if indexvalue.is_constant():
+            arrayvalue = self.getvalue(op.getarg(0))
+            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
+        self.optimize_default(op)
+
+    def optimize_STRGETITEM(self, op):
+        indexvalue = self.getvalue(op.getarg(1))
+        if indexvalue.is_constant():
+            arrayvalue = self.getvalue(op.getarg(0))
+            arrayvalue.make_len_gt(MODE_STR, op.getdescr(), indexvalue.box.getint())
+        self.optimize_default(op)
+
+    def optimize_UNICODEGETITEM(self, op):
+        indexvalue = self.getvalue(op.getarg(1))
+        if indexvalue.is_constant():
+            arrayvalue = self.getvalue(op.getarg(0))
+            arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
+        self.optimize_default(op)
+        
+
+    
 
 optimize_ops = _findall(Optimizer, 'optimize_')
 

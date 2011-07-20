@@ -201,6 +201,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         else:
             self.constbox = None
         self.position_in_notvirtuals = -1
+        self.lenbound = value.lenbound
 
     def generalization_of(self, other, renum, bad):
         # XXX This will always retrace instead of forcing anything which
@@ -235,10 +236,24 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             bad[self] = True
             bad[other] = True
             return False
+        if self.lenbound and other.lenbound:
+            if self.lenbound[0] != other.lenbound[0] or \
+               self.lenbound[1] != other.lenbound[1] or \
+               not self.lenbound[2].contains_bound(other.lenbound[2]):
+                bad[self] = True
+                bad[other] = True
+                return False
+        elif self.lenbound or other.lenbound:
+            bad[self] = True
+            bad[other] = True
+            return False
         return True
 
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualStateInfo):
+            raise InvalidLoop
+
+        if self.lenbound or other.lenbound:
             raise InvalidLoop
 
         if self.level == LEVEL_KNOWNCLASS and \
@@ -323,9 +338,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                  LEVEL_KNOWNCLASS: 'KnownClass(%r)' % self.known_class,
                  LEVEL_CONSTANT: 'Constant(%r)' % self.constbox,
                  }[self.level]
-            
+
+        lb = ''
+        if self.lenbound:
+            lb = ', ' + self.lenbound[2].__repr__()
+        
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
-                    ', ' + l + ', ' + self.intbound.__repr__() + ')')
+                    ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
 
 class VirtualState(object):
     def __init__(self, state):

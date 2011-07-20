@@ -3,7 +3,7 @@ from pypy.jit.metainterp.optimizeopt.util import _findall
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY
 from pypy.jit.metainterp.history import ConstInt, Const
 
 
@@ -407,6 +407,7 @@ class OptHeap(Optimization):
         indexvalue = self.getvalue(op.getarg(1))
         cf = None
         if indexvalue.is_constant():
+            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
             # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
             fieldvalue = cf.getfield_from_cache(self, arrayvalue)
@@ -434,6 +435,8 @@ class OptHeap(Optimization):
         #
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():
+            arrayvalue = self.getvalue(op.getarg(0))
+            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
             # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
             cf.do_setfield(self, op)
