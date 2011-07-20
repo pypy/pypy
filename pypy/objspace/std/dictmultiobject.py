@@ -473,7 +473,7 @@ class _WrappedIteratorMixin(object):
         else:
             return None, None
 
-class _UnwrappedIteratorMixin(IteratorImplementation):
+class _UnwrappedIteratorMixin:
     _mixin_ = True
     
     def __init__(self, space, strategy, dictimplementation):
