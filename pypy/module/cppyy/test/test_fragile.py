@@ -41,7 +41,27 @@ class AppTestSTL:
 
         raises(AttributeError, getattr, fragile, "no_such_class")
 
+        assert fragile.C == fragile.C
+        assert fragile.C().check() == ord('C')
+
         assert fragile.B == fragile.B
         assert fragile.B().check() == ord('B')
+        raises(TypeError, fragile.B().gime_no_such)
 
-        raises(NotImplementedError, fragile.B().gime_no_such)
+        assert fragile.C == fragile.C
+        assert fragile.C().check() == ord('C')
+        raises(TypeError, fragile.C().use_no_such, None)
+
+    def test03_arguments(self):
+        """Test reporting when providing wrong arguments"""
+
+        import cppyy
+
+        assert cppyy.gbl.fragile == cppyy.gbl.fragile
+        fragile = cppyy.gbl.fragile
+
+        assert fragile.D == fragile.D
+        assert fragile.D().check() == ord('D')
+
+        d = fragile.D()
+        raises(TypeError, d.overload, None)

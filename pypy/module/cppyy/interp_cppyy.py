@@ -111,7 +111,7 @@ class CPPMethod(object):
             raise OperationError(self.space.w_TypeError,
                                  self.space.wrap("return type not handled"))
         if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
-            raise OperationError(self.space.w_TypeError, self.space.wrap("wrong number of args"))
+            raise OperationError(self.space.w_TypeError, self.space.wrap("wrong number of arguments"))
 
         if self.methgetter and cppthis: # only for methods
             try:
@@ -261,7 +261,8 @@ class W_CPPOverload(Wrappable):
                         return cppinstance  # recycle object to preserve identity
                 return cppresult
             except OperationError, e:
-                if not e.match(space, space.w_TypeError):
+                if not (e.match(space, space.w_TypeError) or \
+                        e.match(space, space.w_NotImplementedError)):
                     raise
                 errmsg += '\n\t'+str(e)
             except KeyError:

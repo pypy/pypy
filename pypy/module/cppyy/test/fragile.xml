@@ -4,5 +4,7 @@
 
   <class name="fragile::A" />
   <class name="fragile::B" />
+  <class name="fragile::C" />
+  <class name="fragile::D" />
 
 </lcgdict>

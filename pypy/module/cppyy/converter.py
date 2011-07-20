@@ -142,7 +142,7 @@ class VoidConverter(TypeConverter):
         self.name = name
 
     def convert_argument(self, space, w_obj, address):
-        raise OperationError(space.w_RuntimeError,
+        raise OperationError(space.w_NotImplementedError,
                              space.wrap('no converter available for type "%s"' % self.name))
 
 
