@@ -6460,12 +6460,25 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(i843, descr=nonwritedescr)
         jump(p9)
         """
+        preamble = """
+        [p9]
+        i843 = strlen(p9)
+        call(i843, descr=nonwritedescr)
+        jump(p9, i843)
+        """
+        short = """
+        [p9]
+        i843 = strlen(p9)
+        i848 = int_ge(i843, 0)
+        guard_true(i848)[]
+        jump(p9, i843)
+        """
         expected = """
         [p9, i2]
         call(i2, descr=nonwritedescr)
         jump(p9, i2)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
 
     def test_loopinvariant_strlen_with_bound(self):
         ops = """

@@ -241,6 +241,10 @@ class UnrollOptimizer(Optimization):
                     value = preamble_optimizer.getvalue(op.result)
                     for guard in value.make_guards(op.result):
                         self.optimizer.send_extra_operation(guard)
+                    newresult = self.optimizer.getvalue(op.result).get_key_box()
+                    if newresult is not op.result:
+                        self.short_boxes.alias(newresult, op.result)
+                    
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
 
@@ -259,7 +263,8 @@ class UnrollOptimizer(Optimization):
             #    preamble_optimizer.send_extra_operation(jumpop)
             #    return
             loop.inputargs = inputargs
-            jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
+            args = [self.short_boxes.original(a) for a in inputargs]
+            jmp = ResOperation(rop.JUMP, args, None)
             jmp.setdescr(loop.token)
             loop.preamble.operations.append(jmp)
 

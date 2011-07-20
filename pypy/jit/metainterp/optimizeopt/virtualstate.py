@@ -457,7 +457,8 @@ class ShortBoxes(object):
     def __init__(self, optimizer, surviving_boxes):
         self.potential_ops = {}
         optimizer.produce_potential_short_preamble_ops(self)
-            
+
+        self.aliases = {}
         self.short_boxes = {}
         for box in surviving_boxes:
             self.short_boxes[box] = None
@@ -501,4 +502,12 @@ class ShortBoxes(object):
 
     def has_producer(self, box):
         return box in self.short_boxes
-    
+
+    def alias(self, newbox, oldbox):
+        self.short_boxes[newbox] = self.short_boxes[oldbox]
+        self.aliases[newbox] = oldbox
+        
+    def original(self, box):
+        while box in self.aliases:
+            box = self.aliases[box]
+        return box
