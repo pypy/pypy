@@ -1,9 +1,7 @@
 import py, sys
-from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.settype import set_typedef as settypedef
-from pypy.objspace.std import identitydict
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -184,6 +182,7 @@ class EmptyDictStrategy(DictStrategy):
         w_dict.dstorage = storage
 
     def switch_to_identity_strategy(self, w_dict):
+        from pypy.objspace.std.identitydict import IdentityDictStrategy
         strategy = self.space.fromcache(IdentityDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
@@ -416,53 +415,6 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.unerase(w_dict.dstorage).keys()
 
 
-class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
-    """
-    Strategy for custom instances which compares by identity (i.e., the
-    default unless you override __hash__, __eq__ or __cmp__).  The storage is
-    just a normal RPython dict, which has already the correct by-identity
-    semantics.
-    """
-
-    _erase_tuple, _unerase_tuple = rerased.new_erasing_pair("identitydict")
-    _erase_tuple = staticmethod(_erase_tuple)
-    _unerase_tuple = staticmethod(_unerase_tuple)
-
-    def wrap(self, unwrapped):
-        return unwrapped
-
-    def unwrap(self, wrapped):
-        return wrapped
-
-    def erase(self, d):
-        current_version = identitydict.get_global_version(self.space)
-        return self._erase_tuple((current_version, d))
-
-    def unerase(self, dstorage):
-        version, d = self._unerase_tuple(dstorage)
-        return d
-
-    def get_current_version(self, dstorage):
-        version, d = self._unerase_tuple(dstorage)
-        return version
-
-    def get_empty_storage(self):
-        return self.erase({})
-
-    def is_correct_type(self, w_obj):
-        w_type = self.space.type(w_obj)
-        return w_type.compares_by_identity()
-
-    def _never_equal_to(self, w_lookup_type):
-        return False
-
-    def iter(self, w_dict):
-        return IdentityDictIteratorImplementation(self.space, self, w_dict)
-
-    def keys(self, w_dict):
-        return self.unerase(w_dict.dstorage).keys()
-
-
 class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     erase, unerase = rerased.new_erasing_pair("string")
@@ -573,14 +525,6 @@ class ObjectIteratorImplementation(IteratorImplementation):
             return w_key, w_value
         else:
             return None, None
-
-
-class IdentityDictIteratorImplementation(IteratorImplementation):
-    __init__ = func_with_new_name(
-        ObjectIteratorImplementation.__init__.im_func, '__init__')
-
-    next_entry = func_with_new_name(
-        ObjectIteratorImplementation.next_entry.im_func, 'next_entry')
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]
