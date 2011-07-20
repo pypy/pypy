@@ -1109,7 +1109,7 @@ def test_module_uses_strdict():
 
 class AppTestIdentityDict(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.trackcomparebyidentity": True})
+        cls.space = gettestobjspace(**{"objspace.std.withidentitydict": True})
         if option.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
 

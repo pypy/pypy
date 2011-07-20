@@ -43,7 +43,7 @@ def descr_set___class__(space, w_obj, w_newcls):
     assert isinstance(w_oldcls, W_TypeObject)
     if w_oldcls.get_full_instance_layout() == w_newcls.get_full_instance_layout():
         w_obj.setclass(space, w_newcls)
-        if space.config.objspace.std.trackcomparebyidentity:
+        if space.config.objspace.std.withidentitydict:
             if w_oldcls.compares_by_identity() and not w_newcls.compares_by_identity():
                 identitydict.bump_global_version(space)
     else:

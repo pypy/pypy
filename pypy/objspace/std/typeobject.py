@@ -107,7 +107,7 @@ class W_TypeObject(W_Object):
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
 
-    # for config.objspace.std.trackcomparebyidentity
+    # for config.objspace.std.withidentitydict
     compares_by_identity_status = UNKNOWN
 
     # used to cache the type __new__ function if it comes from a builtin type
@@ -164,7 +164,7 @@ class W_TypeObject(W_Object):
         assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
-            not space.config.objspace.std.trackcomparebyidentity and
+            not space.config.objspace.std.withidentitydict and
             not space.config.objspace.std.newshortcut):
             return
 
@@ -172,7 +172,7 @@ class W_TypeObject(W_Object):
             w_self.uses_object_getattribute = False
             # ^^^ conservative default, fixed during real usage
 
-        if space.config.objspace.std.trackcomparebyidentity:
+        if space.config.objspace.std.withidentitydict:
             did_compare_by_identity = (
                 w_self.compares_by_identity_status == COMPARES_BY_IDENTITY)
             if (key is None or key == '__eq__' or
@@ -232,8 +232,7 @@ class W_TypeObject(W_Object):
 
     def compares_by_identity(w_self):
         from pypy.objspace.descroperation import object_hash
-        track = w_self.space.config.objspace.std.trackcomparebyidentity
-        if not track:
+        if not w_self.space.config.objspace.std.withidentitydict:
             return False # conservative
         #
         if w_self.compares_by_identity_status != UNKNOWN:

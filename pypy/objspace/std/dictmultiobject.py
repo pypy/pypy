@@ -157,14 +157,14 @@ class EmptyDictStrategy(DictStrategy):
        return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
-        trackcomparebyidentity = self.space.config.objspace.std.trackcomparebyidentity
+        withidentitydict = self.space.config.objspace.std.withidentitydict
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_string_strategy(w_dict)
             return
         w_type = self.space.type(w_key)
         if self.space.is_w(w_type, self.space.w_int):
             self.switch_to_int_strategy(w_dict)
-        elif trackcomparebyidentity and w_type.compares_by_identity():
+        elif withidentitydict and w_type.compares_by_identity():
             self.switch_to_identity_strategy(w_dict)
         else:
             self.switch_to_object_strategy(w_dict)

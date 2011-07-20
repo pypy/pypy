@@ -6,11 +6,11 @@
 # actual work is done by W_TypeObject.mutated() and objecttype:descr_setclass
 
 def bump_global_version(space):
-    if space.config.objspace.std.trackcomparebyidentity:
+    if space.config.objspace.std.withidentitydict:
         space.fromcache(ComparesByIdentityVersion).bump()
 
 def get_global_version(space):
-    if space.config.objspace.std.trackcomparebyidentity:
+    if space.config.objspace.std.withidentitydict:
         return space.fromcache(ComparesByIdentityVersion).get()
     return None
 

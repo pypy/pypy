@@ -1201,12 +1201,12 @@ class AppTestNewShortcut:
         assert a.f(1) == 2
 
 
-class AppTestTrackCompareByIdentity:
+class AppTestWithIdentityDict:
 
     def setup_class(cls):
         from pypy.objspace.std import identitydict
         cls.space = gettestobjspace(
-                        **{"objspace.std.trackcomparebyidentity": True})
+                        **{"objspace.std.withidentitydict": True})
 
         def compares_by_identity(space, w_cls):
             return space.wrap(w_cls.compares_by_identity())
