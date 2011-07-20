@@ -898,6 +898,7 @@ class Config:
             withsmalldicts = False
             withcelldict = False
             withmethodcache = False
+            withidentitydict = False
 
 FakeSpace.config = Config()
 
