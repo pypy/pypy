@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
 from pypy.rpython.lltypesystem import rffi, lltype
 
-from pypy.rlib import libffi
+from pypy.rlib import libffi, rdynload
 from pypy.rlib import jit, debug
 
 from pypy.module.cppyy import converter, executor, helper
@@ -19,7 +19,10 @@ NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 
 def load_lib(space, name):
     # TODO: the following uses a hacked CDLL that won't work on Windows
-    cdll = libffi.CDLL(name, 0x100 | 0x02)
+    try:
+        cdll = libffi.CDLL(name, 0x100 | 0x02)
+    except rdynload.DLOpenError, e:
+        raise OperationError(space.w_RuntimeError, space.wrap(str(e)))
     return W_CPPLibrary(space, cdll)
 load_lib.unwrap_spec = [ObjSpace, str]
 
@@ -215,8 +218,6 @@ class CPPConstructor(CPPMethod):
         newthis = capi.c_allocate(self.cpptype.handle)
         assert lltype.typeOf(newthis) == rffi.VOIDP
         try:
-            # TODO: this does not work for CINT, as it calls a temp object
-            # by value returning method, not placement on newthis ...
             CPPMethod.call(self, newthis, None, args_w)
         except Exception, e:
             capi.c_deallocate(self.cpptype.handle, newthis)

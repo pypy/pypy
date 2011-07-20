@@ -38,6 +38,8 @@ class FakeSpace(object):
     w_TypeError = FakeType("TypeError")
     w_AttributeError = FakeType("AttributeError")
     w_ReferenceError = FakeType("ReferenceError")
+    w_NotImplementedError = FakeType("NotImplementedError")
+    w_RuntimeError = FakeType("RuntimeError")
 
     w_None = None
     w_str = FakeType("str")

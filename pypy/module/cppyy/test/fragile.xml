@@ -1,0 +1,8 @@
+<lcgdict>
+
+  <namespace name="fragile" />
+
+  <class name="fragile::A" />
+  <class name="fragile::B" />
+
+</lcgdict>

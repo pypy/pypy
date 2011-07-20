@@ -1,4 +1,4 @@
-dicts = example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so operatorsDict.so
+dicts = example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so operatorsDict.so fragileDict.so
 all : $(dicts)
 
 ROOTSYS := ${ROOTSYS}
