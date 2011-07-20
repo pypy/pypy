@@ -45,7 +45,7 @@ def descr_set___class__(space, w_obj, w_newcls):
         w_obj.setclass(space, w_newcls)
         if space.config.objspace.std.trackcomparebyidentity:
             if w_oldcls.compares_by_identity() and not w_newcls.compares_by_identity():
-                space.bump_compares_by_identity_version()
+                space.compares_by_identity_version.bump()
     else:
         raise operationerrfmt(space.w_TypeError,
                               "__class__ assignment: '%s' object layout differs from '%s'",

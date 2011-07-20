@@ -89,7 +89,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_classobj = self.builtin.get('__metaclass__')
 
         if self.config.objspace.std.trackcomparebyidentity:
-            self.bump_compares_by_identity_version()
+            self.compares_by_identity_version = ComparesByIdentityVersion()
 
         # final setup
         self.setup_builtin_modules()
@@ -581,5 +581,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.wrap(w_sub.issubtype(w_type))
         raise OperationError(self.w_TypeError, self.wrap("need type objects"))
 
-    def bump_compares_by_identity_version(self):
-        self.compares_by_identity_version = VersionTag()
+
+class ComparesByIdentityVersion(object):
+
+    def __init__(self):
+        self.bump()
+
+    def bump(self):
+        self._version = VersionTag()

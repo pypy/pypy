@@ -178,7 +178,7 @@ class W_TypeObject(W_Object):
                 key == '__cmp__' or key == '__hash__'):
                 w_self.compares_by_identity_status = UNKNOWN
                 if did_compare_by_identity:
-                    w_self.space.bump_compares_by_identity_version()
+                    w_self.space.compares_by_identity_version.bump()
                 
         if space.config.objspace.std.newshortcut:
             w_self.w_bltin_new = None

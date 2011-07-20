@@ -1212,7 +1212,7 @@ class AppTestTrackCompareByIdentity:
         cls.w_compares_by_identity = cls.space.wrap(interp2app(compares_by_identity))
 
         def get_version(space):
-            v = cls.versions.setdefault(space.compares_by_identity_version,
+            v = cls.versions.setdefault(space.compares_by_identity_version._version,
                                         len(cls.versions))
             return space.wrap(v)
         cls.w_get_version = cls.space.wrap(interp2app(get_version))
