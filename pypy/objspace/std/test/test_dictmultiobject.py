@@ -1162,3 +1162,10 @@ class AppTestIdentityDict(object):
         assert d[y] == 1
         assert not self.uses_identity_strategy(d)
 
+    def test_iter(self):
+        class X(object):
+            pass
+        x = X()
+        d = {x: 1}
+        assert self.uses_identity_strategy(d)
+        assert list(iter(d)) == [x]

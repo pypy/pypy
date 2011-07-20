@@ -1,4 +1,5 @@
 import py, sys
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.settype import set_typedef as settypedef
@@ -414,7 +415,7 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.unerase(w_dict.dstorage).keys()
 
 
-class IdentityDictStrategy(ObjectDictStrategy):
+class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     """
     Strategy for custom instances which compares by identity (i.e., the
     default unless you override __hash__, __eq__ or __cmp__).  The storage is
@@ -422,12 +423,31 @@ class IdentityDictStrategy(ObjectDictStrategy):
     semantics.
     """
 
+    erase, unerase = rerased.new_erasing_pair("identitydict")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def wrap(self, unwrapped):
+        return unwrapped
+
+    def unwrap(self, wrapped):
+        return wrapped
+
     def is_correct_type(self, w_obj):
         w_type = self.space.type(w_obj)
         return w_type.compares_by_identity()
 
     def get_empty_storage(self):
         return self.erase({})
+
+    def _never_equal_to(self, w_lookup_type):
+        return False
+
+    def iter(self, w_dict):
+        return IdentityDictIteratorImplementation(self.space, self, w_dict)
+
+    def keys(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
 
 
 class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
@@ -541,6 +561,13 @@ class ObjectIteratorImplementation(IteratorImplementation):
         else:
             return None, None
 
+
+class IdentityDictIteratorImplementation(IteratorImplementation):
+    __init__ = func_with_new_name(
+        ObjectIteratorImplementation.__init__.im_func, '__init__')
+
+    next_entry = func_with_new_name(
+        ObjectIteratorImplementation.next_entry.im_func, 'next_entry')
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]
