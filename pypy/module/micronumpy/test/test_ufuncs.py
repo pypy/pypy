@@ -133,3 +133,30 @@ class AppTestUfuncs(BaseNumpyAppTest):
             except OverflowError:
                 res = float('inf')
             assert b[i] == res
+
+    def test_sin(self):
+        import math
+        from numpy import array, sin
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = sin(a)
+        for i in range(len(a)):
+            assert b[i] == math.sin(a[i])
+
+    def test_cos(self):
+        import math
+        from numpy import array, cos
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = cos(a)
+        for i in range(len(a)):
+            assert b[i] == math.cos(a[i])
+
+    def test_tan(self):
+        import math
+        from numpy import array, tan
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = tan(a)
+        for i in range(len(a)):
+            assert b[i] == math.tan(a[i])

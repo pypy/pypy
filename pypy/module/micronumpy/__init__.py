@@ -23,6 +23,9 @@ class Module(MixedModule):
         'negative': 'interp_ufuncs.negative',
         'reciprocal': 'interp_ufuncs.reciprocal',
         'sign': 'interp_ufuncs.sign',
+        'sin': 'interp_ufuncs.sin',
+        'cos': 'interp_ufuncs.cos',
+        'tan': 'interp_ufuncs.tan',
     }
 
     appleveldefs = {
