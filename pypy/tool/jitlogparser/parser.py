@@ -148,7 +148,7 @@ class TraceForOpcode(object):
                          operations[0].getarg(1))
             if m is None:
                 # a non-code loop, like StrLiteralSearch or something
-                self.bytecode_name = operations[0].args[1].split(" ")[0][1:]
+                self.bytecode_name = operations[0].args[1]
             else:
                 self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
                 self.startlineno = int(lineno)
