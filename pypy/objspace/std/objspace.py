@@ -32,7 +32,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.smallintobject import W_SmallIntObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.objspace.std.typeobject import W_TypeObject, VersionTag
+from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
 from pypy.objspace.std.inttype import wrapint
@@ -42,15 +42,6 @@ from pypy.objspace.std.unicodetype import wrapunicode
 class StdObjSpace(ObjSpace, DescrOperation):
     """The standard object space, implementing a general-purpose object
     library in Restricted Python."""
-
-    # a global version counter to track live instances which "compare by
-    # identity" (i.e., whose __eq__, __cmp__ and __hash__ are the default
-    # ones).  The idea is to track only classes for which we checked the
-    # compares_by_identity() status at least once: we increment the version if
-    # its status might change, e.g. because we set one of those attributes.
-    # The actual work is done by W_TypeObject.mutated() and
-    # objecttype:descr_setclass
-    compares_by_identity_version = None
 
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
@@ -87,9 +78,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         # the type of old-style classes
         self.w_classobj = self.builtin.get('__metaclass__')
-
-        if self.config.objspace.std.trackcomparebyidentity:
-            self.compares_by_identity_version = ComparesByIdentityVersion()
 
         # final setup
         self.setup_builtin_modules()
@@ -580,12 +568,3 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
             return self.wrap(w_sub.issubtype(w_type))
         raise OperationError(self.w_TypeError, self.wrap("need type objects"))
-
-
-class ComparesByIdentityVersion(object):
-
-    def __init__(self):
-        self.bump()
-
-    def bump(self):
-        self._version = VersionTag()

@@ -1204,6 +1204,7 @@ class AppTestNewShortcut:
 class AppTestTrackCompareByIdentity:
 
     def setup_class(cls):
+        from pypy.objspace.std import identitydict
         cls.space = gettestobjspace(
                         **{"objspace.std.trackcomparebyidentity": True})
 
@@ -1212,7 +1213,7 @@ class AppTestTrackCompareByIdentity:
         cls.w_compares_by_identity = cls.space.wrap(interp2app(compares_by_identity))
 
         def get_version(space):
-            v = cls.versions.setdefault(space.compares_by_identity_version._version,
+            v = cls.versions.setdefault(identitydict.get_global_version(space),
                                         len(cls.versions))
             return space.wrap(v)
         cls.w_get_version = cls.space.wrap(interp2app(get_version))

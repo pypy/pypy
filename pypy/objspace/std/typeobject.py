@@ -7,6 +7,7 @@ from pypy.interpreter.typedef import weakref_descr
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
+from pypy.objspace.std import identitydict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from pypy.rlib.jit import promote, elidable_promote, we_are_jitted
@@ -178,7 +179,7 @@ class W_TypeObject(W_Object):
                 key == '__cmp__' or key == '__hash__'):
                 w_self.compares_by_identity_status = UNKNOWN
                 if did_compare_by_identity:
-                    w_self.space.compares_by_identity_version.bump()
+                    identitydict.bump_global_version(w_self.space)
                 
         if space.config.objspace.std.newshortcut:
             w_self.w_bltin_new = None

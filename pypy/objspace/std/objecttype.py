@@ -6,7 +6,7 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.descroperation import Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.register_all import register_all
-
+from pypy.objspace.std import identitydict
 
 def descr__repr__(space, w_obj):
     w = space.wrap
@@ -45,7 +45,7 @@ def descr_set___class__(space, w_obj, w_newcls):
         w_obj.setclass(space, w_newcls)
         if space.config.objspace.std.trackcomparebyidentity:
             if w_oldcls.compares_by_identity() and not w_newcls.compares_by_identity():
-                space.compares_by_identity_version.bump()
+                identitydict.bump_global_version(space)
     else:
         raise operationerrfmt(space.w_TypeError,
                               "__class__ assignment: '%s' object layout differs from '%s'",
