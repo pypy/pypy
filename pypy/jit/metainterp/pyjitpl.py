@@ -390,8 +390,21 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
-        return self.execute_with_descr(rop.GETARRAYITEM_GC,
-                                       arraydescr, arraybox, indexbox)
+        cache = self.metainterp.heap_array_cache.get(arraydescr, None)
+        if cache and isinstance(indexbox, ConstInt):
+            index = indexbox.getint()
+            frombox, tobox = cache.get(index, (None, None))
+            if frombox is arraybox:
+                return tobox
+        resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
+                                         arraydescr, arraybox, indexbox)
+        if isinstance(indexbox, ConstInt):
+            if not cache:
+                cache = self.metainterp.heap_array_cache[arraydescr] = {}
+            index = indexbox.getint()
+            cache[index] = arraybox, resbox
+        return resbox
+
 
     opimpl_getarrayitem_gc_i = _opimpl_getarrayitem_gc_any
     opimpl_getarrayitem_gc_r = _opimpl_getarrayitem_gc_any
@@ -419,6 +432,13 @@ class MIFrame(object):
                                     indexbox, itembox):
         self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
                                 indexbox, itembox)
+        if isinstance(indexbox, ConstInt):
+            cache = self.metainterp.heap_array_cache.setdefault(arraydescr, {})
+            cache[indexbox.getint()] = arraybox, itembox
+        else:
+            cache = self.metainterp.heap_array_cache.get(arraydescr, None)
+            if cache:
+                cache.clear()
 
     opimpl_setarrayitem_gc_i = _opimpl_setarrayitem_gc_any
     opimpl_setarrayitem_gc_r = _opimpl_setarrayitem_gc_any
@@ -454,21 +474,17 @@ class MIFrame(object):
     def opimpl_newlist(self, structdescr, lengthdescr, itemsdescr, arraydescr,
                        sizebox):
         sbox = self.metainterp.execute_and_record(rop.NEW, structdescr)
-        self.metainterp.execute_and_record(rop.SETFIELD_GC, lengthdescr,
-                                           sbox, sizebox)
+        self._opimpl_setfield_gc_any(sbox, lengthdescr, sizebox)
         abox = self.metainterp.execute_and_record(rop.NEW_ARRAY, arraydescr,
                                                   sizebox)
-        self.metainterp.execute_and_record(rop.SETFIELD_GC, itemsdescr,
-                                           sbox, abox)
+        self._opimpl_setfield_gc_any(sbox, itemsdescr, abox)
         return sbox
 
     @arguments("box", "descr", "descr", "box")
     def _opimpl_getlistitem_gc_any(self, listbox, itemsdescr, arraydescr,
                                    indexbox):
-        arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                      itemsdescr, listbox)
-        return self.execute_with_descr(rop.GETARRAYITEM_GC,
-                                       arraydescr, arraybox, indexbox)
+        arraybox = self._opimpl_getfield_gc_any(listbox, itemsdescr)
+        return self._opimpl_getarrayitem_gc_any(arraybox, arraydescr, indexbox)
 
     opimpl_getlistitem_gc_i = _opimpl_getlistitem_gc_any
     opimpl_getlistitem_gc_r = _opimpl_getlistitem_gc_any
@@ -477,10 +493,9 @@ class MIFrame(object):
     @arguments("box", "descr", "descr", "box", "box")
     def _opimpl_setlistitem_gc_any(self, listbox, itemsdescr, arraydescr,
                                    indexbox, valuebox):
-        arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                      itemsdescr, listbox)
-        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
-                                indexbox, valuebox)
+        arraybox = self._opimpl_getfield_gc_any(listbox, itemsdescr)
+        self._opimpl_setarrayitem_gc_any(arraybox, arraydescr, indexbox,
+                                         valuebox)
 
     opimpl_setlistitem_gc_i = _opimpl_setlistitem_gc_any
     opimpl_setlistitem_gc_r = _opimpl_setlistitem_gc_any
@@ -502,17 +517,28 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def _opimpl_getfield_gc_any(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_GC, fielddescr, box)
+        return self._opimpl_getfield_gc_any_pureornot(
+                rop.GETFIELD_GC, box, fielddescr)
     opimpl_getfield_gc_i = _opimpl_getfield_gc_any
     opimpl_getfield_gc_r = _opimpl_getfield_gc_any
     opimpl_getfield_gc_f = _opimpl_getfield_gc_any
 
     @arguments("box", "descr")
     def _opimpl_getfield_gc_pure_any(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_GC_PURE, fielddescr, box)
+        return self._opimpl_getfield_gc_any_pureornot(
+                rop.GETFIELD_GC_PURE, box, fielddescr)
     opimpl_getfield_gc_i_pure = _opimpl_getfield_gc_pure_any
     opimpl_getfield_gc_r_pure = _opimpl_getfield_gc_pure_any
     opimpl_getfield_gc_f_pure = _opimpl_getfield_gc_pure_any
+
+    @specialize.arg(1)
+    def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr):
+        frombox, tobox = self.metainterp.heap_cache.get(fielddescr, (None, None))
+        if frombox is box:
+            return tobox
+        resbox = self.execute_with_descr(opnum, fielddescr, box)
+        self.metainterp.heap_cache[fielddescr] = (box, resbox)
+        return resbox
 
     @arguments("orgpc", "box", "descr")
     def _opimpl_getfield_gc_greenfield_any(self, pc, box, fielddescr):
@@ -532,7 +558,11 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_setfield_gc_any(self, box, fielddescr, valuebox):
+        frombox, tobox = self.metainterp.heap_cache.get(fielddescr, (None, None))
+        if frombox is box and tobox is valuebox:
+            return
         self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        self.metainterp.heap_cache[fielddescr] = (box, valuebox)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
     opimpl_setfield_gc_f = _opimpl_setfield_gc_any
@@ -617,7 +647,7 @@ class MIFrame(object):
     @arguments("orgpc", "box", "descr")
     def _opimpl_getfield_vable(self, pc, box, fielddescr):
         if self._nonstandard_virtualizable(pc, box):
-            return self.execute_with_descr(rop.GETFIELD_GC, fielddescr, box)
+            return self._opimpl_getfield_gc_any(box, fielddescr)
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_virtualizable_field_index(fielddescr)
         return self.metainterp.virtualizable_boxes[index]
@@ -629,8 +659,7 @@ class MIFrame(object):
     @arguments("orgpc", "box", "descr", "box")
     def _opimpl_setfield_vable(self, pc, box, fielddescr, valuebox):
         if self._nonstandard_virtualizable(pc, box):
-            self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
-            return
+            return self._opimpl_setfield_gc_any(box, fielddescr, valuebox)
         index = self._get_virtualizable_field_index(fielddescr)
         self.metainterp.virtualizable_boxes[index] = valuebox
         self.metainterp.synchronize_virtualizable()
@@ -660,10 +689,8 @@ class MIFrame(object):
     @arguments("orgpc", "box", "descr", "descr", "box")
     def _opimpl_getarrayitem_vable(self, pc, box, fdescr, adescr, indexbox):
         if self._nonstandard_virtualizable(pc, box):
-            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          fdescr, box)
-            return self.execute_with_descr(rop.GETARRAYITEM_GC, adescr,
-                                           arraybox, indexbox)
+            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
+            return self._opimpl_getarrayitem_gc_any(arraybox, adescr, indexbox)
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_arrayitem_vable_index(pc, fdescr, indexbox)
         return self.metainterp.virtualizable_boxes[index]
@@ -676,10 +703,9 @@ class MIFrame(object):
     def _opimpl_setarrayitem_vable(self, pc, box, fdescr, adescr, indexbox,
                                   valuebox):
         if self._nonstandard_virtualizable(pc, box):
-            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          fdescr, box)
-            self.execute_with_descr(rop.SETARRAYITEM_GC, adescr,
-                                    arraybox, indexbox, valuebox)
+            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
+            self._opimpl_setarrayitem_gc_any(arraybox, adescr,
+                                             indexbox, valuebox)
             return
         index = self._get_arrayitem_vable_index(pc, fdescr, indexbox)
         self.metainterp.virtualizable_boxes[index] = valuebox
@@ -693,8 +719,7 @@ class MIFrame(object):
     @arguments("orgpc", "box", "descr", "descr")
     def opimpl_arraylen_vable(self, pc, box, fdescr, adescr):
         if self._nonstandard_virtualizable(pc, box):
-            arraybox = self.metainterp.execute_and_record(rop.GETFIELD_GC,
-                                                          fdescr, box)
+            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
             return self.execute_with_descr(rop.ARRAYLEN_GC, adescr, arraybox)
         vinfo = self.metainterp.jitdriver_sd.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
@@ -1462,6 +1487,12 @@ class MetaInterp(object):
         self.known_class_boxes = {}
         # contains frame boxes that are not virtualizables
         self.nonstandard_virtualizables = {}
+        # heap cache
+        # maps descrs to (from_box, to_box) tuples
+        self.heap_cache = {}
+        # heap array cache
+        # maps descrs to {index: (from_box, to_box)} dicts
+        self.heap_array_cache = {}
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1637,9 +1668,26 @@ class MetaInterp(object):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)
+        self._invalidate_caches(opnum, descr)
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
         return resbox
+
+    def _invalidate_caches(self, opnum, descr):
+        if opnum == rop.SETFIELD_GC:
+            return
+        if opnum == rop.SETARRAYITEM_GC:
+            return
+        if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
+            return
+        if opnum == rop.CALL:
+            effectinfo = descr.get_extra_info()
+            if effectinfo.extraeffect == effectinfo.EF_ELIDABLE:
+                return
+        if self.heap_cache:
+            self.heap_cache.clear()
+        if self.heap_array_cache:
+            self.heap_array_cache.clear()
 
     def attach_debug_info(self, op):
         if (not we_are_translated() and op is not None
@@ -1804,6 +1852,8 @@ class MetaInterp(object):
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
         self.known_class_boxes = {}
         self.nonstandard_virtualizables = {} # XXX maybe not needed?
+        self.heap_cache = {}
+        self.heap_array_cache = {}
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
@@ -2311,6 +2361,16 @@ class MetaInterp(object):
             for i in range(len(boxes)):
                 if boxes[i] is oldbox:
                     boxes[i] = newbox
+        for descr, (frombox, tobox) in self.heap_cache.iteritems():
+            change = False
+            if frombox is oldbox:
+                change = True
+                frombox = newbox
+            if tobox is oldbox:
+                change = True
+                tobox = newbox
+            if change:
+                self.heap_cache[descr] = frombox, tobox
 
     def find_biggest_function(self):
         start_stack = []
