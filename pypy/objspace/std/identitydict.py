@@ -1,7 +1,8 @@
 from pypy.rlib import rerased
 from pypy.objspace.std.dictmultiobject import (AbstractTypedStrategy,
                                                DictStrategy,
-                                               IteratorImplementation)
+                                               IteratorImplementation,
+                                               _UnwrappedIteratorMixin)
 
 
 # a global (per-space) version counter to track live instances which "compare
@@ -85,14 +86,5 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.unerase(w_dict.dstorage).keys()
 
 
-class IdentityDictIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
-        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
-
-    def next_entry(self):
-        # note that this 'for' loop only runs once, at most
-        for w_key, w_value in self.iterator:
-            return w_key, w_value
-        else:
-            return None, None
+class IdentityDictIteratorImplementation(_UnwrappedIteratorMixin, IteratorImplementation):
+    pass
