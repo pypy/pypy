@@ -240,6 +240,24 @@ class BaseArray(Wrappable):
         else:
             return self.descr_mul(space, w_other)
 
+    def _getnums(self, comma):
+        if self.find_size() > 1000:
+            nums = [
+                float2string(self.getitem(index))
+                for index in range(3)
+            ]
+            nums.append("..." + "," * comma)
+            nums.extend([
+                float2string(self.getitem(index))
+                for index in range(self.find_size() - 3, self.find_size())
+            ])
+        else:
+            nums = [
+                float2string(self.getitem(index))
+                for index in range(self.find_size())
+            ]
+        return nums
+
     def get_concrete(self):
         raise NotImplementedError
 
@@ -250,10 +268,14 @@ class BaseArray(Wrappable):
         return self.get_concrete().descr_len(space)
 
     def descr_repr(self, space):
-        return self.get_concrete()._repr(space)
+        # Simple implementation so that we can see the array. Needs work.
+        concrete = self.get_concrete()
+        return space.wrap("array([" + ", ".join(concrete._getnums(False)) + "])")
 
     def descr_str(self, space):
-        return self.get_concrete()._str(space)
+        # Simple implementation so that we can see the array. Needs work.
+        concrete = self.get_concrete()
+        return space.wrap("[" + " ".join(concrete._getnums(True)) + "]")
 
     def descr_getitem(self, space, w_idx):
         # TODO: indexing by tuples
@@ -444,32 +466,6 @@ class SingleDimSlice(ViewArray):
     def calc_index(self, item):
         return (self.start + item * self.step)
 
-    def _getnums(self, comma):
-        if self.find_size() > 1000:
-            nums = [
-                float2string(self.getitem(index))
-                for index in range(3)
-            ]
-            nums.append("..." + "," * comma)
-            nums.extend([
-                float2string(self.getitem(index))
-                for index in range(self.find_size() - 3, self.find_size())
-            ])
-        else:
-            nums = [
-                float2string(self.getitem(index))
-                for index in range(self.find_size())
-            ]
-        return nums
-
-    def _repr(self, space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
-
-    def _str(self,space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("[" + " ".join(self._getnums(True)) + "]")
-
 
 class SingleDimArray(BaseArray):
     signature = Signature()
@@ -506,32 +502,6 @@ class SingleDimArray(BaseArray):
 
     def getitem(self, item):
         return self.storage[item]
-
-    def _getnums(self, comma):
-        if self.find_size() > 1000:
-            nums = [
-                float2string(self.getitem(index))
-                for index in range(3)
-            ]
-            nums.append("..." + "," * comma)
-            nums.extend([
-                float2string(self.getitem(index))
-                for index in range(self.find_size() - 3, self.find_size())
-            ])
-        else:
-            nums = [
-                float2string(self.getitem(index))
-                for index in range(self.find_size())
-            ]
-        return nums
-
-    def _repr(self, space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
-
-    def _str(self,space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("[" + " ".join(self._getnums(True)) + "]")
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):
