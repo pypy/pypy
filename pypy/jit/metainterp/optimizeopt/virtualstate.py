@@ -237,9 +237,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             bad[other] = True
             return False
         if self.lenbound and other.lenbound:
-            if self.lenbound[0] != other.lenbound[0] or \
-               self.lenbound[1] != other.lenbound[1] or \
-               not self.lenbound[2].contains_bound(other.lenbound[2]):
+            if self.lenbound.mode != other.lenbound.mode or \
+               self.lenbound.descr != other.lenbound.descr or \
+               not self.lenbound.bound.contains_bound(other.lenbound.bound):
                 bad[self] = True
                 bad[other] = True
                 return False
@@ -341,7 +341,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         lb = ''
         if self.lenbound:
-            lb = ', ' + self.lenbound[2].__repr__()
+            lb = ', ' + self.lenbound.bound.__repr__()
         
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
                     ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')

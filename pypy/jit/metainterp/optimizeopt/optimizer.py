@@ -25,6 +25,11 @@ LEVEL_CONSTANT   = '\x03'
 MODE_ARRAY   = '\x00'
 MODE_STR     = '\x01'
 MODE_UNICODE = '\x02'
+class LenBound(object):
+    def __init__(self, mode, descr, bound):
+        self.mode = mode
+        self.descr = descr
+        self.bound = bound
 
 class OptValue(object):
     __metaclass__ = extendabletype
@@ -55,11 +60,11 @@ class OptValue(object):
 
     def make_len_gt(self, mode, descr, val):
         if self.lenbound:
-            assert self.lenbound[0] == mode
-            assert self.lenbound[1] == descr
-            self.lenbound[2].make_gt(IntBound(val, val))
+            assert self.lenbound.mode == mode
+            assert self.lenbound.descr == descr
+            self.lenbound.bound.make_gt(IntBound(val, val))
         else:
-            self.lenbound = (mode, descr, IntLowerBound(val + 1))
+            self.lenbound = LenBound(mode, descr, IntLowerBound(val + 1))
 
     def make_guards(self, box):
         guards = []
@@ -78,17 +83,17 @@ class OptValue(object):
             self.intbound.make_guards(box, guards)
             if self.lenbound:
                 lenbox = BoxInt()
-                if self.lenbound[0] == MODE_ARRAY:
-                    op = ResOperation(rop.ARRAYLEN_GC, [box], lenbox, self.lenbound[1])
-                elif self.lenbound[0] == MODE_STR:
-                    op = ResOperation(rop.STRLEN, [box], lenbox, self.lenbound[1])
-                elif self.lenbound[0] == MODE_UNICODE:
-                    op = ResOperation(rop.UNICODELEN, [box], lenbox, self.lenbound[1])
+                if self.lenbound.mode == MODE_ARRAY:
+                    op = ResOperation(rop.ARRAYLEN_GC, [box], lenbox, self.lenbound.descr)
+                elif self.lenbound.mode == MODE_STR:
+                    op = ResOperation(rop.STRLEN, [box], lenbox, self.lenbound.descr)
+                elif self.lenbound.mode == MODE_UNICODE:
+                    op = ResOperation(rop.UNICODELEN, [box], lenbox, self.lenbound.descr)
                 else:
                     debug_print("Unknown lenbound mode")
                     assert False
                 guards.append(op)
-                self.lenbound[2].make_guards(lenbox, guards)
+                self.lenbound.bound.make_guards(lenbox, guards)
 
         return guards
 
