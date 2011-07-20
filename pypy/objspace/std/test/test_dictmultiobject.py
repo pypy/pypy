@@ -1105,3 +1105,60 @@ def test_module_uses_strdict():
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
     assert type(d.strategy) is StringDictStrategy
+
+
+class AppTestIdentityDict(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.trackcomparebyidentity": True})
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
+
+    def w_uses_identity_strategy(self, obj):
+        import __pypy__
+        return "IdentityDictStrategy" in __pypy__.internal_repr(obj)
+
+    def test_use_strategy(self):
+        class X(object):
+            pass
+        d = {}
+        x = X()
+        d[x] = 1
+        assert self.uses_identity_strategy(d)
+        assert d[x] == 1
+
+    def test_bad_item(self):
+        class X(object):
+            pass
+        class Y(object):
+            def __hash__(self):
+                return 32
+
+        d = {}
+        x = X()
+        y = Y()
+        d[x] = 1
+        assert self.uses_identity_strategy(d)
+        d[y] = 2
+        assert not self.uses_identity_strategy(d)
+        assert d[x] == 1
+        assert d[y] == 2
+
+    def test_bad_key(self):
+        class X(object):
+            pass
+        d = {}
+        x = X()
+
+        class Y(object):
+            def __hash__(self):
+                return hash(x) # to make sure we do x == y
+
+            def __eq__(self, other):
+                return True
+
+        y = Y()
+        d[x] = 1
+        assert self.uses_identity_strategy(d)
+        assert d[y] == 1
+        assert not self.uses_identity_strategy(d)
+

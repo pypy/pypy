@@ -157,11 +157,15 @@ class EmptyDictStrategy(DictStrategy):
        return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
-        #XXX implement other strategies later
+        trackcomparebyidentity = self.space.config.objspace.std.trackcomparebyidentity
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_string_strategy(w_dict)
-        elif self.space.is_w(self.space.type(w_key), self.space.w_int):
+            return
+        w_type = self.space.type(w_key)
+        if self.space.is_w(w_type, self.space.w_int):
             self.switch_to_int_strategy(w_dict)
+        elif trackcomparebyidentity and w_type.compares_by_identity():
+            self.switch_to_identity_strategy(w_dict)
         else:
             self.switch_to_object_strategy(w_dict)
 
@@ -173,6 +177,12 @@ class EmptyDictStrategy(DictStrategy):
 
     def switch_to_int_strategy(self, w_dict):
         strategy = self.space.fromcache(IntDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def switch_to_identity_strategy(self, w_dict):
+        strategy = self.space.fromcache(IdentityDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
@@ -338,7 +348,6 @@ class AbstractTypedStrategy(object):
 
     def getitem(self, w_dict, w_key):
         space = self.space
-
         if self.is_correct_type(w_key):
             return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
         elif self._never_equal_to(space.type(w_key)):
@@ -403,6 +412,23 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def keys(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
+
+
+class IdentityDictStrategy(ObjectDictStrategy):
+    """
+    Strategy for custom instances which compares by identity (i.e., the
+    default unless you override __hash__, __eq__ or __cmp__).  The storage is
+    just a normal RPython dict, which has already the correct by-identity
+    semantics.
+    """
+
+    def is_correct_type(self, w_obj):
+        w_type = self.space.type(w_obj)
+        return w_type.compares_by_identity()
+
+    def get_empty_storage(self):
+        return self.erase({})
+
 
 class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
