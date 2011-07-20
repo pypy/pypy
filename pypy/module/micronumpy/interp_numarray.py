@@ -2,7 +2,9 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.floatobject import float2string as float2string_orig
 from pypy.rlib import jit
+from pypy.rlib.rfloat import DTSF_STR_PRECISION
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 import math
@@ -54,6 +56,9 @@ def maximum(v1, v2):
     return max(v1, v2)
 def minimum(v1, v2):
     return min(v1, v2)
+
+def float2string(x):
+    return float2string_orig(x, 'g', DTSF_STR_PRECISION)
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -441,14 +446,20 @@ class SingleDimSlice(ViewArray):
 
     def _getnums(self, comma):
         if self.find_size() > 1000:
-            nums = [str(self.getitem(index)) for index \
-                in range(3)]
+            nums = [
+                float2string(self.getitem(index))
+                for index in range(3)
+            ]
             nums.append("..." + "," * comma)
-            nums.extend([str(self.getitem(index)) for index \
-                in range(self.find_size() - 3, self.find_size())])
+            nums.extend([
+                float2string(self.getitem(index))
+                for index in range(self.find_size() - 3, self.find_size())
+            ])
         else:
-            nums = [str(self.getitem(index)) for index \
-                in range(self.find_size())]
+            nums = [
+                float2string(self.getitem(index))
+                for index in range(self.find_size())
+            ]
         return nums
 
     def _repr(self, space):
@@ -498,14 +509,20 @@ class SingleDimArray(BaseArray):
 
     def _getnums(self, comma):
         if self.find_size() > 1000:
-            nums = [str(self.getitem(index)) for index \
-                in range(3)]
+            nums = [
+                float2string(self.getitem(index))
+                for index in range(3)
+            ]
             nums.append("..." + "," * comma)
-            nums.extend([str(self.getitem(index)) for index \
-                in range(self.find_size() - 3, self.find_size())])
+            nums.extend([
+                float2string(self.getitem(index))
+                for index in range(self.find_size() - 3, self.find_size())
+            ])
         else:
-            nums = [str(self.getitem(index)) for index \
-                in range(self.find_size())]
+            nums = [
+                float2string(self.getitem(index))
+                for index in range(self.find_size())
+            ]
         return nums
 
     def _repr(self, space):
