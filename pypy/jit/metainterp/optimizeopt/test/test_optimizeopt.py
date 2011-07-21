@@ -5628,12 +5628,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, i0]
         i1 = unicodegetitem(p0, i0)
+        i10 = unicodegetitem(p0, i0)        
         i2 = int_lt(i1, 0)
         guard_false(i2) []
         jump(p0, i0)
         """
         expected = """
         [p0, i0]
+        i1 = unicodegetitem(p0, i0)        
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
