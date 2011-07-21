@@ -11,14 +11,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 import math
 
-def dummy1(v):
-    assert isinstance(v, float)
-    return v
-
-def dummy2(v):
-    assert isinstance(v, float)
-    return v
-
 TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
