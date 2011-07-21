@@ -14,7 +14,7 @@ def setup_module(mod):
     if err:
         raise OSError("'make' failed (see stderr)")
 
-class AppTestSTL:
+class AppTestFRAGILE:
     def setup_class(cls):
         cls.space = space
         env = os.environ
@@ -65,3 +65,24 @@ class AppTestSTL:
 
         d = fragile.D()
         raises(TypeError, d.overload, None)
+        raises(TypeError, d.overload, None, None, None)
+
+        # TODO: the following fails in the fast path, b/c the default
+        # arguments are not properly filled
+        #d.overload('a')
+        #d.overload(1)
+
+    def test04_unsupported_arguments(self):
+        """Test arguments that are yet unsupported"""
+
+        import cppyy
+
+        assert cppyy.gbl.fragile == cppyy.gbl.fragile
+        fragile = cppyy.gbl.fragile
+
+        assert fragile.E == fragile.E
+        assert fragile.E().check() == ord('E')
+
+        e = fragile.E()
+        raises(TypeError, e.overload, None)
+        raises(NotImplementedError, getattr, e, 'm_pp_no_such')

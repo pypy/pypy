@@ -74,7 +74,13 @@ def make_datamember(cppdm):
     if not rettype:                              # return builtin type
         cppclass = None
     else:                                        # return instance
-        cppclass = get_cppclass(rettype)
+        try:
+            cppclass = get_cppclass(rettype)
+        except AttributeError, e:
+            import warnings
+            warnings.warn("class %s unknown: no data member access" % rettype,
+                          RuntimeWarning)
+            cppclass = None
     if cppdm.is_static():
         def binder(obj):
             return cppdm.get(None, cppclass)

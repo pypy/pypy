@@ -43,22 +43,22 @@ class TypeConverter(object):
             fieldptr = rffi.cast(rffi.CCHARP, offset)
         return fieldptr
 
-    def _is_abstract(self):
-        raise NotImplementedError(
-            "abstract base class" ) # more detailed part is not rpython: (actual: %s)" % type(self).__name__)
+    def _is_abstract(self, space):
+        raise OperationError(space.w_NotImplementedError,
+                             space.wrap("no converter available")) # more detailed part is not rpython: (actual: %s)" % type(self).__name__))
 
     def convert_argument(self, space, w_obj, address):
-        self._is_abstract()
+        self._is_abstract(space)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
     def from_memory(self, space, w_obj, w_type, offset):
-        self._is_abstract()
+        self._is_abstract(space)
 
     def to_memory(self, space, w_obj, w_value, offset):
-        self._is_abstract()
+        self._is_abstract(space)
 
     def free_argument(self, arg):
         pass

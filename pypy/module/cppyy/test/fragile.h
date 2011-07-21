@@ -28,4 +28,15 @@ public:
     void overload(int, no_such_class* p = 0) {}
 };
 
+class E {
+public:
+    E() : m_pp_no_such(0), m_pp_a(0) {}
+
+    virtual int check() { return (int)'E'; }
+    void overload(no_such_class**) {}
+
+    no_such_class** m_pp_no_such;
+    A** m_pp_a;
+};
+
 } // namespace fragile

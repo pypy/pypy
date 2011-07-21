@@ -2,9 +2,6 @@
 
   <namespace name="fragile" />
 
-  <class name="fragile::A" />
-  <class name="fragile::B" />
-  <class name="fragile::C" />
-  <class name="fragile::D" />
+  <class pattern="fragile::[A-Z]" />
 
 </lcgdict>
