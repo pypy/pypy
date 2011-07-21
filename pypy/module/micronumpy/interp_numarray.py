@@ -2,6 +2,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.module.micronumpy.interp_support import Signature
+from pypy.module.micronumpy import interp_ufuncs
 from pypy.objspace.std.floatobject import float2string as float2string_orig
 from pypy.rlib import jit
 from pypy.rlib.rfloat import DTSF_STR_PRECISION
@@ -24,16 +26,6 @@ numpy_driver = jit.JitDriver(greens = ['signature'],
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 
-class Signature(object):
-    def __init__(self):
-        self.transitions = {}
-
-    def transition(self, target):
-        if target in self.transitions:
-            return self.transitions[target]
-        self.transitions[target] = new = Signature()
-        return new
-
 def pos(v):
     return v
 def neg(v):
@@ -42,16 +34,8 @@ def absolute(v):
     return abs(v)
 def add(v1, v2):
     return v1 + v2
-def sub(v1, v2):
-    return v1 - v2
 def mul(v1, v2):
     return v1 * v2
-def div(v1, v2):
-    return v1 / v2
-def power(v1, v2):
-    return math.pow(v1, v2)
-def mod(v1, v2):
-    return math.fmod(v1, v2)
 def maximum(v1, v2):
     return max(v1, v2)
 def minimum(v1, v2):
@@ -89,51 +73,30 @@ class BaseArray(Wrappable):
     descr_neg = _unop_impl(neg)
     descr_abs = _unop_impl(absolute)
 
-    def _binop_impl(function):
-        signature = Signature()
+    def _binop_impl(w_ufunc):
         def impl(self, space, w_other):
-            w_other = convert_to_array(space, w_other)
-            new_sig = self.signature.transition(signature)
-            res = Call2(
-                function,
-                self,
-                w_other,
-                new_sig.transition(w_other.signature)
-            )
-            w_other.invalidates.append(res)
-            self.invalidates.append(res)
-            return space.wrap(res)
-        return func_with_new_name(impl, "binop_%s_impl" % function.__name__)
+            return w_ufunc(space, self, w_other)
+        return func_with_new_name(impl, "binop_%s_impl" % w_ufunc.__name__)
 
-    descr_add = _binop_impl(add)
-    descr_sub = _binop_impl(sub)
-    descr_mul = _binop_impl(mul)
-    descr_div = _binop_impl(div)
-    descr_pow = _binop_impl(power)
-    descr_mod = _binop_impl(mod)
+    descr_add = _binop_impl(interp_ufuncs.add)
+    descr_sub = _binop_impl(interp_ufuncs.subtract)
+    descr_mul = _binop_impl(interp_ufuncs.multiply)
+    descr_div = _binop_impl(interp_ufuncs.divide)
+    descr_pow = _binop_impl(interp_ufuncs.power)
+    descr_mod = _binop_impl(interp_ufuncs.mod)
 
-    def _binop_right_impl(function):
-        signature = Signature()
+    def _binop_right_impl(w_ufunc):
         def impl(self, space, w_other):
-            new_sig = self.signature.transition(signature)
             w_other = FloatWrapper(space.float_w(w_other))
-            res = Call2(
-                function,
-                w_other,
-                self,
-                new_sig.transition(w_other.signature)
-            )
-            self.invalidates.append(res)
-            return space.wrap(res)
-        return func_with_new_name(impl,
-                                  "binop_right_%s_impl" % function.__name__)
+            return w_ufunc(space, w_other, self)
+        return func_with_new_name(impl, "binop_right_%s_impl" % w_ufunc.__name__)
 
-    descr_radd = _binop_right_impl(add)
-    descr_rsub = _binop_right_impl(sub)
-    descr_rmul = _binop_right_impl(mul)
-    descr_rdiv = _binop_right_impl(div)
-    descr_rpow = _binop_right_impl(power)
-    descr_rmod = _binop_right_impl(mod)
+    descr_radd = _binop_right_impl(interp_ufuncs.add)
+    descr_rsub = _binop_right_impl(interp_ufuncs.subtract)
+    descr_rmul = _binop_right_impl(interp_ufuncs.multiply)
+    descr_rdiv = _binop_right_impl(interp_ufuncs.divide)
+    descr_rpow = _binop_right_impl(interp_ufuncs.power)
+    descr_rmod = _binop_right_impl(interp_ufuncs.mod)
 
     def _reduce_sum_prod_impl(function, init):
         reduce_driver = jit.JitDriver(greens=['signature'],
