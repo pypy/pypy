@@ -14,18 +14,19 @@ try:
    import cppyy, random
    cppyy.load_lib('bench02Dict_reflex.so')
 
+   app      = cppyy.gbl.Bench02RootApp()
    TCanvas  = cppyy.gbl.TCanvas
    TFile    = cppyy.gbl.TFile
    TProfile = cppyy.gbl.TProfile
    TNtuple  = cppyy.gbl.TNtuple
    TH1F     = cppyy.gbl.TH1F
    TH2F     = cppyy.gbl.TH2F
-   CH       = cppyy.gbl.CloserHack()
-   CH.report()
+   TRandom  = cppyy.gbl.TRandom
 except ImportError:
-   from ROOT import TCanvas, TFile, TProfile, TNtuple, TH1F, TH2F
+   from ROOT import TCanvas, TFile, TProfile, TNtuple, TH1F, TH2F, TRandom
    import random
 
+import math
 #gROOT      = cppyy.gbl.gROOT
 #gBenchmark = cppyy.gbl.gBenchmark
 #gRandom    = cppyy.gbl.gRandom
@@ -34,7 +35,7 @@ except ImportError:
 #gROOT.Reset()
 
 # Create a new canvas, and customize it.
-c1 = TCanvas( 'c1', 'Dynamic Filling Example', 200, 10, 700, 500 )
+#c1 = TCanvas( 'c1', 'Dynamic Filling Example', 200, 10, 700, 500 )
 #c1.SetFillColor( 42 )
 #c1.GetFrame().SetFillColor( 21 )
 #c1.GetFrame().SetBorderSize( 6 )
@@ -65,14 +66,18 @@ hpx    = TH1F( 'hpx', 'This is the px distribution', 100, -4, 4 )
 #gRandom.SetSeed()
 #rannor, rndm = gRandom.Rannor, gRandom.Rndm
 
+#random = TRandom()
+
 # Fill histograms randomly.
 #px, py = Double(), Double()
 kUPDATE = 1000
 for i in xrange( 2500000 ):
  # Generate random values.
    px, py = random.gauss(0, 1), random.gauss(0, 1)
+#   px, py = random.Gaus(0, 1), random.Gaus(0, 1)
 #   pt = (px*px + py*py)**0.5
-   pt = (px*px + py*py)
+   pt = math.sqrt(px*px + py*py)
+#   pt = (px*px + py*py)
 #   random = rndm(1)
 
  # Fill histograms.
@@ -82,9 +87,9 @@ for i in xrange( 2500000 ):
 #   ntupleFill( px, py, pz, random, i )
 
  # Update display every kUPDATE events.
-   if i and i%kUPDATE == 0:
-      if i == kUPDATE:
-         hpx.Draw()
+#   if i and i%kUPDATE == 0:
+#      if i == kUPDATE:
+#         hpx.Draw()
 
 #      c1.Modified()
 #      c1.Update()
@@ -100,8 +105,8 @@ for i in xrange( 2500000 ):
 hfile.Close()
 #hpx.SetFillColor( 48 )
 #c1.Modified()
-c1.Update()
-c1.Draw()
+#c1.Update()
+#c1.Draw()
 #import gc
 #gc.collect()
   

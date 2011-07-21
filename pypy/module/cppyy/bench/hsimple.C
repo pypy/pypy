@@ -10,6 +10,8 @@
 #include <TBenchmark.h>
 #include <TInterpreter.h>
 
+#include <math.h>
+
 TFile *hsimple(Int_t get=0)
 {
 //  This program creates :
@@ -80,13 +82,13 @@ TFile *hsimple(Int_t get=0)
 */
    // Fill histograms randomly
    gRandom->SetSeed();
-   Float_t px, py, pz;
+   Float_t px, py, pt;
    const Int_t kUPDATE = 1000;
    for (Int_t i = 0; i < 2500000; i++) {
       gRandom->Rannor(px,py);
-      pz = px*px + py*py;
+      pt = sqrt(px*px + py*py);
  //     Float_t random = gRandom->Rndm(1);
-      hpx->Fill(px);
+      hpx->Fill(pt);
 /*
       hpxpy->Fill(px,py);
       hprof->Fill(px,pz);

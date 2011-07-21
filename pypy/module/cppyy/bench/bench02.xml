@@ -1,42 +1,31 @@
 <lcgdict>
 
-  <!-- base classes -->
-  <class name="TROOT" />
-  <class name="TApplication" />
+  <selection>
 
-  <class name="TObject" />
-  <class name="TNamed" />
+     <!-- ROOT classes -->
+     <class pattern="T[A-Z]*" />
 
-  <class name="TQObject" />
-  <class name="TAttPad" />
-  <class name="TAttFill" />
-  <class name="TAttLine" />
-  <class name="TAttMarker" />
-  <class name="TVirtualPad" />
-  <class name="TPad" />
+     <!-- STL classes actually used -->
+     <class name="std::ostream" />
+     <class name="std::type_info" />
+     <class pattern="std::_Vector_base<*> >" />
 
-  <class name="TDirectory" />
-  <class name="TDirectoryFile" />
+     <!-- helper -->
+     <class name="Bench02RootApp" />
 
-  <class name="TH1" />
-  <class name="TH2" />
-  <class name="TH1D" />
+  </selection>
 
-  <class name="TArray" />
-  <class name="TArrayD" />
-  <class name="TArrayF" />
+  <exclusion>
 
-  <class name="TTree" /> -->
+     <class name="TString" >
+         <field name="fRep" transient="true"/>
+     </class>
 
-  <!-- desired classes -->
-  <class name="TCanvas" />
-  <class name="TFile" />
-  <class name="TProfile" />
-  <class name="TNtuple" />
-  <class name="TH1F" />
-  <class name="TH2F" />
+     <class pattern="TString::*" />
 
-  <!-- helper -->
-  <class name="CloserHack" />
+     <class name="TClass::TNameMapNode" />
+     <class name="TFileOpenHandle" />
+
+  </exclusion>
 
 </lcgdict>
