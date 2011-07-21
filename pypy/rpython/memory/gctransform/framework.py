@@ -1449,8 +1449,9 @@ class ShadowStackRootWalker(BaseRootWalker):
             # old NULL entries
             gcdata.dead_threads_count += 1
             if (gcdata.dead_threads_count & 511) == 0:
-                gcdata.thread_stacks = copy_without_null_values(
-                    gcdata.thread_stacks)
+                copy = copy_without_null_values(gcdata.thread_stacks)
+                gcdata.thread_stacks.delete()
+                gcdata.thread_stacks = copy
 
         def switch_shadow_stacks(new_aid):
             save_away_current_stack()

@@ -2,7 +2,9 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.floatobject import float2string as float2string_orig
 from pypy.rlib import jit
+from pypy.rlib.rfloat import DTSF_STR_PRECISION
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 import math
@@ -54,6 +56,9 @@ def maximum(v1, v2):
     return max(v1, v2)
 def minimum(v1, v2):
     return min(v1, v2)
+
+def float2string(x):
+    return float2string_orig(x, 'g', DTSF_STR_PRECISION)
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -235,6 +240,24 @@ class BaseArray(Wrappable):
         else:
             return self.descr_mul(space, w_other)
 
+    def _getnums(self, comma):
+        if self.find_size() > 1000:
+            nums = [
+                float2string(self.getitem(index))
+                for index in range(3)
+            ]
+            nums.append("..." + "," * comma)
+            nums.extend([
+                float2string(self.getitem(index))
+                for index in range(self.find_size() - 3, self.find_size())
+            ])
+        else:
+            nums = [
+                float2string(self.getitem(index))
+                for index in range(self.find_size())
+            ]
+        return nums
+
     def get_concrete(self):
         raise NotImplementedError
 
@@ -245,10 +268,14 @@ class BaseArray(Wrappable):
         return self.get_concrete().descr_len(space)
 
     def descr_repr(self, space):
-        return self.get_concrete()._repr(space)
+        # Simple implementation so that we can see the array. Needs work.
+        concrete = self.get_concrete()
+        return space.wrap("array([" + ", ".join(concrete._getnums(False)) + "])")
 
     def descr_str(self, space):
-        return self.get_concrete()._str(space)
+        # Simple implementation so that we can see the array. Needs work.
+        concrete = self.get_concrete()
+        return space.wrap("[" + " ".join(concrete._getnums(True)) + "]")
 
     def descr_getitem(self, space, w_idx):
         # TODO: indexing by tuples
@@ -439,26 +466,6 @@ class SingleDimSlice(ViewArray):
     def calc_index(self, item):
         return (self.start + item * self.step)
 
-    def _getnums(self, comma):
-        if self.find_size() > 1000:
-            nums = [str(self.getitem(index)) for index \
-                in range(3)]
-            nums.append("..." + "," * comma)
-            nums.extend([str(self.getitem(index)) for index \
-                in range(self.find_size() - 3, self.find_size())])
-        else:
-            nums = [str(self.getitem(index)) for index \
-                in range(self.find_size())]
-        return nums
-
-    def _repr(self, space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
-
-    def _str(self,space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("[" + " ".join(self._getnums(True)) + "]")
-
 
 class SingleDimArray(BaseArray):
     signature = Signature()
@@ -495,26 +502,6 @@ class SingleDimArray(BaseArray):
 
     def getitem(self, item):
         return self.storage[item]
-
-    def _getnums(self, comma):
-        if self.find_size() > 1000:
-            nums = [str(self.getitem(index)) for index \
-                in range(3)]
-            nums.append("..." + "," * comma)
-            nums.extend([str(self.getitem(index)) for index \
-                in range(self.find_size() - 3, self.find_size())])
-        else:
-            nums = [str(self.getitem(index)) for index \
-                in range(self.find_size())]
-        return nums
-
-    def _repr(self, space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("array([" + ", ".join(self._getnums(False)) + "])")
-
-    def _str(self,space):
-        # Simple implementation so that we can see the array. Needs work.
-        return space.wrap("[" + " ".join(self._getnums(True)) + "]")
 
     @unwrap_spec(item=int, value=float)
     def descr_setitem(self, space, item, value):

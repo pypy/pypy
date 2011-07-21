@@ -63,6 +63,20 @@ def test_base_config():
     py.test.raises(ConfigError, 'config.gc.name = "ref"')
     config.gc.name = "framework"
 
+def test___dir__():
+    descr = make_description()
+    config = Config(descr, bool=False)
+    attrs = dir(config)
+    assert '__repr__' in attrs        # from the type
+    assert '_cfgimpl_values' in attrs # from self
+    assert 'gc' in attrs              # custom attribute
+    assert 'objspace' in attrs        # custom attribute
+    #
+    attrs = dir(config.gc)
+    assert 'name' in attrs
+    assert 'dummy' in attrs
+    assert 'float' in attrs
+
 def test_arbitrary_option():
     descr = OptionDescription("top", "", [
         ArbitraryOption("a", "no help", default=None)

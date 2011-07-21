@@ -94,3 +94,15 @@ def sign(value):
     if value == 0.0:
         return 0.0
     return rfloat.copysign(1.0, value)
+
+@ufunc
+def sin(value):
+    return math.sin(value)
+
+@ufunc
+def cos(value):
+    return math.cos(value)
+
+@ufunc
+def tan(value):
+    return math.tan(value)
