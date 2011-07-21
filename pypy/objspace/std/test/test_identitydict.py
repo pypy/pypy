@@ -131,6 +131,5 @@ class AppTestIdentityDict(object):
     def test_old_style_classes(self):
         class X:
             pass
-            
         d = {X(): 1}
         assert not self.uses_identity_strategy(d)
