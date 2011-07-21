@@ -211,6 +211,38 @@ but ``foo`` on CPython::
     >>>> print d1['a']
     42
 
+Mutating classes of objects which are already used as dictionary keys
+---------------------------------------------------------------------
+
+Consider the following snippet of code::
+
+    class X(object):
+        pass
+
+    def __evil_eq__(self, other):
+        print 'hello world'
+        return False
+
+    def evil(y):
+        d = {x(): 1}
+        X.__eq__ = __evil_eq__
+        d[y] # might trigger a call to __eq__?
+
+In CPython, __evil_eq__ **might** be called, although there is no way to write
+a test which reliably calls it.  It happens if ``y is not x`` and ``hash(y) ==
+hash(x)``, where ``hash(x)`` is computed when ``x`` is inserted into the
+dictionary.  If **by chance** the condition is satisfied, then ``__evil_eq__``
+is called.
+
+PyPy uses a special strategy to optimize dictionaries whose keys are instances
+of user-defined classes which do not override the default ``__hash__``,
+``__eq__`` and ``__cmp__``: when using this strategy, ``__eq__`` and
+``__cmp__`` are never called, but instead the lookup is done by identity, so
+in the case above it is guaranteed that ``__eq__`` won't be called.
+
+Note that in all other cases (e.g., if you have a custom ``__hash__`` and
+``__eq__`` in ``y``) the behavior is exactly the same as CPython.
+
 
 Ignored exceptions
 -----------------------

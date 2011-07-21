@@ -141,7 +141,7 @@ def descr_set__bases__(space, w_type, w_value):
                            w_oldbestbase.getname(space))
 
     # invalidate the version_tag of all the current subclasses
-    w_type.mutated()
+    w_type.mutated(None)
 
     # now we can go ahead and change 'w_type.bases_w'
     saved_bases_w = w_type.bases_w
