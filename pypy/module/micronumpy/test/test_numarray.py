@@ -171,6 +171,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i + 5
 
+    def test_radd(self):
+        from numpy import array
+        assert 3 + array(range(3)) == array([3, 4, 5])
+
     def test_add_list(self):
         from numpy import array
         a = array(range(5))
