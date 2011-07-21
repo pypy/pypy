@@ -37,7 +37,7 @@ class Op(object):
         return self._is_guard
 
     def repr(self):
-        args = self.getargs()
+        args = self.args
         if self.descr is not None:
             args.append('descr=%s' % self.descr)
         arglist = ', '.join(args)
@@ -145,7 +145,7 @@ class TraceForOpcode(object):
         if operations[0].name == 'debug_merge_point':
             self.inline_level = int(operations[0].args[0])
             m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
-                         operations[0].getarg(1))
+                         operations[0].args[1])
             if m is None:
                 # a non-code loop, like StrLiteralSearch or something
                 self.bytecode_name = operations[0].args[1]
