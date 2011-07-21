@@ -45,7 +45,6 @@ class AppTestComparesByIdentity:
         assert self.compares_by_identity(X)
 
 
-
 class AppTestIdentityDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withidentitydict": True})
@@ -128,3 +127,10 @@ class AppTestIdentityDict(object):
         assert d1 == d2
         assert self.uses_identity_strategy(d1)
         assert not self.uses_identity_strategy(d2)
+
+    def test_old_style_classes(self):
+        class X:
+            pass
+            
+        d = {X(): 1}
+        assert not self.uses_identity_strategy(d)
