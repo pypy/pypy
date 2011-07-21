@@ -5139,8 +5139,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, p1, p2, p3, i4, p5, i6, p7, p8, p9, p14]
         guard_value(i4, 3) []
-        guard_class(p9, 17278984) []
-        guard_class(p9, 17278984) []
+        guard_class(p9, ConstClass(node_vtable)) []
+        guard_class(p9, ConstClass(node_vtable)) []
         p22 = getfield_gc(p9, descr=inst_w_seq)
         guard_nonnull(p22) []
         i23 = getfield_gc(p9, descr=inst_index)
@@ -5155,11 +5155,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_class(p14, 17273920) []
         guard_class(p14, 17273920) []
 
-        p75 = new_with_vtable(17278984)
+        p75 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p75, p14, descr=inst_w_seq)
         setfield_gc(p75, 0, descr=inst_index)
-        guard_class(p75, 17278984) []
-        guard_class(p75, 17278984) []
+        guard_class(p75, ConstClass(node_vtable)) []
+        guard_class(p75, ConstClass(node_vtable)) []
         p79 = getfield_gc(p75, descr=inst_w_seq)
         guard_nonnull(p79) []
         i80 = getfield_gc(p75, descr=inst_index)
