@@ -5,6 +5,7 @@ from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
 from pypy.module.micronumpy.interp_ufuncs import negative
 from pypy.module.micronumpy.compile import numpy_compile
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.nonconst import NonConstant
 
 class FakeSpace(object):
     w_ValueError = None
@@ -247,6 +248,24 @@ class TestNumpyJIt(LLJitMixin):
                           'setarrayitem_raw': 1, 'int_add': 1,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
         assert result == f(5)
+
+    def test_setslice(self):
+        space = self.space
+
+        def f(i):
+            step = NonConstant(3)
+            ar = SingleDimArray(step*i)
+            ar2 = SingleDimArray(i)
+            ar2.storage[1] = 5.5
+            ar.setslice(space, 0, step*i, step, i, ar2.descr_add(space, ar2))
+            return ar.get_concrete().storage[3]
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({'getarrayitem_raw': 2,
+                          'float_add' : 1,
+                          'setarrayitem_raw': 1, 'int_add': 2,
+                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
+        assert result == 11.0
 
 class TestTranslation(object):
     def test_compile(self):
