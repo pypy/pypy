@@ -138,7 +138,10 @@ def set_future_value(cpu, j, value, typecode):
         refvalue = cpu.ts.cast_to_ref(value)
         cpu.set_future_value_ref(j, refvalue)
     elif typecode == 'int':
-        intvalue = lltype.cast_primitive(lltype.Signed, value)
+        if isinstance(lltype.typeOf(value), lltype.Ptr):
+            intvalue = llmemory.AddressAsInt(llmemory.cast_ptr_to_adr(value))
+        else:
+            intvalue = lltype.cast_primitive(lltype.Signed, value)
         cpu.set_future_value_int(j, intvalue)
     elif typecode == 'float':
         if lltype.typeOf(value) is lltype.Float:

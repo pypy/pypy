@@ -2591,7 +2591,7 @@ class BaseLLtypeTests(BasicTests):
     def test_jit_merge_point_with_raw_pointer(self):
         driver = JitDriver(greens = [], reds = ['n', 'x'])
 
-        TP = lltype.Array(lltype.Signed)
+        TP = lltype.Array(lltype.Signed, hints={'nolength': True})
 
         def f(n):
             x = lltype.malloc(TP, 10, flavor='raw')
