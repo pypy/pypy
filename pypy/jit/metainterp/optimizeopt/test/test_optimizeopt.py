@@ -6578,7 +6578,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump()
         """
         self.optimize_loop(ops, expected)
-        
+
+    def test_chained_virtuals(self):
+        ops = """
+        [p0, p1]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, p3, descr=nextdescr) 
+        jump(p2, p3)
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     def test_arraylen_bound(self):
         ops = """
         [p1, i]

@@ -206,7 +206,7 @@ class UnrollOptimizer(Optimization):
             logops = self.optimizer.loop.logops
             if logops:
                 args = ", ".join([logops.repr_of_arg(arg) for arg in inputargs])
-                debug_print('inputargs: ' + args)
+                debug_print('inputargs:       ' + args)
                 args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
                 debug_print('short inputargs: ' + args)
                 self.short_boxes.debug_print(logops)
@@ -217,15 +217,18 @@ class UnrollOptimizer(Optimization):
             inputarg_setup_ops = []
             preamble_optimizer.newoperations = []
             seen = {}
+            for box in inputargs:
+                if box in seen:
+                    continue
+                seen[box] = True
+                value = preamble_optimizer.getvalue(box)
+                inputarg_setup_ops.extend(value.make_guards(box))
             for box in short_inputargs:
                 if box in seen:
                     continue
                 seen[box] = True
                 value = preamble_optimizer.getvalue(box)
-                if value.is_virtual():
-                    value.force_box()
-                else:
-                    inputarg_setup_ops.extend(value.make_guards(box))
+                value.force_box()
             preamble_optimizer.flush()
             inputarg_setup_ops += preamble_optimizer.newoperations
 
