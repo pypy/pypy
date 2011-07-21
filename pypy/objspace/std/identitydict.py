@@ -1,42 +1,12 @@
+## ----------------------------------------------------------------------------
+## dict strategy (see dict_multiobject.py)
+
 from pypy.rlib import rerased
 from pypy.objspace.std.dictmultiobject import (AbstractTypedStrategy,
                                                DictStrategy,
                                                IteratorImplementation,
                                                _UnwrappedIteratorMixin)
 
-
-# a global (per-space) version counter to track live instances which "compare
-# by identity" (i.e., whose __eq__, __cmp__ and __hash__ are the default
-# ones).  The idea is to track only classes for which we checked the
-# compares_by_identity() status at least once: we increment the version if its
-# status might change, e.g. because we set one of those attributes.  The
-# actual work is done by W_TypeObject.mutated() and objecttype:descr_setclass
-
-def bump_global_version(space):
-    if space.config.objspace.std.withidentitydict:
-        space.fromcache(ComparesByIdentityVersion).bump()
-
-def get_global_version(space):
-    if space.config.objspace.std.withidentitydict:
-        return space.fromcache(ComparesByIdentityVersion).get()
-    return None
-
-class ComparesByIdentityVersion(object):
-
-    def __init__(self, space):
-        self.bump()
-
-    def bump(self):
-        from pypy.objspace.std.typeobject import VersionTag
-        self._version = VersionTag()
-
-    def get(self):
-        return self._version
-
-
-
-## ----------------------------------------------------------------------------
-## dict strategy (see dict_multiobject.py)
 
 # this strategy is selected by EmptyDictStrategy.switch_to_correct_strategy
 class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
@@ -45,29 +15,54 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     default unless you override __hash__, __eq__ or __cmp__).  The storage is
     just a normal RPython dict, which has already the correct by-identity
     semantics.
+
+    Note that at a first sight, you might have problems if you mutate the
+    class of an object which is already inside an identitydict.  Consider this
+    example::
+
+    class X(object):
+        pass
+    d = {x(): 1}
+    X.__eq__ = ...
+    d[y] # might trigger a call to __eq__?
+
+    We want to be sure that x.__eq__ is called in the same cases as in
+    CPython.  However, as long as the strategy is IdentityDictStrategy, the
+    __eq__ will never be called.
+
+    It turns out that it's not a problem.  In CPython (and in PyPy without
+    this strategy), the __eq__ is called if ``hash(y) == hash(x)`` and ``x is
+    not y``.  Note that hash(x) is computed at the time when we insert x in
+    the dict, not at the time we lookup y.
+
+    Now, how can hash(y) == hash(x)?  There are two possibilities:
+
+      1. we write a custom __hash__ for the class of y, thus making it a not
+        "compares by reference" type
+
+      2. the class of y is "compares by reference" type, and by chance the
+         hash is the same as x
+
+    In the first case, the getitem immediately notice that y is not of the
+    right type, and switches the strategy to ObjectDictStrategy, then the
+    lookup works as usual.
+
+    The second case is completely non-deterministic, even in CPython.
+    Depending on the phase of the moon, you might call the __eq__ or not, so
+    it is perfectly fine to *never* call it.  Morever, in practice with the
+    minimar GC we never have two live objects with the same hash, so it would
+    never happen anyway.
     """
 
-    _erase_tuple, _unerase_tuple = rerased.new_erasing_pair("identitydict")
-    _erase_tuple = staticmethod(_erase_tuple)
-    _unerase_tuple = staticmethod(_unerase_tuple)
+    erase, unerase = rerased.new_erasing_pair("identitydict")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
         return unwrapped
 
     def unwrap(self, wrapped):
         return wrapped
-
-    def erase(self, d):
-        current_version = get_global_version(self.space)
-        return self._erase_tuple((current_version, d))
-
-    def unerase(self, dstorage):
-        version, d = self._unerase_tuple(dstorage)
-        return d
-
-    def get_current_version(self, dstorage):
-        version, d = self._unerase_tuple(dstorage)
-        return version
 
     def get_empty_storage(self):
         return self.erase({})
