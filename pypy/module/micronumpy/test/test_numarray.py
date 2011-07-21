@@ -92,6 +92,48 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
 
+    def test_setslice_array(self):
+        from numpy import array
+        a = array(range(5))
+        b = array(range(2))
+        a[1:4:2] = b
+        assert a[1] == 0.
+        assert a[3] == 1.
+
+    def test_setslice_of_slice_array(self):
+        from numpy import array, zeros
+        a = zeros(5)
+        a[::2] = array([9., 10., 11.])
+        assert a[0] == 9.
+        assert a[2] == 10.
+        assert a[4] == 11.
+        a[1:4:2][::-1] = array([1., 2.])
+        assert a[0] == 9.
+        assert a[1] == 2.
+        assert a[2] == 10.
+        assert a[3] == 1.
+        assert a[4] == 11.
+        a = zeros(10)
+        a[::2][::-1][::2] = array(range(1,4))
+        assert a[8] == 1.
+        assert a[4] == 2.
+        assert a[0] == 3.
+
+    def test_setslice_list(self):
+        from numpy import array
+        a = array(range(5))
+        b = [0., 1.]
+        a[1:4:2] = b
+        assert a[1] == 0.
+        assert a[3] == 1.
+
+    def test_setslice_constant(self):
+        from numpy import array
+        a = array(range(5))
+        a[1:4:2] = 0.
+        assert a[1] == 0.
+        assert a[3] == 0.
+
     def test_len(self):
         from numpy import array
         a = array(range(5))

@@ -1,13 +1,13 @@
 import math
 
-from pypy.module.micronumpy.interp_numarray import (Call1, Call2, Signature,
-    convert_to_array)
+from pypy.module.micronumpy.interp_support import Signature
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
 
 def ufunc(func):
     signature = Signature()
     def impl(space, w_obj):
+        from pypy.module.micronumpy.interp_numarray import Call1, convert_to_array
         if space.issequence_w(w_obj):
             w_obj_arr = convert_to_array(space, w_obj)
             w_res = Call1(func, w_obj_arr, w_obj_arr.signature.transition(signature))
@@ -20,6 +20,7 @@ def ufunc(func):
 def ufunc2(func):
     signature = Signature()
     def impl(space, w_lhs, w_rhs):
+        from pypy.module.micronumpy.interp_numarray import Call2, convert_to_array
         if space.issequence_w(w_lhs) or space.issequence_w(w_rhs):
             w_lhs_arr = convert_to_array(space, w_lhs)
             w_rhs_arr = convert_to_array(space, w_rhs)
@@ -37,8 +38,16 @@ def absolute(value):
     return abs(value)
 
 @ufunc2
+def add(lvalue, rvalue):
+    return lvalue + rvalue
+
+@ufunc2
 def copysign(lvalue, rvalue):
     return rfloat.copysign(lvalue, rvalue)
+
+@ufunc2
+def divide(lvalue, rvalue):
+    return lvalue / rvalue
 
 @ufunc
 def exp(value):
@@ -47,6 +56,10 @@ def exp(value):
     except OverflowError:
         return rfloat.INFINITY
 
+@ufunc
+def fabs(value):
+    return math.fabs(value)
+
 @ufunc2
 def maximum(lvalue, rvalue):
     return max(lvalue, rvalue)
@@ -54,6 +67,10 @@ def maximum(lvalue, rvalue):
 @ufunc2
 def minimum(lvalue, rvalue):
     return min(lvalue, rvalue)
+
+@ufunc2
+def multiply(lvalue, rvalue):
+    return lvalue * rvalue
 
 @ufunc
 def negative(value):
@@ -65,6 +82,10 @@ def reciprocal(value):
         return rfloat.copysign(rfloat.INFINITY, value)
     return 1.0 / value
 
+@ufunc2
+def subtract(lvalue, rvalue):
+    return lvalue - rvalue
+
 @ufunc
 def floor(value):
     return math.floor(value)
@@ -74,3 +95,23 @@ def sign(value):
     if value == 0.0:
         return 0.0
     return rfloat.copysign(1.0, value)
+
+@ufunc
+def sin(value):
+    return math.sin(value)
+
+@ufunc
+def cos(value):
+    return math.cos(value)
+
+@ufunc
+def tan(value):
+    return math.tan(value)
+
+@ufunc2
+def power(lvalue, rvalue):
+    return math.pow(lvalue, rvalue)
+
+@ufunc2
+def mod(lvalue, rvalue):
+    return math.fmod(lvalue, rvalue)

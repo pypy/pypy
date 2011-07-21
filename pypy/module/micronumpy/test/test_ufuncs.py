@@ -65,6 +65,33 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert b[i] == abs(a[i])
 
+    def test_add(self):
+        from numpy import array, add
+
+        a = array([-5.0, -0.0, 1.0])
+        b = array([ 3.0, -2.0,-3.0])
+        c = add(a, b)
+        for i in range(3):
+            assert c[i] == a[i] + b[i]
+
+    def test_divide(self):
+        from numpy import array, divide
+
+        a = array([-5.0, -0.0, 1.0])
+        b = array([ 3.0, -2.0,-3.0])
+        c = divide(a, b)
+        for i in range(3):
+            assert c[i] == a[i] / b[i]
+
+    def test_fabs(self):
+        from numpy import array, fabs
+        from math import fabs as math_fabs
+        
+        a = array([-5.0, -0.0, 1.0])
+        b = fabs(a)
+        for i in range(3):
+            assert b[i] == math_fabs(a[i])
+
     def test_minimum(self):
         from numpy import array, minimum
 
@@ -83,6 +110,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == max(a[i], b[i])
 
+    def test_multiply(self):
+        from numpy import array, multiply
+
+        a = array([-5.0, -0.0, 1.0])
+        b = array([ 3.0, -2.0,-3.0])
+        c = multiply(a, b)
+        for i in range(3):
+            assert c[i] == a[i] * b[i]
+
     def test_sign(self):
         from numpy import array, sign
 
@@ -100,6 +136,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = reciprocal(a)
         for i in range(4):
             assert b[i] == reference[i]
+
+    def test_subtract(self):
+        from numpy import array, subtract
+
+        a = array([-5.0, -0.0, 1.0])
+        b = array([ 3.0, -2.0,-3.0])
+        c = subtract(a, b)
+        for i in range(3):
+            assert c[i] == a[i] - b[i]
 
     def test_floor(self):
         from numpy import array, floor
@@ -133,3 +178,30 @@ class AppTestUfuncs(BaseNumpyAppTest):
             except OverflowError:
                 res = float('inf')
             assert b[i] == res
+
+    def test_sin(self):
+        import math
+        from numpy import array, sin
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = sin(a)
+        for i in range(len(a)):
+            assert b[i] == math.sin(a[i])
+
+    def test_cos(self):
+        import math
+        from numpy import array, cos
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = cos(a)
+        for i in range(len(a)):
+            assert b[i] == math.cos(a[i])
+
+    def test_tan(self):
+        import math
+        from numpy import array, tan
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = tan(a)
+        for i in range(len(a)):
+            assert b[i] == math.tan(a[i])
