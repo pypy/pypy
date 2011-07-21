@@ -260,8 +260,7 @@ class BaseArray(Wrappable):
                                                               self.find_size())
         if step == 0:
             # Single index
-            self.get_concrete().setitem(start,
-                                              space.float_w(w_value))
+            self.get_concrete().setitem(start, space.float_w(w_value))
         else:
             self.get_concrete().setslice(space, start, stop, step, 
                                                slice_length, w_value)
@@ -503,55 +502,37 @@ class SingleDimArray(BaseArray):
     def eval(self, i):
         return self.storage[i]
 
-    def getindex(self, item):
-        if item >= self.size:
-            raise operationerrfmt(space.w_IndexError,
-              '%d above array size', item)
-        if item < 0:
-            item += self.size
-        if item < 0:
-            raise operationerrfmt(space.w_IndexError,
-              '%d below zero', item)
-        return item
-
     def descr_len(self, space):
         return space.wrap(self.size)
 
     def getitem(self, item):
         return self.storage[item]
 
-    @unwrap_spec(item=int, value=float)
     def setitem(self, item, value):
-        item = self.getindex(item)
         self.invalidated()
         self.storage[item] = value
 
     def _sliceloop1(self, start, stop, step, arr):
-        signature = Signature()
-        new_sig = self.signature.transition(signature)
         i = start
         j = 0
         while i < stop:
-            slice_driver1.jit_merge_point(signature=signature, self=self,
+            slice_driver1.jit_merge_point(signature=self.signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
             self.storage[i] = arr.eval(j)
             j += 1
             i += step
 
     def _sliceloop2(self, start, stop, step, arr):
-        signature = Signature()
-        new_sig = self.signature.transition(signature)
         i = start
         j = 0
         while i > stop:
-            slice_driver2.jit_merge_point(signature=signature, self=self,
+            slice_driver2.jit_merge_point(signature=self.signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
             self.storage[i] = arr.eval(j)
             j += 1
             i += step
 
     def setslice(self, space, start, stop, step, slice_length, arr):
-        i = start
         if not isinstance(arr, BaseArray):
             arr = convert_to_array(space, arr)
         if step > 0:
