@@ -2586,7 +2586,23 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10, 1])
         self.check_loops(getfield_gc=2)
+        assert res == f(10, 1)
 
+    def test_jit_merge_point_with_raw_pointer(self):
+        driver = JitDriver(greens = [], reds = ['n', 'x'])
+
+        TP = lltype.Array(lltype.Signed)
+
+        def f(n):
+            x = lltype.malloc(TP, 10, flavor='raw')
+            x[0] = 1
+            while n > 0:
+                driver.jit_merge_point(n=n, x=x)
+                n -= x[0]
+            lltype.free(x, flavor='raw')
+            return n
+
+        self.meta_interp(f, [10], repeat=3)
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass
