@@ -25,8 +25,8 @@ numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
-slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'self', 'arr'])
-slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'self', 'arr'])
+slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'storage', 'arr'])
+slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'storage', 'arr'])
 
 def pos(v):
     return v
@@ -268,6 +268,26 @@ class BaseArray(Wrappable):
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
 
+    def _sliceloop1(self, start, stop, step, arr, storage):
+        i = start
+        j = 0
+        while i < stop:
+            slice_driver1.jit_merge_point(signature=arr.signature,
+                    step=step, stop=stop, i=i, j=j, arr=arr, storage=storage)
+            storage[i] = arr.eval(j)
+            j += 1
+            i += step
+
+    def _sliceloop2(self, start, stop, step, arr, storage):
+        i = start
+        j = 0
+        while i > stop:
+            slice_driver2.jit_merge_point(signature=arr.signature,
+                    step=step, stop=stop, i=i, j=j, arr=arr, storage=storage)
+            storage[i] = arr.eval(j)
+            j += 1
+            i += step
+
 def convert_to_array (space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -442,28 +462,6 @@ class SingleDimSlice(ViewArray):
     def find_size(self):
         return self.size
 
-    def _sliceloop1(self, start, stop, step, arr):
-        storage = self.parent.storage
-        i = start
-        j = 0
-        while i < stop:
-            slice_driver1.jit_merge_point(signature=arr.signature, self=self,
-                    step=step, stop=stop, i=i, j=j, arr=arr)
-            storage[i] = arr.eval(j)
-            j += 1
-            i += step
-
-    def _sliceloop2(self, start, stop, step, arr):
-        storage = self.parent.storage
-        i = start
-        j = 0
-        while i > stop:
-            slice_driver2.jit_merge_point(signature=arr.signature, self=self,
-                    step=step, stop=stop, i=i, j=j, arr=arr)
-            storage[i] = arr.eval(j)
-            j += 1
-            i += step
-
     def setslice(self, space, start, stop, step, slice_length, arr):
         arr = convert_to_array(space, arr)
         start = self.calc_index(start)
@@ -471,9 +469,9 @@ class SingleDimSlice(ViewArray):
             stop = self.calc_index(stop)
         step = self.step * step
         if step > 0:
-            self._sliceloop1(start, stop, step, arr)
+            self._sliceloop1(start, stop, step, arr, self.parent.storage)
         else:
-            self._sliceloop2(start, stop, step, arr)
+            self._sliceloop2(start, stop, step, arr, self.parent.storage)
 
     def calc_index(self, item):
         return (self.start + item * self.step)
@@ -508,33 +506,13 @@ class SingleDimArray(BaseArray):
         self.invalidated()
         self.storage[item] = value
 
-    def _sliceloop1(self, start, stop, step, arr):
-        i = start
-        j = 0
-        while i < stop:
-            slice_driver1.jit_merge_point(signature=arr.signature, self=self,
-                    step=step, stop=stop, i=i, j=j, arr=arr)
-            self.storage[i] = arr.eval(j)
-            j += 1
-            i += step
-
-    def _sliceloop2(self, start, stop, step, arr):
-        i = start
-        j = 0
-        while i > stop:
-            slice_driver2.jit_merge_point(signature=arr.signature, self=self,
-                    step=step, stop=stop, i=i, j=j, arr=arr)
-            self.storage[i] = arr.eval(j)
-            j += 1
-            i += step
-
     def setslice(self, space, start, stop, step, slice_length, arr):
         if not isinstance(arr, BaseArray):
             arr = convert_to_array(space, arr)
         if step > 0:
-            self._sliceloop1(start, stop, step, arr)
+            self._sliceloop1(start, stop, step, arr, self.storage)
         else:
-            self._sliceloop2(start, stop, step, arr)
+            self._sliceloop2(start, stop, step, arr, self.storage)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw')
