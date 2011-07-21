@@ -256,13 +256,16 @@ class TestNumpyJIt(LLJitMixin):
             step = NonConstant(3)
             ar = SingleDimArray(step*i)
             ar2 = SingleDimArray(i)
-            ar.setslice(space, 0, step*i, step, i, ar2)
+            ar2.storage[1] = 5.5
+            ar.setslice(space, 0, step*i, step, i, ar2.descr_add(space, ar2))
             return ar.get_concrete().storage[3]
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({'getarrayitem_raw': 1,
+        self.check_loops({'getarrayitem_raw': 2,
+                          'float_add' : 1,
                           'setarrayitem_raw': 1, 'int_add': 2,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
+        assert result == 11.0
 
 class TestTranslation(object):
     def test_compile(self):
