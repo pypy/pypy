@@ -5610,6 +5610,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, i0]
         i1 = strgetitem(p0, i0)
+        i10 = strgetitem(p0, i0)
         i2 = int_lt(i1, 256)
         guard_true(i2) []
         i3 = int_ge(i1, 0)
@@ -5618,6 +5619,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p0, i0]
+        i1 = strgetitem(p0, i0)
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
