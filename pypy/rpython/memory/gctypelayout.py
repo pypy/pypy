@@ -188,7 +188,7 @@ def encode_type_shape(builder, info, TYPE, index):
     infobits = index
     info.ofstoptrs = builder.offsets2table(offsets, TYPE)
     #
-    kind_and_fptr = builder.finalizer_funcptr_for_type(TYPE)
+    kind_and_fptr = builder.special_funcptr_for_type(TYPE)
     if kind_and_fptr is not None:
         kind, fptr = kind_and_fptr
         info.finalizer_or_customtrace = fptr
@@ -263,7 +263,7 @@ class TypeLayoutBuilder(object):
         # for debugging, the following list collects all the prebuilt
         # GcStructs and GcArrays
         self.all_prebuilt_gc = []
-        self._finalizer_funcptrs = {}
+        self._special_funcptrs = {}
         self.offsettable_cache = {}
 
     def make_type_info_group(self):
@@ -364,9 +364,9 @@ class TypeLayoutBuilder(object):
         self.offsettable_cache = None
         return self.type_info_group
 
-    def finalizer_funcptr_for_type(self, TYPE):
-        if TYPE in self._finalizer_funcptrs:
-            return self._finalizer_funcptrs[TYPE]
+    def special_funcptr_for_type(self, TYPE):
+        if TYPE in self._special_funcptrs:
+            return self._special_funcptrs[TYPE]
         fptr1 = self.make_finalizer_funcptr_for_type(TYPE)
         fptr2 = self.make_custom_trace_funcptr_for_type(TYPE)
         assert not (fptr1 and fptr2), (
@@ -377,7 +377,7 @@ class TypeLayoutBuilder(object):
             kind_and_fptr = "custom_trace", fptr2
         else:
             kind_and_fptr = None
-        self._finalizer_funcptrs[TYPE] = kind_and_fptr
+        self._special_funcptrs[TYPE] = kind_and_fptr
         return kind_and_fptr
 
     def make_finalizer_funcptr_for_type(self, TYPE):

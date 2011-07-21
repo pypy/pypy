@@ -410,6 +410,40 @@ class GenericGCTests(GCTest):
         res = run([5, 42]) #XXX pure lazyness here too
         assert 160 <= res <= 165
 
+    def define_custom_trace(cls):
+        from pypy.rpython.annlowlevel import llhelper
+        from pypy.rpython.lltypesystem import llmemory
+        #
+        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        T = lltype.GcStruct('T', ('z', lltype.Signed))
+        offset_of_x = llmemory.offsetof(S, 'x')
+        def customtrace(obj, prev):
+            if not prev:
+                return obj + offset_of_x
+            else:
+                return llmemory.NULL
+        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
+                                          llmemory.Address)
+        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
+        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        #
+        def setup():
+            s1 = lltype.malloc(S)
+            tx = lltype.malloc(T)
+            tx.z = 4243
+            s1.x = llmemory.cast_ptr_to_adr(tx)
+            return s1
+        def f():
+            s1 = setup()
+            llop.gc__collect(lltype.Void)
+            return llmemory.cast_adr_to_ptr(s1.x, lltype.Ptr(T)).z
+        return f
+
+    def test_custom_trace(self):
+        run = self.runner("custom_trace")
+        res = run([])
+        assert res == 4243
+
     def define_weakref(cls):
         import weakref, gc
         class A(object):

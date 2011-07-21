@@ -534,8 +534,8 @@ class FrameworkGCTransformer(GCTransformer):
     #    this method is attached to the instance and redirects to
     #    layoutbuilder.get_type_id().
 
-    def finalizer_funcptr_for_type(self, TYPE):
-        return self.layoutbuilder.finalizer_funcptr_for_type(TYPE)
+    def special_funcptr_for_type(self, TYPE):
+        return self.layoutbuilder.special_funcptr_for_type(TYPE)
 
     def gc_header_for(self, obj, needs_hash=False):
         hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
@@ -678,7 +678,9 @@ class FrameworkGCTransformer(GCTransformer):
         c_type_id = rmodel.inputconst(TYPE_ID, type_id)
         info = self.layoutbuilder.get_info(type_id)
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
-        has_finalizer = bool(self.finalizer_funcptr_for_type(TYPE))
+        kind_and_fptr = self.special_funcptr_for_type(TYPE)
+        has_finalizer = (kind_and_fptr is not None and
+                         kind_and_fptr[0] == "finalizer")
         c_has_finalizer = rmodel.inputconst(lltype.Bool, has_finalizer)
 
         if not op.opname.endswith('_varsize') and not flags.get('varsize'):
@@ -1233,29 +1235,40 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
     def has_finalizer(self, TYPE):
         rtti = get_rtti(TYPE)
-        return rtti is not None and hasattr(rtti._obj, 'destructor_funcptr')
+        return rtti is not None and getattr(rtti._obj, 'destructor_funcptr',
+                                            None)
+
+    def has_custom_trace(self, TYPE):
+        rtti = get_rtti(TYPE)
+        return rtti is not None and getattr(rtti._obj, 'custom_trace_funcptr',
+                                            None)
 
     def make_finalizer_funcptr_for_type(self, TYPE):
-        if self.has_finalizer(TYPE):
-            rtti = get_rtti(TYPE)
-            destrptr = rtti._obj.destructor_funcptr
-            DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
-        else:
-            destrptr = None
-            DESTR_ARG = None
-
-        assert not type_contains_pyobjs(TYPE), "not implemented"
-        if destrptr:
-            typename = TYPE.__name__
-            def ll_finalizer(addr, ignored):
-                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
-                ll_call_destructor(destrptr, v, typename)
-                return llmemory.NULL
-            fptr = self.transformer.annotate_finalizer(ll_finalizer,
-                    [llmemory.Address, llmemory.Address], llmemory.Address)
-            return fptr
-        else:
+        if not self.has_finalizer(TYPE):
             return None
+        rtti = get_rtti(TYPE)
+        destrptr = rtti._obj.destructor_funcptr
+        DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
+        assert not type_contains_pyobjs(TYPE), "not implemented"
+        typename = TYPE.__name__
+        def ll_finalizer(addr, ignored):
+            v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+            ll_call_destructor(destrptr, v, typename)
+            return llmemory.NULL
+        fptr = self.transformer.annotate_finalizer(ll_finalizer,
+                [llmemory.Address, llmemory.Address], llmemory.Address)
+        return fptr
+
+    def make_custom_trace_funcptr_for_type(self, TYPE):
+        if not self.has_custom_trace(TYPE):
+            return None
+        rtti = get_rtti(TYPE)
+        fptr = rtti._obj.custom_trace_funcptr
+        if not hasattr(fptr._obj, 'graph'):
+            ll_func = fptr._obj._callable
+            fptr = self.transformer.annotate_finalizer(ll_func,
+                    [llmemory.Address, llmemory.Address], llmemory.Address)
+        return fptr
 
 
 def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):
