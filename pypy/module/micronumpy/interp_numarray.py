@@ -272,8 +272,8 @@ class BaseArray(Wrappable):
         i = start
         j = 0
         while i < stop:
-            slice_driver1.jit_merge_point(signature=arr.signature,
-                    step=step, stop=stop, i=i, j=j, arr=arr, storage=storage)
+            #slice_driver1.jit_merge_point(signature=arr.signature,
+            #        step=step, stop=stop, i=i, j=j, arr=arr, storage=storage)
             storage[i] = arr.eval(j)
             j += 1
             i += step
@@ -282,8 +282,8 @@ class BaseArray(Wrappable):
         i = start
         j = 0
         while i > stop:
-            slice_driver2.jit_merge_point(signature=arr.signature,
-                    step=step, stop=stop, i=i, j=j, arr=arr, storage=storage)
+            #slice_driver2.jit_merge_point(signature=arr.signature,
+            #        step=step, stop=stop, i=i, j=j, arr=arr, storage=storage)
             storage[i] = arr.eval(j)
             j += 1
             i += step
