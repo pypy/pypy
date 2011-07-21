@@ -6653,8 +6653,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        p2 = strgetitem(p1, 7)
-        call(p2, descr=nonwritedescr)
+        i22 = strgetitem(p1, 7)
+        call(i22, descr=nonwritedescr)
         jump(p0)
         """
         short = """
@@ -6664,17 +6664,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = strlen(p1)
         i2 = int_ge(i1, 8)
         guard_true(i2) []
-        p2 = strgetitem(p1, 7, descr=<GcPtrArrayDescr>)
-        i8 = int_ge(p2, 0)
+        i22 = strgetitem(p1, 7, descr=<GcPtrArrayDescr>)
+        i8 = int_ge(i22, 0)
         guard_true(i8) []
-        i9 = int_le(p2, 255)
+        i9 = int_le(i22, 255)
         guard_true(i9) []
-        jump(p0, p2)
+        jump(p0, i22)
         """
         expected = """
-        [p0, p2]
-        call(p2, descr=nonwritedescr)
-        jump(p0, p2)
+        [p0, i22]
+        call(i22, descr=nonwritedescr)
+        jump(p0, i22)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
@@ -6682,8 +6682,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        p2 = unicodegetitem(p1, 7)
-        call(p2, descr=nonwritedescr)
+        i22 = unicodegetitem(p1, 7)
+        call(i22, descr=nonwritedescr)
         jump(p0)
         """
         short = """
@@ -6693,15 +6693,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = unicodelen(p1)
         i2 = int_ge(i1, 8)
         guard_true(i2) []
-        p2 = unicodegetitem(p1, 7, descr=<GcPtrArrayDescr>)
-        i8 = int_ge(p2, 0)
+        i22 = unicodegetitem(p1, 7, descr=<GcPtrArrayDescr>)
+        i8 = int_ge(i22, 0)
         guard_true(i8) []
-        jump(p0, p2)
+        jump(p0, i22)
         """
         expected = """
-        [p0, p2]
-        call(p2, descr=nonwritedescr)
-        jump(p0, p2)
+        [p0, i22]
+        call(i22, descr=nonwritedescr)
+        jump(p0, i22)
         """
         self.optimize_loop(ops, expected, expected_short=short)
         
