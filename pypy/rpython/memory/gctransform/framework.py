@@ -1247,15 +1247,15 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         assert not type_contains_pyobjs(TYPE), "not implemented"
         if destrptr:
             typename = TYPE.__name__
-            def ll_finalizer(addr):
+            def ll_finalizer(addr, ignored):
                 v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
                 ll_call_destructor(destrptr, v, typename)
+                return llmemory.NULL
             fptr = self.transformer.annotate_finalizer(ll_finalizer,
-                                                       [llmemory.Address],
-                                                       lltype.Void)
+                    [llmemory.Address, llmemory.Address], llmemory.Address)
+            return fptr
         else:
-            fptr = lltype.nullptr(gctypelayout.GCData.FINALIZERTYPE.TO)
-        return fptr
+            return None
 
 
 def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):
