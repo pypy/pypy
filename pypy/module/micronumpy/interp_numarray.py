@@ -28,12 +28,6 @@ any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'storage', 'arr'])
 slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'storage', 'arr'])
 
-def pos(v):
-    return v
-def neg(v):
-    return -v
-def absolute(v):
-    return abs(v)
 def add(v1, v2):
     return v1 + v2
 def mul(v1, v2):
@@ -59,21 +53,14 @@ class BaseArray(Wrappable):
             arr.force_if_needed()
         del self.invalidates[:]
 
-    def _unop_impl(function):
-        signature = Signature()
+    def _unaryop_impl(w_ufunc):
         def impl(self, space):
-            new_sig = self.signature.transition(signature)
-            res = Call1(
-                function,
-                self,
-                new_sig)
-            self.invalidates.append(res)
-            return space.wrap(res)
-        return func_with_new_name(impl, "uniop_%s_impl" % function.__name__)
+            return w_ufunc(space, self)
+        return func_with_new_name(impl, "unaryop_%s_impl" % w_ufunc.__name__)
 
-    descr_pos = _unop_impl(pos)
-    descr_neg = _unop_impl(neg)
-    descr_abs = _unop_impl(absolute)
+    descr_pos = _unaryop_impl(interp_ufuncs.positive)
+    descr_neg = _unaryop_impl(interp_ufuncs.negative)
+    descr_abs = _unaryop_impl(interp_ufuncs.absolute)
 
     def _binop_impl(w_ufunc):
         def impl(self, space, w_other):

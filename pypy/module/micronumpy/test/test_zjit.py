@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
-    FloatWrapper, Call2, SingleDimSlice, add, mul, neg, Call1)
+    FloatWrapper, Call2, SingleDimSlice, add, mul, Call1)
 from pypy.module.micronumpy.interp_ufuncs import negative
 from pypy.module.micronumpy.compile import numpy_compile
 from pypy.rlib.objectmodel import specialize
@@ -46,19 +46,6 @@ class TestNumpyJIt(LLJitMixin):
         self.check_loops({"getarrayitem_raw": 1, "float_add": 1,
                           "setarrayitem_raw": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
-        assert result == f(5)
-
-    def test_neg(self):
-        def f(i):
-            ar = SingleDimArray(i)
-            v = Call1(neg, ar, Signature())
-            return v.get_concrete().storage[3]
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({"getarrayitem_raw": 1, "float_neg": 1,
-                          "setarrayitem_raw": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1})
-
         assert result == f(5)
 
     def test_sum(self):
