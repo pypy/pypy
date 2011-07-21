@@ -1,13 +1,13 @@
 import math
 
-from pypy.module.micronumpy.interp_numarray import (Call1, Call2, Signature,
-    convert_to_array)
+from pypy.module.micronumpy.interp_support import Signature
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
 
 def ufunc(func):
     signature = Signature()
     def impl(space, w_obj):
+        from pypy.module.micronumpy.interp_numarray import Call1, convert_to_array
         if space.issequence_w(w_obj):
             w_obj_arr = convert_to_array(space, w_obj)
             w_res = Call1(func, w_obj_arr, w_obj_arr.signature.transition(signature))
@@ -20,6 +20,7 @@ def ufunc(func):
 def ufunc2(func):
     signature = Signature()
     def impl(space, w_lhs, w_rhs):
+        from pypy.module.micronumpy.interp_numarray import Call2, convert_to_array
         if space.issequence_w(w_lhs) or space.issequence_w(w_rhs):
             w_lhs_arr = convert_to_array(space, w_lhs)
             w_rhs_arr = convert_to_array(space, w_rhs)
@@ -106,3 +107,11 @@ def cos(value):
 @ufunc
 def tan(value):
     return math.tan(value)
+
+@ufunc2
+def power(lvalue, rvalue):
+    return math.pow(lvalue, rvalue)
+
+@ufunc2
+def mod(lvalue, rvalue):
+    return math.fmod(lvalue, rvalue)
