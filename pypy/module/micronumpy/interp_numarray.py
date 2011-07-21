@@ -444,12 +444,10 @@ class SingleDimSlice(ViewArray):
 
     def _sliceloop1(self, start, stop, step, arr):
         storage = self.parent.storage
-        signature = Signature()
-        new_sig = self.signature.transition(signature)
         i = start
         j = 0
         while i < stop:
-            slice_driver1.jit_merge_point(signature=signature, self=self,
+            slice_driver1.jit_merge_point(signature=arr.signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
             storage[i] = arr.eval(j)
             j += 1
@@ -457,12 +455,10 @@ class SingleDimSlice(ViewArray):
 
     def _sliceloop2(self, start, stop, step, arr):
         storage = self.parent.storage
-        signature = Signature()
-        new_sig = self.signature.transition(signature)
         i = start
         j = 0
         while i > stop:
-            slice_driver2.jit_merge_point(signature=signature, self=self,
+            slice_driver2.jit_merge_point(signature=arr.signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
             storage[i] = arr.eval(j)
             j += 1
@@ -516,7 +512,7 @@ class SingleDimArray(BaseArray):
         i = start
         j = 0
         while i < stop:
-            slice_driver1.jit_merge_point(signature=self.signature, self=self,
+            slice_driver1.jit_merge_point(signature=arr.signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
             self.storage[i] = arr.eval(j)
             j += 1
@@ -526,7 +522,7 @@ class SingleDimArray(BaseArray):
         i = start
         j = 0
         while i > stop:
-            slice_driver2.jit_merge_point(signature=self.signature, self=self,
+            slice_driver2.jit_merge_point(signature=arr.signature, self=self,
                     step=step, stop=stop, i=i, j=j, arr=arr)
             self.storage[i] = arr.eval(j)
             j += 1
