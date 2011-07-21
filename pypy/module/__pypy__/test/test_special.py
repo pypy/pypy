@@ -49,3 +49,8 @@ class AppTest(object):
         class X:
             pass
         raises(TypeError, lookup_special, X(), "foo")
+
+    def test_do_what_I_mean(self):
+        from __pypy__ import do_what_I_mean
+        x = do_what_I_mean()
+        assert x == 42
