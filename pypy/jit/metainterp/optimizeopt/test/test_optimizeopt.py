@@ -6687,7 +6687,43 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, expected_short=short)
         
-        
+    def test_propagate_virtual_arryalen(self):
+        ops = """
+        [p0]
+        p404 = new_array(2, descr=arraydescr)
+        p403 = new_array(3, descr=arraydescr)
+        i405 = arraylen_gc(p404, descr=arraydescr)
+        i406 = arraylen_gc(p403, descr=arraydescr)
+        i407 = int_add_ovf(i405, i406)
+        guard_no_overflow() []
+        call(i407, descr=nonwritedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        call(5, descr=nonwritedescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_propagate_virtual_strunicodelen(self):
+        ops = """
+        [p0]
+        p404 = newstr(2)
+        p403 = newunicode(3)
+        i405 = strlen(p404)
+        i406 = unicodelen(p403)
+        i407 = int_add_ovf(i405, i406)
+        guard_no_overflow() []
+        call(i407, descr=nonwritedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        call(5, descr=nonwritedescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

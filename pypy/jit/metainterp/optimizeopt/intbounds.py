@@ -289,6 +289,7 @@ class OptIntBounds(Optimization):
         array  = self.getvalue(op.getarg(0))
         result = self.getvalue(op.result)
         array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
         result.intbound = array.lenbound.bound
 
     def optimize_STRLEN(self, op):
@@ -296,6 +297,7 @@ class OptIntBounds(Optimization):
         array  = self.getvalue(op.getarg(0))
         result = self.getvalue(op.result)
         array.make_len_gt(MODE_STR, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
         result.intbound = array.lenbound.bound
 
     def optimize_UNICODELEN(self, op):
@@ -303,6 +305,7 @@ class OptIntBounds(Optimization):
         array  = self.getvalue(op.getarg(0))
         result = self.getvalue(op.result)
         array.make_len_gt(MODE_UNICODE, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
         result.intbound = array.lenbound.bound
 
     def optimize_STRGETITEM(self, op):
