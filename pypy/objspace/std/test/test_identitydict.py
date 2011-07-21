@@ -167,3 +167,23 @@ class AppTestIdentityDict(object):
         d = {x: 1}
         assert self.uses_identity_strategy(d)
         assert list(iter(d)) == [x]
+
+    def test_mutate_class_and_then_compare(self):
+        class X(object):
+            pass
+        class Y(object):
+            pass
+
+        x = X()
+        y = Y()
+        d1 = {x: 1}
+        d2 = {y: 1}
+        assert self.uses_identity_strategy(d1)
+        assert self.uses_identity_strategy(d2)
+        #
+        X.__hash__ = lambda self: hash(y)
+        X.__eq__ = lambda self, other: True
+        #
+        assert d1 == d2
+        assert self.uses_identity_strategy(d1)
+        assert not self.uses_identity_strategy(d2)
