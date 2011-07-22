@@ -7,6 +7,7 @@ from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.jit.metainterp.resoperation import rop
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -802,7 +803,7 @@ def la(w):
         return -((v ^ 0xFFFF) + 1) # "sign extend" to 32 bits
     return v
 
-class MyPPCAssembler(PPCAssembler):
+class PPCBuilder(PPCAssembler):
     def __init__(self):
         PPCAssembler.__init__(self)
         self.init_block_builder()
@@ -816,40 +817,39 @@ class MyPPCAssembler(PPCAssembler):
         self.addis(rD, 0, ha(addr))
         self.lwz(rD, rD, la(addr))
 
+    def store_reg(self, source_reg, addr):
+        self.load_word(10, addr)
+        self.stw(source_reg, 10, 0)
+
     def nop(self):
         self.ori(0, 0, 0)
 
-    #def bl(self, addr):
-    #    offset = 4 * len(self.insts)
-    #    self.nop()
-    #    self.patch_list.append((offset, addr))
+    # translate a trace operation to corresponding machine code
+    def build_op(self, trace_op, cpu):
+        opnum = trace_op.getopnum()
+        if opnum == rop.INT_ADD:
+            self.emit_int_add(trace_op, cpu)
+        elif opnum == rop.FINISH:
+            self.emit_finish(cpu)
+    
+    # --------------------------------------- #
+    #             CODE GENERATION             #
+    # --------------------------------------- #
 
-    #def assemble(self, dump=os.environ.has_key('PYPY_DEBUG')):
-    #    insns = self.assemble0(dump)
-    #    for i in insns:
-    #        self.emit(i)
-    #    i = self.materialize(AsmMemoryManager(), [])
-    #    t = lltype.FuncType([], lltype.Signed)
-    #    self.patch_jumps(i)
-    #    return rffi.cast(lltype.Ptr(t), i)
-    #   
-    #def patch_jumps(self, rawstart):
-    #    #import pdb; pdb.set_trace()
+    def emit_int_add(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
 
-    #    for offset, addr in self.patch_list:
-    #        #delta = (rawstart + offset) - addr
-    #        delta = addr - (rawstart + offset)
-    #        delta >>= 2
-    #        print "delta =", delta
-    #        #assert (delta >> 24) == -1
+        arg0_index = cpu.get_box_index(arg0)
+        addr_box_0 = cpu.fail_boxes_int.get_addr_for_num(arg0_index)
+        
+        self.load_from(3, addr_box_0)
+        self.addi(3, 3, arg1.value)
+        self.store_reg(3, addr_box_0)
 
-    #        updater = BranchUpdater()
-    #        #updater.bl(delta)
-    #        self.load_word(reg, h)
-
-
-    #        updater.bctrl()
-    #        updater.write_to_mem(rawstart + offset)
+    def emit_finish(self, cpu):
+        self.load_word(3, 0)
+        self.blr()
 
 class BranchUpdater(PPCAssembler):
     def __init__(self):

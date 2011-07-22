@@ -1,7 +1,7 @@
 import py
 import random, sys, os
 
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import BasicPPCAssembler, MyPPCAssembler
+from pypy.jit.backend.ppc.ppcgen.ppc_assembler import BasicPPCAssembler, PPCBuilder
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.regname import *
 from pypy.jit.backend.ppc.ppcgen import form, pystructs
@@ -21,7 +21,7 @@ class TestDisassemble(object):
 
 """
 Creates the boilerplate code for the tests.
-- Make an MyPPCAssembler object
+- Make an PPCBuilder object
 - Let the given test create the machine code
 - Create a function and call it
 - Compare the return value with the expected result
@@ -29,7 +29,7 @@ Creates the boilerplate code for the tests.
 def asmtest(expected=-1):
     def testmaker(test):
         def newtest(self):
-            a = MyPPCAssembler()
+            a = PPCBuilder()
             test(self, a)
             f = a.assemble()
             assert f() == expected
@@ -173,7 +173,7 @@ class TestAssemble(object):
     def test_call_function(self):
         functype =  lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
         call_addr = rffi.cast(lltype.Signed, llhelper(functype, func))
-        a = MyPPCAssembler()
+        a = PPCBuilder()
 
         # NOW EXPLICITLY:
         # 
@@ -245,7 +245,7 @@ class TestAssemble(object):
         a.blr()
 
     def test_neg(self):
-        a = MyPPCAssembler()
+        a = PPCBuilder()
         a.load_word(10, 0x0000F0F0)
         a.neg(3, 10)
         a.blr()
@@ -253,7 +253,7 @@ class TestAssemble(object):
         assert f() == hex_to_signed_int("FFFF0F10")
 
     def test_load_and_store(self):
-        a = MyPPCAssembler()
+        a = PPCBuilder()
         word1 = 1000
         word2 = 2000
         a.load_word(10, word1)
