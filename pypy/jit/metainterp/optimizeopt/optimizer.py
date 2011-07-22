@@ -155,6 +155,7 @@ class OptValue(object):
         assert isinstance(constbox, Const)
         self.box = constbox
         self.level = LEVEL_CONSTANT
+        
         if isinstance(constbox, ConstInt):
             val = constbox.getint()
             self.intbound = IntBound(val, val)
