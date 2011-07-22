@@ -173,7 +173,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_radd(self):
         from numpy import array
-        r = 3 + array(range(3))\
+        r = 3 + array(range(3))
         for i in range(3):
             assert r[i] == i + 3
 
