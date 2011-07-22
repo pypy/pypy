@@ -37,7 +37,7 @@ class Op(object):
         return self._is_guard
 
     def repr(self):
-        args = self.args
+        args = self.args[:]
         if self.descr is not None:
             args.append('descr=%s' % self.descr)
         arglist = ', '.join(args)

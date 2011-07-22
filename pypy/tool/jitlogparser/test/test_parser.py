@@ -1,6 +1,6 @@
 from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                            Function, adjust_bridges,
-                                           import_log)
+                                           import_log, Op)
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py, sys
 
@@ -225,3 +225,9 @@ def test_import_log_2():
     assert 'cmp' in loops[1].operations[1].asm
     # bridge
     assert 'jo' in loops[3].operations[3].asm
+
+def test_Op_repr_is_pure():
+    op = Op('foobar', ['a', 'b'], 'c', 'mydescr')
+    myrepr = 'c = foobar(a, b, descr=mydescr)'
+    assert op.repr() == myrepr
+    assert op.repr() == myrepr # do it twice
