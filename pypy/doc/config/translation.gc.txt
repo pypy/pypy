@@ -20,5 +20,5 @@ The default is "minimark".
   - "markcompact": a slow, but memory-efficient collector,
     influenced e.g. by Smalltalk systems.
 
-  - "minimark": a generational mark-n-speed collector with good
+  - "minimark": a generational mark-n-sweep collector with good
     performance.  Includes page marking for large arrays.
