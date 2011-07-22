@@ -1,3 +1,4 @@
+import py
 from pypy.interpreter.gateway import interp2app
 from pypy.conftest import gettestobjspace
 from pypy.conftest import option
@@ -8,6 +9,8 @@ class AppTestComparesByIdentity:
         from pypy.objspace.std import identitydict
         cls.space = gettestobjspace(
                         **{"objspace.std.withidentitydict": True})
+        if option.runappdirect:
+            py.test.skip("interp2app doesn't work on appdirect")
 
         def compares_by_identity(space, w_cls):
             return space.wrap(w_cls.compares_by_identity())
@@ -49,7 +52,7 @@ class AppTestIdentityDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withidentitydict": True})
         if option.runappdirect:
-            py.test.skip("__repr__ doesn't work on appdirect")
+            py.test.skip("interp2app doesn't work on appdirect")
 
     def w_uses_identity_strategy(self, obj):
         import __pypy__

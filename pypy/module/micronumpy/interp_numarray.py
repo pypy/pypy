@@ -11,29 +11,15 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 import math
 
-def dummy1(v):
-    assert isinstance(v, float)
-    return v
-
-def dummy2(v):
-    assert isinstance(v, float)
-    return v
-
 TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
-slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'storage', 'arr'])
-slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'storage', 'arr'])
+slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
+slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 
-def pos(v):
-    return v
-def neg(v):
-    return -v
-def absolute(v):
-    return abs(v)
 def add(v1, v2):
     return v1 + v2
 def mul(v1, v2):
@@ -59,21 +45,14 @@ class BaseArray(Wrappable):
             arr.force_if_needed()
         del self.invalidates[:]
 
-    def _unop_impl(function):
-        signature = Signature()
+    def _unaryop_impl(w_ufunc):
         def impl(self, space):
-            new_sig = self.signature.transition(signature)
-            res = Call1(
-                function,
-                self,
-                new_sig)
-            self.invalidates.append(res)
-            return space.wrap(res)
-        return func_with_new_name(impl, "uniop_%s_impl" % function.__name__)
+            return w_ufunc(space, self)
+        return func_with_new_name(impl, "unaryop_%s_impl" % w_ufunc.__name__)
 
-    descr_pos = _unop_impl(pos)
-    descr_neg = _unop_impl(neg)
-    descr_abs = _unop_impl(absolute)
+    descr_pos = _unaryop_impl(interp_ufuncs.positive)
+    descr_neg = _unaryop_impl(interp_ufuncs.negative)
+    descr_abs = _unaryop_impl(interp_ufuncs.absolute)
 
     def _binop_impl(w_ufunc):
         def impl(self, space, w_other):
@@ -268,23 +247,25 @@ class BaseArray(Wrappable):
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
 
-    def _sliceloop1(self, start, stop, step, arr, storage):
+    def _sliceloop1(self, start, stop, step, source, dest):
         i = start
         j = 0
         while i < stop:
-            slice_driver1.jit_merge_point(signature=arr.signature,
-                    step=step, stop=stop, i=i, j=j, arr=arr, storage=storage)
-            storage[i] = arr.eval(j)
+            slice_driver1.jit_merge_point(signature=source.signature,
+                    step=step, stop=stop, i=i, j=j, source=source,
+                    dest=dest)
+            dest.storage[i] = source.eval(j)
             j += 1
             i += step
 
-    def _sliceloop2(self, start, stop, step, arr, storage):
+    def _sliceloop2(self, start, stop, step, source, dest):
         i = start
         j = 0
         while i > stop:
-            slice_driver2.jit_merge_point(signature=arr.signature,
-                    step=step, stop=stop, i=i, j=j, arr=arr, storage=storage)
-            storage[i] = arr.eval(j)
+            slice_driver2.jit_merge_point(signature=source.signature,
+                    step=step, stop=stop, i=i, j=j, source=source,
+                    dest=dest)
+            dest.storage[i] = source.eval(j)
             j += 1
             i += step
 
@@ -469,9 +450,9 @@ class SingleDimSlice(ViewArray):
             stop = self.calc_index(stop)
         step = self.step * step
         if step > 0:
-            self._sliceloop1(start, stop, step, arr, self.parent.storage)
+            self._sliceloop1(start, stop, step, arr, self.parent)
         else:
-            self._sliceloop2(start, stop, step, arr, self.parent.storage)
+            self._sliceloop2(start, stop, step, arr, self.parent)
 
     def calc_index(self, item):
         return (self.start + item * self.step)
@@ -510,9 +491,9 @@ class SingleDimArray(BaseArray):
         if not isinstance(arr, BaseArray):
             arr = convert_to_array(space, arr)
         if step > 0:
-            self._sliceloop1(start, stop, step, arr, self.storage)
+            self._sliceloop1(start, stop, step, arr, self)
         else:
-            self._sliceloop2(start, stop, step, arr, self.storage)
+            self._sliceloop2(start, stop, step, arr, self)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw')
