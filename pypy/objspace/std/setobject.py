@@ -178,6 +178,17 @@ class EmptySetStrategy(SetStrategy):
     cast_to_void_star = staticmethod(cast_to_void_star)
     cast_from_void_star = staticmethod(cast_from_void_star)
 
+    def check_for_unhashable_objects(self, w_iterable):
+        w_iterator = self.space.iter(w_iterable)
+        while True:
+            try:
+                elem = self.space.next(w_iterator)
+                self.space.hash(elem)
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_StopIteration):
+                    raise
+                break
+
     def get_empty_storage(self):
         return self.cast_to_void_star(None)
 
@@ -230,22 +241,27 @@ class EmptySetStrategy(SetStrategy):
         return False
 
     def difference(self, w_set, w_other):
+        self.check_for_unhashable_objects(w_other)
         return w_set.copy()
 
     def difference_update(self, w_set, w_other):
-        pass
+        self.check_for_unhashable_objects(w_other)
 
     def intersect(self, w_set, w_other):
+        self.check_for_unhashable_objects(w_other)
         return w_set.copy()
 
     def intersect_update(self, w_set, w_other):
+        self.check_for_unhashable_objects(w_other)
         return w_set.copy()
 
-    def intersect_multiple(self, w_set, w_other):
+    def intersect_multiple(self, w_set, others_w):
+        self.intersect_multiple_update(w_set, others_w)
         return w_set.copy()
 
-    def intersect_multiple_update(self, w_set, w_other):
-        pass
+    def intersect_multiple_update(self, w_set, others_w):
+        for w_other in others_w:
+            self.intersect(w_set, w_other)
 
     def isdisjoint(self, w_set, w_other):
         return True
@@ -828,6 +844,7 @@ def set_difference_update__Set(space, w_left, others_w):
             w_left.difference_update(w_other)
         else:
             for w_key in space.listview(w_other):
+                space.hash(w_key)
                 w_left.delitem(w_key)
 
 def inplace_sub__Set_Set(space, w_left, w_other):

@@ -599,6 +599,15 @@ class AppTestAppSetTest:
         assert e.isdisjoint(x) == True
         assert x.isdisjoint(e) == True
 
+    def test_empty_typeerror(self):
+        s = set()
+        raises(TypeError, s.difference, [[]])
+        raises(TypeError, s.difference_update, [[]])
+        raises(TypeError, s.intersection, [[]])
+        raises(TypeError, s.intersection_update, [[]])
+        raises(TypeError, s.symmetric_difference, [[]])
+        raises(TypeError, s.symmetric_difference_update, [[]])
+        raises(TypeError, s.update, [[]])
 
     def test_super_with_generator(self):
         def foo():
