@@ -1668,7 +1668,7 @@ class MiniMarkGC(MovingGCBase):
             None)   # we don't need the static in all prebuilt gc objects
         #
         # If we are in an inner collection caused by a call to a finalizer,
-        # the 'run_finalizers' objects also need to kept alive.
+        # the 'run_finalizers' objects also need to be kept alive.
         self.run_finalizers.foreach(self._collect_obj,
                                     self.objects_to_trace)
 
