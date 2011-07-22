@@ -37,12 +37,7 @@ class W_BaseSetObject(W_Object):
 
     def from_storage_and_strategy(w_self, storage, strategy):
         objtype = type(w_self)
-        if objtype is W_SetObject:
-            obj = instantiate(W_SetObject)
-        elif objtype is W_FrozensetObject:
-            obj = instantiate(W_FrozensetObject)
-        else:
-            obj = w_self.space.call_function(w_self.space.type(w_self), None)
+        obj = w_self._newobj(w_self.space, None)
         assert isinstance(obj, W_BaseSetObject)
         obj.strategy = strategy
         obj.sstorage = storage
