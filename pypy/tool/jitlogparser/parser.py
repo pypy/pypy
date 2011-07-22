@@ -30,6 +30,9 @@ class Op(object):
     def getres(self):
         return self._getvar(self.res)
 
+    def getdescr(self):
+        return self.descr
+
     def _getvar(self, v):
         return v
 
@@ -37,9 +40,9 @@ class Op(object):
         return self._is_guard
 
     def repr(self):
-        args = self.args[:]
+        args = self.getargs()
         if self.descr is not None:
-            args.append('descr=%s' % self.descr)
+            args.append('descr=%s' % self.getdescr())
         arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
