@@ -35,17 +35,20 @@ and build them.
 Preping Windows for the Large Build
 -----------------------------------
 
-Follow http://usa.autodesk.com/adsk/servlet/ps/dl/item?siteID=123112&id=9583842&linkID=9240617
-to allow Windows up to 3GB for 32bit applications if you are on a
-32bit version of windows. If you are using Visual C++ 2008 (untested
-with 2005), then you will have a utility called editbin.exe within
-Visual Studio 9.0\VC\bin. You will need to execute::
+Normally 32bit programs are limited to 2GB of memory on Windows. It is
+possible to raise this limit, to 3GB on Windows 32bit, and almost 4GB
+on Windows 64bit.
+
+On Windows 32bit, it is necessary to modify the system: follow
+http://usa.autodesk.com/adsk/servlet/ps/dl/item?siteID=123112&id=9583842&linkID=9240617
+to enable the "3GB" feature, and reboot. This step is not necessary on
+Windows 64bit.
+
+Then you need to execute::
 
     editbin /largeaddressaware pypy.exe
 
-on the pypy.exe or python.exe you are using to buld the new
-pypy. Reboot now if you followed the 3G instructions for 32bit
-windows.
+on the pypy.exe file you compiled.
 
 Installing external packages
 ----------------------------
