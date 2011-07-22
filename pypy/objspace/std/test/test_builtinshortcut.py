@@ -85,6 +85,20 @@ class AppTestSet(test_setobject.AppTestAppSetTest):
     def setup_class(cls):
         from pypy import conftest
         cls.space = conftest.gettestobjspace(**WITH_BUILTINSHORTCUT)
+        w_fakeint = cls.space.appexec([], """():
+            class FakeInt(object):
+                def __init__(self, value):
+                    self.value = value
+                def __hash__(self):
+                    return hash(self.value)
+
+                def __eq__(self, other):
+                    if other == self.value:
+                        return True
+                    return False
+            return FakeInt
+            """)
+        cls.w_FakeInt = w_fakeint
 
 class AppTestString(test_stringobject.AppTestStringObject):
     def setup_class(cls):
