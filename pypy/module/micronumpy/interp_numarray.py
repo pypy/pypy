@@ -205,6 +205,9 @@ class BaseArray(Wrappable):
     def get_concrete(self):
         raise NotImplementedError
 
+    def descr_copy(self, space):
+        return new_numarray(space, self)
+
     def descr_get_shape(self, space):
         return space.newtuple([self.descr_len(space)])
 
@@ -241,7 +244,16 @@ class BaseArray(Wrappable):
             # Single index
             self.get_concrete().setitem(start, space.float_w(w_value))
         else:
-            self.get_concrete().setslice(space, start, stop, step, 
+            concrete = self.get_concrete()
+            if isinstance(w_value, BaseArray):
+                # for now we just copy if setting part of an array from 
+                # part of itself. can be improved.
+                if concrete.get_root_storage() is \
+                                    w_value.get_concrete().get_root_storage():
+                    w_value = new_numarray(space, w_value)
+            else:
+                w_value = convert_to_array(space, w_value)
+            concrete.setslice(space, start, stop, step, 
                                                slice_length, w_value)
 
     def descr_mean(self, space):
@@ -440,11 +452,13 @@ class SingleDimSlice(ViewArray):
             self.parent = parent
         self.size = slice_length
 
+    def get_root_storage(self):
+        self.parent.storage
+
     def find_size(self):
         return self.size
 
     def setslice(self, space, start, stop, step, slice_length, arr):
-        arr = convert_to_array(space, arr)
         start = self.calc_index(start)
         if stop != -1:
             stop = self.calc_index(stop)
@@ -471,6 +485,9 @@ class SingleDimArray(BaseArray):
     def get_concrete(self):
         return self
 
+    def get_root_storage(self):
+        return self.storage
+
     def find_size(self):
         return self.size
 
@@ -488,8 +505,6 @@ class SingleDimArray(BaseArray):
         self.storage[item] = value
 
     def setslice(self, space, start, stop, step, slice_length, arr):
-        if not isinstance(arr, BaseArray):
-            arr = convert_to_array(space, arr)
         if step > 0:
             self._sliceloop1(start, stop, step, arr, self)
         else:
@@ -525,6 +540,7 @@ BaseArray.typedef = TypeDef(
     'numarray',
     __new__ = interp2app(descr_new_numarray),
 
+    copy = interp2app(BaseArray.descr_copy),
     shape = GetSetProperty(BaseArray.descr_get_shape),
 
     __len__ = interp2app(BaseArray.descr_len),

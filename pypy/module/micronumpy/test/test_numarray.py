@@ -38,6 +38,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[2] = 4
         assert a[2] == 4
 
+    def test_copy(self):
+        from numpy import array
+        a = array(range(5))
+        b = a.copy()
+        for i in xrange(5):
+            assert b[i] == a[i]
+
     def test_iterator_init(self):
         from numpy import array
         a = array(range(5))
@@ -99,6 +106,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[1:4:2] = b
         assert a[1] == 0.
         assert a[3] == 1.
+        b[::-1] = b
+        assert b[0] == 1.
+        assert b[1] == 0.
 
     def test_setslice_of_slice_array(self):
         from numpy import array, zeros
