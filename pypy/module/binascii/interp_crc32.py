@@ -61,7 +61,7 @@ crc_32_tab = [
 crc_32_tab = map(r_uint, crc_32_tab)
 
 
-@unwrap_spec(data='bufferstr', oldcrc='c_int')
+@unwrap_spec(data='bufferstr', oldcrc='truncatedint')
 def crc32(space, data, oldcrc=0):
     "Compute the CRC-32 incrementally."
 
