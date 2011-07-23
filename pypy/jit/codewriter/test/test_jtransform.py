@@ -510,7 +510,7 @@ def test_malloc_new_with_destructor():
 
 def test_rename_on_links():
     v1 = Variable()
-    v2 = Variable()
+    v2 = Variable(); v2.concretetype = llmemory.Address
     v3 = Variable()
     block = Block([v1])
     block.operations = [SpaceOperation('cast_pointer', [v1], v2)]
