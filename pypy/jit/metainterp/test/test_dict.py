@@ -6,7 +6,6 @@ from pypy.rlib import objectmodel
 class DictTests:
 
     def test_dict_set_none(self):
-        py.test.skip("annoying")
         def fn(n):
             d = {}
             d[0] = None

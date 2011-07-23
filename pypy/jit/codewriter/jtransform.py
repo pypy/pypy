@@ -695,7 +695,6 @@ class Transformer(object):
         return SpaceOperation(opname, [op.args[0]], op.result)
 
     def rewrite_op_getinteriorfield(self, op):
-        # only supports strings and unicodes
         assert len(op.args) == 3
         if isinstance(op.args[1], Constant) and op.args[1].value == 'chars':
             optype = op.args[0].concretetype
@@ -707,6 +706,8 @@ class Transformer(object):
             return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
         else:
             v_inst, v_index, c_field = op.args
+            if op.result.concretetype is lltype.Void:
+                return
             # only GcArray of Struct supported
             assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
             STRUCT = v_inst.concretetype.TO.OF
@@ -719,7 +720,6 @@ class Transformer(object):
                                   op.result)
 
     def rewrite_op_setinteriorfield(self, op):
-        # only supports strings and unicodes
         assert len(op.args) == 4
         if isinstance(op.args[1], Constant) and op.args[1].value == 'chars':
             optype = op.args[0].concretetype
@@ -732,6 +732,8 @@ class Transformer(object):
                                   op.result)
         else:
             v_inst, v_index, c_field, v_value = op.args
+            if v_value.concretetype is lltype.Void:
+                return
             # only GcArray of Struct supported
             assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
             STRUCT = v_inst.concretetype.TO.OF
