@@ -328,6 +328,18 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return pval
 
+    def bh_getinteriorfield_gc_r(self, gcref, itemindex, descr):
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs +
+                            size * itemindex)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+        pval = self._cast_int_to_gcref(items[0])
+        # --- end of GC unsafe code ---
+        return pval
+
     @specialize.argtype(2)
     def bh_getarrayitem_gc_f(self, arraydescr, gcref, itemindex):
         ofs = self.unpack_arraydescr(arraydescr)
