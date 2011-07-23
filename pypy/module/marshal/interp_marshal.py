@@ -1,10 +1,8 @@
-from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
-from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
-import sys
+
 
 Py_MARSHAL_VERSION = 2
 

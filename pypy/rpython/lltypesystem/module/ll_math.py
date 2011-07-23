@@ -68,7 +68,6 @@ math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_hypot = llexternal(underscore + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
-
 math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
 
 @jit.elidable
@@ -221,10 +220,6 @@ def ll_math_modf(x):
     return (fracpart, intpart)
 
 
-def ll_math_copysign(x, y):
-    return math_copysign(x, y)     # no error checking needed
-
-
 def ll_math_fmod(x, y):
     if isinf(y):
         if isinf(x):
@@ -329,11 +324,21 @@ def ll_math_pow(x, y):
 def ll_math_sqrt(x):
     if x < 0.0:
         raise ValueError, "math domain error"
-    
+
     if isfinite(x):
         return sqrt_nonneg(x)
 
     return x   # +inf or nan
+
+def ll_math_log(x):
+    if x <= 0:
+        raise ValueError("math domain error")
+    return math_log(x)
+
+def ll_math_log10(x):
+    if x <= 0:
+        raise ValueError("math domain error")
+    return math_log10(x)
 
 # ____________________________________________________________
 #
@@ -373,7 +378,7 @@ def new_unary_math_function(name, can_overflow, c99):
 unary_math_functions = [
     'acos', 'asin', 'atan',
     'ceil', 'cos', 'cosh', 'exp', 'fabs',
-    'sin', 'sinh', 'tan', 'tanh', 'log', 'log10',
+    'sin', 'sinh', 'tan', 'tanh',
     'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
     ]
 unary_math_functions_can_overflow = [

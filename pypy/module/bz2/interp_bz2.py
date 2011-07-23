@@ -4,9 +4,8 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.typedef import interp_attrproperty
-from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib.streamio import Stream
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform as compiler
@@ -67,7 +66,7 @@ constant_names = ['BZ_RUN', 'BZ_FLUSH', 'BZ_FINISH', 'BZ_OK',
     'BZ_OUTBUFF_FULL', 'BZ_CONFIG_ERROR']
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
-    
+
 class cConfig(object):
     pass
 for k, v in platform.configure(CConfig).items():
@@ -100,7 +99,7 @@ if BUFSIZ < 8192:
     SMALLCHUNK = 8192
 else:
     SMALLCHUNK = BUFSIZ
-    
+
 if rffi.sizeof(rffi.INT) > 4:
     BIGCHUNK = 512 * 32
 else:
@@ -505,7 +504,7 @@ class W_BZ2Compressor(Wrappable):
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
         self.running = False
         self._init_bz2comp(compresslevel)
-        
+
     def _init_bz2comp(self, compresslevel):
         if compresslevel < 1 or compresslevel > 9:
             raise OperationError(self.space.w_ValueError,
@@ -514,13 +513,13 @@ class W_BZ2Compressor(Wrappable):
         bzerror = intmask(BZ2_bzCompressInit(self.bzs, compresslevel, 0, 0))
         if bzerror != BZ_OK:
             _catch_bz2_error(self.space, bzerror)
-        
+
         self.running = True
-        
+
     def __del__(self):
         BZ2_bzCompressEnd(self.bzs)
         lltype.free(self.bzs, flavor='raw')
-    
+
     @unwrap_spec(data='bufferstr')
     def compress(self, data):
         """compress(data) -> string
@@ -529,12 +528,12 @@ class W_BZ2Compressor(Wrappable):
         compressed data whenever possible. When you've finished providing data
         to compress, call the flush() method to finish the compression process,
         and return what is left in the internal buffers."""
-        
+
         datasize = len(data)
-        
+
         if datasize == 0:
             return self.space.wrap("")
-        
+
         if not self.running:
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("this object was already flushed"))
@@ -562,7 +561,7 @@ class W_BZ2Compressor(Wrappable):
 
                 res = out.make_result_string()
                 return self.space.wrap(res)
-    
+
     def flush(self):
         if not self.running:
             raise OperationError(self.space.w_ValueError,
@@ -576,7 +575,7 @@ class W_BZ2Compressor(Wrappable):
                     break
                 elif bzerror != BZ_FINISH_OK:
                     _catch_bz2_error(self.space, bzerror)
-                
+
                 if rffi.getintfield(self.bzs, 'c_avail_out') == 0:
                     out.prepare_next_chunk()
 
@@ -603,23 +602,23 @@ class W_BZ2Decompressor(Wrappable):
     Create a new decompressor object. This object may be used to decompress
     data sequentially. If you want to decompress data in one shot, use the
     decompress() function instead."""
-    
+
     def __init__(self, space):
         self.space = space
 
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
         self.running = False
         self.unused_data = ""
-        
+
         self._init_bz2decomp()
-    
+
     def _init_bz2decomp(self):
         bzerror = BZ2_bzDecompressInit(self.bzs, 0, 0)
         if bzerror != BZ_OK:
             _catch_bz2_error(self.space, bzerror)
-        
+
         self.running = True
-    
+
     def __del__(self):
         BZ2_bzDecompressEnd(self.bzs)
         lltype.free(self.bzs, flavor='raw')
@@ -687,7 +686,7 @@ def compress(space, data, compresslevel=9):
     Compress data in one shot. If you want to compress data sequentially,
     use an instance of BZ2Compressor instead. The compresslevel parameter, if
     given, must be a number between 1 and 9."""
-    
+
     if compresslevel < 1 or compresslevel > 9:
         raise OperationError(space.w_ValueError,
             space.wrap("compresslevel must be between 1 and 9"))
@@ -731,7 +730,7 @@ def decompress(space, data):
 
     Decompress data in one shot. If you want to decompress data sequentially,
     use an instance of BZ2Decompressor instead."""
-    
+
     in_bufsize = len(data)
     if in_bufsize == 0:
         return space.wrap("")

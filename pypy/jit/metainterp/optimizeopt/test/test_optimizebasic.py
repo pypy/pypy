@@ -1755,6 +1755,48 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_duplicate_getarrayitem_after_setarrayitem_bug(self):
+        ops = """
+        [p0, i0, i1]
+        setarrayitem_gc(p0, 0, i0, descr=arraydescr)
+        i6 = int_add(i0, 1)
+        setarrayitem_gc(p0, i1, i6, descr=arraydescr)
+        i10 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i11 = int_add(i10, i0)
+        jump(p0, i11, i1)
+        """
+        expected = """
+        [p0, i0, i1]
+        i6 = int_add(i0, 1)
+        setarrayitem_gc(p0, 0, i0, descr=arraydescr)
+        setarrayitem_gc(p0, i1, i6, descr=arraydescr)
+        i10 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i11 = int_add(i10, i0)
+        jump(p0, i11, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_duplicate_getarrayitem_after_setarrayitem_bug2(self):
+        ops = """
+        [p0, i0, i1]
+        i2 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i6 = int_add(i0, 1)
+        setarrayitem_gc(p0, i1, i6, descr=arraydescr)
+        i10 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i11 = int_add(i10, i2)
+        jump(p0, i11, i1)
+        """
+        expected = """
+        [p0, i0, i1]
+        i2 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i6 = int_add(i0, 1)
+        setarrayitem_gc(p0, i1, i6, descr=arraydescr)
+        i10 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i11 = int_add(i10, i2)
+        jump(p0, i11, i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_bug_1(self):
         ops = """
         [i0, p1]
@@ -3916,11 +3958,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = strlen(p2)
         i3 = int_add(i1, i2)
         p3 = newstr(i3)
-        i4 = strlen(p1)
-        copystrcontent(p1, p3, 0, 0, i4)
-        i5 = strlen(p2)
-        i6 = int_add(i4, i5)      # will be killed by the backend
-        copystrcontent(p2, p3, 0, i4, i5)
+        copystrcontent(p1, p3, 0, 0, i1)
+        copystrcontent(p2, p3, 0, i1, i2)
         jump(p2, p3)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -3941,9 +3980,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = newstr(i3)
         strsetitem(p3, 0, i0)
         strsetitem(p3, 1, i1)
-        i4 = strlen(p2)
-        i5 = int_add(2, i4)      # will be killed by the backend
-        copystrcontent(p2, p3, 0, 2, i4)
+        copystrcontent(p2, p3, 0, 2, i2)
         jump(i1, i0, p3)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -3962,10 +3999,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = strlen(p2)
         i3 = int_add(i2, 2)
         p3 = newstr(i3)
-        i4 = strlen(p2)
-        copystrcontent(p2, p3, 0, 0, i4)
-        strsetitem(p3, i4, i0)
-        i5 = int_add(i4, 1)
+        copystrcontent(p2, p3, 0, 0, i2)
+        strsetitem(p3, i2, i0)
+        i5 = int_add(i2, 1)
         strsetitem(p3, i5, i1)
         i6 = int_add(i5, 1)      # will be killed by the backend
         jump(i1, i0, p3)
@@ -3987,14 +4023,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i3 = strlen(p3)
         i123 = int_add(i12, i3)
         p5 = newstr(i123)
-        i1b = strlen(p1)
-        copystrcontent(p1, p5, 0, 0, i1b)
-        i2b = strlen(p2)
-        i12b = int_add(i1b, i2b)
-        copystrcontent(p2, p5, 0, i1b, i2b)
-        i3b = strlen(p3)
-        i123b = int_add(i12b, i3b)      # will be killed by the backend
-        copystrcontent(p3, p5, 0, i12b, i3b)
+        copystrcontent(p1, p5, 0, 0, i1)
+        copystrcontent(p2, p5, 0, i1, i2)
+        copystrcontent(p3, p5, 0, i12, i3)
         jump(p2, p3, p5)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4010,10 +4041,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = strlen(p2)
         i3 = int_add(i2, 1)
         p3 = newstr(i3)
-        i4 = strlen(p2)
-        copystrcontent(p2, p3, 0, 0, i4)
-        strsetitem(p3, i4, 120)     # == ord('x')
-        i5 = int_add(i4, 1)      # will be killed by the backend
+        copystrcontent(p2, p3, 0, 0, i2)
+        strsetitem(p3, i2, 120)     # == ord('x')
         jump(p3)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4131,9 +4160,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i5 = int_add(i3, i4)
         p4 = newstr(i5)
         copystrcontent(p1, p4, i1, 0, i3)
-        i4b = strlen(p2)
-        i6 = int_add(i3, i4b)    # killed by the backend
-        copystrcontent(p2, p4, 0, i3, i4b)
+        copystrcontent(p2, p4, 0, i3, i4)
         jump(p4, i1, i2, p2)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4178,11 +4205,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = strlen(p2)
         i3 = int_add(i1, i2)
         p4 = newstr(i3)
-        i4 = strlen(p1)
-        copystrcontent(p1, p4, 0, 0, i4)
-        i5 = strlen(p2)
-        i6 = int_add(i4, i5)      # will be killed by the backend
-        copystrcontent(p2, p4, 0, i4, i5)
+        copystrcontent(p1, p4, 0, 0, i1)
+        copystrcontent(p2, p4, 0, i1, i2)
         i0 = call(0, p3, p4, descr=strequaldescr)
         escape(i0)
         jump(p1, p2, p3)
@@ -4374,11 +4398,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = strlen(p2)
         i3 = int_add(i1, i2)
         p4 = newstr(i3)
-        i4 = strlen(p1)
-        copystrcontent(p1, p4, 0, 0, i4)
-        i5 = strlen(p2)
-        i6 = int_add(i4, i5)      # will be killed by the backend
-        copystrcontent(p2, p4, 0, i4, i5)
+        copystrcontent(p1, p4, 0, 0, i1)
+        copystrcontent(p2, p4, 0, i1, i2)
         i0 = call(0, s"hello world", p4, descr=streq_nonnull_descr)
         escape(i0)
         jump(p1, p2)
@@ -4529,6 +4550,39 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = int_is_true(i0)
         guard_true(i1) []
         jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_strslice_subtraction_folds(self):
+        ops = """
+        [p0, i0]
+        i1 = int_add(i0, 1)
+        p1 = call(0, p0, i0, i1, descr=strslicedescr)
+        escape(p1)
+        jump(p0, i1)
+        """
+        expected = """
+        [p0, i0]
+        i1 = int_add(i0, 1)
+        p1 = newstr(1)
+        i2 = strgetitem(p0, i0)
+        strsetitem(p1, 0, i2)
+        escape(p1)
+        jump(p0, i1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_float_mul_reversed(self):
+        ops = """
+        [f0, f1]
+        f2 = float_mul(f0, f1)
+        f3 = float_mul(f1, f0)
+        jump(f2, f3)
+        """
+        expected = """
+        [f0, f1]
+        f2 = float_mul(f0, f1)
+        jump(f2, f2)
         """
         self.optimize_loop(ops, expected)
 

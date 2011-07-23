@@ -132,6 +132,16 @@ class TestFunctions(BaseCTypesTestChecker):
         # You cannot assing character format codes as restype any longer
         raises(TypeError, setattr, f, "restype", "i")
 
+
+    def test_truncate_python_longs(self):
+        f = dll._testfunc_i_bhilfd
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_int
+        x = sys.maxint * 2
+        result = f(x, x, x, x, 0, 0)
+        assert result == -8
+
+
     def test_floatresult(self):
         f = dll._testfunc_f_bhilfd
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
@@ -408,6 +418,23 @@ class TestFunctions(BaseCTypesTestChecker):
         f = dll.my_strchr
         f.argtypes = [c_char_p]
         f.restype = c_char_p
+        result = f("abcd", ord("b"))
+        assert result == "bcd"
+
+    def test_keepalive_buffers(self, monkeypatch):
+        import gc
+        f = dll.my_strchr
+        f.argtypes = [c_char_p]
+        f.restype = c_char_p
+        #
+        orig__call_funcptr = f._call_funcptr
+        def _call_funcptr(funcptr, *newargs):
+            gc.collect()
+            gc.collect()
+            gc.collect()
+            return orig__call_funcptr(funcptr, *newargs)
+        monkeypatch.setattr(f, '_call_funcptr', _call_funcptr)
+        #
         result = f("abcd", ord("b"))
         assert result == "bcd"
 

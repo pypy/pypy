@@ -1,10 +1,9 @@
 from __future__ import with_statement
 
-from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
+from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr
 from pypy.module._file.interp_file import W_File
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
@@ -572,10 +571,7 @@ def make_array(mytype):
             self.fromsequence(w_ustr)
 
         def array_tounicode__Array(space, self):
-            u = u""
-            for i in range(self.len):
-                u += self.buffer[i]
-            return space.wrap(u)
+            return space.wrap(rffi.wcharpsize2unicode(self.buffer, self.len))
     else:
 
         def array_fromunicode__Array_Unicode(space, self, w_ustr):

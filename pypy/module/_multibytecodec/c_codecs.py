@@ -1,4 +1,4 @@
-import py, sys
+import py
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
@@ -55,10 +55,12 @@ eci = ExternalCompilationInfo(
         "pypy_cjk_dec_init", "pypy_cjk_dec_free", "pypy_cjk_dec_chunk",
         "pypy_cjk_dec_outbuf", "pypy_cjk_dec_outlen",
         "pypy_cjk_dec_inbuf_remaining", "pypy_cjk_dec_inbuf_consumed",
+        "pypy_cjk_dec_replace_on_error",
 
         "pypy_cjk_enc_init", "pypy_cjk_enc_free", "pypy_cjk_enc_chunk",
         "pypy_cjk_enc_reset", "pypy_cjk_enc_outbuf", "pypy_cjk_enc_outlen",
         "pypy_cjk_enc_inbuf_remaining", "pypy_cjk_enc_inbuf_consumed",
+        "pypy_cjk_enc_replace_on_error",
     ] + ["pypy_cjkcodec_%s" % codec for codec in codecs],
 )
 

@@ -671,7 +671,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_arrayofstruct(self):
-        S1 = lltype.Struct('S1', ('x', lltype.Signed))
+        S1 = lltype.Struct('S2', ('x', lltype.Signed))
         A = lltype.Array(S1, hints={'nolength': True})
         a = lltype.malloc(A, 5, flavor='raw')
         a[0].x = 100

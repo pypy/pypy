@@ -86,7 +86,7 @@ class DictProxyStrategy(DictStrategy):
 
     def clear(self, w_dict):
         self.unerase(w_dict.dstorage).dict_w.clear()
-        self.unerase(w_dict.dstorage).mutated()
+        self.unerase(w_dict.dstorage).mutated(None)
 
 class DictProxyIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):

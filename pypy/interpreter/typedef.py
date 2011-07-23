@@ -23,7 +23,7 @@ class TypeDef:
             self.hasdict     |= __base.hasdict
             self.weakrefable |= __base.weakrefable
         self.rawdict = {}
-        self.acceptable_as_base_class = True
+        self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
         # xxx used by faking
         self.fakedcpytype = None
@@ -228,21 +228,26 @@ def _builduserclswithfeature(config, supercls, *features):
                 return self._lifeline_
             def setweakref(self, space, weakreflifeline):
                 self._lifeline_ = weakreflifeline
+            def delweakref(self):
+                self._lifeline_ = None
         add(Proto)
 
     if "del" in features:
+        parent_destructor = getattr(supercls, '__del__', None)
+        def call_parent_del(self):
+            assert isinstance(self, subcls)
+            parent_destructor(self)
+        def call_applevel_del(self):
+            assert isinstance(self, subcls)
+            self.space.userdel(self)
         class Proto(object):
             def __del__(self):
-                self._enqueue_for_destruction(self.space)
-        # if the base class needs its own interp-level __del__,
-        # we override the _call_builtin_destructor() method to invoke it
-        # after the app-level destructor.
-        parent_destructor = getattr(supercls, '__del__', None)
-        if parent_destructor is not None:
-            def _call_builtin_destructor(self):
-                parent_destructor(self)
-            Proto._call_builtin_destructor = _call_builtin_destructor
-
+                self.clear_all_weakrefs()
+                self.enqueue_for_destruction(self.space, call_applevel_del,
+                                             'method __del__ of ')
+                if parent_destructor is not None:
+                    self.enqueue_for_destruction(self.space, call_parent_del,
+                                                 'internal destructor of ')
         add(Proto)
 
     if "slots" in features:
@@ -630,9 +635,12 @@ def make_weakref_descr(cls):
         return self._lifeline_
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+    def delweakref(self):
+        self._lifeline_ = None
     cls._lifeline_ = None
     cls.getweakref = getweakref
     cls.setweakref = setweakref
+    cls.delweakref = delweakref
     return weakref_descr
 
 
@@ -858,8 +866,6 @@ GeneratorIterator.typedef = TypeDef("generator",
                             descrmismatch='close'),
     __iter__   = interp2app(GeneratorIterator.descr__iter__,
                             descrmismatch='__iter__'),
-    __del__    = interp2app(GeneratorIterator.descr__del__,
-                            descrmismatch='__del__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
     gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),

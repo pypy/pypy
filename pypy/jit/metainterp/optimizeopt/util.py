@@ -21,6 +21,7 @@ def _findall(Class, name_prefix, op_prefix=None):
             continue
         if hasattr(Class, name_prefix + name):
             opclass = resoperation.opclasses[getattr(rop, name)]
+            assert name in opclass.__name__
             result.append((value, opclass, getattr(Class, name_prefix + name)))
     return unrolling_iterable(result)
 

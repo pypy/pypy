@@ -171,17 +171,6 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
-    # Python 2.5 ctypes can raise OverflowError on 64-bit builds
-    for n in [sys.maxint, 2**31]:
-        MAX_SIZE = n/64
-        try:
-            PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
-        except OverflowError, e:
-            pass
-        else:
-            break
-    else:
-        raise e
 
     class CArray(ctypes.Structure):
         if not A._hints.get('nolength'):
@@ -190,6 +179,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
 
+        @classmethod
         def _malloc(cls, n=None):
             if not isinstance(n, int):
                 raise TypeError, "array length must be an int"
@@ -198,10 +188,29 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             if hasattr(bigarray, 'length'):
                 bigarray.length = n
             return bigarray
-        _malloc = classmethod(_malloc)
+
+        _ptrtype = None
+
+        @classmethod
+        def _get_ptrtype(cls):
+            if cls._ptrtype:
+                return cls._ptrtype
+            # ctypes can raise OverflowError on 64-bit builds
+            for n in [sys.maxint, 2**31]:
+                cls.MAX_SIZE = n/64
+                try:
+                    cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
+                except OverflowError, e:
+                    pass
+                else:
+                    break
+            else:
+                raise e
+            return cls._ptrtype
 
         def _indexable(self, index):
-            assert index + 1 < MAX_SIZE
+            PtrType = self._get_ptrtype()
+            assert index + 1 < self.MAX_SIZE
             p = ctypes.cast(ctypes.pointer(self.items), PtrType)
             return p.contents
 

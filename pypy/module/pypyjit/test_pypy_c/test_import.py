@@ -15,13 +15,13 @@ class TestImport(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
+            guard_not_invalidated(descr=...)
             p11 = getfield_gc(ConstPtr(ptr10), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
-            guard_value(p11, ConstPtr(ptr12), descr=<Guard4>)
-            guard_not_invalidated(descr=<Guard5>)
+            guard_value(p11, ConstPtr(ptr12), descr=...)
             p14 = getfield_gc(ConstPtr(ptr13), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
             p16 = getfield_gc(ConstPtr(ptr15), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
-            guard_value(p14, ConstPtr(ptr17), descr=<Guard6>)
-            guard_isnull(p16, descr=<Guard7>)
+            guard_value(p14, ConstPtr(ptr17), descr=...)
+            guard_isnull(p16, descr=...)
         """)
 
     def test_import_fast_path(self, tmpdir):

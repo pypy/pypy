@@ -4,13 +4,12 @@ Interp-level definition of frequently used functionals.
 """
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped, applevel
+from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
-from inspect import getsource, getfile
 from pypy.rlib.rbigint import rbigint
 
 
@@ -662,7 +661,6 @@ class W_XRangeIterator(Wrappable):
 
     def descr_reduce(self):
         from pypy.interpreter.mixedmodule import MixedModule
-        from pypy.module._pickle_support import maker # helper fns
         space    = self.space
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)

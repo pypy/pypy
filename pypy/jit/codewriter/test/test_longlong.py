@@ -37,7 +37,7 @@ def test_functions():
 
 class TestLongLong:
     def setup_class(cls):
-        if sys.maxint > 2147483647:
+        if longlong.is_64_bit:
             py.test.skip("only for 32-bit platforms")
 
     def do_check(self, opname, oopspecindex, ARGS, RESULT):
@@ -46,6 +46,8 @@ class TestLongLong:
         op = SpaceOperation(opname, vlist, v_result)
         tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
         op1 = tr.rewrite_operation(op)
+        if isinstance(op1, list):
+            [op1] = op1
         #
         def is_llf(TYPE):
             return (TYPE == lltype.SignedLongLong or
@@ -196,6 +198,23 @@ class TestLongLong:
             for T2 in [lltype.Signed, lltype.Unsigned]:
                 self.do_check('cast_primitive', EffectInfo.OS_LLONG_TO_INT,
                               [T1], T2)
+                self.do_check('force_cast', EffectInfo.OS_LLONG_TO_INT,
+                              [T1], T2)
+                if T2 == lltype.Signed:
+                    expected = EffectInfo.OS_LLONG_FROM_INT
+                else:
+                    expected = EffectInfo.OS_LLONG_FROM_UINT
+                self.do_check('cast_primitive', expected, [T2], T1)
+                self.do_check('force_cast', expected, [T2], T1)
+        #
+        for T1 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+            for T2 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+                vlist = [varoftype(T1)]
+                v_result = varoftype(T2)
+                op = SpaceOperation('force_cast', vlist, v_result)
+                tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+                op1 = tr.rewrite_operation(op)
+                assert op1 is None
 
     def test_constants(self):
         for TYPE in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
