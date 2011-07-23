@@ -2246,10 +2246,12 @@ class Assembler386(object):
         if opnum == rop.COND_CALL_GC_WB:
             N = 2
             func = descr.get_write_barrier_fn(self.cpu)
+            card_marking = False
         elif opnum == rop.COND_CALL_GC_WB_ARRAY:
             N = 3
             func = descr.get_write_barrier_from_array_fn(self.cpu)
             assert func != 0
+            card_marking = descr.jit_wb_cards_set != 0
         else:
             raise AssertionError(opnum)
         #
@@ -2258,6 +2260,18 @@ class Assembler386(object):
                       imm(descr.jit_wb_if_flag_singlebyte))
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = self.mc.get_relative_pos()
+
+        # for cond_call_gc_wb_array, also add another fast path:
+        # if GCFLAG_CARDS_SET, then we can just set one bit and be done
+        if card_marking:
+            self.mc.TEST8(addr_add_const(loc_base,
+                                         descr.jit_wb_cards_set_byteofs),
+                          imm(descr.jit_wb_cards_set_singlebyte))
+            self.mc.J_il8(rx86.Conditions['NZ'], 0) # patched later
+            jnz_location = self.mc.get_relative_pos()
+        else:
+            jnz_location = 0
+
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
         if IS_X86_32:
@@ -2297,6 +2311,43 @@ class Assembler386(object):
             loc = arglocs[i]
             assert isinstance(loc, RegLoc)
             self.mc.POP_r(loc.value)
+
+        # if GCFLAG_CARDS_SET, then we can do the whole thing that would
+        # be done in the CALL above with just four instructions, so here
+        # is an inline copy of them
+        if card_marking:
+            self.mc.JMP_l8(0) # jump to the exit, patched later
+            jmp_location = self.mc.get_relative_pos()
+            # patch the JNZ above
+            offset = self.mc.get_relative_pos() - jnz_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(jnz_location-1, chr(offset))
+            #
+            loc_index = arglocs[1]
+            if isinstance(loc_index, RegLoc):
+                # choose a scratch register
+                tmp1 = loc_index
+                self.mc.PUSH_r(tmp1.value)
+                # SHR tmp, card_page_shift
+                self.mc.SHR_ri(tmp1.value, descr.jit_wb_card_page_shift)
+                # XOR tmp, -8
+                self.mc.XOR_ri(tmp1.value, -8)
+                # BTS [loc_base], tmp
+                self.mc.BTS(addr_add_const(loc_base, 0), tmp1)
+                # done
+                self.mc.POP_r(tmp1.value)
+            elif isinstance(loc_index, ImmedLoc):
+                byte_index = loc_index.value >> descr.jit_wb_card_page_shift
+                byte_ofs = ~(byte_index >> 3)
+                byte_val = 1 << (byte_index & 7)
+                self.mc.OR8(addr_add_const(loc_base, byte_ofs), imm(byte_val))
+            else:
+                raise AssertionError("index is neither RegLoc nor ImmedLoc")
+            # patch the JMP above
+            offset = self.mc.get_relative_pos() - jmp_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(jmp_location-1, chr(offset))
+        #
         # patch the JZ above
         offset = self.mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
