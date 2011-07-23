@@ -23,7 +23,7 @@ class TypeDef:
             self.hasdict     |= __base.hasdict
             self.weakrefable |= __base.weakrefable
         self.rawdict = {}
-        self.acceptable_as_base_class = True
+        self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
         # xxx used by faking
         self.fakedcpytype = None

@@ -10,6 +10,7 @@ from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import fatalerror
+from pypy.rlib.rstackovf import StackOverflow
 from pypy.translator.simplify import get_functype
 from pypy.translator.unsimplify import call_final_function
 
@@ -408,21 +409,28 @@ class WarmRunnerDesc(object):
         jd.warmstate = state
 
         def crash_in_jit(e):
-            if not we_are_translated():
-                print "~~~ Crash in JIT!"
-                print '~~~ %s: %s' % (e.__class__, e)
-                if sys.stdout == sys.__stdout__:
-                    import pdb; pdb.post_mortem(sys.exc_info()[2])
-                raise
-            fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
+            try:
+                raise e
+            except JitException:
+                raise     # go through
+            except MemoryError:
+                raise     # go through
+            except StackOverflow:
+                raise     # go through
+            except Exception, e:
+                if not we_are_translated():
+                    print "~~~ Crash in JIT!"
+                    print '~~~ %s: %s' % (e.__class__, e)
+                    if sys.stdout == sys.__stdout__:
+                        import pdb; pdb.post_mortem(sys.exc_info()[2])
+                    raise
+                fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
         crash_in_jit._dont_inline_ = True
 
         if self.translator.rtyper.type_system.name == 'lltypesystem':
             def maybe_enter_jit(*args):
                 try:
                     maybe_compile_and_run(state.increment_threshold, *args)
-                except JitException:
-                    raise     # go through
                 except Exception, e:
                     crash_in_jit(e)
             maybe_enter_jit._always_inline_ = True
