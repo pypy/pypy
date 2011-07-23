@@ -709,7 +709,7 @@ class Transformer(object):
         else:
             v_inst, v_index, c_field = op.args
             if op.result.concretetype is lltype.Void:
-                return Constant(None, lltype.Void)
+                return
             # only GcArray of Struct supported
             assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
             STRUCT = v_inst.concretetype.TO.OF
