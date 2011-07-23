@@ -47,9 +47,11 @@ class Transformer(object):
         newoperations = []
         #
         def do_rename(var, var_or_const):
+            if var.concretetype is lltype.Void:
+                renamings[var] = Constant(None, lltype.Void)
+                return
             renamings[var] = var_or_const
-            if (isinstance(var_or_const, Constant)
-                and var.concretetype != lltype.Void):
+            if isinstance(var_or_const, Constant):
                 value = var_or_const.value
                 value = lltype._cast_whatever(var.concretetype, value)
                 renamings_constants[var] = Constant(value, var.concretetype)
