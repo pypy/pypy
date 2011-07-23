@@ -1024,69 +1024,6 @@ class BasicTests:
         res = self.meta_interp(main, [])
         assert res == 55
 
-    def test_dont_record_repeated_guard_class(self):
-        class A:
-            pass
-        class B(A):
-            pass
-        @dont_look_inside
-        def extern(n):
-            if n == -7:
-                return None
-            elif n:
-                return A()
-            else:
-                return B()
-        def fn(n):
-            obj = extern(n)
-            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
-        res = self.interp_operations(fn, [0])
-        assert res == 4
-        self.check_operations_history(guard_class=1, guard_nonnull=1)
-        res = self.interp_operations(fn, [1])
-        assert not res
-
-    def test_dont_record_guard_class_after_new(self):
-        class A:
-            pass
-        class B(A):
-            pass
-        def fn(n):
-            if n == -7:
-                obj = None
-            elif n:
-                obj = A()
-            else:
-                obj = B()
-            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
-        res = self.interp_operations(fn, [0])
-        assert res == 4
-        self.check_operations_history(guard_class=0, guard_nonnull=0)
-        res = self.interp_operations(fn, [1])
-        assert not res
-
-    def test_guard_isnull_nullifies(self):
-        class A:
-            pass
-        a = A()
-        a.x = None
-        def fn(n):
-            if n == -7:
-                a.x = ""
-            obj = a.x
-            res = 0
-            if not obj:
-                res += 1
-            if obj:
-                res += 1
-            if obj is None:
-                res += 1
-            if obj is not None:
-                res += 1
-            return res
-        res = self.interp_operations(fn, [0])
-        assert res == 2
-        self.check_operations_history(guard_isnull=1)
 
     def test_assert_isinstance(self):
         class A:
@@ -1248,7 +1185,7 @@ class BasicTests:
             return tup[1]
         res = self.interp_operations(f, [3, 5])
         assert res == 5
-        self.check_operations_history(setfield_gc=2, getfield_gc_pure=1)
+        self.check_operations_history(setfield_gc=2, getfield_gc_pure=0)
 
     def test_oosend_look_inside_only_one(self):
         class A:
@@ -2649,7 +2586,23 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10, 1])
         self.check_loops(getfield_gc=2)
+        assert res == f(10, 1)
 
+    def test_jit_merge_point_with_raw_pointer(self):
+        driver = JitDriver(greens = [], reds = ['n', 'x'])
+
+        TP = lltype.Array(lltype.Signed, hints={'nolength': True})
+
+        def f(n):
+            x = lltype.malloc(TP, 10, flavor='raw')
+            x[0] = 1
+            while n > 0:
+                driver.jit_merge_point(n=n, x=x)
+                n -= x[0]
+            lltype.free(x, flavor='raw')
+            return n
+
+        self.meta_interp(f, [10], repeat=3)
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass

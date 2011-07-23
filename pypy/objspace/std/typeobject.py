@@ -7,6 +7,7 @@ from pypy.interpreter.typedef import weakref_descr
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
+from pypy.objspace.std import identitydict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from pypy.rlib.jit import promote, elidable_promote, we_are_jitted
@@ -76,6 +77,10 @@ class MethodCache(object):
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
 
+# possible values of compares_by_identity_status 
+UNKNOWN = 0
+COMPARES_BY_IDENTITY = 1
+OVERRIDES_EQ_CMP_OR_HASH = 2
 
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
@@ -101,6 +106,9 @@ class W_TypeObject(W_Object):
     # for config.objspace.std.getattributeshortcut
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
+
+    # for config.objspace.std.withidentitydict
+    compares_by_identity_status = UNKNOWN
 
     # used to cache the type __new__ function if it comes from a builtin type
     # != 'type', in that case call__Type will also assumes the result
@@ -146,17 +154,30 @@ class W_TypeObject(W_Object):
             else:
                 w_self.terminator = NoDictTerminator(space, w_self)
 
-    def mutated(w_self):
+    def mutated(w_self, key):
+        """
+        The type is being mutated. key is either the string containing the
+        specific attribute which is being deleted/set or None to indicate a
+        generic mutation.
+        """
         space = w_self.space
         assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
+            not space.config.objspace.std.withidentitydict and
             not space.config.objspace.std.newshortcut):
             return
 
         if space.config.objspace.std.getattributeshortcut:
             w_self.uses_object_getattribute = False
             # ^^^ conservative default, fixed during real usage
+
+        if space.config.objspace.std.withidentitydict:
+            did_compare_by_identity = (
+                w_self.compares_by_identity_status == COMPARES_BY_IDENTITY)
+            if (key is None or key == '__eq__' or
+                key == '__cmp__' or key == '__hash__'):
+                w_self.compares_by_identity_status = UNKNOWN
 
         if space.config.objspace.std.newshortcut:
             w_self.w_bltin_new = None
@@ -168,7 +189,7 @@ class W_TypeObject(W_Object):
         subclasses_w = w_self.get_subclasses()
         for w_subclass in subclasses_w:
             assert isinstance(w_subclass, W_TypeObject)
-            w_subclass.mutated()
+            w_subclass.mutated(key)
 
     def version_tag(w_self):
         if (not we_are_jitted() or w_self.is_heaptype() or
@@ -206,6 +227,25 @@ class W_TypeObject(W_Object):
 
     def has_object_getattribute(w_self):
         return w_self.getattribute_if_not_from_object() is None
+
+    def compares_by_identity(w_self):
+        from pypy.objspace.descroperation import object_hash
+        if not w_self.space.config.objspace.std.withidentitydict:
+            return False # conservative
+        #
+        if w_self.compares_by_identity_status != UNKNOWN:
+            # fast path
+            return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
+        #
+        default_hash = object_hash(w_self.space)
+        overrides_eq_cmp_or_hash = (w_self.lookup('__eq__') or
+                                    w_self.lookup('__cmp__') or
+                                    w_self.lookup('__hash__') is not default_hash)
+        if overrides_eq_cmp_or_hash:
+            w_self.compares_by_identity_status = OVERRIDES_EQ_CMP_OR_HASH
+        else:
+            w_self.compares_by_identity_status = COMPARES_BY_IDENTITY
+        return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
 
     def ready(w_self):
         for w_base in w_self.bases_w:
@@ -269,7 +309,7 @@ class W_TypeObject(W_Object):
                         w_curr.w_value = w_value
                         return True
                     w_value = TypeCell(w_value)
-        w_self.mutated()
+        w_self.mutated(name)
         w_self.dict_w[name] = w_value
         return True
 
@@ -286,7 +326,7 @@ class W_TypeObject(W_Object):
         except KeyError:
             return False
         else:
-            w_self.mutated()
+            w_self.mutated(key)
             return True
 
     def lookup(w_self, name):

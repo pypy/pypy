@@ -70,3 +70,6 @@ def lookup_special(space, w_obj, meth):
     if w_descr is None:
         return space.w_None
     return space.get(w_descr, w_obj)
+
+def do_what_I_mean(space):
+    return space.wrap(42)

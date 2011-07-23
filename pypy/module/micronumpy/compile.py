@@ -3,7 +3,7 @@
 It should not be imported by the module itself
 """
 
-from pypy.module.micronumpy.interp_numarray import FloatWrapper, SingleDimArray
+from pypy.module.micronumpy.interp_numarray import FloatWrapper, SingleDimArray, BaseArray
 
 class BogusBytecode(Exception):
     pass
@@ -17,6 +17,14 @@ def create_array(size):
 class TrivialSpace(object):
     def wrap(self, x):
         return x
+
+    def issequence_w(self, w_obj):
+        # Completley wrong in the general case, but good enough for this.
+        return isinstance(w_obj, BaseArray)
+
+    def float_w(self, w_obj):
+        assert isinstance(w_obj, float)
+        return w_obj
 
 def numpy_compile(bytecode, array_size):
     space = TrivialSpace()
