@@ -476,6 +476,7 @@ class LocationCodeBuilder(object):
 
     AND = _binaryop('AND')
     OR  = _binaryop('OR')
+    OR8 = _binaryop('OR8')
     XOR = _binaryop('XOR')
     NOT = _unaryop('NOT')
     SHL = _binaryop('SHL')
