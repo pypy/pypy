@@ -483,6 +483,7 @@ class LocationCodeBuilder(object):
     SAR = _binaryop('SAR')
     TEST = _binaryop('TEST')
     TEST8 = _binaryop('TEST8')
+    BTS = _binaryop('BTS')
 
     ADD = _binaryop('ADD')
     SUB = _binaryop('SUB')
