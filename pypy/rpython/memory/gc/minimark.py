@@ -920,6 +920,20 @@ class MiniMarkGC(MovingGCBase):
     #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
     JIT_WB_IF_FLAG = GCFLAG_TRACK_YOUNG_PTRS
 
+    # for the JIT to generate custom code corresponding to the array
+    # write barrier for the simplest case of cards.  If JIT_CARDS_SET
+    # is already set on an object, it will execute code like this:
+    #    MOV eax, index
+    #    SHR eax, JIT_WB_CARD_PAGE_SHIFT
+    #    XOR eax, -8
+    #    BTS [object], eax
+    if TRANSLATION_PARAMS['card_page_indices'] > 0:
+        JIT_WB_CARDS_SET = GCFLAG_CARDS_SET
+        JIT_WB_CARD_PAGE_SHIFT = 1
+        while ((1 << JIT_WB_CARD_PAGE_SHIFT) !=
+               TRANSLATION_PARAMS['card_page_indices']):
+            JIT_WB_CARD_PAGE_SHIFT += 1
+
     @classmethod
     def JIT_max_size_of_young_obj(cls):
         return cls.TRANSLATION_PARAMS['large_object']
