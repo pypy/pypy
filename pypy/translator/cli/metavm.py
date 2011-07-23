@@ -176,7 +176,6 @@ class _Unbox(MicroInstruction):
 class _UnboxType(MicroInstruction):
     def __init__(self, TO):
         self.TO = TO
-        super(_UnboxType, self).__init__()
 
     def render(self, generator, op):
         v_obj, = op.args
