@@ -248,8 +248,8 @@ class BaseArray(Wrappable):
             if isinstance(w_value, BaseArray):
                 # for now we just copy if setting part of an array from 
                 # part of itself. can be improved.
-                if concrete.get_root_storage() is \
-                                    w_value.get_concrete().get_root_storage():
+                if (concrete.get_root_storage() ==
+                    w_value.get_concrete().get_root_storage()):
                     w_value = new_numarray(space, w_value)
             else:
                 w_value = convert_to_array(space, w_value)
@@ -453,7 +453,7 @@ class SingleDimSlice(ViewArray):
         self.size = slice_length
 
     def get_root_storage(self):
-        self.parent.storage
+        return self.parent.storage
 
     def find_size(self):
         return self.size
