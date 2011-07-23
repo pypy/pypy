@@ -290,6 +290,9 @@ class TestOOtype(BaseTestRErased, OORtypeMixin):
     UNERASED_TYPE = OBJECT
     def castable(self, TO, var):
         return ootype.isSubclass(lltype.typeOf(var), TO)
+    @py.test.mark.xfail
+    def test_prebuilt_erased(self):
+        super(TestOOtype, self).test_prebuilt_erased()
 
 def test_union():
     s_e1 = SomeErased()
