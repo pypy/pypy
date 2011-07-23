@@ -1237,6 +1237,8 @@ class _llgcopaque(lltype._container):
             self.intval = intmask(void_p.value)
 
     def __eq__(self, other):
+        if not other:
+            return self.intval == 0
         if isinstance(other, _llgcopaque):
             return self.intval == other.intval
         storage = object()

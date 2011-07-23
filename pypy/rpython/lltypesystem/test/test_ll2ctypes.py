@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
 from pypy.rpython.lltypesystem.ll2ctypes import uninitialized2ctypes
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED, force_cast
 from pypy.rpython.lltypesystem.ll2ctypes import cast_adr_to_int, get_ctypes_type
+from pypy.rpython.lltypesystem.ll2ctypes import _llgcopaque
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -1373,3 +1374,7 @@ class TestPlatform(object):
         f = rffi.llexternal('f', [rffi.INT, rffi.INT], rffi.INT,
                             compilation_info=eci)
         assert f(3, 4) == 7
+
+    def test_llgcopaque_eq(self):
+        assert _llgcopaque(1) != None
+        assert _llgcopaque(0) == None
