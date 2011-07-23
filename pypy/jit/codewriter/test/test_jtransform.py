@@ -661,7 +661,7 @@ def test_dict_getinteriorfield():
     op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
                         Constant(None, lltype.Void))
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
-    assert not op1
+    assert op1 == Constant(None, lltype.Void)
 
 def test_str_setinteriorfield():
     v = varoftype(lltype.Ptr(rstr.STR))
