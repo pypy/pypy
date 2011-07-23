@@ -263,8 +263,8 @@ class MiniMarkGC(MovingGCBase):
         # that it is possible for an object to be listed both in here
         # and in 'objects_pointing_to_young', in which case we
         # should just clear the cards and trace it fully, as usual.
-        # Note also that young array objects may be added to this list.
-        self.objects_with_cards_set = self.AddressStack()
+        # Note also that young array objects are never listed here.
+        self.old_objects_with_cards_set = self.AddressStack()
         #
         # A list of all prebuilt GC objects that contain pointers to the heap
         self.prebuilt_root_objects = self.AddressStack()
@@ -652,8 +652,12 @@ class MiniMarkGC(MovingGCBase):
                 extra_words = self.card_marking_words_for_length(length)
                 cardheadersize = WORD * extra_words
                 extra_flags = GCFLAG_HAS_CARDS | GCFLAG_TRACK_YOUNG_PTRS
-                # note that if 'can_make_young', then card marking will only
-                # be used later, after (and if) the object becomes old
+                # if 'can_make_young', then we also immediately set
+                # GCFLAG_CARDS_SET, but without adding the object to
+                # 'old_objects_with_cards_set'.  In this way it should
+                # never be added to that list as long as it is young.
+                if can_make_young:
+                    extra_flags |= GCFLAG_CARDS_SET
             #
             # Detect very rare cases of overflows
             if raw_malloc_usage(totalsize) > (sys.maxint - (WORD-1)
@@ -1027,7 +1031,7 @@ class MiniMarkGC(MovingGCBase):
             addr_byte.char[0] = chr(byte | bitmask)
             #
             if objhdr.tid & GCFLAG_CARDS_SET == 0:
-                self.objects_with_cards_set.append(addr_array)
+                self.old_objects_with_cards_set.append(addr_array)
                 objhdr.tid |= GCFLAG_CARDS_SET
 
         remember_young_pointer_from_array2._dont_inline_ = True
@@ -1071,7 +1075,7 @@ class MiniMarkGC(MovingGCBase):
                 addr_byte.char[0] = chr(byte | bitmask)
                 #
                 if objhdr.tid & GCFLAG_CARDS_SET == 0:
-                    self.objects_with_cards_set.append(addr_array)
+                    self.old_objects_with_cards_set.append(addr_array)
                     objhdr.tid |= GCFLAG_CARDS_SET
                 return
             #
@@ -1159,18 +1163,21 @@ class MiniMarkGC(MovingGCBase):
         # manually copy the individual card marks from source to dest
         bytes = self.card_marking_bytes_for_length(length)
         #
+        anybyte = 0
         i = 0
         while i < bytes:
             addr_srcbyte = self.get_card(source_addr, i)
             addr_dstbyte = self.get_card(dest_addr, i)
             byte = ord(addr_srcbyte.char[0])
+            anybyte |= byte
             addr_dstbyte.char[0] = chr(ord(addr_dstbyte.char[0]) | byte)
             i += 1
         #
-        dest_hdr = self.header(dest_addr)
-        if dest_hdr.tid & GCFLAG_CARDS_SET == 0:
-            self.objects_with_cards_set.append(dest_addr)
-            dest_hdr.tid |= GCFLAG_CARDS_SET
+        if anybyte:
+            dest_hdr = self.header(dest_addr)
+            if dest_hdr.tid & GCFLAG_CARDS_SET == 0:
+                self.old_objects_with_cards_set.append(dest_addr)
+                dest_hdr.tid |= GCFLAG_CARDS_SET
 
     # ----------
     # Nursery collection
@@ -1204,9 +1211,9 @@ class MiniMarkGC(MovingGCBase):
             self.collect_oldrefs_to_nursery()
             #
             # We have to loop back if collect_oldrefs_to_nursery caused
-            # new objects to show up in objects_with_cards_set
+            # new objects to show up in old_objects_with_cards_set
             if self.card_page_indices > 0:
-                if self.objects_with_cards_set.non_empty():
+                if self.old_objects_with_cards_set.non_empty():
                     continue
             break
         #
@@ -1249,7 +1256,7 @@ class MiniMarkGC(MovingGCBase):
 
     def collect_cardrefs_to_nursery(self):
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        oldlist = self.objects_with_cards_set
+        oldlist = self.old_objects_with_cards_set
         while oldlist.non_empty():
             obj = oldlist.pop()
             #
@@ -1364,22 +1371,7 @@ class MiniMarkGC(MovingGCBase):
             # arrive here.
             if (bool(self.young_rawmalloced_objects)
                 and self.young_rawmalloced_objects.contains(obj)):
-                # 'obj' points to a young, raw-malloced object
-                if (self.header(obj).tid & GCFLAG_VISITED) == 0:
-                    self.header(obj).tid |= GCFLAG_VISITED
-                    #
-                    # we just made 'obj' old, so we may need to add it
-                    # in the correct list:
-                    if self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
-                        # common case: GCFLAG_TRACK_YOUNG_PTRS is not set, so
-                        # the object may contain young pointers anywhere
-                        self.objects_pointing_to_young.append(obj)
-                    else:
-                        # large array case: the object contains card marks
-                        # that tell us where young pointers are, and it
-                        # is already in objects_with_cards_set.
-                        ll_assert(self.header(obj).tid & GCFLAG_HAS_CARDS != 0,
-                                  "neither YOUNG_PTRS nor HAS_CARDS??")
+                self._visit_young_rawmalloced_object(obj)
             return
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
@@ -1431,6 +1423,47 @@ class MiniMarkGC(MovingGCBase):
         # We will fix such references to point to the copy of the young
         # objects when we walk 'objects_pointing_to_young'.
         self.objects_pointing_to_young.append(newobj)
+
+    def _visit_young_rawmalloced_object(self, obj):
+        # 'obj' points to a young, raw-malloced object.
+        # Any young rawmalloced object never seen by the code here
+        # will end up without GCFLAG_VISITED, and be freed at the
+        # end of the current minor collection.  Note that there was
+        # a bug in which dying young arrays with card marks would
+        # still be scanned before being freed, keeping a lot of
+        # objects unnecessarily alive.
+        hdr = self.header(obj)
+        if hdr.tid & GCFLAG_VISITED:
+            return
+        hdr.tid |= GCFLAG_VISITED
+        #
+        # we just made 'obj' old, so we need to add it to the correct
+        # lists.  (Note that another point of view on the longish
+        # comments below is that we are not changing any flags in 'hdr',
+        # but just restoring invariants: the object may be missing from
+        # these lists as long as it is a young array, but not when it
+        # grows old.)
+        anywhere = False
+        #
+        if hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
+            # common case: GCFLAG_TRACK_YOUNG_PTRS is not set, so
+            # the object may contain young pointers anywhere
+            self.objects_pointing_to_young.append(obj)
+            anywhere = True
+        #
+        if hdr.tid & GCFLAG_HAS_CARDS != 0:
+            # large array case: the object contains card marks
+            # that tell us where young pointers are, and it must
+            # be added to 'old_objects_with_cards_set'.  Note that
+            # we must add it even if we also added it just above to
+            # 'objects_pointing_to_young', because the object header
+            # needs to be cleaned up.
+            ll_assert(hdr.tid & GCFLAG_CARDS_SET != 0,
+                      "young array: GCFLAG_HAS_CARDS without GCFLAG_CARDS_SET")
+            self.old_objects_with_cards_set.append(obj)
+            anywhere = True
+        #
+        ll_assert(anywhere, "wrong flag combination on young array")
 
 
     def _malloc_out_of_nursery(self, totalsize):
