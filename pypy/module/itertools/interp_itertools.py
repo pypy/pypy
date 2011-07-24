@@ -379,16 +379,23 @@ class W_ISlice(Wrappable):
             self.start = -1
         else:                             # all following calls
             consume = self.step
+        if consume > 1:
+            self._ignore_items(consume-1)
         if self.stop >= 0:
             if self.stop < consume:
+                self.stop = 0   # reset the state so that a following next_w()
+                self.step = 1   # has no effect any more
                 raise OperationError(self.space.w_StopIteration,
                                      self.space.w_None)
             self.stop -= consume
+        return self.space.next(self.iterable)
+
+    def _ignore_items(self, num):
         while True:
-            w_obj = self.space.next(self.iterable)
-            consume -= 1
-            if consume <= 0:
-                return w_obj
+            self.space.next(self.iterable)
+            num -= 1
+            if num <= 0:
+                break
 
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
     r = space.allocate_instance(W_ISlice, w_subtype)
