@@ -358,6 +358,7 @@ class AbstractLLCPU(AbstractCPU):
     bh_getarrayitem_raw_f = bh_getarrayitem_gc_f
 
     def bh_getinteriorfield_gc_i(self, gcref, itemindex, descr):
+        assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
@@ -377,6 +378,7 @@ class AbstractLLCPU(AbstractCPU):
             raise NotImplementedError("size = %d" % fieldsize)
 
     def bh_getinteriorfield_gc_r(self, gcref, itemindex, descr):
+        assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
@@ -389,6 +391,7 @@ class AbstractLLCPU(AbstractCPU):
         return pval
 
     def bh_getinteriorfield_gc_f(self, gcref, itemindex, descr):
+        assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
@@ -401,6 +404,7 @@ class AbstractLLCPU(AbstractCPU):
         return fval
 
     def bh_setinteriorfield_gc_i(self, gcref, itemindex, descr, value):
+        assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
@@ -418,6 +422,7 @@ class AbstractLLCPU(AbstractCPU):
             raise NotImplementedError("size = %d" % fieldsize)
 
     def bh_setinteriorfield_gc_r(self, gcref, itemindex, descr, newvalue):
+        assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
@@ -430,10 +435,10 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
 
     def bh_setinteriorfield_gc_f(self, gcref, itemindex, descr, newvalue):
+        assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
-        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref),
                             ofs + size * itemindex)
