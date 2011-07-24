@@ -50,7 +50,7 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     The second case is completely non-deterministic, even in CPython.
     Depending on the phase of the moon, you might call the __eq__ or not, so
     it is perfectly fine to *never* call it.  Morever, in practice with the
-    minimar GC we never have two live objects with the same hash, so it would
+    minimark GC we never have two live objects with the same hash, so it would
     never happen anyway.
     """
 
