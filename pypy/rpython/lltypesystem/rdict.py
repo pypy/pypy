@@ -497,11 +497,6 @@ def _ll_dict_del(d, i):
     ENTRY = ENTRIES.OF
     entry = d.entries[i]
     if ENTRIES.must_clear_key:
-        key = entry.key   # careful about destructor side effects:
-                          # keep key alive until entry.value has also
-                          # been zeroed (if it must be)
-        # XXX is this *actually* keeping stuff alive without
-        #     keepalive_until_here?
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
