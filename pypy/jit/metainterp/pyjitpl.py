@@ -901,7 +901,6 @@ class MIFrame(object):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
-        import pdb; pdb.set_trace()
         self.debug_merge_point(jitdriver_sd, jdindex, self.metainterp.in_recursion,
                                greenboxes)
 
@@ -931,6 +930,8 @@ class MIFrame(object):
             # close the loop.  We have to put the possibly-modified list
             # 'redboxes' back into the registers where it comes from.
             put_back_list_of_boxes3(self, jcposition, redboxes)
+        elif jitdriver_sd.warmstate.should_unroll_one_iteration(greenboxes):
+            return
         else:
             # warning! careful here.  We have to return from the current
             # frame containing the jit_merge_point, and then use

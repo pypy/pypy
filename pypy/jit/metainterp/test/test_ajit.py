@@ -508,7 +508,7 @@ class BasicTests:
         assert res == 84 - 61 - 62
         self.check_history(call=1)   # because the trace starts immediately
 
-    def test_unroll_one_loop(self):
+    def test_unroll_one_loop_iteration(self):
         def unroll(x):
             return x == 0
         myjitdriver = JitDriver(greens = ['x'], reds = ['y'], should_unroll_one_iteration=unroll)
