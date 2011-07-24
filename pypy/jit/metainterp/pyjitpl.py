@@ -1162,13 +1162,11 @@ class MIFrame(object):
             metainterp.jitdriver_sd.greenfield_info is not None):
             virtualizable_boxes = metainterp.virtualizable_boxes
         saved_pc = self.pc
-        try:
-            if resumepc >= 0:
-                self.pc = resumepc
-            resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
-                                      metainterp.virtualref_boxes, resumedescr)
-        finally:
-            self.pc = saved_pc
+        if resumepc >= 0:
+            self.pc = resumepc
+        resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
+                                  metainterp.virtualref_boxes, resumedescr)
+        self.pc = saved_pc
 
     def implement_guard_value(self, orgpc, box):
         """Promote the given Box into a Const.  Note: be careful, it's a
