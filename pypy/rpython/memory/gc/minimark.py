@@ -1342,6 +1342,8 @@ class MiniMarkGC(MovingGCBase):
                           "objects_pointing_to_young contains obj with "
                           "GCFLAG_TRACK_YOUNG_PTRS and not GCFLAG_VISITED")
                 continue
+            # XXX FIXME: 'obj' might be a never-visited young array, in this
+            # case it should **not** be collected here!!!!!!!!!
             #
             # Add the flag GCFLAG_TRACK_YOUNG_PTRS.  All live objects should
             # have this flag set after a nursery collection.
