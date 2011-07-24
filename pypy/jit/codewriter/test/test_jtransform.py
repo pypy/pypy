@@ -510,7 +510,7 @@ def test_malloc_new_with_destructor():
 
 def test_rename_on_links():
     v1 = Variable()
-    v2 = Variable()
+    v2 = Variable(); v2.concretetype = llmemory.Address
     v3 = Variable()
     block = Block([v1])
     block.operations = [SpaceOperation('cast_pointer', [v1], v2)]
@@ -661,7 +661,7 @@ def test_dict_getinteriorfield():
     op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
                         Constant(None, lltype.Void))
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
-    assert op1 == Constant(None, lltype.Void)
+    assert op1 is None
 
 def test_str_setinteriorfield():
     v = varoftype(lltype.Ptr(rstr.STR))
