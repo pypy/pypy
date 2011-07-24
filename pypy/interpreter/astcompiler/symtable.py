@@ -356,17 +356,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
         # Function defaults and decorators happen in the outer scope.
         args = func.args
         assert isinstance(args, ast.arguments)
-        if args.defaults:
-            self.visit_sequence(args.defaults)
-        if func.decorator_list:
-            self.visit_sequence(func.decorator_list)
+        self.visit_sequence(args.defaults)
+        self.visit_sequence(func.decorator_list)
         new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
         self.push_scope(new_scope, func)
         func.args.walkabout(self)
-        # func.body should never be empty (or else it contains one Pass)
-        # but it can be if we make an ast.FunctionDef() from app-level.
-        if func.body:
-            self.visit_sequence(func.body)
+        self.visit_sequence(func.body)
         self.pop_scope()
 
     def visit_Return(self, ret):
@@ -375,10 +370,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_ClassDef(self, clsdef):
         self.note_symbol(clsdef.name, SYM_ASSIGNED)
-        if clsdef.bases:
-            self.visit_sequence(clsdef.bases)
-        if clsdef.decorator_list:
-            self.visit_sequence(clsdef.decorator_list)
+        self.visit_sequence(clsdef.bases)
+        self.visit_sequence(clsdef.decorator_list)
         self.push_scope(ClassScope(clsdef), clsdef)
         self.visit_sequence(clsdef.body)
         self.pop_scope()
@@ -434,8 +427,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_Lambda(self, lamb):
         args = lamb.args
         assert isinstance(args, ast.arguments)
-        if args.defaults:
-            self.visit_sequence(args.defaults)
+        self.visit_sequence(args.defaults)
         new_scope = FunctionScope("lambda", lamb.lineno, lamb.col_offset)
         self.push_scope(new_scope, lamb)
         lamb.args.walkabout(self)
@@ -450,8 +442,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
         outer.target.walkabout(self)
-        if outer.ifs:
-            self.visit_sequence(outer.ifs)
+        self.visit_sequence(outer.ifs)
         self.visit_sequence(comps[1:])
         for item in list(consider):
             item.walkabout(self)

@@ -274,3 +274,14 @@ from __future__ import generators""")
         n.name = "foo"
         n.name = "foo"
         assert n.name == "foo"
+
+    def test_issue793(self):
+        import _ast as ast
+        body = ast.Module([
+            ast.TryExcept([ast.Pass(lineno=2, col_offset=4)],
+                [ast.ExceptHandler(ast.Name('Exception', ast.Load(),
+                                            lineno=3, col_offset=0),
+                                   None, [], lineno=4, col_offset=0)],
+                [], lineno=1, col_offset=0)
+        ])
+        exec compile(body, '<string>', 'exec')

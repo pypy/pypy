@@ -221,8 +221,9 @@ class ASTVisitorVisitor(ASDLVisitor):
         self.emit("class ASTVisitor(object):")
         self.emit("")
         self.emit("def visit_sequence(self, seq):", 1)
-        self.emit("for node in seq:", 2)
-        self.emit("node.walkabout(self)", 3)
+        self.emit("if seq is not None:", 2)
+        self.emit("for node in seq:", 3)
+        self.emit("node.walkabout(self)", 4)
         self.emit("")
         self.emit("def default_visitor(self, node):", 1)
         self.emit("raise NodeVisitorNotImplemented", 2)
@@ -280,15 +281,13 @@ class GenericASTVisitorVisitor(ASDLVisitor):
     def visitField(self, field):
         if field.type.value not in asdl.builtin_types and \
                 field.type.value not in self.data.simple_types:
-            if field.seq or field.opt:
-                self.emit("if node.%s:" % (field.name,), 2)
-                level = 3
-            else:
-                level = 2
+            level = 2
+            template = "node.%s.walkabout(self)"
             if field.seq:
                 template = "self.visit_sequence(node.%s)"
-            else:
-                template = "node.%s.walkabout(self)"
+            elif field.opt:
+                self.emit("if node.%s:" % (field.name,), 2)
+                level = 3
             self.emit(template % (field.name,), level)
             return True
         return False

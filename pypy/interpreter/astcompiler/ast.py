@@ -2541,8 +2541,9 @@ class alias(AST):
 class ASTVisitor(object):
 
     def visit_sequence(self, seq):
-        for node in seq:
-            node.walkabout(self)
+        if seq is not None:
+            for node in seq:
+                node.walkabout(self)
 
     def default_visitor(self, node):
         raise NodeVisitorNotImplemented
@@ -2673,46 +2674,36 @@ class ASTVisitor(object):
 class GenericASTVisitor(ASTVisitor):
 
     def visit_Module(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_Interactive(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_Expression(self, node):
         node.body.walkabout(self)
 
     def visit_Suite(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_FunctionDef(self, node):
         node.args.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.decorator_list:
-            self.visit_sequence(node.decorator_list)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.decorator_list)
 
     def visit_ClassDef(self, node):
-        if node.bases:
-            self.visit_sequence(node.bases)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.decorator_list:
-            self.visit_sequence(node.decorator_list)
+        self.visit_sequence(node.bases)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.decorator_list)
 
     def visit_Return(self, node):
         if node.value:
             node.value.walkabout(self)
 
     def visit_Delete(self, node):
-        if node.targets:
-            self.visit_sequence(node.targets)
+        self.visit_sequence(node.targets)
 
     def visit_Assign(self, node):
-        if node.targets:
-            self.visit_sequence(node.targets)
+        self.visit_sequence(node.targets)
         node.value.walkabout(self)
 
     def visit_AugAssign(self, node):
@@ -2722,37 +2713,29 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Print(self, node):
         if node.dest:
             node.dest.walkabout(self)
-        if node.values:
-            self.visit_sequence(node.values)
+        self.visit_sequence(node.values)
 
     def visit_For(self, node):
         node.target.walkabout(self)
         node.iter.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.orelse:
-            self.visit_sequence(node.orelse)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.orelse)
 
     def visit_While(self, node):
         node.test.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.orelse:
-            self.visit_sequence(node.orelse)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.orelse)
 
     def visit_If(self, node):
         node.test.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.orelse:
-            self.visit_sequence(node.orelse)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.orelse)
 
     def visit_With(self, node):
         node.context_expr.walkabout(self)
         if node.optional_vars:
             node.optional_vars.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_Raise(self, node):
         if node.type:
@@ -2763,18 +2746,13 @@ class GenericASTVisitor(ASTVisitor):
             node.tback.walkabout(self)
 
     def visit_TryExcept(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.handlers:
-            self.visit_sequence(node.handlers)
-        if node.orelse:
-            self.visit_sequence(node.orelse)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.handlers)
+        self.visit_sequence(node.orelse)
 
     def visit_TryFinally(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.finalbody:
-            self.visit_sequence(node.finalbody)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.finalbody)
 
     def visit_Assert(self, node):
         node.test.walkabout(self)
@@ -2782,12 +2760,10 @@ class GenericASTVisitor(ASTVisitor):
             node.msg.walkabout(self)
 
     def visit_Import(self, node):
-        if node.names:
-            self.visit_sequence(node.names)
+        self.visit_sequence(node.names)
 
     def visit_ImportFrom(self, node):
-        if node.names:
-            self.visit_sequence(node.names)
+        self.visit_sequence(node.names)
 
     def visit_Exec(self, node):
         node.body.walkabout(self)
@@ -2812,8 +2788,7 @@ class GenericASTVisitor(ASTVisitor):
         pass
 
     def visit_BoolOp(self, node):
-        if node.values:
-            self.visit_sequence(node.values)
+        self.visit_sequence(node.values)
 
     def visit_BinOp(self, node):
         node.left.walkabout(self)
@@ -2832,35 +2807,28 @@ class GenericASTVisitor(ASTVisitor):
         node.orelse.walkabout(self)
 
     def visit_Dict(self, node):
-        if node.keys:
-            self.visit_sequence(node.keys)
-        if node.values:
-            self.visit_sequence(node.values)
+        self.visit_sequence(node.keys)
+        self.visit_sequence(node.values)
 
     def visit_Set(self, node):
-        if node.elts:
-            self.visit_sequence(node.elts)
+        self.visit_sequence(node.elts)
 
     def visit_ListComp(self, node):
         node.elt.walkabout(self)
-        if node.generators:
-            self.visit_sequence(node.generators)
+        self.visit_sequence(node.generators)
 
     def visit_SetComp(self, node):
         node.elt.walkabout(self)
-        if node.generators:
-            self.visit_sequence(node.generators)
+        self.visit_sequence(node.generators)
 
     def visit_DictComp(self, node):
         node.key.walkabout(self)
         node.value.walkabout(self)
-        if node.generators:
-            self.visit_sequence(node.generators)
+        self.visit_sequence(node.generators)
 
     def visit_GeneratorExp(self, node):
         node.elt.walkabout(self)
-        if node.generators:
-            self.visit_sequence(node.generators)
+        self.visit_sequence(node.generators)
 
     def visit_Yield(self, node):
         if node.value:
@@ -2868,15 +2836,12 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_Compare(self, node):
         node.left.walkabout(self)
-        if node.comparators:
-            self.visit_sequence(node.comparators)
+        self.visit_sequence(node.comparators)
 
     def visit_Call(self, node):
         node.func.walkabout(self)
-        if node.args:
-            self.visit_sequence(node.args)
-        if node.keywords:
-            self.visit_sequence(node.keywords)
+        self.visit_sequence(node.args)
+        self.visit_sequence(node.keywords)
         if node.starargs:
             node.starargs.walkabout(self)
         if node.kwargs:
@@ -2902,12 +2867,10 @@ class GenericASTVisitor(ASTVisitor):
         pass
 
     def visit_List(self, node):
-        if node.elts:
-            self.visit_sequence(node.elts)
+        self.visit_sequence(node.elts)
 
     def visit_Tuple(self, node):
-        if node.elts:
-            self.visit_sequence(node.elts)
+        self.visit_sequence(node.elts)
 
     def visit_Const(self, node):
         pass
@@ -2924,8 +2887,7 @@ class GenericASTVisitor(ASTVisitor):
             node.step.walkabout(self)
 
     def visit_ExtSlice(self, node):
-        if node.dims:
-            self.visit_sequence(node.dims)
+        self.visit_sequence(node.dims)
 
     def visit_Index(self, node):
         node.value.walkabout(self)
@@ -2933,22 +2895,18 @@ class GenericASTVisitor(ASTVisitor):
     def visit_comprehension(self, node):
         node.target.walkabout(self)
         node.iter.walkabout(self)
-        if node.ifs:
-            self.visit_sequence(node.ifs)
+        self.visit_sequence(node.ifs)
 
     def visit_ExceptHandler(self, node):
         if node.type:
             node.type.walkabout(self)
         if node.name:
             node.name.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_arguments(self, node):
-        if node.args:
-            self.visit_sequence(node.args)
-        if node.defaults:
-            self.visit_sequence(node.defaults)
+        self.visit_sequence(node.args)
+        self.visit_sequence(node.defaults)
 
     def visit_keyword(self, node):
         node.value.walkabout(self)
