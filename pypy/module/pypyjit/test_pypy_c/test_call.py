@@ -205,6 +205,7 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', """
+            p14 = getarrayitem_gc_pure(p8, i9, descr=<GcPtrArrayDescr>)
             i14 = force_token()
             i16 = force_token()
         """)
