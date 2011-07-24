@@ -266,3 +266,11 @@ from __future__ import generators""")
         eval(compiled, d, d)
         assert type(d['foo']) is type(lambda: 42)
         assert d['foo']() is None
+
+    def test_missing_name(self):
+        import _ast as ast
+        n = ast.FunctionDef(name=None)
+        n.name = "foo"
+        n.name = "foo"
+        n.name = "foo"
+        assert n.name == "foo"
