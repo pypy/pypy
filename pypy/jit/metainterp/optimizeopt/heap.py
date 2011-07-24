@@ -125,15 +125,9 @@ class CachedField(object):
             if op and structvalue in self._cached_fields:
                 if op.getopnum() == rop.SETFIELD_GC:
                     result = op.getarg(1)
-                    if result in shortboxes.potential_ops and \
-                           shortboxes.potential_ops[result] is None:
-                        newresult = result.clonebox()
-                        optimizer.make_equal_to(newresult, optimizer.getvalue(result))
-                        result = newresult
-                        # XXX this will not allow for chains of operations
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())
-                    shortboxes.add_potential(getop)
+                    getop = shortboxes.add_potential(getop)
                     self._cached_fields_getfield_op[structvalue] = getop
                     self._cached_fields[structvalue] = optimizer.getvalue(result)
                 elif op.result is not None:

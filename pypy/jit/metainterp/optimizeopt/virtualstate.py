@@ -456,12 +456,14 @@ class BoxNotProducable(Exception):
 class ShortBoxes(object):
     def __init__(self, optimizer, surviving_boxes):
         self.potential_ops = {}
+        self.duplicates = {}
+        self.optimizer = optimizer
+        for box in surviving_boxes:
+            self.potential_ops[box] = None
         optimizer.produce_potential_short_preamble_ops(self)
 
         self.aliases = {}
         self.short_boxes = {}
-        for box in surviving_boxes:
-            self.short_boxes[box] = None
 
         for box in self.potential_ops.keys():
             try:
@@ -476,14 +478,30 @@ class ShortBoxes(object):
             return 
         if box in self.potential_ops:
             op = self.potential_ops[box]
-            for arg in op.getarglist():
-                self.produce_short_preamble_box(arg)
+            if op:
+                for arg in op.getarglist():
+                    self.produce_short_preamble_box(arg)
             self.short_boxes[box] = op
         else:
             raise BoxNotProducable
 
     def add_potential(self, op):
-        self.potential_ops[op.result] = op
+        if op.result not in self.potential_ops:
+            self.potential_ops[op.result] = op
+            return op
+        newop = op.clone()
+        newop.result = op.result.clonebox()
+        self.potential_ops[newop.result] = newop
+        if op.result in self.duplicates:
+            self.duplicates[op.result].append(newop.result)
+        else:
+            self.duplicates[op.result] = [newop.result]
+        self.optimizer.send_extra_operation(newop)
+        if newop.is_ovf():
+            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+            self.optimizer.send_extra_operation(guard)
+        return newop
+        
 
     def debug_print(self, logops):
         debug_start('jit-short-boxes')

@@ -209,7 +209,7 @@ class UnrollOptimizer(Optimization):
                 debug_print('inputargs:       ' + args)
                 args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
                 debug_print('short inputargs: ' + args)
-                self.short_boxes.debug_print(logops)
+                self.short_boxes.debug_print(logops)            
 
             # Force virtuals amoung the jump_args of the preamble to get the
             # operations needed to setup the proper state of those virtuals
@@ -249,7 +249,7 @@ class UnrollOptimizer(Optimization):
                     newresult = self.optimizer.getvalue(op.result).get_key_box()
                     if newresult is not op.result:
                         self.short_boxes.alias(newresult, op.result)
-                    
+
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
 
@@ -268,7 +268,8 @@ class UnrollOptimizer(Optimization):
             #    preamble_optimizer.send_extra_operation(jumpop)
             #    return
             loop.inputargs = inputargs
-            args = [self.short_boxes.original(a) for a in inputargs]
+            args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box()\
+                    for a in inputargs]
             jmp = ResOperation(rop.JUMP, args, None)
             jmp.setdescr(loop.token)
             loop.preamble.operations.append(jmp)
@@ -376,29 +377,29 @@ class UnrollOptimizer(Optimization):
                     
 
         i = j = 0
-        while i < len(self.optimizer.newoperations):
-            op = self.optimizer.newoperations[i]
-            
-            self.boxes_created_this_iteration[op.result] = True
-            args = op.getarglist()
-            if op.is_guard():
-                args = args + op.getfailargs()
-
-            if self.optimizer.loop.logops:
-                debug_print('OP: ' + self.optimizer.loop.logops.repr_of_resop(op))
-            for a in args:
-                if self.optimizer.loop.logops:
-                    debug_print('A:  ' + self.optimizer.loop.logops.repr_of_arg(a))
-                self.import_box(a, inputargs, short, short_jumpargs,
-                                jumpargs, short_seen)
-            i += 1
-
+        while i < len(self.optimizer.newoperations) or j < len(jumpargs):
             if i == len(self.optimizer.newoperations):
                 while j < len(jumpargs):
                     a = jumpargs[j]
                     self.import_box(a, inputargs, short, short_jumpargs,
                                     jumpargs, short_seen)
                     j += 1
+            else:
+                op = self.optimizer.newoperations[i]
+
+                self.boxes_created_this_iteration[op.result] = True
+                args = op.getarglist()
+                if op.is_guard():
+                    args = args + op.getfailargs()
+
+                if self.optimizer.loop.logops:
+                    debug_print('OP: ' + self.optimizer.loop.logops.repr_of_resop(op))
+                for a in args:
+                    if self.optimizer.loop.logops:
+                        debug_print('A:  ' + self.optimizer.loop.logops.repr_of_arg(a))
+                    self.import_box(a, inputargs, short, short_jumpargs,
+                                    jumpargs, short_seen)
+                i += 1
 
         jumpop.initarglist(jumpargs)
         self.optimizer.send_extra_operation(jumpop)
@@ -445,6 +446,7 @@ class UnrollOptimizer(Optimization):
                 return self.short_inliner.inline_arg(op.result)
             else:
                 return None
+        
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in short_seen:
                 self.add_op_to_short(self.short_boxes.producer(a), short, short_seen,
@@ -479,7 +481,6 @@ class UnrollOptimizer(Optimization):
         
     def import_box(self, box, inputargs, short, short_jumpargs,
                    jumpargs, short_seen):
-
         if isinstance(box, Const) or box in inputargs:
             return
         if box in self.boxes_created_this_iteration:
