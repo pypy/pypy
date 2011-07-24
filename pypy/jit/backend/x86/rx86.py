@@ -496,6 +496,10 @@ class AbstractX86CodeBuilder(object):
     AND8_rr = insn(rex_fw, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 
     OR8_rr = insn(rex_fw, '\x08', byte_register(1), byte_register(2,8), '\xC0')
+    OR8_mi = insn(rex_fw, '\x80', orbyte(1<<3), mem_reg_plus_const(1),
+                  immediate(2, 'b'))
+    OR8_ji = insn(rex_fw, '\x80', orbyte(1<<3), abs_, immediate(1),
+                  immediate(2, 'b'))
 
     NEG_r = insn(rex_w, '\xF7', register(1), '\xD8')
 
@@ -564,6 +568,9 @@ class AbstractX86CodeBuilder(object):
     TEST8_mi = insn(rex_nw, '\xF6', orbyte(0<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     TEST8_ji = insn(rex_nw, '\xF6', orbyte(0<<3), abs_, immediate(1), immediate(2, 'b'))
     TEST_rr = insn(rex_w, '\x85', register(2,8), register(1), '\xC0')
+
+    BTS_mr = insn(rex_w, '\x0F\xAB', register(2,8), mem_reg_plus_const(1))
+    BTS_jr = insn(rex_w, '\x0F\xAB', register(2,8), abs_, immediate(1))
 
     # x87 instructions
     FSTP_b = insn('\xDD', orbyte(3<<3), stack_bp(1))

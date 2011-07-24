@@ -497,22 +497,25 @@ class DescrOperation(object):
                                  space.wrap("coercion should return None or 2-tuple"))
         return w_res
 
-    def issubtype(space, w_sub, w_type, allow_override=False):
-        if allow_override:
-            w_check = space.lookup(w_type, "__subclasscheck__")
-            if w_check is None:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("issubclass not supported here"))
-            return space.get_and_call_function(w_check, w_type, w_sub)
+    def issubtype(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
 
-    def isinstance(space, w_inst, w_type, allow_override=False):
-        if allow_override:
-            w_check = space.lookup(w_type, "__instancecheck__")
-            if w_check is not None:
-                return space.get_and_call_function(w_check, w_type, w_inst)
-        return space.issubtype(space.type(w_inst), w_type, allow_override)
+    def isinstance(space, w_inst, w_type):
+        return space._type_isinstance(w_inst, w_type)
 
+    def issubtype_allow_override(space, w_sub, w_type):
+        w_check = space.lookup(w_type, "__subclasscheck__")
+        if w_check is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("issubclass not supported here"))
+        return space.get_and_call_function(w_check, w_type, w_sub)
+
+    def isinstance_allow_override(space, w_inst, w_type):
+        w_check = space.lookup(w_type, "__instancecheck__")
+        if w_check is not None:
+            return space.get_and_call_function(w_check, w_type, w_inst)
+        else:
+            return space.isinstance(w_inst, w_type)
 
 
 # helpers
