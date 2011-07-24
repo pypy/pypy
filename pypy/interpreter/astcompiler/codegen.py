@@ -1251,7 +1251,10 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
     def _compile(self, func):
         assert isinstance(func, ast.FunctionDef)
         # If there's a docstring, store it as the first constant.
-        doc_expr = self.possible_docstring(func.body[0])
+        if func.body:
+            doc_expr = self.possible_docstring(func.body[0])
+        else:
+            doc_expr = None
         if doc_expr is not None:
             self.add_const(doc_expr.s)
             start = 1
@@ -1263,8 +1266,9 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
         if args.args:
             self._handle_nested_args(args.args)
             self.argcount = len(args.args)
-        for i in range(start, len(func.body)):
-            func.body[i].walkabout(self)
+        if func.body:
+            for i in range(start, len(func.body)):
+                func.body[i].walkabout(self)
 
 
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):

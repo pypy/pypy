@@ -250,3 +250,19 @@ from __future__ import generators""")
         assert x.left == n1
         assert x.op == addop
         assert x.right == n3
+
+    def test_functiondef(self):
+        import _ast as ast
+        fAst = ast.FunctionDef(
+            name="foo",
+            args=ast.arguments(
+                args=[], vararg=None, kwarg=None, defaults=[],
+                kwonlyargs=[], kw_defaults=[]),
+            body=[], decorator_list=[], lineno=5, col_offset=0)
+        exprAst = ast.Interactive(body=[fAst])
+        compiled = compile(exprAst, "<foo>", "single")
+        #
+        d = {}
+        eval(compiled, d, d)
+        assert type(d['foo']) is type(lambda: 42)
+        assert d['foo']() is None

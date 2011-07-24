@@ -363,7 +363,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
         self.push_scope(new_scope, func)
         func.args.walkabout(self)
-        self.visit_sequence(func.body)
+        # func.body should never be empty (or else it contains one Pass)
+        # but it can be if we make an ast.FunctionDef() from app-level.
+        if func.body:
+            self.visit_sequence(func.body)
         self.pop_scope()
 
     def visit_Return(self, ret):
