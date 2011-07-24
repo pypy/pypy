@@ -509,8 +509,8 @@ class BasicTests:
         self.check_history(call=1)   # because the trace starts immediately
 
     def test_unroll_one_loop_iteration(self):
-        def unroll(x):
-            return x == 0
+        def unroll(code):
+            return code == 0
         myjitdriver = JitDriver(greens = ['code'],
                                 reds = ['loops', 'inner_loops', 's'],
                                 should_unroll_one_iteration=unroll)
