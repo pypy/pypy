@@ -237,6 +237,8 @@ class UnrollOptimizer(Optimization):
             self.optimizer.emitting_dissabled = True
             for op in inputarg_setup_ops:
                 self.optimizer.send_extra_operation(op)
+            # XXX Hack to prevent previos loop from updateing pure_operations
+            self.optimizer.pure_operations = args_dict()
             seen = {}
             for op in self.short_boxes.operations():
                 self.ensure_short_op_emitted(op, self.optimizer, seen)

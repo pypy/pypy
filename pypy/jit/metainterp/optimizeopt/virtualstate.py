@@ -56,8 +56,8 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
 
     def debug_header(self, indent):
         raise NotImplementedError
-    
-    
+
+
 class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
