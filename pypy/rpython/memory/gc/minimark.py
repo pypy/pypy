@@ -256,12 +256,15 @@ class MiniMarkGC(MovingGCBase):
         # (may) contain a pointer to a young object.  Populated by
         # the write barrier: when we clear GCFLAG_TRACK_YOUNG_PTRS, we
         # add it to this list.
-        self.objects_pointing_to_young = self.AddressStack()
+        # Note that young array objects may (by temporary "mistake") be added
+        # to this list, but will be removed again at the start of the next
+        # minor collection.
+        self.old_objects_pointing_to_young = self.AddressStack()
         #
-        # Similar to 'objects_pointing_to_young', but lists objects
+        # Similar to 'old_objects_pointing_to_young', but lists objects
         # that have the GCFLAG_CARDS_SET bit.  For large arrays.  Note
         # that it is possible for an object to be listed both in here
-        # and in 'objects_pointing_to_young', in which case we
+        # and in 'old_objects_pointing_to_young', in which case we
         # should just clear the cards and trace it fully, as usual.
         # Note also that young array objects are never listed here.
         self.old_objects_with_cards_set = self.AddressStack()
@@ -979,12 +982,12 @@ class MiniMarkGC(MovingGCBase):
             # If it seems that what we are writing is a pointer to a young obj
             # (as checked with appears_to_be_young()), then we need
             # to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add the object
-            # to the list 'objects_pointing_to_young'.  We know that
+            # to the list 'old_objects_pointing_to_young'.  We know that
             # 'addr_struct' cannot be in the nursery, because nursery objects
             # never have the flag GCFLAG_TRACK_YOUNG_PTRS to start with.
             objhdr = self.header(addr_struct)
             if self.appears_to_be_young(newvalue):
-                self.objects_pointing_to_young.append(addr_struct)
+                self.old_objects_pointing_to_young.append(addr_struct)
                 objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
             #
             # Second part: if 'addr_struct' is actually a prebuilt GC
@@ -1019,7 +1022,7 @@ class MiniMarkGC(MovingGCBase):
                         "young array with no card but GCFLAG_TRACK_YOUNG_PTRS")
                 #
                 # no cards, use default logic.  Mostly copied from above.
-                self.objects_pointing_to_young.append(addr_array)
+                self.old_objects_pointing_to_young.append(addr_array)
                 objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
                 if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
                     objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
@@ -1100,7 +1103,7 @@ class MiniMarkGC(MovingGCBase):
                         "young array with no card but GCFLAG_TRACK_YOUNG_PTRS")
             #
             if self.appears_to_be_young(newvalue):
-                self.objects_pointing_to_young.append(addr_array)
+                self.old_objects_pointing_to_young.append(addr_array)
                 objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
 
         remember_young_pointer_from_array3._dont_inline_ = True
@@ -1120,7 +1123,7 @@ class MiniMarkGC(MovingGCBase):
         """
         objhdr = self.header(addr_struct)
         if objhdr.tid & GCFLAG_TRACK_YOUNG_PTRS:
-            self.objects_pointing_to_young.append(addr_struct)
+            self.old_objects_pointing_to_young.append(addr_struct)
             objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
             #
             if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
@@ -1164,7 +1167,7 @@ class MiniMarkGC(MovingGCBase):
         #
         if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
             # there might be in source a pointer to a young object
-            self.objects_pointing_to_young.append(dest_addr)
+            self.old_objects_pointing_to_young.append(dest_addr)
             dest_hdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
         #
         if dest_hdr.tid & GCFLAG_NO_HEAP_PTRS:
@@ -1202,13 +1205,18 @@ class MiniMarkGC(MovingGCBase):
         #
         debug_start("gc-minor")
         #
+        # Before everything else, remove from 'old_objects_pointing_to_young'
+        # the young arrays.
+        if self.young_rawmalloced_objects:
+            self.remove_young_arrays_from_old_objects_pointing_to_young()
+        #
         # First, find the roots that point to young objects.  All nursery
         # objects found are copied out of the nursery, and the occasional
         # young raw-malloced object is flagged with GCFLAG_VISITED.
         # Note that during this step, we ignore references to further
         # young objects; only objects directly referenced by roots
         # are copied out or flagged.  They are also added to the list
-        # 'objects_pointing_to_young'.
+        # 'old_objects_pointing_to_young'.
         self.collect_roots_in_nursery()
         #
         while True:
@@ -1217,11 +1225,11 @@ class MiniMarkGC(MovingGCBase):
             if self.card_page_indices > 0:
                 self.collect_cardrefs_to_nursery()
             #
-            # Now trace objects from 'objects_pointing_to_young'.
+            # Now trace objects from 'old_objects_pointing_to_young'.
             # All nursery objects they reference are copied out of the
-            # nursery, and again added to 'objects_pointing_to_young'.
-            # All young raw-malloced object found is flagged GCFLAG_VISITED.
-            # We proceed until 'objects_pointing_to_young' is empty.
+            # nursery, and again added to 'old_objects_pointing_to_young'.
+            # All young raw-malloced object found are flagged GCFLAG_VISITED.
+            # We proceed until 'old_objects_pointing_to_young' is empty.
             self.collect_oldrefs_to_nursery()
             #
             # We have to loop back if collect_oldrefs_to_nursery caused
@@ -1262,7 +1270,7 @@ class MiniMarkGC(MovingGCBase):
         # we don't need to trace prebuilt GcStructs during a minor collect:
         # if a prebuilt GcStruct contains a pointer to a young object,
         # then the write_barrier must have ensured that the prebuilt
-        # GcStruct is in the list self.objects_pointing_to_young.
+        # GcStruct is in the list self.old_objects_pointing_to_young.
         self.root_walker.walk_roots(
             MiniMarkGC._trace_drag_out1,  # stack roots
             MiniMarkGC._trace_drag_out1,  # static in prebuilt non-gc
@@ -1287,7 +1295,7 @@ class MiniMarkGC(MovingGCBase):
             p = llarena.getfakearenaaddress(obj - size_gc_header)
             #
             # If the object doesn't have GCFLAG_TRACK_YOUNG_PTRS, then it
-            # means that it is in 'objects_pointing_to_young' and
+            # means that it is in 'old_objects_pointing_to_young' and
             # will be fully traced by collect_oldrefs_to_nursery() just
             # afterwards.
             if self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
@@ -1326,24 +1334,17 @@ class MiniMarkGC(MovingGCBase):
 
 
     def collect_oldrefs_to_nursery(self):
-        # Follow the objects_pointing_to_young list and move the
+        # Follow the old_objects_pointing_to_young list and move the
         # young objects they point to out of the nursery.
-        oldlist = self.objects_pointing_to_young
+        oldlist = self.old_objects_pointing_to_young
         while oldlist.non_empty():
             obj = oldlist.pop()
             #
-            # Check (somehow) that the flags are correct: we must not have
-            # GCFLAG_TRACK_YOUNG_PTRS so far.  But in a rare case, it's
-            # possible that the same obj is appended twice to the list
-            # (see _trace_drag_out, GCFLAG_VISITED case).  Filter it out
-            # here.
-            if self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0:
-                ll_assert(self.header(obj).tid & GCFLAG_VISITED != 0,
-                          "objects_pointing_to_young contains obj with "
-                          "GCFLAG_TRACK_YOUNG_PTRS and not GCFLAG_VISITED")
-                continue
-            # XXX FIXME: 'obj' might be a never-visited young array, in this
-            # case it should **not** be collected here!!!!!!!!!
+            # Check that the flags are correct: we must not have
+            # GCFLAG_TRACK_YOUNG_PTRS so far.
+            ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS == 0,
+                      "old_objects_pointing_to_young contains obj with "
+                      "GCFLAG_TRACK_YOUNG_PTRS")
             #
             # Add the flag GCFLAG_TRACK_YOUNG_PTRS.  All live objects should
             # have this flag set after a nursery collection.
@@ -1351,7 +1352,7 @@ class MiniMarkGC(MovingGCBase):
             #
             # Trace the 'obj' to replace pointers to nursery with pointers
             # outside the nursery, possibly forcing nursery objects out
-            # and adding them to 'objects_pointing_to_young' as well.
+            # and adding them to 'old_objects_pointing_to_young' as well.
             self.trace_and_drag_out_of_nursery(obj)
 
     def trace_and_drag_out_of_nursery(self, obj):
@@ -1434,11 +1435,11 @@ class MiniMarkGC(MovingGCBase):
         # Change the original pointer to this object.
         root.address[0] = newobj
         #
-        # Add the newobj to the list 'objects_pointing_to_young',
+        # Add the newobj to the list 'old_objects_pointing_to_young',
         # because it can contain further pointers to other young objects.
         # We will fix such references to point to the copy of the young
-        # objects when we walk 'objects_pointing_to_young'.
-        self.objects_pointing_to_young.append(newobj)
+        # objects when we walk 'old_objects_pointing_to_young'.
+        self.old_objects_pointing_to_young.append(newobj)
 
     def _visit_young_rawmalloced_object(self, obj):
         # 'obj' points to a young, raw-malloced object.
@@ -1453,33 +1454,20 @@ class MiniMarkGC(MovingGCBase):
             return
         hdr.tid |= GCFLAG_VISITED
         #
-        # we just made 'obj' old, so we need to add it to the correct
-        # lists.  (Note that another point of view on the longish
-        # comments below is that we are not changing any flags in 'hdr',
-        # but just restoring invariants: the object may be missing from
-        # these lists as long as it is a young array, but not when it
-        # grows old.)
-        anywhere = False
+        # we just made 'obj' old, so we need to add it to the correct lists
+        added_somewhere = False
         #
         if hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
-            # common case: GCFLAG_TRACK_YOUNG_PTRS is not set, so
-            # the object may contain young pointers anywhere
-            self.objects_pointing_to_young.append(obj)
-            anywhere = True
+            self.old_objects_pointing_to_young.append(obj)
+            added_somewhere = True
         #
         if hdr.tid & GCFLAG_HAS_CARDS != 0:
-            # large array case: the object contains card marks
-            # that tell us where young pointers are, and it must
-            # be added to 'old_objects_with_cards_set'.  Note that
-            # we must add it even if we also added it just above to
-            # 'objects_pointing_to_young', because the object header
-            # needs to be cleaned up.
             ll_assert(hdr.tid & GCFLAG_CARDS_SET != 0,
                       "young array: GCFLAG_HAS_CARDS without GCFLAG_CARDS_SET")
             self.old_objects_with_cards_set.append(obj)
-            anywhere = True
+            added_somewhere = True
         #
-        ll_assert(anywhere, "wrong flag combination on young array")
+        ll_assert(added_somewhere, "wrong flag combination on young array")
 
 
     def _malloc_out_of_nursery(self, totalsize):
@@ -1519,6 +1507,18 @@ class MiniMarkGC(MovingGCBase):
         # and survives.  Otherwise, it dies.
         self.free_rawmalloced_object_if_unvisited(obj)
 
+    def remove_young_arrays_from_old_objects_pointing_to_young(self):
+        old = self.old_objects_pointing_to_young
+        new = self.AddressStack()
+        while old.non_empty():
+            obj = old.pop()
+            if not self.young_rawmalloced_objects.contains(obj):
+                new.append(obj)
+        # an extra copy, to avoid assignments to
+        # 'self.old_objects_pointing_to_young'
+        while new.non_empty():
+            old.append(new.pop())
+        new.delete()
 
     # ----------
     # Full collection
