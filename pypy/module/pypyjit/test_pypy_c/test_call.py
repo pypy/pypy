@@ -284,17 +284,17 @@ class TestCall(BaseTestPyPyC):
             i20 = force_token()
             setfield_gc(p4, i19, descr=<.*W_AbstractSeqIterObject.inst_index .*>)
             i22 = int_add_ovf(i8, 3)
-            guard_no_overflow(descr=<Guard4>)
+            guard_no_overflow(descr=<Guard.*>)
         """)
         assert loop0.match_by_id('h1', """
             i20 = force_token()
             i22 = int_add_ovf(i8, 2)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=<Guard.*>)
         """)
         assert loop0.match_by_id('g2', """
             i27 = force_token()
             i29 = int_add_ovf(i26, 3)
-            guard_no_overflow(descr=<Guard6>)
+            guard_no_overflow(descr=<Guard.*>)
         """)
         #
         loop1, = log.loops_by_id('g3')
@@ -302,12 +302,12 @@ class TestCall(BaseTestPyPyC):
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             i23 = int_add_ovf(i9, 3)
-            guard_no_overflow(descr=<Guard37>)
+            guard_no_overflow(descr=<Guard.*>)
         """)
         assert loop1.match_by_id('h2', """
             i25 = force_token()
             i27 = int_add_ovf(i23, 2)
-            guard_no_overflow(descr=<Guard38>)
+            guard_no_overflow(descr=<Guard.*>)
         """)
 
     def test_stararg(self):
