@@ -227,6 +227,45 @@ class AppTestItertools:
         assert list(itertools.islice(xrange(10), None,None)) == range(10)
         assert list(itertools.islice(xrange(10), None,None,None)) == range(10)
 
+    def test_islice_dropitems_exact(self):
+        import itertools
+
+        it = iter("abcdefghij")
+        itertools.islice(it, 2, 2)    # doesn't eagerly drop anything
+        assert it.next() == "a"
+        itertools.islice(it, 3, 8, 2)    # doesn't eagerly drop anything
+        assert it.next() == "b"
+        assert it.next() == "c"
+
+        it = iter("abcdefghij")
+        x = next(itertools.islice(it, 2, 3), None)    # drops 2 items
+        assert x == "c"
+        assert it.next() == "d"
+
+        it = iter("abcdefghij")
+        x = next(itertools.islice(it, 3, 8, 2), None)    # drops 3 items
+        assert x == "d"
+        assert it.next() == "e"
+
+        it = iter("abcdefghij")
+        x = next(itertools.islice(it, None, 8), None)    # drops 0 items
+        assert x == "a"
+        assert it.next() == "b"
+
+        it = iter("abcdefghij")
+        x = next(itertools.islice(it, 3, 2), None)    # drops 3 items
+        assert x is None
+        assert it.next() == "d"
+
+        it = iter("abcdefghij")
+        islc = itertools.islice(it, 3, 7, 2)
+        assert islc.next() == "d"    # drops 0, 1, 2, returns item #3
+        assert it.next() == "e"
+        assert islc.next() == "g"    # drops the 4th and return item #5
+        assert it.next() == "h"
+        raises(StopIteration, islc.next)  # drops the 6th and raise
+        assert it.next() == "j"
+
     def test_islice_overflow(self):
         import itertools
         import sys
