@@ -44,11 +44,11 @@ class W_Root(object):
             return True
         return False
 
-    def deldictvalue(self, space, w_name):
+    def deldictvalue(self, space, attr):
         w_dict = self.getdict(space)
         if w_dict is not None:
             try:
-                space.delitem(w_dict, w_name)
+                space.delitem(w_dict, space.wrap(attr))
                 return True
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):

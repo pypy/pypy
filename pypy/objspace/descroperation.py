@@ -96,7 +96,7 @@ class Object(object):
             if space.is_data_descr(w_descr):
                 space.delete(w_descr, w_obj)
                 return
-        if w_obj.deldictvalue(space, w_name):
+        if w_obj.deldictvalue(space, name):
             return
         raiseattrerror(space, w_obj, name, w_descr)
 

@@ -313,10 +313,9 @@ class W_TypeObject(W_Object):
         w_self.dict_w[name] = w_value
         return True
 
-    def deldictvalue(w_self, space, w_key):
+    def deldictvalue(w_self, space, key):
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
-        key = space.str_w(w_key)
         if (not space.config.objspace.std.mutable_builtintypes
                 and not w_self.is_heaptype()):
             msg = "can't delete attributes on type object '%s'"
