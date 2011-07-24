@@ -901,6 +901,7 @@ class MIFrame(object):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
+        import pdb; pdb.set_trace()
         self.debug_merge_point(jitdriver_sd, jdindex, self.metainterp.in_recursion,
                                greenboxes)
 

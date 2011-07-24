@@ -508,6 +508,23 @@ class BasicTests:
         assert res == 84 - 61 - 62
         self.check_history(call=1)   # because the trace starts immediately
 
+    def test_unroll_one_loop(self):
+        def unroll(x):
+            return x == 0
+        myjitdriver = JitDriver(greens = ['x'], reds = ['y'], should_unroll_one_iteration=unroll)
+
+        def f(x, y):
+            while y > 0:
+                myjitdriver.jit_merge_point(x=x, y=y)
+                if x == 0:
+                    return y
+                f(0, 4)
+                y -= 1
+            return 0
+
+        res = self.meta_interp(f, [1, 4], enable_opts="", inline=True)
+        self.check_history(call_assembler=0)
+
     def test_format(self):
         def f(n):
             return len("<%d>" % n)

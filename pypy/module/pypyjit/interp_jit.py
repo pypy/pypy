@@ -44,8 +44,8 @@ def confirm_enter_jit(next_instr, is_being_profiled, bytecode, frame, ec):
             ec.w_tracefunc is None)
 
 def can_never_inline(next_instr, is_being_profiled, bytecode):
-    return (bytecode.co_flags & CO_GENERATOR) != 0
-
+    #return (bytecode.co_flags & CO_GENERATOR) != 0
+    return False
 
 def wrap_oplist(space, logops, operations):
     list_w = []

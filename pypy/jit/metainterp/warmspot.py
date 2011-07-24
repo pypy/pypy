@@ -468,6 +468,9 @@ class WarmRunnerDesc(object):
                 onlygreens=False)
             jd._can_never_inline_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.can_never_inline, annmodel.s_Bool)
+            jd._should_unroll_one_iteration_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.should_unroll_one_iteration,
+                annmodel.s_Bool)
         annhelper.finish()
 
     def _make_hook_graph(self, jitdriver_sd, annhelper, func,
