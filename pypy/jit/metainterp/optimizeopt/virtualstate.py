@@ -496,12 +496,8 @@ class ShortBoxes(object):
             self.duplicates[op.result].append(newop.result)
         else:
             self.duplicates[op.result] = [newop.result]
-        self.optimizer.send_extra_operation(newop)
-        if newop.is_ovf():
-            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-            self.optimizer.send_extra_operation(guard)
+        self.optimizer.make_equal_to(newop.result, self.optimizer.getvalue(op.result))
         return newop
-        
 
     def debug_print(self, logops):
         debug_start('jit-short-boxes')

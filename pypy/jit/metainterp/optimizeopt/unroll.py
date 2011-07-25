@@ -185,6 +185,7 @@ class UnrollOptimizer(Optimization):
 
             modifier = VirtualStateAdder(self.optimizer)
             virtual_state = modifier.get_virtual_state(jump_args)
+            
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
             short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
