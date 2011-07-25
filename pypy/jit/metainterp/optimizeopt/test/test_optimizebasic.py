@@ -4586,6 +4586,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_null_char_str(self):
+        ops = """
+        [p0]
+        p1 = newstr(4)
+        setfield_gc(p0, p1, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p1 = newstr(4)
+        setfield_gc(p0, p1, descr=valuedescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
