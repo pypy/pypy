@@ -5471,16 +5471,23 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_str_slice_len_surviving1(self):
         ops = """
         [p1, i1, i2, i3]
+        escape(i3)
         p2 = call(0, p1, i1, i2, descr=strslicedescr)
         i4 = strlen(p2)
         jump(p1, i1, i2, i4)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2, i3]
+        escape(i3)
         i4 = int_sub(i2, i1)
-        jump(p1, i1, i2, i4)
+        jump(p1, i1, i2, i4, i4)
         """
-        self.optimize_strunicode_loop(ops, expected, expected)
+        expected = """
+        [p1, i1, i2, i3, i4]
+        escape(i3)
+        jump(p1, i1, i2, i4, i4)
+        """
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_str_slice_len_surviving2(self):
         ops = """
@@ -5498,14 +5505,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i5)
         i4 = int_sub(i2, i1)
         setfield_gc(p2, i4, descr=valuedescr)
-        jump(p1, i1, i2, p2, i4)
+        jump(p1, i1, i2, p2, i4, i4)
         """
         expected = """
-        [p1, i1, i2, p2, i5]
+        [p1, i1, i2, p2, i5, i6]
         escape(i5)
-        i6 = int_sub(i2, i1)
         setfield_gc(p2, i6, descr=valuedescr)
-        jump(p1, i1, i2, p2, i6)
+        jump(p1, i1, i2, p2, i6, i6)
         """
         self.optimize_strunicode_loop(ops, expected, preamble)
 
@@ -5515,14 +5521,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = call(0, p1, i1, i2, descr=strslicedescr)
         jump(p2, i1, i2)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2]
         i3 = int_sub(i2, i1)
         p2 = newstr(i3)
         copystrcontent(p1, p2, i1, 0, i3)
-        jump(p2, i1, i2)
+        jump(p2, i1, i2, i3)
         """
-        self.optimize_strunicode_loop(ops, expected, expected)
+        expected = """
+        [p1, i1, i2, i3]
+        p2 = newstr(i3)
+        copystrcontent(p1, p2, i1, 0, i3)
+        jump(p2, i1, i2, i3)
+        """
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_str_slice_2(self):
         ops = """
@@ -5545,16 +5557,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = call(0, p2, i3, i4, descr=strslicedescr)
         jump(p3, i1, i2, i3, i4)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2, i3, i4]
         i0 = int_sub(i2, i1)     # killed by the backend
         i5 = int_sub(i4, i3)
         i6 = int_add(i1, i3)
         p3 = newstr(i5)
         copystrcontent(p1, p3, i6, 0, i5)
-        jump(p3, i1, i2, i3, i4)
+        jump(p3, i1, i2, i3, i4, i5, i6)
         """
-        self.optimize_strunicode_loop(ops, expected, expected)
+        expected = """
+        [p1, i1, i2, i3, i4, i5, i6]
+        p3 = newstr(i5)
+        copystrcontent(p1, p3, i6, 0, i5)
+        jump(p3, i1, i2, i3, i4, i5, i6)
+        """
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_str_slice_getitem1(self):
         ops = """
@@ -5564,15 +5582,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i4)
         jump(p1, i1, i2, i3)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2, i3]
         i6 = int_sub(i2, i1)      # killed by the backend
         i5 = int_add(i1, i3)
         i4 = strgetitem(p1, i5)
         escape(i4)
-        jump(p1, i1, i2, i3)
+        jump(p1, i1, i2, i3, i5)
         """
-        self.optimize_strunicode_loop(ops, expected, expected)
+        expected = """
+        [p1, i1, i2, i3, i5]
+        i4 = strgetitem(p1, i5)
+        escape(i4)
+        jump(p1, i1, i2, i3, i5)
+        """
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_str_slice_plain(self):
         ops = """
@@ -5599,7 +5623,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p4 = call(0, p3, p2, descr=strconcatdescr)
         jump(p4, i1, i2, p2)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2, p2]
         i3 = int_sub(i2, i1)     # length of p3
         i4 = strlen(p2)
@@ -5607,9 +5631,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p4 = newstr(i5)
         copystrcontent(p1, p4, i1, 0, i3)
         copystrcontent(p2, p4, 0, i3, i4)
-        jump(p4, i1, i2, p2)
+        jump(p4, i1, i2, p2, i5, i3, i4)
         """
-        self.optimize_strunicode_loop(ops, expected, expected)
+        expected = """
+        [p1, i1, i2, p2, i5, i3, i4]
+        p4 = newstr(i5)
+        copystrcontent(p1, p4, i1, 0, i3)
+        copystrcontent(p2, p4, 0, i3, i4)
+        jump(p4, i1, i2, p2, i5, i3, i4)
+        """
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_strgetitem_bounds(self):
         ops = """
@@ -5710,7 +5741,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i0)
         jump(p1, p2, p3)
         """
-        expected = """
+        preamble = """
         [p1, p2, p3]
         i1 = strlen(p1)
         i2 = strlen(p2)
@@ -5720,10 +5751,19 @@ class OptimizeOptTest(BaseTestWithUnroll):
         copystrcontent(p2, p4, 0, i1, i2)
         i0 = call(0, p3, p4, descr=strequaldescr)
         escape(i0)
-        jump(p1, p2, p3)
+        jump(p1, p2, p3, i3, i1, i2)
+        """
+        expected = """
+        [p1, p2, p3, i3, i1, i2]
+        p4 = newstr(i3)
+        copystrcontent(p1, p4, 0, 0, i1)
+        copystrcontent(p2, p4, 0, i1, i2)
+        i0 = call(0, p3, p4, descr=strequaldescr)
+        escape(i0)
+        jump(p1, p2, p3, i3, i1, i2)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected,
-                                                  expected)
+                                                  preamble)
 
     def test_str_equal_slice1(self):
         ops = """
@@ -5733,15 +5773,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i0)
         jump(p1, i1, i2, p3)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2, p3]
         i3 = int_sub(i2, i1)
         i0 = call(0, p1, i1, i3, p3, descr=streq_slice_checknull_descr)
         escape(i0)
-        jump(p1, i1, i2, p3)
+        jump(p1, i1, i2, p3, i3)
+        """
+        expected = """
+        [p1, i1, i2, p3, i3]
+        i0 = call(0, p1, i1, i3, p3, descr=streq_slice_checknull_descr)
+        escape(i0)
+        jump(p1, i1, i2, p3, i3)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected,
-                                                  expected)
+                                                  preamble)
 
     def test_str_equal_slice2(self):
         ops = """
@@ -5751,15 +5797,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i0)
         jump(p1, i1, i2, p3)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2, p3]
         i4 = int_sub(i2, i1)
         i0 = call(0, p1, i1, i4, p3, descr=streq_slice_checknull_descr)
         escape(i0)
-        jump(p1, i1, i2, p3)
+        jump(p1, i1, i2, p3, i4)
+        """
+        expected = """
+        [p1, i1, i2, p3, i4]
+        i0 = call(0, p1, i1, i4, p3, descr=streq_slice_checknull_descr)
+        escape(i0)
+        jump(p1, i1, i2, p3, i4)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected,
-                                                  expected)
+                                                  preamble)
 
     def test_str_equal_slice3(self):
         ops = """
@@ -5771,11 +5823,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i1, i2, p3)
         """
         expected = """
-        [p1, i1, i2, p3]
-        i4 = int_sub(i2, i1)
+        [p1, i1, i2, p3, i4]
         i0 = call(0, p1, i1, i4, p3, descr=streq_slice_nonnull_descr)
         escape(i0)
-        jump(p1, i1, i2, p3)
+        jump(p1, i1, i2, p3, i4)
         """
         preamble = """
         [p1, i1, i2, p3]
@@ -5783,7 +5834,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i4 = int_sub(i2, i1)
         i0 = call(0, p1, i1, i4, p3, descr=streq_slice_nonnull_descr)
         escape(i0)
-        jump(p1, i1, i2, p3)
+        jump(p1, i1, i2, p3, i4)
         """
         self.optimize_strunicode_loop_extradescrs(ops,
                                                   expected, preamble)
@@ -5796,15 +5847,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i0)
         jump(p1, i1, i2)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2]
         i3 = int_sub(i2, i1)
         i0 = call(0, p1, i1, i3, 120, descr=streq_slice_char_descr)
         escape(i0)
-        jump(p1, i1, i2)
+        jump(p1, i1, i2, i3)
+        """
+        expected = """
+        [p1, i1, i2, i3]
+        i0 = call(0, p1, i1, i3, 120, descr=streq_slice_char_descr)
+        escape(i0)
+        jump(p1, i1, i2, i3)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected,
-                                                  expected)
+                                                  preamble)
 
     def test_str_equal_slice5(self):
         ops = """
@@ -5816,15 +5873,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i0)
         jump(p1, i1, i2, i3)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2, i3]
         i4 = int_sub(i2, i1)
         i0 = call(0, p1, i1, i4, i3, descr=streq_slice_char_descr)
         escape(i0)
-        jump(p1, i1, i2, i3)
+        jump(p1, i1, i2, i3, i4)
+        """
+        expected = """
+        [p1, i1, i2, i3, i4]
+        i0 = call(0, p1, i1, i4, i3, descr=streq_slice_char_descr)
+        escape(i0)
+        jump(p1, i1, i2, i3, i4)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected,
-                                                  expected)
+                                                  preamble)
 
     def test_str_equal_none1(self):
         ops = """
@@ -5888,11 +5951,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1)
         """
         expected = """
-        [p1]
-        i1 = strlen(p1)
-        i0 = int_eq(i1, 0)
+        [p1, i0]
         escape(i0)
-        jump(p1)
+        jump(p1, i0)
         """
         preamble = """
         [p1]
@@ -5900,7 +5961,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = strlen(p1)
         i0 = int_eq(i1, 0)
         escape(i0)
-        jump(p1)
+        jump(p1, i0)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected, preamble)
 
@@ -5935,7 +5996,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i0)
         jump(p1, p2)
         """
-        expected = """
+        preamble = """
         [p1, p2]
         i1 = strlen(p1)
         i2 = strlen(p2)
@@ -5945,9 +6006,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         copystrcontent(p2, p4, 0, i1, i2)
         i0 = call(0, s"hello world", p4, descr=streq_nonnull_descr)
         escape(i0)
-        jump(p1, p2)
+        jump(p1, p2, i3, i1, i2)
         """
-        self.optimize_strunicode_loop_extradescrs(ops, expected, expected)
+        expected = """
+        [p1, p2, i3, i1, i2]
+        p4 = newstr(i3)
+        copystrcontent(p1, p4, 0, 0, i1)
+        copystrcontent(p2, p4, 0, i1, i2)
+        i0 = call(0, s"hello world", p4, descr=streq_nonnull_descr)
+        escape(i0)
+        jump(p1, p2, i3, i1, i2)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected, preamble)
 
     def test_str_equal_chars0(self):
         ops = """

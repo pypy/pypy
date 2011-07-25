@@ -430,6 +430,8 @@ class OptString(optimizer.Optimization):
         self.make_equal_to(op.result, vresult)
 
     def strgetitem(self, value, vindex, mode):
+        import pdb; pdb.set_trace()
+        
         value.ensure_nonnull()
         #
         if value.is_virtual() and isinstance(value, VStringSliceValue):

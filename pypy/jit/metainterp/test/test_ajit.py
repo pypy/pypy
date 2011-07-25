@@ -2844,7 +2844,7 @@ class BasicTests:
         # 1 preamble and 6 speciealized versions of each loop
         self.check_tree_loop_count(2*(1 + 6))
 
-   def test_continue_tracing_with_boxes_in_start_snapshot_replaced_by_optimizer(self):
+    def test_continue_tracing_with_boxes_in_start_snapshot_replaced_by_optimizer(self):
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'n', 'a', 'b'])
         def f(n):
             sa = a = 0
@@ -2883,11 +2883,6 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
         self.check_loops(arraylen_gc=1)
-
-
-
-
-        
         
 class TestOOtype(BasicTests, OOJitMixin):
 
