@@ -243,7 +243,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 bad[self] = True
                 bad[other] = True
                 return False
-        elif self.lenbound or other.lenbound:
+        elif self.lenbound:
             bad[self] = True
             bad[other] = True
             return False
