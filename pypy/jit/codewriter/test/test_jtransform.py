@@ -769,7 +769,7 @@ def test_getfield_gc_greenfield():
         def get_vinfo(self, v):
             return None
         def could_be_green_field(self, S1, name1):
-            assert S1 is S
+            assert S1 == S
             assert name1 == 'x'
             return True
     S = lltype.GcStruct('S', ('x', lltype.Char),
