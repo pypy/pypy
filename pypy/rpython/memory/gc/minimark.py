@@ -49,6 +49,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
 from pypy.rpython.memory.gc import minimarkpage, env
+from pypy.rpython.memory.support import mangle_hash
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -1793,7 +1794,7 @@ class MiniMarkGC(MovingGCBase):
         return self.id_or_identityhash(gcobj, False)
 
     def identityhash(self, gcobj):
-        return self.id_or_identityhash(gcobj, True)
+        return mangle_hash(self.id_or_identityhash(gcobj, True))
 
 
     # ----------
