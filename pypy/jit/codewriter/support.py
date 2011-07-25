@@ -420,10 +420,6 @@ class LLtypeHelpers:
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
 
-    def _ll_1_newdictiter(ITER, d):
-        return ll_rdict.ll_dictiter(lltype.Ptr(ITER), d)
-    _ll_1_newdictiter.need_result_type = True
-
     _dictnext_keys   = staticmethod(ll_rdict.ll_dictnext_group['keys'])
     _dictnext_values = staticmethod(ll_rdict.ll_dictnext_group['values'])
     _dictnext_items  = staticmethod(ll_rdict.ll_dictnext_group['items'])
@@ -573,10 +569,6 @@ class OOtypeHelpers:
     _ll_1_dict_keys  .need_result_type = True
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
-
-    def _ll_1_newdictiter(ITER, d):
-        return oo_rdict.ll_dictiter(ITER, d)
-    _ll_1_newdictiter.need_result_type = True
 
     _dictnext_keys   = staticmethod(oo_rdict.ll_dictnext_group['keys'])
     _dictnext_values = staticmethod(oo_rdict.ll_dictnext_group['values'])
