@@ -254,9 +254,6 @@ class UnrollOptimizer(Optimization):
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
 
-            import pdb; pdb.set_trace()
-            
-
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
 
