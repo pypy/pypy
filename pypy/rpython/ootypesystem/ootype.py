@@ -1938,6 +1938,17 @@ def cast_from_object(EXPECTED_TYPE, obj):
     assert typeOf(obj) is Object
     return obj._cast_to(EXPECTED_TYPE)
 
+class Box(_object):
+    def __init__(self, i):
+        self._TYPE = Object
+        self.i = i
+
+def oobox_int(i):
+    return Box(i)
+
+def oounbox_int(x):
+    return x.i
+
 def oostring(obj, base):
     """
     Convert char, int, float, instances and str to str.

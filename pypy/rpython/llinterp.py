@@ -1225,6 +1225,12 @@ class LLFrame(object):
         except ValueError:
             self.make_llexception()
 
+    def op_oobox_int(self, i):
+        return ootype.oobox_int(i)
+
+    def op_oounbox_int(self, x):
+        return ootype.oounbox_int(x)
+
 class Tracer(object):
     Counter = 0
     file = None
