@@ -5409,7 +5409,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p5 = call(0, p4, p3, descr=strconcatdescr)
         jump(p2, p3, p5)
         """
-        expected = """
+        preamble = """
         [p1, p2, p3]
         i1 = strlen(p1)
         i2 = strlen(p2)
@@ -5420,9 +5420,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         copystrcontent(p1, p5, 0, 0, i1)
         copystrcontent(p2, p5, 0, i1, i2)
         copystrcontent(p3, p5, 0, i12, i3)
-        jump(p2, p3, p5)
+        jump(p2, p3, p5, i2, i3)
         """
-        self.optimize_strunicode_loop(ops, expected, expected)
+        expected = """
+        [p1, p2, p3, i1, i2]
+        i12 = int_add(i1, i2)
+        i3 = strlen(p3)
+        i123 = int_add(i12, i3)
+        p5 = newstr(i123)
+        copystrcontent(p1, p5, 0, 0, i1)
+        copystrcontent(p2, p5, 0, i1, i2)
+        copystrcontent(p3, p5, 0, i12, i3)
+        jump(p2, p3, p5, i2, i3)
+        """
+        self.optimize_strunicode_loop(ops, expected, preamble)
 
     def test_str_concat_str_cstr1(self):
         ops = """
