@@ -453,21 +453,33 @@ class GcRootMap_shadowstack(object):
 
 class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
+        GCClass = gc_ll_descr.GCClass
         self.llop1 = gc_ll_descr.llop1
         self.WB_FUNCPTR = gc_ll_descr.WB_FUNCPTR
         self.WB_ARRAY_FUNCPTR = gc_ll_descr.WB_ARRAY_FUNCPTR
-        self.fielddescr_tid = get_field_descr(gc_ll_descr,
-                                              gc_ll_descr.GCClass.HDR, 'tid')
-        self.jit_wb_if_flag = gc_ll_descr.GCClass.JIT_WB_IF_FLAG
-        # if convenient for the backend, we also compute the info about
+        self.fielddescr_tid = get_field_descr(gc_ll_descr, GCClass.HDR, 'tid')
+        #
+        self.jit_wb_if_flag = GCClass.JIT_WB_IF_FLAG
+        self.jit_wb_if_flag_byteofs, self.jit_wb_if_flag_singlebyte = (
+            self.extract_flag_byte(self.jit_wb_if_flag))
+        #
+        if hasattr(GCClass, 'JIT_WB_CARDS_SET'):
+            self.jit_wb_cards_set = GCClass.JIT_WB_CARDS_SET
+            self.jit_wb_card_page_shift = GCClass.JIT_WB_CARD_PAGE_SHIFT
+            self.jit_wb_cards_set_byteofs, self.jit_wb_cards_set_singlebyte = (
+                self.extract_flag_byte(self.jit_wb_cards_set))
+        else:
+            self.jit_wb_cards_set = 0
+
+    def extract_flag_byte(self, flag_word):
+        # if convenient for the backend, we compute the info about
         # the flag as (byte-offset, single-byte-flag).
         import struct
-        value = struct.pack("l", self.jit_wb_if_flag)
+        value = struct.pack("l", flag_word)
         assert value.count('\x00') == len(value) - 1    # only one byte is != 0
         i = 0
         while value[i] == '\x00': i += 1
-        self.jit_wb_if_flag_byteofs = i
-        self.jit_wb_if_flag_singlebyte = struct.unpack('b', value[i])[0]
+        return (i, struct.unpack('b', value[i])[0])
 
     def get_write_barrier_fn(self, cpu):
         llop1 = self.llop1

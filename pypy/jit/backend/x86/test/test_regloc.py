@@ -24,9 +24,14 @@ def test_mov_16():
     assert_encodes_as(cb64, "MOV16", (r8, ebx), '\x66\x41\x89\xD8')  # 11 011 000
     assert_encodes_as(cb64, "MOV16", (ebx, r8), '\x66\x44\x89\xC3')  # 11 000 011
     assert_encodes_as(cb64, "MOV16", (ecx, ebx), '\x66\x40\x89\xD9')
-    # XXX: What we are testing for here is actually not the most compact
-    # encoding.
-    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(12345)), '\x66\x40\xC7\xC1\x39\x30')
+    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(12345)), '\x66\xB9\x39\x30')
+    # for the next case we don't pick the most efficient encoding, but well
+    expected = '\x66\x40\xC7\xC1\xC7\xCF'  # could be '\x66\xB9\xC7\xCF'
+    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(-12345)), expected)
+    assert_encodes_as(cb64, "MOV16", (r9, ImmedLoc(12345)), '\x66\x41\xB9\x39\x30')
+    # for the next case we don't pick the most efficient encoding, but well
+    expected = '\x66\x41\xC7\xC1\xC7\xCF'  # could be '\x66\x41\xB9\xC7\xCF'
+    assert_encodes_as(cb64, "MOV16", (r9, ImmedLoc(-12345)), expected)
     assert_encodes_as(cb64, "MOV16", (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)), '\x66\x41\xC7\x45\x00\x39\x30')
 
 def test_cmp_16():
@@ -44,7 +49,7 @@ def test_cmp_16():
 def test_relocation():
     from pypy.rpython.lltypesystem import lltype, rffi
     from pypy.jit.backend.x86 import codebuf
-    for target in [0x01020304, 0x0102030405060708]:
+    for target in [0x01020304, -0x05060708, 0x0102030405060708]:
         if target > sys.maxint:
             continue
         mc = codebuf.MachineCodeBlockWrapper()
@@ -58,10 +63,15 @@ def test_relocation():
             expected = "\xE8" + struct.pack('<i', target - (rawstart + 5))
         elif IS_X86_64:
             assert mc.relocations == []
-            if target <= 0x7fffffff:
+            if 0 <= target <= 0xffffffff:
+                assert length == 9
+                expected = (
+                    "\x41\xBB\x04\x03\x02\x01"      # MOV %r11, target
+                    "\x41\xFF\xD3")                 # CALL *%r11
+            elif -0x80000000 <= target < 0:
                 assert length == 10
                 expected = (
-                    "\x49\xC7\xC3\x04\x03\x02\x01"  # MOV %r11, target
+                    "\x49\xC7\xC3\xF8\xF8\xF9\xFA"  # MOV %r11, target
                     "\x41\xFF\xD3")                 # CALL *%r11
             else:
                 assert length == 13

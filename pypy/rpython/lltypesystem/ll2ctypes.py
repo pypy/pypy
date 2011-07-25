@@ -172,17 +172,6 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
-    # Python 2.5 ctypes can raise OverflowError on 64-bit builds
-    for n in [sys.maxint, 2**31]:
-        MAX_SIZE = n/64
-        try:
-            PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
-        except OverflowError, e:
-            pass
-        else:
-            break
-    else:
-        raise e
 
     class CArray(ctypes.Structure):
         if not A._hints.get('nolength'):
@@ -191,6 +180,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
 
+        @classmethod
         def _malloc(cls, n=None):
             if not isinstance(n, int):
                 raise TypeError, "array length must be an int"
@@ -199,10 +189,29 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             if hasattr(bigarray, 'length'):
                 bigarray.length = n
             return bigarray
-        _malloc = classmethod(_malloc)
+
+        _ptrtype = None
+
+        @classmethod
+        def _get_ptrtype(cls):
+            if cls._ptrtype:
+                return cls._ptrtype
+            # ctypes can raise OverflowError on 64-bit builds
+            for n in [sys.maxint, 2**31]:
+                cls.MAX_SIZE = n/64
+                try:
+                    cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
+                except OverflowError, e:
+                    pass
+                else:
+                    break
+            else:
+                raise e
+            return cls._ptrtype
 
         def _indexable(self, index):
-            assert index + 1 < MAX_SIZE
+            PtrType = self._get_ptrtype()
+            assert index + 1 < self.MAX_SIZE
             p = ctypes.cast(ctypes.pointer(self.items), PtrType)
             return p.contents
 
@@ -544,7 +553,7 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
                 return _items
             _items.append(nextitem)
             i += 1
-        
+
     items = property(getitems)
 
 class _array_of_known_length(_array_of_unknown_length):
@@ -925,7 +934,7 @@ if ctypes:
             return clibname+'.dll'
         else:
             return ctypes.util.find_library('c')
-        
+
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
     # XXX is this always correct???
     standard_c_lib = ctypes.CDLL(get_libc_name(), **load_library_kwargs)
@@ -971,7 +980,7 @@ def get_ctypes_callable(funcptr, calling_conv):
             return lib[elem]
         except AttributeError:
             pass
-    
+
     old_eci = funcptr._obj.compilation_info
     funcname = funcptr._obj._name
     if hasattr(old_eci, '_with_ctypes'):
@@ -1322,7 +1331,7 @@ else:
             def _where_is_errno():
                 return standard_c_lib._errno()
 
-        elif sys.platform in ('linux2', 'freebsd6'):
+        elif sys.platform.startswith('linux') or sys.platform == 'freebsd6':
             standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__errno_location()

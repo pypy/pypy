@@ -9,7 +9,7 @@ def detect_number_of_processors(filename_or_file='/proc/cpuinfo'):
         return 1    # don't override MAKEFLAGS.  This will call 'make' without any '-j' option
     if sys.platform == 'darwin':
         return darwin_get_cpu_count()
-    elif sys.platform != 'linux2':
+    elif not sys.platform.startswith('linux'):
         return 1    # implement me
     try:
         if isinstance(filename_or_file, str):

@@ -317,7 +317,7 @@ class JitDriver(object):
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
-                 can_never_inline=None):
+                 can_never_inline=None, should_unroll_one_iteration=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
@@ -336,6 +336,7 @@ class JitDriver(object):
         self.get_printable_location = get_printable_location
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
+        self.should_unroll_one_iteration = should_unroll_one_iteration
 
     def _freeze_(self):
         return True
@@ -483,6 +484,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                                    " of jit_merge_point/can_enter_jit" %
                                    key[2:])
             cache[key] = s_value
+
+        # add the attribute _dont_reach_me_in_del_ (see pypy.rpython.rclass)
+        try:
+            graph = self.bookkeeper.position_key[0]
+            graph.func._dont_reach_me_in_del_ = True
+        except (TypeError, AttributeError):
+            pass
 
         return annmodel.s_None
 

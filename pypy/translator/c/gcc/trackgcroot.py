@@ -1824,6 +1824,11 @@ class GcRootTracker(object):
             __gccallshapes:
             """.replace("__gccallshapes", _globalname("__gccallshapes"))
             output.writelines(shapelines)
+            print >> output, """\
+            #if defined(__linux__) && defined(__ELF__)
+            .section .note.GNU-stack,"",%progbits
+            #endif
+            """
 
     def process(self, iterlines, newfile, filename='?'):
         parser = PARSERS[format](verbose=self.verbose, shuffle=self.shuffle)

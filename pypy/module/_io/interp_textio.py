@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import (
     generic_new_descr)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask, r_ulonglong, r_uint
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rstring import UnicodeBuilder

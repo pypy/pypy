@@ -21,7 +21,7 @@ from pypy.rpython.annlowlevel import hlstr
 #   sub-second timestamps.
 # - TIMESPEC is defined when the "struct stat" contains st_atim field.
 
-if sys.platform == 'linux2':
+if sys.platform.startswith('linux'):
     TIMESPEC = platform.Struct('struct timespec',
                                [('tv_sec', rffi.TIME_T),
                                 ('tv_nsec', rffi.LONG)])
@@ -145,7 +145,7 @@ compilation_info = ExternalCompilationInfo(
 if sys.platform != 'win32':
 
     LL_STAT_FIELDS = STAT_FIELDS[:]
-    
+
     if TIMESPEC is not None:
         class CConfig_for_timespec:
             _compilation_info_ = compilation_info
@@ -233,7 +233,7 @@ def register_stat_variant(name, traits):
     assert traits.str is str
 
     if sys.platform.startswith('linux'):
-        # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler 
+        # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler
         _functions = {'stat':  'stat64',
                       'fstat': 'fstat64',
                       'lstat': 'lstat64'}

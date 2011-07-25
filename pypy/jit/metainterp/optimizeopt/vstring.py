@@ -8,7 +8,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeopt import optimizer, virtualize
 from pypy.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from pypy.jit.metainterp.optimizeopt.optimizer import llhelper
-from pypy.jit.metainterp.optimizeopt.util import _findall
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.unroll import unrolling_iterable
@@ -61,7 +61,7 @@ class __extend__(optimizer.OptValue):
         self.ensure_nonnull()
         box = self.force_box()
         lengthbox = BoxInt()
-        optimization.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
+        optimization.optimize_default(ResOperation(mode.STRLEN, [box], lengthbox))
         return lengthbox
 
     @specialize.arg(1)
@@ -72,13 +72,13 @@ class __extend__(optimizer.OptValue):
         else:
             return None
 
-    def string_copy_parts(self, optimization, targetbox, offsetbox, mode):
+    def string_copy_parts(self, optimizer, targetbox, offsetbox, mode):
         # Copies the pointer-to-string 'self' into the target string
         # given by 'targetbox', at the specified offset.  Returns the offset
         # at the end of the copy.
-        lengthbox = self.getstrlen(optimization, mode)
+        lengthbox = self.getstrlen(optimizer, mode)
         srcbox = self.force_box()
-        return copy_str_content(optimization, srcbox, targetbox,
+        return copy_str_content(optimizer, srcbox, targetbox,
                                 CONST_0, offsetbox, lengthbox, mode)
 
 
@@ -335,7 +335,7 @@ def _int_add(optimizer, box1, box2):
     if optimizer is None:
         return None
     resbox = BoxInt()
-    optimizer.emit_operation(ResOperation(rop.INT_ADD, [box1, box2], resbox))
+    optimizer.optimize_default(ResOperation(rop.INT_ADD, [box1, box2], resbox))
     return resbox
 
 def _int_sub(optimizer, box1, box2):
@@ -345,10 +345,10 @@ def _int_sub(optimizer, box1, box2):
         if isinstance(box1, ConstInt):
             return ConstInt(box1.value - box2.value)
     resbox = BoxInt()
-    optimizer.emit_operation(ResOperation(rop.INT_SUB, [box1, box2], resbox))
+    optimizer.optimize_default(ResOperation(rop.INT_SUB, [box1, box2], resbox))
     return resbox
 
-def _strgetitem(optimization, strbox, indexbox, mode):
+def _strgetitem(optimizer, strbox, indexbox, mode):
     if isinstance(strbox, ConstPtr) and isinstance(indexbox, ConstInt):
         if mode is mode_string:
             s = strbox.getref(lltype.Ptr(rstr.STR))
@@ -357,7 +357,7 @@ def _strgetitem(optimization, strbox, indexbox, mode):
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
             return ConstInt(ord(s.chars[indexbox.getint()]))
     resbox = BoxInt()
-    optimization.emit_operation(ResOperation(mode.STRGETITEM, [strbox, indexbox],
+    optimizer.optimize_default(ResOperation(mode.STRGETITEM, [strbox, indexbox],
                                       resbox))
     return resbox
 
@@ -443,7 +443,7 @@ class OptString(optimizer.Optimization):
             if vindex.is_constant():
                 return value.getitem(vindex.box.getint())
         #
-        resbox = _strgetitem(self, value.force_box(), vindex.force_box(), mode)
+        resbox = _strgetitem(self.optimizer, value.force_box(), vindex.force_box(), mode)
         return self.getvalue(resbox)
 
     def optimize_STRLEN(self, op):
@@ -453,7 +453,7 @@ class OptString(optimizer.Optimization):
 
     def _optimize_STRLEN(self, op, mode):
         value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self, mode)
+        lengthbox = value.getstrlen(self.optimizer, mode)
         self.make_equal_to(op.result, self.getvalue(lengthbox))
 
     def optimize_CALL(self, op):
@@ -652,16 +652,11 @@ class OptString(optimizer.Optimization):
             self.emit_operation(op)
             return
 
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
+        dispatch_opt(self, op)
 
 
-optimize_ops = _findall(OptString, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
+        default=OptString.emit_operation)
 
 def _findall_call_oopspec():
     prefix = 'opt_call_stroruni_'

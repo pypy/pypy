@@ -4,7 +4,7 @@ from pypy.rlib.libffi import Func
 from pypy.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeopt.util import _findall
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
 from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
 
@@ -207,13 +207,7 @@ class OptFfiCall(Optimization):
     def propagate_forward(self, op):
         if self.logops is not None:
             debug_print(self.logops.repr_of_resop(op))
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
+        dispatch_opt(self, op)
 
     def _get_oopspec(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -224,4 +218,5 @@ class OptFfiCall(Optimization):
     def _get_funcval(self, op):
         return self.getvalue(op.getarg(1))
 
-optimize_ops = _findall(OptFfiCall, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptFfiCall, 'optimize_',
+        default=OptFfiCall.emit_operation)

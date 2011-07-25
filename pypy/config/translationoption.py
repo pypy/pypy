@@ -140,7 +140,10 @@ translation_optiondescription = OptionDescription(
                  ["annotate", "rtype", "backendopt", "database", "source",
                   "pyjitpl"],
                  default=None, cmdline="--fork-before"),
-
+    BoolOption("dont_write_c_files",
+               "Make the C backend write everyting to /dev/null. " +
+               "Useful for benchmarking, so you don't actually involve the disk",
+               default=False, cmdline="--dont-write-c-files"),
     ArbitraryOption("instrumentctl", "internal",
                default=None),
     StrOption("output", "Output file name", cmdline="--output"),

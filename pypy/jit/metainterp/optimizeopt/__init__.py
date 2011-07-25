@@ -57,7 +57,6 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
 
     optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts,
                                             inline_short_preamble, retraced)
-
     if unroll:
         optimize_unroll(metainterp_sd, loop, optimizations)
     else:

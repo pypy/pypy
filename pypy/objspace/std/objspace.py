@@ -39,7 +39,6 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.stringtype import wrapstr
 from pypy.objspace.std.unicodetype import wrapunicode
 
-
 class StdObjSpace(ObjSpace, DescrOperation):
     """The standard object space, implementing a general-purpose object
     library in Restricted Python."""
@@ -569,3 +568,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
             return self.wrap(w_sub.issubtype(w_type))
         raise OperationError(self.w_TypeError, self.wrap("need type objects"))
+
+    def _type_isinstance(self, w_inst, w_type):
+        if isinstance(w_type, W_TypeObject):
+            return self.wrap(self.type(w_inst).issubtype(w_type))
+        raise OperationError(self.w_TypeError, self.wrap("need type object"))

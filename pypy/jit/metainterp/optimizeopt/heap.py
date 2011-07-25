@@ -1,5 +1,5 @@
 import os
-from pypy.jit.metainterp.optimizeopt.util import _findall
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.jitexc import JitException
@@ -76,7 +76,7 @@ class CachedField(object):
         self._cached_fields[structvalue] = fieldvalue
         self._cached_fields_getfield_op[structvalue] = getfield_op        
 
-    def force_lazy_setfield(self, optheap):
+    def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
         if op is not None:
             # This is the way _lazy_setfield is usually reset to None.
@@ -86,12 +86,16 @@ class CachedField(object):
             self.clear()
             self._lazy_setfield = None
             optheap.next_optimization.propagate_forward(op)
+            if not can_cache:
+                return
             # Once it is done, we can put at least one piece of information
             # back in the cache: the value of this particular structure's
             # field.
             structvalue = optheap.getvalue(op.getarg(0))
             fieldvalue  = optheap.getvalue(op.getarglist()[-1])
             self.remember_field_value(structvalue, fieldvalue, op)
+        elif not can_cache:
+            self.clear()
 
     def clear(self):
         self._cached_fields.clear()
@@ -248,20 +252,9 @@ class OptHeap(Optimization):
                 for arraydescr in effectinfo.readonly_descrs_arrays:
                     self.force_lazy_setarrayitem(arraydescr)
                 for fielddescr in effectinfo.write_descrs_fields:
-                    self.force_lazy_setfield(fielddescr)
-                    try:
-                        cf = self.cached_fields[fielddescr]
-                        cf.clear()
-                    except KeyError:
-                        pass
+                    self.force_lazy_setfield(fielddescr, can_cache=False)
                 for arraydescr in effectinfo.write_descrs_arrays:
-                    self.force_lazy_setarrayitem(arraydescr)
-                    try:
-                        submap = self.cached_arrayitems[arraydescr]
-                        for cf in submap.itervalues():
-                            cf.clear()
-                    except KeyError:
-                        pass
+                    self.force_lazy_setarrayitem(arraydescr, can_cache=False)
                 if effectinfo.check_forces_virtual_or_virtualizable():
                     vrefinfo = self.optimizer.metainterp_sd.virtualref_info
                     self.force_lazy_setfield(vrefinfo.descr_forced)
@@ -284,20 +277,20 @@ class OptHeap(Optimization):
                     if value in cf._cached_fields:
                         cf.turned_constant(newvalue, value)
 
-    def force_lazy_setfield(self, descr):
+    def force_lazy_setfield(self, descr, can_cache=True):
         try:
             cf = self.cached_fields[descr]
         except KeyError:
             return
-        cf.force_lazy_setfield(self)
+        cf.force_lazy_setfield(self, can_cache)
 
-    def force_lazy_setarrayitem(self, arraydescr):
+    def force_lazy_setarrayitem(self, arraydescr, can_cache=True):
         try:
             submap = self.cached_arrayitems[arraydescr]
         except KeyError:
             return
         for cf in submap.values():
-            cf.force_lazy_setfield(self)
+            cf.force_lazy_setfield(self, can_cache)
 
     def fixup_guard_situation(self):
         # hackish: reverse the order of the last two operations if it makes
@@ -436,7 +429,7 @@ class OptHeap(Optimization):
             cf.do_setfield(self, op)
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr())
+            self.force_lazy_setarrayitem(op.getdescr(), can_cache=False)
             # and then emit the operation
             self.emit_operation(op)
 
@@ -480,13 +473,7 @@ class OptHeap(Optimization):
         self._seen_guard_not_invalidated = True
         self.emit_operation(op)
 
-    def propagate_forward(self, op):
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
 
-optimize_ops = _findall(OptHeap, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptHeap, 'optimize_',
+        default=OptHeap.emit_operation)
+OptHeap.propagate_forward = dispatch_opt

@@ -141,7 +141,7 @@ def descr_set__bases__(space, w_type, w_value):
                            w_oldbestbase.getname(space))
 
     # invalidate the version_tag of all the current subclasses
-    w_type.mutated()
+    w_type.mutated(None)
 
     # now we can go ahead and change 'w_type.bases_w'
     saved_bases_w = w_type.bases_w
@@ -226,7 +226,7 @@ def descr_set___abstractmethods__(space, w_type, w_new):
 
 def descr_del___abstractmethods__(space, w_type):
     w_type = _check(space, w_type)
-    if not w_type.deldictvalue(space, space.wrap("__abstractmethods__")):
+    if not w_type.deldictvalue(space, "__abstractmethods__"):
         raise OperationError(space.w_AttributeError,
                              space.wrap("__abstractmethods__"))
     w_type.set_abstract(False)

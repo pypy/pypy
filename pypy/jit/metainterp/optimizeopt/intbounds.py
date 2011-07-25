@@ -1,6 +1,6 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0, \
                                                   MODE_ARRAY, MODE_STR, MODE_UNICODE
-from pypy.jit.metainterp.optimizeopt.util import _findall
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.optimizeopt.intutils import (IntBound, IntUnbounded,
     IntLowerBound, IntUpperBound)
 from pypy.jit.metainterp.history import Const, ConstInt
@@ -39,14 +39,11 @@ class OptIntBounds(Optimization):
             op = self.posponedop
             self.posponedop = None
 
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            assert not op.is_ovf()
-            self.emit_operation(op)
+        dispatch_opt(self, op)
+
+    def opt_default(self, op):
+        assert not op.is_ovf()
+        self.emit_operation(op)
 
 
     def propagate_bounds_backward(self, box):
@@ -62,11 +59,7 @@ class OptIntBounds(Optimization):
             op = self.optimizer.producer[box]
         except KeyError:
             return
-        opnum = op.getopnum()
-        for value, func in propagate_bounds_ops:
-            if opnum == value:
-                func(self, op)
-                break
+        dispatch_bounds_ops(self, op)
 
     def optimize_GUARD_TRUE(self, op):
         self.emit_operation(op)
@@ -462,5 +455,6 @@ class OptIntBounds(Optimization):
     propagate_bounds_INT_MUL_OVF  = propagate_bounds_INT_MUL
 
 
-optimize_ops = _findall(OptIntBounds, 'optimize_')
-propagate_bounds_ops = _findall(OptIntBounds, 'propagate_bounds_')
+dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
+        default=OptIntBounds.opt_default)
+dispatch_bounds_ops = make_dispatcher_method(OptIntBounds, 'propagate_bounds_')
