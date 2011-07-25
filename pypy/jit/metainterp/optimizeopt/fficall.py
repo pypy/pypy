@@ -1,7 +1,7 @@
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.libffi import Func
-from pypy.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -48,7 +48,7 @@ class FuncInfo(object):
           inst_argtypes is actually a low-level array, but we can use it
           directly since the only thing we do with it is to read its items
         """
-        
+
         llfunc = funcval.box.getref_base()
         if we_are_translated():
             func = cast_base_ptr_to_instance(Func, llfunc)

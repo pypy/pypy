@@ -1,7 +1,6 @@
-from pypy.jit.codewriter import heaptracker
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.history import (Box, BoxInt, BoxPtr, Const, ConstInt,
-    ConstPtr, get_const_ptr_for_string, get_const_ptr_for_unicode)
+from pypy.jit.metainterp.history import (BoxInt, Const, ConstInt, ConstPtr,
+    get_const_ptr_for_string, get_const_ptr_for_unicode)
 from pypy.jit.metainterp.optimizeopt import optimizer, virtualize
 from pypy.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1, llhelper
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -9,7 +8,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython import annlowlevel
-from pypy.rpython.lltypesystem import lltype, rstr, llmemory
+from pypy.rpython.lltypesystem import lltype, rstr
 
 
 class StrOrUnicode(object):

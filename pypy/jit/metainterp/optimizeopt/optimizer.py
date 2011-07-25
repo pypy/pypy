@@ -1,17 +1,11 @@
-from pypy.jit.metainterp.history import Box, BoxInt, LoopToken, BoxFloat,\
-     ConstFloat
-from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp import jitprof
+from pypy.jit.metainterp import jitprof, resume, compile
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method, sort_descrs
-from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, args_dict
-from pypy.jit.metainterp.optimize import InvalidLoop
-from pypy.jit.metainterp import resume, compile
-from pypy.jit.metainterp.typesystem import llhelper, oohelper
-from pypy.rpython.lltypesystem import lltype
-from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
+from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
+    args_dict)
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.tool.pairtype import extendabletype
 
 LEVEL_UNKNOWN    = '\x00'
