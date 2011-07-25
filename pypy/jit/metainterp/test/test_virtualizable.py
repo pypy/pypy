@@ -197,8 +197,8 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_loops(getfield_gc=1, setfield_gc=1)
-        self.check_loops(getfield_gc=2, setfield_gc=2, everywhere=True)
+        self.check_loops(getfield_gc=0, setfield_gc=1)
+        self.check_loops(getfield_gc=1, setfield_gc=2, everywhere=True)
 
     # ------------------------------
 
