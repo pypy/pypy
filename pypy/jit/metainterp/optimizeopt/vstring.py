@@ -399,6 +399,7 @@ class OptString(optimizer.Optimization):
         else:
             self.getvalue(op.result).ensure_nonnull()
             self.emit_operation(op)
+            self.pure(mode.STRLEN, [op.result], op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
         value = self.getvalue(op.getarg(0))
