@@ -4532,7 +4532,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         escape(i1)
         jump(p0, i0)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected)
 
     def test_int_is_true_bounds(self):
         ops = """
@@ -4551,7 +4551,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_true(i1) []
         jump(p0)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected)
 
     def test_strslice_subtraction_folds(self):
         ops = """
@@ -4602,7 +4602,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p0, p1, descr=valuedescr)
         jump(p0)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected)
 
     def test_newstr_strlen(self):
         ops = """
@@ -4620,7 +4620,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = int_add(i0, 1)
         jump(i1)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
