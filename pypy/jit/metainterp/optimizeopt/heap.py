@@ -1,9 +1,10 @@
 import os
+
+from pypy.jit.metainterp.jitexc import JitException
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
 
 
 class CachedField(object):

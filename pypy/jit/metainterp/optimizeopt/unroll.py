@@ -1,12 +1,12 @@
+from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.metainterp.compile import ResumeGuardDescr
+from pypy.jit.metainterp.history import TreeLoop, LoopToken
+from pypy.jit.metainterp.jitexc import JitException
+from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
-from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_print
-from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
-from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.codewriter.effectinfo import EffectInfo
 
 # Assumptions
 # ===========
