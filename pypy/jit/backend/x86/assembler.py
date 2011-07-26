@@ -181,6 +181,7 @@ class Assembler386(object):
         # instructions in assembler, with a mark_gc_roots in between.
         # With shadowstack, this is not needed, so we produce a single helper.
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        shadow_stack = (gcrootmap is not None and gcrootmap.is_shadow_stack)
         #
         # ---------- first helper for the slow path of malloc ----------
         mc = codebuf.MachineCodeBlockWrapper()
@@ -190,10 +191,19 @@ class Assembler386(object):
         mc.SUB_rr(edx.value, eax.value)       # compute the size we want
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
         #
-        if gcrootmap is not None and gcrootmap.is_shadow_stack:
+        # The registers to save in the copy area: with shadowstack, most
+        # registers need to be saved.  With asmgcc, the callee-saved registers
+        # don't need to.
+        save_in_copy_area = gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items()
+        if not shadow_stack:
+            save_in_copy_area = [(reg, ofs) for (reg, ofs) in save_in_copy_area
+                   if reg not in gpr_reg_mgr_cls.REGLOC_TO_GCROOTMAP_REG_INDEX]
+        #
+        for reg, ofs in save_in_copy_area:
+            mc.MOV_br(ofs, reg.value)
+        #
+        if shadow_stack:
             # ---- shadowstack ----
-            for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.MOV_br(ofs, reg.value)
             mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
             if IS_X86_32:
                 mc.MOV_sr(0, edx.value)          # push argument
@@ -201,21 +211,23 @@ class Assembler386(object):
                 mc.MOV_rr(edi.value, edx.value)
             mc.CALL(imm(addr))
             mc.ADD_ri(esp.value, 16 - WORD)
-            for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.MOV_rb(reg.value, ofs)
         else:
             # ---- asmgcc ----
             if IS_X86_32:
                 mc.MOV_sr(WORD, edx.value)       # save it as the new argument
             elif IS_X86_64:
-                # rdi can be clobbered: its content was forced to the stack
-                # by _fastpath_malloc(), like all other save_around_call_regs.
+                # rdi can be clobbered: its content was saved in the
+                # copy area of the stack
                 mc.MOV_rr(edi.value, edx.value)
             mc.JMP(imm(addr))                    # tail call to the real malloc
             rawstart = mc.materialize(self.cpu.asmmemmgr, [])
             self.malloc_slowpath1 = rawstart
             # ---------- second helper for the slow path of malloc ----------
             mc = codebuf.MachineCodeBlockWrapper()
+        #
+        for reg, ofs in save_in_copy_area:
+            mc.MOV_rb(reg.value, ofs)
+            assert reg is not eax and reg is not edx
         #
         if self.cpu.supports_floats:          # restore the XMM registers
             for i in range(self.cpu.NUM_REGS):# from where they were saved
@@ -2424,8 +2436,7 @@ class Assembler386(object):
             # there are two helpers to call only with asmgcc
             slowpath_addr1 = self.malloc_slowpath1
             self.mc.CALL(imm(slowpath_addr1))
-        self.mark_gc_roots(self.write_new_force_index(),
-                           use_copy_area=shadow_stack)
+        self.mark_gc_roots(self.write_new_force_index(), use_copy_area=True)
         slowpath_addr2 = self.malloc_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
 
