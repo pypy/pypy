@@ -1785,8 +1785,9 @@ class MiniMarkGC(MovingGCBase):
                     # after the object.  But we cannot use it for id()
                     # because the stored value might clash with a real one.
                     size = self.get_size(obj)
-                    return (obj + size).signed[0]
+                    i = (obj + size).signed[0]
                     # Important: the returned value is not mangle_hash()ed!
+                    return i
         #
         i = llmemory.cast_adr_to_int(obj)
         if is_hash:
