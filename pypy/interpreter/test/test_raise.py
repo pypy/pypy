@@ -274,3 +274,9 @@ class AppTestRaise:
             pass
         except A:
             pass
+
+    def test_new_returns_bad_instance(self):
+        class MyException(Exception):
+            def __new__(cls, *args):
+                return object()
+        raises(TypeError, "raise MyException")

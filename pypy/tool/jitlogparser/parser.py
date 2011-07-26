@@ -30,6 +30,9 @@ class Op(object):
     def getres(self):
         return self._getvar(self.res)
 
+    def getdescr(self):
+        return self.descr
+
     def _getvar(self, v):
         return v
 
@@ -39,7 +42,7 @@ class Op(object):
     def repr(self):
         args = self.getargs()
         if self.descr is not None:
-            args.append('descr=%s' % self.descr)
+            args.append('descr=%s' % self.getdescr())
         arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
@@ -145,10 +148,10 @@ class TraceForOpcode(object):
         if operations[0].name == 'debug_merge_point':
             self.inline_level = int(operations[0].args[0])
             m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
-                         operations[0].getarg(1))
+                         operations[0].args[1])
             if m is None:
                 # a non-code loop, like StrLiteralSearch or something
-                self.bytecode_name = operations[0].args[1]
+                self.bytecode_name = operations[0].args[1][1:-1]
             else:
                 self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
                 self.startlineno = int(lineno)

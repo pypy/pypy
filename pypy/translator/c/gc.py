@@ -151,11 +151,11 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def OP_GC_CALL_RTTI_DESTRUCTOR(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         line = '%s(%s);' % (args[0], ', '.join(args[1:]))
-        return line     
-    
+        return line
+
     def OP_GC_FREE(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
-        return 'OP_FREE(%s);' % (args[0], )    
+        return 'OP_FREE(%s);' % (args[0], )
 
     def OP_GC__COLLECT(self, funcgen, op):
         return ''
@@ -226,7 +226,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         eci = eci.merge(configure_boehm())
 
         pre_include_bits = []
-        if sys.platform == "linux2":
+        if sys.platform.startswith('linux'):
             pre_include_bits += ["#define _REENTRANT 1",
                                  "#define GC_LINUX_THREADS 1"]
         if sys.platform != "win32":

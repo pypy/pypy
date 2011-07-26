@@ -186,6 +186,7 @@ def test_make_jitdriver_callbacks_1():
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None
         _can_never_inline_ptr = None
+        _should_unroll_one_iteration_ptr = None
     class FakeCell:
         dont_trace_here = False
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
@@ -214,6 +215,7 @@ def test_make_jitdriver_callbacks_3():
         _confirm_enter_jit_ptr = None
         _can_never_inline_ptr = None
         _get_jitcell_at_ptr = None
+        _should_unroll_one_iteration_ptr = None
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
     res = state.get_location_str([ConstInt(5), constfloat(42.5)])
@@ -238,6 +240,7 @@ def test_make_jitdriver_callbacks_4():
         _confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
         _can_never_inline_ptr = None
         _get_jitcell_at_ptr = None
+        _should_unroll_one_iteration_ptr = None
 
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
@@ -262,6 +265,7 @@ def test_make_jitdriver_callbacks_5():
         _confirm_enter_jit_ptr = None
         _can_never_inline_ptr = llhelper(CAN_NEVER_INLINE, can_never_inline)
         _get_jitcell_at_ptr = None
+        _should_unroll_one_iteration_ptr = None
 
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()

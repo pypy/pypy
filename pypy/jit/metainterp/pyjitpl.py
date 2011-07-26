@@ -56,6 +56,8 @@ class MIFrame(object):
         # for resume.py operation
         self.parent_resumedata_snapshot = None
         self.parent_resumedata_frame_info_list = None
+        # counter for unrolling inlined loops
+        self.unroll_iterations = 1
 
     @specialize.arg(3)
     def copy_constants(self, registers, constants, ConstClass):
@@ -931,6 +933,10 @@ class MIFrame(object):
             # 'redboxes' back into the registers where it comes from.
             put_back_list_of_boxes3(self, jcposition, redboxes)
         else:
+            if jitdriver_sd.warmstate.should_unroll_one_iteration(greenboxes):
+                if self.unroll_iterations > 0:
+                    self.unroll_iterations -= 1
+                    return
             # warning! careful here.  We have to return from the current
             # frame containing the jit_merge_point, and then use
             # do_recursive_call() to follow the recursive call.  This is
@@ -1162,13 +1168,11 @@ class MIFrame(object):
             metainterp.jitdriver_sd.greenfield_info is not None):
             virtualizable_boxes = metainterp.virtualizable_boxes
         saved_pc = self.pc
-        try:
-            if resumepc >= 0:
-                self.pc = resumepc
-            resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
-                                      metainterp.virtualref_boxes, resumedescr)
-        finally:
-            self.pc = saved_pc
+        if resumepc >= 0:
+            self.pc = resumepc
+        resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
+                                  metainterp.virtualref_boxes, resumedescr)
+        self.pc = saved_pc
 
     def implement_guard_value(self, orgpc, box):
         """Promote the given Box into a Const.  Note: be careful, it's a

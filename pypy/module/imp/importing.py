@@ -85,7 +85,7 @@ def find_modtype(space, filepart):
 
     return SEARCH_ERROR, None, None
 
-if sys.platform == 'linux2' or 'freebsd' in sys.platform:
+if sys.platform.startswith('linux') or 'freebsd' in sys.platform:
     def case_ok(filename):
         return True
 else:

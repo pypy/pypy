@@ -2820,11 +2820,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_residual_call_invalidate_some_arrays(self):
         ops = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
         i3 = call(i1, descr=writearraydescr)
-        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i4 = getarrayitem_gc(p1, 1, descr=arraydescr)
         escape(p3)
@@ -2837,7 +2837,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
         i3 = call(i1, descr=writearraydescr)

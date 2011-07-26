@@ -44,11 +44,11 @@ class W_Root(object):
             return True
         return False
 
-    def deldictvalue(self, space, w_name):
+    def deldictvalue(self, space, attr):
         w_dict = self.getdict(space)
         if w_dict is not None:
             try:
-                space.delitem(w_dict, w_name)
+                space.delitem(w_dict, space.wrap(attr))
                 return True
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):
@@ -1283,6 +1283,17 @@ class ObjSpace(object):
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
         return value
+
+    def truncatedint(self, w_obj):
+        # Like space.gateway_int_w(), but return the integer truncated
+        # instead of raising OverflowError.  For obscure cases only.
+        try:
+            return self.int_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_OverflowError):
+                raise
+            from pypy.rlib.rarithmetic import intmask
+            return intmask(self.bigint_w(w_obj).uintmask())
 
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but

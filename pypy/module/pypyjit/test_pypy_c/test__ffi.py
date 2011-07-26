@@ -30,7 +30,6 @@ class Test__ffi(BaseTestPyPyC):
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('fficall', """
-            p16 = getfield_gc(ConstPtr(ptr15), descr=<.* .*Function.inst_name .*>)
             guard_not_invalidated(descr=...)
             i17 = force_token()
             setfield_gc(p0, i17, descr=<.* .*PyFrame.vable_token .*>)

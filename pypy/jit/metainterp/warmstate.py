@@ -138,7 +138,10 @@ def set_future_value(cpu, j, value, typecode):
         refvalue = cpu.ts.cast_to_ref(value)
         cpu.set_future_value_ref(j, refvalue)
     elif typecode == 'int':
-        intvalue = lltype.cast_primitive(lltype.Signed, value)
+        if isinstance(lltype.typeOf(value), lltype.Ptr):
+            intvalue = llmemory.AddressAsInt(llmemory.cast_ptr_to_adr(value))
+        else:
+            intvalue = lltype.cast_primitive(lltype.Signed, value)
         cpu.set_future_value_int(j, intvalue)
     elif typecode == 'float':
         if lltype.typeOf(value) is lltype.Float:
@@ -569,6 +572,19 @@ class WarmEnterState(object):
             return can_inline_greenargs(*greenargs)
         self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
+
+        if jd._should_unroll_one_iteration_ptr is None:
+            def should_unroll_one_iteration(greenkey):
+                return False
+        else:
+            rtyper = self.warmrunnerdesc.rtyper
+            inline_ptr = jd._should_unroll_one_iteration_ptr
+            def should_unroll_one_iteration(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                fn = support.maybe_on_top_of_llinterp(rtyper, inline_ptr)
+                return fn(*greenargs)
+        self.should_unroll_one_iteration = should_unroll_one_iteration
+        
         if hasattr(jd.jitdriver, 'on_compile'):
             def on_compile(logger, token, operations, type, greenkey):
                 greenargs = unwrap_greenkey(greenkey)

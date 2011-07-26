@@ -585,6 +585,8 @@ LL_OPERATIONS = {
     'classof':              LLOp(oo=True, canfold=True),
     'subclassof':           LLOp(oo=True, canfold=True),
     'oostring':             LLOp(oo=True, sideeffects=False),
+    'oobox_int':            LLOp(oo=True, sideeffects=False),
+    'oounbox_int':          LLOp(oo=True, sideeffects=False),
     'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
     'ooparse_float':        LLOp(oo=True, canraise=(ValueError,)),
     'oounicode':            LLOp(oo=True, canraise=(UnicodeDecodeError,)),
