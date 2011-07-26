@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem import rdict
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rpython.memory.support import mangle_hash
 
 # This is a low-level AddressDict, reusing a lot of the logic from rdict.py.
 # xxx this is very dependent on the details of rdict.py
@@ -41,8 +40,7 @@ def dict_delete_entries(entries):
     lltype.free(entries, flavor="raw")
     if not we_are_translated(): count_alloc(-1)
 
-def _hash(adr):
-    return mangle_hash(llmemory.cast_adr_to_int(adr))
+_hash = llmemory.cast_adr_to_int
 
 def dict_keyhash(d, key):
     return _hash(key)
