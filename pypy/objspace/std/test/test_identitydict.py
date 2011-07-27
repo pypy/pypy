@@ -32,10 +32,20 @@ class AppTestComparesByIdentity:
             def __hash__(self):
                 return 0
 
+        class TypeSubclass(type):
+            pass
+
+        class TypeSubclassCustomCmp(type):
+            def __cmp__(self, other):
+                return 0
+
         assert self.compares_by_identity(Plain)
         assert not self.compares_by_identity(CustomEq)
         assert not self.compares_by_identity(CustomCmp)
         assert not self.compares_by_identity(CustomHash)
+        assert self.compares_by_identity(type)
+        assert self.compares_by_identity(TypeSubclass)
+        assert not self.compares_by_identity(TypeSubclassCustomCmp)
 
     def test_modify_class(self):
         class X(object):

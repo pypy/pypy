@@ -173,8 +173,6 @@ class W_TypeObject(W_Object):
             # ^^^ conservative default, fixed during real usage
 
         if space.config.objspace.std.withidentitydict:
-            did_compare_by_identity = (
-                w_self.compares_by_identity_status == COMPARES_BY_IDENTITY)
             if (key is None or key == '__eq__' or
                 key == '__cmp__' or key == '__hash__'):
                 w_self.compares_by_identity_status = UNKNOWN
@@ -229,7 +227,7 @@ class W_TypeObject(W_Object):
         return w_self.getattribute_if_not_from_object() is None
 
     def compares_by_identity(w_self):
-        from pypy.objspace.descroperation import object_hash
+        from pypy.objspace.descroperation import object_hash, type_eq
         if not w_self.space.config.objspace.std.withidentitydict:
             return False # conservative
         #
@@ -238,7 +236,9 @@ class W_TypeObject(W_Object):
             return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
         #
         default_hash = object_hash(w_self.space)
-        overrides_eq_cmp_or_hash = (w_self.lookup('__eq__') or
+        my_eq = w_self.lookup('__eq__')
+        overrides_eq = (my_eq and my_eq is not type_eq(w_self.space))
+        overrides_eq_cmp_or_hash = (overrides_eq or
                                     w_self.lookup('__cmp__') or
                                     w_self.lookup('__hash__') is not default_hash)
         if overrides_eq_cmp_or_hash:
