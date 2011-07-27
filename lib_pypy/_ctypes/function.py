@@ -296,7 +296,10 @@ class CFuncPtr(_CData):
                     "This function takes %d argument%s (%s given)"
                     % (len(self._argtypes_), plural, len(args)))
 
-            newargs = self._convert_args_for_callback(argtypes, args)
+            try:
+                newargs = self._convert_args_for_callback(argtypes, args)
+            except (UnicodeError, TypeError, ValueError), e:
+                raise ArgumentError(str(e))
             try:
                 res = self.callable(*newargs)
             except:

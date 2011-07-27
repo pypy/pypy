@@ -246,7 +246,6 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         assert cfunc(param) is param
 
     def test_raise_argumenterror(self):
-        py.test.skip('FIXME')
         def callback(x):
             pass
         FUNC = CFUNCTYPE(None, c_void_p)
