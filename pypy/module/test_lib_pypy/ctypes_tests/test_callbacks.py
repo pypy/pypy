@@ -235,6 +235,16 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         out, err = capsys.readouterr()
         assert (out, err) == ("", "")
 
+
+    def test_callback_pyobject(self):
+        def callback(obj):
+            return obj
+
+        FUNC = CFUNCTYPE(py_object, py_object)
+        cfunc = FUNC(callback)
+        param = c_int(42)
+        assert cfunc(param) is param
+
     def test_raise_argumenterror(self):
         py.test.skip('FIXME')
         def callback(x):
