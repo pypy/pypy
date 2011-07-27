@@ -282,8 +282,8 @@ def str__Bytearray(space, w_bytearray):
     return space.wrap(''.join(w_bytearray.data))
 
 def _convert_idx_params(space, w_self, w_start, w_stop):
-    start = slicetype._Eval_SliceIndex(space, w_start)
-    stop = slicetype._Eval_SliceIndex(space, w_stop)
+    start = slicetype.eval_slice_index(space, w_start)
+    stop = slicetype.eval_slice_index(space, w_stop)
     length = len(w_self.data)
     if start < 0:
         start += length

@@ -172,8 +172,8 @@ def tuple_count__Tuple_ANY(space, w_tuple, w_obj):
     return space.wrap(count)
 
 def tuple_index__Tuple_ANY_ANY_ANY(space, w_tuple, w_obj, w_start, w_stop):
-    start = slicetype._Eval_SliceIndex(space, w_start)
-    stop = slicetype._Eval_SliceIndex(space, w_stop)
+    start = slicetype.eval_slice_index(space, w_start)
+    stop = slicetype.eval_slice_index(space, w_stop)
     length = len(w_tuple.wrappeditems)
     if start < 0:
         start += length
