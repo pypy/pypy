@@ -188,7 +188,7 @@ class AppTestFfi:
         assert get_dummy() == 123
         set_val_to_ptr(ptr2, 0)
 
-    def test_convert_strings_to_char_str_p(self):
+    def test_convert_strings_to_char_p(self):
         """
             long mystrlen(char* s)
             {
@@ -208,6 +208,31 @@ class AppTestFfi:
         # then, try to pass an explicit pointer
         CharArray = _rawffi.Array('c')
         mystr = CharArray(7, 'foobar')
+        assert mystrlen(mystr.buffer) == 6
+        mystr.free()
+
+    def test_convert_unicode_to_unichar_p(self):
+        """
+            #include <wchar.h>
+            long mystrlen_u(wchar_t* s)
+            {
+                long len = 0;
+                while(*s++)
+                    len++;
+                return len;
+            }
+        """
+        from _ffi import CDLL, types
+        import _rawffi
+        libfoo = CDLL(self.libfoo_name)
+        mystrlen = libfoo.getfunc('mystrlen_u', [types.unichar_p], types.slong)
+        #
+        # first, try automatic conversion from strings and unicode
+        assert mystrlen('foobar') == 6
+        assert mystrlen(u'foobar') == 6
+        # then, try to pass an explicit pointer
+        UniCharArray = _rawffi.Array('u')
+        mystr = UniCharArray(7, u'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
 
@@ -231,6 +256,8 @@ class AppTestFfi:
         from _ffi import types
         x = types.Pointer(types.char)
         assert x is types.char_p
+        x = types.Pointer(types.unichar)
+        assert x is types.unichar_p
 
     def test_typed_pointer_args(self):
         """

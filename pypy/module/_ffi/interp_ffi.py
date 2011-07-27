@@ -77,6 +77,10 @@ class W_FFIType(Wrappable):
     def is_char_p(self):
         return self is app_types.char_p
 
+    def is_unichar_p(self):
+        return self is app_types.unichar_p
+
+
 W_FFIType.typedef = TypeDef(
     'FFIType',
     __repr__ = interp2app(W_FFIType.repr),
@@ -120,7 +124,9 @@ def build_ffi_types():
         ]
     d = dict([(t.name, t) for t in types])
     w_char = d['char']
+    w_unichar = d['unichar']
     d['char_p'] = W_FFIType('char_p', libffi.types.pointer, w_pointer_to = w_char)
+    d['unichar_p'] = W_FFIType('unichar_p', libffi.types.pointer, w_pointer_to = w_unichar)
     return d
 
 class app_types:
@@ -133,6 +139,8 @@ def descr_new_pointer(space, w_cls, w_pointer_to):
     except KeyError:
         if w_pointer_to is app_types.char:
             w_result = app_types.char_p
+        elif w_pointer_to is app_types.unichar:
+            w_result = app_types.unichar_p
         else:
             w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
             name = '(pointer to %s)' % w_pointer_to.name
@@ -235,6 +243,14 @@ class W_FuncPtr(Wrappable):
         if w_argtype.is_char_p() and w_type is space.w_str:
             strval = space.str_w(w_arg)
             buf = rffi.str2charp(strval)
+            to_free.append(buf)
+            addr = rffi.cast(rffi.ULONG, buf)
+            argchain.arg(addr)
+            return True
+        elif w_argtype.is_unichar_p() and (w_type is space.w_str or
+                                           w_type is space.w_unicode):
+            unicodeval = space.unicode_w(w_arg)
+            buf = rffi.unicode2wcharp(unicodeval)
             to_free.append(buf)
             addr = rffi.cast(rffi.ULONG, buf)
             argchain.arg(addr)
