@@ -894,13 +894,10 @@ class BufferingOutputStream(Stream):
             self.buf.append(data)
             self.buflen += datalen
         elif buflen:
-            i = self.bufsize - buflen
-            assert i >= 0
-            self.buf.append(data[:i])
+            self.buf.append(data)
             self.do_write(''.join(self.buf))
             self.buf = []
             self.buflen = 0
-            self.write(data[i:])
         else:
             self.do_write(data)
 
