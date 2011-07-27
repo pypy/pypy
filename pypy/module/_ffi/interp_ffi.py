@@ -74,6 +74,9 @@ class W_FFIType(Wrappable):
     def is_struct(self):
         return libffi.types.is_struct(self.ffitype)
 
+    def is_char_p(self):
+        return self is app_types.char_p
+
 W_FFIType.typedef = TypeDef(
     'FFIType',
     __repr__ = interp2app(W_FFIType.repr),
@@ -115,7 +118,10 @@ def build_ffi_types():
         ## 'Z' : ffi_type_pointer,
 
         ]
-    return dict([(t.name, t) for t in types])
+    d = dict([(t.name, t) for t in types])
+    w_char = d['char']
+    d['char_p'] = W_FFIType('char_p', libffi.types.pointer, w_pointer_to = w_char)
+    return d
 
 class app_types:
     pass
@@ -125,9 +131,12 @@ def descr_new_pointer(space, w_cls, w_pointer_to):
     try:
         return descr_new_pointer.cache[w_pointer_to]
     except KeyError:
-        w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
-        name = '(pointer to %s)' % w_pointer_to.name
-        w_result = W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
+        if w_pointer_to is app_types.char:
+            w_result = app_types.char_p
+        else:
+            w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
+            name = '(pointer to %s)' % w_pointer_to.name
+            w_result = W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
         descr_new_pointer.cache[w_pointer_to] = w_result
         return w_result
 descr_new_pointer.cache = {}
@@ -178,6 +187,8 @@ class W_FuncPtr(Wrappable):
                                   self.func.name, expected, arg, given)
         #
         argchain = libffi.ArgChain()
+        to_free = [] # list of automatically malloc()ed buffers that needs to
+                     # be freed after the call
         for i in range(expected):
             w_argtype = self.argtypes_w[i]
             w_arg = args_w[i]
@@ -188,6 +199,9 @@ class W_FuncPtr(Wrappable):
                 self.arg_longlong(space, argchain, w_arg)
             elif w_argtype.is_signed():
                 argchain.arg(unwrap_truncate_int(rffi.LONG, space, w_arg))
+            elif self.add_char_p_maybe(space, argchain, to_free, w_arg, w_argtype):
+                # the argument is added to the argchain direcly by the method above
+                pass
             elif w_argtype.is_pointer():
                 w_arg = self.convert_pointer_arg_maybe(space, w_arg, w_argtype)
                 argchain.arg(intmask(space.uint_w(w_arg)))
@@ -210,7 +224,22 @@ class W_FuncPtr(Wrappable):
                 argchain.arg_raw(ptrval)
             else:
                 assert False, "Argument shape '%s' not supported" % w_argtype
-        return argchain
+        return argchain, to_free
+
+    def add_char_p_maybe(self, space, argchain, to_free, w_arg, w_argtype):
+        """
+        Automatic conversion from string to char_p. The allocated buffer will
+        be automatically freed after the call.
+        """
+        w_type = jit.promote(space.type(w_arg))
+        if w_argtype.is_char_p() and w_type is space.w_str:
+            strval = space.str_w(w_arg)
+            buf = rffi.str2charp(strval)
+            to_free.append(buf)
+            addr = rffi.cast(rffi.ULONG, buf)
+            argchain.arg(addr)
+            return True
+        return False
 
     def convert_pointer_arg_maybe(self, space, w_arg, w_argtype):
         """
@@ -234,7 +263,14 @@ class W_FuncPtr(Wrappable):
 
     def call(self, space, args_w):
         self = jit.promote(self)
-        argchain = self.build_argchain(space, args_w)
+        argchain, to_free = self.build_argchain(space, args_w)
+        try:
+            return self._do_call(space, argchain)
+        finally:
+            for buf in to_free:
+                lltype.free(buf, flavor='raw')
+
+    def _do_call(self, space, argchain):
         w_restype = self.w_restype
         if w_restype.is_longlong():
             # note that we must check for longlong first, because either

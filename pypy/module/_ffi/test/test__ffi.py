@@ -188,6 +188,29 @@ class AppTestFfi:
         assert get_dummy() == 123
         set_val_to_ptr(ptr2, 0)
 
+    def test_convert_strings_to_char_str_p(self):
+        """
+            long mystrlen(char* s)
+            {
+                long len = 0;
+                while(*s++)
+                    len++;
+                return len;
+            }
+        """
+        from _ffi import CDLL, types
+        import _rawffi
+        libfoo = CDLL(self.libfoo_name)
+        mystrlen = libfoo.getfunc('mystrlen', [types.char_p], types.slong)
+        #
+        # first, try automatic conversion from a string
+        assert mystrlen('foobar') == 6
+        # then, try to pass an explicit pointer
+        CharArray = _rawffi.Array('c')
+        mystr = CharArray(7, 'foobar')
+        assert mystrlen(mystr.buffer) == 6
+        mystr.free()
+
     def test_typed_pointer(self):
         from _ffi import types
         intptr = types.Pointer(types.sint) # create a typed pointer to sint
@@ -203,6 +226,11 @@ class AppTestFfi:
         z = types.Pointer(types.char)
         assert x is y
         assert x is not z
+
+    def test_char_p_cached(self):
+        from _ffi import types
+        x = types.Pointer(types.char)
+        assert x is types.char_p
 
     def test_typed_pointer_args(self):
         """
