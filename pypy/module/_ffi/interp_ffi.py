@@ -243,7 +243,7 @@ class W_FuncPtr(Wrappable):
         if w_argtype.is_char_p() and w_type is space.w_str:
             strval = space.str_w(w_arg)
             buf = rffi.str2charp(strval)
-            to_free.append(buf)
+            to_free.append(rffi.cast(rffi.VOIDP, buf))
             addr = rffi.cast(rffi.ULONG, buf)
             argchain.arg(addr)
             return True
@@ -251,7 +251,7 @@ class W_FuncPtr(Wrappable):
                                            w_type is space.w_unicode):
             unicodeval = space.unicode_w(w_arg)
             buf = rffi.unicode2wcharp(unicodeval)
-            to_free.append(buf)
+            to_free.append(rffi.cast(rffi.VOIDP, buf))
             addr = rffi.cast(rffi.ULONG, buf)
             argchain.arg(addr)
             return True
