@@ -490,6 +490,10 @@ def PYFUNCTYPE(restype, *argtypes):
     return CFunctionType
 
 def cast(obj, typ):
+    try:
+        c_void_p.from_param(obj)
+    except TypeError, e:
+        raise ArgumentError(str(e))
     return _cast_addr(obj, obj, typ)
 
 _string_at = PYFUNCTYPE(py_object, c_void_p, c_int)(_string_at_addr)
