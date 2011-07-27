@@ -470,7 +470,9 @@ class CFuncPtr(_CData):
         newargs = []
         for argtype, arg in zip(argtypes, args):
             param = argtype.from_param(arg)
-            if self._is_primitive(argtype):
+            if argtype._type_ == 'P': # special-case for c_void_p
+                param = param._get_buffer_value()
+            elif self._is_primitive(argtype):
                 param = param.value
             newargs.append(param)
         return newargs
