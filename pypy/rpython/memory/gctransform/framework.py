@@ -932,10 +932,10 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_gc_identityhash(self, hop):
         livevars = self.push_roots(hop)
         [v_ptr] = hop.spaceop.args
-        v_adr = hop.genop("cast_ptr_to_adr", [v_ptr],
-                          resulttype=llmemory.Address)
+        v_ptr = hop.genop("cast_opaque_ptr", [v_ptr],
+                          resulttype=llmemory.GCREF)
         hop.genop("direct_call",
-                  [self.identityhash_ptr, self.c_const_gc, v_adr],
+                  [self.identityhash_ptr, self.c_const_gc, v_ptr],
                   resultvar=hop.spaceop.result)
         self.pop_roots(hop, livevars)
 
