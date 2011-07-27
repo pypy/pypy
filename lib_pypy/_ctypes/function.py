@@ -296,13 +296,9 @@ class CFuncPtr(_CData):
                     "This function takes %d argument%s (%s given)"
                     % (len(self._argtypes_), plural, len(args)))
 
-            # check that arguments are convertible
-            ## XXX Not as long as ctypes.cast is a callback function with
-            ## py_object arguments...
-            ## self._convert_args(self._argtypes_, args, {})
-
+            newargs = self._convert_args_for_callback(argtypes, args)
             try:
-                res = self.callable(*args)
+                res = self.callable(*newargs)
             except:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
@@ -466,6 +462,16 @@ class CFuncPtr(_CData):
 
         return cobj, cobj._to_ffi_param(), type(cobj)
 
+    def _convert_args_for_callback(self, argtypes, args):
+        assert len(argtypes) == len(args)
+        newargs = []
+        for argtype, arg in zip(argtypes, args):
+            param = argtype.from_param(arg)
+            if self._is_primitive(argtype):
+                param = param.value
+            newargs.append(param)
+        return newargs
+
     def _convert_args(self, argtypes, args, kwargs, marker=object()):
         newargs = []
         outargs = []
@@ -556,6 +562,9 @@ class CFuncPtr(_CData):
                 newargtypes.append(newargtype)
         return keepalives, newargs, newargtypes, outargs
 
+    @staticmethod
+    def _is_primitive(argtype):
+        return argtype.__bases__[0] is _SimpleCData
     
     def _wrap_result(self, restype, result):
         """
@@ -564,7 +573,7 @@ class CFuncPtr(_CData):
         """
         # hack for performance: if restype is a "simple" primitive type, don't
         # allocate the buffer because it's going to be thrown away immediately
-        if restype.__bases__[0] is _SimpleCData and not restype._is_pointer_like():
+        if self._is_primitive(restype) and not restype._is_pointer_like():
             return result
         #
         shape = restype._ffishape

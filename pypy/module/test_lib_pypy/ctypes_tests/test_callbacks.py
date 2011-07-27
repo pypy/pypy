@@ -15,12 +15,12 @@ class TestCallbacks(BaseCTypesTestChecker):
 
     def check_type(self, typ, arg):
         unwrapped_types = {
-            c_float: float,
-            c_double: float,
-            c_char: str,
-            c_char_p: str,
-            c_uint: long,
-            c_ulong: long,
+            c_float: (float,),
+            c_double: (float,),
+            c_char: (str,),
+            c_char_p: (str,),
+            c_uint: (int, long),
+            c_ulong: (int, long),
             }
         
         PROTO = self.functype.im_func(typ, typ)
@@ -33,7 +33,7 @@ class TestCallbacks(BaseCTypesTestChecker):
             assert result == arg
 
         result2 = cfunc(typ(arg))
-        assert type(result2) is unwrapped_types.get(typ, int)
+        assert type(result2) in unwrapped_types.get(typ, (int, long))
 
         PROTO = self.functype.im_func(typ, c_byte, typ)
         result = PROTO(self.callback)(-3, arg)
