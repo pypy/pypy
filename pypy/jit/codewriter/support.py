@@ -20,7 +20,6 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
-from pypy.rlib.jit import elidable
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 
 def getargtypes(annotator, values):
@@ -168,14 +167,9 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
-@elidable
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
 
-# the following function should not be "@elidable": I can think of
-# a corner case in which id(const) is constant-folded, and then 'const'
-# disappears and is collected too early (possibly causing another object
-# with the same id() to appear).
 def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
 
@@ -183,7 +177,6 @@ def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
 
-@elidable
 def _ll_2_int_floordiv_ovf_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
@@ -191,19 +184,16 @@ def _ll_2_int_floordiv_ovf_zer(x, y):
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
-@elidable
 def _ll_2_int_floordiv_ovf(x, y):
     if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
-@elidable
 def _ll_2_int_floordiv_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
     return llop.int_floordiv(lltype.Signed, x, y)
 
-@elidable
 def _ll_2_int_mod_ovf_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
@@ -211,26 +201,22 @@ def _ll_2_int_mod_ovf_zer(x, y):
         raise OverflowError
     return llop.int_mod(lltype.Signed, x, y)
 
-@elidable
 def _ll_2_int_mod_ovf(x, y):
     if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_mod(lltype.Signed, x, y)
 
-@elidable
 def _ll_2_int_mod_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
     return llop.int_mod(lltype.Signed, x, y)
 
-@elidable
 def _ll_2_int_lshift_ovf(x, y):
     result = x << y
     if (result >> y) != x:
         raise OverflowError
     return result
 
-@elidable
 def _ll_1_int_abs(x):
     if x < 0:
         return -x
