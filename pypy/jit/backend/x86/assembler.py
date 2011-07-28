@@ -2051,7 +2051,18 @@ class Assembler386(object):
                 #     and this way is simpler also because the result loc
                 #     can just be always a stack location
             else:
-                self.mc.FSTP_b(resloc.value)   # float return
+                self.mc.FSTPL_b(resloc.value)   # float return
+        elif op.getdescr().get_return_type() == 'S':
+            # singlefloat return
+            assert resloc is eax
+            if IS_X86_32:
+                # must convert ST(0) to a 32-bit singlefloat and load it into EAX
+                # mess mess mess
+                self.mc.SUB_ri(esp.value, 4)
+                self.mc.FSTPS_s(0)
+                self.mc.POP_r(eax.value)
+            elif IS_X86_64:
+                XXX
         elif size == WORD:
             assert resloc is eax or resloc is xmm0    # a full word
         elif size == 0:

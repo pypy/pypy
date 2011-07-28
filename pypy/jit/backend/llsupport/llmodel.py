@@ -499,7 +499,7 @@ class AbstractLLCPU(AbstractCPU):
     def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
         assert isinstance(calldescr, BaseIntCallDescr)
         if not we_are_translated():
-            calldescr.verify_types(args_i, args_r, args_f, history.INT)
+            calldescr.verify_types(args_i, args_r, args_f, history.INT + 'S')
         return calldescr.call_stub(func, args_i, args_r, args_f)
 
     def bh_call_r(self, func, calldescr, args_i, args_r, args_f):

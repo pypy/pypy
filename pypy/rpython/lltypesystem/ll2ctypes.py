@@ -692,6 +692,8 @@ def lltype2ctypes(llobj, normalize=True):
                     res = ctypes.cast(res, ctypes.c_void_p).value
                     if res is None:
                         return 0
+                if T.TO.RESULT == lltype.SingleFloat:
+                    res = res.value     # baaaah, cannot return a c_float()
                 return res
 
             def callback(*cargs):

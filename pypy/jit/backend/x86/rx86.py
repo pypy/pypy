@@ -573,7 +573,8 @@ class AbstractX86CodeBuilder(object):
     BTS_jr = insn(rex_w, '\x0F\xAB', register(2,8), abs_, immediate(1))
 
     # x87 instructions
-    FSTP_b = insn('\xDD', orbyte(3<<3), stack_bp(1))
+    FSTPL_b = insn('\xDD', orbyte(3<<3), stack_bp(1)) # rffi.DOUBLE ('as' wants L??)
+    FSTPS_s = insn('\xD9', orbyte(3<<3), stack_sp(1)) # lltype.SingleFloat
 
     # ------------------------------ Random mess -----------------------
     RDTSC = insn('\x0F\x31')
