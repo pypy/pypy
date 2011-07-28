@@ -1061,3 +1061,11 @@ class scoped_alloc_unicodebuffer:
         keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
     def str(self, length):
         return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)
+
+# You would have to have a *huge* amount of data for this to block long enough
+# to be worth it to release the GIL.
+c_memcpy = llexternal("memcpy",
+    [VOIDP, VOIDP, SIZE_T],
+    lltype.Void,
+    threadsafe=False
+)
