@@ -39,7 +39,6 @@ register_all(vars(), globals())
 def descr__frozenset__new__(space, w_frozensettype,
                             w_iterable=gateway.NoneNotWrapped):
     from pypy.objspace.std.setobject import W_FrozensetObject
-    from pypy.objspace.std.setobject import make_setdata_from_w_iterable
     if (space.is_w(w_frozensettype, space.w_frozenset) and
         w_iterable is not None and type(w_iterable) is W_FrozensetObject):
         return w_iterable

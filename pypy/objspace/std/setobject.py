@@ -725,6 +725,7 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
     for item_w in w_iterable:
         if type(item_w) is not W_IntObject:
             break;
+        #XXX wont work for [1, "two", "three", 1] use StopIteration instead
         if item_w is w_iterable[-1]:
             w_set.strategy = space.fromcache(IntegerSetStrategy)
             w_set.sstorage = w_set.strategy.get_storage_from_list(w_iterable)
@@ -732,18 +733,6 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     w_set.strategy = space.fromcache(ObjectSetStrategy)
     w_set.sstorage = w_set.strategy.get_storage_from_list(w_iterable)
-
-def make_setdata_from_w_iterable(space, w_iterable=None):
-    #XXX remove this later
-    """Return a new r_dict with the content of w_iterable."""
-    if isinstance(w_iterable, W_BaseSetObject):
-        #XXX is this bad or not?
-        return w_iterable.getdict_w()
-    data = newset(space)
-    if w_iterable is not None:
-        for w_item in space.listview(w_iterable):
-            data[w_item] = None
-    return data
 
 def _initialize_set(space, w_obj, w_iterable=None):
     w_obj.clear()
@@ -1087,6 +1076,7 @@ set_isdisjoint__Frozenset_Set = set_isdisjoint__Set_Set
 def set_isdisjoint__Set_ANY(space, w_left, w_other):
     #XXX maybe checking if type fits strategy first (before comparing) speeds this up a bit
     #    since this will be used in many other functions -> general function for that
+    # if w_left.strategy != w_other.strategy => return w_False
     for w_key in space.listview(w_other):
         if w_left.has_key(w_key):
             return space.w_False

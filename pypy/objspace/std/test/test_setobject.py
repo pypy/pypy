@@ -18,13 +18,6 @@ from pypy.conftest import gettestobjspace
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
-def make_setdata_from_w_iterable(space, w_iterable):
-    data = newset(space)
-    if w_iterable is not None:
-        for w_item in space.listview(w_iterable):
-            data[w_item] = None
-    return data
-
 class W_SubSetObject(W_SetObject):pass
 
 class TestW_SetObject:
