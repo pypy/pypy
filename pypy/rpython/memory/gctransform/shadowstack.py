@@ -2,6 +2,7 @@ from pypy.rpython.memory.gctransform.framework import BaseRootWalker
 from pypy.rpython.memory.gctransform.framework import sizeofaddr
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem import llmemory
+from pypy.annotation import model as annmodel
 
 
 class ShadowStackRootWalker(BaseRootWalker):
