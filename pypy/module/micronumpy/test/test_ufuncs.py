@@ -205,3 +205,47 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = tan(a)
         for i in range(len(a)):
             assert b[i] == math.tan(a[i])
+
+
+    def test_arcsin(self):
+        import math
+        from numpy import array, arcsin
+
+        a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])        
+        b = arcsin(a)
+        for i in range(len(a)):
+            assert b[i] == math.asin(a[i])
+
+        a = array([-10, -1.5, -1.01, 1.01, 1.5, 10, float('nan'), float('inf'), float('-inf')])
+        b = arcsin(a)
+        for f in b:
+            assert math.isnan(f)
+
+    def test_arccos(self):
+        import math
+        from numpy import array, arccos
+
+        a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])
+        b = arccos(a)
+        for i in range(len(a)):
+            assert b[i] == math.acos(a[i])
+
+        
+        a = array([-10, -1.5, -1.01, 1.01, 1.5, 10, float('nan'), float('inf'), float('-inf')])
+        b = arccos(a)
+        for f in b:
+            assert math.isnan(f)
+
+    def test_arctan(self):
+        import math
+        from numpy import array, arctan
+
+        a = array([-3, -2, -1, 0, 1, 2, 3])
+        b = arctan(a)
+        for i in range(len(a)):
+            assert b[i] == math.atan(a[i])
+
+        a  = array([float('nan')])
+        b = arctan(a)
+        assert math.isnan(b[0])
+

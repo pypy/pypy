@@ -120,3 +120,20 @@ def power(lvalue, rvalue):
 @ufunc2
 def mod(lvalue, rvalue):
     return math.fmod(lvalue, rvalue)
+
+
+@ufunc
+def arcsin(value):
+    if value < -1.0 or  value > 1.0:
+        return rfloat.NAN
+    return math.asin(value)
+
+@ufunc
+def arccos(value):
+    if value < -1.0 or  value > 1.0:
+        return rfloat.NAN
+    return math.acos(value)
+
+@ufunc
+def arctan(value):
+    return math.atan(value)
