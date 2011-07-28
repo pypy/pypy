@@ -36,6 +36,14 @@ class CodeCheckerMixin(object):
 def hexdump(s):
     return ' '.join(["%02X" % ord(c) for c in s])
 
+def reduce_to_32bit(s):
+    if s[:2] != '%r':
+        return s
+    if s[2:].isdigit():
+        return s + 'd'
+    else:
+        return '%e' + s[2:]
+
 # ____________________________________________________________
 
 COUNT1 = 15
@@ -220,10 +228,10 @@ class TestRx86_32(object):
                 and ops[1].startswith('%r')):
                 # movq $xxx, %rax => movl $xxx, %eax
                 suffix = 'l'
-                if ops[1][2:].isdigit():
-                    ops[1] += 'd'
-                else:
-                    ops[1] = '%e' + ops[1][2:]
+                ops[1] = reduce_to_32bit(ops[1])
+            if instrname.lower() == 'movd':
+                ops[0] = reduce_to_32bit(ops[0])
+                ops[1] = reduce_to_32bit(ops[1])
             #
             op = '\t%s%s %s%s' % (instrname.lower(), suffix,
                                   ', '.join(ops), following)

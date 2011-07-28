@@ -600,10 +600,9 @@ class AbstractX86CodeBuilder(object):
     CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A',
                           register(1, 8), stack_bp(2))
 
-    # note that MOVD is a word-sized move (i.e. really MOVQ on 64-bit)
-    MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
-    MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
-    MOVD_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
+    MOVD_rx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVD_xr = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), register(2), '\xC0')
+    MOVD_xb = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_bp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
 
