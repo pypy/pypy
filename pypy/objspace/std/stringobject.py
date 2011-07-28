@@ -913,7 +913,7 @@ def getnewargs__String(space, w_str):
 def repr__String(space, w_str):
     s = w_str._value
 
-    buf = StringBuilder(50)
+    buf = StringBuilder(len(s) + 2)
 
     quote = "'"
     if quote in s and '"' not in s:
