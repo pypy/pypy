@@ -2235,7 +2235,7 @@ class Assembler386(object):
         self._emit_call(fail_index, imm(asm_helper_adr), [eax, arglocs[1]], 0,
                         tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
-            self.mc.FSTP_b(result_loc.value)
+            self.mc.FSTPL_b(result_loc.value)
         #else: result_loc is already either eax or None, checked below
         self.mc.JMP_l8(0) # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
