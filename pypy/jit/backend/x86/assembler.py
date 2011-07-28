@@ -1068,9 +1068,10 @@ class Assembler386(object):
                     self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
-    def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax):
+    def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax,
+                   argtypes=None):
         if IS_X86_64:
-            return self._emit_call_64(force_index, x, arglocs, start)
+            return self._emit_call_64(force_index, x, arglocs, start, argtypes)
 
         p = 0
         n = len(arglocs)
@@ -1098,12 +1099,13 @@ class Assembler386(object):
         self.mc.CALL(x)
         self.mark_gc_roots(force_index)
 
-    def _emit_call_64(self, force_index, x, arglocs, start):
+    def _emit_call_64(self, force_index, x, arglocs, start, argtypes):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
         xmm_dst_locs = []
         pass_on_stack = []
+        singlefloats = None
 
         # In reverse order for use with pop()
         unused_gpr = [r9, r8, ecx, edx, esi, edi]
@@ -1123,6 +1125,11 @@ class Assembler386(object):
                     xmm_dst_locs.append(unused_xmm.pop())
                 else:
                     pass_on_stack.append(loc)
+            elif (argtypes is not None and argtypes[i-start] == 'S' and
+                  len(unused_xmm) > 0):
+                # Singlefloat argument
+                if singlefloats is None: singlefloats = []
+                singlefloats.append((loc, unused_xmm.pop()))
             else:
                 if len(unused_gpr) > 0:
                     src_locs.append(loc)
@@ -1150,9 +1157,15 @@ class Assembler386(object):
                 else:
                     self.mc.MOV_sr(i*WORD, loc.value)
 
-        # Handle register arguments
+        # Handle register arguments: first remap the xmm arguments
+        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs,
+                           X86_64_XMM_SCRATCH_REG)
+        # Load the singlefloat arguments from main regs or stack to xmm regs
+        if singlefloats is not None:
+            for src, dst in singlefloats:
+                self.mc.MOVD(dst, src)
+        # Finally remap the arguments in the main regs
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs, X86_64_XMM_SCRATCH_REG)
 
         self._regalloc.reserve_param(len(pass_on_stack))
         self.mc.CALL(x)
@@ -2039,7 +2052,8 @@ class Assembler386(object):
         else:
             tmp = eax
 
-        self._emit_call(force_index, x, arglocs, 3, tmp=tmp)
+        self._emit_call(force_index, x, arglocs, 3, tmp=tmp,
+                        argtypes=op.getdescr().get_arg_types())
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
             # a float or a long long return
