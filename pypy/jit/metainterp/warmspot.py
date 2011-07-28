@@ -409,6 +409,7 @@ class WarmRunnerDesc(object):
         jd.warmstate = state
 
         def crash_in_jit(e):
+            tb = not we_are_translated() and sys.exc_info()[2]
             try:
                 raise e
             except JitException:
@@ -422,8 +423,8 @@ class WarmRunnerDesc(object):
                     print "~~~ Crash in JIT!"
                     print '~~~ %s: %s' % (e.__class__, e)
                     if sys.stdout == sys.__stdout__:
-                        import pdb; pdb.post_mortem(sys.exc_info()[2])
-                    raise
+                        import pdb; pdb.post_mortem(tb)
+                    raise e.__class__, e, tb
                 fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
         crash_in_jit._dont_inline_ = True
 
