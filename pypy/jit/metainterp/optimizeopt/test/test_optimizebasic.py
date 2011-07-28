@@ -693,7 +693,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i]
-        guard_no_exception() []
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]

@@ -120,9 +120,9 @@ class FakeBuiltinCallControl:
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
             assert argtypes[1] == op.result.concretetype
             if oopspecindex == EI.OS_STR2UNICODE:
-                assert extraeffect == None    # not pure, can raise!
+                assert extraeffect == EI.EF_ELIDABLE_CAN_RAISE
             else:
-                assert extraeffect == EI.EF_ELIDABLE
+                assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
