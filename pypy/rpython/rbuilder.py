@@ -36,6 +36,11 @@ class AbstractStringBuilderRepr(Repr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll_append_multiple_char, *vlist)
 
+    def rtype_method_append_charpsize(self, hop):
+        vlist = hop.inputargs(self, self.raw_ptr_repr, lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll_append_charpsize, *vlist)
+
     def rtype_method_getlength(self, hop):
         vlist = hop.inputargs(self)
         hop.exception_cannot_occur()

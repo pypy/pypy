@@ -1,8 +1,11 @@
 import sys
+
+from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform as compiler, CompilationError
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
 
 if compiler.name == "msvc":
     libname = 'zlib'
@@ -353,7 +356,7 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
             # of characters 'result'.  We don't need to gradually
             # increase the output buffer size because there is no
             # quadratic factor.
-            result = []
+            result = StringBuilder()
 
             while True:
                 stream.c_next_out = rffi.cast(Bytefp, outbuf)
@@ -369,8 +372,7 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
                 if err == Z_OK or err == Z_STREAM_END:
                     # accumulate data into 'result'
                     avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)
-                    for i in xrange(bufsize - avail_out):
-                        result.append(outbuf[i])
+                    result.append_charpsize(outbuf, bufsize - avail_out)
                     # if the output buffer is full, there might be more data
                     # so we need to try again.  Otherwise, we're done.
                     if avail_out > 0:
@@ -401,6 +403,6 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     # When decompressing, if the compressed stream of data was truncated,
     # then the zlib simply returns Z_OK and waits for more.  If it is
     # complete it returns Z_STREAM_END.
-    return (''.join(result),
+    return (result.build(),
             err,
             rffi.cast(lltype.Signed, stream.c_avail_in))

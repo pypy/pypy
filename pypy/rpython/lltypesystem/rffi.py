@@ -789,8 +789,7 @@ def make_string_mappings(strtype):
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
         b = builder_class(size)
-        for i in xrange(size):
-            b.append(cp[i])
+        b.append_charpsize(cp, size)
         return b.build()
     charpsize2str._annenforceargs_ = [None, int]
 
