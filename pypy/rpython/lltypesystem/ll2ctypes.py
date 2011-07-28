@@ -27,7 +27,11 @@ from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.rpython import raddress
 from pypy.translator.platform import platform
 from array import array
-from thread import _local as tlsobject
+try:
+    from thread import _local as tlsobject
+except ImportError:
+    class tlsobject(object):
+        pass
 
 # ____________________________________________________________
 
