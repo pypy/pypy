@@ -407,6 +407,32 @@ class BasicTests:
         # the CALL_PURE is constant-folded away by optimizeopt.py
         self.check_loops(int_sub=1, call=0, call_pure=0, getfield_gc=0)
 
+    def test_elidable_raising(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        @elidable
+        def externfn(x):
+            if x <= 0:
+                raise ValueError
+            return x - 1
+        def f(n, m):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                try:
+                    n -= externfn(m)
+                except ValueError:
+                    n -= 1
+            return n
+        res = self.meta_interp(f, [22, 6])
+        assert res == -3
+        # the CALL_PURE is constant-folded away by optimizeopt.py
+        self.check_loops(int_sub=1, call=0, call_pure=0)
+        #
+        res = self.meta_interp(f, [22, -5])
+        assert res == 0
+        # raises: becomes CALL and is not constant-folded away
+        self.check_loops(int_sub=1, call=1, call_pure=0)
+
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         class X(object):
