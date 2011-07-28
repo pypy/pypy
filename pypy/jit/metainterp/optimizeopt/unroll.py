@@ -543,8 +543,10 @@ class ExeState(object):
         elif opnum == rop.CALL:
             effectinfo = descr.get_extra_info()
             if effectinfo is not None:
-                if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-                   effectinfo.extraeffect == EffectInfo.EF_ELIDABLE:
+                ef = effectinfo.extraeffect
+                if ef == EffectInfo.EF_LOOPINVARIANT or \
+                   ef == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+                   ef == EffectInfo.EF_ELIDABLE_CAN_RAISE:
                     return True
         return False
 
