@@ -20,12 +20,16 @@ VOID  = 'v'
 
 FAILARGS_LIMIT = 1000
 
-def getkind(TYPE, supports_floats=True, supports_longlong=True):
+def getkind(TYPE, supports_floats=True,
+                  supports_longlong=True,
+                  supports_singlefloats=True):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):
         if TYPE is lltype.Float and supports_floats:
             return 'float'
+        if TYPE is lltype.SingleFloat and supports_singlefloats:
+            return 'int'     # singlefloats are stored in an int
         if TYPE in (lltype.Float, lltype.SingleFloat):
             raise NotImplementedError("type %s not supported" % TYPE)
         # XXX fix this for oo...

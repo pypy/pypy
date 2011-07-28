@@ -1,6 +1,6 @@
 from pypy.translator.c.test.test_genc import compile
 from pypy.rlib.longlong2float import longlong2float, float2longlong
-from pypy.rlib.longlong2float import int2singlefloat, singlefloat2int
+from pypy.rlib.longlong2float import uint2singlefloat, singlefloat2uint
 from pypy.rlib.rarithmetic import r_singlefloat
 
 
@@ -35,8 +35,8 @@ def test_compiled():
 
 def fnsingle(f1):
     sf1 = r_singlefloat(f1)
-    ii = singlefloat2int(sf1)
-    sf2 = int2singlefloat(ii)
+    ii = singlefloat2uint(sf1)
+    sf2 = uint2singlefloat(ii)
     f2 = float(sf2)
     return f2
 

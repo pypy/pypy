@@ -91,6 +91,7 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 class BaseCPU(model.AbstractCPU):
     supports_floats = True
     supports_longlong = llimpl.IS_32_BIT
+    supports_singlefloats = True
 
     def __init__(self, rtyper, stats=None, opts=None,
                  translate_support_code=False,

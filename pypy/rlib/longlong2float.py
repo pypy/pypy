@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 # -------- implement longlong2float and float2longlong --------
 DOUBLE_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.DOUBLE))
 LONGLONG_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.LONGLONG))
-INT_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.INT))
+UINT_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.UINT))
 FLOAT_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.FLOAT))
 
 # these definitions are used only in tests, when not translated
@@ -31,17 +31,17 @@ def float2longlong_emulator(floatval):
     lltype.free(d_array, flavor='raw')
     return llval
 
-def int2singlefloat_emulator(ival):
+def uint2singlefloat_emulator(ival):
     f_array = lltype.malloc(FLOAT_ARRAY_PTR.TO, 1, flavor='raw')
-    i_array = rffi.cast(INT_ARRAY_PTR, f_array)
+    i_array = rffi.cast(UINT_ARRAY_PTR, f_array)
     i_array[0] = ival
     singlefloatval = f_array[0]
     lltype.free(f_array, flavor='raw')
     return singlefloatval
 
-def singlefloat2int_emulator(singlefloatval):
+def singlefloat2uint_emulator(singlefloatval):
     f_array = lltype.malloc(FLOAT_ARRAY_PTR.TO, 1, flavor='raw')
-    i_array = rffi.cast(INT_ARRAY_PTR, f_array)
+    i_array = rffi.cast(UINT_ARRAY_PTR, f_array)
     f_array[0] = singlefloatval
     ival = i_array[0]
     lltype.free(f_array, flavor='raw')
@@ -62,15 +62,15 @@ static long long pypy__float2longlong(double x) {
     memcpy(&ll, &x, 8);
     return ll;
 }
-static float pypy__int2singlefloat(int x) {
+static float pypy__uint2singlefloat(unsigned int x) {
     float ff;
-    assert(sizeof(float) == 4 && sizeof(int) == 4);
+    assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
     memcpy(&ff, &x, 4);
     return ff;
 }
-static int pypy__singlefloat2int(float x) {
-    int ii;
-    assert(sizeof(float) == 4 && sizeof(int) == 4);
+static unsigned int pypy__singlefloat2uint(float x) {
+    unsigned int ii;
+    assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
     memcpy(&ii, &x, 4);
     return ii;
 }
@@ -86,12 +86,12 @@ float2longlong = rffi.llexternal(
     _callable=float2longlong_emulator, compilation_info=eci,
     _nowrapper=True, elidable_function=True)
 
-int2singlefloat = rffi.llexternal(
-    "pypy__int2singlefloat", [rffi.INT], rffi.FLOAT,
-    _callable=int2singlefloat_emulator, compilation_info=eci,
+uint2singlefloat = rffi.llexternal(
+    "pypy__uint2singlefloat", [rffi.UINT], rffi.FLOAT,
+    _callable=uint2singlefloat_emulator, compilation_info=eci,
     _nowrapper=True, elidable_function=True)
 
-singlefloat2int = rffi.llexternal(
-    "pypy__singlefloat2int", [rffi.FLOAT], rffi.INT,
-    _callable=singlefloat2int_emulator, compilation_info=eci,
+singlefloat2uint = rffi.llexternal(
+    "pypy__singlefloat2uint", [rffi.FLOAT], rffi.UINT,
+    _callable=singlefloat2uint_emulator, compilation_info=eci,
     _nowrapper=True, elidable_function=True)
