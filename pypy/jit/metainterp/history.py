@@ -149,6 +149,7 @@ class AbstractDescr(AbstractValue):
         """ Implement in call descr.
         Must return INT, REF, FLOAT, or 'v' for void.
         On 32-bit (hack) it can also be 'L' for longlongs.
+        Additionally it can be 'S' for singlefloats.
         """
         raise NotImplementedError
 

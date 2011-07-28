@@ -626,17 +626,13 @@ class BlackholeInterpreter(object):
     @arguments("f", returns="i")
     def bhimpl_cast_float_to_singlefloat(a):
         from pypy.rlib.rarithmetic import r_singlefloat
-        from pypy.rlib.longlong2float import singlefloat2uint
         a = longlong.getrealfloat(a)
         a = r_singlefloat(a)
-        a = singlefloat2uint(a)
-        return intmask(a)
+        return longlong.singlefloat2int(a)
 
     @arguments("i", returns="f")
     def bhimpl_cast_singlefloat_to_float(a):
-        from pypy.rpython.lltypesystem.rffi import r_uint
-        from pypy.rlib.longlong2float import uint2singlefloat
-        a = uint2singlefloat(r_uint(a))
+        a = longlong.int2singlefloat(a)
         a = float(a)
         return longlong.getfloatstorage(a)
 

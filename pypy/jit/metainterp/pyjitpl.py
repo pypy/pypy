@@ -1228,7 +1228,7 @@ class MIFrame(object):
         src_i = src_r = src_f = 0
         i = 1
         for kind in descr.get_arg_types():
-            if kind == history.INT:
+            if kind == history.INT or kind == 'S':        # single float
                 while True:
                     box = argboxes[src_i]
                     src_i += 1

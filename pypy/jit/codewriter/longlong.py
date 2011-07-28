@@ -7,7 +7,8 @@ converting them back and forth.
 """
 
 import sys
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib import rarithmetic, longlong2float
 
 
 if sys.maxint > 2147483647:
@@ -31,8 +32,6 @@ else:
     # ---------- 32-bit platform ----------
     # the type FloatStorage is r_longlong, and conversion is needed
 
-    from pypy.rlib import rarithmetic, longlong2float
-
     is_64_bit = False
     supports_longlong = True
     r_float_storage = rarithmetic.r_longlong
@@ -47,3 +46,13 @@ else:
     # -------------------------------------
 
 ZEROF = getfloatstorage(0.0)
+
+# ____________________________________________________________
+
+def int2singlefloat(x):
+    x = rffi.r_uint(x)
+    return longlong2float.uint2singlefloat(x)
+
+def singlefloat2int(x):
+    x = longlong2float.singlefloat2uint(x)
+    return rffi.cast(lltype.Signed, x)
