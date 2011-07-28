@@ -1,14 +1,10 @@
-import functools
-import sys
-
 import py
-
-from pypy.rlib.nonconst import NonConstant
-from pypy.rlib.objectmodel import (CDefinedIntSymbolic, keepalive_until_here,
-    specialize)
-from pypy.rlib.unroll import unrolling_iterable
+import sys
 from pypy.rpython.extregistry import ExtRegistryEntry
-
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.nonconst import NonConstant
 
 def elidable(func):
     """ Decorate a function as "trace-elidable". This means precisely that:
@@ -95,7 +91,8 @@ def elidable_promote(promote_args='all'):
         d = {"func": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
         result = d["f"]
-        return functools.wraps(func)(result)
+        result.func_name = func.func_name + "_promote"
+        return result
     return decorator
 
 def purefunction_promote(*args, **kwargs):
@@ -283,7 +280,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         pass
-
+    
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
@@ -293,7 +290,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 PARAMETERS = {'threshold': 1032, # just above 1024
-              'function_threshold': 1617, # slightly more than one above
+              'function_threshold': 1617, # slightly more than one above 
               'trace_eagerness': 200,
               'trace_limit': 12000,
               'inlining': 1,
@@ -403,7 +400,7 @@ class JitDriver(object):
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-
+    
     def on_compile(self, logger, looptoken, operations, type, *greenargs):
         """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like
