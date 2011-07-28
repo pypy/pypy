@@ -2062,7 +2062,8 @@ class Assembler386(object):
                 self.mc.FSTPS_s(0)
                 self.mc.POP_r(eax.value)
             elif IS_X86_64:
-                XXX
+                # must copy from the lower 32 bits of XMM0 into eax
+                self.mc.MOVD_rx(eax.value, xmm0.value)
         elif size == WORD:
             assert resloc is eax or resloc is xmm0    # a full word
         elif size == 0:
