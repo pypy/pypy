@@ -95,8 +95,7 @@ def elidable_promote(promote_args='all'):
         d = {"func": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
         result = d["f"]
-        functools.wraps(func)(result)
-        return result
+        return functools.wraps(func)(result)
     return decorator
 
 def purefunction_promote(*args, **kwargs):
