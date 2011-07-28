@@ -240,7 +240,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         import math
         from numpy import array, arctan
 
-        a = array([-3, -2, -1, 0, 1, 2, 3])
+        a = array([-3, -2, -1, 0, 1, 2, 3, float('inf'), float('-inf')])
         b = arctan(a)
         for i in range(len(a)):
             assert b[i] == math.atan(a[i])
