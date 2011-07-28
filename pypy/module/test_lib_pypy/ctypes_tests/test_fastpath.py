@@ -46,6 +46,18 @@ class TestFastpath(BaseCTypesTestChecker):
         tf_b.argtypes = (c_byte,)
         assert tf_b(-126) == -42
 
+    def test_undeclared_restype(self):
+        # make sure we get a fresh function
+        try:
+            del dll.tf_i
+        except AttributeError:
+            pass
+        tf_i = dll.tf_i
+        assert not tf_i._is_fastpath
+        tf_i.argtypes = (c_int,)
+        assert tf_i._is_fastpath
+        assert tf_i(12) == 4
+
     def test_pointer_args(self):
         f = dll._testfunc_p_p
         f.restype = POINTER(c_int)

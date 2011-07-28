@@ -488,11 +488,9 @@ class TestFunctions(BaseCTypesTestChecker):
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:
             dll.get_an_integer()
-            assert len(w) == 2
+            assert len(w) == 1
             assert issubclass(w[0].category, RuntimeWarning)
-            assert issubclass(w[1].category, RuntimeWarning)
             assert "C function without declared arguments called" in str(w[0].message)
-            assert "C function without declared return type called" in str(w[1].message)
 
     def test_errcheck(self):
         py.test.skip('fixme')
