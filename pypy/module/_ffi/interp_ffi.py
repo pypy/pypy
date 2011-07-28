@@ -11,6 +11,7 @@ from pypy.rlib import jit
 from pypy.rlib import libffi
 from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.objectmodel import we_are_translated
 
 class W_FFIType(Wrappable):
 
@@ -181,6 +182,7 @@ class W_FuncPtr(Wrappable):
         self.func = func
         self.argtypes_w = argtypes_w
         self.w_restype = w_restype
+        self.to_free = []
 
     @jit.unroll_safe
     def build_argchain(self, space, args_w):
@@ -195,8 +197,6 @@ class W_FuncPtr(Wrappable):
                                   self.func.name, expected, arg, given)
         #
         argchain = libffi.ArgChain()
-        to_free = [] # list of automatically malloc()ed buffers that needs to
-                     # be freed after the call
         for i in range(expected):
             w_argtype = self.argtypes_w[i]
             w_arg = args_w[i]
@@ -207,7 +207,7 @@ class W_FuncPtr(Wrappable):
                 self.arg_longlong(space, argchain, w_arg)
             elif w_argtype.is_signed():
                 argchain.arg(unwrap_truncate_int(rffi.LONG, space, w_arg))
-            elif self.add_char_p_maybe(space, argchain, to_free, w_arg, w_argtype):
+            elif self.add_char_p_maybe(space, argchain, w_arg, w_argtype):
                 # the argument is added to the argchain direcly by the method above
                 pass
             elif w_argtype.is_pointer():
@@ -232,9 +232,9 @@ class W_FuncPtr(Wrappable):
                 argchain.arg_raw(ptrval)
             else:
                 assert False, "Argument shape '%s' not supported" % w_argtype
-        return argchain, to_free
+        return argchain
 
-    def add_char_p_maybe(self, space, argchain, to_free, w_arg, w_argtype):
+    def add_char_p_maybe(self, space, argchain, w_arg, w_argtype):
         """
         Automatic conversion from string to char_p. The allocated buffer will
         be automatically freed after the call.
@@ -243,7 +243,7 @@ class W_FuncPtr(Wrappable):
         if w_argtype.is_char_p() and w_type is space.w_str:
             strval = space.str_w(w_arg)
             buf = rffi.str2charp(strval)
-            to_free.append(rffi.cast(rffi.VOIDP, buf))
+            self.to_free.append(rffi.cast(rffi.VOIDP, buf))
             addr = rffi.cast(rffi.ULONG, buf)
             argchain.arg(addr)
             return True
@@ -251,7 +251,7 @@ class W_FuncPtr(Wrappable):
                                            w_type is space.w_unicode):
             unicodeval = space.unicode_w(w_arg)
             buf = rffi.unicode2wcharp(unicodeval)
-            to_free.append(rffi.cast(rffi.VOIDP, buf))
+            self.to_free.append(rffi.cast(rffi.VOIDP, buf))
             addr = rffi.cast(rffi.ULONG, buf)
             argchain.arg(addr)
             return True
@@ -279,12 +279,16 @@ class W_FuncPtr(Wrappable):
 
     def call(self, space, args_w):
         self = jit.promote(self)
-        argchain, to_free = self.build_argchain(space, args_w)
-        try:
-            return self._do_call(space, argchain)
-        finally:
-            for buf in to_free:
-                lltype.free(buf, flavor='raw')
+        argchain = self.build_argchain(space, args_w)
+        return self._do_call(space, argchain)
+
+    def free_temp_buffers(self, space):
+        for buf in self.to_free:
+            if not we_are_translated():
+                buf[0] = '\00' # invalidate the buffer, so that
+                               # test_keepalive_temp_buffer can fail
+            lltype.free(buf, flavor='raw')
+        self.to_free = []
 
     def _do_call(self, space, argchain):
         w_restype = self.w_restype
@@ -424,6 +428,7 @@ W_FuncPtr.typedef = TypeDef(
     '_ffi.FuncPtr',
     __call__ = interp2app(W_FuncPtr.call),
     getaddr = interp2app(W_FuncPtr.getaddr),
+    free_temp_buffers = interp2app(W_FuncPtr.free_temp_buffers),
     fromaddr = interp2app(descr_fromaddr, as_classmethod=True)
     )
 

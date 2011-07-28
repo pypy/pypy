@@ -210,6 +210,7 @@ class AppTestFfi:
         mystr = CharArray(7, 'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
+        mystrlen.free_temp_buffers()
 
     def test_convert_unicode_to_unichar_p(self):
         """
@@ -235,6 +236,25 @@ class AppTestFfi:
         mystr = UniCharArray(7, u'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
+        mystrlen.free_temp_buffers()
+
+    def test_keepalive_temp_buffer(self):
+        """
+            char* do_nothing(char* s)
+            {
+                return s;
+            }
+        """
+        from _ffi import CDLL, types
+        import _rawffi
+        libfoo = CDLL(self.libfoo_name)
+        do_nothing = libfoo.getfunc('do_nothing', [types.char_p], types.char_p)
+        CharArray = _rawffi.Array('c')
+        #
+        ptr = do_nothing('foobar')
+        array = CharArray.fromaddress(ptr, 7)
+        assert list(array) == list('foobar\00')
+        do_nothing.free_temp_buffers()
 
     def test_typed_pointer(self):
         from _ffi import types
