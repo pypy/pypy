@@ -165,6 +165,9 @@ class AppTestAppSetTest:
         raises(KeyError, "a.remove(6)")
 
     def test_pop(self):
+        b = set()
+        raises(KeyError, "b.pop()")
+
         a = set([1,2,3,4,5])
         for i in xrange(5):
             a.pop()

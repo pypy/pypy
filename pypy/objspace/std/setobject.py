@@ -136,6 +136,9 @@ class W_BaseSetObject(W_Object):
     def iter(self):
         return self.strategy.iter(self)
 
+    def popitem(self):
+        return self.strategy.popitem(self)
+
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
 
@@ -287,6 +290,10 @@ class EmptySetStrategy(SetStrategy):
 
     def iter(self, w_set):
         return EmptyIteratorImplementation(self.space, w_set)
+
+    def popitem(self, w_set):
+        raise OperationError(self.space.w_KeyError,
+                                self.space.wrap('pop from an empty set'))
 
 class AbstractUnwrappedSetStrategy(object):
     _mixin_ = True
@@ -556,6 +563,16 @@ class AbstractUnwrappedSetStrategy(object):
 
         w_set.switch_to_object_strategy(self.space)
         w_set.update(w_other)
+
+    def popitem(self, w_set):
+        storage = self.cast_from_void_star(w_set.sstorage)
+        try:
+            result = storage.popitem()
+        except KeyError:
+            # strategy may still be the same even if dict is empty
+            raise OperationError(self.space.w_KeyError,
+                            self.space.wrap('pop from an empty set'))
+        return self.wrap(result)
 
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("integer")
@@ -1030,6 +1047,7 @@ def set_pop__Set(space, w_left):
     #XXX move this to strategy so we don't have to
     #    wrap all items only to get the first one
     #XXX use popitem
+    return w_left.popitem()
     for w_key in w_left.getkeys():
         break
     else:
