@@ -323,6 +323,7 @@ def ll_math_pow(x, y):
         _likely_raise(errno, r)
     return r
 
+@jit.elidable
 def ll_math_sqrt(x):
     if x < 0.0:
         raise ValueError, "math domain error"
