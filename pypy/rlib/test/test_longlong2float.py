@@ -1,5 +1,7 @@
 from pypy.translator.c.test.test_genc import compile
 from pypy.rlib.longlong2float import longlong2float, float2longlong
+from pypy.rlib.longlong2float import int2singlefloat, singlefloat2int
+from pypy.rlib.rarithmetic import r_singlefloat
 
 
 def fn(f1):
@@ -28,3 +30,23 @@ def test_compiled():
     for x in enum_floats():
         res = fn2(x)
         assert repr(res) == repr(x)
+
+# ____________________________________________________________
+
+def fnsingle(f1):
+    sf1 = r_singlefloat(f1)
+    ii = singlefloat2int(sf1)
+    sf2 = int2singlefloat(ii)
+    f2 = float(sf2)
+    return f2
+
+def test_int_as_singlefloat():
+    for x in enum_floats():
+        res = fnsingle(x)
+        assert repr(res) == repr(float(r_singlefloat(x)))
+
+def test_compiled_single():
+    fn2 = compile(fnsingle, [float])
+    for x in enum_floats():
+        res = fn2(x)
+        assert repr(res) == repr(float(r_singlefloat(x)))
