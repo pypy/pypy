@@ -697,7 +697,7 @@ def make_fastpath_subclass(CFuncPtr):
             try:
                 result = self._call_funcptr(funcptr, *args)
                 result = self._do_errcheck(result, args)
-            except (TypeError, ArgumentError): # XXX, should be FFITypeError
+            except (TypeError, ArgumentError, UnicodeDecodeError):
                 assert self._slowpath_allowed
                 return CFuncPtr.__call__(self, *args)
             return result
