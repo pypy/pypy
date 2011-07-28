@@ -426,7 +426,7 @@ def test_call_stubs_2():
 
 def test_call_stubs_single_float():
     from pypy.rlib.longlong2float import uint2singlefloat, singlefloat2uint
-    from pypy.rlib.rarithmetic import r_singlefloat, intmask, r_uint
+    from pypy.rlib.rarithmetic import r_singlefloat, intmask
     #
     c0 = GcCache(False)
     ARGS = [lltype.SingleFloat, lltype.SingleFloat, lltype.SingleFloat]
@@ -446,4 +446,4 @@ def test_call_stubs_single_float():
     c = intmask(singlefloat2uint(r_singlefloat(2.0)))
     res = descr2.call_stub(rffi.cast(lltype.Signed, fnptr),
                            [a, b, c], [], [])
-    assert float(uint2singlefloat(r_uint(res))) == -11.5
+    assert float(uint2singlefloat(rffi.r_uint(res))) == -11.5
