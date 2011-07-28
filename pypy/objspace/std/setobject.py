@@ -11,6 +11,7 @@ from pypy.rlib import rerased
 from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.intobject import W_IntObject
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -208,7 +209,6 @@ class EmptySetStrategy(SetStrategy):
         return clone
 
     def add(self, w_set, w_key):
-        from pypy.objspace.std.intobject import W_IntObject
         if type(w_key) is W_IntObject:
             w_set.strategy = self.space.fromcache(IntegerSetStrategy)
         else:
@@ -722,11 +722,13 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         return
 
     # check for integers
-    for item_w in w_iterable:
-        if type(item_w) is not W_IntObject:
-            break;
-        #XXX wont work for [1, "two", "three", 1] use StopIteration instead
-        if item_w is w_iterable[-1]:
+    iterator = iter(w_iterable)
+    while True:
+        try:
+            item_w = iterator.next()
+            if type(item_w) is not W_IntObject:
+                break;
+        except StopIteration:
             w_set.strategy = space.fromcache(IntegerSetStrategy)
             w_set.sstorage = w_set.strategy.get_storage_from_list(w_iterable)
             return
