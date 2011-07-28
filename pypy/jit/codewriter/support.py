@@ -20,6 +20,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
+from pypy.rlib.jit import elidable
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 
 def getargtypes(annotator, values):
@@ -167,9 +168,14 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
+@elidable
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
 
+# the following function should not be "@elidable": I can think of
+# a corner case in which id(const) is constant-folded, and then 'const'
+# disappears and is collected too early (possibly causing another object
+# with the same id() to appear).
 def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
 
