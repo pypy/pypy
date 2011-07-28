@@ -521,6 +521,8 @@ class LocationCodeBuilder(object):
     UCOMISD = _binaryop('UCOMISD')
     CVTSI2SD = _binaryop('CVTSI2SD')
     CVTTSD2SI = _binaryop('CVTTSD2SI')
+    CVTSD2SS = _binaryop('CVTSD2SS')
+    CVTSS2SD = _binaryop('CVTSS2SD')
     
     SQRTSD = _binaryop('SQRTSD')
 

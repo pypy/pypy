@@ -185,7 +185,8 @@ class TestRx86_32(object):
             # Special case: On 64-bit CPUs, rx86 assumes 64-bit integer
             # operands when converting to/from floating point, so we need to
             # indicate that with a suffix
-            if (self.WORD == 8) and instrname.startswith('CVT'):
+            if (self.WORD == 8) and (instrname.startswith('CVT') and
+                                     'SI' in instrname):
                 suffix = suffixes[self.WORD]
 
             if instr_suffix is not None:

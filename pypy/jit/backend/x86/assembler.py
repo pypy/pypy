@@ -1267,6 +1267,20 @@ class Assembler386(object):
     def genop_cast_int_to_float(self, op, arglocs, resloc):
         self.mc.CVTSI2SD(resloc, arglocs[0])
 
+    def genop_cast_float_to_singlefloat(self, op, arglocs, resloc):
+        loc0, loctmp = arglocs
+        self.mc.CVTSD2SS(loctmp, loc0)
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(loctmp, RegLoc)
+        self.mc.MOVD_rx(resloc.value, loctmp.value)
+
+    def genop_cast_singlefloat_to_float(self, op, arglocs, resloc):
+        loc0, = arglocs
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(loc0, RegLoc)
+        self.mc.MOVD_xr(resloc.value, loc0.value)
+        self.mc.CVTSS2SD_xx(resloc.value, resloc.value)
+
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
         self.mc.CMP(arglocs[0], imm0)

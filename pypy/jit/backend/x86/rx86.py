@@ -590,6 +590,15 @@ class AbstractX86CodeBuilder(object):
     CVTTSD2SI_rx = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), register(2), '\xC0')
     CVTTSD2SI_rb = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), stack_bp(2))
 
+    CVTSD2SS_xx = xmminsn('\xF2', rex_nw, '\x0F\x5A',
+                          register(1, 8), register(2), '\xC0')
+    CVTSD2SS_xb = xmminsn('\xF2', rex_nw, '\x0F\x5A',
+                          register(1, 8), stack_bp(2))
+    CVTSS2SD_xx = xmminsn('\xF3', rex_nw, '\x0F\x5A',
+                          register(1, 8), register(2), '\xC0')
+    CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A',
+                          register(1, 8), stack_bp(2))
+
     MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
 
