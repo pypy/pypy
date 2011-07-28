@@ -340,22 +340,17 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     """Common code for compress() and decompress().
     """
     # Prepare the input buffer for the stream
-    inbuf = lltype.malloc(rffi.CCHARP.TO, len(data), flavor='raw')
-    try:
+    with lltype.scoped_alloc(rffi.CCHARP.TO, len(data)) as inbuf:
         for i in xrange(len(data)):
             inbuf[i] = data[i]
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
         rffi.setintfield(stream, 'c_avail_in', len(data))
 
         # Prepare the output buffer
-        outbuf = lltype.malloc(rffi.CCHARP.TO, OUTPUT_BUFFER_SIZE,
-                               flavor='raw')
-        try:
-            # Strategy: we call deflate() to get as much output data as
-            # fits in the buffer, then accumulate all output into a list
-            # of characters 'result'.  We don't need to gradually
-            # increase the output buffer size because there is no
-            # quadratic factor.
+        with lltype.scoped_alloc(rffi.CCHARP.TO, OUTPUT_BUFFER_SIZE) as outbuf:
+            # Strategy: we call deflate() to get as much output data as fits in
+            # the buffer, then accumulate all output into a StringBuffer
+            # 'result'.
             result = StringBuilder()
 
             while True:
@@ -394,11 +389,6 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
 
                 # fallback case: report this error
                 raise RZlibError.fromstream(stream, err, while_doing)
-
-        finally:
-            lltype.free(outbuf, flavor='raw')
-    finally:
-        lltype.free(inbuf, flavor='raw')
 
     # When decompressing, if the compressed stream of data was truncated,
     # then the zlib simply returns Z_OK and waits for more.  If it is
