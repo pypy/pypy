@@ -2,7 +2,7 @@ from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, DownCast, NewCustomDict,\
      MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
      TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField, \
-     DebugPrint
+     DebugPrint, UnboxInt
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode, OONewArray
 from pypy.translator.cli.cts import WEAKREF
@@ -48,6 +48,8 @@ misc_ops = {
     'cast_from_object':         [DownCast],
     'clibox':                   [Box],
     'cliunbox':                 [Unbox],
+    'oobox_int':                [Box],
+    'oounbox_int':              [UnboxInt],
     'cli_newarray':             [NewArray],
     'cli_getelem':              [GetArrayElem],
     'cli_setelem':              [SetArrayElem],
@@ -92,6 +94,7 @@ misc_ops = {
     'debug_fatalerror':         [PushAllArgs, 'call void [pypylib]pypy.runtime.Debug::DEBUG_FATALERROR(string)'],
     'keepalive':                Ignore,
     'jit_marker':               Ignore,
+    'jit_force_quasi_immutable':Ignore,
     'jit_force_virtualizable':  Ignore,
     'jit_force_virtual':        DoNothing,
     }

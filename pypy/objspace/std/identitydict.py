@@ -2,6 +2,7 @@
 ## dict strategy (see dict_multiobject.py)
 
 from pypy.rlib import rerased
+from pypy.rlib.debug import mark_dict_non_null
 from pypy.objspace.std.dictmultiobject import (AbstractTypedStrategy,
                                                DictStrategy,
                                                IteratorImplementation,
@@ -50,7 +51,7 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     The second case is completely non-deterministic, even in CPython.
     Depending on the phase of the moon, you might call the __eq__ or not, so
     it is perfectly fine to *never* call it.  Morever, in practice with the
-    minimar GC we never have two live objects with the same hash, so it would
+    minimark GC we never have two live objects with the same hash, so it would
     never happen anyway.
     """
 
@@ -65,7 +66,9 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
         return wrapped
 
     def get_empty_storage(self):
-        return self.erase({})
+        d = {}
+        mark_dict_non_null(d)
+        return self.erase(d)
 
     def is_correct_type(self, w_obj):
         w_type = self.space.type(w_obj)

@@ -49,6 +49,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
 from pypy.rpython.memory.gc import minimarkpage, env
+from pypy.rpython.memory.support import mangle_hash
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -1732,7 +1733,7 @@ class MiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    def id_or_identityhash(self, gcobj, special_case_prebuilt):
+    def id_or_identityhash(self, gcobj, is_hash):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
         """
@@ -1775,7 +1776,7 @@ class MiniMarkGC(MovingGCBase):
                 # The answer is the address of the shadow.
                 obj = shadow
                 #
-            elif special_case_prebuilt:
+            elif is_hash:
                 if self.header(obj).tid & GCFLAG_HAS_SHADOW:
                     #
                     # For identityhash(), we need a special case for some
@@ -1784,10 +1785,14 @@ class MiniMarkGC(MovingGCBase):
                     # after the object.  But we cannot use it for id()
                     # because the stored value might clash with a real one.
                     size = self.get_size(obj)
-                    return (obj + size).signed[0]
+                    i = (obj + size).signed[0]
+                    # Important: the returned value is not mangle_hash()ed!
+                    return i
         #
-        return llmemory.cast_adr_to_int(obj)
-
+        i = llmemory.cast_adr_to_int(obj)
+        if is_hash:
+            i = mangle_hash(i)
+        return i
 
     def id(self, gcobj):
         return self.id_or_identityhash(gcobj, False)

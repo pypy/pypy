@@ -35,6 +35,13 @@ def object_hash(space):
     return w_hash
 object_hash._annspecialcase_ = 'specialize:memo'
 
+def type_eq(space):
+    "Utility that returns the app-level descriptor type.__eq__."
+    w_src, w_eq = space.lookup_in_type_where(space.w_type,
+                                             '__eq__')
+    return w_eq
+type_eq._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space)

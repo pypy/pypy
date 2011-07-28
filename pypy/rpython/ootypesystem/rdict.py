@@ -255,7 +255,7 @@ def _get_call_args(hop, r_func, arg, params_annotation):
         methodname = None
     return fn, v_obj, methodname
 
-def rtype_r_dict(hop):
+def rtype_r_dict(hop, i_force_non_null=None):
     from pypy.rlib import jit
 
     r_dict = hop.r_result

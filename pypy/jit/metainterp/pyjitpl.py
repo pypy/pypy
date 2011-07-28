@@ -56,6 +56,8 @@ class MIFrame(object):
         # for resume.py operation
         self.parent_resumedata_snapshot = None
         self.parent_resumedata_frame_info_list = None
+        # counter for unrolling inlined loops
+        self.unroll_iterations = 1
 
     @specialize.arg(3)
     def copy_constants(self, registers, constants, ConstClass):
@@ -931,6 +933,10 @@ class MIFrame(object):
             # 'redboxes' back into the registers where it comes from.
             put_back_list_of_boxes3(self, jcposition, redboxes)
         else:
+            if jitdriver_sd.warmstate.should_unroll_one_iteration(greenboxes):
+                if self.unroll_iterations > 0:
+                    self.unroll_iterations -= 1
+                    return
             # warning! careful here.  We have to return from the current
             # frame containing the jit_merge_point, and then use
             # do_recursive_call() to follow the recursive call.  This is
@@ -1193,7 +1199,7 @@ class MIFrame(object):
         return self.metainterp.execute_and_record(opnum, descr, *argboxes)
 
     @specialize.arg(1)
-    def execute_varargs(self, opnum, argboxes, descr, exc):
+    def execute_varargs(self, opnum, argboxes, descr, exc, pure):
         self.metainterp.clear_exception()
         resbox = self.metainterp.execute_and_record_varargs(opnum, argboxes,
                                                             descr=descr)
@@ -1201,6 +1207,9 @@ class MIFrame(object):
             self.make_result_of_lastop(resbox)
             # ^^^ this is done before handle_possible_exception() because we
             # need the box to show up in get_list_of_active_boxes()
+        if pure and self.metainterp.last_exc_value_box is None:
+            resbox = self.metainterp.record_result_of_call_pure(resbox)
+            exc = exc and not isinstance(resbox, Const)
         if exc:
             self.metainterp.handle_possible_exception()
         else:
@@ -1263,16 +1272,14 @@ class MIFrame(object):
             return resbox
         else:
             effect = effectinfo.extraeffect
-            if effect == effectinfo.EF_CANNOT_RAISE:
-                return self.execute_varargs(rop.CALL, allboxes, descr, False)
-            elif effect == effectinfo.EF_ELIDABLE:
-                return self.metainterp.record_result_of_call_pure(
-                    self.execute_varargs(rop.CALL, allboxes, descr, False))
-            elif effect == effectinfo.EF_LOOPINVARIANT:
+            if effect == effectinfo.EF_LOOPINVARIANT:
                 return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
-                                            descr, False)
-            else:
-                return self.execute_varargs(rop.CALL, allboxes, descr, True)
+                                            descr, False, False)
+            exc = (effect != effectinfo.EF_CANNOT_RAISE and
+                   effect != effectinfo.EF_ELIDABLE_CANNOT_RAISE)
+            pure = (effect == effectinfo.EF_ELIDABLE_CAN_RAISE or
+                    effect == effectinfo.EF_ELIDABLE_CANNOT_RAISE)
+            return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
 
     def do_residual_or_indirect_call(self, funcbox, calldescr, argboxes):
         """The 'residual_call' operation is emitted in two cases:
@@ -1680,8 +1687,12 @@ class MetaInterp(object):
             return
         if opnum == rop.CALL:
             effectinfo = descr.get_extra_info()
-            if effectinfo.extraeffect == effectinfo.EF_ELIDABLE:
-                return
+            if effectinfo is not None:
+                ef = effectinfo.extraeffect
+                if ef == effectinfo.EF_LOOPINVARIANT or \
+                   ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or \
+                   ef == effectinfo.EF_ELIDABLE_CAN_RAISE:
+                    return
         if self.heap_cache:
             self.heap_cache.clear()
         if self.heap_array_cache:
@@ -2369,6 +2380,7 @@ class MetaInterp(object):
                 tobox = newbox
             if change:
                 self.heap_cache[descr] = frombox, tobox
+        # XXX what about self.heap_array_cache?
 
     def find_biggest_function(self):
         start_stack = []

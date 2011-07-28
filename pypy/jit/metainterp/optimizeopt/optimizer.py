@@ -1,17 +1,11 @@
-from pypy.jit.metainterp.history import Box, BoxInt, LoopToken, BoxFloat,\
-     ConstFloat
-from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstObj, REF
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp import jitprof
+from pypy.jit.metainterp import jitprof, resume, compile
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method, sort_descrs
-from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, args_dict
-from pypy.jit.metainterp.optimize import InvalidLoop
-from pypy.jit.metainterp import resume, compile
-from pypy.jit.metainterp.typesystem import llhelper, oohelper
-from pypy.rpython.lltypesystem import lltype
-from pypy.jit.metainterp.history import AbstractDescr, make_hashable_int
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
+from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
+    args_dict)
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.tool.pairtype import extendabletype
 
 LEVEL_UNKNOWN    = '\x00'
@@ -254,10 +248,11 @@ class Optimization(object):
 
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=None):
+    def __init__(self, metainterp_sd, loop, optimizations=None, bridge=False):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
+        self.bridge = bridge
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
@@ -413,9 +408,7 @@ class Optimizer(Optimization):
             return CVAL_ZERO
 
     def propagate_all_forward(self):
-        self.exception_might_have_happened = True
-        # ^^^ at least at the start of bridges.  For loops, we could set
-        # it to False, but we probably don't care
+        self.exception_might_have_happened = self.bridge
         self.newoperations = []
         self.first_optimization.propagate_begin_forward()
         self.i = 0
