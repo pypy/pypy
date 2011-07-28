@@ -63,13 +63,10 @@ class TestFastpath(BaseCTypesTestChecker):
         result = f(mystr, ord("b"))
         assert result == "bcd"
 
-    @py.test.mark.xfail
     def test_strings(self):
         f = dll.my_strchr
         f.argtypes = [c_char_p, c_int]
         f.restype = c_char_p
-        # python strings need to be converted to c_char_p, but this is
-        # supported only in the slow path so far
         result = f("abcd", ord("b"))
         assert result == "bcd"
 

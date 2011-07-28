@@ -365,7 +365,10 @@ class CFuncPtr(_CData):
             if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
                 set_last_error(_rawffi.get_last_error())
         #
-        return self._build_result(self._restype_, result, newargs)
+        try:
+            return self._build_result(self._restype_, result, newargs)
+        finally:
+            funcptr.free_temp_buffers()
 
     def _do_errcheck(self, result, args):
         # The 'errcheck' protocol
