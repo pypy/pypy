@@ -25,6 +25,8 @@ def specialize_value(TYPE, x):
         if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'raw':
             # non-gc pointer
             return rffi.cast(TYPE, x)
+        elif TYPE is lltype.SingleFloat:
+            return longlong.int2singlefloat(x)
         else:
             return lltype.cast_primitive(TYPE, x)
     elif INPUT is longlong.FLOATSTORAGE:
@@ -97,6 +99,8 @@ def wrap(cpu, value, in_const_box=False):
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
+    elif lltype.typeOf(value) is lltype.SingleFloat:
+        value = longlong.singlefloat2int(value)
     else:
         value = intmask(value)
     if in_const_box:
