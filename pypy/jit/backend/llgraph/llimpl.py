@@ -1145,7 +1145,7 @@ def frame_clear(frame, loop):
     del _future_values[:]
 
 def set_future_value_int(index, value):
-    assert type(value) is int
+    assert lltype.typeOf(value) is lltype.Signed
     set_future_value_ref(index, value)
 
 def set_future_value_float(index, value):
