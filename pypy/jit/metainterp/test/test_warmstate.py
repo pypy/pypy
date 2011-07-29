@@ -40,6 +40,10 @@ def test_wrap():
     assert _is(wrap(None, 42, in_const_box=True), ConstInt(42))
     assert _is(wrap(None, 42.5, in_const_box=True), constfloat(42.5))
     assert _is(wrap(None, p, in_const_box=True), ConstPtr(po))
+    if longlong.supports_longlong:
+        import sys
+        value = longlong.r_float_storage(sys.maxint*17)
+        assert _is(wrap(None, value), BoxFloat(value))
 
 def test_hash_equal_whatever_lltype():
     s1 = rstr.mallocstr(2)

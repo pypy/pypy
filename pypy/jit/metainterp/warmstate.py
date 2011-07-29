@@ -84,8 +84,10 @@ def wrap(cpu, value, in_const_box=False):
             return history.ConstObj(value)
         else:
             return history.BoxObj(value)
-    elif isinstance(value, float):
-        value = longlong.getfloatstorage(value)
+    elif (isinstance(value, float) or
+          longlong.is_longlong(lltype.typeOf(value))):
+        if isinstance(value, float):
+            value = longlong.getfloatstorage(value)
         if in_const_box:
             return history.ConstFloat(value)
         else:
