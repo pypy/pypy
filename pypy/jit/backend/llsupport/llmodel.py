@@ -259,7 +259,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
         from pypy.jit.backend.llsupport import ffisupport
-        return ffisupport.get_call_descr_dynamic(ffi_args, ffi_result,
+        return ffisupport.get_call_descr_dynamic(self, ffi_args, ffi_result,
                                                  extrainfo)
 
     def get_overflow_error(self):

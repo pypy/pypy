@@ -6,14 +6,14 @@ from pypy.jit.backend.llsupport.descr import DynamicIntCallDescr, NonGcPtrCallDe
 class UnsupportedKind(Exception):
     pass
 
-def get_call_descr_dynamic(ffi_args, ffi_result, extrainfo=None):
+def get_call_descr_dynamic(cpu, ffi_args, ffi_result, extrainfo=None):
     """Get a call descr: the types of result and args are represented by
     rlib.libffi.types.*"""
     try:
-        reskind = get_ffi_type_kind(ffi_result)
-        argkinds = [get_ffi_type_kind(arg) for arg in ffi_args]
+        reskind = get_ffi_type_kind(cpu, ffi_result)
+        argkinds = [get_ffi_type_kind(cpu, arg) for arg in ffi_args]
     except UnsupportedKind:
-        return None # ??
+        return None
     arg_classes = ''.join(argkinds)
     if reskind == history.INT:
         size = intmask(ffi_result.c_size)
@@ -27,15 +27,19 @@ def get_call_descr_dynamic(ffi_args, ffi_result, extrainfo=None):
         return VoidCallDescr(arg_classes, extrainfo)
     assert False
 
-def get_ffi_type_kind(ffi_type):
+def get_ffi_type_kind(cpu, ffi_type):
     from pypy.rlib.libffi import types
     kind = types.getkind(ffi_type)
     if kind == 'i' or kind == 'u':
         return history.INT
-    elif kind == 'f':
+    elif cpu.supports_floats and kind == 'f':
         return history.FLOAT
     elif kind == 'v':
         return history.VOID
+    elif cpu.supports_longlong and (kind == 'I' or kind == 'U'):     # longlong
+        return 'L'
+    elif cpu.supports_singlefloats and kind == 's':    # singlefloat
+        return 'S'
     raise UnsupportedKind("Unsupported kind '%s'" % kind)
 
 def is_ffi_type_signed(ffi_type):

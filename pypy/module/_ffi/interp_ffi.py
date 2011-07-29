@@ -224,7 +224,7 @@ class W_FuncPtr(Wrappable):
             elif w_argtype.is_double():
                 argchain.arg(space.float_w(w_arg))
             elif w_argtype.is_singlefloat():
-                argchain.arg_singlefloat(space.float_w(w_arg))
+                self.arg_singlefloat(space, argchain, w_arg)
             elif w_argtype.is_struct():
                 # arg_raw directly takes value to put inside ll_args
                 w_arg = space.interp_w(W_StructureInstance, w_arg)
@@ -267,15 +267,23 @@ class W_FuncPtr(Wrappable):
         else:
             return w_arg
 
-    @jit.dont_look_inside
     def arg_longlong(self, space, argchain, w_arg):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether longlongs are supported
         bigarg = space.bigint_w(w_arg)
         ullval = bigarg.ulonglongmask()
         llval = rffi.cast(rffi.LONGLONG, ullval)
-        # this is a hack: we store the 64 bits of the long long into the
-        # 64 bits of a float (i.e., a C double)
-        floatval = libffi.longlong2float(llval)
-        argchain.arg_longlong(floatval)
+        argchain.arg(llval)
+    arg_longlong._dont_inline_ = True
+
+    def arg_singlefloat(self, space, argchain, w_arg):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether singlefloats are supported
+        from pypy.rlib.rarithmetic import r_singlefloat
+        fval = space.float_w(w_arg)
+        sfval = r_singlefloat(fval)
+        argchain.arg(sfval)
+    arg_singlefloat._dont_inline_ = True
 
     def call(self, space, args_w):
         self = jit.promote(self)
