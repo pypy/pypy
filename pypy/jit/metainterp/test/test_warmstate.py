@@ -43,9 +43,12 @@ def test_wrap():
     assert _is(wrap(None, p, in_const_box=True), ConstPtr(po))
     if longlong.supports_longlong:
         import sys
-        value = longlong.r_float_storage(sys.maxint*17)
+        from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+        value = r_longlong(-sys.maxint*17)
         assert _is(wrap(None, value), BoxFloat(value))
         assert _is(wrap(None, value, in_const_box=True), ConstFloat(value))
+        value_unsigned = r_ulonglong(-sys.maxint*17)
+        assert _is(wrap(None, value_unsigned), BoxFloat(value))
     sfval = r_singlefloat(42.5)
     ival = longlong.singlefloat2int(sfval)
     assert _is(wrap(None, sfval), BoxInt(ival))

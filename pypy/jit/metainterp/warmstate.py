@@ -92,6 +92,8 @@ def wrap(cpu, value, in_const_box=False):
           longlong.is_longlong(lltype.typeOf(value))):
         if isinstance(value, float):
             value = longlong.getfloatstorage(value)
+        else:
+            value = rffi.cast(lltype.SignedLongLong, value)
         if in_const_box:
             return history.ConstFloat(value)
         else:
