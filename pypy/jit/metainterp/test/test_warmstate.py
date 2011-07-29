@@ -2,7 +2,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
-from pypy.jit.metainterp.warmstate import wrap, unwrap
+from pypy.jit.metainterp.warmstate import wrap, unwrap, specialize_value
 from pypy.jit.metainterp.warmstate import equal_whatever, hash_whatever
 from pypy.jit.metainterp.warmstate import WarmEnterState, JitCell
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
@@ -44,6 +44,13 @@ def test_wrap():
         import sys
         value = longlong.r_float_storage(sys.maxint*17)
         assert _is(wrap(None, value), BoxFloat(value))
+
+def test_specialize_value():
+    assert specialize_value(lltype.Char, 0x41) == '\x41'
+    if longlong.supports_longlong:
+        import sys
+        value = longlong.r_float_storage(sys.maxint*17)
+        assert specialize_value(lltype.SignedLongLong, value) == sys.maxint*17
 
 def test_hash_equal_whatever_lltype():
     s1 = rstr.mallocstr(2)

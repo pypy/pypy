@@ -28,6 +28,8 @@ def specialize_value(TYPE, x):
         else:
             return lltype.cast_primitive(TYPE, x)
     elif INPUT is longlong.FLOATSTORAGE:
+        if longlong.is_longlong(TYPE):
+            return rffi.cast(TYPE, x)
         assert TYPE is lltype.Float
         return longlong.getrealfloat(x)
     else:
