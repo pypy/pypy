@@ -1216,6 +1216,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "i", "i")
     def bhimpl_strsetitem(cpu, string, index, newchr):
         cpu.bh_strsetitem(string, index, newchr)
+    @arguments("cpu", "r", "r", "i", "i", "i")
+    def bhimpl_copystrcontent(cpu, src, dst, srcstart, dststart, length):
+        cpu.bh_copystrcontent(src, dst, srcstart, dststart, length)
 
     @arguments("cpu", "i", returns="r")
     def bhimpl_newunicode(cpu, length):
@@ -1229,6 +1232,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "i", "i")
     def bhimpl_unicodesetitem(cpu, unicode, index, newchr):
         cpu.bh_unicodesetitem(unicode, index, newchr)
+    @arguments("cpu", "r", "r", "i", "i", "i")
+    def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
+        cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
 
     @arguments(returns=(longlong.is_64_bit and "i" or "f"))
     def bhimpl_ll_read_timestamp():

@@ -68,8 +68,8 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
     copy_string_contents._always_inline_ = True
-    #copy_string_contents.oopspec = (
-    #    '%s.copy_contents(src, dst, srcstart, dststart, length)' % name)
+    copy_string_contents.oopspec = (
+       'stroruni.copy_contents(src, dst, srcstart, dststart, length)')
     return func_with_new_name(copy_string_contents, 'copy_%s_contents' % name)
 
 copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')

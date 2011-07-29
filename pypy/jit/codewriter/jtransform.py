@@ -1331,6 +1331,14 @@ class Transformer(object):
         else:
             assert 0, "args[0].concretetype must be STR or UNICODE"
         #
+        if oopspec_name == 'stroruni.copy_contents':
+            if SoU.TO == rstr.STR:
+                new_op = 'copystrcontent'
+            elif SoU.TO == rstr.UNICODE:
+                new_op = 'copyunicodecontent'
+            else:
+                assert 0
+            return SpaceOperation(new_op, args, op.result)
         if oopspec_name == "stroruni.equal":
             for otherindex, othername, argtypes, resulttype in [
                 (EffectInfo.OS_STREQ_SLICE_CHECKNULL,

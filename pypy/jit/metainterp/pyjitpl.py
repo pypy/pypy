@@ -853,6 +853,14 @@ class MIFrame(object):
     def opimpl_newunicode(self, lengthbox):
         return self.execute(rop.NEWUNICODE, lengthbox)
 
+    @arguments("box", "box", "box", "box", "box")
+    def opimpl_copystrcontent(self, srcbox, dstbox, srcstartbox, dststartbox, lengthbox):
+        return self.execute(rop.COPYSTRCONTENT, srcbox, dstbox, srcstartbox, dststartbox, lengthbox)
+
+    @arguments("box", "box", "box", "box", "box")
+    def opimpl_copyunicodecontent(self, srcbox, dstbox, srcstartbox, dststartbox, lengthbox):
+        return self.execute(rop.COPYUNICODECONTENT, srcbox, dstbox, srcstartbox, dststartbox, lengthbox)
+
 ##    @FixME  #arguments("descr", "varargs")
 ##    def opimpl_residual_oosend_canraise(self, methdescr, varargs):
 ##        return self.execute_varargs(rop.OOSEND, varargs, descr=methdescr,
