@@ -63,7 +63,7 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
                                supports_longlong     = self.supports_all,
                                supports_singlefloats = self.supports_all)
         d = {'floats': self.supports_all,
-             'longlong': self.supports_all,
+             'longlong': self.supports_all or not IS_32_BIT,
              'singlefloats': self.supports_all,
              'byval': False}
         supported = all(d[check] for check in jitif)
