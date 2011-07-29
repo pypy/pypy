@@ -70,6 +70,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array, zeros
         a = array(range(5))
         assert str(a) == "[0.0 1.0 2.0 3.0 4.0]"
+        assert str((2*a)[:]) == "[0.0 2.0 4.0 6.0 8.0]"
         a = zeros(1001)
         assert str(a) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
 

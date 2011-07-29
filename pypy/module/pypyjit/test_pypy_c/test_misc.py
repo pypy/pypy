@@ -63,6 +63,7 @@ class TestMisc(BaseTestPyPyC):
             i7 = int_gt(i4, 1)
             guard_true(i7, descr=...)
             p9 = call(ConstClass(fromint), i4, descr=...)
+            guard_no_exception(descr=...)
             p11 = call(ConstClass(rbigint.mul), p5, p9, descr=...)
             guard_no_exception(descr=...)
             i13 = int_sub(i4, 1)
