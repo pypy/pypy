@@ -122,6 +122,7 @@ class ArgChain(object):
             cls = FloatArg
         elif TYPE is rffi.LONGLONG or TYPE is rffi.ULONGLONG:
             cls = LongLongArg
+            val = rffi.cast(rffi.LONGLONG, val)
         elif TYPE is rffi.FLOAT:
             cls = SingleFloatArg
         else:
