@@ -1100,9 +1100,9 @@ public class PyPy implements Constants {
         if (Double.isNaN(x))
             return interlink.recordFloatSigned(x, 0);
 
-        // Infinity: Python throws exception
+        // Infinity: Python returns (inf, 0)
         if (Double.isInfinite(x))
-            interlink.throwOverflowError();
+            return interlink.recordFloatSigned(x, 0);
 
         // Extract the various parts of the format:
         final long e=11, f=52; // number of bits in IEEE format
