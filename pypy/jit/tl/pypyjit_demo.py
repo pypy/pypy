@@ -1,9 +1,7 @@
 
 try:
-    import numpy
-    a = numpy.array(range(10))
-    b = a + a + a
-    print b[3]
+    for i in xrange(1000):
+        "%d %d" % (i, i)
 
 except Exception, e:
     print "Exception: ", type(e)

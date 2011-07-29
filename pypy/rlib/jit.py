@@ -110,23 +110,16 @@ def purefunction_promote(*args, **kwargs):
 
 def unroll_if(predicate):
     def inner(func):
-        args = _get_args(func)
-        argstring = ", ".join(args)
-        d = {
-            "func": func,
-            "func_unroll": unroll_safe(func_with_new_name(func, func.__name__ + "_unroll")),
-            "predicate": predicate,
-        }
-        exec py.code.Source("""
-            def f(%(argstring)s):
-                if predicate(%(argstring)s):
-                    return func_unroll(%(argstring)s)
-                else:
-                    return func(%(argstring)s)
-        """ % {"argstring": argstring}).compile() in d
-        result = d["f"]
-        result.func_name = func.func_name + "_unroll_if"
-        return result
+        func_unroll = unroll_safe(func_with_new_name(func, func.__name__ + "_unroll"))
+
+        def f(*args):
+            if predicate(*args):
+                return func_unroll(*args)
+            else:
+                return func(*args)
+
+        f.func_name = func.func_name + "_unroll_if"
+        return f
     return inner
 
 def oopspec(spec):
