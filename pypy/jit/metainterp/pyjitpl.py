@@ -1047,6 +1047,12 @@ class MIFrame(object):
         return ConstInt(trace_length)
 
     @arguments("box")
+    def _opimpl_isconstant(self, box):
+        return ConstInt(isinstance(box, Const))
+
+    opimpl_int_isconstant = _opimpl_isconstant
+
+    @arguments("box")
     def opimpl_virtual_ref(self, box):
         # Details on the content of metainterp.virtualref_boxes:
         #

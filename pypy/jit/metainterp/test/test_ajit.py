@@ -1,23 +1,24 @@
-import py
 import sys
-from pypy.rlib.jit import JitDriver, we_are_jitted, hint, dont_look_inside
-from pypy.rlib.jit import loop_invariant, elidable, promote
-from pypy.rlib.jit import jit_debug, assert_green, AssertGreenFailed
-from pypy.rlib.jit import unroll_safe, current_trace_length
-from pypy.jit.metainterp import pyjitpl, history
-from pypy.jit.metainterp.warmstate import set_future_value
-from pypy.jit.metainterp.warmspot import get_stats
-from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
+
+import py
+
 from pypy import conftest
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.ootypesystem import ootype
+from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
+from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
+from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
+from pypy.jit.metainterp.warmspot import get_stats
+from pypy.jit.metainterp.warmstate import set_future_value
+from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
+    loop_invariant, elidable, promote, jit_debug, assert_green,
+    AssertGreenFailed, unroll_safe, current_trace_length, unroll_if, isconstant)
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.ootypesystem import ootype
+
 
 class BasicTests:
-
     def test_basic(self):
         def f(x, y):
             return x + y
@@ -2681,6 +2682,36 @@ class BaseLLtypeTests(BasicTests):
             return n
 
         self.meta_interp(f, [10], repeat=3)
+
+    def test_unroll_if_const(self):
+        @unroll_if(lambda arg: isconstant(arg))
+        def f(arg):
+            s = 0
+            while arg > 0:
+                s += arg
+                arg -= 1
+            return s
+
+        driver = JitDriver(greens = ['code'], reds = ['n', 'arg', 's'])
+
+        def main(code, n, arg):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point(code=code, n=n, arg=arg, s=s)
+                if code == 0:
+                    s += f(arg)
+                else:
+                    s += f(1)
+                n -= 1
+            return s
+
+        res = self.meta_interp(main, [0, 10, 2], enable_opts='')
+        assert res == main(0, 10, 2)
+        self.check_loops(call=1)
+        res = self.meta_interp(main, [1, 10, 2], enable_opts='')
+        assert res == main(1, 10, 2)
+        self.check_loops(call=0)
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass

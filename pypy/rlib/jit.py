@@ -1,10 +1,13 @@
-import py
 import sys
-from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib.unroll import unrolling_iterable
+
+import py
+
 from pypy.rlib.nonconst import NonConstant
+from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.tool.sourcetools import func_with_new_name
+
 
 def elidable(func):
     """ Decorate a function as "trace-elidable". This means precisely that:
@@ -70,17 +73,22 @@ def loop_invariant(func):
     func._jit_loop_invariant_ = True
     return func
 
+def _get_args(func):
+    import inspect
+
+    args, varargs, varkw, defaults = inspect.getargspec(func)
+    args = ["v%s" % (i, ) for i in range(len(args))]
+    assert varargs is None and varkw is None
+    assert not defaults
+    return args
+
 def elidable_promote(promote_args='all'):
     """ A decorator that promotes all arguments and then calls the supplied
     function
     """
     def decorator(func):
-        import inspect
         elidable(func)
-        args, varargs, varkw, defaults = inspect.getargspec(func)
-        args = ["v%s" % (i, ) for i in range(len(args))]
-        assert varargs is None and varkw is None
-        assert not defaults
+        args = _get_args(func)
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
@@ -100,12 +108,44 @@ def purefunction_promote(*args, **kwargs):
     warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
     return elidable_promote(*args, **kwargs)
 
+def unroll_if(predicate):
+    def inner(func):
+        args = _get_args(func)
+        argstring = ", ".join(args)
+        d = {
+            "func": func,
+            "func_unroll": unroll_safe(func_with_new_name(func, func.__name__ + "_unroll")),
+            "predicate": predicate,
+        }
+        exec py.code.Source("""
+            def f(%(argstring)s):
+                if predicate(%(argstring)s):
+                    return func_unroll(%(argstring)s)
+                else:
+                    return func(%(argstring)s)
+        """ % {"argstring": argstring}).compile() in d
+        result = d["f"]
+        result.func_name = func.func_name + "_unroll_if"
+        return result
+    return inner
 
 def oopspec(spec):
     def decorator(func):
         func.oopspec = spec
         return func
     return decorator
+
+@oopspec("jit.isconstant(value)")
+def isconstant(value):
+    """
+    While tracing, returns whether or not the value is currently known to be
+    constant. This is not perfect, values can become constant later. Mostly for
+    use with @unroll_if.
+    """
+    # I hate the annotator so much.
+    if NonConstant(False):
+        return True
+    return False
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
@@ -280,7 +320,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         pass
-    
+
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
@@ -290,7 +330,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 PARAMETERS = {'threshold': 1032, # just above 1024
-              'function_threshold': 1617, # slightly more than one above 
+              'function_threshold': 1617, # slightly more than one above
               'trace_eagerness': 200,
               'trace_limit': 12000,
               'inlining': 1,
@@ -400,7 +440,7 @@ class JitDriver(object):
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-    
+
     def on_compile(self, logger, looptoken, operations, type, *greenargs):
         """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like

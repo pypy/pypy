@@ -819,6 +819,10 @@ class BlackholeInterpreter(object):
     def bhimpl_current_trace_length():
         return -1
 
+    @arguments("i", returns="i")
+    def bhimpl_int_isconstant(x):
+        return False
+
     # ----------
     # the main hints and recursive calls
 

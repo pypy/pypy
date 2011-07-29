@@ -1071,6 +1071,9 @@ class Transformer(object):
             return SpaceOperation('%s_assert_green' % kind, args, None)
         elif oopspec_name == 'jit.current_trace_length':
             return SpaceOperation('current_trace_length', [], op.result)
+        elif oopspec_name == 'jit.isconstant':
+            kind = getkind(args[0].concretetype)
+            return SpaceOperation('%s_isconstant' % kind, args, op.result)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 
