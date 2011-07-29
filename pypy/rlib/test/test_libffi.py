@@ -98,7 +98,7 @@ class TestLibffiCall(BaseFfiTest):
     def get_libfoo(self):
         return self.CDLL(self.libfoo_name)
 
-    def call(self, funcspec, args, RESULT, is_struct=False):
+    def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
         """
         Call the specified function after constructing and ArgChain with the
         arguments in ``args``.
@@ -123,19 +123,6 @@ class TestLibffiCall(BaseFfiTest):
                 chain.arg(arg)
         return func.call(chain, RESULT, is_struct=is_struct)
 
-    def check_loops(self, *args, **kwds):
-        """
-        Ignored here, but does something in the JIT tests
-        """
-        pass
-
-    def check_loops_if_supported(self, *args, **kwds):
-        """
-        Same as check_loops(), but only if support for
-        float/longlong/singlefloat has been enabled
-        """
-        pass
-
     # ------------------------------------------------------------------------
 
     def test_very_simple(self):
@@ -149,14 +136,6 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'diff_xy', [types.sint, types.slong], types.sint)
         res = self.call(func, [50, 8], lltype.Signed)
         assert res == 42
-        self.check_loops({
-                'call_release_gil': 1,
-                'guard_no_exception': 1,
-                'guard_not_forced': 1,
-                'int_add': 1,
-                'int_lt': 1,
-                'guard_true': 1,
-                'jump': 1})
 
     def test_simple(self):
         """
@@ -167,25 +146,14 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo() 
         func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
-        res = self.call(func, [38, 4.2], lltype.Signed)
+        res = self.call(func, [38, 4.2], lltype.Signed, jitif=["floats"])
         assert res == 42
-        self.check_loops_if_supported({
-                'call_release_gil': 1,
-                'guard_no_exception': 1,
-                'guard_not_forced': 1,
-                'int_add': 1,
-                'int_lt': 1,
-                'guard_true': 1,
-                'jump': 1})
 
     def test_float_result(self):
         libm = self.get_libm()
         func = (libm, 'pow', [types.double, types.double], types.double)
-        res = self.call(func, [2.0, 3.0], rffi.DOUBLE)
+        res = self.call(func, [2.0, 3.0], rffi.DOUBLE, jitif=["floats"])
         assert res == 8.0
-        self.check_loops_if_supported(call_release_gil=1,
-                                      guard_no_exception=1,
-                                      guard_not_forced=1)
 
     def test_cast_result(self):
         """
@@ -198,7 +166,6 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'cast_to_uchar_and_ovf', [types.sint], types.uchar)
         res = self.call(func, [0], rffi.UCHAR)
         assert res == 200
-        self.check_loops(call_release_gil=1, guard_no_exception=1, guard_not_forced=1)
 
     def test_cast_argument(self):
         """
@@ -313,10 +280,9 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'sum_xy_float', [types.float, types.float], types.float)
         x = r_singlefloat(12.34)
         y = r_singlefloat(56.78)
-        res = self.call(func, [x, y], rffi.FLOAT)
+        res = self.call(func, [x, y], rffi.FLOAT, jitif=["singlefloats"])
         expected = c_float(c_float(12.34).value + c_float(56.78).value).value
         assert float(res) == expected
-        self.check_loops_if_supported({})
 
     def test_slonglong_args(self):
         """
@@ -337,12 +303,9 @@ class TestLibffiCall(BaseFfiTest):
         else:
             x = maxint32+1
             y = maxint32+2
-        res = self.call(func, [x, y], rffi.LONGLONG)
+        res = self.call(func, [x, y], rffi.LONGLONG, jitif=["longlong"])
         expected = maxint32*2 + 3
         assert res == expected
-        self.check_loops_if_supported(call_release_gil=1,
-                                      guard_no_exception=1,
-                                      guard_not_forced=1)
 
     def test_ulonglong_args(self):
         """
@@ -360,7 +323,7 @@ class TestLibffiCall(BaseFfiTest):
                 types.ulonglong)
         x = r_ulonglong(maxint64+1)
         y = r_ulonglong(2)
-        res = self.call(func, [x, y], rffi.ULONGLONG)
+        res = self.call(func, [x, y], rffi.ULONGLONG, jitif=["longlong"])
         expected = maxint64 + 3
         assert res == expected
 
@@ -407,7 +370,8 @@ class TestLibffiCall(BaseFfiTest):
         buf[0] = 30
         buf[1] = 12
         adr = rffi.cast(rffi.VOIDP, buf)
-        res = self.call(sum_point, [('arg_raw', adr)], rffi.LONG)
+        res = self.call(sum_point, [('arg_raw', adr)], rffi.LONG,
+                        jitif=["byval"])
         assert res == 42
         # check that we still have the ownership on the buffer
         assert buf[0] == 30
@@ -432,7 +396,8 @@ class TestLibffiCall(BaseFfiTest):
         make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
         #
         PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
-        p = self.call(make_point, [12, 34], PTR, is_struct=True)
+        p = self.call(make_point, [12, 34], PTR, is_struct=True,
+                      jitif=["byval"])
         assert p[0] == 12
         assert p[1] == 34
         lltype.free(p, flavor='raw')

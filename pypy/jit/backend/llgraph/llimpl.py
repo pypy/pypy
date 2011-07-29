@@ -1494,6 +1494,7 @@ kind2TYPE = {
     'i': lltype.Signed,
     'f': lltype.Float,
     'L': lltype.SignedLongLong,
+    'S': lltype.SingleFloat,
     'v': lltype.Void,
     }
 

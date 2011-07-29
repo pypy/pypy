@@ -16,18 +16,7 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
 
     # ===> ../../../rlib/test/test_libffi.py
 
-    def check_loops_if_supported(self, *args, **kwds):
-        if self.supports_all:
-            self.check_loops(*args, **kwds)
-        else:
-            self.check_loops({'call': 1,
-                              'guard_no_exception': 1,
-                              'int_add': 1,
-                              'int_lt': 1,
-                              'guard_true': 1,
-                              'jump': 1})
-
-    def call(self, funcspec, args, RESULT, is_struct=False):
+    def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
         """
         Call the function specified by funcspec in a loop, and let the jit to
         see and optimize it.
@@ -72,8 +61,30 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
         res = self.meta_interp(f, [0], backendopt=True,
                                supports_floats       = self.supports_all,
                                supports_longlong     = self.supports_all,
-                               supports_singlefloats = False) # XXX self.supports_all)
-        # the calls to check_loops() are in pypy.rlib.test.test_libffi
+                               supports_singlefloats = self.supports_all)
+        d = {'floats': self.supports_all,
+             'longlong': self.supports_all,
+             'singlefloats': self.supports_all,
+             'byval': False}
+        supported = all(d[check] for check in jitif)
+        if supported:
+            self.check_loops(
+                call_release_gil=1,   # a CALL_RELEASE_GIL, and no other CALLs
+                call=0,
+                call_may_force=0,
+                guard_no_exception=1,
+                guard_not_forced=1,
+                int_add=1,
+                int_lt=1,
+                guard_true=1,
+                jump=1)
+        else:
+            self.check_loops(
+                call_release_gil=0,   # no CALL_RELEASE_GIL
+                int_add=1,
+                int_lt=1,
+                guard_true=1,
+                jump=1)
         return res
 
     def test_byval_result(self):
