@@ -37,7 +37,6 @@ def get_strategy_from_list_objects(space, list_w):
             return space.fromcache(IntegerListStrategy)
 
     # check for strings
-    #if all(is_W_StringObject(e) for e in list_w)
     it = iter(list_w)
     while(True):
         try:
@@ -91,7 +90,7 @@ class W_ListObject(W_Object):
     def check_empty_strategy(self):
         if self.length() == 0:
             self.strategy = self.space.fromcache(EmptyListStrategy)
-            self.strategy.init_from_list_w(self, [])
+            self.strategy.init_from_list_w(self, self.strategy.emptylist)
 
     def clone(self):
         return self.strategy.clone(self)
@@ -229,6 +228,10 @@ class ListStrategy(object):
 
 class EmptyListStrategy(ListStrategy):
 
+    def __init__(self, space):
+        ListStrategy.__init__(self, space)
+        self.emptylist = []
+
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
         w_list.lstorage = self.cast_to_void_star(None)
@@ -250,17 +253,16 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def getslice(self, w_list, start, stop, step, length):
-        return W_ListObject(self.space, [])
+        return W_ListObject(self.space, self.emptylist)
 
     def getitems(self, w_list):
-        # cache result XXX
-        return []
+        return self.emptylist
 
     def getitems_copy(self, w_list):
-        return []
+        return self.emptylist
 
     def getstorage_copy(self, w_list):
-        return self.cast_to_void_star([])
+        return self.cast_to_void_star(self.emptylist)
 
     def append(self, w_list, w_item):
         w_list.__init__(self.space, [w_item])
