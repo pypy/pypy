@@ -133,6 +133,10 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
             jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
                 greenkey, loop.preamble.token)
             record_loop_or_bridge(metainterp_sd, loop.preamble)
+        elif token.short_preamble:
+            short = token.short_preamble[-1]
+            metainterp_sd.logger_ops.log_short_preamble(short.inputargs,
+                                                        short.operations)
         return token
     else:
         send_loop_to_backend(metainterp_sd, loop, "loop")
