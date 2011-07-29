@@ -426,10 +426,6 @@ class RangeListStrategy(ListStrategy):
         w_list.deleteslice(start, step, slicelength)
 
     def pop(self, w_list, index):
-        #XXX move this to list_pop_List_ANY
-        if index < 0:
-            index += self.length(w_list)
-
         l = self.cast_from_void_star(w_list.lstorage)
         if index in [0, self.length(w_list)-1]:
             r = self.getitem(w_list, index)
@@ -1078,6 +1074,8 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
     idx = space.int_w(w_idx)
+    if idx < 0:
+        idx += w_list.length()
     try:
         return w_list.pop(idx)
     except IndexError:
