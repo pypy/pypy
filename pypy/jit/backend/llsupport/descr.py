@@ -435,7 +435,7 @@ class VoidCallDescr(BaseCallDescr):
     def get_result_size(self, translate_support_code):
         return 0
 
-SingleFloatCallDescr = None   # built lazily
+_SingleFloatCallDescr = None   # built lazily
 
 def getCallDescrClass(RESULT):
     if RESULT is lltype.Void:
@@ -443,19 +443,21 @@ def getCallDescrClass(RESULT):
     if RESULT is lltype.Float:
         return FloatCallDescr
     if RESULT is lltype.SingleFloat:
-        global SingleFloatCallDescr
-        if SingleFloatCallDescr is None:
+        global _SingleFloatCallDescr
+        if _SingleFloatCallDescr is None:
             assert rffi.sizeof(rffi.UINT) == rffi.sizeof(RESULT)
             class SingleFloatCallDescr(getCallDescrClass(rffi.UINT)):
                 _clsname = 'SingleFloatCallDescr'
                 _return_type = 'S'
-        return SingleFloatCallDescr
+            _SingleFloatCallDescr = SingleFloatCallDescr
+        return _SingleFloatCallDescr
     if is_longlong(RESULT):
         return LongLongCallDescr
     return getDescrClass(RESULT, BaseIntCallDescr, GcPtrCallDescr,
                          NonGcPtrCallDescr, 'Call', 'get_result_size',
                          Ellipsis,  # <= floatattrname should not be used here
                          '_is_result_signed')
+getCallDescrClass._annspecialcase_ = 'specialize:memo'
 
 def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
     arg_classes = []

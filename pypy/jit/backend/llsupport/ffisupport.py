@@ -1,7 +1,9 @@
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp import history
-from pypy.jit.backend.llsupport.descr import DynamicIntCallDescr, NonGcPtrCallDescr,\
-    FloatCallDescr, VoidCallDescr
+from pypy.rpython.lltypesystem import rffi
+from pypy.jit.backend.llsupport.descr import (
+    DynamicIntCallDescr, NonGcPtrCallDescr, FloatCallDescr, VoidCallDescr,
+    LongLongCallDescr, getCallDescrClass)
 
 class UnsupportedKind(Exception):
     pass
@@ -25,6 +27,11 @@ def get_call_descr_dynamic(cpu, ffi_args, ffi_result, extrainfo=None):
         return FloatCallDescr(arg_classes, extrainfo)
     elif reskind == history.VOID:
         return VoidCallDescr(arg_classes, extrainfo)
+    elif reskind == 'L':
+        return LongLongCallDescr(arg_classes, extrainfo)
+    elif reskind == 'S':
+        SingleFloatCallDescr = getCallDescrClass(rffi.FLOAT)
+        return SingleFloatCallDescr(arg_classes, extrainfo)
     assert False
 
 def get_ffi_type_kind(cpu, ffi_type):
